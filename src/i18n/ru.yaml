@@ -133,7 +133,9 @@ Invoice Link Copied: Ссылка скопирована
 Theme: Тема
 Language: Язык
 Enable Animations: Включить анимацию
+Animations: Анимация
 Enable Seasonal Theming: Включить сезонное оформление
+Seasonal Theming: Сезонное оформление
 Enable Landscape Mode: Включить горизонтальный режим
 Disable Seasonal Theming: Отключить сезонное оформление
 You can always enable seasonal theming again in the appearance settings.: Вы всегда можете снова включить сезонное оформление в настройках внешнего вида.
@@ -166,6 +168,9 @@ Description Copied: Описание скопировано
 Message Copied: Сообщение скопировано
 Sender: Отправитель
 Recipient: Получатель
+Spender: Получатель разрешения
+Token Approval: Разрешено управление
+Allowance: Лимит разрешения
 "%chain% Address Copied": "Адрес %chain% скопирован"
 Repeat: Повторить
 Switch Account: Сменить аккаунт
@@ -399,8 +404,8 @@ Agree: Согласен
 $swap_action: Обмен
 $swap_activity_title: Обмен
 Swap: Обменять
-You sell: Вы продаёте
-You buy: Вы покупаете
+You Sell: Вы продаёте
+You Buy: Вы покупаете
 Swap Details: Детали обмена
 Blockchain Fee: Комиссия блокчейна
 Included: Вкл. в цену
@@ -409,7 +414,7 @@ Minimum Received: Минимально получите
 Slippage: Проскальзывание
 $swap_from_to: Обменять %from% %icon% %to%
 The exchange rate is below market value!: Курс обмена на %value% ниже рыночной стоимости!
-Invalid Pair: Недопустимая пара
+Invalid Pair: Обмен недоступен
 We do not recommend to perform an exchange, try to specify a lower amount.: Не рекомендуем выполнять обмен, попробуйте указать меньшую сумму.
 $swap_minimum_received_tooltip1: Это наименьшее количество новых токенов, которое вы получите от этого обмена, учитывая текущие условия рынка, допустимое проскальзывание и потенциальное влияние на цену.
 $swap_minimum_received_tooltip2: Это ожидаемое минимальное значение, но, если условия сильно изменятся во время обработки вашего обмена, итоговая сумма может быть меньше.
@@ -593,6 +598,16 @@ No Activity: Нет активности
 Fund: Пополнить
 Buy with Card: Покупка с карты
 Buy with Crypto: Покупка за криптовалюту
+Add funds to swap: Пополните баланс для обмена
+Direct swap unavailable: Прямой обмен недоступен
+Swap on an external service: Обмен через сторонний сервис
+Buy with a card or receive crypto to fund this swap.: Купите криптовалюту с карты или получите перевод, чтобы пополнить баланс для обмена.
+Buy crypto or choose another token to sell.: Купите криптовалюту или выберите другой токен для продажи.
+Your balances are small. Add funds or choose another token to swap.: На ваших балансах мало средств. Пополните баланс или выберите другой токен для обмена.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Чтобы купить %buy_token%, сначала купите %token%, а затем обменяйте на %buy_token%.
+Open %provider% to swap this pair in the browser.: Откройте %provider%, чтобы обменять эту пару в браузере.
+Buy %token%: Купить %token%
+Open %provider%: Открыть %provider%
 Cannot load widget: Невозможно загрузить виджет
 Explore: Обзор
 $lockdown_mode_enabled_title: Режим изоляции включён
@@ -1142,7 +1157,7 @@ You don’t have any cards to customize yet: У вас пока нет карт 
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Карты My Wallet можно устанавливать для кошельков и отображать на главном экране и в списке кошельков.
 Get First Card: Получить первую карту
 Palette and Card: Палитра и карта
-Customize the wallet's home screen and color accents the way you like.: Настройте главный экран кошелька и цветовые акценты по своему вкусу.
+Customize the wallet’s card appearance and color accents the way you like.: Настройте внешний вид карты кошелька и цветовые акценты по своему вкусу.
 Address doesn't exist: Адрес не существует
 The address is not a token minter address: Этот адрес не является адресом минтера токена
 $joining_comma: ", "
@@ -1264,8 +1279,16 @@ $agent_consent_debug_reset_footer: Снова показывает экран с
 $settings_token_change_threshold: Порог изменения в %
 $settings_token_change_threshold_description: Скрывает изменения за 24 часа, которые ниже выбранного порога.
 $settings_token_change_threshold_off: Выкл.
-$settings_hide_action_buttons: Скрыть кнопки действий
-$settings_hide_action_buttons_description: Скрывает ряд кнопок действий на экране кошелька.
+Blockchain Badges: Значки блокчейнов
+$settings_blockchain_badges_description: Показывать значки блокчейнов для всех токенов. По умолчанию они отображаются только для стейблкоинов и токенизированных акций, доступных в нескольких блокчейнах.
+Show on Card: Показывать на карте
+Top Address: Основной адрес
+Highest-Balance Address: Адрес с наибольшим балансом
+3 Highest-Balance Addresses: 3 адреса с наибольшим балансом
+3 Top Addresses: 3 основных адреса
+Action Buttons: Кнопки действий
+Collectibles Section: Раздел NFT
+$settings_wallet_card_description: Настройте, что отображается на карте кошелька и показывать ли кнопки действий.
 Retry: Повторить
 $agent_chat_running: Работает в фоне
 $agent_connection_interrupted: Соединение с Агентом прервано. Попробуйте ещё раз.
@@ -2134,7 +2157,9 @@ $chart_week_days_short: вс,пн,вт,ср,чт,пт,сб
 Unsupported Chain: Сеть не поддерживается
 Please upgrade to multichain to use this app.: Выберите или создайте новый мультичейн-кошелёк, чтобы подключиться к приложению.
 Rounded Corners: Скруглённые углы
-Enable Blur: Включить размытие
+Blur: Размытие
+Top Tabs: Верхние вкладки
+Liquid Glass: Liquid Glass
 App Font: Шрифт приложения
 Rounded Balance Font: Округлый шрифт баланса
 My Wallet Cards NFT: My Wallet Cards NFT

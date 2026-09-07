@@ -20,6 +20,12 @@ const JITTER_RATIO = 0.2;
 export interface FallbackPollingOptions {
   /** Whether `poll` should be called when the polling object is created */
   pollOnStart?: boolean;
+  /**
+   * Whether the catch-up poll must run on the first socket connect too. A `pollOnStart` request covers the wallet up
+   * to its own response, which can precede the subscription, so consumers that close a history gap with this poll
+   * cannot treat it as a substitute.
+   */
+  pollOnEverySocketConnect?: boolean;
   /** The minimum delay between `poll` calls */
   minPollDelay: Period;
   /**
@@ -48,8 +54,8 @@ export class FallbackPollingScheduler {
   /**
    * Stays `false` until the socket connects for the first time.
    * On the very first connection, `pollOnStart` (if set) has already issued a fresh HTTP
-   * request — there is nothing to catch up on, so `onSocketConnect` must not trigger a
-   * second poll regardless of whether that initial request has finished.
+   * request, and consumers that can live with what it covers skip the catch-up poll; the
+   * ones that cannot say so through `pollOnEverySocketConnect`.
    * After the first connect this becomes `true`, so every subsequent reconnect re-polls
    * as expected (to pick up balance changes that arrived while the socket was gone).
    */
@@ -71,9 +77,9 @@ export class FallbackPollingScheduler {
   public onSocketConnect() {
     if (this.#isDestroyed) return;
     this.#schedulePolling(true);
-    // On the very first connect, skip the poll when pollOnStart already issued one.
+    // On the very first connect, skip the poll when `pollOnStart` issued one and the consumer did not opt out.
     // On every reconnect, poll immediately to catch updates missed during the outage.
-    if (this.#hasEverConnected || !this.#options.pollOnStart) {
+    if (this.#hasEverConnected || !this.#options.pollOnStart || this.#options.pollOnEverySocketConnect) {
       this.#poll(true);
     }
     this.#hasEverConnected = true;

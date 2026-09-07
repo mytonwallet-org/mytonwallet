@@ -107,6 +107,7 @@ class WTokenMaxButton(context: Context) :
     }
 
     private var protectedText: String? = null
+    private var hasDisplayedAmount = false
 
     fun setAmount(text: String?) {
         if (this.protectedText == text) {
@@ -114,6 +115,8 @@ class WTokenMaxButton(context: Context) :
         }
         this.protectedText = text
 
+        val animated = isAttachedToWindow && hasDisplayedAmount
+        hasDisplayedAmount = hasDisplayedAmount || !text.isNullOrEmpty()
         isEnabled = !text.isNullOrEmpty()
         counter.setValue(
             if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
@@ -123,7 +126,7 @@ class WTokenMaxButton(context: Context) :
             } else {
                 protectedText
             },
-            isAttachedToWindow
+            animated
         )
     }
 

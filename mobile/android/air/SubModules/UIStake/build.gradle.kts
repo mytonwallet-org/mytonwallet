@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.lottie)
     implementation(libs.fresco)
     implementation(project("$airSubModulePath:UIComponents"))
+    implementation(project("$airSubModulePath:Blur3"))
     implementation(project("$airSubModulePath:UIPasscode"))
     implementation(project("$airSubModulePath:WalletContext"))
     implementation(project("$airSubModulePath:WalletBaseContext"))

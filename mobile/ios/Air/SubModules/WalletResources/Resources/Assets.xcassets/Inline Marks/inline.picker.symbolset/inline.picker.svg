@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 3300 2200">
+ <style>.defaults {-sfsymbols-variable-value-mode:color;-sfsymbols-draw-reverses-motion-groups:false}
+.monochrome-0 {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-picker}
+.multicolor-0:tintColor {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-picker}
+.hierarchical-0:primary {-sfsymbols-motion-group:0;-sfsymbols-layer-tags:inline-picker}
+.SFSymbolsPreviewWireframe {fill:black;opacity:1.0;stroke:none}
+</style>
+ <!-- Contours exported from https://www.figma.com/design/q70YiXGvETPNaHG6nn3Mst?node-id=733-5620.
+      Figma 10 x 20 pt viewport, normalized to a 17 pt SF Symbol; paths are unchanged. -->
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696" />
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541" />
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126" />
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.54" y2="1055.54" />
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556" />
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.54" y2="1485.54" />
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2947.223529411765" x2="2947.223529411765" y1="600.785" y2="720.121" />
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2888.4" x2="2888.4" y1="600.785" y2="720.121" />
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1463.6635294117646" x2="1463.6635294117646" y1="600.785" y2="720.121" />
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1404.84" x2="1404.84" y1="600.785" y2="720.121" />
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="573.5345294117648" x2="573.5345294117648" y1="600.785" y2="720.121" />
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="514.711" x2="514.711" y1="600.785" y2="720.121" />
+  <line id="right-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1463.6635294117646" x2="1463.6635294117646" y1="1030.79" y2="1150.12" />
+  <line id="left-margin-Regular-M" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1404.84" x2="1404.84" y1="1030.79" y2="1150.12" />
+ </g>
+ <g id="Symbols">
+  <g id="Black-S" transform="matrix(1 0 0 1 2888.4 696)"><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M2.49624 12.1623C2.12876 11.7948 2.38903 11.1665 2.90872 11.1665H7.09214C7.61183 11.1665 7.8721 11.7948 7.50462 12.1623L5.82539 13.8415C5.36978 14.2972 4.63108 14.2972 4.17547 13.8415L2.49624 12.1623Z" /><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M7.50376 7.83768C7.87124 8.20516 7.61097 8.8335 7.09128 8.8335L2.90786 8.8335C2.38817 8.8335 2.1279 8.20516 2.49538 7.83768L4.17461 6.15845C4.63022 5.70284 5.36892 5.70284 5.82453 6.15845L7.50376 7.83768Z" /></g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1404.84 696)"><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M2.49624 12.1623C2.12876 11.7948 2.38903 11.1665 2.90872 11.1665H7.09214C7.61183 11.1665 7.8721 11.7948 7.50462 12.1623L5.82539 13.8415C5.36978 14.2972 4.63108 14.2972 4.17547 13.8415L2.49624 12.1623Z" /><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M7.50376 7.83768C7.87124 8.20516 7.61097 8.8335 7.09128 8.8335L2.90786 8.8335C2.38817 8.8335 2.1279 8.20516 2.49538 7.83768L4.17461 6.15845C4.63022 5.70284 5.36892 5.70284 5.82453 6.15845L7.50376 7.83768Z" /></g>
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 514.711 696)"><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M2.49624 12.1623C2.12876 11.7948 2.38903 11.1665 2.90872 11.1665H7.09214C7.61183 11.1665 7.8721 11.7948 7.50462 12.1623L5.82539 13.8415C5.36978 14.2972 4.63108 14.2972 4.17547 13.8415L2.49624 12.1623Z" /><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M7.50376 7.83768C7.87124 8.20516 7.61097 8.8335 7.09128 8.8335L2.90786 8.8335C2.38817 8.8335 2.1279 8.20516 2.49538 7.83768L4.17461 6.15845C4.63022 5.70284 5.36892 5.70284 5.82453 6.15845L7.50376 7.83768Z" /></g>
+  <g id="Regular-M" transform="matrix(1 0 0 1 1404.84 1126)"><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M2.49624 12.1623C2.12876 11.7948 2.38903 11.1665 2.90872 11.1665H7.09214C7.61183 11.1665 7.8721 11.7948 7.50462 12.1623L5.82539 13.8415C5.36978 14.2972 4.63108 14.2972 4.17547 13.8415L2.49624 12.1623Z" /><path transform="matrix(5.882352941176471 0 0 5.882352941176471 0 -94.05302941176471)" class="monochrome-0 multicolor-0:tintColor hierarchical-0:primary SFSymbolsPreviewWireframe" d="M7.50376 7.83768C7.87124 8.20516 7.61097 8.8335 7.09128 8.8335L2.90786 8.8335C2.38817 8.8335 2.1279 8.20516 2.49538 7.83768L4.17461 6.15845C4.63022 5.70284 5.36892 5.70284 5.82453 6.15845L7.50376 7.83768Z" /></g>
+ </g>
+</svg>

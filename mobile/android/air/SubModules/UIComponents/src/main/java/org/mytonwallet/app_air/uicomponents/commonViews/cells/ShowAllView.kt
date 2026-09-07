@@ -12,9 +12,11 @@ import androidx.core.view.isVisible
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WCounterLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -91,13 +93,15 @@ class ShowAllView(context: Context) :
         updateTheme()
     }
 
-    private var blurView: WBlurryBackgroundView? = null
+    private var blurView: WGlassView? = null
 
     fun setupBlurBackground(rootView: ViewGroup) {
         if (blurView != null) return
-        blurView = WBlurryBackgroundView(context, fadeSide = null).apply {
+        blurView = WGlassView(context).apply {
+            flavor = GlassFlavor.FROSTED
+            liquidGlass = false
+            setProvider(GlassProviders.legacy(WColor.Background))
             setupWith(rootView)
-            setOverlayColor(WColor.Background, 204)
         }
         addView(blurView, 0, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         background = null

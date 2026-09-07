@@ -647,31 +647,46 @@ class TransactionVC(
                     )
                 } else {
                     TokenStore.getToken(transaction.slug)?.let { token ->
-                        val equivalent = token.price?.let { price ->
-                            (
-                                price *
-                                    transaction.amount.doubleAbsRepresentation(
-                                        decimals = token.decimals
-                                    )
-                                ).toString(
-                                token.decimals,
-                                WalletCore.baseCurrency.sign,
-                                WalletCore.baseCurrency.decimalsCount,
-                                smartDecimals = true,
-                                roundUp = false
+                        val equivalent = if (transaction.type == ApiTransactionType.APPROVAL) {
+                            null
+                        } else {
+                            token.price?.let { price ->
+                                (
+                                    price *
+                                        transaction.amount.doubleAbsRepresentation(
+                                            decimals = token.decimals
+                                        )
+                                    ).toString(
+                                    token.decimals,
+                                    WalletCore.baseCurrency.sign,
+                                    WalletCore.baseCurrency.decimalsCount,
+                                    smartDecimals = true,
+                                    roundUp = false
+                                )
+                            }
+                        }
+                        val amount = if (transaction.type == ApiTransactionType.APPROVAL) {
+                            transaction.formatApprovalAmount() ?: ""
+                        } else {
+                            transaction.amount.abs().toString(
+                                decimals = token.decimals,
+                                currency = token.symbol,
+                                currencyDecimals = token.decimals,
+                                showPositiveSign = false,
+                                forceCurrencyToRight = true
                             )
                         }
                         detailsRowViews.add(
                             KeyValueRowView(
                                 context,
-                                LocaleController.getString("Amount"),
-                                transaction.amount.abs().toString(
-                                    decimals = token.decimals,
-                                    currency = token.symbol,
-                                    currencyDecimals = token.decimals,
-                                    showPositiveSign = false,
-                                    forceCurrencyToRight = true
-                                ) + if (equivalent != null) " ($equivalent)" else "",
+                                LocaleController.getString(
+                                    if (transaction.type == ApiTransactionType.APPROVAL) {
+                                        "Allowance"
+                                    } else {
+                                        "Amount"
+                                    }
+                                ),
+                                amount + if (equivalent != null) " ($equivalent)" else "",
                                 mode = KeyValueRowView.Mode.SECONDARY,
                                 isLast = false
                             ).apply {
@@ -919,7 +934,13 @@ class TransactionVC(
 
     private fun displayTransactionAddress(transaction: MApiTransaction.Transaction) {
         val addressView = this.transactionAddressView ?: return
-        val headerText = if (transaction.isIncoming) {
+        val headerText = if (transaction.type == ApiTransactionType.APPROVAL) {
+            if (transaction.isIncoming) {
+                LocaleController.getString("Owner")
+            } else {
+                LocaleController.getString("Spender")
+            }
+        } else if (transaction.isIncoming) {
             LocaleController.getString("Sender")
         } else {
             LocaleController.getString("Recipient")
@@ -1287,11 +1308,16 @@ class TransactionVC(
             is MApiTransaction.Swap -> true
 
             is MApiTransaction.Transaction -> {
-                !transaction.isPending() && if (transaction.isStaking) {
-                    transaction.type != ApiTransactionType.STAKE ||
-                        TokenStore.getToken(transaction.slug)?.isEarnAvailable == true
-                } else {
-                    !transaction.isIncoming && transaction.nft == null
+                when {
+                    transaction.type == ApiTransactionType.APPROVAL ||
+                        transaction.isPending() -> false
+
+                    transaction.isStaking -> {
+                        transaction.type != ApiTransactionType.STAKE ||
+                            TokenStore.getToken(transaction.slug)?.isEarnAvailable == true
+                    }
+
+                    else -> !transaction.isIncoming && transaction.nft == null
                 }
             }
         }

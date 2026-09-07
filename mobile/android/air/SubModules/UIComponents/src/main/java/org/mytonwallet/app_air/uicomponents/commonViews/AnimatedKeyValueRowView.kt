@@ -196,7 +196,7 @@ class AnimatedKeyValueRowView @JvmOverloads constructor(
     }
 
     fun setTitleDrawable(res: Int, alpha: Float = 1f) {
-        val drawable = context.getDrawableCompat(res)
+        val drawable = context.getDrawableCompat(res)?.mutate()
         drawable?.alpha = (alpha * 255f).roundToInt()
         setTitleDrawable(drawable)
     }

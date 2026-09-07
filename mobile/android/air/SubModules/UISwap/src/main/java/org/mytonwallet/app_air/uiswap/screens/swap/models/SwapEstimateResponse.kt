@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHint
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 
 data class SwapEstimateResponse(
@@ -21,7 +22,8 @@ data class SwapEstimateResponse(
     val cex: MApiSwapCexEstimateResponse?,
     val fee: BigInteger?,
     val realFee: BigInteger?,
-    val error: MBridgeError?
+    val error: MBridgeError?,
+    val hint: MApiSwapHint? = null
 ) {
     private val fromAmountDec = cex?.fromAmount ?: dex?.fromAmount
     private val toAmountDec = cex?.toAmount ?: dex?.toAmount

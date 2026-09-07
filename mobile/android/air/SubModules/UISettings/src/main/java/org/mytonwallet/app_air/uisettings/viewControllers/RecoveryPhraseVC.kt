@@ -257,11 +257,6 @@ open class RecoveryPhraseVC(
         }
 
         scrollView.onScrollChange = { y ->
-            if (y > 0) {
-                topReversedCornerView?.resumeBlurring()
-            } else {
-                topReversedCornerView?.pauseBlurring(false)
-            }
             setTopBlur(visible = y > 0, animated = true)
         }
 

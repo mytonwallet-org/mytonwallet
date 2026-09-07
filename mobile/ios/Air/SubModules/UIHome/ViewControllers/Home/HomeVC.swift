@@ -84,6 +84,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var activityPreviewViewModel: ActivityPreviewViewModel?
 
     public var onWalletAssetsEditingStateChange: (() -> Void)?
+    public var onUpdateStatusChange: ((UpdateStatusView.State, Bool) -> Void)?
+    public private(set) var updateStatus: UpdateStatusView.State = .updated
 
     public var walletAssetsEditingNavigator: NftsEditingNavigator? {
         walletAssetsVC?.editingNavigator
@@ -241,6 +243,9 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         // This keeps the first dequeue/layout pass consistent with the assets section.
         let walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
         self.walletAssetsVC = walletAssetsVC
+        tokensSectionDataProvider.menuProvider = { [weak walletAssetsVC] in
+            walletAssetsVC?.tokensMenu
+        }
         addChild(walletAssetsVC)
         walletAssetsVC.loadViewIfNeeded()
         walletAssetsVC.didMove(toParent: self)
@@ -886,6 +891,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
         DispatchQueue.main.async {
+            self.updateStatus = state
+            self.onUpdateStatusChange?(state, animated)
             self.balanceHeaderView.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
         }
     }

@@ -58,7 +58,7 @@ open class WClearSegmentedControlItemView(context: Context) :
     internal val trailingImageView: AppCompatImageView
     internal val badgeView: FrameLayout
     private val badgeLabel: WLabel
-    private val arrowDrawable = context.getDrawableCompat(R.drawable.ic_arrows_14)
+    private val arrowDrawable = context.getDrawableCompat(R.drawable.ic_arrows_14)?.mutate()
     private val removeDrawable = context.getDrawableCompat(R.drawable.ic_collection_remove)
     private var shakeAnimator: ObjectAnimator? = null
 

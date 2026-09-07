@@ -22,13 +22,6 @@
     {
       "target" : {
         "containerPath" : "container:..\/Air",
-        "identifier" : "UniversalSearchPersistenceTests",
-        "name" : "UniversalSearchPersistenceTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:..\/Air",
         "identifier" : "UniversalSearchWalletCoreTests",
         "name" : "UniversalSearchWalletCoreTests"
       }
@@ -108,13 +101,6 @@
         "containerPath" : "container:..\/Air",
         "identifier" : "UISendTests",
         "name" : "UISendTests"
-      }
-    },
-    {
-      "target" : {
-        "containerPath" : "container:..\/Air",
-        "identifier" : "UIEarnTests",
-        "name" : "UIEarnTests"
       }
     },
     {

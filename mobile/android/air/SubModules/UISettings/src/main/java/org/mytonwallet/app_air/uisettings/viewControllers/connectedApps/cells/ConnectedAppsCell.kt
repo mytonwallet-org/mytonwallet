@@ -265,7 +265,7 @@ class ConnectedAppsCell(context: Context) :
         if (exploreSite.shouldShowurlTrustStatusWarning()) {
             val warningIcon = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_warning
-            )
+            )?.mutate()
             warningIcon?.let { drawable ->
                 drawable.setBounds(0, 0, 14.dp, 14.dp)
                 if (exploreSite.resolvedUrlTrustStatus == ApiDappUrlTrustStatus.DANGEROUS) {

@@ -133,9 +133,10 @@ final class AgentComposerView: UIView {
 
     func setSendEnabled(_ isEnabled: Bool) {
         sendButton.isEnabled = isEnabled
-        sendButton.tintColor = isEnabled ? .white : .air.secondaryLabel
+        let foregroundColor: UIColor = isEnabled ? tintColor.foregroundForTintedBackground : .air.secondaryLabel
+        sendButton.tintColor = foregroundColor
         var buttonConfiguration = sendButton.configuration ?? .plain()
-        buttonConfiguration.baseForegroundColor = isEnabled ? .white : .air.secondaryLabel
+        buttonConfiguration.baseForegroundColor = foregroundColor
         sendButton.configuration = buttonConfiguration
         sendButton.backgroundColor = isEnabled ? tintColor : .air.secondaryFill
     }

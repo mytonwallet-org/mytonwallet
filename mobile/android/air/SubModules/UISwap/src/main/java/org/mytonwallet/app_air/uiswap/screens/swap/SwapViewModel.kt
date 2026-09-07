@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -28,11 +29,13 @@ import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateRequest
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
+import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapHint
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapInputState
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapUiInputState
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapWalletState
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
@@ -46,8 +49,10 @@ import org.mytonwallet.app_air.walletcore.api.swapBuildTransfer
 import org.mytonwallet.app_air.walletcore.api.swapCexCreateTransaction
 import org.mytonwallet.app_air.walletcore.api.swapCexEstimate
 import org.mytonwallet.app_air.walletcore.api.swapCexSubmit
+import org.mytonwallet.app_air.walletcore.api.swapEstimateHint
 import org.mytonwallet.app_air.walletcore.api.swapGetPairs
 import org.mytonwallet.app_air.walletcore.api.swapSubmit
+import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransferPayload
@@ -59,6 +64,8 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaults
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaultsRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItemStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapPairAsset
@@ -129,6 +136,7 @@ class SwapViewModel :
 
     private var defaultTokensRequest: DefaultTokensRequest? = null
     private var didResolveDefaultTokens = false
+    private val _defaultTokensAppliedFlow = MutableStateFlow(false)
     private var preservedReceivingTokenSlug: String? = null
 
     fun setDefaultTokens(sendingToken: MApiSwapAsset?, receivingToken: MApiSwapAsset?) {
@@ -143,31 +151,91 @@ class SwapViewModel :
         if (didResolveDefaultTokens) return
         val request = defaultTokensRequest ?: return
         val wallet = _walletStateFlow.value ?: return
-        val defaults = SwapHelpers.resolveDefaultTokens(
-            assets = wallet.assets,
-            defaultSendingToken = request.sendingToken,
-            defaultReceivingToken = request.receivingToken
-        )
-
+        val account = AccountStore.activeAccount ?: return
         didResolveDefaultTokens = true
-        _inputStateFlow.value = _inputStateFlow.value.copy(
-            tokenToSend = defaults.tokenToSend,
-            tokenToSendMaxAmount = maxAvailableAmount(defaults.tokenToSend),
-            tokenToReceive = defaults.tokenToReceive,
+
+        if (request.sendingToken != null && request.receivingToken != null) {
+            applyDefaultTokens(request.sendingToken, request.receivingToken)
+            return
+        }
+
+        viewModelScope.launch {
+            val defaults = try {
+                WalletCore.call(
+                    ApiMethod.Swap.ResolveSwapDefaults(
+                        swapDefaultsRequest(account, wallet, request)
+                    )
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                MApiSwapDefaults(request.sendingToken, request.receivingToken)
+            }
+            val currentWallet = _walletStateFlow.value
+            if (currentWallet == null || currentWallet.accountId != wallet.accountId) {
+                didResolveDefaultTokens = false
+                resolveDefaultTokensIfNeeded()
+                return@launch
+            }
+            val assetsMap = currentWallet.assetsMap
+            applyDefaultTokens(
+                request.sendingToken ?: defaults.tokenIn?.let { assetsMap[it.slug] ?: it },
+                request.receivingToken ?: defaults.tokenOut?.let { assetsMap[it.slug] ?: it }
+            )
+        }
+    }
+
+    private fun swapDefaultsRequest(
+        account: MAccount,
+        wallet: SwapWalletState,
+        request: DefaultTokensRequest
+    ): MApiSwapDefaultsRequest {
+        val chainDisplay = account.chainDisplaySnapshot()
+        val visibleChains = chainDisplay.visibleChains.map { it.key }
+        val accountChains = visibleChains +
+            chainDisplay.orderedChains.map { it.key }.filter { it !in visibleChains }
+        val balancesUsdBySlug = wallet.balances.mapNotNull { (slug, balance) ->
+            val token = TokenStore.getToken(slug) ?: return@mapNotNull null
+            val usd = token.priceUsd * balance.doubleAbsRepresentation(token.decimals)
+            slug to if (usd.isFinite()) usd else 0.0
+        }.toMap()
+        return MApiSwapDefaultsRequest(
+            tokenIn = request.sendingToken,
+            tokenOut = request.receivingToken,
+            accountChains = accountChains,
+            network = account.network.value,
+            balancesUsdBySlug = balancesUsdBySlug
+        )
+    }
+
+    private fun applyDefaultTokens(tokenToSend: MApiSwapAsset?, tokenToReceive: MApiSwapAsset?) {
+        val state = _inputStateFlow.value
+        val resolvedTokenToSend = state.tokenToSend ?: tokenToSend
+        _inputStateFlow.value = state.copy(
+            tokenToSend = resolvedTokenToSend,
+            tokenToSendMaxAmount = maxAvailableAmount(resolvedTokenToSend),
+            tokenToReceive = state.tokenToReceive ?: tokenToReceive,
             isFromAmountMax = false
         )
+        _defaultTokensAppliedFlow.value = true
     }
 
     /** Tokens UI State **/
 
-    val uiInputStateFlow: Flow<SwapUiInputState> =
-        combine(_walletStateFlow, _inputStateFlow, this::buildUiInputStateFlow).filterNotNull()
+    val uiInputStateFlow: Flow<SwapUiInputState> = combine(
+        _walletStateFlow,
+        _inputStateFlow,
+        _defaultTokensAppliedFlow,
+        this::buildUiInputStateFlow
+    ).filterNotNull()
 
     private fun buildUiInputStateFlow(
         walletOpt: SwapWalletState?,
-        input: SwapInputState
+        input: SwapInputState,
+        defaultTokensApplied: Boolean = true
     ): SwapUiInputState? {
         val wallet = walletOpt ?: return null
+        if (!defaultTokensApplied) return null
         return SwapUiInputState(wallet = wallet, input = input)
     }
 
@@ -278,6 +346,15 @@ class SwapViewModel :
             return _inputStateFlow.value.tokenToReceive
         }
 
+    val tokenToSendAsset: MApiSwapAsset?
+        get() {
+            val token = _inputStateFlow.value.tokenToSend ?: return null
+            return token as? MApiSwapAsset ?: _walletStateFlow.value?.assetsMap?.get(token.slug)
+        }
+
+    val sellingAmountInput: Double?
+        get() = _inputStateFlow.value.takeIf { !it.reverse }?.amount?.toDoubleOrNull()
+
     fun tokenToSendSetMaxAmount() {
         cancelScheduledSelectorOpen()
 
@@ -377,7 +454,7 @@ class SwapViewModel :
 
     fun setAmount(amount: Double) {
         _inputStateFlow.value = _inputStateFlow.value.copy(
-            amount = BigDecimal(amount).toPlainString(),
+            amount = BigDecimal.valueOf(amount).toPlainString(),
             reverse = false
         )
     }
@@ -693,6 +770,13 @@ class SwapViewModel :
     val uiStatusFlow: Flow<UiStatus> =
         combine(uiInputStateFlow, simulatedSwapFlow, _loadingStatusFlow, this::getUiState)
 
+    val hintFlow: Flow<SwapHint?> = combine(uiInputStateFlow, simulatedSwapFlow) { state, est ->
+        SwapHint.resolve(
+            state,
+            est?.takeIf { it.request.key == state.key && it.request.slippage == state.slippage }
+        )
+    }.distinctUntilChanged()
+
     private fun getUiState(
         assets: SwapUiInputState,
         est: SwapEstimateResponse?,
@@ -974,7 +1058,8 @@ class SwapViewModel :
                         cex = null,
                         fee = null,
                         realFee = null,
-                        error = it
+                        error = it,
+                        hint = cex.hint
                     )
                 }
                 val res = SwapEstimateResponse(
@@ -983,7 +1068,8 @@ class SwapViewModel :
                     cex = cex,
                     fee = transactionDraft?.fullNativeFee,
                     realFee = transactionDraft?.realNativeFee,
-                    error = null
+                    error = null,
+                    hint = cex.hint
                 )
                 return res
             } else {
@@ -1003,7 +1089,8 @@ class SwapViewModel :
                     cex = null,
                     fee = fee,
                     realFee = realFee,
-                    error = null
+                    error = null,
+                    hint = dex.hint
                 )
             }
         } catch (apiError: JSWebViewBridge.ApiError) {
@@ -1019,7 +1106,8 @@ class SwapViewModel :
                 cex = null,
                 fee = null,
                 realFee = null,
-                error = apiError.parsed
+                error = apiError.parsed,
+                hint = apiError.swapEstimateHint()
             )
         }
     }

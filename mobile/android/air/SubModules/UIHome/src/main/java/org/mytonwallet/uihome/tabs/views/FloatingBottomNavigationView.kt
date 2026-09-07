@@ -24,11 +24,11 @@ import android.widget.ImageView
 import androidx.appcompat.content.res.AppCompatResources
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
@@ -182,9 +182,6 @@ class FloatingBottomNavigationView(context: Context, private val blurRootView: V
             updateHighlightRect(incomingHighlight)
 
             val drawingTime = SystemClock.uptimeMillis()
-            blurView?.let { super.drawChild(canvas, it, drawingTime) } ?: run {
-                canvas.drawColor(WColor.SearchFieldBackground.color)
-            }
 
             drawHighlightBackground(canvas, activeHighlight)
             drawHighlightBackground(canvas, incomingHighlight)
@@ -277,9 +274,7 @@ class FloatingBottomNavigationView(context: Context, private val blurRootView: V
         outerPath.addRoundRect(slot.rect, r, r, Path.Direction.CCW)
     }
 
-    private var blurView: WBlurryBackgroundView? = null
-    private var pillShadowView: PillShadowView? = null
-    private var isPlayingBlur = true
+    private var glassView: WGlassView? = null
 
     init {
         id = generateViewId()
@@ -299,17 +294,17 @@ class FloatingBottomNavigationView(context: Context, private val blurRootView: V
         )
 
         addView(pillContainer, LayoutParams(pillW, pillH, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-        pillShadowView = PillShadowView.attachTo(pillContainer, pillH / 2f)
+        glassView = WGlassView.attachTo(
+            pillContainer,
+            pillH / 2f,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            blurRootView
+        )
 
         post {
             positionIndicatorInstant(selectedTab)
         }
         updateTheme()
-    }
-
-    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        super.onLayout(changed, l, t, r, b)
-        if (changed) pillShadowView?.sync()
     }
 
     private fun buildTabViews() {
@@ -387,7 +382,6 @@ class FloatingBottomNavigationView(context: Context, private val blurRootView: V
         pillContainer.layoutParams = pillContainer.layoutParams?.apply { width = pillW }
         if (!tabs.containsKey(selectedTab)) selectedTab = ID_HOME
         positionIndicatorInstant(selectedTab)
-        pillContainer.post { pillShadowView?.sync() }
     }
 
     private fun createIconLayoutParams() = FrameLayout.LayoutParams(
@@ -582,56 +576,15 @@ class FloatingBottomNavigationView(context: Context, private val blurRootView: V
             pillContainer.invalidate()
         }
 
-        syncBlurView()
-
-        if (darkModeChanged) {
-            blurView?.updateTheme()
-        }
-    }
-
-    private fun syncBlurView() {
-        val blurEnabled = WGlobalStorage.isBlurEnabled() && blurRootView != null
-        if (blurEnabled && blurView == null) {
-            blurView = WBlurryBackgroundView(context, fadeSide = null).also {
-                it.setupWith(blurRootView)
-                it.setOverlayColor(WColor.SearchFieldBackground, 204)
-            }
-            pillContainer.addView(blurView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-            isPlayingBlur = true
-        } else if (!blurEnabled && blurView != null) {
-            pillContainer.removeView(blurView)
-            blurView = null
-            isPlayingBlur = false
-        }
+        glassView?.updateTheme()
     }
 
     // ── Blur ──────────────────────────────────────────────────────────────────
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        resumeBlurring()
-    }
-
-    override fun pauseBlurring() {
-        if (!isPlayingBlur) return
-        isPlayingBlur = false
-        blurView?.pauseBlurring()
-    }
-
-    override fun resumeBlurring() {
-        if (isPlayingBlur) return
-        isPlayingBlur = true
-        blurView?.resumeBlurring()
-    }
-
-    override val pausedBlurViews: Boolean
-        get() = !isPlayingBlur
 
     // ── Insets / size ─────────────────────────────────────────────────────────
 
     override fun insetsUpdated(bottomInset: Int) {
         pillContainer.translationY = ViewConstants.TOOLBAR_RADIUS.dp
-        pillShadowView?.sync()
     }
 
     // ── Misc ──────────────────────────────────────────────────────────────────

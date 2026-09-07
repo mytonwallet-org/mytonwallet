@@ -23,6 +23,8 @@ public enum SearchEntityKind: String, CaseIterable, Codable, Hashable, Sendable 
     case collection
     case application
     case wallet
+    case walletAction
+    case setting
     case site
     case webSearchHistory
     case webSearchAction

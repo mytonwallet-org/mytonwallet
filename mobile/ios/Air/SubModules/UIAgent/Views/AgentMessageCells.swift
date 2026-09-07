@@ -169,7 +169,7 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
         configuredAction = action
         let showsAction = didShowDeferredAction || (deferredShowsAction && !hasStreaming && !hadStreaming)
         let showsTail = !showsAction
-        let messageTextColor = isOutgoing ? UIColor.white : UIColor.label
+        let messageTextColor = isOutgoing ? tintColor.foregroundForTintedBackground : UIColor.label
         let layoutMaxWidth = currentTextLayoutMaxWidth(isOutgoing: isOutgoing)
 
         leadingConstraint.isActive = false
@@ -625,10 +625,19 @@ final class AgentMessageCell: UICollectionViewCell, AgentContextMenuPresentingCe
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        updateUserMessageColor()
+    }
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        updateUserMessageColor()
+    }
+
+    private func updateUserMessageColor() {
         guard !userMessageTextView.isHidden,
               let text = userMessageTextView.attributedText?.string ?? userMessageTextView.text,
               !text.isEmpty else { return }
-        setUserMessageText(text, textColor: .white)
+        setUserMessageText(text, textColor: tintColor.foregroundForTintedBackground)
     }
 
     private static func measureTextWidth(_ attributedText: NSAttributedString, maxWidth: CGFloat) -> CGFloat {

@@ -116,8 +116,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
                 onSelectTab: { [weak self] tab in
                     guard let self, let index = displayTabs.firstIndex(of: tab) else { return }
                     collectionView.scrollToItem(at: IndexPath(item: index, section: 0), at: .centeredHorizontally, animated: true)
-                },
-                includesTokenLimitActions: false
+                }
             )
             delegate?.editingNavigator = nftsVCManager.editingNavigator
             displayTabsChanged()
@@ -198,6 +197,12 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
         case .nftCollectionFilter(let filter):
             viewController = NftsVC(accountSource: accountSource, manager: nftsVCManager, layoutMode: .compactLarge, filter: filter)
         }
+
+        let menuProvider = tabContextMenuProviders?.provider(for: tab)
+        (viewController as? WalletTokensVC)?.showAllMenuProvider = { [weak self] in
+            self?.tabContextMenuProviders?.makeTokensMenu(includesVisibleLimit: false)
+        }
+        (viewController as? NftsVC)?.showAllMenuProvider = menuProvider
 
         if viewController.parent == nil {
             parentViewController.addChild(viewController)

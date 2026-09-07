@@ -71,12 +71,19 @@ enum ContextMenuVisuals {
 
     @available(iOS 26.0, *)
     @MainActor
-    static func nativePanelEffect(for traits: UITraitCollection, interactive: Bool) -> UIGlassEffect {
+    static func nativePanelEffect(
+        for traits: UITraitCollection,
+        interactive: Bool,
+        tint: ContextMenuGlassTint
+    ) -> UIGlassEffect {
         let effect = UIGlassEffect(style: .regular)
         effect.isInteractive = interactive
-        effect.tintColor = traits.userInterfaceStyle == .dark
-            ? UIColor(white: 1.0, alpha: 0.025)
-            : UIColor(white: 1.0, alpha: 0.1)
+        let isDark = traits.userInterfaceStyle == .dark
+        let tintAlpha: CGFloat = switch tint {
+        case .strong: isDark ? 0.2 : 0.6
+        case .subtle: isDark ? 0.025 : 0.1
+        }
+        effect.tintColor = UIColor(white: 1.0, alpha: tintAlpha)
         return effect
     }
 

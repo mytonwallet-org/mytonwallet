@@ -54,7 +54,7 @@ class SwapSlippageRowView(context: Context, private val onSlippageChange: (Float
 
     private val infoDrawable = context.requireDrawableCompat(
         org.mytonwallet.app_air.icons.R.drawable.ic_info_24
-    ).apply {
+    ).mutate().apply {
         alpha = 128
     }
 

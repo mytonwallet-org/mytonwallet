@@ -1,7 +1,7 @@
 import type { ApiNft } from '../../api/types';
 
 import { makeMockTransactionActivity } from '../../../tests/mocks';
-import { getIsHiddenNftActivity, isScamTransaction } from '.';
+import { getIsHiddenNftActivity, getTransactionAmountDisplayMode, isScamTransaction } from '.';
 
 const WHITELISTED_ADDRESS = 'EQNft_Whitelisted_0000000000000000000000000000000000000';
 const BLACKLISTED_ADDRESS = 'EQNft_Blacklisted_0000000000000000000000000000000000000';
@@ -99,5 +99,16 @@ describe('getIsHiddenNftActivity', () => {
       nft: makeNft({ address: WHITELISTED_ADDRESS, isUnverified: true }),
     });
     expect(getIsHiddenNftActivity(activity, [], [WHITELISTED_ADDRESS], true)).toBe(false);
+  });
+});
+
+describe('getTransactionAmountDisplayMode', () => {
+  it('keeps zero-value approvals visible as approval limits', () => {
+    const activity = makeMockTransactionActivity({
+      type: 'approval',
+      amount: 0n,
+    });
+
+    expect(getTransactionAmountDisplayMode(activity)).toBe('approval');
   });
 });

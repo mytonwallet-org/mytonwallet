@@ -4,6 +4,24 @@ import WalletContext
 
 private let genericIcon = "DappGenericIcon"
 
+public extension IconView {
+    func config(withDappIconURL iconUrl: String?) {
+        let fallbackImage = UIImage.airBundle(genericIcon)
+        config(with: Configuration(
+            image: fallbackImage,
+            shape: .roundedSquare,
+            backgroundColor: .air.secondaryFill
+        ))
+        guard let iconUrl = iconUrl?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+              let url = URL(string: iconUrl) else { return }
+        imageView.kf.setImage(
+            with: url,
+            placeholder: nil,
+            options: [.transition(.fade(0.15)), .onFailureImage(fallbackImage)]
+        )
+    }
+}
+
 public struct DappIcon: View {
     
     let iconUrl: String?

@@ -48,7 +48,13 @@ struct ExploreScreenFeaturedDappView: View {
         if let badgeText = site.badgeText, !badgeText.isEmpty {
             Text(badgeText).textStyle(.caption2Strong)
                 .frame(height: 14) // should be lineHeight
-                .foregroundStyle(.white)
+                .applyModifierConditionally {
+                    if borderColors.isEmpty {
+                        $0.foregroundForTintedBackground()
+                    } else {
+                        $0.foregroundStyle(.white)
+                    }
+                }
                 .padding(EdgeInsets(top: 2, leading: 4, bottom: 2, trailing: 4))
                 .background(shapeStyleGradient, in: .rect(cornerRadius: 6))
         }
@@ -117,9 +123,13 @@ struct ExploreScreenFeaturedDappView: View {
 
     // MARK: Gradient
 
+    private var borderColors: [Color] {
+        site.borderColor?.compactMap { Color(UIColor(hex: $0)) } ?? []
+    }
+
     private var shapeStyleGradient: AnyShapeStyle {
         var tint: AnyShapeStyle { AnyShapeStyle(.tint) }
-        guard let colors = site.borderColor?.compactMap({ Color(UIColor(hex: $0)) }) else { return tint }
+        let colors = borderColors
         guard let firstColor = colors.first else { return tint }
 
         let gradientColors = colors.count > 1 ? colors : [firstColor, firstColor]

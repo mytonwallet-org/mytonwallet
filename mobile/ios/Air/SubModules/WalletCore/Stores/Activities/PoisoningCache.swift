@@ -17,7 +17,7 @@ struct PoisoningCache: Sendable {
     func isTransactionWithPoisoning(transaction: ApiTransactionActivity) -> Bool {
         // The sender of an outgoing transaction is the wallet itself, so matching it against the cache can only
         // ever produce a false positive that hides the user's own transfer.
-        guard transaction.isIncoming else { return false }
+        guard transaction.type != .approval, transaction.isIncoming else { return false }
         guard let fromAddress = transaction.fromAddress else { return false }
         let key = makeKey(address: fromAddress)
         guard let cached = cache[key] else { return false }
@@ -37,6 +37,7 @@ struct PoisoningCache: Sendable {
     }
 
     private mutating func update(transaction: ApiTransactionActivity) {
+        guard transaction.type != .approval else { return }
         let address = transaction.isIncoming ? transaction.fromAddress : transaction.toAddress
         guard let address else { return }
         update(address: address, amount: transaction.amount, timestamp: transaction.timestamp)

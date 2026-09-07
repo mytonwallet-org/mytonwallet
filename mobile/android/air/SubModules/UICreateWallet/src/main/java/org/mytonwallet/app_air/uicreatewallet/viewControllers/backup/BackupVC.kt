@@ -197,11 +197,6 @@ class BackupVC(
                     ?: 0
                 )
         scrollView.onScrollChange = { y ->
-            if (y > 0) {
-                topReversedCornerView?.resumeBlurring()
-            } else {
-                topReversedCornerView?.pauseBlurring(false)
-            }
             if (y > scrollOffsetToShowNav) {
                 setNavTitle(LocaleController.getString("Create Backup"))
                 setTopBlur(true, animated = true)

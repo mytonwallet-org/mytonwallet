@@ -140,9 +140,7 @@ class PasscodeConfirmVC(
         }
     }
 
-    override fun didSetupViews() {
-        bottomReversedCornerView?.pauseBlurring()
-    }
+    override fun didSetupViews() {}
 
     override fun updateTheme() {
         super.updateTheme()

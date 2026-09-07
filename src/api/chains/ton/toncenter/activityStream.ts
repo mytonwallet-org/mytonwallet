@@ -66,6 +66,9 @@ export class ActivityStream {
   /** When `true`, the polling retries until succeeds, and the confirmed actions from the socket get stashed */
   #doesNeedToRestoreHistory = false;
 
+  /** Bumped whenever a gap opens. Only a poll started afterwards has the data to close it. */
+  #restoreGeneration = 0;
+
   /** Sorted by timestamp descending */
   #socketConfirmedActionsStash: ApiActivity[] = [];
 
@@ -96,7 +99,8 @@ export class ActivityStream {
     this.#fallbackPollingScheduler = new FallbackPollingScheduler(
       this.#poll,
       this.#walletWatcher.isConnected,
-      fallbackPollingOptions,
+      // The gap is closed by the poll that follows a connect, so a `pollOnStart` request is not a substitute for it
+      { ...fallbackPollingOptions, pollOnEverySocketConnect: true },
     );
   }
 
@@ -126,6 +130,7 @@ export class ActivityStream {
     // When the socket gets connected, it's important to load the confirmed activities since the last activity,
     // otherwise the activities arriving from the socket will create a gap in the activity history.
     this.#doesNeedToRestoreHistory = true;
+    this.#restoreGeneration++;
     this.#fallbackPollingScheduler.onSocketConnect();
   };
 
@@ -154,15 +159,22 @@ export class ActivityStream {
 
   /** Fetches the activities when the socket is not connected or has just connected */
   #poll = async () => {
+    const generation = this.#restoreGeneration;
+
     try {
       this.#loadingListeners.runCallbacks(true);
 
       const [pendingActivities, newFinalizedActivities] = await Promise.all([
         loadPendingActivities(this.#network, this.#address),
-        this.#loadNewFinalizedActivities(),
+        this.#loadNewFinalizedActivities(generation),
       ]);
 
       if (this.#isDestroyed) return;
+
+      // A poll that started before the last connect saw only what preceded the subscription, and the catch-up poll
+      // refetches all of it, because the resume point has not moved. Applying any part of this result - the stash it
+      // drains, the timestamp it stores - would move that point past the gap instead.
+      if (generation !== this.#restoreGeneration) return;
 
       this.#handleNewActivities(
         mergeSortedActivities(
@@ -180,7 +192,7 @@ export class ActivityStream {
     }
   };
 
-  async #loadNewFinalizedActivities() {
+  async #loadNewFinalizedActivities(generation: number) {
     while (!this.#isDestroyed) {
       try {
         return await fetchActions({
@@ -193,7 +205,8 @@ export class ActivityStream {
       } catch (err) {
         logDebugError('loadNewFinalizedActivities', err);
 
-        if (this.#isDestroyed || !this.#doesNeedToRestoreHistory) {
+        // Retrying is pointless once a newer connect has taken over: this poll's result is discarded either way.
+        if (this.#isDestroyed || !this.#doesNeedToRestoreHistory || generation !== this.#restoreGeneration) {
           break;
         }
 

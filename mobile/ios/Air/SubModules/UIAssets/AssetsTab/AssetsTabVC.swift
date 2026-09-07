@@ -32,8 +32,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         onSelectTab: { [weak self] tab in
             guard let self else { return }
             show(accountSource: accountSource, tab: tab, animated: true)
-        },
-        includesTokenLimitActions: false
+        }
     )
 
     public init(

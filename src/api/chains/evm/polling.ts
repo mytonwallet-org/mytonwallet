@@ -17,9 +17,9 @@ import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
+import { fetchEvmWallet } from './util/account';
 import { NftStream } from './util/nftStream';
 import { getAlchemySocket } from './util/socket';
-import { fetchStoredWallet } from '../../common/accounts';
 import {
   activeNftTiming,
   activeWalletTiming,
@@ -359,7 +359,7 @@ async function loadInitialActivities(
 ): Promise<ApiActivityTimestamps> {
   try {
     const { network } = parseAccountId(accountId);
-    const { address } = await fetchStoredWallet(accountId, chain);
+    const { address } = await fetchEvmWallet(accountId, chain);
 
     // An address with no balance and no inbound transfer on this chain has no history to
     // return, so the load is skipped rather than paid for. This matters most on an account
@@ -462,7 +462,7 @@ async function loadNewActivities(
   onUpdate: OnApiUpdate,
 ): Promise<ApiActivityTimestamps> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, chain);
+  const { address } = await fetchEvmWallet(accountId, chain);
 
   const { activities: rawActivities } = await getTokenActivitySlice(
     chain,

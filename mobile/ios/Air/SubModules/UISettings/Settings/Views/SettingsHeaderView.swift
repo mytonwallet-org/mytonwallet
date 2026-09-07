@@ -20,12 +20,32 @@ class SettingsHeaderView: WTouchPassView {
         }
     }
 
-    lazy var headerTouchTarget: UIView = {
+    private let statusIndicator = WActivityIndicator()
+    private let statusLabel = NavigationHeader2.makeTitleLabel("", fixedColor: true)
+    private var updateStatus: WalletUpdateStatus = .updated
+    private var statusAnimationId = 0
+
+    lazy var headerTouchTarget: NavigationHeader2 = {
         
         let view = NavigationHeader2()
+        view.accessibilityElementsHidden = false
+        let indicatorContainer = UIView(frame: CGRect(x: 0, y: 0, width: 24, height: 24))
+        indicatorContainer.addSubview(statusIndicator)
+        NSLayoutConstraint.activate([
+            statusIndicator.centerXAnchor.constraint(equalTo: indicatorContainer.centerXAnchor),
+            statusIndicator.centerYAnchor.constraint(equalTo: indicatorContainer.centerYAnchor),
+        ])
+        statusLabel.textColor = .air.secondaryLabel
+        statusIndicator.isAccessibilityElement = false
+        view.setStack(of: [indicatorContainer, statusLabel], spacing: 4, truncatingAt: [1])
+        view.contentView?.alpha = 0
         
         view.onMovedToWindow = { [weak self] window in
             guard let self, window != nil else { return }
+            if updateStatus != .updated {
+                statusIndicator.stopAnimating(animated: false)
+                statusIndicator.startAnimating(animated: false)
+            }
             self.updateWithLastScrollOffset()
         }
         
@@ -64,6 +84,8 @@ class SettingsHeaderView: WTouchPassView {
     }()
     
     struct LayoutGeometry {
+        var isShowingStatus = false
+
         private var isLegacyOS: Bool {
             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
                 return false
@@ -77,7 +99,7 @@ class SettingsHeaderView: WTouchPassView {
 
         /// The key parameter. A distance between navigation buttons and the title vertical centers.
         /// In fact, this is the real movement range for the title.
-        let distanceBetweenNavButtonAndTitleStackMiddles: CGFloat = 108.0
+        var distanceBetweenNavButtonAndTitleStackMiddles: CGFloat { isShowingStatus ? 148 : 108 }
 
         /// The value is used to shift top section to be closer to the title in the collapsed mode
         private var topSectionCollapsedInset: CGFloat { isLegacyOS ? 18 : 26 }
@@ -93,7 +115,7 @@ class SettingsHeaderView: WTouchPassView {
         var fullScrollRange: CGFloat { distanceBetweenNavButtonAndTitleStackMiddles + topSectionCollapsedInset }
     }
     
-    let layoutGeometry: LayoutGeometry = .init()
+    var layoutGeometry: LayoutGeometry { .init(isShowingStatus: updateStatus != .updated) }
         
     private let titleStack = TitleStackView()
     private let titleContainer = WTouchPassView()
@@ -211,6 +233,43 @@ class SettingsHeaderView: WTouchPassView {
         updateTitle()
         updateAddresses()
     }
+
+    func setUpdateStatus(_ state: WalletUpdateStatus, animated: Bool) {
+        guard updateStatus != state else { return }
+        updateStatus = state
+        statusAnimationId += 1
+        let animationId = statusAnimationId
+        switch state {
+        case .waitingForNetwork:
+            statusLabel.text = lang("Waiting for network…")
+        case .updating:
+            statusLabel.text = lang("Updating…")
+        case .updated:
+            break
+        }
+        if state != .updated {
+            statusIndicator.startAnimating(animated: false)
+        }
+        headerTouchTarget.contentView?.invalidateIntrinsicContentSize()
+        headerTouchTarget.setNeedsLayout()
+        UIView.animate(
+            withDuration: animated && !UIAccessibility.isReduceMotionEnabled ? 0.3 : 0,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.updateStatusVisibility()
+        } completion: { [weak self] _ in
+            guard let self, statusAnimationId == animationId, updateStatus == .updated else { return }
+            statusIndicator.stopAnimating(animated: false)
+        }
+    }
+
+    private func updateStatusVisibility() {
+        let alpha = updateStatus == .updated ? 0 : 1 - clamp(lastScrollOffset / 32, to: 0...1)
+        headerTouchTarget.contentView?.alpha = alpha
+        headerTouchTarget.isAccessibilityElement = false
+        headerTouchTarget.contentView?.accessibilityElementsHidden = alpha == 0
+    }
     
     private func updateTitle() {
         titleStack.updateWithAccount(accountContext.account)
@@ -236,6 +295,7 @@ class SettingsHeaderView: WTouchPassView {
         guard headerTouchTarget.superview != nil else { return }
         
         lastScrollOffset = scrollOffset
+        updateStatusVisibility()
         
         let scrollMultiplier: CGFloat = scrollOffset > 0 ? 0.85 : 1
         let scrollNonNegative = max(scrollOffset, 0)
@@ -454,6 +514,8 @@ private class TitleStackView: UIView {
     }
     
     private func updateLayout() {
+        // The loading status can lay out the empty title before the account name arrives.
+        invalidateIntrinsicContentSize()
         self.setNeedsLayout()
         
         guard hasPerformedInitialLayout else {

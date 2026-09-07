@@ -25,7 +25,7 @@ struct PaletteAndCardSection: View {
         } header: {
             Text(lang("Palette and Card"))
         } footer: {
-            Text(lang("Customize the wallet's home screen and color accents the way you like."))
+            Text(lang("Customize the wallet’s card appearance and color accents the way you like."))
         }
     }
     

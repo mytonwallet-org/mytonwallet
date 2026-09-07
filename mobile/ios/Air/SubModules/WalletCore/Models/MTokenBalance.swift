@@ -137,6 +137,15 @@ extension MTokenBalance {
             }
         }
 
+        // Distinct pools (such as liquid and nominator TON staking) share one wallet token ID.
+        let stakingBalancesBySlug = OrderedDictionary(
+            walletStaked.map { ($0.tokenSlug, $0.balance) },
+            uniquingKeysWith: +
+        )
+        let walletStaked = stakingBalancesBySlug.map { slug, balance in
+            MTokenBalance(tokenSlug: slug, balance: balance, isStaking: true)
+        }
+
         let orderedTokens = sortedForUI(
             tokenBalances: walletTokens + walletStaked,
             assetsAndActivityData: assetsAndActivityData,

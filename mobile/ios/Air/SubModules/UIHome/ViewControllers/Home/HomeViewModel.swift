@@ -9,14 +9,12 @@ import Foundation
 import UIKit
 import WalletContext
 import WalletCore
-import WReachability
+import UIComponents
+import SwiftNavigation
 import UIEarn
 import Perception
-import Dependencies
 
 private let log = Log("HomeVM")
-
-private let UPDATING_DELAY = 2
 
 @MainActor protocol HomeVMDelegate: AnyObject {
     func update(state: UpdateStatusView.State, animated: Bool)
@@ -30,20 +28,13 @@ private let UPDATING_DELAY = 2
 @MainActor final class HomeViewModel: WalletCoreData.EventsObserver {
     
     @PerceptionIgnored
-    weak var delegate: HomeVMDelegate?
-    
-    @PerceptionIgnored
-    let reachability = Reachability()
-    @PerceptionIgnored
-    var waitingForNetwork: Bool? = nil
-    @PerceptionIgnored
-    private var prevUpdatingState: UpdateStatusView.State? = nil
-    @PerceptionIgnored
-    private var setUpdatingAfterDelayTask: Task<Void, any Error>? = nil
-    
-    @PerceptionIgnored
-    @Dependency(\.accountStore) private var accountStore
-    
+    weak var delegate: HomeVMDelegate? {
+        didSet { delegate?.update(state: updateStatusModel.state, animated: false) }
+    }
+
+    @PerceptionIgnored private let updateStatusModel = WalletUpdateStatusModel.shared
+    @PerceptionIgnored private var updateStatusObservation: ObserveToken?
+
     @PerceptionIgnored
     @AccountContext var account: MAccount
 
@@ -61,28 +52,18 @@ private let UPDATING_DELAY = 2
         
         WalletCoreData.add(eventObserver: self)
 
-        // Listen for network connection events
-        reachability.whenReachable = { [weak self] _ in
-            guard let self else {return}
-            if waitingForNetwork == true {
-                waitingForNetwork = false
+        var previousState = updateStatusModel.state
+        updateStatusObservation = observe { [weak self] in
+            guard let self else { return }
+            let state = updateStatusModel.state
+            delegate?.update(state: state, animated: true)
+            if previousState == .waitingForNetwork, state != .waitingForNetwork {
                 refreshTransactions()
-            } else {
-                waitingForNetwork = false
-                updateStatus()
             }
+            previousState = state
         }
-        reachability.whenUnreachable = { [weak self] _ in
-            self?.waitingForNetwork = true
-            self?.updateStatus()
-        }
-        reachability.startNotifier()
     }
-    
-    isolated deinit {
-        reachability.stopNotifier()
-    }
-    
+
     func walletCore(event: WalletCoreData.Event) {
         switch event {
         case .balanceChanged(let accountId):
@@ -103,46 +84,11 @@ private let UPDATING_DELAY = 2
             break
         case .assetsAndActivityDataUpdated:
             dataUpdated()
-        case .updatingStatusChanged:
-            updateStatus()
         default:
             break
         }
     }
 
-    @MainActor private func updateStatus() {
-        guard waitingForNetwork == false else {
-            delegate?.update(state: .waitingForNetwork, animated: true)
-            prevUpdatingState = .waitingForNetwork
-            return
-        }
-        if accountStore.updatingActivities || accountStore.updatingBalance {
-            if prevUpdatingState == .waitingForNetwork || prevUpdatingState == nil {
-                log.info("updateStatus - network connected - updating", fileOnly: true)
-                self.prevUpdatingState = .updating
-                self.delegate?.update(state: .updating, animated: true)
-                setUpdatingAfterDelayTask?.cancel()
-                return
-            }
-            if setUpdatingAfterDelayTask == nil || setUpdatingAfterDelayTask?.isCancelled == true {
-                self.setUpdatingAfterDelayTask = Task { [self] in
-                    try await Task.sleep(for: .seconds(UPDATING_DELAY))
-                    if accountStore.updatingActivities || accountStore.updatingBalance {
-                        self.prevUpdatingState = .updating
-                        self.delegate?.update(state: .updating, animated: true)
-                    } else {
-                        self.prevUpdatingState = .updated
-                        self.delegate?.update(state: .updated, animated: true)
-                    }
-                }
-            }
-        } else {
-            setUpdatingAfterDelayTask?.cancel()
-            delegate?.update(state: .updated, animated: true)
-            prevUpdatingState = .updated
-        }
-    }
-    
     // MARK: - Wallet Public Variables
     
     // while balances are not loaded, do not show anything!
@@ -185,9 +131,7 @@ private let UPDATING_DELAY = 2
     @MainActor fileprivate func accountChanged(isNew: Bool) {
         guard isTrackingActiveAccount else { return }
         // reset load states, active network requests will also be ignored automatically
-        self.setUpdatingAfterDelayTask?.cancel()
-        self.setUpdatingAfterDelayTask = nil
-        delegate?.update(state: waitingForNetwork == true ? .waitingForNetwork : .updated, animated: true)
+        delegate?.update(state: updateStatusModel.state, animated: true)
 
         Task {
             await delegate?.changeAccountTo(accountId: account.id, isNew: isNew)

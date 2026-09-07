@@ -1,6 +1,7 @@
 import { TronWeb } from 'tronweb';
 
 import type { ApiActivity, ApiFetchActivitySliceOptions, ApiNetwork, ApiTransactionActivity } from '../../types';
+import type { TronTrc20Transaction } from './types';
 import { TronContractMethodSignature } from './types';
 
 import { TRX } from '../../../config';
@@ -8,13 +9,15 @@ import { parseAccountId } from '../../../util/account';
 import { mergeSortedActivities, sortActivities } from '../../../util/activities/order';
 import { fetchJson } from '../../../util/fetch';
 import isEmptyObject from '../../../util/isEmptyObject';
-import { buildCollectionByKey } from '../../../util/iteratees';
+import { buildCollectionByKey, compact } from '../../../util/iteratees';
 import { getTokenSlugs } from './util/tokens';
 import { fetchStoredWallet } from '../../common/accounts';
 import { updateActivityMetadata } from '../../common/helpers';
 import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
 import { SEC } from '../../constants';
 import { NETWORK_CONFIG } from './constants';
+
+const MAX_UINT256 = 2n ** 256n - 1n;
 
 export async function fetchActivitySlice({
   accountId,
@@ -82,13 +85,11 @@ export async function getTokenActivitySlice(
       limit,
     }, signal);
     rawCount = rawTransactions.length;
-    activities = rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx));
+    activities = parseRawTrc20Transactions(address, rawTransactions);
   }
 
-  // `hasMore` is derived from the raw API response length (before `shouldHide` filtering),
-  // so cursor-style pagination keeps advancing even when a page contains nothing but hidden
-  // TRC10/transfer noise — otherwise the chain would be wrongly reported as exhausted while
-  // older history still exists upstream.
+  // `hasMore` is derived from the raw API response length before activity filtering, so cursor-style pagination keeps
+  // advancing through pages containing only hidden or unsupported records.
   const hasMore = limit !== undefined && rawCount >= limit;
 
   // Even though the activities returned by the Tron API are sorted by timestamp, our sorting may differ.
@@ -229,7 +230,7 @@ export async function getTrc20Transactions(
     only_from?: boolean;
   } = {},
   signal?: AbortSignal,
-): Promise<any[]> {
+): Promise<TronTrc20Transaction[]> {
   const baseUrl = NETWORK_CONFIG[network].apiUrl;
   const url = new URL(`${baseUrl}/v1/accounts/${address}/transactions/trc20`);
 
@@ -238,7 +239,20 @@ export async function getTrc20Transactions(
   return result.data;
 }
 
-export function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransactionActivity {
+export function parseRawTrc20Transactions(
+  address: string,
+  rawTransactions: readonly TronTrc20Transaction[],
+): ApiTransactionActivity[] {
+  const activities = compact(rawTransactions.map((rawTx) => parseRawTrc20Transaction(address, rawTx)));
+  return selectPrimaryTrc20Activities(activities);
+}
+
+export function parseRawTrc20Transaction(
+  address: string,
+  rawTx: TronTrc20Transaction,
+): ApiTransactionActivity | undefined {
+  if (rawTx.type !== 'Transfer' && rawTx.type !== 'Approval') return undefined;
+
   const {
     transaction_id: txId,
     block_timestamp: timestamp,
@@ -251,6 +265,7 @@ export function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransa
   const amount = BigInt(value);
   const slug = buildTokenSlug(TRX.chain, tokenInfo.address);
   const isIncoming = toAddress === address;
+  const isApproval = rawTx.type === 'Approval';
   const normalizedAddress = isIncoming ? fromAddress : toAddress;
   const fee = 0n;
 
@@ -260,47 +275,58 @@ export function parseRawTrc20Transaction(address: string, rawTx: any): ApiTransa
     timestamp,
     fromAddress,
     toAddress,
-    amount: isIncoming ? amount : -amount,
+    amount: isApproval || isIncoming ? amount : -amount,
     slug,
     isIncoming,
     normalizedAddress,
     fee,
+    type: isApproval ? 'approval' : undefined,
+    isApprovalUnlimited: isApproval ? amount === MAX_UINT256 : undefined,
     status: 'completed',
   });
 }
 
-export function mergeActivities(txsBySlug: Record<string, ApiActivity[]>): ApiActivity[] {
-  const seenTxIds = new Set<string>();
-  const isSeenTxId = (id: string) => {
-    if (seenTxIds.has(id)) return true;
-    seenTxIds.add(id);
-    return false;
-  };
+function selectPrimaryTrc20Activities<T extends ApiActivity>(activities: readonly T[]): T[] {
+  const activitiesById = new Map<string, T>();
 
+  activities.forEach((activity) => {
+    const current = activitiesById.get(activity.id);
+    // A balance-changing event represents the primary activity when the same transaction also updates an allowance
+    if (!current || (isApprovalActivity(current) && !isApprovalActivity(activity))) {
+      activitiesById.set(activity.id, activity);
+    }
+  });
+
+  return Array.from(activitiesById.values());
+}
+
+function isApprovalActivity(activity: ApiActivity) {
+  return activity.kind === 'transaction' && activity.type === 'approval';
+}
+
+export function mergeActivities(txsBySlug: Record<string, ApiActivity[]>): ApiActivity[] {
   const {
     [TRX.slug]: trxTxs = [],
     ...tokenTxs
   } = txsBySlug;
 
   const trxTxById = buildCollectionByKey(trxTxs, 'id');
+  const primaryTokenTxs = sortActivities(selectPrimaryTrc20Activities(Object.values(tokenTxs).flat()))
+    .map((tokenTx) => {
+      const trxTx = trxTxById[tokenTx.id];
+      if (tokenTx.kind === 'transaction' && trxTx?.kind === 'transaction') {
+        tokenTx.fee = trxTx.fee;
+      }
+      return tokenTx;
+    });
+  const tokenTxIds = new Set(primaryTokenTxs.map(({ id }) => id));
 
   return mergeSortedActivities(
-    ...Object.values(tokenTxs).map((tokenTxList) =>
-      tokenTxList
-        // Different tokens have the same transaction id if they share the same backend swap.
-        // The duplicates need to removed.
-        .filter((tokenTx) => !isSeenTxId(tokenTx.id))
-        .map((tokenTx) => {
-          const trxTx = trxTxById[tokenTx.id];
-          if (tokenTx.kind === 'transaction' && trxTx?.kind === 'transaction') {
-            tokenTx.fee = trxTx.fee;
-          }
-          return tokenTx;
-        }),
-    ),
-    // Because of `isSeenTxId`, it's necessary to filter the TRX transactions after the token transactions
+    primaryTokenTxs,
     trxTxs.filter(
-      (trxTx) => !isSeenTxId(trxTx.id) && !trxTx.shouldHide && (trxTx.kind !== 'transaction' || trxTx.toAddress),
+      (trxTx) => !tokenTxIds.has(trxTx.id)
+        && !trxTx.shouldHide
+        && (trxTx.kind !== 'transaction' || trxTx.toAddress),
     ),
   );
 }

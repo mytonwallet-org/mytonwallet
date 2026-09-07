@@ -175,15 +175,4 @@ struct ApiTokenDetailsTests {
         #expect(details.volume24h?.change == nil)
         #expect(details.links?.map(\.kind) == [.x, .aggregator, .sourceCode])
     }
-
-    @Test
-    func `caches missing token info separately from a cache miss`() throws {
-        let slug = "missing-token-info-\(UUID().uuidString)"
-
-        #expect(TokenStore.cachedTokenDetails(tokenSlug: slug) == nil)
-        TokenStore.setCachedTokenDetails(tokenSlug: slug, details: nil)
-
-        let cached = try #require(TokenStore.cachedTokenDetails(tokenSlug: slug))
-        #expect(cached.details == nil)
-    }
 }

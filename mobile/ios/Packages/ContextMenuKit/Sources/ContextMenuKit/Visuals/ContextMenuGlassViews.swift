@@ -45,7 +45,8 @@ final class ContextMenuGlassBackgroundView: UIView {
         size: CGSize,
         cornerRadius: CGFloat,
         traits: UITraitCollection,
-        isInteractive: Bool
+        isInteractive: Bool,
+        glassTint: ContextMenuGlassTint
     ) {
         self.effectView.frame = CGRect(origin: .zero, size: size)
         self.effectView.layer.cornerRadius = cornerRadius
@@ -54,7 +55,8 @@ final class ContextMenuGlassBackgroundView: UIView {
         if #available(iOS 26.0, *) {
             self.effectView.effect = ContextMenuVisuals.nativePanelEffect(
                 for: traits,
-                interactive: isInteractive
+                interactive: isInteractive,
+                tint: glassTint
             )
         } else {
             self.effectView.effect = ContextMenuVisuals.legacyPanelEffect(for: traits)
@@ -166,7 +168,8 @@ final class ContextMenuPanelView: UIView {
             size: panelSize,
             cornerRadius: panelCornerRadius,
             traits: traits,
-            isInteractive: true
+            isInteractive: true,
+            glassTint: self.style.glassTint
         )
         self.contentView.frame = self.backgroundView.contentView.bounds
 

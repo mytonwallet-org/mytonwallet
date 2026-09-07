@@ -129,7 +129,7 @@ class WalletConnectPayOptionsVC(
             expandIcon.setImageDrawable(
                 context.getDrawableCompat(
                     org.mytonwallet.app_air.icons.R.drawable.ic_expand
-                )?.apply {
+                )?.mutate()?.apply {
                     setTint(WColor.SecondaryText.color)
                 }
             )
@@ -160,20 +160,10 @@ class WalletConnectPayOptionsVC(
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
                 if (dx == 0 && dy == 0) return
-                resumeBlurViews()
                 updateScroll(
                     recyclerView.computeVerticalScrollOffset()
                 )
                 updateBlurViews(recyclerView)
-            }
-
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                super.onScrollStateChanged(recyclerView, newState)
-                if (newState == RecyclerView.SCROLL_STATE_IDLE &&
-                    recyclerView.computeVerticalScrollOffset() == 0
-                ) {
-                    pauseBlurViews()
-                }
             }
         })
         setPadding(
@@ -396,25 +386,6 @@ class WalletConnectPayOptionsVC(
     private fun updateScroll(offset: Int) {
         val alpha = min(1f, max(0f, offset / ViewConstants.GAP.dp.toFloat()))
         topReversedCornerView?.alpha = alpha
-        if (offset > 0) resumeBlurViews()
-    }
-
-    private fun pauseBlurViews() {
-        topReversedCornerView?.pauseBlurring(false)
-    }
-
-    private fun resumeBlurViews() {
-        topReversedCornerView?.resumeBlurring()
-    }
-
-    override fun viewWillAppear() {
-        super.viewWillAppear()
-        resumeBlurViews()
-    }
-
-    override fun viewWillDisappear() {
-        super.viewWillDisappear()
-        pauseBlurViews()
     }
 
     private fun confirmOption(optionId: String) {

@@ -4,7 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.os.Build
+import android.view.Gravity
 import android.view.View
 import android.view.View.generateViewId
 import android.view.ViewGroup
@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.FontFamily
 import org.mytonwallet.app_air.uicomponents.helpers.FontManager
 import org.mytonwallet.app_air.uicomponents.widgets.WEditableItemView
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
@@ -30,7 +31,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteAndCardView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.theme.AppearanceAppThemeView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.WalletCustomizationVC
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -39,6 +39,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -68,6 +69,81 @@ class AppearanceVC(context: Context) :
             }
             configure(AccountStore.activeAccount)
         }
+    }
+
+    private val paletteHintLabel = WLabel(context).apply {
+        setStyle(13f)
+        setLineHeight(18f)
+        text = LocaleController.getString(
+            "Customize the wallet’s card appearance and color accents the way you like."
+        )
+        gravity = Gravity.START
+        setTextColor(WColor.SecondaryText)
+    }
+
+    private val showOnCardDropdownView = WEditableItemView(context).apply {
+        id = generateViewId()
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
+        setText(WGlobalStorage.getWalletCardTopLine().displayName)
+    }
+    private val showOnCardRow: KeyValueRowView by lazy {
+        KeyValueRowView(
+            context,
+            LocaleController.getString("Show on Card"),
+            "",
+            KeyValueRowView.Mode.PRIMARY,
+            isLast = false
+        ).apply {
+            setValueView(showOnCardDropdownView)
+            setOnClickListener {
+                WMenuPopup.present(
+                    showOnCardDropdownView,
+                    MWalletCardTopLine.entries.map { topLine ->
+                        WMenuPopup.Item(
+                            null,
+                            topLine.menuTitle,
+                            false
+                        ) {
+                            if (WGlobalStorage.getWalletCardTopLine() != topLine) {
+                                Logger.d(
+                                    Logger.LogTag.SETTINGS,
+                                    "showOnCardRow: topLine=${topLine.value}"
+                                )
+                                WGlobalStorage.setWalletCardTopLine(topLine)
+                                showOnCardDropdownView.setText(topLine.displayName)
+                                WalletCore.notifyEvent(WalletEvent.WalletCardTopLineChanged)
+                            }
+                        }
+                    },
+                    popupWidth = WRAP_CONTENT,
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                        showOnCardDropdownView,
+                        roundRadius = 18f.dp
+                    )
+                )
+            }
+        }
+    }
+
+    private val actionButtonsRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Action Buttons"),
+        isChecked = !WGlobalStorage.isActionButtonsRowHidden(),
+        isLast = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "actionButtonsRow: isChecked=$isChecked")
+            WGlobalStorage.setIsActionButtonsRowHidden(!isChecked)
+            WalletCore.notifyEvent(WalletEvent.ActionButtonsRowChanged)
+        }
+    )
+
+    private val walletCardHintLabel = WLabel(context).apply {
+        setStyle(13f)
+        setLineHeight(18f)
+        text = LocaleController.getString("\$settings_wallet_card_description")
+        gravity = Gravity.START
+        setTextColor(WColor.SecondaryText)
     }
 
     private val appFontDropdownView = WEditableItemView(context).apply {
@@ -108,7 +184,7 @@ class AppearanceVC(context: Context) :
                     positioning = WMenuPopup.Positioning.BELOW,
                     windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                         appFontDropdownView,
-                        roundRadius = 16f.dp
+                        roundRadius = 18f.dp
                     )
                 )
             }
@@ -135,7 +211,7 @@ class AppearanceVC(context: Context) :
 
     private val topTabsRow = SwitchCell(
         context,
-        title = LocaleController.getString("Enable Top Tabs"),
+        title = LocaleController.getString("Top Tabs"),
         isChecked = WGlobalStorage.areTopTabsEnabled(),
         isFirst = true,
         onChange = { isChecked ->
@@ -143,25 +219,6 @@ class AppearanceVC(context: Context) :
             WalletContextManager.delegate?.get()?.restartApp()
         }
     )
-
-    private val customizeTabsRow: KeyValueRowView by lazy {
-        KeyValueRowView(
-            context,
-            LocaleController.getString("Customize Tabs"),
-            "",
-            KeyValueRowView.Mode.PRIMARY,
-            isLast = true
-        ).apply {
-            setOnClickListener {
-                (
-                    WalletContextManager.delegate?.get()
-                        ?.getCustomizeTabsVC() as? WViewController
-                    )?.let {
-                    navigationController?.push(it)
-                }
-            }
-        }
-    }
 
     private val gradientNavigationBarRow = SwitchCell(
         context,
@@ -309,12 +366,25 @@ class AppearanceVC(context: Context) :
 
     private val blurRow = SwitchCell(
         context,
-        title = LocaleController.getString("Enable Blur"),
+        title = LocaleController.getString("Blur"),
         isChecked = WGlobalStorage.isBlurEnabled(),
-        isFirst = true,
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "blurRow: isChecked=$isChecked")
             WGlobalStorage.setBlurEnabled(isChecked)
+            liquidGlassRow.isEnabled = isChecked
+            pendingThemeChange = true
+            WalletContextManager.delegate?.get()?.themeChanged()
+        }
+    )
+
+    private val liquidGlassRow = SwitchCell(
+        context,
+        title = LocaleController.getString("Liquid Glass"),
+        isChecked = WGlobalStorage.isLiquidGlassEnabled(),
+        isFirst = true,
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "liquidGlassRow: isChecked=$isChecked")
+            WGlobalStorage.setLiquidGlassEnabled(isChecked)
             pendingThemeChange = true
             WalletContextManager.delegate?.get()?.themeChanged()
         }
@@ -322,7 +392,7 @@ class AppearanceVC(context: Context) :
 
     private val animationsRow = SwitchCell(
         context,
-        title = LocaleController.getString("Enable Animations"),
+        title = LocaleController.getString("Animations"),
         isChecked = WGlobalStorage.getAreAnimationsActive(),
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "animationsRow: isChecked=$isChecked")
@@ -332,7 +402,7 @@ class AppearanceVC(context: Context) :
 
     private val seasonalThemingRow = SwitchCell(
         context,
-        title = LocaleController.getString("Enable Seasonal Theming"),
+        title = LocaleController.getString("Seasonal Theming"),
         isChecked = !WGlobalStorage.getIsSeasonalThemingDisabled(),
         isLast = true,
         onChange = { isChecked ->
@@ -346,9 +416,16 @@ class AppearanceVC(context: Context) :
         val v = WView(context)
         v.addView(appThemeView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appPaletteView, ConstraintLayout.LayoutParams(0, WRAP_CONTENT))
-        if (DEBUG_MODE || EnvironmentStore.isBeta) {
-            v.addView(customizeTabsRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        }
+        v.addView(paletteHintLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(showOnCardRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(actionButtonsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(walletCardHintLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(roundedBalanceFontRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(liquidGlassRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
         if (EnvironmentStore.isTopTabsSettingAvailable) {
             v.addView(topTabsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         }
@@ -356,49 +433,50 @@ class AppearanceVC(context: Context) :
         v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(sideGuttersRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(appFontView, ConstraintLayout.LayoutParams(0, 50.dp))
-        v.addView(roundedBalanceFontRow, ConstraintLayout.LayoutParams(0, 50.dp))
         // Set initial enabled state based on roundedCornersRow
         if (!roundedCornersRow.isChecked) {
             roundedToolbarsRow.isEnabled = false
             sideGuttersRow.isEnabled = false
         }
+        liquidGlassRow.isEnabled = blurRow.isChecked
         v.setConstraints {
             toTop(appThemeView)
             toCenterX(appThemeView)
             topToBottom(appPaletteView, appThemeView, ViewConstants.GAP.toFloat())
             toCenterX(appPaletteView)
-            if (DEBUG_MODE || EnvironmentStore.isBeta) {
-                topToBottom(customizeTabsRow, appPaletteView, ViewConstants.GAP.toFloat())
-                toCenterX(customizeTabsRow)
-            }
-            if (EnvironmentStore.isTopTabsSettingAvailable) {
-                topToBottom(
-                    topTabsRow,
-                    if (DEBUG_MODE || EnvironmentStore.isBeta) {
-                        customizeTabsRow
-                    } else {
-                        appPaletteView
-                    },
-                    ViewConstants.GAP.toFloat()
-                )
-                toCenterX(topTabsRow)
-            }
-            // Group 1: Top Tabs, Gradient Navigation Bar, Rounded Corners, Rounded Toolbars,
+            topToBottom(paletteHintLabel, appPaletteView, 8f)
+            toCenterX(paletteHintLabel, 16f)
+            // Group 1: Show on Card, Action Buttons
+            topToBottom(showOnCardRow, paletteHintLabel, (ViewConstants.GAP + 4).toFloat())
+            toCenterX(showOnCardRow)
+            topToBottom(actionButtonsRow, showOnCardRow)
+            toCenterX(actionButtonsRow)
+            topToBottom(walletCardHintLabel, actionButtonsRow, 8f)
+            toCenterX(walletCardHintLabel, 16f)
+            // Group 2: App Font, Rounded Balance Font
+            topToBottom(appFontView, walletCardHintLabel, (ViewConstants.GAP + 4).toFloat())
+            toCenterX(appFontView)
+            topToBottom(roundedBalanceFontRow, appFontView)
+            toCenterX(roundedBalanceFontRow)
+            // Group 3: Enable Liquid Glass, Enable Blur, Enable Animations, Seasonal Theming
+            topToBottom(liquidGlassRow, roundedBalanceFontRow, ViewConstants.GAP.toFloat())
+            toCenterX(liquidGlassRow)
+            topToBottom(blurRow, liquidGlassRow)
+            toCenterX(blurRow)
+            topToBottom(animationsRow, blurRow)
+            toCenterX(animationsRow)
+            topToBottom(seasonalThemingRow, animationsRow)
+            toCenterX(seasonalThemingRow)
+            // Group 4: Top Tabs, Gradient Navigation Bar, Rounded Corners, Rounded Toolbars,
             // Side Gutters
             if (EnvironmentStore.isTopTabsSettingAvailable) {
+                topToBottom(topTabsRow, seasonalThemingRow, ViewConstants.GAP.toFloat())
+                toCenterX(topTabsRow)
                 topToBottom(gradientNavigationBarRow, topTabsRow)
             } else {
                 topToBottom(
                     gradientNavigationBarRow,
-                    if (DEBUG_MODE || EnvironmentStore.isBeta) {
-                        customizeTabsRow
-                    } else {
-                        appPaletteView
-                    },
+                    seasonalThemingRow,
                     ViewConstants.GAP.toFloat()
                 )
             }
@@ -409,19 +487,7 @@ class AppearanceVC(context: Context) :
             toCenterX(roundedToolbarsRow)
             topToBottom(sideGuttersRow, roundedToolbarsRow)
             toCenterX(sideGuttersRow)
-            // Group 2: Enable Blur, Enable Animations
-            topToBottom(blurRow, sideGuttersRow, ViewConstants.GAP.toFloat())
-            toCenterX(blurRow)
-            topToBottom(animationsRow, blurRow)
-            toCenterX(animationsRow)
-            topToBottom(seasonalThemingRow, animationsRow)
-            toCenterX(seasonalThemingRow)
-            // Group 3: App Font
-            topToBottom(appFontView, seasonalThemingRow, ViewConstants.GAP.toFloat())
-            toCenterX(appFontView)
-            topToBottom(roundedBalanceFontRow, appFontView)
-            toCenterX(roundedBalanceFontRow)
-            toBottom(roundedBalanceFontRow)
+            toBottom(sideGuttersRow)
         }
         v.setPadding(0, 0, 0, navigationController?.bottomInset ?: 0)
         v
@@ -470,17 +536,13 @@ class AppearanceVC(context: Context) :
 
     override fun updateTheme() {
         super.updateTheme()
-        bottomReversedCornerView?.resumeBlurring()
 
         appFontView.setBackgroundColor(WColor.Background.color, ViewConstants.BLOCK_RADIUS.dp, 0f)
-
-        if (DEBUG_MODE || EnvironmentStore.isBeta) {
-            customizeTabsRow.setBackgroundColor(
-                WColor.Background.color,
-                ViewConstants.BLOCK_RADIUS.dp,
-                ViewConstants.BLOCK_RADIUS.dp
-            )
-        }
+        showOnCardRow.setBackgroundColor(
+            WColor.Background.color,
+            ViewConstants.BLOCK_RADIUS.dp,
+            0f
+        )
 
         appThemeView.setBackgroundColor(
             WColor.Background.color,

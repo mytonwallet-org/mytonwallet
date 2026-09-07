@@ -40,7 +40,6 @@ import java.util.Locale
 import java.util.regex.Pattern
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
-import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.showAlert
@@ -179,8 +178,7 @@ private const val ORIGIN_PERMISSION_GEOLOCATION = "geolocation"
 class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: InAppBrowserConfig) :
     WViewController(context),
     IInAppBrowser,
-    WalletCore.EventObserver,
-    WMinimizableBlurHost {
+    WalletCore.EventObserver {
 
     private val isMinimizationSupported = tabBarController != null
 
@@ -190,14 +188,6 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             return window?.navigationControllers?.firstOrNull()
                 ?.viewControllers?.firstOrNull() as? ITabsVC
         }
-
-    override fun pauseMinimizedBlur() {
-        topBar.pauseBlurring()
-    }
-
-    override fun resumeMinimizedBlur() {
-        topBar.resumeBlurring()
-    }
 
     @Suppress("PropertyName")
     override val TAG = "InAppBrowser"

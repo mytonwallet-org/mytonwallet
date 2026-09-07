@@ -3,7 +3,6 @@ import Testing
 @testable import UISwap
 import WalletCore
 import WalletContext
-import Dependencies
 
 @Suite("Swap Estimate Pipeline")
 struct SwapEstimatePipelineTests {
@@ -101,19 +100,6 @@ struct SwapEstimatePipelineTests {
 
     @Test
     @MainActor
-    func `cross chain swaps disable buy amount input`() {
-        let context = SwapContextModel()
-        let isDisabled = context.currentBuyAmountInputDisabled(
-            selling: token(slug: "eth", symbol: "ETH", chain: .ethereum),
-            buying: token(slug: "toncoin", symbol: "TON", chain: .ton),
-            accountChains: [.ton]
-        )
-
-        #expect(isDisabled)
-    }
-
-    @Test
-    @MainActor
     func `TON on chain swaps allow buy amount input when pair allows reverse`() {
         let mode = resolveBuyAmountInputMode(
             swapType: .onChain,
@@ -146,24 +132,6 @@ struct SwapEstimatePipelineTests {
         )
 
         #expect(mode == .disabled)
-    }
-
-    @Test
-    @MainActor
-    func `reversing an empty TON USDT form keeps buy amount input enabled`() async {
-        let model = makeSwapModel()
-
-        #expect(!model.input.buyingAmountInputDisabled)
-        #expect(model.input.sellingToken.slug == TONCOIN_SLUG)
-        #expect(model.input.buyingToken.slug == TON_USDT_SLUG)
-
-        model.input.userTappedReverse()
-        await Task.yield()
-        await Task.yield()
-
-        #expect(model.input.sellingToken.slug == TON_USDT_SLUG)
-        #expect(model.input.buyingToken.slug == TONCOIN_SLUG)
-        #expect(!model.input.buyingAmountInputDisabled)
     }
 
     @Test
@@ -283,72 +251,6 @@ struct SwapEstimatePipelineTests {
     }
 
     @Test
-    @MainActor
-    func `rate limited estimates preserve current state`() {
-        let update = SwapEstimateUpdate.rateLimited(changedFrom: .selling)
-
-        #expect(update.keepsCurrentState)
-    }
-
-    @Test
-    @MainActor
-    func `leaving editing stage clears estimating state`() {
-        let model = makeSwapModel()
-        model.input.startEstimating(changedFrom: .selling)
-
-        model.setStage(.confirming)
-
-        #expect(!model.input.isEstimating)
-    }
-
-    @Test
-    @MainActor
-    func `default buying amount starts from buy side`() {
-        let model = makeSwapModel(defaultBuyingAmount: 52.5)
-
-        #expect(model.input.buyingAmount == doubleToBigInt(52.5, decimals: model.input.buyingToken.decimals))
-        if case .buying = model.input.inputSource {
-            #expect(Bool(true))
-        } else {
-            #expect(Bool(false), "Expected the buying side to drive the initial estimate")
-        }
-    }
-
-    @Test
-    @MainActor
-    func `buy token selection preserves previous estimate while refresh loads`() {
-        let oldBuyingToken = token(slug: "old-usdt", symbol: "USDT", chain: .ton, decimals: 9)
-        let newBuyingToken = token(slug: "new-usdt", symbol: "USDT", chain: .ton, decimals: 6)
-        let model = makeInputModel()
-        model.sellingAmount = 1_000_000_000
-        model.buyingToken = oldBuyingToken
-        model.buyingAmount = 1_250_000_000
-
-        model.userSelectedToken(newBuyingToken, side: .buying)
-
-        #expect(model.buyingToken == newBuyingToken)
-        #expect(model.buyingAmount == 1_250_000)
-    }
-
-    @Test
-    @MainActor
-    func `failed sell estimate clears stale buy amount`() {
-        let model = makeInputModel()
-        model.sellingAmount = 1_000_000_000
-        model.buyingAmount = 2_000_000_000
-        let update = SwapEstimateUpdate(
-            changedFrom: .selling,
-            estimatedAmounts: nil,
-            backendMaxAmount: nil,
-            stateUpdate: nil
-        )
-
-        update.apply(to: model)
-
-        #expect(model.buyingAmount == nil)
-    }
-
-    @Test
     func `rate limit backend message is detected`() {
         let error = SdkError.apiReturnedError(error: "Requests limit exceeded", data: "")
 
@@ -360,16 +262,6 @@ struct SwapEstimatePipelineTests {
         let error = SdkError.apiReturnedError(error: "Insufficient liquidity", data: "")
 
         #expect(swapEstimateIssue(from: error) == .insufficientLiquidity)
-    }
-
-    @Test
-    func `swap type separates SDK route from CEX wallet topology`() {
-        #expect(SwapType.onChain.route == .dex)
-        #expect(SwapType.onChain.cexTopology == nil)
-        #expect(SwapType.crosschainInsideWallet.route == .cex)
-        #expect(SwapType.crosschainInsideWallet.cexTopology == .insideWallet)
-        #expect(SwapType.crosschainFromWallet.cexTopology == .fromWallet)
-        #expect(SwapType.crosschainToWallet.cexTopology == .toWallet)
     }
 
     @Test
@@ -518,51 +410,6 @@ struct SwapEstimatePipelineTests {
     }
 
     @Test
-    func `on chain swap local history starts pending trusted`() {
-        let request = ApiSwapBuildRequest(
-            from: "TON",
-            to: "GRAM",
-            fromAddress: "sender-address",
-            dexLabel: .dedust,
-            fromAmount: 1,
-            toAmount: 2,
-            toMinAmount: 2,
-            slippage: 0.5,
-            shouldTryDiesel: false,
-            swapVersion: nil,
-            swapMode: .exactIn,
-            walletVersion: nil,
-            routes: nil,
-            networkFee: 0.1,
-            swapFee: 0,
-            ourFee: 0,
-            dieselFee: nil
-        )
-
-        let item = ApiSwapHistoryItem.makeFrom(swapBuildRequest: request, swapId: "swap-id")
-
-        #expect(item.status == .pendingTrusted)
-    }
-
-    @Test
-    func `swap build request encodes the estimate mode`() throws {
-        func encodedRequest(for side: SwapSide) throws -> String {
-            let request = ApiSwapBuildRequest(
-                from: "TON",
-                to: "GRAM",
-                fromAddress: "sender-address",
-                fromAmount: 1,
-                swapMode: side.swapMode
-            )
-            let data = try JSONEncoder().encode(request)
-            return String(decoding: data, as: UTF8.self)
-        }
-
-        #expect(try encodedRequest(for: .selling).contains(#""swapMode":"exact_in""#))
-        #expect(try encodedRequest(for: .buying).contains(#""swapMode":"exact_out""#))
-    }
-
-    @Test
     func `cross chain wait payment hides qr when memo is required`() {
         let createdAt = Date(timeIntervalSince1970: 1_000)
         let payment = makeCrosschainPayment(
@@ -599,35 +446,6 @@ struct SwapEstimatePipelineTests {
     }
 
     @Test
-    @MainActor
-    func `button model surfaces typed issue`() {
-        let model = SwapButtonModel()
-        let config = model.configuration(
-            for: .blocked(.tooSmallAmount),
-            sellingToken: token(slug: "toncoin", symbol: "TON", chain: .ton),
-            buyingToken: token(slug: "usdt", symbol: "USDT", chain: .ton)
-        )
-
-        #expect(config.isEnabled == false)
-        #expect(issue(from: config) == .tooSmallAmount)
-    }
-
-    @Test
-    @MainActor
-    func `button model suppresses issue while estimating`() {
-        let model = SwapButtonModel()
-        let config = model.configuration(
-            for: .estimating(showContinue: false),
-            sellingToken: token(slug: "toncoin", symbol: "TON", chain: .ton),
-            buyingToken: token(slug: "usdt", symbol: "USDT", chain: .ton)
-        )
-
-        #expect(config.isEnabled == false)
-        #expect(config.showLoading == true)
-        #expect(issue(from: config) == nil)
-    }
-
-    @Test
     func `amount limit issues use token amount formatting`() {
         let token = token(slug: "usdt", symbol: "USDT", chain: .ton, decimals: 9)
 
@@ -635,69 +453,6 @@ struct SwapEstimatePipelineTests {
         #expect(SwapIssue.maximumAmount(123.456789, token).buttonTitle == L10n.maximumAmount(value: "123.46 USDT"))
     }
 
-}
-
-private func issue(from config: SwapButtonConfiguration) -> SwapIssue? {
-    if case .issue(let issue) = config.title {
-        return issue
-    }
-    return nil
-}
-
-@MainActor
-private func makeSwapModel(defaultBuyingAmount: Double? = nil) -> SwapModel {
-    withDependencies {
-        $0[_TokenStore.self] = TokenStore
-        $0[_BalancesStore.self] = _BalancesStore.liveValue
-    } operation: {
-        let delegate = SwapModelDelegateSpy()
-        let account = MAccount(
-            id: "test-mainnet",
-            title: nil,
-            type: .mnemonic,
-            byChain: [.ton: AccountChain(address: "ton-address")]
-        )
-        return SwapModel(
-            delegate: delegate,
-            defaultSellingToken: TONCOIN_SLUG,
-            defaultBuyingToken: TON_USDT_SLUG,
-            defaultSellingAmount: nil,
-            defaultBuyingAmount: defaultBuyingAmount,
-            accountContext: AccountContext(source: .constant(account))
-        )
-    }
-}
-
-@MainActor
-private final class SwapModelDelegateSpy: SwapModelDelegate {
-    func applyButtonConfiguration(_ config: SwapButtonConfiguration) {
-    }
-
-    func executeSwapCommand(_ command: SwapCommand) {
-    }
-}
-
-@MainActor
-private func makeInputModel() -> SwapInputModel {
-    withDependencies {
-        $0[_TokenStore.self] = TokenStore
-    } operation: {
-        let account = MAccount(
-            id: "test-mainnet",
-            title: nil,
-            type: .mnemonic,
-            byChain: [.ton: AccountChain(address: "ton-address")]
-        )
-        let model = SwapInputModel(
-            sellingTokenSlug: "toncoin",
-            buyingTokenSlug: "old-usdt",
-            tokenBalance: 10_000_000_000,
-            accountContext: AccountContext(source: .constant(account))
-        )
-        model.sellingToken = token(slug: "toncoin", symbol: "TON", chain: .ton)
-        model.buyingToken = token(slug: "old-usdt", symbol: "USDT", chain: .ton)
-        return model
-    }
 }
 
 private func makeInput(

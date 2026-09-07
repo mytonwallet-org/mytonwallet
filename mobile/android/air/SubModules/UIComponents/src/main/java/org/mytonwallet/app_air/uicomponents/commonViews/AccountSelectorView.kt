@@ -104,7 +104,7 @@ class AccountSelectorView(
         )
         loadingDrawable.color = WColor.White.color
         expandIcon.setImageDrawable(
-            context.getDrawableCompat(R.drawable.ic_expand)?.apply {
+            context.getDrawableCompat(R.drawable.ic_expand)?.mutate()?.apply {
                 setTint(
                     if (isTransparent) {
                         Color.WHITE.colorWithAlpha(153)

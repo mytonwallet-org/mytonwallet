@@ -187,6 +187,7 @@ class SecurityVC(context: Context) : WViewController(context) {
     private val changePasscodeFooterLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
+            setLineHeight(18f)
             text = LocaleController.getString("The passcode will be changed for all your wallets.")
             gravity = android.view.Gravity.START
             setTextColor(WColor.SecondaryText)
@@ -219,6 +220,7 @@ class SecurityVC(context: Context) : WViewController(context) {
     private val mfaFooterLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
+            setLineHeight(18f)
             text = LocaleController.getString("Confirm operations in Telegram as a second step.")
             gravity = android.view.Gravity.START
             setTextColor(WColor.SecondaryText)
@@ -323,6 +325,7 @@ class SecurityVC(context: Context) : WViewController(context) {
     private val appLockFooterLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
+            setLineHeight(18f)
             text = LocaleController.getString("\$app_lock_description")
                 .replace(
                     "%app_name%",
@@ -366,6 +369,7 @@ class SecurityVC(context: Context) : WViewController(context) {
     private val allowSuspiciousActionsFooterLabel: WLabel by lazy {
         WLabel(context).apply {
             setStyle(13f)
+            setLineHeight(18f)
             text = LocaleController.getString("\$allow_suspicious_actions_description")
             gravity = android.view.Gravity.START
             setTextColor(WColor.SecondaryText)

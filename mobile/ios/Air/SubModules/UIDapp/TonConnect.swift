@@ -255,27 +255,9 @@ private final class DappRequestNavigationController: WNavigationController {
             )
             signatures = result.signatures
         }
-        var mfaRequestHash: String?
-        if account.getChainInfo(chain: .ton)?.mfa != nil {
-            let mfaResult = try await Api.createDappConnectMfaRequest(
-                accountId: accountId,
-                enclaveToken: enclaveToken
-            )
-            if let error = mfaResult.error {
-                throw SdkError.apiReturnedError(error: error, context: mfaResult)
-            }
-            guard let hash = mfaResult.mfaRequestHash else {
-                throw SdkError.unexpected(
-                    message: "Missing dapp connect MFA request hash",
-                    context: mfaResult
-                )
-            }
-            mfaRequestHash = hash
-        }
         return DappConnectSubmitResult(
             accountId: accountId,
             proofSignatures: signatures,
-            mfaRequestHash: mfaRequestHash,
             resolver: resolver
         )
     }

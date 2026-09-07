@@ -142,7 +142,7 @@ import Perception
         else { return }
 
         let account = accountContext.account
-        let requiresSigning = update.proof != nil || account.getChainInfo(chain: .ton)?.mfa != nil
+        let requiresSigning = update.proof != nil
         guard !(requiresSigning && account.isView) else {
             return
         }

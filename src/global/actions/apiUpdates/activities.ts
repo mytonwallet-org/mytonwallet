@@ -230,6 +230,7 @@ function notifyAboutNewActivities(global: GlobalState, accountId: string, newAct
   const shouldPlaySound = newActivities.some((activity) => {
     return activity.kind === 'transaction'
       && activity.isIncoming
+      && activity.type !== 'approval'
       && activity.status === 'completed'
       && (Date.now() - activity.timestamp < TX_AGE_TO_PLAY_SOUND)
       && !getIsHiddenNftActivity(activity, blacklistedNftAddresses, whitelistedNftAddresses, areUnverifiedNftsHidden)

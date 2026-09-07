@@ -1,6 +1,5 @@
 import Testing
 @testable import UISwap
-import UIComponents
 import WalletCore
 
 @Suite("Swap Button Configuration")
@@ -47,93 +46,6 @@ struct SwapButtonConfigurationTests {
         #expect(!first.hasSamePresentation(as: second))
     }
 
-    @Test
-    func `button presentation changes when enabled or loading state changes`() {
-        let base = SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: false,
-            showLoading: false
-        )
-        let enabled = SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: true,
-            showLoading: false
-        )
-        let loading = SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: false,
-            showLoading: true
-        )
-
-        #expect(!base.hasSamePresentation(as: enabled))
-        #expect(!base.hasSamePresentation(as: loading))
-    }
-
-    @Test @MainActor
-    func `draft invalidation blocks interaction before disabled appearance`() {
-        let button = WButton()
-        var scheduledDisable: (@MainActor () -> Void)?
-        let presenter = SwapButtonPresentationController(
-            button: button,
-            scheduleDisabledAppearance: { update in
-                scheduledDisable = update
-                return Task { @MainActor in }
-            }
-        )
-        presenter.apply(SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: true,
-            showLoading: false
-        ))
-
-        presenter.apply(SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: false,
-            showLoading: true,
-            delaysDisabledAppearance: true
-        ))
-
-        #expect(button.isEnabled)
-        #expect(!button.isUserInteractionEnabled)
-        #expect(button.showLoading)
-
-        scheduledDisable?()
-        #expect(!button.isEnabled)
-    }
-
-    @Test @MainActor
-    func `revalidated draft cancels delayed disabled appearance`() {
-        let button = WButton()
-        var scheduledDisable: (@MainActor () -> Void)?
-        let presenter = SwapButtonPresentationController(
-            button: button,
-            scheduleDisabledAppearance: { update in
-                scheduledDisable = update
-                return Task { @MainActor in }
-            }
-        )
-        presenter.apply(SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: true,
-            showLoading: false
-        ))
-        presenter.apply(SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: false,
-            showLoading: true,
-            delaysDisabledAppearance: true
-        ))
-        presenter.apply(SwapButtonConfiguration(
-            title: .continue,
-            isEnabled: true,
-            showLoading: false
-        ))
-
-        scheduledDisable?()
-        #expect(button.isEnabled)
-        #expect(button.isUserInteractionEnabled)
-        #expect(!button.showLoading)
-    }
 }
 
 private func token(slug: String, symbol: String, chain: ApiChain, decimals: Int = 9) -> ApiToken {

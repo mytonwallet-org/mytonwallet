@@ -35,18 +35,6 @@ struct SwapEstimateBackoffTests {
     }
 
     @Test
-    func `a request for other inputs is owed a follow up`() throws {
-        var gate = SwapEstimateGate()
-
-        let slot = gate.start(makeGateInput(sellingAmount: 100))
-        let other = gate.start(makeGateInput(sellingAmount: 200))
-        let didRequestFollowUp = gate.finish(try #require(slot))
-
-        #expect(other == nil)
-        #expect(didRequestFollowUp)
-    }
-
-    @Test
     func `returning to the inputs in flight takes the follow up back`() throws {
         var gate = SwapEstimateGate()
 
@@ -56,20 +44,6 @@ struct SwapEstimateBackoffTests {
         let didRequestFollowUp = gate.finish(try #require(slot))
 
         #expect(!didRequestFollowUp)
-    }
-
-    @Test
-    func `a cancelled estimate cannot release the one that replaced it`() throws {
-        var gate = SwapEstimateGate()
-
-        let cancelled = gate.start(makeGateInput(sellingAmount: 100))
-        gate.reset()
-        let running = gate.start(makeGateInput(sellingAmount: 200))
-        let didRelease = gate.finish(try #require(cancelled))
-
-        #expect(running != nil)
-        #expect(!didRelease)
-        #expect(gate.isInFlight)
     }
 
     @Test

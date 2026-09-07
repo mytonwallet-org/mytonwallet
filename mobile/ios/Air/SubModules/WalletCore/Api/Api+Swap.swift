@@ -13,6 +13,10 @@ private let apiSwapLog = Log("Api+Swap")
 
 extension Api {
 
+    public static func resolveSwapDefaults(_ request: ApiSwapDefaultsRequest) async throws -> ApiSwapDefaults {
+        try await bridge.callApi("resolveSwapDefaults", request, decoding: ApiSwapDefaults.self)
+    }
+
     public static func swapBuildTransfer(accountId: String, enclaveToken: EnclaveToken, request: ApiSwapBuildRequest) async throws -> ApiSwapBuildResponse {
         return try await bridge.callApi("swapBuildTransfer", accountId, enclaveToken, request, decoding: ApiSwapBuildResponse.self)
     }
@@ -71,6 +75,38 @@ extension Api {
 }
 
 // MARK: Types
+
+public struct ApiSwapDefaultsRequest: Encodable, Equatable, Sendable {
+    public var tokenIn: ApiToken?
+    public var tokenOut: ApiToken?
+    public var accountChains: [ApiChain]
+    public var network: ApiNetwork
+    public var balancesUsdBySlug: [String: Double]
+
+    @MainActor
+    public init(accountContext: AccountContext, tokenIn: ApiToken?, tokenOut: ApiToken?) {
+        self.tokenIn = tokenIn
+        self.tokenOut = tokenOut
+        let displayedChains = accountContext.displayedChains.map(\.0)
+        accountChains = displayedChains + accountContext.orderedChains.map(\.0).filter { !displayedChains.contains($0) }
+        network = accountContext.account.network
+        balancesUsdBySlug = Dictionary(uniqueKeysWithValues:
+            (accountContext.walletTokensData?.allTokenBalances ?? [])
+                .filter { !$0.isStaking }
+                .map { ($0.tokenSlug, $0.toUsd ?? 0) }
+        )
+    }
+}
+
+public struct ApiSwapDefaults: Decodable, Sendable {
+    public let tokenIn: ApiToken?
+    public let tokenOut: ApiToken?
+
+    public init(tokenIn: ApiToken?, tokenOut: ApiToken?) {
+        self.tokenIn = tokenIn
+        self.tokenOut = tokenOut
+    }
+}
 
 public struct ApiSwapBuildResponse: Codable, Sendable {
     public let id: String?

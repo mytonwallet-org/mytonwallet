@@ -162,7 +162,15 @@ export type ApiSwapCexEstimateResponse = {
   fromMax: string;
 };
 
-export type ApiSwapEstimateResponse = ApiSwapDexEstimateResponse | ApiSwapCexEstimateResponse;
+export type ApiSwapHint =
+  | { type: 'intermediate'; token: string }
+  | { type: 'external'; providerName: string; url: string };
+
+export type ApiSwapEstimateResponse = (
+  | ApiSwapDexEstimateResponse
+  | ApiSwapCexEstimateResponse
+  | { error: string }
+) & { hint?: ApiSwapHint };
 
 export type ApiSwapBuildTransactionRequest = {
   from: string;

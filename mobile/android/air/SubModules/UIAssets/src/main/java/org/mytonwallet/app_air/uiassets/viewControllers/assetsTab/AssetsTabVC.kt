@@ -501,7 +501,6 @@ class AssetsTabVC(
             segmentItems,
             defaultSelectedIndex.coerceAtLeast(0),
             onOffsetChange = { _, _ ->
-                bottomReversedCornerView?.resumeBlurring()
                 applyCollectiblesExpiringDomainsBanner()
             },
             onSelectedIndexChanged = {

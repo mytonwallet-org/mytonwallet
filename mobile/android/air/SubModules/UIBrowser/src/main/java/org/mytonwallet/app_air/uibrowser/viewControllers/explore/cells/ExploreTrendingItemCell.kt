@@ -9,10 +9,12 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFadedEdgeView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -94,13 +96,11 @@ class ExploreTrendingItemCell(
         }
     }
 
-    private val bottomBlurView = WBlurryBackgroundView(
-        context,
-        fadeSide = WBlurryBackgroundView.Side.TOP,
-        overrideBlurRadius = 25f
-    ).apply {
+    private val bottomBlurView = WGlassView(context).apply {
+        flavor = GlassFlavor.FROSTED
+        fadeSide = WGlassView.FadeSide.TOP
+        setProvider(GlassProviders.plain(WColor.Transparent, 130 / 255f))
         setupWith(imageViewContainer)
-        setOverlayColor(WColor.Transparent, 130)
     }
 
     private val bottomBlurContainerView = WFadedEdgeView(context).apply {

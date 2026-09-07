@@ -41,6 +41,15 @@ jobs:
             npm run build:production
           fi
 
+      - name: Assert version.txt matches package.json
+        run: |
+          expected=$(node -p "require('./package.json').version")
+          actual=$(cat dist/version.txt)
+          if [ "$actual" != "$expected" ]; then
+            echo "dist/version.txt ($actual) does not match package.json ($expected)"
+            exit 1
+          fi
+
       - name: Upload site artifact
         uses: actions/upload-artifact@v4
         with:

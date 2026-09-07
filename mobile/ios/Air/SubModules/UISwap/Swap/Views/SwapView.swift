@@ -44,6 +44,11 @@ struct SwapView: View {
                             swapType: swapType
                         )
                     }
+                    if let hint = swapModel.hint {
+                        SwapHintView(hint: hint) {
+                            swapModel.performHintAction(hint)
+                        }
+                    }
                 }
                 .padding(.horizontal, 16)
                 .animation(.snappy, value: swapModel.estimateState.dexEstimate)

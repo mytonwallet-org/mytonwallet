@@ -177,8 +177,6 @@ class ActivityListView<T>(
         fun endSelectionMode()
         fun onTransactionTap(accountId: String, transaction: MApiTransaction)
         fun pauseBlurViews()
-        fun pauseBottomBlurViewsOnBottomEdge()
-        fun resumeBottomBlurViews()
         fun onHeaderAction(identifier: HeaderActionsView.Identifier)
 
         fun onTopItemHorizontalScroll()
@@ -371,6 +369,9 @@ class ActivityListView<T>(
         }
 
     private fun transactionIndex(row: Int): Int = if (usesCardSections) row - 1 else row
+
+    private fun isShowAllActivitiesRow(row: Int): Boolean = showsShowAllActivitiesRow &&
+        row == displayedTransactionsCount + removingTransactionsCount + 1
 
     // Activities that just fell off the capped card (pushed out by newer ones). They stay
     // rendered right below the displayed ones while their cell collapses, then get dropped in
@@ -675,8 +676,6 @@ class ActivityListView<T>(
                 dataSource.heavyAnimationInProgress()
                 if (recyclerView.computeVerticalScrollOffset() == 0) {
                     delegate?.pauseBlurViews()
-                } else {
-                    delegate?.pauseBottomBlurViewsOnBottomEdge()
                 }
             } else {
                 dataSource.executeWithLowPriority {
@@ -1091,10 +1090,7 @@ class ActivityListView<T>(
             navigationController,
             showingAccountId ?: ""
         ).also { assetsVCPool = it }
-        val heightChanged = {
-            delegate?.resumeBottomBlurViews()
-            Unit
-        }
+        val heightChanged = {}
         val onAssetsShown = onAssetsShown@{
             if (showingAccountId == null) return@onAssetsShown
             assetsShown = true
@@ -1741,9 +1737,7 @@ class ActivityListView<T>(
                     else -> {
                         if (usesCardSections) {
                             if (indexPath.row == 0) return ACTIVITY_TITLE_CELL
-                            if (indexPath.row >
-                                displayedTransactionsCount + removingTransactionsCount
-                            ) {
+                            if (isShowAllActivitiesRow(indexPath.row)) {
                                 return SHOW_ALL_ACTIVITIES_CELL
                             }
                         }
@@ -2183,7 +2177,7 @@ class ActivityListView<T>(
                             showingTransactions!![index].getStableId()
                         } else if (isRemovingActivityIndex(index)) {
                             "removing_" + activityAt(index)!!.getStableId()
-                        } else if (usesCardSections) {
+                        } else if (isShowAllActivitiesRow(indexPath.row)) {
                             "activity_show_all"
                         } else {
                             null

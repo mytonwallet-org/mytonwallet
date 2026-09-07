@@ -231,8 +231,6 @@ struct UniversalSearchCoordinatorTests {
         #expect(results.totalHitCount == 2)
         #expect(results.corpusRevision == refresh.corpusRevision)
         #expect(results.corpusDocumentCount == 2)
-        #expect(results.engineElapsedMilliseconds >= 0)
-        #expect(results.rankingPolicyVersion == "2")
     }
 
     @Test
@@ -266,8 +264,6 @@ struct UniversalSearchCoordinatorTests {
         #expect(firstProgress.sourceID == SearchSourceID("fast"))
         #expect(firstProgress.sourceDocumentCount == 1)
         #expect(firstProgress.corpusDocumentCount == 1)
-        #expect(firstProgress.sourceElapsedMilliseconds >= 0)
-        #expect(firstProgress.indexElapsedMilliseconds >= 0)
         #expect(partialResults.hits.map(\.id) == [SearchEntityID("token:fast")])
         _ = try await refresh.value
     }

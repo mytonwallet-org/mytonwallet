@@ -107,6 +107,10 @@ public final class AccountContext: Sendable {
     public var balances: [String: BigInt] {
         balancesStore.getAccountBalances(accountId: accountId)
     }
+    public var hasLoadedBalances: Bool {
+        let loadedChains = balancesStore.for(accountId: accountId).byChain
+        return !account.supportedChains.isEmpty && account.supportedChains.allSatisfy { loadedChains[$0] != nil }
+    }
     public var nft: ApiNft? {
         accountSettings.for(accountId: accountId).backgroundNft
     }

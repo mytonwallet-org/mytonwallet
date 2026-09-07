@@ -39,8 +39,4 @@ abstract class IBottomNavigationView(context: Context) :
     open fun getSettingsItemView(): View? = null
 
     open fun getMinimizedWidth(): Int? = null
-
-    open fun pauseBlurring() {}
-    open fun resumeBlurring() {}
-    open val pausedBlurViews: Boolean get() = false
 }

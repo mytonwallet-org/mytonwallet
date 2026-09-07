@@ -226,7 +226,6 @@ class TabletSidePanelView(
                 val computedOffset =
                     if (firstVisible < 1) rv.computeVerticalScrollOffset() else Int.MAX_VALUE / 2
                 updateHeaderScroll(computedOffset)
-                updateBottomBlur()
             }
 
             private var prevState = RecyclerView.SCROLL_STATE_IDLE
@@ -430,7 +429,6 @@ class TabletSidePanelView(
     fun setAccounts(accounts: List<MAccount>) {
         this.accounts = accounts
         rvAdapter.reloadData()
-        recyclerView.doOnPreDraw { updateBottomBlur() }
     }
 
     fun setSelectedTab(id: Int) {
@@ -442,7 +440,6 @@ class TabletSidePanelView(
         tabDefs = defs
         tabRows.clear()
         rvAdapter.reloadData()
-        recyclerView.doOnPreDraw { updateBottomBlur() }
         updateSpacerHeight()
     }
 
@@ -497,7 +494,6 @@ class TabletSidePanelView(
     fun onLaidOut() {
         recyclerView.doOnPreDraw {
             moveHeaderViewToCell()
-            updateBottomBlur()
         }
         headerView.doOnPreDraw {
             applyMaxOverscroll()
@@ -520,33 +516,12 @@ class TabletSidePanelView(
         }
     }
 
-    val pausedBlurViews: Boolean
-        get() = !topBlurReversedCornerView.isPlaying
-
     fun showTopBlur() {
-        if (topBlurReversedCornerView.isPlaying && !topBlurReversedCornerView.isGone) return
         topBlurReversedCornerView.isGone = false
-        topBlurReversedCornerView.resumeBlurring()
     }
 
     fun hideTopBlur() {
-        if (!topBlurReversedCornerView.isPlaying) return
-        topBlurReversedCornerView.pauseBlurring(false)
         topBlurReversedCornerView.isGone = true
-    }
-
-    private fun updateBottomBlur() {
-        if (bottomBlurReversedCornerView.isVisible && recyclerView.canScrollVertically(1)) {
-            if (bottomBlurReversedCornerView.isPlaying &&
-                !bottomBlurReversedCornerView.isGone
-            ) {
-                return
-            }
-            bottomBlurReversedCornerView.resumeBlurring()
-        } else {
-            if (!bottomBlurReversedCornerView.isPlaying) return
-            bottomBlurReversedCornerView.pauseBlurring()
-        }
     }
 
     fun updateInsets() {
@@ -566,14 +541,11 @@ class TabletSidePanelView(
             appliedBottomInset = bottomInset
             updateSpacerHeight()
         }
-        updateBottomBlur()
     }
 
     fun onDestroy() {
         headerView.onDestroy()
         recyclerView.onDestroy()
-        topBlurReversedCornerView.pauseBlurring(keepBlurAsImage = false)
-        bottomBlurReversedCornerView.pauseBlurring()
     }
 
     // Header expand/collapse mechanics (same model as HomeVC) //////////////////////////////////////

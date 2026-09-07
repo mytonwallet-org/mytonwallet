@@ -44,8 +44,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private(set) var homeVC: HomeVC {
         didSet {
             oldValue.onWalletAssetsEditingStateChange = nil
+            oldValue.onUpdateStatusChange = nil
             if isViewLoaded {
                 observeHomeWalletAssetsEditingState()
+                observeHomeUpdateStatus()
             }
         }
     }
@@ -178,6 +180,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         configureBottomBar()
         observeHomeWalletAssetsEditingState()
         observeAccountSwitcher()
+        observeHomeUpdateStatus()
     }
 
     override func viewDidLayoutSubviews() {
@@ -463,6 +466,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
     }
 
+    private func observeHomeUpdateStatus() {
+        homeVC.onUpdateStatusChange = { [weak self] state, animated in
+            self?.accountSwitcherButton.setUpdateStatus(state, animated: animated)
+        }
+        accountSwitcherButton.setUpdateStatus(homeVC.updateStatus, animated: false)
+    }
+
     private func configureNavigationControllers() {
         sharedMainNavigationController?.onWillShowViewController = { [weak self] viewController in
             guard let self, let sharedMainNavigationController else { return }
@@ -487,17 +497,14 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return
         }
         let provider = viewController as? any SharedBottomToolbarContentProviding
-        let showsToolbar = isShowingRoot || provider != nil
-        guard showsToolbar else {
-            bottomGradientView.isHidden = true
-            searchToolbar.isHidden = true
-            return
-        }
-
-        bottomGradientView.isHidden = false
+        let targetPresentation = sharedBottomToolbarPresentation(
+            isShowingRoot: isShowingRoot,
+            provider: provider
+        )
         searchToolbar.isHidden = false
         updateSharedBottomToolbar(
             provider: provider,
+            targetPresentation: targetPresentation,
             in: navigationController,
             coordinator: navigationController.transitionCoordinator
         )
@@ -513,21 +520,22 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     private func updateSharedBottomToolbar(
         provider: (any SharedBottomToolbarContentProviding)?,
+        targetPresentation: UniversalSearchFieldPresentation,
         in navigationController: WNavigationController,
         coordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
-        let targetPresentation: UniversalSearchFieldPresentation = provider == nil
-            ? .homeToolbar
-            : .compactToolbar
-
         if let provider {
             bindSharedBottomToolbarProvider(provider)
-            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions, animated: false)
+            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
         }
 
         guard searchToolbar.presentation != targetPresentation else {
-            if targetPresentation == .homeToolbar {
-                finishSharedBottomToolbarPresentation(provider: nil)
+            finishBottomChromeVisibility(at: targetPresentation)
+            if targetPresentation != .compactToolbar {
+                finishSharedBottomToolbarPresentation(
+                    provider: nil,
+                    presentation: targetPresentation
+                )
             }
             return
         }
@@ -535,21 +543,36 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if targetPresentation != .homeToolbar {
             actionsMenuInteraction?.detach()
         }
+        prepareBottomChromeVisibilityForTransition()
         navigationController.view.layoutIfNeeded()
 
         guard let coordinator else {
             searchToolbar.setPresentation(targetPresentation, animated: false)
             navigationController.view.layoutIfNeeded()
-            finishSharedBottomToolbarPresentation(provider: provider)
+            finishBottomChromeVisibility(at: targetPresentation)
+            finishSharedBottomToolbarPresentation(
+                provider: provider,
+                presentation: targetPresentation
+            )
             return
         }
 
+        let sourcePresentation = searchToolbar.presentation
+        searchToolbar.preparePresentationTransition(to: targetPresentation)
         let accepted = coordinator.animate { [weak self, weak navigationController] _ in
             guard let self, let navigationController else { return }
-            searchToolbar.setPresentation(targetPresentation, animated: false)
+            searchToolbar.applyPreparedPresentationTransition()
+            bottomGradientView.alpha = targetPresentation == .empty ? 0 : 1
             navigationController.view.layoutIfNeeded()
-        } completion: { [weak self, weak navigationController] _ in
-            guard let self, let navigationController,
+        } completion: { [weak self, weak navigationController] context in
+            guard let self else { return }
+            let finalPresentation = context.isCancelled ? sourcePresentation : targetPresentation
+            searchToolbar.setPresentation(
+                finalPresentation,
+                animated: false
+            )
+            finishBottomChromeVisibility(at: finalPresentation)
+            guard let navigationController,
                   universalSearchViewController == nil,
                   let visibleViewController = navigationController.visibleViewController else {
                 return
@@ -563,7 +586,11 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if !accepted {
             searchToolbar.setPresentation(targetPresentation, animated: false)
             navigationController.view.layoutIfNeeded()
-            finishSharedBottomToolbarPresentation(provider: provider)
+            finishBottomChromeVisibility(at: targetPresentation)
+            finishSharedBottomToolbarPresentation(
+                provider: provider,
+                presentation: targetPresentation
+            )
         }
     }
 
@@ -576,23 +603,35 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return
         }
         let provider = viewController as? any SharedBottomToolbarContentProviding
-        guard isShowingRoot || provider != nil else {
-            bottomGradientView.isHidden = true
-            searchToolbar.isHidden = true
-            return
-        }
-
-        bottomGradientView.isHidden = false
+        let targetPresentation = sharedBottomToolbarPresentation(
+            isShowingRoot: isShowingRoot,
+            provider: provider
+        )
         searchToolbar.isHidden = false
         if let provider {
             bindSharedBottomToolbarProvider(provider)
-            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions, animated: false)
-            searchToolbar.setPresentation(.compactToolbar, animated: false)
-        } else {
-            searchToolbar.setPresentation(.homeToolbar, animated: false)
+            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
         }
+        searchToolbar.setPresentation(targetPresentation, animated: false)
         navigationController.view.layoutIfNeeded()
-        finishSharedBottomToolbarPresentation(provider: provider)
+        finishBottomChromeVisibility(at: targetPresentation)
+        finishSharedBottomToolbarPresentation(
+            provider: provider,
+            presentation: targetPresentation
+        )
+    }
+
+    private func sharedBottomToolbarPresentation(
+        isShowingRoot: Bool,
+        provider: (any SharedBottomToolbarContentProviding)?
+    ) -> UniversalSearchFieldPresentation {
+        if isShowingRoot {
+            .homeToolbar
+        } else if provider != nil {
+            .compactToolbar
+        } else {
+            .empty
+        }
     }
 
     @discardableResult
@@ -629,8 +668,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private func updateHomeWalletAssetsNavigationChrome() {
+        // Keep the root item's controls in sync while a transient controller is presented.
         let isShowingWalletRoot = selectedPage == .wallet
-            && sharedMainNavigationController?.visibleViewController === self
+            && sharedMainNavigationController?.topViewController === self
         let navigator = isShowingWalletRoot ? homeVC.walletAssetsEditingNavigator : nil
         let editingState = navigator?.state.editingState
 
@@ -671,22 +711,42 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                   searchToolbar.presentation == .compactToolbar else {
                 return
             }
-            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions, animated: true)
+            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
         }
     }
 
     private func finishSharedBottomToolbarPresentation(
-        provider: (any SharedBottomToolbarContentProviding)?
+        provider: (any SharedBottomToolbarContentProviding)?,
+        presentation: UniversalSearchFieldPresentation
     ) {
         if provider == nil {
             activeSharedBottomToolbarProvider?.onSharedBottomToolbarActionsChange = nil
             activeSharedBottomToolbarProvider?.setSharedBottomToolbarHosted(false)
             activeSharedBottomToolbarProvider = nil
-            searchToolbar.setCompactActions([], animated: false)
-            actionsMenuInteraction?.attach(to: searchToolbar.trailingButtonView)
+            searchToolbar.setCompactActions([])
+            if presentation == .homeToolbar {
+                actionsMenuInteraction?.attach(to: searchToolbar.trailingButtonView)
+            } else {
+                actionsMenuInteraction?.detach()
+            }
         } else {
             actionsMenuInteraction?.detach()
         }
+    }
+
+    private func prepareBottomChromeVisibilityForTransition() {
+        searchToolbar.isHidden = false
+        bottomGradientView.isHidden = false
+        bottomGradientView.alpha = searchToolbar.presentation == .empty ? 0 : 1
+    }
+
+    private func finishBottomChromeVisibility(
+        at presentation: UniversalSearchFieldPresentation
+    ) {
+        let isVisible = presentation != .empty
+        searchToolbar.isHidden = false
+        bottomGradientView.alpha = isVisible ? 1 : 0
+        bottomGradientView.isHidden = !isVisible
     }
 
     private func applyChromeInsets(to viewController: UIViewController) {
@@ -710,7 +770,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func removeChrome(from viewController: UIViewController) {
         if let provider = viewController as? any SharedBottomToolbarContentProviding,
            (activeSharedBottomToolbarProvider as AnyObject?) === (provider as AnyObject) {
-            finishSharedBottomToolbarPresentation(provider: nil)
+            finishSharedBottomToolbarPresentation(
+                provider: nil,
+                presentation: searchToolbar.presentation
+            )
         }
 
         let identifier = ObjectIdentifier(viewController)
@@ -981,8 +1044,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if searchOriginPresentation == .compactToolbar,
            let activeSharedBottomToolbarProvider {
             searchToolbar.setCompactActions(
-                activeSharedBottomToolbarProvider.sharedBottomToolbarActions,
-                animated: false
+                activeSharedBottomToolbarProvider.sharedBottomToolbarActions
             )
         }
 
@@ -1055,6 +1117,25 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func handleUniversalSearchRoute(_ route: UniversalSearchFeatureRoute) {
         closeSearch {
             switch route {
+            case .walletAction(let action):
+                let context = AccountContext(source: .current)
+                switch action {
+                case .fund: AppActions.showReceive(accountContext: context, chain: nil)
+                case .send: AppActions.showSend(accountContext: context, prefilledValues: .init())
+                case .earn: AppActions.showEarn(accountContext: context, tokenSlug: nil)
+                case .buyWithCard: AppActions.showBuyWithCard(accountContext: context, chain: nil, push: nil)
+                case .sell: AppActions.showSell(accountContext: context, tokenSlug: nil)
+                case .scan: AppActions.scanAndHandleQR(accountContext: context)
+                case .swap:
+                    Task {
+                        await AppActions.showSwap(accountContext: context, defaultSellingToken: nil,
+                                                  defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+                    }
+                }
+
+            case .settings(let section):
+                AppActions.showSettings(section: section)
+
             case .token(let accountID, let token):
                 AppActions.showToken(
                     accountSource: .accountId(accountID),
@@ -1279,7 +1360,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         case .explore: explorePage
         }
     }
-
 }
 
 extension TopTabsRootViewController: WSegmentedController.Delegate {
@@ -1303,6 +1383,10 @@ extension TopTabsRootViewController: WSegmentedController.Delegate {
 @MainActor
 private final class TopTabsAccountButton: UIControl {
     private let iconView = IconView(size: topTabsAccountAvatarSize)
+    private let activityIndicator = UIView()
+    private let activityIndicatorImage = UIImageView(image: .airBundle("AccountActivityIndicator"))
+    private var isUpdating = false
+    private var visibilityAnimationId = 0
     private let glassView: UIVisualEffectView = {
         let view: UIVisualEffectView
         if #available(iOS 26, iOSApplicationExtension 26, *) {
@@ -1335,7 +1419,20 @@ private final class TopTabsAccountButton: UIControl {
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.isUserInteractionEnabled = false
         glassView.contentView.addSubview(iconView)
+
+        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicator.isUserInteractionEnabled = false
+        activityIndicator.isAccessibilityElement = false
+        activityIndicator.alpha = 0
+        activityIndicator.isHidden = true
+        glassView.contentView.addSubview(activityIndicator)
+        activityIndicatorImage.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicator.addSubview(activityIndicatorImage)
         NSLayoutConstraint.activate([
+            activityIndicatorImage.leadingAnchor.constraint(equalTo: activityIndicator.leadingAnchor),
+            activityIndicatorImage.trailingAnchor.constraint(equalTo: activityIndicator.trailingAnchor),
+            activityIndicatorImage.topAnchor.constraint(equalTo: activityIndicator.topAnchor),
+            activityIndicatorImage.bottomAnchor.constraint(equalTo: activityIndicator.bottomAnchor),
             glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
             glassView.trailingAnchor.constraint(equalTo: trailingAnchor),
             glassView.topAnchor.constraint(equalTo: topAnchor),
@@ -1345,6 +1442,11 @@ private final class TopTabsAccountButton: UIControl {
             iconView.centerYAnchor.constraint(equalTo: glassView.contentView.centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: topTabsAccountAvatarSize),
             iconView.heightAnchor.constraint(equalToConstant: topTabsAccountAvatarSize),
+
+            activityIndicator.leadingAnchor.constraint(equalTo: glassView.contentView.leadingAnchor),
+            activityIndicator.trailingAnchor.constraint(equalTo: glassView.contentView.trailingAnchor),
+            activityIndicator.topAnchor.constraint(equalTo: glassView.contentView.topAnchor),
+            activityIndicator.bottomAnchor.constraint(equalTo: glassView.contentView.bottomAnchor),
         ])
 
         if #available(iOS 26, iOSApplicationExtension 26, *) {
@@ -1362,6 +1464,71 @@ private final class TopTabsAccountButton: UIControl {
     func configure(account: MAccount?) {
         iconView.config(with: account)
         accessibilityLabel = lang("Settings")
+    }
+
+    func setUpdateStatus(_ state: UpdateStatusView.State, animated: Bool) {
+        switch state {
+        case .waitingForNetwork:
+            accessibilityValue = lang("Waiting for network…")
+        case .updating:
+            accessibilityValue = lang("Updating…")
+        case .updated:
+            accessibilityValue = nil
+        }
+
+        let isUpdating = state != .updated
+        guard self.isUpdating != isUpdating else { return }
+        self.isUpdating = isUpdating
+        visibilityAnimationId += 1
+        let animationId = visibilityAnimationId
+        if isUpdating {
+            activityIndicator.isHidden = false
+            startIndicatorRotation()
+        }
+
+        let opacity = activityIndicator.layer.presentation()?.opacity ?? activityIndicator.layer.opacity
+        let targetOpacity: Float = isUpdating ? 1 : 0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { [weak self] in
+            guard let self, self.visibilityAnimationId == animationId, !self.isUpdating else { return }
+            self.activityIndicator.isHidden = true
+            self.activityIndicatorImage.layer.removeAnimation(forKey: "rotation")
+        }
+        activityIndicator.layer.opacity = targetOpacity
+        if animated && !UIAccessibility.isReduceMotionEnabled {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = opacity
+            fade.toValue = targetOpacity
+            fade.duration = 0.3
+            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            activityIndicator.layer.add(fade, forKey: "opacity")
+        } else {
+            activityIndicator.layer.removeAnimation(forKey: "opacity")
+        }
+        CATransaction.commit()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil, isUpdating {
+            startIndicatorRotation()
+        } else if window == nil {
+            activityIndicatorImage.layer.removeAnimation(forKey: "rotation")
+        }
+    }
+
+    private func startIndicatorRotation() {
+        guard activityIndicatorImage.layer.animation(forKey: "rotation") == nil else { return }
+        let animation = CABasicAnimation(keyPath: "transform.rotation")
+        animation.fromValue = 0
+        animation.beginTime = activityIndicatorImage.layer.convertTime(CACurrentMediaTime(), from: nil)
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.toValue = 2 * Double.pi
+        animation.duration = 0.625
+        animation.repeatCount = .infinity
+        animation.isRemovedOnCompletion = false
+        activityIndicatorImage.layer.add(animation, forKey: "rotation")
     }
 
     @objc private func glassTapped() {

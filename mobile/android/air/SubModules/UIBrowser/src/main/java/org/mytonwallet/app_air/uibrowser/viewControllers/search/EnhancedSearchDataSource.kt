@@ -62,6 +62,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
@@ -72,7 +73,6 @@ import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(searchVC) {
-    private var emptyChatMode = SearchSelectorHeaderCell.Mode.RECENT
     private var emptyTokenMode = SearchSelectorHeaderCell.Mode.RECENT
     private var emptyDappMode = SearchSelectorHeaderCell.Mode.RECENT
 
@@ -207,32 +207,18 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
             }
         }
 
-    private val hasRecentChatSuggestions: Boolean
-        get() = !searchResult?.recentChats.isNullOrEmpty()
-
-    private val hasSuggestedChatSuggestions: Boolean
-        get() = !searchResult?.suggestedChats.isNullOrEmpty()
-
-    private val selectedEmptyChatMode: SearchSelectorHeaderCell.Mode
-        get() = if (
-            emptyChatMode == SearchSelectorHeaderCell.Mode.RECENT &&
-            !hasRecentChatSuggestions &&
-            hasSuggestedChatSuggestions
-        ) {
-            SearchSelectorHeaderCell.Mode.SUGGEST
+    private val visibleRecentChats
+        get() = if (searchQuery.isEmpty()) {
+            searchResult?.recentChats.orEmpty().take(1)
         } else {
-            emptyChatMode
+            emptyList()
         }
 
-    private val visibleChatSuggestions
-        get() = if (searchQuery.isNotEmpty()) {
-            emptyList()
+    private val visibleSuggestedChats
+        get() = if (searchQuery.isEmpty()) {
+            searchResult?.suggestedChats.orEmpty()
         } else {
-            when (selectedEmptyChatMode) {
-                SearchSelectorHeaderCell.Mode.RECENT -> searchResult?.recentChats.orEmpty()
-                SearchSelectorHeaderCell.Mode.SUGGEST -> searchResult?.suggestedChats.orEmpty()
-                SearchSelectorHeaderCell.Mode.TRENDING -> emptyList()
-            }
+            emptyList()
         }
 
     override fun openBestMatch(): BestMatchResult {
@@ -273,11 +259,10 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
 
     override fun recyclerViewNumberOfItems(rv: RecyclerView, section: Int): Int = when (section) {
         SECTION_CHATS -> {
-            if (searchQuery.isEmpty() && visibleChatSuggestions.isNotEmpty()) {
-                3
-            } else {
-                0
-            }
+            // Header + one row per non-empty list (recent conversation, suggestion chips) + gap.
+            val contentRows = (if (visibleRecentChats.isEmpty()) 0 else 1) +
+                (if (visibleSuggestedChats.isEmpty()) 0 else 1)
+            if (contentRows == 0) 0 else contentRows + 2
         }
 
         SECTION_MY_WALLETS -> {
@@ -371,10 +356,6 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
                     SEARCH_SELECTOR_TITLE_CELL
                 }
 
-                SECTION_CHATS -> {
-                    SEARCH_SELECTOR_TITLE_CELL
-                }
-
                 SECTION_DAPPS -> {
                     SEARCH_SELECTOR_TITLE_CELL
                 }
@@ -421,66 +402,49 @@ internal class EnhancedSearchDataSource(searchVC: SearchVC) : SearchDataSource(s
 
         when (indexPath.section) {
             SECTION_CHATS -> {
+                val recentChats = visibleRecentChats
+                val suggestedChats = visibleSuggestedChats
                 if (indexPath.row == 0) {
-                    (cellHolder.cell as SearchSelectorHeaderCell).configure(
-                        title = LocaleController.getString("Chats"),
-                        showsSelector = hasRecentChatSuggestions &&
-                            hasSuggestedChatSuggestions,
-                        selectedMode = selectedEmptyChatMode,
-                        alternativeMode = SearchSelectorHeaderCell.Mode.SUGGEST,
-                        topRounding = topRounding(indexPath),
-                        onModeSelected = { mode ->
-                            val canSelect = when (mode) {
-                                SearchSelectorHeaderCell.Mode.RECENT -> hasRecentChatSuggestions
-
-                                SearchSelectorHeaderCell.Mode.SUGGEST ->
-                                    hasSuggestedChatSuggestions
-
-                                SearchSelectorHeaderCell.Mode.TRENDING -> false
-                            }
-                            if (canSelect && emptyChatMode != mode) {
-                                emptyChatMode = mode
-                                rvAdapter.reloadData()
-                            }
+                    configureSectionHeader(
+                        cellHolder,
+                        indexPath,
+                        LocaleController.getString("Chats")
+                    )
+                } else if (indexPath.row == 1 && recentChats.isNotEmpty()) {
+                    (cellHolder.cell as SearchSectionCell).configure(
+                        recentChats.size,
+                        60.dp,
+                        SEARCH_RECENT_CHAT_CELL,
+                        contentIdentity = recentChats.map { it.id },
+                        bottomRadius = if (suggestedChats.isEmpty()) {
+                            ViewConstants.BLOCK_RADIUS.dp
+                        } else {
+                            0f
+                        },
+                        createCell = { createCell(SEARCH_RECENT_CHAT_CELL) },
+                        configureCell = { cell, itemIndex, isLastItem ->
+                            (cell as SearchRecentChatCell).configure(
+                                recentChats[itemIndex],
+                                isLastItem
+                            )
                         }
                     )
                 } else {
-                    val chats = visibleChatSuggestions
-                    val showsSuggestedChats =
-                        selectedEmptyChatMode == SearchSelectorHeaderCell.Mode.SUGGEST
-                    val chatCellType = if (showsSuggestedChats) {
-                        SEARCH_CHAT_HINT_CELL
-                    } else {
-                        SEARCH_RECENT_CHAT_CELL
-                    }
-                    val maximumItemWidths = if (showsSuggestedChats) {
-                        SearchChatHintCell.hintCellWidths(context, chats)
-                    } else {
-                        null
-                    }
                     (cellHolder.cell as SearchSectionCell).configure(
-                        chats.size,
-                        if (showsSuggestedChats) 44.dp else 60.dp,
-                        chatCellType,
-                        contentIdentity = chats.map { it.id },
-                        maximumItemWidths = maximumItemWidths,
-                        rowSpacing = if (showsSuggestedChats) 12.dp else 0,
-                        verticalPadding = if (showsSuggestedChats) 12.dp else 0,
-                        horizontalEndSpacing = if (showsSuggestedChats) {
-                            SearchChatHintCell.SECTION_END_SPACING.dp
-                        } else {
-                            0
-                        },
-                        createCell = { createCell(chatCellType) },
-                        configureCell = { cell, itemIndex, isLastItem ->
-                            if (showsSuggestedChats) {
-                                (cell as SearchChatHintCell).configure(chats[itemIndex])
-                            } else {
-                                (cell as SearchRecentChatCell).configure(
-                                    chats[itemIndex],
-                                    isLastItem
-                                )
-                            }
+                        suggestedChats.size,
+                        44.dp,
+                        SEARCH_CHAT_HINT_CELL,
+                        contentIdentity = suggestedChats.map { it.id },
+                        maximumItemWidths = SearchChatHintCell.hintCellWidths(
+                            context,
+                            suggestedChats
+                        ),
+                        rowSpacing = 12.dp,
+                        verticalPadding = 12.dp,
+                        horizontalEndSpacing = SearchChatHintCell.SECTION_END_SPACING.dp,
+                        createCell = { createCell(SEARCH_CHAT_HINT_CELL) },
+                        configureCell = { cell, itemIndex, _ ->
+                            (cell as SearchChatHintCell).configure(suggestedChats[itemIndex])
                         }
                     )
                 }

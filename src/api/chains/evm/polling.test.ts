@@ -1,16 +1,16 @@
 import type { ApiAccountWithChain, ApiActivity, ApiNft, OnApiUpdate, OnUpdatingStatusChange } from '../../types';
 
 import { getChainConfig } from '../../../util/chain';
+import { fetchEvmWallet } from './util/account';
 import { NftStream } from './util/nftStream';
-import { fetchStoredWallet } from '../../common/accounts';
 import { swapReplaceActivities } from '../../common/swap';
 import { BalanceStream } from '../../common/websocket/balanceStream';
 import { getTokenActivitySlice } from './activities';
 import { setupActivePolling } from './polling';
 import { getIsWalletActive } from './wallet';
 
-jest.mock('../../common/accounts', () => ({
-  fetchStoredWallet: jest.fn(),
+jest.mock('./util/account', () => ({
+  fetchEvmWallet: jest.fn(),
 }));
 
 jest.mock('../../common/swap', () => ({
@@ -64,7 +64,7 @@ jest.mock('./wallet', () => ({
 
 const ADDRESS = '0x5819e5Ff34198F315322e1863Be6C3dC927cC5C3';
 
-const mockedFetchStoredWallet = jest.mocked(fetchStoredWallet);
+const mockedFetchEvmWallet = jest.mocked(fetchEvmWallet);
 const mockedGetIsWalletActive = jest.mocked(getIsWalletActive);
 const mockedSwapReplaceActivities = jest.mocked(swapReplaceActivities);
 const mockedGetTokenActivitySlice = jest.mocked(getTokenActivitySlice);
@@ -103,7 +103,7 @@ async function flushPromises(count = 10) {
 describe('EVM polling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedFetchStoredWallet.mockResolvedValue({ address: ADDRESS, index: 0 });
+    mockedFetchEvmWallet.mockResolvedValue({ address: ADDRESS, index: 0 });
     // The cases below all describe an address that has history to load, so the cheap
     // has-anything-happened-here probe answers yes; the case that answers no is its own test.
     mockedGetIsWalletActive.mockResolvedValue(true);

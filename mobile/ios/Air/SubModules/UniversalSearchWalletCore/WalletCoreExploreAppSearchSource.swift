@@ -92,7 +92,8 @@ public struct WalletCoreExploreAppSearchSource: UniversalSearchSource {
                 fields: makeSearchFields([
                     (site.name, .title, .text),
                     (site.url, .url, .text),
-                    (site.siteHost, .domain, .text),
+                    // For Telegram sites, siteHost is the username, not a domain (for example, "send").
+                    (site.siteHost, URL(string: site.url)?.host?.lowercased() == "t.me" ? .alias : .domain, .text),
                     (categoryName, .keyword, .text),
                     (site.description, .description, .text),
                 ]),

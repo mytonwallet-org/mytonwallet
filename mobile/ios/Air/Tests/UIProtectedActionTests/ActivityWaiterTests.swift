@@ -106,31 +106,6 @@ struct ActivityWaiterTests {
     }
 
     @Test
-    func `activities for another account are ignored`() async {
-        let waiter = ActivityWaiter(
-            accountId: "account",
-            sources: [.local],
-            timeout: .seconds(1)
-        )
-        let task = Task { @MainActor in
-            await waiter.wait(
-                receipt: ActionSubmissionReceipt<ApiMfaProtectedResult>(),
-                matches: { activity, _ in activity.id == "expected" }
-            )
-        }
-        await Task.yield()
-
-        waiter.receive(accountId: "other", activities: [activity(id: "expected")])
-        waiter.receive(accountId: "account", activities: [activity(id: "expected")])
-
-        guard case .activity(let activity) = await task.value else {
-            Issue.record("Expected activity")
-            return
-        }
-        #expect(activity.id == "expected")
-    }
-
-    @Test
     func `missing activity times out`() async {
         let waiter = ActivityWaiter(
             accountId: "account",

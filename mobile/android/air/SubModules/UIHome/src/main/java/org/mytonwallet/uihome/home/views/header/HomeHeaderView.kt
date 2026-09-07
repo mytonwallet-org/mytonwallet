@@ -99,7 +99,6 @@ open class HomeHeaderView(
     private val collapsedHeightExtra: Int = 0,
     private val scrollCollapsedContent: Boolean = false,
     private val keepCollapsedCardVisibleForStatus: Boolean = false,
-    private val showWalletNameInCardFooter: Boolean = false,
     private val topInsetExtra: () -> Int = { 0 }
 ) : WFrameLayout(window),
     WThemedView,
@@ -215,7 +214,6 @@ open class HomeHeaderView(
     private var prevCardView = WalletCardView(
         window = window,
         keepCollapsedCardVisible = keepCollapsedCardVisibleForStatus,
-        showWalletNameInFooter = showWalletNameInCardFooter,
         topTabsMode = collapsedBalanceStyle != null
     ).apply {
         setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
@@ -224,13 +222,11 @@ open class HomeHeaderView(
     private var cardView = WalletCardView(
         window = window,
         keepCollapsedCardVisible = keepCollapsedCardVisibleForStatus,
-        showWalletNameInFooter = showWalletNameInCardFooter,
         topTabsMode = collapsedBalanceStyle != null
     )
     private var nextCardView = WalletCardView(
         window = window,
         keepCollapsedCardVisible = keepCollapsedCardVisibleForStatus,
-        showWalletNameInFooter = showWalletNameInCardFooter,
         topTabsMode = collapsedBalanceStyle != null
     ).apply {
         setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
@@ -782,6 +778,10 @@ open class HomeHeaderView(
         cardViews.forEach {
             it.updateCardImage()
         }
+    }
+
+    fun updateCardFooterTopLine() {
+        cardViews.forEach { it.updateFooterTopLine() }
     }
 
     fun updateSeasonalTheme() {

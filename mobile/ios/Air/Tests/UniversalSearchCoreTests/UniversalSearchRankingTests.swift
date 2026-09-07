@@ -22,7 +22,7 @@ struct UniversalSearchRankingTests {
     }
 
     @Test
-    func `selection history wins within comparable relevance`() {
+    func `connected apps retain priority over selected held tokens`() {
         let connectedApp = document(
             id: "app:gram",
             kind: .application,
@@ -36,12 +36,41 @@ struct UniversalSearchRankingTests {
             interaction: .init(lastSelectedAt: now, selectionCount: 1)
         )
 
-        #expect(engine.search("gram", in: [heldToken, connectedApp], now: now).first?.id == heldToken.id)
+        #expect(engine.search("gram", in: [heldToken, connectedApp], now: now).first?.id == connectedApp.id)
         #expect(engine.search(
             "gram",
             in: [withoutInteraction(heldToken), connectedApp],
             now: now
         ).first?.id == connectedApp.id)
+    }
+
+    @Test
+    func `product result priorities precede history within comparable matches`() {
+        let kinds: [(String, SearchEntityKind, SearchTraits)] = [
+            ("external-wallet", .wallet, [.external, .viewOnly]),
+            ("connected-app", .application, [.connected]),
+            ("held-token", .token, [.held]),
+            ("tracked-token", .token, [.tracked]),
+            ("collectible", .collectible, [.owned]),
+            ("collection", .collection, [.owned]),
+            ("my-wallet", .wallet, [.owned]),
+            ("view-wallet", .wallet, [.owned, .viewOnly]),
+            ("send", .walletAction, []),
+            ("appearance", .setting, []),
+            ("popular-token", .stock, [.popular]),
+            ("popular-app", .application, [.popular]),
+            ("site", .site, [.fromHistory]),
+            ("recent-search", .webSearchHistory, [.fromHistory]),
+            ("chat", .agentChat, [.fromHistory]),
+            ("agent", .agentAction, []),
+        ]
+        let documents = kinds.enumerated().map { index, entry in
+            document(
+                id: entry.0, kind: entry.1, title: "Wallet", traits: entry.2,
+                interaction: .init(lastSelectedAt: now, selectionCount: index)
+            )
+        }
+        #expect(engine.search("wallet", in: Array(documents.reversed()), now: now).map(\.id) == documents.map(\.id))
     }
 
     @Test
@@ -297,26 +326,6 @@ struct UniversalSearchRankingTests {
         #expect(results.count == 2)
         #expect(results.first?.id == strong.id)
         #expect(results.first?.match.kind == .exactPhrase)
-    }
-
-    @Test
-    func `exposes an explainable rank`() throws {
-        let source = SearchSourceID("backend:trending")
-        let value = document(
-            id: "token:gram",
-            title: "Gram",
-            traits: [.held],
-            baseCurrencyValue: 50,
-            recommendation: .init(source: source, rank: 2)
-        )
-
-        let hit = try #require(engine.search("gram", in: [value], now: now).first)
-
-        #expect(hit.rankingExplanation.contains("band=phrase"))
-        #expect(hit.rankingExplanation.contains("match=exactPhrase"))
-        #expect(hit.rankingExplanation.contains("personal=300"))
-        #expect(hit.rankingExplanation.contains("trust=unknown"))
-        #expect(hit.rankingExplanation.contains { $0.hasPrefix("recommendation=backend:trending:") })
     }
 
     private func document(

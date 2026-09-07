@@ -53,6 +53,8 @@ import { callHook } from '../hooks';
 import { publishSignedMfaRequest } from './mfa';
 import { getBackendAuthToken, getStoredBackendAuthToken } from './other';
 
+export { resolveSwapDefaults } from '../common/swapDefaults';
+
 let onUpdate: OnApiUpdate;
 
 export function initSwap(_onUpdate: OnApiUpdate) {
@@ -267,17 +269,23 @@ export async function fetchSwaps(
 export async function swapEstimate(
   accountId: string,
   request: ApiSwapEstimateRequest,
-): Promise<ApiSwapEstimateResponse | { error: string }> {
-  const walletVersion = (await fetchStoredWallet(accountId, 'ton')).version;
+): Promise<ApiSwapEstimateResponse> {
+  const walletVersion = (await fetchStoredAccount(accountId)).byChain.ton?.version;
   const { swapVersion } = await getBackendConfigCache();
 
-  return callBackendPost('/swap/estimate', {
+  const estimate = await callBackendPost<ApiSwapEstimateResponse>('/swap/estimate', {
     ...request,
     swapVersion: swapVersion ?? SWAP_API_VERSION,
     walletVersion,
   }, {
     isAllowBadRequest: true,
   });
+
+  if (estimate.hint?.type === 'intermediate') {
+    return { ...estimate, hint: { ...estimate.hint, token: getSwapItemSlug(estimate.hint.token) } };
+  }
+
+  return estimate;
 }
 
 export async function swapBuild(

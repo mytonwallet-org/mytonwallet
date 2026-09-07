@@ -97,5 +97,29 @@ describe('Test poison address attack', () => {
 
       expect(isValidScam).toBeFalsy();
     });
+
+    it('does not use approvals for poisoning detection', () => {
+      const validActivity = makeMockTransactionActivity({
+        timestamp: TIMESTAMP_1,
+        amount: LARGE_AMOUNT,
+        fromAddress: VALID_ADDRESS_1,
+        toAddress: OWN_ADDRESS,
+        isIncoming: true,
+      });
+      updatePoisoningCacheFromActivities([validActivity]);
+
+      const approval = makeMockTransactionActivity({
+        timestamp: TIMESTAMP_1 - 1,
+        amount: BigInt(Number.MAX_SAFE_INTEGER),
+        fromAddress: SCAM_ADDRESS_1,
+        toAddress: OWN_ADDRESS,
+        isIncoming: true,
+        type: 'approval',
+      });
+
+      expect(getIsTransactionWithPoisoning(approval)).toBe(false);
+      updatePoisoningCacheFromActivities([approval]);
+      expect(getIsTransactionWithPoisoning(validActivity)).toBe(false);
+    });
   });
 });

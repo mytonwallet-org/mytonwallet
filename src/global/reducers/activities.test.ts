@@ -1,6 +1,7 @@
 import type { ApiSwapActivity, ApiTransactionActivity } from '../../api/types';
 import type { GlobalState } from '../types';
 
+import { TRC20_USDT_MAINNET, TRX } from '../../config';
 import { INITIAL_STATE } from '../initialState';
 import {
   addInitialActivities,
@@ -9,6 +10,7 @@ import {
   applyActivitiesPatch,
   removeActivities,
   replaceCurrentActivityId,
+  updateActivity,
 } from './activities';
 
 const ACCOUNT_ID = 'test-account';
@@ -55,6 +57,78 @@ function makeActivity(
     timestamp,
   };
 }
+
+describe('approval history cache', () => {
+  const approval: ApiTransactionActivity = {
+    ...makeActivity('approval', TRC20_USDT_MAINNET.slug, 100),
+    type: 'approval',
+    amount: 2n ** 256n - 1n,
+    isApprovalUnlimited: true,
+  };
+  const contractCall: ApiTransactionActivity = {
+    ...makeActivity(approval.id, TRX.slug, approval.timestamp),
+    type: 'callContract',
+    amount: 0n,
+  };
+
+  it.each([true, false])('preserves initial approval when TRX arrives first: %s', (isTrxFirst) => {
+    const bySlug = isTrxFirst
+      ? { [TRX.slug]: [contractCall], [approval.slug]: [approval] }
+      : { [approval.slug]: [approval], [TRX.slug]: [contractCall] };
+
+    let global = buildGlobal();
+    global.accounts!.byId[ACCOUNT_ID].byChain = { tron: { address: 'tron-address' } };
+    global = addInitialActivities(global, ACCOUNT_ID, [approval], bySlug, 'tron', false);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities!.byId[approval.id]).toEqual(approval);
+    expect(global.byAccountId[ACCOUNT_ID].activities!.idsMain).toEqual([approval.id]);
+  });
+
+  it('keeps the approval when TRX history is loaded after the main feed', () => {
+    let global = addPastActivities(buildGlobal(), ACCOUNT_ID, undefined, [approval]);
+    global = addPastActivities(global, ACCOUNT_ID, TRX.slug, [contractCall]);
+
+    const activities = global.byAccountId[ACCOUNT_ID].activities!;
+    expect(activities.byId[approval.id]).toEqual(approval);
+    expect(activities.idsMain).toEqual([approval.id]);
+    expect(activities.idsBySlug![TRX.slug]).toEqual([approval.id]);
+  });
+
+  it('accepts a token transfer that replaces an approval for the same hash', () => {
+    const transfer = { ...approval, type: undefined, isApprovalUnlimited: undefined, amount: -10n };
+    let global = addPastActivities(buildGlobal(), ACCOUNT_ID, undefined, [approval]);
+    global = addPastActivities(global, ACCOUNT_ID, approval.slug, [transfer]);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities!.byId[approval.id]).toEqual(transfer);
+  });
+
+  it('does not replace an approval with a stale contract details response', () => {
+    const global = addPastActivities(buildGlobal(), ACCOUNT_ID, undefined, [approval]);
+    const updated = updateActivity(global, ACCOUNT_ID, contractCall);
+
+    expect(updated.byAccountId[ACCOUNT_ID].activities!.byId[approval.id]).toEqual(approval);
+  });
+
+  it('applies an explicit SDK patch without overriding its classification', () => {
+    const global = addPastActivities(buildGlobal(), ACCOUNT_ID, undefined, [approval]);
+    const updated = applyActivitiesPatch(global, ACCOUNT_ID, { upsert: [contractCall], removeIds: [] });
+
+    expect(updated.byAccountId[ACCOUNT_ID].activities!.byId[approval.id]).toEqual(contractCall);
+  });
+
+  it('accepts a refreshed allowance and an unrelated contract call', () => {
+    const revokedApproval = { ...approval, amount: 0n, isApprovalUnlimited: false };
+    const otherCall = { ...contractCall, id: 'other-call' };
+    let global = addPastActivities(buildGlobal(), ACCOUNT_ID, undefined, [approval]);
+    global = addPastActivities(global, ACCOUNT_ID, approval.slug, [revokedApproval]);
+    global = addPastActivities(global, ACCOUNT_ID, TRX.slug, [otherCall]);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities!.byId).toEqual({
+      [approval.id]: revokedApproval,
+      [otherCall.id]: otherCall,
+    });
+  });
+});
 
 describe('addInitialActivities', () => {
   it('keeps exhausted one-item histories from different chains', () => {

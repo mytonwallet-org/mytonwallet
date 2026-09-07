@@ -30,7 +30,6 @@ playServicesBase = "18.10.0"
 mpcharts = "3.1.0"
 paletteKtx = "1.0.0"
 webkit = "1.16.0"
-blurview = "version-2.0.6"
 timber = "5.0.1"
 firebaseCrashlyticsGradle = "3.0.7"
 firebaseCrashlytics = "20.0.6"
@@ -70,7 +69,6 @@ camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", versi
 camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraCamera2" }
 mlkit-barcode-scanning = { group = "com.google.android.gms", name = "play-services-mlkit-barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBase" }
-blurview = { group = "com.github.Dimezis", name = "BlurView", version.ref = "blurview" }
 
 charts = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpcharts" }
 

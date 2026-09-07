@@ -40,6 +40,7 @@ public enum ApiActivity: Equatable, Hashable, Codable, Sendable {
 }
 
 public enum ApiTransactionType: String, Codable, Sendable {
+    case approval
     case stake
     case unstake
     case unstakeRequest

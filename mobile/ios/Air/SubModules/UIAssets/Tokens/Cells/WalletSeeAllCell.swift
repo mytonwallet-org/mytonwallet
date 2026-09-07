@@ -5,6 +5,7 @@
 //  Created by Sina on 10/24/24.
 //
 
+import ContextMenuKit
 import UIKit
 import UIComponents
 import WalletContext
@@ -44,13 +45,19 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     }
 
     private let badge = BadgeView()
+    private var menuProvider: SegmentedControlContextMenuProvider?
+    private lazy var menuInteraction = ContextMenuInteraction(triggers: [.longPress]) { [weak self] _ in
+        guard var configuration = self?.menuProvider?.makeConfiguration() else { return nil }
+        configuration.backdrop = .none
+        return configuration
+    }
     private var menuButtonWidthConstraint: NSLayoutConstraint!
     private var menuButtonHeightConstraint: NSLayoutConstraint!
     private var menuButtonTrailingConstraint: NSLayoutConstraint!
 
     private let menuButton = configured(object: UIButton(type: .system)) {
         $0.translatesAutoresizingMaskIntoConstraints = false
-        $0.showsMenuAsPrimaryAction = true
+        $0.accessibilityLabel = lang("More")
         $0.setImage(UIImage(systemName: "ellipsis", withConfiguration: WalletSeeAllCell.menuButtonConfig), for: .normal)
         $0.isHidden = true
     }
@@ -64,6 +71,10 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         contentView.addSubview(seeAllLabel)
         contentView.addSubview(badge)
         contentView.addSubview(menuButton)
+        menuButton.addAction(UIAction { [weak self] _ in
+            guard let self, menuProvider != nil else { return }
+            menuInteraction.present()
+        }, for: .primaryActionTriggered)
         badge.translatesAutoresizingMaskIntoConstraints = false
         menuButtonWidthConstraint = menuButton.widthAnchor.constraint(equalToConstant: Self.menuButtonSideLength)
         menuButtonHeightConstraint = menuButton.heightAnchor.constraint(equalToConstant: Self.menuButtonSideLength)
@@ -86,7 +97,7 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         updateTheme()
     }
 
-    public func configure(tokensCount: Int, menu: UIMenu?) {
+    public func configure(tokensCount: Int, menu: UIMenu? = nil) {
         configure(
             title: lang("Show All Assets"),
             count: tokensCount,
@@ -95,16 +106,16 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         )
     }
 
-    public func configureCollectibles(title: String, collectiblesCount: Int) {
+    public func configureCollectibles(title: String, collectiblesCount: Int, menuProvider: SegmentedControlContextMenuProvider? = nil) {
         configure(
             title: title,
             count: collectiblesCount,
             leadingIconSystemName: "square.grid.2x2",
-            menu: nil
+            menuProvider: menuProvider
         )
     }
 
-    public func configureActivities(menu: UIMenu?) {
+    public func configureActivities(menu: UIMenu? = nil) {
         configure(
             title: lang("Show All Actions"),
             count: nil,
@@ -113,7 +124,13 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         )
     }
 
-    private func configure(title: String, count: Int?, leadingIconSystemName: String, menu: UIMenu?) {
+    private func configure(
+        title: String,
+        count: Int?,
+        leadingIconSystemName: String,
+        menu: UIMenu? = nil,
+        menuProvider: SegmentedControlContextMenuProvider? = nil
+    ) {
         seeAllLabel.text = title
         leadingIconView.image = UIImage(systemName: leadingIconSystemName, withConfiguration: Self.leadingIconConfig)
         if let count {
@@ -125,14 +142,29 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
         }
         badge.isHidden = count == nil
 
-        let isMenuVisible = menu != nil
+        let isMenuVisible = menu != nil || menuProvider != nil
+        self.menuProvider = menuProvider
         menuButton.menu = menu
+        menuButton.showsMenuAsPrimaryAction = menu != nil
+        if menuProvider != nil {
+            menuInteraction.attach(to: menuButton)
+        } else {
+            menuInteraction.detach()
+        }
         menuButton.isHidden = !isMenuVisible
         menuButtonWidthConstraint.constant = isMenuVisible ? Self.menuButtonSideLength : 0
         menuButtonHeightConstraint.constant = isMenuVisible ? Self.menuButtonSideLength : 0
         menuButtonTrailingConstraint.constant = isMenuVisible ? -Self.menuButtonTrailingInset : 0
     }
     
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        menuProvider = nil
+        menuButton.menu = nil
+        menuButton.showsMenuAsPrimaryAction = false
+        menuInteraction.detach()
+    }
+
     private func updateTheme() {
         backgroundColor = .clear
         contentView.backgroundColor = .clear

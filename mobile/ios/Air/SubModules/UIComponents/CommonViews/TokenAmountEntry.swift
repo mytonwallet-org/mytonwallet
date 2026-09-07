@@ -234,7 +234,14 @@ public struct TokenAmountEntrySection: View {
 
 
 public struct TokenAmountEntry: View {
-    
+
+    public enum Style {
+        case regular
+        case large
+    }
+
+    public var style: Style
+
     @Binding public var amount: BigInt?
     public var token: ApiToken?
     public var inBaseCurrency: Bool
@@ -252,6 +259,7 @@ public struct TokenAmountEntry: View {
         inBaseCurrency: Bool,
         insufficientFunds: Bool,
         isValueStale: Bool = false,
+        style: Style = .regular,
         triggerFocused: Binding<Bool>,
         onTokenPickerTapped: (() -> ())?,
         isInputEnabled: Bool = true,
@@ -263,6 +271,7 @@ public struct TokenAmountEntry: View {
         self.inBaseCurrency = inBaseCurrency
         self.insufficientFunds = insufficientFunds
         self.isValueStale = isValueStale
+        self.style = style
         self._triggerFocused = triggerFocused
         self.onTokenPickerTapped = onTokenPickerTapped
         self.isInputEnabled = isInputEnabled
@@ -319,13 +328,14 @@ public struct TokenAmountEntry: View {
             WUIAmountInput(
                 amount: $amount,
                 maximumFractionDigits: decimals,
-                font: WTypography.uiFont(.amount, content: .technical),
-                fractionFont: WTypography.uiFont(.amountSecondary, content: .technical),
+                font: WTypography.uiFont(.amount, content: .technical).withSize(style == .large ? 36 : 24),
+                fractionFont: WTypography.uiFont(.amountSecondary, content: .technical).withSize(style == .large ? 28 : 20),
                 isFocused: $triggerFocused,
                 error: insufficientFunds,
                 muted: isValueStale,
                 onUserChange: onAmountChanged
             )
+            .frame(height: style == .large ? 42 : nil)
             .id(inBaseCurrency)
             .allowsHitTesting(isInputEnabled)
         } else {
@@ -339,9 +349,10 @@ public struct TokenAmountEntry: View {
         TokenPickerButton(
             token: token,
             inBaseCurrency: inBaseCurrency,
+            style: style == .large ? .large : .regular,
             onTap: onTokenPickerTapped
         )
-        .offset(x: 8)
-        .padding(.vertical, -1)
+        .offset(x: style == .large ? 0 : 8)
+        .padding(.vertical, style == .large ? 0 : -1)
     }
 }

@@ -5,6 +5,7 @@ import { parseAccountId } from '../../../util/account';
 import { mergeSortedActivities } from '../../../util/activities/order';
 import { createCallbackManager } from '../../../util/callbacks';
 import { areSortedArraysEqual, extractKey } from '../../../util/iteratees';
+import { logDebugError } from '../../../util/logs';
 import { OrGate } from '../../../util/orGate';
 import { throttle } from '../../../util/schedulers';
 import { fetchStoredWallet } from '../../common/accounts';
@@ -89,7 +90,17 @@ export class RichActivityStream {
 
       const rawConfirmedActivities = this.#confirmedActivitiesToReport;
       this.#confirmedActivitiesToReport = [];
-      const richConfirmedActivities = await enrichActivities(this.#accountId, rawConfirmedActivities);
+      let richConfirmedActivities: ApiActivity[];
+
+      try {
+        richConfirmedActivities = await enrichActivities(this.#accountId, rawConfirmedActivities);
+      } catch (err) {
+        // Enrichment only decorates the activities, so a failed batch is still worth reporting. Dropping it would
+        // strand the pending versions of these activities in the list for the rest of the session, because this
+        // report is the only thing that clears them.
+        logDebugError('enrichAndReportActivities', err);
+        richConfirmedActivities = rawConfirmedActivities;
+      }
 
       this.#pendingActivities.updateAfterEnrichment(rawConfirmedActivities);
       this.#reportActivities(richConfirmedActivities);

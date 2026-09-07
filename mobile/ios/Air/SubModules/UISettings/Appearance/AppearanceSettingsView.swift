@@ -13,8 +13,9 @@ struct AppearanceSettingsView: View {
             InsetList(topPadding: 16, spacing: 24) {
                 themeSection
                 PaletteAndCardSection()
+                WalletCardSettingsSection()
+                WalletDisplaySettingsSection()
                 OtherAppearanceSettingsSection()
-                HideActionButtonsSection()
                     .padding(.bottom, 48)
             }
         }
@@ -27,30 +28,6 @@ struct AppearanceSettingsView: View {
             }
         } header: {
             Text(lang("Theme"))
-        }
-    }
-}
-
-private struct HideActionButtonsSection: View {
-    @AppStorage(WalletActionButtonsSettings.hideActionButtonsRowUserDefaultsKey)
-    private var hidesActionButtonsRow = false
-
-    var body: some View {
-        InsetSection {
-            InsetCell(verticalPadding: 0) {
-                HStack {
-                    Text(lang("$settings_hide_action_buttons"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Toggle(lang("$settings_hide_action_buttons"), isOn: $hidesActionButtonsRow)
-                        .labelsHidden()
-                }
-                .frame(minHeight: 44)
-            }
-        } footer: {
-            Text(lang("$settings_hide_action_buttons_description"))
-        }
-        .onChange(of: hidesActionButtonsRow) { _ in
-            WalletActionButtonsSettings.notifyDidChange()
         }
     }
 }

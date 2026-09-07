@@ -22,6 +22,8 @@ struct HomeCardContent: View {
     var accountContext: AccountContext
     var layout: HomeCardLayoutMetrics
     var minimumHomeCardFontScale: CGFloat = 1
+    @AppStorage(WalletCardSettings.topLineUserDefaultsKey)
+    private var cardTopLineRawValue = WalletCardTopLine.defaultValue.rawValue
     
     var progress: CGFloat { headerViewModel.collapseProgress }
     
@@ -41,7 +43,7 @@ struct HomeCardContent: View {
                     .animation(.default, value: accountContext.balance)
 
                 Group {
-                    if headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs {
+                    if showsWalletName {
                         _WalletTitleLine(accountContext: accountContext)
                     } else {
                         _AddressLine(accountContext: accountContext)
@@ -69,6 +71,12 @@ struct HomeCardContent: View {
 
     var balanceScale: CGFloat { interpolate(from: 1, to: 17.0/40.0, progress: progress) }
     var bottomPadding: CGFloat { interpolate(from: 0, to: targetBottomPadding, progress: progress) }
+
+    private var showsWalletName: Bool {
+        guard headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs else { return false }
+        let topLine = WalletCardTopLine(rawValue: cardTopLineRawValue) ?? .defaultValue
+        return topLine == .walletName
+    }
 }
 
 private struct _CenterContent: View {

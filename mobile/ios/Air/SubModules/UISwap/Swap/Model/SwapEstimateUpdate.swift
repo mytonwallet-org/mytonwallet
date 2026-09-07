@@ -31,13 +31,8 @@ import WalletContext
         )
     }
 
-    /// True when the attempt came back with a quote.
-    ///
-    /// The estimate engines answer a rejected request, an unreachable router or a pair with no route by
-    /// returning a result that carries no response rather than by throwing, and a rate-limited attempt
-    /// keeps the current state instead. None of the three is the market answering.
     var hasQuote: Bool {
-        !keepsCurrentState && stateUpdate?.response != nil
+        !keepsCurrentState && stateUpdate?.response?.isQuote == true
     }
 
     func apply(to input: SwapInputModel) {

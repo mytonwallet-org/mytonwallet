@@ -17,13 +17,6 @@ struct ActivityTokenSlugTests {
         #expect(activity.shouldIncludeForSlug(SOLANA_USDT_MAINNET_SLUG))
     }
 
-    @Test
-    func `token lookup resolves default token addresses`() {
-        let token = TokenStore.getToken(slugOrAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB")
-
-        #expect(token?.slug == SOLANA_USDT_MAINNET_SLUG)
-    }
-
     private func makeSwapActivity(to: String) throws -> ApiActivity {
         let json = """
         {

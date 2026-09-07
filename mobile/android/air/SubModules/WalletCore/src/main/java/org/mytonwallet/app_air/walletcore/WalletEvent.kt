@@ -76,6 +76,8 @@ sealed class WalletEvent {
     data object WideLayoutChanged : WalletEvent()
     data object SideGuttersChanged : WalletEvent()
     data object AppTabsChanged : WalletEvent()
+    data object WalletCardTopLineChanged : WalletEvent()
+    data object ActionButtonsRowChanged : WalletEvent()
 
     data class OpenUrl(val url: String, val isExternal: Boolean = false) : WalletEvent()
 

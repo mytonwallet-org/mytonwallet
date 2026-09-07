@@ -12,6 +12,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.gradientColors
+import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
+import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.WEquatable
@@ -201,6 +203,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "isIncoming") val isIncoming: Boolean,
         @Json(name = "normalizedAddress") val normalizedAddress: String?,
         @Json(name = "type") val type: ApiTransactionType? = null,
+        @Json(name = "isApprovalUnlimited") val isApprovalUnlimited: Boolean? = null,
         @Json(name = "metadata") val metadata: ApiTransactionMetadata? = null,
         @Json(name = "nft") val nft: ApiNft? = null,
         @Json(name = "status") val status: ApiTransactionStatus = ApiTransactionStatus.COMPLETED
@@ -242,6 +245,21 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             get() {
                 return TokenStore.getToken(getTxSlug())
             }
+
+        fun formatApprovalAmount(): String? {
+            val token = token ?: return null
+            if (isApprovalUnlimited == true) {
+                return "∞ ${token.symbol}"
+            }
+            return amount.abs().toString(
+                decimals = token.decimals,
+                currency = token.symbol,
+                currencyDecimals = amount.smartDecimalsCount(token.decimals),
+                showPositiveSign = false,
+                forceCurrencyToRight = true,
+                roundUp = false
+            )
+        }
 
         val hasComment: Boolean
             get() {
@@ -531,8 +549,12 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     hashes.size != comparing.hashes.size
             }
             if (this is Transaction) {
+                if (comparing !is Transaction) return true
                 return isLocal() != comparing.isLocal() ||
-                    status != (comparing as? Transaction)?.status
+                    status != comparing.status ||
+                    type != comparing.type ||
+                    amount != comparing.amount ||
+                    isApprovalUnlimited != comparing.isApprovalUnlimited
             }
         }
         return false
@@ -711,6 +733,9 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
 @JsonClass(generateAdapter = false)
 enum class ApiTransactionType {
+    @Json(name = "approval")
+    APPROVAL,
+
     @Json(name = "stake")
     STAKE,
 
@@ -775,6 +800,7 @@ enum class ApiTransactionType {
 
     private val icons: Map<ApiTransactionType, Int> by lazy {
         mapOf(
+            APPROVAL to R.drawable.ic_act_contract,
             STAKE to R.drawable.ic_act_percent,
             UNSTAKE to R.drawable.ic_act_percent,
             UNSTAKE_REQUEST to R.drawable.ic_act_percent,
@@ -804,6 +830,11 @@ enum class ApiTransactionType {
 
     private val titles: Map<ApiTransactionType, Triple<String, String, String>> by lazy {
         mapOf(
+            APPROVAL to Triple(
+                "Token Approval",
+                "Token Approval",
+                "Token Approval"
+            ),
             STAKE to Triple(
                 "Staked",
                 "Staking",

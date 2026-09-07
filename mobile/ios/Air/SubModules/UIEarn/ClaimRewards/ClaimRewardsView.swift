@@ -128,10 +128,7 @@ struct ClaimRewardsButtonContent: View {
                 viewModel.isConfirming = true
             }
         }
-        .buttonStyle(OpenButtonStyle(
-            foregroundColor: .white,
-            backgroundColor: .air.tint
-        ))
+        .buttonStyle(OpenButtonStyle.tinted())
     }
 }
 

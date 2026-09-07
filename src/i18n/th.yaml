@@ -129,7 +129,9 @@ Invoice Link Copied: ลิงก์ใบแจ้งหนี้ถูกค�
 Theme: ธีม
 Language: ภาษา
 Enable Animations: เปิดการเล่นอนิเมชั่น
+Animations: อนิเมชั่น
 Enable Seasonal Theming: เปิดธีมตามฤดูกาล
+Seasonal Theming: ธีมตามฤดูกาล
 Enable Landscape Mode: เปิดใช้งานโหมดแนวนอน
 Disable Seasonal Theming: ปิดธีมตามฤดูกาล
 You can always enable seasonal theming again in the appearance settings.: คุณสามารถเปิดธีมตามฤดูกาลได้อีกครั้งในการตั้งค่าการแสดงผล
@@ -162,6 +164,9 @@ Description Copied: คัดลอกคำอธิบายแล้ว
 Message Copied: คัดลอกข้อความแล้ว
 Sender: ผู้ส่ง
 Recipient: ผู้รับ
+Spender: ผู้รับอนุญาต
+Token Approval: การอนุมัติโทเค็น
+Allowance: วงเงินอนุมัติ
 "%chain% Address Copied": "คัดลอกที่อยู่ %chain% แล้ว"
 Repeat: ทำซ้ำ
 Switch Account: สลับที่อยู่บัญชี
@@ -393,8 +398,8 @@ Agree: ยอมรับ
 $swap_action: สับเปลี่ยน
 $swap_activity_title: การสับเปลี่ยน
 Swap: สับเปลี่ยน
-You sell: การขายของคุณ
-You buy: การซื้อของคุณ
+You Sell: การขายของคุณ
+You Buy: การซื้อของคุณ
 Swap Details: รายละเอียดการสับเปลี่ยน
 Blockchain Fee: ค่าธรรมเนียมบล็อกเชน
 Included: รวมอยู่ด้วย
@@ -403,7 +408,7 @@ Minimum Received: ขั้นต่ำที่ได้รับ
 Slippage: ค่าความคลาดเคลื่อน
 $swap_from_to: แลก %from% %icon% %to%
 The exchange rate is below market value!: อัตราการแลกเปลี่ยนที่ %value% ต่ำกว่ามูลค่าตลาด!
-Invalid Pair: การจับคู่ไม่ถูกต้อง
+Invalid Pair: ไม่สามารถสับเปลี่ยนได้
 We do not recommend to perform an exchange, try to specify a lower amount.: เราไม่แนะนำให้ทำการแลกเปลี่ยน, โปรดระบุจำนวนที่ต่ำกว่านี้.
 $swap_minimum_received_tooltip1: นี่คือจำนวนโทเค็นใหม่ที่ตำ่สุดที่คุณจะได้รับจากการแลกเปลี่ยนนี้ โดยพิจารณาจากสภาวะตลาดในปัจจุบัน การยอมรับความคลาดเคลื่อนของราคา และผลกระทบด้านราคาที่อาจเกิดขึ้น.
 $swap_minimum_received_tooltip2: ซึ่งเป็นจำนวนขั้นต่ำที่คาดไว้, แต่อาจจะเงื่อนไขเปลี่ยนแปลงไปในขณะที่กำลังประมวลผลระหว่างสับเปลี่ยน จำนวนมูลค่าที่ได้รับอาจจะลดลง.
@@ -588,6 +593,16 @@ No Activity: ไม่มีกิจกรรม
 Fund: เติมเงิน
 Buy with Card: ซื้อด้วยบัตร
 Buy with Crypto: ซื้อด้วยคริปโต
+Add funds to swap: เติมเงินเพื่อสับเปลี่ยน
+Direct swap unavailable: ไม่สามารถสับเปลี่ยนโดยตรงได้
+Swap on an external service: สับเปลี่ยนผ่านบริการภายนอก
+Buy with a card or receive crypto to fund this swap.: ซื้อคริปโตด้วยบัตรหรือรับคริปโตเพื่อเติมเงินสำหรับการสับเปลี่ยนนี้
+Buy crypto or choose another token to sell.: ซื้อคริปโตหรือเลือกโทเค็นอื่นเพื่อขาย
+Your balances are small. Add funds or choose another token to swap.: ยอดคงเหลือของคุณมีน้อย เติมเงินหรือเลือกโทเค็นอื่นเพื่อสับเปลี่ยน
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: หากต้องการซื้อ %buy_token% ให้ซื้อ %token% ก่อน แล้วสับเปลี่ยนเป็น %buy_token%
+Open %provider% to swap this pair in the browser.: เปิด %provider% เพื่อสับเปลี่ยนคู่นี้ในเบราว์เซอร์
+Buy %token%: ซื้อ %token%
+Open %provider%: เปิด %provider%
 Cannot load widget: ไม่สามารถโหลดวิดเจ็ตได้
 Explore: สำรวจ
 $lockdown_mode_enabled_title: เปิดใช้งานโหมดล็อกดาวน์แล้ว
@@ -1114,7 +1129,7 @@ You don’t have any cards to customize yet: คุณยังไม่มี�
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: การ์ด My Wallet สามารถติดตั้งให้กับกระเป๋าเงินและแสดงบนหน้าหลักและในรายการกระเป๋าเงินได้
 Get First Card: รับการ์ดแรก
 Palette and Card: พาเลตและการ์ด
-Customize the wallet's home screen and color accents the way you like.: ปรับแต่งหน้าหลักและโทนสีของกระเป๋าเงินในแบบที่คุณต้องการ
+Customize the wallet’s card appearance and color accents the way you like.: ปรับแต่งรูปลักษณ์การ์ดและโทนสีของกระเป๋าเงินในแบบที่คุณต้องการ
 Address doesn't exist: ที่อยู่ไม่ถูกต้อง
 The address is not a token minter address: ที่อยู่นี้ไม่ใช่ที่อยู่ของผู้สร้างโทเค็น
 $joining_comma: ", "
@@ -1237,8 +1252,16 @@ $agent_consent_debug_reset_footer: แสดงหน้าจอความย
 $settings_token_change_threshold: เกณฑ์ % การเปลี่ยนแปลง
 $settings_token_change_threshold_description: ซ่อนเปอร์เซ็นต์การเปลี่ยนแปลงใน 24 ชั่วโมงที่ต่ำกว่าเกณฑ์ที่เลือก
 $settings_token_change_threshold_off: ปิด
-$settings_hide_action_buttons: ซ่อนปุ่มดำเนินการ
-$settings_hide_action_buttons_description: ซ่อนแถวปุ่มดำเนินการบนหน้ากระเป๋าเงิน
+Blockchain Badges: ป้ายบล็อกเชน
+$settings_blockchain_badges_description: แสดงป้ายบล็อกเชนสำหรับโทเคนทั้งหมด โดยค่าเริ่มต้นจะแสดงเฉพาะสเตเบิลคอยน์และหุ้นโทเคนไนซ์ที่มีในหลายบล็อกเชนเท่านั้น
+Show on Card: แสดงบนการ์ด
+Top Address: ที่อยู่หลัก
+Highest-Balance Address: ที่อยู่ที่มียอดคงเหลือสูงสุด
+3 Highest-Balance Addresses: 3 ที่อยู่ที่มียอดคงเหลือสูงสุด
+3 Top Addresses: 3 ที่อยู่หลัก
+Action Buttons: ปุ่มดำเนินการ
+Collectibles Section: ส่วนของสะสม
+$settings_wallet_card_description: ปรับแต่งสิ่งที่แสดงบนการ์ดกระเป๋าเงินและกำหนดว่าจะแสดงปุ่มดำเนินการหรือไม่
 Retry: ลองอีกครั้ง
 $agent_chat_running: กำลังทำงานในเบื้องหลัง
 $agent_connection_interrupted: การเชื่อมต่อผู้ช่วยถูกขัดจังหวะ โปรดลองอีกครั้ง
@@ -2095,7 +2118,9 @@ $chart_week_days_short: อาทิตย์,จันทร์,อังคา
 Unsupported Chain: เครือข่ายที่ไม่รองรับ
 Please upgrade to multichain to use this app.: โปรดอัปเกรดเป็นกระเป๋ามัลติเชนเพื่อใช้งานแอปนี้
 Rounded Corners: มุมโค้งมน
-Enable Blur: เปิดใช้งานเอฟเฟกต์เบลอ
+Blur: เอฟเฟกต์เบลอ
+Top Tabs: แท็บด้านบน
+Liquid Glass: Liquid Glass
 App Font: แบบอักษรแอป
 Rounded Balance Font: แบบอักษรยอดคงเหลือแบบโค้งมน
 My Wallet Cards NFT: My Wallet Cards NFT

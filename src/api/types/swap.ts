@@ -6,7 +6,21 @@ import type {
   ApiSwapHistoryItem,
   ApiSwapTransfer,
 } from './backend';
-import type { ApiChain } from './misc';
+import type { ApiChain, ApiNetwork, ApiToken } from './misc';
+
+export type ApiSwapDefaultsRequest = {
+  tokenIn?: ApiToken;
+  tokenOut?: ApiToken;
+  /** Account chains in UI order, including the user's manual ordering. */
+  accountChains: ApiChain[];
+  network: ApiNetwork;
+  balancesUsdBySlug: Record<string, number>;
+};
+
+export type ApiSwapDefaults = {
+  tokenIn?: ApiToken;
+  tokenOut?: ApiToken;
+};
 
 export type ApiBuildOnchainSwapTransferOptions = {
   accountId: string;

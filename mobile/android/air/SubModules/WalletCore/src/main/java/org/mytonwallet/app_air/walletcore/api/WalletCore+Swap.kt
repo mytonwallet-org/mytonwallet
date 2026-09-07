@@ -4,6 +4,7 @@ package org.mytonwallet.app_air.walletcore.api
 
 import com.squareup.moshi.Types
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
@@ -14,8 +15,10 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateErrorResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHint
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapPairAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapTransfer
@@ -50,6 +53,12 @@ suspend fun WalletCore.Swap.swapEstimate(accountId: String, request: MApiSwapEst
             MApiSwapEstimateResponse::class.java
         )
     }
+
+fun JSWebViewBridge.ApiError.swapEstimateHint(): MApiSwapHint? = raw?.let { raw ->
+    runCatching {
+        WalletCore.moshi.adapter(MApiSwapEstimateErrorResponse::class.java).fromJson(raw)?.hint
+    }.getOrNull()
+}
 
 suspend fun WalletCore.Swap.swapCexEstimate(accountId: String, request: MApiSwapEstimateRequest) =
     run {

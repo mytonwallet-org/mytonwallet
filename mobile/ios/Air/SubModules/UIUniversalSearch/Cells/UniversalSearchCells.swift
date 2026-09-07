@@ -6,16 +6,13 @@ import WalletContext
 private enum UniversalSearchAgentAppearance {
     static let borderColor = UIColor(hex: "#0088FF")
 
-    static func titleGradientColors(
-        for traitCollection: UITraitCollection,
-        tintColor: UIColor
-    ) -> [CGColor] {
+    static func titleGradientColors(for traitCollection: UITraitCollection) -> [CGColor] {
         let colors: [UIColor]
         if traitCollection.userInterfaceStyle == .dark {
             colors = [
-                tintColor,
-                UIColor(hex: "#00BEFF"),
-                UIColor(hex: "#BF5AF2"),
+                UIColor(hex: "#6DADE6"),
+                UIColor(hex: "#5EB6D4"),
+                UIColor(hex: "#C48CEE"),
             ]
         } else {
             colors = [
@@ -29,7 +26,7 @@ private enum UniversalSearchAgentAppearance {
 
     static func backgroundBaseColor(for traitCollection: UITraitCollection) -> CGColor {
         let color = if traitCollection.userInterfaceStyle == .dark {
-            UIColor(hex: "#232732").withAlphaComponent(0.56)
+            UIColor.black.withAlphaComponent(0.16)
         } else {
             UIColor(hex: "#E9E9EA").withAlphaComponent(0.16)
         }
@@ -40,9 +37,9 @@ private enum UniversalSearchAgentAppearance {
         let colors: [UIColor]
         if traitCollection.userInterfaceStyle == .dark {
             colors = [
-                UIColor(hex: "#0088FF").withAlphaComponent(0.22),
-                UIColor(hex: "#00BEFF").withAlphaComponent(0.28),
-                UIColor(hex: "#B656FF").withAlphaComponent(0.22),
+                UIColor(hex: "#0088FF").withAlphaComponent(0.096),
+                UIColor(hex: "#00BEFF").withAlphaComponent(0.144),
+                UIColor(hex: "#B656FF").withAlphaComponent(0.096),
             ]
         } else {
             colors = [
@@ -55,11 +52,21 @@ private enum UniversalSearchAgentAppearance {
     }
 
     static func sheenGradientColors(for traitCollection: UITraitCollection) -> [CGColor] {
-        let topAlpha: CGFloat = traitCollection.userInterfaceStyle == .dark ? 0.1 : 0.6
+        let color: UIColor = traitCollection.userInterfaceStyle == .dark ? UIColor(hex: "#202020") : .white
         return [
-            UIColor.white.withAlphaComponent(topAlpha).cgColor,
-            UIColor.white.withAlphaComponent(0).cgColor,
+            color.withAlphaComponent(0.6).cgColor,
+            color.withAlphaComponent(0).cgColor,
         ]
+    }
+
+    static let borderGradientColors = ["#00BEFF", "#00BEFF", "#0088FF", "#B656FF", "#00BEFF"]
+        .map { UIColor(hex: $0).withAlphaComponent(0.5).cgColor }
+
+    static func configureTitleGradient(_ layer: CAGradientLayer, for traitCollection: UITraitCollection) {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        layer.colors = titleGradientColors(for: traitCollection)
+        layer.locations = isDark ? [0, 0.39547, 1] : [0, 0.50749, 1]
+        layer.endPoint = CGPoint(x: isDark ? 1.28324 : 1, y: 0.5)
     }
 }
 
@@ -150,6 +157,9 @@ final class UniversalSearchTextResultCell: UniversalSearchBaseCell {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
 
+    private lazy var titleTopConstraint = titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 9)
+    private lazy var titleCenterConstraint = titleLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+
     override init(frame: CGRect) {
         super.init(frame: frame)
 
@@ -169,7 +179,7 @@ final class UniversalSearchTextResultCell: UniversalSearchBaseCell {
             iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 9),
+            titleTopConstraint,
             titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 32),
@@ -185,13 +195,17 @@ final class UniversalSearchTextResultCell: UniversalSearchBaseCell {
         icon: UniversalSearchIcon,
         title: String,
         subtitle: String,
-        titleStyle: TitleStyle = .emphasized
+        titleStyle: TitleStyle = .emphasized,
+        centersTitle: Bool = false
     ) {
         icon.configure(iconView)
         titleLabel.applyTextStyle(titleStyle == .emphasized ? .bodyEmphasized : .body)
         titleLabel.textColor = .label
         titleLabel.text = title
         subtitleLabel.text = subtitle
+        subtitleLabel.isHidden = centersTitle
+        titleTopConstraint.isActive = !centersTitle
+        titleCenterConstraint.isActive = centersTitle
         accessibilityLabel = subtitle.isEmpty ? title : "\(title), \(subtitle)"
         accessibilityTraits = .button
         refreshSelectionAppearance()
@@ -512,12 +526,20 @@ final class UniversalSearchActionCell: UniversalSearchBaseCell {
         agentSelectionView.isHidden = !showsAgentSelection
         titleLabel.isHidden = showsAgentSelection
         selectedTitleView.isHidden = !showsAgentSelection
-        symbolView.imageView.tintColor = showsAgentSelection ? tintColor : .label
+        symbolView.imageView.tintColor = showsAgentSelection
+            ? UIColor(cgColor: UniversalSearchAgentAppearance.titleGradientColors(for: traitCollection)[0])
+            : .label
         accessibilityTraits = showsAgentSelection ? [.button, .selected] : .button
     }
 
     override func tintColorDidChange() {
         super.tintColorDidChange()
+        selectionAppearanceDidChange()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
         selectionAppearanceDidChange()
     }
 }
@@ -527,6 +549,8 @@ private final class UniversalSearchPromptCapsuleView: UIView {
     private let backgroundColorLayer = CALayer()
     private let backgroundGradientLayer = CAGradientLayer()
     private let backgroundSheenLayer = CAGradientLayer()
+    private let borderGradientLayer = CAGradientLayer()
+    private let borderMaskLayer = CAShapeLayer()
     private let fixedCornerRadius: CGFloat?
 
     init(cornerRadius: CGFloat? = nil) {
@@ -547,15 +571,29 @@ private final class UniversalSearchPromptCapsuleView: UIView {
         layer.addSublayer(backgroundGradientLayer)
         layer.addSublayer(backgroundSheenLayer)
 
+        borderGradientLayer.type = .conic
+        borderGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.5)
+        borderGradientLayer.locations = [0, 0.14425, 0.38464, 0.75, 1]
+        borderGradientLayer.colors = UniversalSearchAgentAppearance.borderGradientColors
+        borderMaskLayer.fillColor = UIColor.clear.cgColor
+        borderMaskLayer.strokeColor = UIColor.black.cgColor
+        borderMaskLayer.lineWidth = 0.6
+        borderGradientLayer.mask = borderMaskLayer
+        layer.addSublayer(borderGradientLayer)
+
         let noAnimations: [String: CAAction] = [
             "bounds": NSNull(),
             "position": NSNull(),
             "frame": NSNull(),
             "colors": NSNull(),
+            "path": NSNull(),
+            "endPoint": NSNull(),
         ]
         backgroundColorLayer.actions = noAnimations
         backgroundGradientLayer.actions = noAnimations
         backgroundSheenLayer.actions = noAnimations
+        borderGradientLayer.actions = noAnimations
+        borderMaskLayer.actions = noAnimations
         updateColors()
     }
 
@@ -569,11 +607,17 @@ private final class UniversalSearchPromptCapsuleView: UIView {
         backgroundColorLayer.frame = bounds
         backgroundGradientLayer.frame = bounds
         backgroundSheenLayer.frame = bounds
-    }
-
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        updateColors()
+        borderGradientLayer.frame = bounds
+        borderMaskLayer.frame = bounds
+        borderMaskLayer.path = UIBezierPath(
+            roundedRect: bounds.insetBy(dx: 0.3, dy: 0.3),
+            cornerRadius: max(0, layer.cornerRadius - 0.3)
+        ).cgPath
+        let borderAngle = 33.4 * CGFloat.pi / 180
+        borderGradientLayer.endPoint = CGPoint(
+            x: 0.5 + cos(borderAngle),
+            y: 0.5 + sin(borderAngle) * bounds.width / max(bounds.height, 1)
+        )
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -592,6 +636,9 @@ private final class UniversalSearchPromptCapsuleView: UIView {
         backgroundSheenLayer.colors = UniversalSearchAgentAppearance.sheenGradientColors(
             for: traitCollection
         )
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        borderGradientLayer.isHidden = !isDark
+        layer.borderWidth = isDark ? 0 : 0.6
         layer.borderColor = UniversalSearchAgentAppearance.borderColor
             .resolvedColor(with: traitCollection)
             .cgColor
@@ -639,11 +686,6 @@ private final class UniversalSearchAgentTitleView: UIView {
         maskLabel.layer.contentsScale = window?.screen.scale ?? UIScreen.main.scale
     }
 
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        updateGradientColors()
-    }
-
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
@@ -657,10 +699,7 @@ private final class UniversalSearchAgentTitleView: UIView {
     }
 
     private func updateGradientColors() {
-        gradientLayer.colors = UniversalSearchAgentAppearance.titleGradientColors(
-            for: traitCollection,
-            tintColor: tintColor
-        )
+        UniversalSearchAgentAppearance.configureTitleGradient(gradientLayer, for: traitCollection)
     }
 }
 
@@ -702,11 +741,6 @@ private final class UniversalSearchPromptTitleView: UIView {
         maskLabel.layer.contentsScale = window?.screen.scale ?? UIScreen.main.scale
     }
 
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        updateGradientColors()
-    }
-
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
@@ -726,10 +760,7 @@ private final class UniversalSearchPromptTitleView: UIView {
     }
 
     private func updateGradientColors() {
-        gradientLayer.colors = UniversalSearchAgentAppearance.titleGradientColors(
-            for: traitCollection,
-            tintColor: tintColor
-        )
+        UniversalSearchAgentAppearance.configureTitleGradient(gradientLayer, for: traitCollection)
     }
 }
 

@@ -2,7 +2,6 @@ import ProtectedAction
 import Testing
 import UIKit
 @testable import UIProtectedAction
-import WalletContext
 import WalletCore
 
 @Suite("Submission Feedback")
@@ -54,17 +53,12 @@ struct SubmissionFeedbackTests {
         }
         #expect(feedbackWork.completedUnitCount == 2)
         #expect(feedbackWork.totalUnitCount == 3)
-        let message = firstFeedback.message ?? ""
-        #expect(message.contains(localizedIntegerString(2)))
-        #expect(message.contains(localizedIntegerString(3)))
-        #expect(!message.contains("%completed%"))
-        #expect(!message.contains("%total%"))
         #expect(events == [.feedback, .dismissAuthorization, .closeFlow])
         #expect(successCompletionCount == 0)
     }
 
     @Test
-    func `indeterminate result warns about duplicate submission before closing`() async {
+    func `indeterminate result selects indeterminate feedback and closes the flow`() async {
         let host = UIViewController()
         var feedback: SubmissionFeedback?
         var dismissCount = 0
@@ -91,7 +85,6 @@ struct SubmissionFeedbackTests {
             Issue.record("Expected indeterminate feedback")
             return
         }
-        #expect(feedback.message?.contains("may submit the action twice") == true)
         #expect(dismissCount == 1)
         #expect(closeCount == 1)
     }

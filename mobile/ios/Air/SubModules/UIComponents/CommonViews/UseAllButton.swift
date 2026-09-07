@@ -30,14 +30,14 @@ public struct UseAllButton: View {
         WithPerceptionTracking {
             Button(action: onTap) {
                 let label = Text(L10n.maxBalance(balance: ""))
-                    .textStyle(textStyle, scaling: textScaling)
+                    .font(Font(WTypography.uiFont(textStyle, scaling: textScaling)))
                     .foregroundColor(.air.secondaryLabel)
                 let balance = Text(amount: amount, format: .init(preset: .defaultAdaptive, roundHalfUp: false))
-                    .textStyle(
+                    .font(Font(WTypography.uiFont(
                         textStyle,
                         content: .technical,
                         scaling: textScaling
-                    )
+                    )))
                     .foregroundStyle(.tint)
                 
                 HStack(alignment: .center, spacing: 0) {

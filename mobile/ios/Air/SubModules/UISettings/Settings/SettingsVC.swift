@@ -37,6 +37,9 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
 
         setupViews()
         WalletCoreData.add(eventObserver: self)
+        observe { [weak self] in
+            self?.setUpdateStatus(WalletUpdateStatusModel.shared.state)
+        }
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -184,6 +187,30 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             image: UIImage(systemName: "ellipsis")?.withRenderingMode(.alwaysTemplate),
             menu: makeMoreMenu()
         )
+    }
+
+    private func setUpdateStatus(_ state: WalletUpdateStatus) {
+        let previousGeometry = settingsHeaderView.layoutGeometry
+        let scrollOffset = collectionView.contentOffset.y + collectionView.adjustedContentInset.top
+        let animated = view.window != nil && !UIAccessibility.isReduceMotionEnabled
+        settingsHeaderView.setUpdateStatus(state, animated: animated)
+        let geometry = settingsHeaderView.layoutGeometry
+        guard geometry.scrollTopContentInset != previousGeometry.scrollTopContentInset else { return }
+
+        // Keep the collapse progress and leave fully scrolled content in place as the header resizes.
+        let collapseProgress = clamp(scrollOffset / previousGeometry.fullScrollRange, to: 0...1)
+        let nextScrollOffset = scrollOffset + (geometry.fullScrollRange - previousGeometry.fullScrollRange) * collapseProgress
+        UIView.animate(
+            withDuration: animated ? 0.3 : 0,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction]
+        ) {
+            self.collectionView.contentInset.top = geometry.scrollTopContentInset
+            self.collectionView.contentOffset.y = nextScrollOffset - self.collectionView.adjustedContentInset.top
+            self.navigationBarProgressiveBlurMinY = max(0, geometry.fullScrollRange - self.navigationBarProgressiveBlurDelta)
+            self.syncScrollDrivenChrome()
+            self.view.layoutIfNeeded()
+        }
     }
 
     private func syncScrollDrivenChrome() {

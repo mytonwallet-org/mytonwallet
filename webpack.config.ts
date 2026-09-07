@@ -176,6 +176,10 @@ const appVersion = require('./package.json').version;
 // as "no update available".
 const buildInfoFilename = 'build.txt';
 
+// Emitted from the same `appVersion` the bundle bakes in as APP_VERSION, so the file the in-app update
+// check fetches cannot drift from the running code. Stays a bare semver so that same strict regex accepts it.
+const appVersionFilename = 'version.txt';
+
 function getBuildBranch() {
   const fromEnv = process.env.BRANCH || process.env.GITHUB_REF_NAME;
   if (fromEnv) {
@@ -588,7 +592,10 @@ export default function createConfig(
           compiler.hooks.thisCompilation.tap('BuildInfo', (compilation) => {
             compilation.hooks.processAssets.tap(
               { name: 'BuildInfo', stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL },
-              () => compilation.emitAsset(buildInfoFilename, new sources.RawSource(getBuildInfo())),
+              () => {
+                compilation.emitAsset(buildInfoFilename, new sources.RawSource(getBuildInfo()));
+                compilation.emitAsset(appVersionFilename, new sources.RawSource(appVersion));
+              },
             );
           });
         },

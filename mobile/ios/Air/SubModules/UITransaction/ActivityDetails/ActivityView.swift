@@ -260,18 +260,29 @@ struct ActivityView: View {
 
     @ViewBuilder
     var senderAddress: some View {
-        addressSection(activity: activity, address: .from, title: lang("Sender"))
+        addressSection(
+            activity: activity,
+            address: .from,
+            title: activity.type == .approval ? lang("Owner") : lang("Sender")
+        )
     }
 
     @ViewBuilder
     var recipientAddress: some View {
-        addressSection(activity: activity, address: .to, title: lang("Recipient"))
+        addressSection(
+            activity: activity,
+            address: .to,
+            title: activity.type == .approval ? lang("Spender") : lang("Recipient")
+        )
     }
 
     @ViewBuilder
     var peerAddress: some View {
         if case .transaction(let tx) = activity {
-           addressSection(activity: activity, address: .peer, title: tx.isIncoming ? lang("Sender") : lang("Recipient"))
+            let title = tx.type == .approval
+                ? (tx.isIncoming ? lang("Owner") : lang("Spender"))
+                : (tx.isIncoming ? lang("Sender") : lang("Recipient"))
+            addressSection(activity: activity, address: .peer, title: title)
         }
     }
 
@@ -338,15 +349,17 @@ struct ActivityView: View {
     var amountCell: some View {
         if let transaction = activity.transaction, let token {
             InsetDetailCell {
-                Text(lang("Amount"))
+                Text(lang(transaction.type == .approval ? "Allowance" : "Amount"))
                     .foregroundStyle(Color.air.secondaryLabel)
             } value: {
                 let amount = TokenAmount(transaction.amount, token)
-                let inToken = amount
-                    .formatted(.none, showMinus: false)
+                let inToken = transaction.type == .approval
+                    ? transaction.formatApprovalAmount(token: token)
+                    : amount.formatted(.none, showMinus: false)
                 let curr = TokenStore.baseCurrency
                 let token = TokenStore.getToken(slug: activity.slug)
-                Text(token?.price != nil ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(.baseCurrencyEquivalent, showMinus: false)))" : inToken)
+                let shouldShowEquivalent = transaction.type != .approval && token?.price != nil
+                Text(shouldShowEquivalent ? "\(inToken) (\(amount.convertTo(curr, exchangeRate: token!.price!).formatted(.baseCurrencyEquivalent, showMinus: false)))" : inToken)
                     .textStyle(
                         .body,
                         content: .technical,

@@ -128,7 +128,9 @@ Invoice Link Copied: Invoice Link Copied
 Theme: Theme
 Language: Language
 Enable Animations: Enable Animations
+Animations: Animations
 Enable Seasonal Theming: Enable Seasonal Theming
+Seasonal Theming: Seasonal Theming
 Enable Landscape Mode: Enable Landscape Mode
 Disable Seasonal Theming: Disable Seasonal Theming
 You can always enable seasonal theming again in the appearance settings.: You can always enable seasonal theming again in the appearance settings.
@@ -161,6 +163,9 @@ Description Copied: Description Copied
 Message Copied: Message Copied
 Sender: Sender
 Recipient: Recipient
+Spender: Spender
+Token Approval: Token Approval
+Allowance: Allowance
 "%chain% Address Copied": "%chain% Address Copied"
 Repeat: Repeat
 Switch Account: Switch Account
@@ -387,8 +392,8 @@ Agree: Agree
 $swap_action: Swap
 $swap_activity_title: Swap
 Swap: Swap
-You sell: You sell
-You buy: You buy
+You Sell: You Sell
+You Buy: You Buy
 Swap Details: Swap Details
 Blockchain Fee: Blockchain Fee
 Included: Included
@@ -397,7 +402,7 @@ Minimum Received: Minimum Received
 Slippage: Slippage
 $swap_from_to: Swap %from% %icon% %to%
 The exchange rate is below market value!: The exchange rate is %value% below market value!
-Invalid Pair: Invalid Pair
+Invalid Pair: Swap Unavailable
 We do not recommend to perform an exchange, try to specify a lower amount.: We do not recommend to perform an exchange, try to specify a lower amount.
 $swap_minimum_received_tooltip1: This is the least amount of new tokens you'll get from this swap, considering current market conditions, slippage tolerance, and potential price impact.
 $swap_minimum_received_tooltip2: It's an expected minimum, but if the conditions change a lot while your swap is being processed, the final amount could be less.
@@ -579,9 +584,20 @@ Are you sure you want to disable biometrics?: Are you sure you want to disable b
 "Yes": "Yes"
 Biometric confirmation failed: Biometric confirmation failed
 No Activity: No Activity
+Activity Failed to Load: Activity Failed to Load
 Fund: Fund
 Buy with Card: Buy with Card
 Buy with Crypto: Buy with Crypto
+Add funds to swap: Add funds to swap
+Direct swap unavailable: Direct swap unavailable
+Swap on an external service: Swap on an external service
+Buy with a card or receive crypto to fund this swap.: Buy with a card or receive crypto to fund this swap.
+Buy crypto or choose another token to sell.: Buy crypto or choose another token to sell.
+Your balances are small. Add funds or choose another token to swap.: Your balances are small. Add funds or choose another token to swap.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: To buy %buy_token%, first buy %token%, then swap it for %buy_token%.
+Open %provider% to swap this pair in the browser.: Open %provider% to swap this pair in the browser.
+Buy %token%: Buy %token%
+Open %provider%: Open %provider%
 Cannot load widget: Cannot load widget
 Error: Error
 Explore: Explore
@@ -1153,7 +1169,7 @@ You don’t have any cards to customize yet: You don’t have any cards to custo
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.
 Get First Card: Get First Card
 Palette and Card: Palette and Card
-Customize the wallet's home screen and color accents the way you like.: Customize the wallet's home screen and color accents the way you like.
+Customize the wallet’s card appearance and color accents the way you like.: Customize the wallet’s card appearance and color accents the way you like.
 Address doesn't exist: Address doesn't exist
 The address is not a token minter address: The address is not a token minter address
 $joining_comma: ", "
@@ -1275,8 +1291,16 @@ $agent_consent_debug_reset_footer: Shows the Agent consent screen again when ope
 $settings_token_change_threshold: Change % Threshold
 $settings_token_change_threshold_description: Hides 24-hour percentage changes below the selected threshold.
 $settings_token_change_threshold_off: "Off"
-$settings_hide_action_buttons: Hide Action Buttons
-$settings_hide_action_buttons_description: Hides the action buttons row on the Wallet screen.
+Blockchain Badges: Blockchain Badges
+$settings_blockchain_badges_description: Show blockchain badges for all tokens. By default, they’re shown only for stablecoins and tokenized stocks available on multiple blockchains.
+Show on Card: Show on Card
+Top Address: Top Address
+Highest-Balance Address: Highest-Balance Address
+3 Highest-Balance Addresses: 3 Highest-Balance Addresses
+3 Top Addresses: 3 Top Addresses
+Action Buttons: Action Buttons
+Collectibles Section: Collectibles Section
+$settings_wallet_card_description: Customize what appears on your wallet card and whether action buttons are shown.
 Retry: Retry
 $agent_chat_running: Running in background
 $agent_connection_interrupted: Agent connection was interrupted. Try again.
@@ -2130,7 +2154,9 @@ $chart_week_days_short: Sun,Mon,Tue,Wed,Thu,Fri,Sat
 Unsupported Chain: Unsupported Chain
 Please upgrade to multichain to use this app.: Please upgrade to multichain to use this app.
 Rounded Corners: Rounded Corners
-Enable Blur: Enable Blur
+Blur: Blur
+Top Tabs: Top Tabs
+Liquid Glass: Liquid Glass
 App Font: App Font
 Rounded Balance Font: Rounded Balance Font
 My Wallet Cards NFT: My Wallet Cards NFT

@@ -112,6 +112,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             actionTitle: String?
         )
         case wallet(id: String, title: String, subtitle: String)
+        case shortcut(id: String, title: String, subtitle: String?)
         case askAgent(id: String, query: String)
         case recentSearch(id: String, title: String, subtitle: String)
         case site(id: String, title: String, subtitle: String)
@@ -154,6 +155,8 @@ public final class UniversalSearchViewController: UIViewController, UICollection
                 )
             case .wallet(let result):
                 self = .wallet(id: item.id, title: result.title, subtitle: result.subtitle)
+            case .shortcut(let result):
+                self = .shortcut(id: item.id, title: result.title, subtitle: result.subtitle)
             case .askAgent(let query):
                 self = .askAgent(id: item.id, query: query)
             case .recentSearch(let result):
@@ -370,6 +373,9 @@ public final class UniversalSearchViewController: UIViewController, UICollection
                 )
             case .wallet(let result):
                 cell.configure(icon: result.icon, title: result.title, subtitle: result.subtitle)
+            case .shortcut(let result):
+                cell.configure(icon: result.icon, title: result.title, subtitle: result.subtitle ?? "",
+                               centersTitle: result.subtitle == nil)
             case .recentSearch(let result):
                 cell.configure(
                     icon: UniversalSearchIcon(UniversalSearchIconConfiguration(
@@ -455,7 +461,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             let cell: UICollectionViewCell
             switch item.content {
             case .chat, .collectible, .collection, .wallet, .recentSearch, .site,
-                 .openWebsite:
+                 .openWebsite, .shortcut:
                 cell = collectionView.dequeueConfiguredReusableCell(
                     using: textRegistration,
                     for: indexPath,
@@ -886,6 +892,8 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             return 43
         case .prompt:
             return 40
+        case .shortcut(let result):
+            return result.subtitle == nil ? 52 : 56
         default:
             return 56
         }

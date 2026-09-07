@@ -14,3 +14,4 @@ export * from './transfer';
 export * from './wallet';
 export * from './portfolio';
 export * from './market';
+export type { ApiSwapDefaults, ApiSwapDefaultsRequest } from './swap';

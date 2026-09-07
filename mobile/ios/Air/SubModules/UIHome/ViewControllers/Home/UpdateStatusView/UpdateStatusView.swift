@@ -88,11 +88,7 @@ public final class UpdateStatusView: UIStackView {
         AppActions.showWalletSettings()
     }
     
-    public enum State: Equatable {
-        case waitingForNetwork
-        case updating
-        case updated
-    }
+    public typealias State = WalletUpdateStatus
     
     private(set) var state: State = .updated
     private(set) var title: String = ""

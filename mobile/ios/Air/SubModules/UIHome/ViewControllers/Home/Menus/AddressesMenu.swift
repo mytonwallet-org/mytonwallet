@@ -40,7 +40,7 @@ struct AddressesMenuContentRow {
             .separator,
         ]
 
-        items.append(contentsOf: visibleRows.map(makeAddressRowItem))
+        items.append(contentsOf: visibleRows.map { makeAddressRowItem(row: $0, accountContext: accountContext) })
 
         if !hiddenRows.isEmpty {
             items.append(.separator)
@@ -59,7 +59,7 @@ struct AddressesMenuContentRow {
                                 ),
                                 .separator,
                             ]
-                            pageItems.append(contentsOf: hiddenRows.map(makeAddressRowItem))
+                            pageItems.append(contentsOf: hiddenRows.map { makeAddressRowItem(row: $0, accountContext: accountContext) })
                             return ContextMenuPage(items: pageItems)
                         }
                     )
@@ -82,7 +82,7 @@ struct AddressesMenuContentRow {
 }
 
 @MainActor
-private func makeAddressRowItem(row: AddressesMenuContentRow) -> ContextMenuItem {
+private func makeAddressRowItem(row: AddressesMenuContentRow, accountContext: AccountContext) -> ContextMenuItem {
     let interaction: ContextMenuCustomRowInteraction
     if let domain = row.accountChain.domain {
         interaction = .submenu(
@@ -105,7 +105,7 @@ private func makeAddressRowItem(row: AddressesMenuContentRow) -> ContextMenuItem
             sizing: .fixed(height: addressRowHeight),
             interaction: interaction,
             makeContentView: { context in
-                AddressMenuRowView(row: row, context: context)
+                AddressMenuRowView(row: row, accountContext: accountContext, context: context)
             }
         )
     )
@@ -196,12 +196,16 @@ private enum AddressMenuAccessory {
 @MainActor
 private final class AddressMenuRowView: UIView {
     private let contentView = AddressMenuContentView()
-    private let explorerButton = UIButton(type: .system)
+    private let actionButton = UIButton(type: .system)
     private let row: AddressesMenuContentRow
+    private let accountContext: AccountContext
+    private let opensReceive: Bool
     private let context: ContextMenuCustomRowContext
 
-    init(row: AddressesMenuContentRow, context: ContextMenuCustomRowContext) {
+    init(row: AddressesMenuContentRow, accountContext: AccountContext, context: ContextMenuCustomRowContext) {
         self.row = row
+        self.accountContext = accountContext
+        self.opensReceive = accountContext.account.supportsReceive
         self.context = context
         super.init(frame: .zero)
 
@@ -220,38 +224,39 @@ private final class AddressMenuRowView: UIView {
         accessibilityLabel = [row.chain.title, displayedAddress].joined(separator: ", ")
         accessibilityHint = domain == nil ? lang("Copy Address") : lang("Details")
 
-        explorerButton.translatesAutoresizingMaskIntoConstraints = false
-        explorerButton.setImage(
-            UIImage.airBundle("HomeGlobe").withRenderingMode(.alwaysTemplate),
+        let actionTitle = opensReceive ? lang("Receive") : lang("Open in Explorer")
+        actionButton.translatesAutoresizingMaskIntoConstraints = false
+        actionButton.setImage(
+            UIImage.airBundle(opensReceive ? "HomeQR" : "HomeGlobe").withRenderingMode(.alwaysTemplate),
             for: .normal
         )
-        explorerButton.tintColor = .tintColor
-        explorerButton.accessibilityLabel = lang("Open in Explorer")
-        explorerButton.addAction(UIAction { [weak self] _ in
-            self?.openExplorer()
+        actionButton.tintColor = .tintColor
+        actionButton.accessibilityLabel = actionTitle
+        actionButton.addAction(UIAction { [weak self] _ in
+            self?.performAddressAction()
         }, for: .touchUpInside)
         accessibilityCustomActions = [
             UIAccessibilityCustomAction(
-                name: lang("Open in Explorer"),
+                name: actionTitle,
                 target: self,
-                selector: #selector(openExplorerAccessibilityAction(_:))
+                selector: #selector(performAddressActionAccessibilityAction(_:))
             ),
         ]
 
         contentView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentView)
-        addSubview(explorerButton)
+        addSubview(actionButton)
 
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: leadingAnchor),
             contentView.topAnchor.constraint(equalTo: topAnchor),
             contentView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            contentView.trailingAnchor.constraint(equalTo: explorerButton.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: actionButton.leadingAnchor),
 
-            explorerButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            explorerButton.topAnchor.constraint(equalTo: topAnchor),
-            explorerButton.bottomAnchor.constraint(equalTo: bottomAnchor),
-            explorerButton.widthAnchor.constraint(equalToConstant: 40),
+            actionButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            actionButton.topAnchor.constraint(equalTo: topAnchor),
+            actionButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+            actionButton.widthAnchor.constraint(equalToConstant: 40),
         ])
     }
 
@@ -259,15 +264,19 @@ private final class AddressMenuRowView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    @objc private func openExplorerAccessibilityAction(_: UIAccessibilityCustomAction) -> Bool {
-        openExplorer()
+    @objc private func performAddressActionAccessibilityAction(_: UIAccessibilityCustomAction) -> Bool {
+        performAddressAction()
         return true
     }
 
-    private func openExplorer() {
-        let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.accountChain.address)
-        AppActions.openInBrowser(url)
+    private func performAddressAction() {
         context.dismiss()
+        if opensReceive {
+            AppActions.showReceive(accountContext: accountContext, chain: row.chain)
+        } else {
+            let url = ExplorerHelper.addressUrl(chain: row.chain, address: row.accountChain.address)
+            AppActions.openInBrowser(url)
+        }
     }
 }
 

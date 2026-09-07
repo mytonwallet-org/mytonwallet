@@ -62,7 +62,8 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class ReceiveVC private constructor(
     context: Context,
     private val defaultChain: MBlockchain? = null,
-    private var openBuyWithCardInstantly: Boolean = false
+    private var openBuyWithCardInstantly: Boolean = false,
+    private val preferredBuyingTokenSlug: String? = null
 ) : WViewControllerWithModelStore(context) {
     @Suppress("PropertyName")
     override val TAG = "Receive"
@@ -82,7 +83,8 @@ class ReceiveVC private constructor(
         fun createIfAvailable(
             context: Context,
             defaultChain: MBlockchain? = null,
-            openBuyWithCardInstantly: Boolean = false
+            openBuyWithCardInstantly: Boolean = false,
+            preferredBuyingTokenSlug: String? = null
         ): ReceiveVC? {
             val addressByChain = AccountStore.activeAccount?.addressByChain ?: return null
             if (MBlockchain.supportedChains.none {
@@ -91,7 +93,12 @@ class ReceiveVC private constructor(
             ) {
                 return null
             }
-            return ReceiveVC(context, defaultChain, openBuyWithCardInstantly)
+            return ReceiveVC(
+                context,
+                defaultChain,
+                openBuyWithCardInstantly,
+                preferredBuyingTokenSlug
+            )
         }
     }
 
@@ -316,7 +323,11 @@ class ReceiveVC private constructor(
                 toCenterY(buyWithCryptoLabel)
             }
             v.setOnClickListener {
-                TokenStore.getToken(currentQRCode.chain.nativeSlug)?.let {
+                val chain = currentQRCode.chain
+                val buyingToken = TokenStore.getToken(preferredBuyingTokenSlug)
+                    ?.takeIf { it.mBlockchain == chain }
+                    ?: TokenStore.getToken(chain.nativeSlug)
+                buyingToken?.let {
                     val swapVC = SwapVC(
                         context,
                         defaultReceivingToken = MApiSwapAsset.from(it)

@@ -458,23 +458,15 @@ private struct TokenPercentChangeThresholdPicker: View {
     private var selection = WalletTokenPercentChangeThreshold.initialPresetRawValue
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(lang("$settings_token_change_threshold"))
-                .foregroundStyle(Color.air.primaryLabel)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Picker("", selection: $selection) {
-                ForEach(WalletTokenPercentChangeThreshold.Preset.allCases) { preset in
-                    Text(preset.title).tag(preset.rawValue)
-                }
+        InsetPickerCell(
+            lang("$settings_token_change_threshold"),
+            selection: $selection,
+            value: (WalletTokenPercentChangeThreshold.Preset(rawValue: selection) ?? .twoPercent).title
+        ) {
+            ForEach(WalletTokenPercentChangeThreshold.Preset.allCases) { preset in
+                Text(preset.title).tag(preset.rawValue)
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .tint(Color.air.secondaryLabel)
         }
-        .textStyle(.body, scaling: .dynamic)
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .frame(minHeight: 44)
         .onChange(of: selection) { _ in
             WalletCoreData.notify(event: .tokensChanged)
         }

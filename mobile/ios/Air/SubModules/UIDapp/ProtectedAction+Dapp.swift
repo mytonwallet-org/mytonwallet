@@ -136,13 +136,10 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == DappConn
                         enclaveToken: enclaveToken,
                         resolver: resolver
                     )
-                    if result.mfaRequestHash != nil {
-                        return .requiresMfa(result)
-                    }
                     return .resolved(await result.resolveConfirmation())
                 } catch {
-                    // Proof signing and MFA-request creation only prepare Connect. Until the
-                    // resolver claims confirmation, retrying the dapp request remains safe.
+                    // Proof signing only prepares Connect. Until the resolver claims
+                    // confirmation, retrying the dapp request remains safe.
                     return .resolved(.notCommitted(error))
                 }
             },
@@ -176,7 +173,6 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == DappConn
                 let result = DappConnectSubmitResult(
                     accountId: account.id,
                     proofSignatures: signatures,
-                    mfaRequestHash: nil,
                     resolver: resolver
                 )
                 return await result.resolveConfirmation()

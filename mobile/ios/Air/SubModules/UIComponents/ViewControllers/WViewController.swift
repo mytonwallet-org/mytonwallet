@@ -230,7 +230,7 @@ open class WViewController: UIViewController {
     
     // MARK: - Bottom button
     
-    public func addBottomButton(bottomConstraint: Bool = true) -> WButton {
+    public func addBottomButton(bottomConstraint: Bool = true, horizontalInset: CGFloat = 16) -> WButton {
         let button = WButton(style: .primary)
         self.bottomButton = button
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -240,13 +240,13 @@ open class WViewController: UIViewController {
             self.bottomButtonConstraint = bottomConstraint
             NSLayoutConstraint.activate([
                 bottomConstraint,
-                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalInset),
+                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalInset)
             ])
         } else {
             NSLayoutConstraint.activate([
-                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalInset),
+                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalInset)
             ])
         }
         return button

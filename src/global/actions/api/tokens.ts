@@ -10,14 +10,22 @@ addActionHandler('loadPriceHistory', async (global, actions, payload) => {
 
   const history = await callApi('fetchPriceHistory', slug, period, currency);
 
-  if (!history) {
-    return;
-  }
-
   global = getGlobal();
   // The history is not stored per currency, and the chart asks for a new series on every currency
   // change, so a result awaited across such a change belongs to no longer shown prices
   if (global.settings.baseCurrency !== baseCurrency) {
+    return;
+  }
+
+  if (!history) {
+    // An empty series renders as "no data" while the chart keeps polling. Leaving the period
+    // unset instead would keep the chart on the spinner it shows before the first result, which a
+    // token whose history never loads would never leave. A series already shown survives the
+    // failure and is replaced by the next successful poll.
+    if (!global.tokenPriceHistory.bySlug[slug]?.[period]) {
+      setGlobal(updateTokenPriceHistory(global, slug, { [period]: [] }));
+    }
+
     return;
   }
 

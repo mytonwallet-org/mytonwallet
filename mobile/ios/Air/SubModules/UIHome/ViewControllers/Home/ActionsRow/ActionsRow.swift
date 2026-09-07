@@ -186,7 +186,9 @@ final class ActionsView: ButtonsToolbar {
             image: .airBundle("SwapIconBold"),
             onTap: { [weak self] in
                 guard let accountContext = self?.accountContext else { return }
-                AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+                Task {
+                    await AppActions.showSwap(accountContext: accountContext, defaultSellingToken: nil, defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+                }
             }
         )
         addArrangedSubview(swapButton)

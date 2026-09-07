@@ -923,7 +923,7 @@ final class AgentV2MessageCell: UITableViewCell {
                 label.numberOfLines = 0
                 label.font = .preferredFont(forTextStyle: .body)
                 label.adjustsFontForContentSizeCategory = true
-                label.textColor = isUser ? .white : .label
+                label.textColor = isUser ? UIColor.tintColor.foregroundForTintedBackground : .label
                 label.accessibilityIdentifier = "agent-v2-answer"
                 if isUser {
                     label.text = bubblePresentation.text

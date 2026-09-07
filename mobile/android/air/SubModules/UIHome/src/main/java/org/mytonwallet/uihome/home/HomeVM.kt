@@ -38,6 +38,8 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
         fun accountRenamed(accountId: String, accountName: String)
         fun accountConfigChanged()
         fun seasonalThemeChanged()
+        fun walletCardTopLineChanged()
+        fun actionButtonsRowChanged()
         fun accountWillChange(fromHome: Boolean)
         fun wideLayoutChanged()
         fun removeScreenFromStack()
@@ -304,6 +306,14 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
 
             WalletEvent.SeasonalThemeChanged -> {
                 delegate.get()?.seasonalThemeChanged()
+            }
+
+            WalletEvent.WalletCardTopLineChanged -> {
+                delegate.get()?.walletCardTopLineChanged()
+            }
+
+            WalletEvent.ActionButtonsRowChanged -> {
+                delegate.get()?.actionButtonsRowChanged()
             }
 
             is WalletEvent.AccountRemoved -> {

@@ -745,6 +745,7 @@ async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Pro
       // Keep the fee that enabled diesel; otherwise the next poll falls back to gasfull and oscillates.
       ...(shouldTryDiesel ? { networkFee: global.currentSwap.networkFee } : undefined),
       errorType,
+      swapHint: estimate && 'hint' in estimate ? estimate.hint : undefined,
     };
   }
 
@@ -884,7 +885,7 @@ addActionHandler('setSwapScreen', (global, actions, { state }) => {
 });
 
 addActionHandler('clearSwapError', (global) => {
-  global = updateCurrentSwap(global, { error: undefined });
+  global = updateCurrentSwap(global, { error: undefined, swapHint: undefined });
   setGlobal(global);
 });
 

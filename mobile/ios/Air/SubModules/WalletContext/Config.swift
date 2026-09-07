@@ -233,6 +233,31 @@ public enum WalletActionButtonsSettings {
         NotificationCenter.default.post(name: didChangeNotification, object: nil)
     }
 }
+
+public enum WalletCardTopLine: String, CaseIterable, Sendable {
+    case walletName = "wallet-name"
+    case topAddress = "top-address"
+
+    public static let defaultValue: Self = .walletName
+
+    public var title: String {
+        switch self {
+        case .walletName:
+            lang("Wallet Name")
+        case .topAddress:
+            lang("Top Address")
+        }
+    }
+}
+
+public enum WalletCardSettings {
+    public static let topLineUserDefaultsKey = "walletCardTopLine"
+
+    public static var topLine: WalletCardTopLine {
+        let rawValue = UserDefaults.standard.string(forKey: topLineUserDefaultsKey)
+        return rawValue.flatMap(WalletCardTopLine.init(rawValue:)) ?? .defaultValue
+    }
+}
 public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io", "mywallet.io" ]
 
 public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {

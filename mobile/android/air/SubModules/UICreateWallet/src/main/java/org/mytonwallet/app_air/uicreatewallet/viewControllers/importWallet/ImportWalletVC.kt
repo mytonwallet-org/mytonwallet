@@ -316,8 +316,15 @@ class ImportWalletVC(
             toCenterX(continueButton, 32f)
             toBottomPx(
                 continueButton,
-                48.dp + (navigationController?.getSystemBars()?.bottom ?: 0)
+                48.dp +
+                    max(
+                        (navigationController?.getSystemBars()?.bottom ?: 0),
+                        (navigationController?.imeInsetBottom ?: 0)
+                    )
             )
+        }
+        if (activeField != null && (window?.imeInsets?.bottom ?: 0) > 0) {
+            container.post { activeField?.let { makeFieldVisible(it) } }
         }
     }
 
@@ -359,11 +366,6 @@ class ImportWalletVC(
                     ?: 0
                 )
         scrollView.onScrollChange = { y ->
-            if (y > 0) {
-                topReversedCornerView?.resumeBlurring()
-            } else {
-                topReversedCornerView?.pauseBlurring(false)
-            }
             if (y > scrollOffsetToShowNav) {
                 setNavTitle(
                     LocaleController.getString("Enter Secret Words") + network.localizedIdentifier
@@ -390,17 +392,6 @@ class ImportWalletVC(
                         ?: 0
                     )
             )
-            toBottomPx(
-                continueButton,
-                48.dp +
-                    max(
-                        (navigationController?.getSystemBars()?.bottom ?: 0),
-                        (navigationController?.imeInsetBottom ?: 0)
-                    )
-            )
-        }
-        if (activeField != null && (window?.imeInsets?.bottom ?: 0) > 0) {
-            makeFieldVisible(activeField!!)
         }
     }
 

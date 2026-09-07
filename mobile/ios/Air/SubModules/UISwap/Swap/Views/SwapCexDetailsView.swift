@@ -10,13 +10,13 @@ struct SwapCexDetailsView: View {
     var swapEstimate: ApiSwapCexEstimateResponse?
     var swapType: SwapType
     
-    var sellingToken: ApiToken { inputModel.sellingToken }
-    var buyingToken: ApiToken { inputModel.buyingToken }
+    var sellingToken: ApiToken? { inputModel.sellingToken }
+    var buyingToken: ApiToken? { inputModel.buyingToken }
     var exchangeRate: SwapRate? { displayExchangeRate }
     var displayEstimate: ApiSwapCexEstimateResponse? { swapEstimate }
 
     var displayExchangeRate: SwapRate? {
-        if let est = swapEstimate {
+        if let est = swapEstimate, let sellingToken, let buyingToken {
             return ExchangeRateHelpers.getSwapRate(
                 fromAmount: est.fromAmount.value,
                 toAmount: est.toAmount.value,
@@ -30,7 +30,7 @@ struct SwapCexDetailsView: View {
     @State private var isExpanded = false
 
     var feeDetails: ExplainedTransferFee? {
-        guard let swapEstimate,
+        guard let swapEstimate, let sellingToken,
               let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] else {
             return nil
         }
@@ -62,8 +62,7 @@ struct SwapCexDetailsView: View {
     
     @ViewBuilder
     var blockchainFeeRow: some View {
-        let sellingToken = inputModel.sellingToken
-        if let feeDetails, let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] {
+        if let sellingToken, let feeDetails, let nativeToken = TokenStore.tokens[sellingToken.nativeTokenSlug] {
             SwapBlockchainFeeRow(nativeToken: nativeToken, feeDetails: feeDetails) {
                 FeeView(
                     token: sellingToken,

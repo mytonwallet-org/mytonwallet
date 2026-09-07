@@ -131,7 +131,9 @@ Invoice Link Copied: Link do faktury został skopiowany
 Theme: Temat
 Language: Język
 Enable Animations: Włącz animacje
+Animations: Animacje
 Enable Seasonal Theming: Włącz motyw sezonowy
+Seasonal Theming: Motyw sezonowy
 Enable Landscape Mode: Włącz tryb poziomy
 Disable Seasonal Theming: Wyłącz motyw sezonowy
 You can always enable seasonal theming again in the appearance settings.: Zawsze możesz ponownie włączyć motyw sezonowy w ustawieniach wyglądu.
@@ -164,6 +166,9 @@ Description Copied: Opis skopiowany
 Message Copied: Wiadomość skopiowana
 Sender: Nadawca
 Recipient: Odbiorca
+Spender: Upoważniony
+Token Approval: Zgoda na token
+Allowance: Limit zgody
 "%chain% Address Copied": "Adres %chain% skopiowany"
 Repeat: Powtórzenie
 Switch Account: Konto Switch
@@ -399,8 +404,8 @@ Agree: Zgadzam się
 $swap_action: Wymieniać
 $swap_activity_title: Wymiana
 Swap: Wymieniać
-You sell: Sprzedajesz
-You buy: Kupujesz
+You Sell: Sprzedajesz
+You Buy: Kupujesz
 Swap Details: Szczegóły wymiany
 Blockchain Fee: Opłata blockchain
 Included: Włączone
@@ -409,7 +414,7 @@ Minimum Received: Minimalna otrzymana ilość
 Slippage: Poślizg
 $swap_from_to: Zamień %from% %icon% %to%
 The exchange rate is below market value!: Kurs wymiany wynosi %value% poniżej wartości rynkowej!
-Invalid Pair: Nieprawidłowa para
+Invalid Pair: Wymiana niedostępna
 We do not recommend to perform an exchange, try to specify a lower amount.: Nie zalecamy dokonywania wymiany, spróbuj podać niższą kwotę.
 $swap_minimum_received_tooltip1: To jest najmniejsza ilość nowych tokenów, jakie otrzymasz z tej wymiany, biorąc pod uwagę aktualne warunki rynkowe, tolerancję poślizgu i potencjalny wpływ na cenę.
 $swap_minimum_received_tooltip2: To oczekiwane minimum, ale jeśli warunki zmienią się znacznie podczas przetwarzania twojej wymiany, końcowa kwota może być mniejsza.
@@ -594,6 +599,16 @@ No Activity: Brak aktywności
 Fund: Doładować
 Buy with Card: Kup za pomocą karty
 Buy with Crypto: Kup za pomocą kryptowalut
+Add funds to swap: Dodaj środki do wymiany
+Direct swap unavailable: Bezpośrednia wymiana niedostępna
+Swap on an external service: Wymiana w zewnętrznym serwisie
+Buy with a card or receive crypto to fund this swap.: Kup kryptowalutę kartą lub odbierz przelew, aby mieć środki na tę wymianę.
+Buy crypto or choose another token to sell.: Kup kryptowalutę lub wybierz inny token do sprzedaży.
+Your balances are small. Add funds or choose another token to swap.: Twoje salda są niskie. Dodaj środki lub wybierz inny token do wymiany.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Aby kupić %buy_token%, najpierw kup %token%, a następnie wymień na %buy_token%.
+Open %provider% to swap this pair in the browser.: Otwórz %provider%, aby wymienić tę parę w przeglądarce.
+Buy %token%: Kup %token%
+Open %provider%: Otwórz %provider%
 Cannot load widget: Nie można załadować widżetu
 Explore: Badaj
 $lockdown_mode_enabled_title: Tryb blokady włączony
@@ -1143,7 +1158,7 @@ You don’t have any cards to customize yet: Nie masz jeszcze żadnych kart do d
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Karty My Wallet można instalować w portfelach i wyświetlać na ekranie głównym oraz w liście portfeli.
 Get First Card: Pobierz pierwszą kartę
 Palette and Card: Paleta i karta
-Customize the wallet's home screen and color accents the way you like.: Dostosuj ekran główny portfela i akcenty kolorów według własnego uznania.
+Customize the wallet’s card appearance and color accents the way you like.: Dostosuj wygląd karty portfela i akcenty kolorów według własnego uznania.
 Address doesn't exist: Adres nie istnieje
 The address is not a token minter address: Ten adres nie jest adresem mintera tokena
 $joining_comma: ", "
@@ -1266,8 +1281,16 @@ $agent_consent_debug_reset_footer: Ponownie pokazuje ekran zgody dla Agenta podc
 $settings_token_change_threshold: Próg zmiany %
 $settings_token_change_threshold_description: Ukrywa 24-godzinne zmiany poniżej wybranego progu.
 $settings_token_change_threshold_off: Wył.
-$settings_hide_action_buttons: Ukryj przyciski akcji
-$settings_hide_action_buttons_description: Ukrywa wiersz przycisków akcji na ekranie portfela.
+Blockchain Badges: Odznaki blockchainów
+$settings_blockchain_badges_description: Pokazuj odznaki blockchainów dla wszystkich tokenów. Domyślnie są wyświetlane tylko dla stablecoinów i tokenizowanych akcji dostępnych na wielu blockchainach.
+Show on Card: Pokaż na karcie
+Top Address: Główny adres
+Highest-Balance Address: Adres z najwyższym saldem
+3 Highest-Balance Addresses: 3 adresy z najwyższym saldem
+3 Top Addresses: 3 główne adresy
+Action Buttons: Przyciski akcji
+Collectibles Section: Sekcja kolekcjonerska
+$settings_wallet_card_description: Dostosuj, co jest wyświetlane na karcie portfela i czy przyciski akcji są widoczne.
 Retry: Spróbuj ponownie
 $agent_chat_running: Działa w tle
 $agent_connection_interrupted: Połączenie z agentem zostało przerwane. Spróbuj ponownie.
@@ -2141,7 +2164,9 @@ $chart_week_days_short: niedz.,pon.,wt.,śr.,czw.,pt.,sob.
 Unsupported Chain: Nieobsługiwana sieć
 Please upgrade to multichain to use this app.: Zaktualizuj portfel do multichain, aby korzystać z tej aplikacji.
 Rounded Corners: Zaokrąglone rogi
-Enable Blur: Włącz rozmycie
+Blur: Rozmycie
+Top Tabs: Górne karty
+Liquid Glass: Liquid Glass
 App Font: Czcionka aplikacji
 Rounded Balance Font: Zaokrąglona czcionka salda
 My Wallet Cards NFT: My Wallet Cards NFT

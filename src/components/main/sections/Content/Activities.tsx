@@ -32,6 +32,7 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
+  selectHasActivityHistoryError,
   selectIsHistoryEndReached,
 } from '../../../../global/selectors';
 import { getIsHiddenNftActivity } from '../../../../util/activities';
@@ -58,6 +59,7 @@ import useSyncEffectWithPrevDeps from '../../../../hooks/useSyncEffectWithPrevDe
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 
 import AnimatedIconWithPreview from '../../../ui/AnimatedIconWithPreview';
+import Button from '../../../ui/Button';
 import InfiniteScroll from '../../../ui/InfiniteScroll';
 import LoadingDots from '../../../ui/LoadingDots';
 import Spinner from '../../../ui/Spinner';
@@ -90,6 +92,7 @@ type StateProps = {
   activityIdReplacements?: Record<string, string>;
   savedAddresses?: SavedAddress[];
   isHistoryEndReached: boolean;
+  hasLoadError: boolean;
   alwaysShownSlugs?: string[];
   theme: Theme;
   baseCurrency: ApiBaseCurrency;
@@ -142,6 +145,7 @@ function Activities({
   activityIdReplacements,
   savedAddresses,
   isHistoryEndReached,
+  hasLoadError,
   alwaysShownSlugs,
   theme,
   baseCurrency,
@@ -260,12 +264,13 @@ function Activities({
     setExtraStyles(container, { height: shouldSetExplicitHeight ? `${currentContainerHeight + TOP_SPACE}rem` : '' });
   }, [isLandscape, currentContainerHeight, scrollContainerSelector]);
 
-  // Requests the history when the UI shows a spinner instead of the list.
-  // Keeps requesting the history when all the currently loaded activities are hidden.
-  // Retries on an interval, because a failed request finishes silently with no state change -
-  // without a retry the spinner would stay forever (nothing else re-triggers the load).
+  // Requests the history when the UI shows a spinner instead of the list, and keeps requesting it
+  // on an interval while every loaded activity is hidden, since each page can turn out to be
+  // entirely hidden. A failed request stops the interval: the list says so and offers a retry,
+  // and requesting the same failing history every ten seconds would both cost the user traffic
+  // and flip the message back to the spinner on every attempt.
   useEffect(() => {
-    if (listItemIds?.length || isHistoryEndReached) {
+    if (hasLoadError || listItemIds?.length || isHistoryEndReached) {
       return undefined;
     }
 
@@ -273,7 +278,7 @@ function Activities({
     const intervalId = window.setInterval(loadMore, LOAD_RETRY_INTERVAL);
 
     return () => window.clearInterval(intervalId);
-  }, [slug, allActivityIds, listItemIds, isHistoryEndReached, loadMore]);
+  }, [slug, allActivityIds, listItemIds, isHistoryEndReached, hasLoadError, loadMore]);
 
   // Reset scroll and scroll tracking when the tab becomes inactive
   useEffect(() => {
@@ -378,6 +383,28 @@ function Activities({
   }
 
   if (listItemIds === undefined) {
+    // A request that failed is not one that is still running, and showing the spinner for both
+    // leaves the pane loading forever whenever the history cannot be loaded at all
+    if (hasLoadError) {
+      return (
+        <div className={styles.emptyList}>
+          <AnimatedIconWithPreview
+            play={isActive}
+            tgsUrl={ANIMATED_STICKERS_PATHS.noData}
+            previewUrl={ANIMATED_STICKERS_PATHS.noDataPreview}
+            size={ANIMATED_STICKER_BIG_SIZE_PX}
+            className={styles.sticker}
+            noLoop={false}
+            nonInteractive
+          />
+          <p className={styles.emptyListTitle}>{lang('Activity Failed to Load')}</p>
+          <Button isSmall isText className={styles.emptyListButton} onClick={loadMore}>
+            {lang('Try Again')}
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div className={buildClassName(styles.emptyList, styles.emptyListLoading)}>
         <Spinner />
@@ -447,6 +474,7 @@ export default memo(
       const { byAddress } = accountState?.nfts || {};
       const accounts = selectAccounts(global);
       const isHistoryEndReached = selectIsHistoryEndReached(global, currentAccountId, slug);
+      const hasLoadError = selectHasActivityHistoryError(global, currentAccountId, slug);
       const allActivityIds = selectActivityHistoryIds(global, currentAccountId, slug);
 
       return {
@@ -461,6 +489,7 @@ export default memo(
         areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
         savedAddresses: accountState?.savedAddresses,
         isHistoryEndReached,
+        hasLoadError,
         currentActivityId: accountState?.currentActivityId,
         activityIdReplacements: activities?.activityIdReplacements,
         alwaysShownSlugs: accountSettings?.alwaysShownSlugs,

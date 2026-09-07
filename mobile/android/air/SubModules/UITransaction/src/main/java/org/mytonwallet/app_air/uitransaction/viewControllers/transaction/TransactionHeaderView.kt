@@ -161,14 +161,18 @@ class TransactionHeaderView(
         if (token != null) {
             tokenIconView.config(transaction)
             val amountDouble = transaction.amount.doubleAbsRepresentation(token.decimals)
-            val amount = transaction.amount.toString(
-                decimals = token.decimals,
-                currency = token.symbol,
-                currencyDecimals = transaction.amount.smartDecimalsCount(token.decimals),
-                showPositiveSign = true,
-                forceCurrencyToRight = true,
-                roundUp = false
-            )
+            val amount = if (transaction.type == ApiTransactionType.APPROVAL) {
+                transaction.formatApprovalAmount() ?: ""
+            } else {
+                transaction.amount.toString(
+                    decimals = token.decimals,
+                    currency = token.symbol,
+                    currencyDecimals = transaction.amount.smartDecimalsCount(token.decimals),
+                    showPositiveSign = true,
+                    forceCurrencyToRight = true,
+                    roundUp = false
+                )
+            }
             amountView.configure(
                 amount.let {
                     val ssb = SpannableStringBuilder(it)
@@ -194,8 +198,11 @@ class TransactionHeaderView(
             val addressText = addressToShow?.first ?: ""
             val spannedString: SpannableStringBuilder
             if (transaction.isIncoming) {
-                val receivedFromString =
+                val receivedFromString = if (transaction.type == ApiTransactionType.APPROVAL) {
+                    "${LocaleController.getString("Owner")} "
+                } else {
                     "${LocaleController.getString("Received from")} "
+                }
                 val text = receivedFromString + addressText
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)
@@ -213,8 +220,11 @@ class TransactionHeaderView(
                     showTemporaryViewOption = true
                 )
             } else {
-                val sentToString =
+                val sentToString = if (transaction.type == ApiTransactionType.APPROVAL) {
+                    "${LocaleController.getString("Spender")} "
+                } else {
                     "${LocaleController.getString("Sent to")} "
+                }
                 val text = sentToString + addressText
                 spannedString = SpannableStringBuilder()
                 spannedString.append(text)

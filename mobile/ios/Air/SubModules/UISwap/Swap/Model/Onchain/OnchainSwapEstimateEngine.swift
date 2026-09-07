@@ -5,6 +5,10 @@ import WalletContext
 private let log = Log("OnchainSwapEstimateEngine")
 
 @MainActor struct OnchainSwapEstimateEngine {
+    var fetchEstimate: (String, ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse = {
+        try await Api.swapEstimate(accountId: $0, request: $1)
+    }
+
     func estimate(
         _ input: SwapEstimateInput,
         changedFrom: SwapSide,
@@ -59,8 +63,11 @@ private let log = Log("OnchainSwapEstimateEngine")
                 isFromAmountMax: isFromAmountMax
             )
 
-            let response = try await Api.swapEstimate(accountId: account.id, request: request)
+            let response = try await fetchEstimate(account.id, request)
             try Task.checkCancellation()
+            if case .error = response {
+                return SwapEstimateResult(changedFrom: input.inputSource, response: response)
+            }
             guard case .dex(let swapEstimate) = response else {
                 throw SdkError.unexpected(message: "Expected DEX swap estimate", context: response)
             }

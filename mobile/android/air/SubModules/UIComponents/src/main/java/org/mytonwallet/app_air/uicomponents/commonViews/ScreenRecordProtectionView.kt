@@ -9,9 +9,11 @@ import androidx.core.view.setPadding
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
@@ -19,7 +21,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
-import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class ScreenRecordProtectionView(
@@ -35,13 +37,11 @@ class ScreenRecordProtectionView(
     }
 
     fun addBackgroundView() {
-        if (DevicePerformanceClassifier.isHighClass) {
+        if (WGlobalStorage.isBlurEnabled()) {
             addView(
-                WBlurryBackgroundView(
-                    context,
-                    fadeSide = null,
-                    overrideBlurRadius = 25f
-                ).apply {
+                WGlassView(context).apply {
+                    flavor = GlassFlavor.FROSTED
+                    setProvider(GlassProviders.plain(WColor.SecondaryBackground))
                     setupWith(viewController.view)
                 },
                 ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)

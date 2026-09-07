@@ -26,6 +26,8 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLtrBaselineSpacingOffset
 import org.mytonwallet.app_air.uicomponents.extensions.resize
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
@@ -33,7 +35,6 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.BackDrawable
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -77,7 +78,7 @@ class InAppBrowserTopBarView(
     private val minimizedBlurRoot get() = tabBarController?.minimizedBlurRootView
     private val useMinimizedBlur get() = minimizedBlurRoot != null
 
-    private var minimizedBlurView: WBlurryBackgroundView? = null
+    private var minimizedBlurView: WGlassView? = null
     private var minimizedBlurViewRoot: ViewGroup? = null
 
     private val moreButtonRipple = WRippleDrawable.create(20f.dp)
@@ -370,23 +371,15 @@ class InAppBrowserTopBarView(
             minimizedBlurView = null
         }
         minimizedBlurViewRoot = blurRoot
-        minimizedBlurView = WBlurryBackgroundView(context, fadeSide = null).also {
+        minimizedBlurView = WGlassView(context).also {
+            it.setProvider(GlassProviders.plain(WColor.Background))
             it.setupWith(blurRoot)
-            it.setOverlayColor(WColor.Background, 204)
             it.alpha = 0f
             addView(it, 0, LayoutParams(0, 0))
             setConstraints {
                 allEdges(it)
             }
         }
-    }
-
-    fun pauseBlurring() {
-        minimizedBlurView?.pauseBlurring()
-    }
-
-    fun resumeBlurring() {
-        minimizedBlurView?.resumeBlurring()
     }
 
     override fun updateTheme() {

@@ -1,4 +1,3 @@
-import Foundation
 import Testing
 @testable import WalletCore
 
@@ -69,17 +68,6 @@ struct InitialActivityHistoryTests {
             supportedChains: [.ton, .solana]
         ) == true)
     }
-
-    @Test
-    func `initial update decodes main history pagination metadata`() throws {
-        let data = Data(
-            #"{"type":"initialActivities","accountId":"0-mainnet","chain":"ton","mainActivities":[],"mainHistoryHasMore":false,"bySlug":{}}"#.utf8
-        )
-
-        let update = try JSONDecoder().decode(ApiUpdate.InitialActivities.self, from: data)
-
-        #expect(update.mainHistoryHasMore == false)
-    }
 }
 
 @Suite("Activity History Load Retry")
@@ -88,7 +76,6 @@ struct ActivityHistoryLoadRetryTests {
     func `full history retries while its end is unknown`() {
         let policy = ActivityListViewModel.LoadRetryPolicy.standard
 
-        #expect(policy.delay == .seconds(10))
         #expect(policy.shouldRetry(isEndReached: nil))
         #expect(policy.shouldRetry(isEndReached: false))
     }

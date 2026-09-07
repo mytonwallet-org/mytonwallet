@@ -19,9 +19,9 @@ import me.vkryl.android.animatorx.BoolAnimator
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WSearchEditText
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
@@ -64,10 +64,6 @@ class ExploreSearchBar(context: Context, private val config: Config) : WFrameLay
         private set
     var searchKeyword = ""
         private set
-
-    private val blurryBackgroundView = WBlurryBackgroundView(context, fadeSide = null).apply {
-        setOverlayColor(WColor.SearchFieldBackground, 204)
-    }
 
     val editText by lazy {
         object : WSearchEditText(context) {
@@ -195,7 +191,8 @@ class ExploreSearchBar(context: Context, private val config: Config) : WFrameLay
         }
     }
 
-    private var shadow: PillShadowView? = null
+    private var glass: WGlassView? = null
+    private var blurRoot: android.view.ViewGroup? = null
 
     private val searchFocused = BoolAnimator(
         AnimationConstants.VERY_QUICK_ANIMATION,
@@ -213,27 +210,29 @@ class ExploreSearchBar(context: Context, private val config: Config) : WFrameLay
     }
 
     init {
-        addView(blurryBackgroundView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
         addView(editText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
-    fun attachShadow() {
-        if (shadow == null) shadow = PillShadowView.attachTo(this, 24f.dp)
+    /** Adds the glass halo under this bar; call once it has a parent. */
+    fun attachGlass() {
+        if (glass != null) return
+        glass = WGlassView.attachTo(
+            this,
+            24f.dp,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            blurRoot
+        )
     }
 
     fun setupBlurWith(target: android.view.ViewGroup) {
-        blurryBackgroundView.setupWith(target)
-    }
-
-    fun syncShadow() {
-        shadow?.sync()
+        blurRoot = target
+        glass?.setupWith(target)
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         if (changed) {
-            shadow?.sync()
             config.onLayoutChanged()
         }
     }

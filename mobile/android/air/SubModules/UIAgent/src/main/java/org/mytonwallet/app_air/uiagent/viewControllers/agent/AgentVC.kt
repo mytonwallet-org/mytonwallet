@@ -82,6 +82,7 @@ class AgentVC(
         private const val GRADIENT_EXTRA = 4
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
         private const val BOTTOM_OFFSET = 17
+        private const val KEYBOARD_GAP = 12
         private const val MIN_MESSAGE_CELL_HEIGHT = 48
         private const val HINTS_SETTLE_FALLBACK_MS = 3000L
         private const val INCOMING_MESSAGE_DELAY_MS = 250L
@@ -405,23 +406,10 @@ class AgentVC(
         updateLayout()
     }
 
-    override fun updateBlurViews(recyclerView: RecyclerView) {
-        super.updateBlurViews(recyclerView)
-        if (recyclerView.computeVerticalScrollOffset() == 0) {
-            composerView.pauseBlurring()
-        } else {
-            composerView.resumeBlurring()
-        }
-    }
-
     private fun syncTopBlurAfterLayout() {
         chatRecyclerView.doOnPreDraw {
             if (chatRecyclerView.computeVerticalScrollOffset() > 0 || pinnedMessageId != null) {
-                topReversedCornerView?.resumeBlurring()
                 topReversedCornerView?.setBlurAlpha(1f)
-                bottomReversedCornerView?.resumeBlurring()
-                navigationController?.tabBarController?.resumeBlurring()
-                composerView.resumeBlurring()
             } else {
                 updateBlurViews(chatRecyclerView)
             }
@@ -433,7 +421,12 @@ class AgentVC(
     private fun updateLayout() {
         val ime = navigationController?.imeInsetBottom ?: 0
         val nav = navigationController?.getSystemBars()?.bottom ?: 0
-        val targetBottom = maxOf(ime, nav)
+        val aboveKeyboard = if (ime > 0) {
+            ime + KEYBOARD_GAP.dp - composerView.inputBottomInset - composerBottomOffset.dp
+        } else {
+            0
+        }
+        val targetBottom = maxOf(aboveKeyboard, nav)
         if (ime == 0) stableBottomInset = nav
 
         if (targetBottom != currentBottom) {

@@ -4,6 +4,8 @@ import WalletCore
 import WalletCoreTypes
 
 public enum UniversalSearchFeatureRoute: Sendable {
+    case walletAction(UniversalSearchWalletAction)
+    case settings(AppSettingsSection)
     case token(accountID: String, token: ApiToken)
     case collectible(accountID: String, nft: ApiNft)
     case collection(accountID: String, collection: NftCollection)
@@ -16,6 +18,16 @@ public enum UniversalSearchFeatureRoute: Sendable {
     case agent(query: String?)
     case website(url: URL, title: String?)
     case google(query: String)
+}
+
+public enum UniversalSearchWalletAction: String, CaseIterable, Sendable {
+    case fund
+    case send
+    case swap
+    case earn
+    case buyWithCard = "buy-with-card"
+    case sell
+    case scan
 }
 
 @MainActor

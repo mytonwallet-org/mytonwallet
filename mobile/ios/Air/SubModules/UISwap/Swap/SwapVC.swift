@@ -15,6 +15,10 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     
     private var hostingController: UIHostingController<SwapView>?
 
+    private let bottomButtonContainer = WTouchPassView()
+    private var presentationDisplayLink: CADisplayLink?
+    private var compensatedAnimations: [String: CFTimeInterval] = [:]
+    private var isSheetPresentationInFlight = false
     private var continueButton: WButton?
     private var continueButtonConstraint: NSLayoutConstraint?
     private var pendingButtonConfiguration: SwapButtonConfiguration?
@@ -25,18 +29,20 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private let bottomButtonBackgroundView = EdgeGradientView()
     private var bottomButtonBackgroundBottomConstraint: NSLayoutConstraint?
     private var isKeyboardVisible = false
-    
-    private var startWithKeyboardActive: Bool {
-        windowHorizontalSizeClass == .compact
-            && isSheetPresentationAttachedToBottom
-            && !WKeyboardObserver.isHardwareKeyboardConnected
+    private var keyboardFrameInScreen: CGRect?
+    private weak var keyboardScreen: UIScreen?
+    private enum BottomButtonLayout {
+        static let keyboardSpacing: CGFloat = 16
+
+        static func restingSpacing(isAttachedToBottom: Bool) -> CGFloat {
+            IOS_26_MODE_ENABLED && isAttachedToBottom ? 2 : 16
+        }
     }
 
     private var currentTokenSelectionSide: SwapSide?
     public init(
         accountContext: AccountContext,
-        defaultSellingToken: String? = nil,
-        defaultBuyingToken: String? = nil,
+        defaults: ApiSwapDefaults,
         defaultSellingAmount: Double? = nil,
         defaultBuyingAmount: Double? = nil,
         isAccountSwitchingAllowed: Bool = false
@@ -46,8 +52,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         super.init(nibName: nil, bundle: nil)
         self.swapModel = SwapModel(
             delegate: self,
-            defaultSellingToken: defaultSellingToken ?? TONCOIN_SLUG,
-            defaultBuyingToken: defaultBuyingToken ?? TON_USDT_SLUG,
+            defaults: defaults,
             defaultSellingAmount: defaultSellingAmount,
             defaultBuyingAmount: defaultBuyingAmount,
             accountContext: _account
@@ -75,6 +80,105 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         swapModel.setStage(.editing)
+        swapModel.refreshBalances()
+        prepareBottomButtonForPresentation()
+    }
+
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        finishPresentationCompensation()
+    }
+
+    private func prepareBottomButtonForPresentation() {
+        guard isBeingPresented || navigationController?.isBeingPresented == true,
+              let coordinator = transitionCoordinator,
+              coordinator.isAnimated else { return }
+        isSheetPresentationInFlight = true
+        let link = CADisplayLink(target: self, selector: #selector(updatePresentationCompensation))
+        presentationDisplayLink = link
+        link.add(to: .main, forMode: .common)
+        let registered = coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.finishPresentationCompensation()
+        }
+        if !registered {
+            finishPresentationCompensation()
+        }
+    }
+
+    @objc private func updatePresentationCompensation() {
+        guard isSheetPresentationInFlight else { return }
+        // UIKit may reposition an iPad sheet without laying out this controller's view again.
+        updateBottomButtonLayout()
+        guard keyboardIntersectsContent,
+              view.keyboardLayoutGuide.layoutFrame.minY < view.bounds.maxY else {
+            removePresentationCompensation()
+            return
+        }
+        // The keyboard guide animates in window coordinates, while the sheet also moves its
+        // descendants. Cancel that extra movement without reparenting the Liquid Glass button.
+        // UIKit can animate intermediate layers that have no corresponding UIView.
+        var ancestor = bottomButtonContainer.layer.superlayer
+        while let candidate = ancestor {
+            for key in candidate.animationKeys() ?? [] {
+                guard let animation = candidate.animation(forKey: key) as? CABasicAnimation,
+                      animation.keyPath == "position",
+                      let from = (animation.fromValue as? NSValue)?.cgPointValue,
+                      let to = (animation.toValue as? NSValue)?.cgPointValue else { continue }
+                let compensationKey = "sheetMotion.\(ObjectIdentifier(candidate)).\(key)"
+                guard compensatedAnimations[compensationKey] != animation.beginTime else { continue }
+                guard let counter = animation.copy() as? CABasicAnimation else { continue }
+                let restingY = animation.isAdditive ? 0 : candidate.position.y
+                counter.keyPath = "transform.translation.y"
+                counter.fromValue = -(from.y - restingY)
+                counter.toValue = -(to.y - restingY)
+                counter.byValue = nil
+                counter.isAdditive = true
+                counter.delegate = nil
+                // Copy the original spring and its clock so discovery on a later frame does
+                // not restart the motion or introduce a display-link-sized delay.
+                counter.beginTime = bottomButtonContainer.layer.convertTime(animation.beginTime, from: candidate)
+                counter.isRemovedOnCompletion = true
+                bottomButtonContainer.layer.add(counter, forKey: compensationKey)
+                compensatedAnimations[compensationKey] = animation.beginTime
+            }
+            ancestor = candidate.superlayer
+        }
+    }
+
+    private var keyboardIntersectsContent: Bool {
+        guard isKeyboardVisible, let keyboardFrameInScreen,
+              let window = view.window,
+              let screen = keyboardScreen, screen === window.screen else { return false }
+        let frameInWindow = window.convert(keyboardFrameInScreen, from: screen.coordinateSpace)
+        // Match the guide's default behavior of ignoring floating and undocked keyboards.
+        guard frameInWindow.maxY >= window.bounds.maxY else { return false }
+        let frameInView = view.convert(frameInWindow, from: window)
+        // Use the final sheet geometry: a detached iPad sheet can stay entirely above the
+        // keyboard even though it passes through the keyboard's frame during presentation.
+        return view.bounds.intersects(frameInView)
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateBottomButtonLayout()
+        if isSheetPresentationInFlight {
+            updatePresentationCompensation()
+        }
+    }
+
+    private func finishPresentationCompensation() {
+        isSheetPresentationInFlight = false
+        presentationDisplayLink?.invalidate()
+        presentationDisplayLink = nil
+        removePresentationCompensation()
+        updateBottomButtonLayout()
+    }
+
+    private func removePresentationCompensation() {
+        for key in compensatedAnimations.keys {
+            bottomButtonContainer.layer.removeAnimation(forKey: key)
+        }
+        compensatedAnimations.removeAll()
     }
 
     private func setupViews() {
@@ -89,8 +193,29 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         tapGestureRecognizer.cancelsTouchesInView = true
         hostingController.view.addGestureRecognizer(tapGestureRecognizer)
 
-        let continueButton = addBottomButton(bottomConstraint: false)
+        if #available(iOS 17.0, *) {
+            // Start at the screen bottom when the keyboard is absent, so its first frame
+            // already has the same spacing as its last. Apply the resting safe area below.
+            view.keyboardLayoutGuide.usesBottomSafeArea = false
+        }
+        bottomButtonContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bottomButtonContainer)
+        NSLayoutConstraint.activate([
+            bottomButtonContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomButtonContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomButtonContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            bottomButtonContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        let continueButton = WButton(style: .primary)
+        bottomButton = continueButton
         self.continueButton = continueButton
+        continueButton.translatesAutoresizingMaskIntoConstraints = false
+        bottomButtonContainer.addSubview(continueButton)
+        let horizontalInset: CGFloat = IOS_26_MODE_ENABLED ? 36 : 16
+        NSLayoutConstraint.activate([
+            continueButton.leadingAnchor.constraint(equalTo: bottomButtonContainer.leadingAnchor, constant: horizontalInset),
+            continueButton.trailingAnchor.constraint(equalTo: bottomButtonContainer.trailingAnchor, constant: -horizontalInset),
+        ])
         let buttonPresentationController = SwapButtonPresentationController(button: continueButton)
         self.buttonPresentationController = buttonPresentationController
         setupBottomButtonBackground(continueButton: continueButton)
@@ -103,10 +228,10 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             self.pendingButtonConfiguration = nil
         }
         
-        let c = startWithKeyboardActive ? -max(WKeyboardObserver.keyboardHeight, 291) + 50 : -34
-        let constraint = continueButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16 + c)
+        let constraint = continueButton.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
         constraint.isActive = true
         self.continueButtonConstraint = constraint
+        updateBottomButtonLayout()
         
         updateTheme()
         addCustomNavigationBarBackground(color: .air.sheetBackground)
@@ -117,26 +242,34 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         bottomButtonBackgroundView.isUserInteractionEnabled = false
         bottomButtonBackgroundView.direction = .bottom
         bottomButtonBackgroundView.color = UIColor.air.sheetBackground.withAlphaComponent(0.85)
-        view.insertSubview(bottomButtonBackgroundView, belowSubview: continueButton)
+        bottomButtonContainer.insertSubview(bottomButtonBackgroundView, belowSubview: continueButton)
 
         let bottomConstraint = bottomButtonBackgroundView.bottomAnchor.constraint(equalTo: continueButton.bottomAnchor)
         bottomButtonBackgroundBottomConstraint = bottomConstraint
         NSLayoutConstraint.activate([
-            bottomButtonBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomButtonBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomButtonBackgroundView.leadingAnchor.constraint(equalTo: bottomButtonContainer.leadingAnchor),
+            bottomButtonBackgroundView.trailingAnchor.constraint(equalTo: bottomButtonContainer.trailingAnchor),
             bottomButtonBackgroundView.topAnchor.constraint(equalTo: continueButton.topAnchor, constant: -16),
             bottomConstraint,
         ])
-        updateBottomButtonBackgroundBottomInset()
     }
 
-    private func updateBottomButtonBackgroundBottomInset() {
-        bottomButtonBackgroundBottomConstraint?.constant = 16 + (isKeyboardVisible ? 0 : view.safeAreaInsets.bottom)
+    private func updateBottomButtonLayout() {
+        let intersectsKeyboard = keyboardIntersectsContent
+        let spacing = intersectsKeyboard ? BottomButtonLayout.keyboardSpacing
+            : BottomButtonLayout.restingSpacing(isAttachedToBottom: isSheetPresentationAttachedToBottom)
+        let safeAreaInset = intersectsKeyboard ? 0 : view.safeAreaInsets.bottom
+        var inset = spacing
+        if #available(iOS 17.0, *), !intersectsKeyboard {
+            inset += safeAreaInset
+        }
+        continueButtonConstraint?.constant = -inset
+        bottomButtonBackgroundBottomConstraint?.constant = spacing + safeAreaInset
     }
 
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        updateBottomButtonBackgroundBottomInset()
+        updateBottomButtonLayout()
     }
     
     private func updateTheme() {
@@ -267,24 +400,18 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 extension SwapVC: WKeyboardObserverDelegate {
     public func keyboardWillShow(info: WKeyboardDisplayInfo) {
         isKeyboardVisible = true
-        updateBottomButtonBackgroundBottomInset()
-        UIView.animate(withDuration: info.animationDuration) { [self] in
-            if let continueButtonConstraint {
-                continueButtonConstraint.constant = -info.height - 16
-                view.layoutIfNeeded()
-            }
+        keyboardFrameInScreen = info.endFrame
+        keyboardScreen = info.screen ?? view.window?.screen
+        UIView.performWithoutAnimation {
+            updateBottomButtonLayout()
+            view.layoutIfNeeded()
         }
+        updatePresentationCompensation()
     }
-    
+
     public func keyboardWillHide(info: WKeyboardDisplayInfo) {
         isKeyboardVisible = false
-        updateBottomButtonBackgroundBottomInset()
-        UIView.animate(withDuration: info.animationDuration) { [self] in
-            if let continueButtonConstraint {
-                continueButtonConstraint.constant =  -view.safeAreaInsets.bottom - 16
-                view.layoutIfNeeded()
-            }
-        }
+        updateBottomButtonLayout()
     }
 }
 
@@ -345,23 +472,23 @@ extension SwapVC: TokenSelectionVCDelegate {
         switch side {
         case .selling:
             swapTokenSelectionVC = TokenSelectionVC(
-                forceAvailable: swapModel.input.sellingToken.slug,
+                forceAvailable: swapModel.input.sellingToken?.slug,
                 otherSymbolOrMinterAddress: nil,
                 myAssetsDisplayMode: .swap,
-                title: lang("You sell"),
+                title: lang("You Sell"),
                 delegate: self,
                 isModal: true,
                 onlySupportedChains: false
             )
         case .buying:
             swapTokenSelectionVC = TokenSelectionVC(
-                forceAvailable: swapModel.input.buyingToken.slug,
+                forceAvailable: swapModel.input.buyingToken?.slug,
                 extraWalletTokenSlugs: ApiChain.allCases
                     .filter(\.isOnchainSwapSupported)
                     .map(\.nativeToken.slug),
                 otherSymbolOrMinterAddress: nil,
                 myAssetsDisplayMode: .swap,
-                title: lang("You buy"),
+                title: lang("You Buy"),
                 delegate: self,
                 isModal: true,
                 onlySupportedChains: false

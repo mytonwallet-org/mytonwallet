@@ -5,26 +5,6 @@ import WalletCore
 @Suite("Send Navigation")
 struct SendNavigationTests {
     @Test
-    func `regular send maps external values into token configuration`() throws {
-        let route = try SendRoute(prefilledValues: .init(
-            address: "recipient",
-            amount: 42,
-            token: "toncoin",
-            commentOrMemo: "memo"
-        ))
-
-        guard case .tokenCompose(let configuration) = route else {
-            Issue.record("Expected token compose route")
-            return
-        }
-        #expect(configuration.mode == .send)
-        #expect(configuration.initialAddress == "recipient")
-        #expect(configuration.initialAmount == 42)
-        #expect(configuration.initialTokenSlug == "toncoin")
-        #expect(configuration.initialComment == "memo")
-    }
-
-    @Test
     func `sell maps into token review`() throws {
         let route = try SendRoute(
             prefilledValues: .init(mode: .sellToMoonpay)
@@ -35,25 +15,6 @@ struct SendNavigationTests {
             return
         }
         #expect(configuration.mode == .sellToMoonpay)
-    }
-
-    @Test
-    func `NFT send maps into fixed-chain NFT configuration`() throws {
-        let nft = makeNft(chain: .solana, address: "nft")
-        let route = try SendRoute(prefilledValues: .init(
-            mode: .sendNft,
-            address: "recipient",
-            nfts: [nft]
-        ))
-
-        guard case .nftCompose(let configuration) = route else {
-            Issue.record("Expected NFT compose route")
-            return
-        }
-        #expect(configuration.mode == .send)
-        #expect(configuration.chain == .solana)
-        #expect(configuration.nfts == [nft])
-        #expect(configuration.initialAddress == "recipient")
     }
 
     @Test

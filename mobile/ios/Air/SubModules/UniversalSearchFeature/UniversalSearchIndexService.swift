@@ -175,7 +175,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
 
         case .accountNameChanged, .updateAccount, .updateAccountConfig,
              .updateAccountDomainData:
-            scheduleRefresh(sourceIDs: [WalletCoreWalletSearchSource.id])
+            scheduleRefresh(sourceIDs: [WalletCoreWalletSearchSource.id, UniversalSearchAppEntrySource.id])
 
         case .tokensChanged, .swapTokensChanged, .baseCurrencyChanged,
              .assetsAndActivityDataUpdated, .hideNoCostTokensChanged,
@@ -223,12 +223,16 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             scheduleRefresh(sourceIDs: [WalletCoreCollectibleSearchSource.id])
 
         case .updateDapps, .dappsCountUpdated, .dappDisconnected:
-            scheduleRefresh(sourceIDs: [WalletCoreConnectedAppSearchSource.id])
+            scheduleRefresh(sourceIDs: [WalletCoreConnectedAppSearchSource.id, UniversalSearchAppEntrySource.id])
+
+        case .walletVersionsDataReceived:
+            scheduleRefresh(sourceIDs: [UniversalSearchAppEntrySource.id])
 
         case .configChanged:
             scheduleRefresh(sourceIDs: [
                 WalletCoreExploreAppSearchSource.id,
                 UniversalSearchAgentSuggestionSource.id,
+                UniversalSearchAppEntrySource.id,
             ])
 
         default:

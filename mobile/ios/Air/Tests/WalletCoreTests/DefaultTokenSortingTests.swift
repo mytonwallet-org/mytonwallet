@@ -8,35 +8,9 @@ struct DefaultTokenSortingTests {
     func `empty multichain wallet keeps all native tokens in default order`() {
         let account = makeAccount(chains: ApiChain.allCases)
         let defaultSlugs = ApiToken.defaultSlugs(forNetwork: .mainnet, account: account)
-        let tokenBalances = [
-            MTokenBalance(tokenSlug: ROBINHOOD_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: MONAD_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: ARBITRUM_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: AVALANCHE_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: POLYGON_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: BNB_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: BASE_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: TRX_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: TONCOIN_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: HYPERLIQUID_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: SOLANA_SLUG, balance: 0, isStaking: false),
-            MTokenBalance(tokenSlug: ETH_SLUG, balance: 0, isStaking: false),
-        ]
-
-        #expect(Array(defaultSlugs) == [
-            ETH_SLUG,
-            SOLANA_SLUG,
-            HYPERLIQUID_SLUG,
-            TONCOIN_SLUG,
-            TRX_SLUG,
-            BNB_SLUG,
-            BASE_SLUG,
-            ROBINHOOD_SLUG,
-            MONAD_SLUG,
-            ARBITRUM_SLUG,
-            POLYGON_SLUG,
-            AVALANCHE_SLUG,
-        ])
+        let tokenBalances = defaultSlugs.reversed().map {
+            MTokenBalance(tokenSlug: $0, balance: 0, isStaking: false)
+        }
 
         let sorted = MTokenBalance.sortedForBalanceData(
             tokenBalances: tokenBalances,
@@ -45,20 +19,7 @@ struct DefaultTokenSortingTests {
             importedTokenSlugs: []
         )
 
-        #expect(sorted.map(\.tokenSlug) == [
-            ETH_SLUG,
-            SOLANA_SLUG,
-            HYPERLIQUID_SLUG,
-            TONCOIN_SLUG,
-            TRX_SLUG,
-            BNB_SLUG,
-            BASE_SLUG,
-            ROBINHOOD_SLUG,
-            MONAD_SLUG,
-            ARBITRUM_SLUG,
-            POLYGON_SLUG,
-            AVALANCHE_SLUG,
-        ])
+        #expect(sorted.map(\.tokenSlug) == Array(defaultSlugs))
     }
 
     @Test

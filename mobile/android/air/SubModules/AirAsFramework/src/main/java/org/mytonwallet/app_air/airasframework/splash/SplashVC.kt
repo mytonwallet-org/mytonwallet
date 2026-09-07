@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.airasframework.AirAsFrameworkApplication
 import org.mytonwallet.app_air.airasframework.MainWindow
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.sqscan.screen.QrScannerDialog
+import org.mytonwallet.app_air.uiassets.viewControllers.hiddenNFTs.HiddenNFTsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.renew.RenewVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
@@ -378,6 +379,15 @@ class SplashVC(context: Context) :
     )
 
     override fun getCustomizeTabsVC(): Any = CustomizeTabsVC(context)
+
+    override fun getHiddenNftsVC(accountId: String): Any = HiddenNFTsVC(context, accountId)
+
+    override fun getReceiveVC(chain: String, buyingTokenSlug: String?): Any? =
+        ReceiveVC.createIfAvailable(
+            context,
+            MBlockchain.valueOfOrNull(chain),
+            preferredBuyingTokenSlug = buyingTokenSlug
+        )
 
     override fun themeChanged(animated: Boolean) {
         val context = window?.applicationContext ?: return

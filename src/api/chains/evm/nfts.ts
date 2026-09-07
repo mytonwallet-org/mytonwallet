@@ -15,8 +15,9 @@ import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { fetchJson } from '../../../util/fetch';
 import { compact, omitUndefined } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
+import { fetchEvmWallet } from './util/account';
 import { getEvmProvider } from './util/client';
-import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
+import { fetchStoredChainAccount } from '../../common/accounts';
 import { checkHasScamLink } from '../../common/addresses';
 import { handleServerError } from '../../errors';
 import { isValidAddress } from './address';
@@ -39,7 +40,7 @@ export async function getAccountNfts(
   },
 ): Promise<ApiNft[]> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, chain);
+  const { address } = await fetchEvmWallet(accountId, chain);
 
   if (options?.offset !== undefined || options?.limit !== undefined) {
     const result = await fetchNftsPage(chain, network, address, {
@@ -63,7 +64,7 @@ export async function streamAllAccountNfts(
   },
 ): Promise<void> {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, chain);
+  const { address } = await fetchEvmWallet(accountId, chain);
 
   if (!options.ignorePreCheck) {
     const isActive = await getIsWalletActive(network, chain, address);
@@ -233,7 +234,7 @@ export async function checkNftTransferDraft(
 
     result.resolvedAddress = toAddress;
 
-    const { address: fromAddress } = await fetchStoredWallet(accountId, chain);
+    const { address: fromAddress } = await fetchEvmWallet(accountId, chain);
     const provider = getEvmProvider(network, chain);
 
     const transaction = buildTransaction({ from: fromAddress, to: toAddress, amount: 0n, nft });
@@ -321,7 +322,7 @@ export async function submitNftTransfers(
 
 export async function checkNftOwnership(chain: EVMChain, accountId: string, nftAddress: string) {
   const { network } = parseAccountId(accountId);
-  const { address } = await fetchStoredWallet(accountId, chain);
+  const { address } = await fetchEvmWallet(accountId, chain);
 
   const [contractAddress, tokenId] = nftAddress.split('/');
 

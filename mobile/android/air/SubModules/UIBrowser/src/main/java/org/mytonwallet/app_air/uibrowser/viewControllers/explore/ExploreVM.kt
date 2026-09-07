@@ -131,14 +131,16 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     private var tokenCatalogFingerprint: Long = 0L
 
     /**
-     * Order-independent digest of every token's searchable fields. Prices are excluded on
-     * purpose: they arrive with most TokensChanged events and do not affect matching.
+     * Order-independent digest of every token's searchable fields and popularity, which gates
+     * matching on unsupported chains. Prices are excluded on purpose: they arrive with most
+     * TokensChanged events and do not affect matching.
      */
     private fun computeTokenCatalogFingerprint(): Long {
         var hash = 0L
         TokenStore.tokens.forEach { (slug, token) ->
             hash += slug.hashCode().toLong() * 31 +
-                TokenSearchMatching.searchableFieldsHash(token)
+                TokenSearchMatching.searchableFieldsHash(token) +
+                (if (token.isPopular) 1 else 0)
         }
         hash += (TokenStore.swapAssets?.size ?: 0).toLong() * 1_000_003L
         return hash
@@ -848,7 +850,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             val searchContext = currentCoroutineContext()
             return substringIndex(searchContext).match(keywordLower).filter { token ->
                 searchContext.ensureActive()
-                account.isChainSupported(token.chain)
+                isSearchable(account, token)
             }
         }
         return coroutineScope {
@@ -860,7 +862,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                     val chunkContext = currentCoroutineContext()
                     chunk.filter { token ->
                         chunkContext.ensureActive()
-                        account.isChainSupported(token.chain) &&
+                        isSearchable(account, token) &&
                             (
                                 TokenSearchMatching.matchesSubstring(token, keywordLower) ||
                                     // Substring matching alone misses typos and non-Latin
@@ -873,6 +875,10 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             }.awaitAll().flatten()
         }
     }
+
+    /** Popular tokens stay searchable on wallets without their chain. */
+    private fun isSearchable(account: MAccount, token: MToken): Boolean =
+        token.isPopular || account.isChainSupported(token.chain)
 
     private suspend fun filterTokens(
         query: String,
@@ -926,6 +932,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             )
         }
 
+        val popularSlugs = matchedTokens.mapNotNullTo(HashSet()) { token ->
+            token.slug.takeIf { token.isPopular }
+        }
         return matchedTokens
             .asSequence()
             .map { token ->
@@ -939,8 +948,12 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 searchContext.ensureActive()
                 val leftExact = left.token in exactSlugs
                 val rightExact = right.token in exactSlugs
+                val leftPopular = left.token in popularSlugs
+                val rightPopular = right.token in popularSlugs
                 if (leftExact != rightExact) {
                     if (leftExact) -1 else 1
+                } else if (leftPopular != rightPopular) {
+                    if (leftPopular) -1 else 1
                 } else {
                     left.compareByDisplayOrder(right, ignorePriorities = !account.isNew)
                 }

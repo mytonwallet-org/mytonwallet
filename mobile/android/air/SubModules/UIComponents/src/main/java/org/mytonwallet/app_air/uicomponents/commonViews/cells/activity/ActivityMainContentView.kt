@@ -264,15 +264,19 @@ class ActivityMainContentView(context: Context) :
         }
 
         val isStake = transaction.type == ApiTransactionType.STAKE
-        topRightLabel.contentView.setAmount(
-            if (isStake) transaction.amount.abs() else transaction.amount,
-            token.decimals,
-            token.symbol,
-            token.decimals,
-            true,
-            !isStake,
-            forceCurrencyToRight = true
-        )
+        if (transaction.type == ApiTransactionType.APPROVAL) {
+            topRightLabel.contentView.text = transaction.formatApprovalAmount()
+        } else {
+            topRightLabel.contentView.setAmount(
+                if (isStake) transaction.amount.abs() else transaction.amount,
+                token.decimals,
+                token.symbol,
+                token.decimals,
+                true,
+                !isStake,
+                forceCurrencyToRight = true
+            )
+        }
         topRightLabel.maskView.skin = if (transaction.type == null && transaction.isIncoming) {
             SensitiveDataMaskView.Skin.GREEN
         } else {
@@ -283,6 +287,7 @@ class ActivityMainContentView(context: Context) :
                 transaction.status == ApiTransactionStatus.FAILED -> WColor.Red.color
                 transaction.type == ApiTransactionType.STAKE -> WColor.Purple.color
                 transaction.type == ApiTransactionType.BURN -> WColor.Red.color
+                transaction.type == ApiTransactionType.APPROVAL -> WColor.PrimaryText.color
                 transaction.amount > BigInteger.ZERO -> WColor.Green.color
                 else -> WColor.PrimaryText.color
             }
@@ -347,7 +352,9 @@ class ActivityMainContentView(context: Context) :
 
     private fun configureTransactionEquivalentAmount() {
         val transaction = transaction as MApiTransaction.Transaction
-        if (transaction.isNft || transaction.noAmountTransaction) {
+        if (transaction.isNft || transaction.noAmountTransaction ||
+            transaction.type == ApiTransactionType.APPROVAL
+        ) {
             bottomRightLabel.contentView.text = ""
             bottomRightLabel.setMaskCols(0)
             return

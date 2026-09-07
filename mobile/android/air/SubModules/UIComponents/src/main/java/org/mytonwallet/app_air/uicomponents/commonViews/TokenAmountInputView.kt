@@ -99,7 +99,9 @@ class TokenAmountInputView(context: Context, private val isFirstItem: Boolean) :
     private val feeTextView =
         WCounterButton(
             context,
-            context.requireDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_info_24),
+            context.requireDrawableCompat(
+                org.mytonwallet.app_air.icons.R.drawable.ic_info_24
+            ).mutate(),
             true
         ).apply {
             id = generateViewId()

@@ -37,6 +37,7 @@ class SearchSectionCell(context: Context) :
     private var maximumItemWidths: List<Int>? = null
     private var horizontalEndSpacing = 0
     private var contentIdentity: Any? = null
+    private var bottomRadius = ViewConstants.BLOCK_RADIUS.dp
     private var createCell: (() -> WCell)? = null
     private var configureCell: ((WCell, Int, Boolean) -> Unit)? = null
     private val springSnap = SpringSnapHelper(snapToStart = true)
@@ -148,6 +149,7 @@ class SearchSectionCell(context: Context) :
         rowSpacing: Int = 0,
         verticalPadding: Int = 0,
         horizontalEndSpacing: Int = 0,
+        bottomRadius: Float = ViewConstants.BLOCK_RADIUS.dp,
         createCell: () -> WCell,
         configureCell: (WCell, Int, Boolean) -> Unit
     ) {
@@ -163,6 +165,10 @@ class SearchSectionCell(context: Context) :
         if (this.horizontalEndSpacing != horizontalEndSpacing) {
             this.horizontalEndSpacing = horizontalEndSpacing
             recyclerView.invalidateItemDecorations()
+        }
+        if (this.bottomRadius != bottomRadius) {
+            this.bottomRadius = bottomRadius
+            updateTheme()
         }
         this.createCell = createCell
         this.configureCell = configureCell
@@ -199,7 +205,7 @@ class SearchSectionCell(context: Context) :
         setBackgroundColor(
             WColor.Background.color,
             0f,
-            ViewConstants.BLOCK_RADIUS.dp
+            bottomRadius
         )
     }
 

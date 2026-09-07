@@ -129,7 +129,9 @@ Invoice Link Copied: Se copió el enlace de la factura
 Theme: Tema
 Language: Idioma
 Enable Animations: Habilitar animaciones
+Animations: Animaciones
 Enable Seasonal Theming: Activar tema estacional
+Seasonal Theming: Tema estacional
 Enable Landscape Mode: Activar modo horizontal
 Disable Seasonal Theming: Desactivar tema estacional
 You can always enable seasonal theming again in the appearance settings.: Puedes volver a activar el tema estacional en la configuración de apariencia.
@@ -163,6 +165,9 @@ Description Copied: Descripción copiada
 Message Copied: Mensaje copiado
 Sender: Remitente
 Recipient: Receptor
+Spender: Autorizado
+Token Approval: Aprobación de token
+Allowance: Cantidad autorizada
 "%chain% Address Copied": "Dirección %chain% copiada"
 Repeat: Repetir
 Switch Account: Cambiar de monedero
@@ -397,8 +402,8 @@ Agree: Aceptar
 $swap_action: Intercambiar
 $swap_activity_title: Intercambio
 Swap: Intercambiar
-You sell: Usted vende
-You buy: Usted compra
+You Sell: Usted vende
+You Buy: Usted compra
 Swap Details: Detalles del intercambio
 Blockchain Fee: Tarifa de blockchain
 Included: Incluido en el precio
@@ -407,7 +412,7 @@ Minimum Received: Cantidad mínima recibida
 Slippage: Deslizamiento
 $swap_from_to: Intercambiar %from% %icon% %to%
 The exchange rate is below market value!: La tasa de cambio está un %value% por debajo del valor de mercado.
-Invalid Pair: Par Inválido
+Invalid Pair: Intercambio no disponible
 We do not recommend to perform an exchange, try to specify a lower amount.: No recomendamos realizar un intercambio, intente especificar una cantidad menor.
 $swap_minimum_received_tooltip1: Esta es la cantidad mínima de nuevos tokens que recibirá en este intercambio, considerando las condiciones actuales del mercado, la tolerancia al deslizamiento y el posible impacto en el precio.
 $swap_minimum_received_tooltip2: Es un mínimo esperado, pero si las condiciones cambian mucho mientras su intercambio está siendo procesado, la cantidad final podría ser menor.
@@ -591,6 +596,16 @@ No Activity: Sin Actividad
 Fund: Recargar
 Buy with Card: Comprar con Tarjeta
 Buy with Crypto: Comprar con Cripto
+Add funds to swap: Añade fondos para intercambiar
+Direct swap unavailable: Intercambio directo no disponible
+Swap on an external service: Intercambio en un servicio externo
+Buy with a card or receive crypto to fund this swap.: Compra cripto con tarjeta o recibe cripto para disponer de fondos para este intercambio.
+Buy crypto or choose another token to sell.: Compra cripto o elige otro token para vender.
+Your balances are small. Add funds or choose another token to swap.: Tus saldos son bajos. Añade fondos o elige otro token para intercambiar.
+To buy %buy_token%, first buy %token%, then swap it for %buy_token%.: Para comprar %buy_token%, primero compra %token% y luego intercámbialo por %buy_token%.
+Open %provider% to swap this pair in the browser.: Abre %provider% para intercambiar este par en el navegador.
+Buy %token%: Comprar %token%
+Open %provider%: Abrir %provider%
 Cannot load widget: No se puede cargar el widget
 Explore: Explorar
 $lockdown_mode_enabled_title: Modo de aislamiento activado
@@ -1123,7 +1138,7 @@ You don’t have any cards to customize yet: Aún no tienes tarjetas para person
 My Wallet Cards can be installed for wallets and displayed on the home screen and in the wallet list.: Las tarjetas My Wallet pueden instalarse para las billeteras y mostrarse en la pantalla principal y en la lista de billeteras.
 Get First Card: Obtener primera tarjeta
 Palette and Card: Paleta y tarjeta
-Customize the wallet's home screen and color accents the way you like.: Personaliza la pantalla principal y los acentos de color de la billetera a tu gusto.
+Customize the wallet’s card appearance and color accents the way you like.: Personaliza la apariencia de la tarjeta y los acentos de color de la billetera a tu gusto.
 Address doesn't exist: La dirección no existe
 The address is not a token minter address: La dirección no es una dirección minter de tokens
 $joining_comma: ", "
@@ -1246,8 +1261,16 @@ $agent_consent_debug_reset_footer: Muestra de nuevo la pantalla de consentimient
 $settings_token_change_threshold: Umbral de variación porcentual
 $settings_token_change_threshold_description: Oculta los cambios porcentuales de 24 horas inferiores al umbral seleccionado.
 $settings_token_change_threshold_off: Desactivado
-$settings_hide_action_buttons: Ocultar botones de acción
-$settings_hide_action_buttons_description: Oculta la fila de botones de acción en la pantalla de la cartera.
+Blockchain Badges: Insignias de Blockchain
+$settings_blockchain_badges_description: Mostrar insignias de blockchain para todos los tokens. De forma predeterminada, solo se muestran para stablecoins y acciones tokenizadas disponibles en varias blockchains.
+Show on Card: Mostrar en la tarjeta
+Top Address: Dirección principal
+Highest-Balance Address: Dirección con mayor saldo
+3 Highest-Balance Addresses: 3 direcciones con mayor saldo
+3 Top Addresses: 3 direcciones principales
+Action Buttons: Botones de acción
+Collectibles Section: Sección de coleccionables
+$settings_wallet_card_description: Personaliza lo que aparece en la tarjeta de tu cartera y si se muestran los botones de acción.
 Retry: Reintentar
 $agent_chat_running: Ejecutándose en segundo plano
 $agent_connection_interrupted: La conexión del Agente se interrumpió. Inténtalo de nuevo.
@@ -2108,7 +2131,9 @@ $chart_week_days_short: dom,lun,mar,mié,jue,vie,sáb
 Unsupported Chain: Red no compatible
 Please upgrade to multichain to use this app.: Actualiza a multichain para usar esta aplicación.
 Rounded Corners: Esquinas redondeadas
-Enable Blur: Activar desenfoque
+Blur: Desenfoque
+Top Tabs: Pestañas superiores
+Liquid Glass: Liquid Glass
 App Font: Fuente de la aplicación
 Rounded Balance Font: Fuente redondeada para el saldo
 My Wallet Cards NFT: My Wallet Cards NFT

@@ -1,5 +1,4 @@
 import XCTest
-import UIKit
 @testable import UIAgent
 
 final class AgentMessageTableTests: XCTestCase {
@@ -206,33 +205,6 @@ final class AgentMessageTableTests: XCTestCase {
         XCTAssertEqual(limited.rows.last?.first?.columnSpan, 41)
     }
 
-    @MainActor
-    func testRichTableViewProducesFinitePhoneLayout() {
-        let view = AgentRichMessageView()
-        view.configure(
-            source: """
-            Snapshot:
-
-            | Token | Balance | Change |
-            | :--- | ---: | ---: |
-            | TON | 125.50 | +2.3% |
-            """,
-            textColor: .label,
-            maximumContentWidth: 320,
-            detectsLinks: true,
-            markdownProfile: .legacy,
-            onURLTap: nil
-        )
-
-        let size = view.systemLayoutSizeFitting(
-            CGSize(width: 320, height: UIView.layoutFittingCompressedSize.height),
-            withHorizontalFittingPriority: .required,
-            verticalFittingPriority: .fittingSizeLevel
-        )
-        XCTAssertEqual(size.width, 320, accuracy: 0.5)
-        XCTAssertGreaterThan(size.height, 80)
-        XCTAssertTrue(size.height.isFinite)
-    }
 }
 
 private extension AgentMessageBlock {

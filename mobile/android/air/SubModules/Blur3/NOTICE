@@ -1,0 +1,11 @@
+This module is a port of the `blur3` blurred-background / liquid-glass drawable system from
+Telegram for Android (https://github.com/DrKLO/Telegram), taken at commit 62b56a07c
+(version 12.10.1), together with its helpers `ViewPositionWatcher`, `RenderNodeEffects`,
+`RadiiUtils` and the AGSL shader `res/raw/liquid_glass_shader.agsl`.
+
+Telegram for Android is licensed under the GNU General Public License v2 or later; the license
+text is in LICENSE next to this file. It is redistributed here under GPL v3 or later, which the
+"or later" clause permits.
+
+Changes from upstream are confined to package names, the `compat` package (replacing Telegram's
+theme/settings/utility singletons) and a few places marked with "Blur3 port:" comments.

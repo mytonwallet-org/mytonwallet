@@ -89,7 +89,8 @@ func resolveBuyAmountInputMode(
     func updatePair(selling: ApiToken, buying: ApiToken) async throws -> PairState {
         let pair = (selling.slug, buying.slug)
         guard pair != prevPair else { return pairState }
-        let pairs = try await Api.swapGetPairs(symbolOrMinter: selling.swapIdentifier)
+        // Missing pair metadata must not prevent the estimate from returning a fallback hint.
+        let pairs = (try? await Api.swapGetPairs(symbolOrMinter: selling.swapIdentifier)) ?? []
         try Task.checkCancellation()
         let currentPair = pairs.first(where: { $0.slug == buying.slug })
         let isWellKnownAllowedPair = selling.slug != buying.slug

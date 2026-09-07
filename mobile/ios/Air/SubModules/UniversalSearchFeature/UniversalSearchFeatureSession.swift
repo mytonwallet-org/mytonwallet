@@ -523,6 +523,12 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
                 actionTitle: lang("Ask Agent"),
                 style: .agent
             )
+        case .shortcut(let result):
+            return standardAutocomplete(
+                typedText: typedText,
+                suggestion: result.title,
+                actionTitle: lang("Open")
+            )
         case .openWebsite:
             return UniversalSearchAutocomplete(
                 suggestion: typedText,

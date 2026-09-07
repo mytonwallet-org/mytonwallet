@@ -46,7 +46,6 @@ import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
-import org.mytonwallet.app_air.uicomponents.base.WMinimizableBlurHost
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
@@ -64,14 +63,14 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.setupSpringFling
 import org.mytonwallet.app_air.uicomponents.extensions.springToItem
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HomeStatusController
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.widgets.IPopup
-import org.mytonwallet.app_air.uicomponents.widgets.PillShadowView
-import org.mytonwallet.app_air.uicomponents.widgets.WBlurryBackgroundView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
@@ -127,6 +126,7 @@ class PhoneTabsVC(context: Context) :
         const val SEARCH_HEIGHT = 48
         const val SEARCH_TOP_MARGIN = 4
         const val SEARCH_BOTTOM_MARGIN = 10
+        private const val SEARCH_KEYBOARD_GAP = 12
         private const val ACTIONS_BUTTON_GAP = 12
         private const val ACTIONS_ICON_SIZE = 18
 
@@ -189,7 +189,7 @@ class PhoneTabsVC(context: Context) :
 
     override fun onExploreCreated(exploreVC: ExploreVC) {
         if (!experimentalTopTabsEnabled) {
-            searchBlurryBackgroundView.setupWith(exploreVC.view)
+            searchGlass?.setupWith(exploreVC.view)
         }
     }
 
@@ -492,7 +492,7 @@ class PhoneTabsVC(context: Context) :
             val animationsEnabled = WGlobalStorage.getAreAnimationsActive()
 
             if (animationsEnabled) {
-                fadeSearchChrome(searchView, searchShadow, searchVisible)
+                fadeSearchChrome(searchView, searchVisible)
 
                 newNav.alpha = 0f
                 newNav.scaleX = 0.98f
@@ -646,10 +646,6 @@ class PhoneTabsVC(context: Context) :
 
         override fun enterReorderingMode() {}
     }
-    private val topTabsBlurryBackgroundView =
-        WBlurryBackgroundView(context, fadeSide = null).apply {
-            setOverlayColor(WColor.Background, 204)
-        }
     private val topTabsControl by lazy {
         WClearSegmentedControl(
             context,
@@ -659,14 +655,9 @@ class PhoneTabsVC(context: Context) :
             paintColor = WColor.Tint.color.colorWithAlpha(31)
             primaryTextColorOverride = WColor.Tint.color
             fillAvailableWidth = true
-            addView(
-                topTabsBlurryBackgroundView,
-                0,
-                FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            )
         }
     }
-    private var topTabsShadow: PillShadowView? = null
+    private var topTabsGlass: WGlassView? = null
 
     private val topAvatarRipple by lazy {
         WRippleDrawable.create(TOP_AVATAR_SIZE.dp / 2f)
@@ -710,18 +701,10 @@ class PhoneTabsVC(context: Context) :
         applyTopAvatarStatus(state, animated)
     }
     private var topAvatarAccountId: String? = null
-    private val topAvatarBlurryBackgroundView =
-        WBlurryBackgroundView(context, fadeSide = null).apply {
-            setOverlayColor(WColor.Background, 204)
-        }
     private val topAvatarView by lazy {
         WFrameLayout(context).apply {
             setBackgroundColor(Color.TRANSPARENT, TOP_AVATAR_SIZE.dp / 2f, clipToBounds = true)
             foreground = topAvatarRipple
-            addView(
-                topAvatarBlurryBackgroundView,
-                FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            )
             addView(topAvatarRingView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
             contentDescription = LocaleController.getString("Settings")
             val iconLayoutParams = FrameLayout.LayoutParams(
@@ -737,7 +720,7 @@ class PhoneTabsVC(context: Context) :
             }
         }
     }
-    private var topAvatarShadow: PillShadowView? = null
+    private var topAvatarGlass: WGlassView? = null
     private var isTopChromeHidden = false
 
     private fun reloadTopTabs(selectedItemId: Int = bottomNavigationView.selectedItemId) {
@@ -785,34 +768,26 @@ class PhoneTabsVC(context: Context) :
             topTabsControl.alpha = 1f
             topAvatarView.alpha = 1f
         }
-        topTabsShadow?.sync()
-        topAvatarShadow?.sync()
     }
 
-    // The shadows mirror their target's alpha/visibility through sync(), so only the target is
-    // animated here and the shadow is re-synced as the animation progresses.
-    private fun hideTopChromeView(view: View?, syncShadow: () -> Unit) {
+    private fun hideTopChromeView(view: View?) {
         view ?: return
         view.animate().cancel()
         view.fadeOut(AnimationConstants.QUICK_ANIMATION / 2) {
             if (isTopChromeHidden) view.isInvisible = true
-            syncShadow()
         }
-        view.animate().setUpdateListener { syncShadow() }
     }
 
-    private fun showTopChromeView(view: View?, shouldShow: Boolean, syncShadow: () -> Unit) {
+    private fun showTopChromeView(view: View?, shouldShow: Boolean) {
         view ?: return
         view.animate().cancel()
         if (!shouldShow) {
             view.alpha = 1f
             view.isInvisible = true
-            syncShadow()
             return
         }
         view.isVisible = true
         view.fadeIn(AnimationConstants.QUICK_ANIMATION / 2)
-        view.animate().setUpdateListener { syncShadow() }
     }
 
     private fun applyTopAvatarStatus(state: UpdateStatusView.State, animated: Boolean) {
@@ -918,8 +893,6 @@ class PhoneTabsVC(context: Context) :
                 endSystemInset + TOP_TABS_END_MARGIN.dp
             )
         }
-        topTabsShadow?.sync()
-        topAvatarShadow?.sync()
     }
 
     private val toastHostView by lazy {
@@ -929,15 +902,8 @@ class PhoneTabsVC(context: Context) :
     }
 
     var isProcessingSearchKeyword = false
-    private val searchBlurryBackgroundView = WBlurryBackgroundView(context, fadeSide = null).apply {
-        setOverlayColor(WColor.SearchFieldBackground, 204)
-    }
     private val topChromeBlurViews
-        get() = listOf(
-            searchBlurryBackgroundView,
-            topTabsBlurryBackgroundView,
-            topAvatarBlurryBackgroundView
-        )
+        get() = listOfNotNull(searchGlass, topTabsGlass, topAvatarGlass)
     private val searchEditText by lazy {
         object : WSearchEditText(context) {
             override fun onFocusChanged(
@@ -1074,21 +1040,12 @@ class PhoneTabsVC(context: Context) :
             }
         }
     }
-    private var searchShadow: PillShadowView? = null
+    private var searchGlass: WGlassView? = null
     private val searchView by lazy {
-        object : WFrameLayout(context) {
-            override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-                super.onLayout(changed, left, top, right, bottom)
-                if (changed) searchShadow?.sync()
-            }
-        }.apply {
+        WFrameLayout(context).apply {
             alpha = 0f
             visibility = View.INVISIBLE
             translationY = -SEARCH_BOTTOM_MARGIN.dp.toFloat()
-            addView(
-                searchBlurryBackgroundView,
-                FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-            )
             setBackgroundColor(Color.TRANSPARENT, 24f.dp, clipToBounds = true)
             addView(searchEditText, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }
@@ -1096,7 +1053,7 @@ class PhoneTabsVC(context: Context) :
 
     // Round "+" button beside the search field (top-tabs mode only); opens the actions sheet,
     // or morphs into an "X" that closes the search while it has focus.
-    private var actionsButtonShadow: PillShadowView? = null
+    private var actionsButtonGlass: WGlassView? = null
     private val actionsButtonIcon by lazy {
         AppCompatImageView(context).apply {
             setImageResource(org.mytonwallet.app_air.icons.R.drawable.ic_plus_thick)
@@ -1173,21 +1130,18 @@ class PhoneTabsVC(context: Context) :
         )
     }
 
-    private fun fadeSearchChrome(target: View, shadow: PillShadowView?, visible: Boolean) {
+    private fun fadeSearchChrome(target: View, visible: Boolean) {
         if (visible) {
             target.visibility = View.VISIBLE
-            shadow?.sync()
         }
         target.animate()
             .alpha(if (visible) 1f else 0f)
             .setDuration(AnimationConstants.VERY_VERY_QUICK_ANIMATION)
             .setInterpolator(CubicBezierInterpolator.EASE_OUT)
-            .setUpdateListener { shadow?.sync() }
             .withEndAction {
                 if (!visible) {
                     target.visibility = View.INVISIBLE
                 }
-                shadow?.sync()
             }
             .start()
     }
@@ -1195,11 +1149,9 @@ class PhoneTabsVC(context: Context) :
     private fun setSearchChromeVisible(visible: Boolean) {
         searchView.alpha = if (visible) 1f else 0f
         searchView.visibility = if (visible) View.VISIBLE else View.INVISIBLE
-        searchShadow?.sync()
         if (experimentalTopTabsEnabled) {
             actionsButton.alpha = searchView.alpha
             actionsButton.visibility = searchView.visibility
-            actionsButtonShadow?.sync()
         }
     }
 
@@ -1268,13 +1220,13 @@ class PhoneTabsVC(context: Context) :
         syncToastHostPosition()
         updateExperimentalSearchPosition()
 
-        stickyBottomGradientDrawable?.setStops(computeGradientStops(visibilityFraction))
+        updateStickyGradientHeight()
 
         // Minimized nav animation
         if (activeVisibilityValueAnimator?.isRunning == true) {
             minimizedNav?.let { nav ->
                 nav.y = minimizedNavY!! + hiddenTranslationY
-                minimizedNavShadow?.let {
+                minimizedNavGlass?.let {
                     applyMinimizedShadowProgress(
                         nav,
                         it.alpha,
@@ -1291,9 +1243,7 @@ class PhoneTabsVC(context: Context) :
     private fun updateExperimentalSearchPosition() {
         if (!experimentalTopTabsEnabled) return
         searchView.translationY = -(searchTopOffset() - SEARCH_HEIGHT.dp)
-        searchShadow?.sync()
         actionsButton.translationY = searchView.translationY
-        actionsButtonShadow?.sync()
     }
 
     private fun onUpdateAdditionalHeight() {
@@ -1339,9 +1289,6 @@ class PhoneTabsVC(context: Context) :
             if (experimentalTopTabsEnabled) View.INVISIBLE else View.VISIBLE
 
         view.addView(contentView, ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        if (experimentalTopTabsEnabled) {
-            topChromeBlurViews.forEach { it.setupWith(contentView) }
-        }
         view.addView(bottomNavigationView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(toastHostView, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(
@@ -1351,16 +1298,23 @@ class PhoneTabsVC(context: Context) :
                 SEARCH_HEIGHT.dp
             )
         )
-        searchShadow = PillShadowView.attachTo(searchView, 24f.dp)
+        searchGlass = WGlassView.attachTo(
+            searchView,
+            24f.dp,
+            GlassProviders.pill(WColor.SearchFieldBackground),
+            root = if (experimentalTopTabsEnabled) contentView else null
+        )
         if (experimentalTopTabsEnabled) {
             view.addView(
                 actionsButton,
                 ConstraintLayout.LayoutParams(SEARCH_HEIGHT.dp, SEARCH_HEIGHT.dp)
             )
-            actionsButtonShadow = PillShadowView.attachTo(actionsButton, SEARCH_HEIGHT.dp / 2f)
-            actionsButton.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                actionsButtonShadow?.sync()
-            }
+            actionsButtonGlass = WGlassView.attachTo(
+                actionsButton,
+                SEARCH_HEIGHT.dp / 2f,
+                GlassProviders.shadowOnly(),
+                root = null
+            )
         }
         ensureStickyBottomGradientView()
         if (experimentalTopTabsEnabled) {
@@ -1368,25 +1322,23 @@ class PhoneTabsVC(context: Context) :
                 topAvatarView,
                 ConstraintLayout.LayoutParams(TOP_AVATAR_SIZE.dp, TOP_AVATAR_SIZE.dp)
             )
-            topAvatarShadow = PillShadowView.attachTo(
+            topAvatarGlass = WGlassView.attachTo(
                 topAvatarView,
-                TOP_AVATAR_SIZE.dp / 2f
+                TOP_AVATAR_SIZE.dp / 2f,
+                GlassProviders.pill(WColor.Background),
+                contentView
             )
             view.addView(
                 topTabsControl,
                 ConstraintLayout.LayoutParams(0, TOP_TABS_HEIGHT.dp)
             )
-            topTabsShadow = PillShadowView.attachTo(
+            topTabsGlass = WGlassView.attachTo(
                 topTabsControl,
-                TOP_TABS_HEIGHT.dp / 2f
+                TOP_TABS_HEIGHT.dp / 2f,
+                GlassProviders.pill(WColor.Background),
+                contentView
             )
-            topAvatarView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                topAvatarShadow?.sync()
-            }
             HomeStatusController.addListener(topAvatarStatusListener)
-            topTabsControl.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                topTabsShadow?.sync()
-            }
         }
         view.setConstraints {
             if (experimentalTopTabsEnabled) {
@@ -1646,8 +1598,8 @@ class PhoneTabsVC(context: Context) :
                 TOP_TABS_HEIGHT.dp / 2f,
                 clipToBounds = true
             )
-            topTabsBlurryBackgroundView.updateTheme()
-            topAvatarBlurryBackgroundView.updateTheme()
+            topTabsGlass?.updateTheme()
+            topAvatarGlass?.updateTheme()
             topTabsControl.paintColor = WColor.Tint.color.colorWithAlpha(31)
             topTabsControl.primaryTextColorOverride = WColor.Tint.color
             topTabsControl.updateTheme()
@@ -1659,8 +1611,6 @@ class PhoneTabsVC(context: Context) :
             alternateTopAvatarIconView.updateTheme()
             topAvatarRingDrawable.color = WColor.Tint.color
             topAvatarRingView.invalidate()
-            topTabsShadow?.updateTheme()
-            topAvatarShadow?.updateTheme()
         }
         updateBottomNavigationBackground()
         updateExperimentalSearchPosition()
@@ -1679,7 +1629,6 @@ class PhoneTabsVC(context: Context) :
         }
         super.viewWillAppear()
         activeNavigationController?.viewWillAppear()
-        resumeBlurring()
     }
 
     override fun viewDidAppear() {
@@ -1764,15 +1713,19 @@ class PhoneTabsVC(context: Context) :
 
     private val keyboardHeight: Float
         get() {
-            return maxOf(
-                (
-                    (window?.imeInsets?.bottom ?: 0) -
-                        (window?.systemBars?.bottom ?: 0) -
-                        bottomTabsHeight -
-                        (if (minimizedNav != null) 56.dp else 0)
-                    ).toFloat(),
-                0f
-            )
+            val height = (window?.imeInsets?.bottom ?: 0) -
+                (window?.systemBars?.bottom ?: 0) -
+                bottomTabsHeight -
+                (if (minimizedNav != null) 56.dp else 0)
+            if (height <= 0) return 0f
+            return (height + searchKeyboardLift).toFloat()
+        }
+
+    private val searchKeyboardLift: Int
+        get() = if (experimentalTopTabsEnabled) {
+            (SEARCH_KEYBOARD_GAP.dp - 1.dp - bottomOverlayExtraGap).coerceAtLeast(0)
+        } else {
+            0
         }
 
     override fun insetsUpdated() {
@@ -1831,20 +1784,20 @@ class PhoneTabsVC(context: Context) :
     private fun restackChromeAboveGradient() {
         bottomNavigationView.bringToFront()
         if (experimentalTopTabsEnabled && topTabsControl.parent != null) {
-            topAvatarShadow?.bringToFront()
+            topAvatarGlass?.bringToFront()
             topAvatarView.bringToFront()
-            topTabsShadow?.bringToFront()
+            topTabsGlass?.bringToFront()
             topTabsControl.bringToFront()
         }
         if (experimentalTopTabsEnabled) {
             searchOverlayNav?.bringToFront()
             bottomReversedCornerView?.bringToFront()
             stickyBottomGradientView?.bringToFront()
-            minimizedNavShadow?.bringToFront()
+            minimizedNavGlass?.bringToFront()
             minimizedNav?.bringToFront()
-            searchShadow?.bringToFront()
+            searchGlass?.bringToFront()
             searchView.bringToFront()
-            actionsButtonShadow?.bringToFront()
+            actionsButtonGlass?.bringToFront()
             actionsButton.bringToFront()
             toastHostView.bringToFront()
         }
@@ -1854,10 +1807,14 @@ class PhoneTabsVC(context: Context) :
         bottomBarHeight +
         (minimizedNavHeight ?: 0f).roundToInt() +
         if (experimentalTopTabsEnabled) {
-            (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT).dp
+            (SEARCH_BOTTOM_MARGIN + SEARCH_HEIGHT).dp + stickyGradientKeyboardHeight.roundToInt()
         } else {
             0
         }
+
+    // In top-tabs mode the gradient follows the search bar above the keyboard.
+    private val stickyGradientKeyboardHeight: Float
+        get() = if (experimentalTopTabsEnabled) keyboardVisible.value.coerceAtLeast(0f) else 0f
 
     private fun updateStickyGradientHeight() {
         val gradient = stickyBottomGradientView ?: return
@@ -1875,7 +1832,8 @@ class PhoneTabsVC(context: Context) :
     private fun computeGradientStops(vis: Float): FloatArray {
         val full = stickyGradientFullHeight()
         if (full <= 0) return floatArrayOf(0f, 1f, 1f)
-        val insetRatio = ((window?.systemBars?.bottom ?: 0).toFloat() / full).coerceIn(0f, 1f)
+        val solidHeight = (window?.systemBars?.bottom ?: 0) + stickyGradientKeyboardHeight
+        val insetRatio = (solidHeight / full).coerceIn(0f, 1f)
         val solidStart = 1f - insetRatio
         val collapsedFadeStart =
             (solidStart - ViewConstants.ADDITIONAL_GRADIENT_HEIGHT.dp / full).coerceIn(0f, 1f)
@@ -2317,34 +2275,24 @@ class PhoneTabsVC(context: Context) :
         fadeTopChromeForSearch(visible = true)
     }
 
-    /**
-     * The shadows mirror their target through sync(), so only the targets animate here and the
-     * shadows are re-synced as the fade progresses.
-     */
     private fun fadeTopChromeForSearch(visible: Boolean) {
         val showTabs = visible &&
             !isTopChromeHidden &&
             bottomNavigationView.selectedItemId != IBottomNavigationView.ID_SETTINGS
         val showAvatar = showTabs && AccountStore.activeAccount != null
-        fadeTopChromeView(topTabsControl, showTabs) { topTabsShadow?.sync() }
-        fadeTopChromeView(topAvatarView, showAvatar) { topAvatarShadow?.sync() }
+        fadeTopChromeView(topTabsControl, showTabs)
+        fadeTopChromeView(topAvatarView, showAvatar)
     }
 
-    private fun fadeTopChromeView(view: View?, visible: Boolean, syncShadow: () -> Unit) {
+    private fun fadeTopChromeView(view: View?, visible: Boolean) {
         view ?: return
         view.animate().cancel()
-        view.animate().setUpdateListener { syncShadow() }
         if (visible) {
             view.isVisible = true
-            view.fadeIn(SEARCH_OVERLAY_ANIMATION) {
-                view.animate().setUpdateListener(null)
-                syncShadow()
-            }
+            view.fadeIn(SEARCH_OVERLAY_ANIMATION)
         } else {
             view.fadeOut(SEARCH_OVERLAY_ANIMATION) {
-                view.animate().setUpdateListener(null)
                 view.isInvisible = true
-                syncShadow()
             }
         }
     }
@@ -2369,22 +2317,24 @@ class PhoneTabsVC(context: Context) :
     private var minimizedNav: WNavigationController? = null
     private var minimizedNavHeight: Float? = null
     private var minimizedNavY: Float? = null
-    private var minimizedNavShadow: PillShadowView? = null
+    private var minimizedNavGlass: WGlassView? = null
 
     private fun attachMinimizedShadow(nav: WNavigationController) {
         nav.elevation = 0f
-        if (minimizedNavShadow == null) {
-            minimizedNavShadow = PillShadowView(context).also {
+        if (minimizedNavGlass == null) {
+            minimizedNavGlass = WGlassView(context).also {
                 it.alpha = 0f
-                view.addView(it)
+                it.glassPadding = WGlassView.GLASS_PADDING_DP.dp
+                it.setProvider(GlassProviders.shadowOnly())
+                view.addView(it, ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
                 minimizedNav?.bringToFront()
             }
         }
     }
 
     private fun detachMinimizedShadow(nav: WNavigationController?) {
-        minimizedNavShadow?.let { view.removeView(it) }
-        minimizedNavShadow = null
+        minimizedNavGlass?.let { view.removeView(it) }
+        minimizedNavGlass = null
         nav?.elevation = 0f
     }
 
@@ -2395,7 +2345,7 @@ class PhoneTabsVC(context: Context) :
         height: Int,
         radius: Float
     ) {
-        val shadow = minimizedNavShadow
+        val shadow = minimizedNavGlass
         if (shadow != null) {
             shadow.alpha = fraction
             val l = nav.left + nav.translationX
@@ -2475,7 +2425,6 @@ class PhoneTabsVC(context: Context) :
         }
 
         if (WGlobalStorage.getAreAnimationsActive()) {
-            pauseBlurring()
             ValueAnimator.ofInt(0, 1)
                 .apply {
                     duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
@@ -2483,9 +2432,6 @@ class PhoneTabsVC(context: Context) :
 
                     addUpdateListener {
                         onUpdate(animatedFraction)
-                    }
-                    doOnEnd {
-                        resumeBlurring()
                     }
 
                     start()
@@ -2552,7 +2498,6 @@ class PhoneTabsVC(context: Context) :
         }
 
         if (animated) {
-            pauseBlurring()
             ValueAnimator.ofInt(0, 1)
                 .apply {
                     duration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
@@ -2565,7 +2510,6 @@ class PhoneTabsVC(context: Context) :
 
                     doOnEnd {
                         onEnd()
-                        resumeBlurring()
                     }
 
                     start()
@@ -2595,7 +2539,7 @@ class PhoneTabsVC(context: Context) :
             render()
             val fadedAlpha = visibilityFraction * (1 - animatedFraction)
             nav.alpha = fadedAlpha
-            minimizedNavShadow?.alpha = fadedAlpha
+            minimizedNavGlass?.alpha = fadedAlpha
         }
 
         fun onEnd() {
@@ -2628,27 +2572,6 @@ class PhoneTabsVC(context: Context) :
             }
     }
 
-    override val pausedBlurViews: Boolean
-        get() = bottomNavigationView.pausedBlurViews
-
-    override fun pauseBlurring() {
-        topChromeBlurViews.forEach { it.pauseBlurring() }
-        toastHostView.pauseBlurring()
-        bottomNavigationView.pauseBlurring()
-        bottomReversedCornerView?.pauseBlurring()
-        (minimizedNav?.viewControllers?.lastOrNull() as? WMinimizableBlurHost)
-            ?.pauseMinimizedBlur()
-    }
-
-    override fun resumeBlurring() {
-        topChromeBlurViews.forEach { it.resumeBlurring() }
-        toastHostView.resumeBlurring()
-        bottomNavigationView.resumeBlurring()
-        bottomReversedCornerView?.resumeBlurring()
-        (minimizedNav?.viewControllers?.lastOrNull() as? WMinimizableBlurHost)
-            ?.resumeMinimizedBlur()
-    }
-
     override fun setSearchText(text: String) {
         searchView.requestFocus()
         searchEditText.setText(text)
@@ -2675,8 +2598,8 @@ class PhoneTabsVC(context: Context) :
             experimentalTabPager.isUserInputEnabled = false
             topTabsControl.isEnabled = false
             topAvatarView.isEnabled = false
-            hideTopChromeView(topTabsControl) { topTabsShadow?.sync() }
-            hideTopChromeView(topAvatarView) { topAvatarShadow?.sync() }
+            hideTopChromeView(topTabsControl)
+            hideTopChromeView(topAvatarView)
         } else {
             bottomNavigationView.fadeOut()
         }
@@ -2692,8 +2615,8 @@ class PhoneTabsVC(context: Context) :
             val shouldShowTabs =
                 bottomNavigationView.selectedItemId != IBottomNavigationView.ID_SETTINGS
             val shouldShowAvatar = shouldShowTabs && AccountStore.activeAccount != null
-            showTopChromeView(topTabsControl, shouldShowTabs) { topTabsShadow?.sync() }
-            showTopChromeView(topAvatarView, shouldShowAvatar) { topAvatarShadow?.sync() }
+            showTopChromeView(topTabsControl, shouldShowTabs)
+            showTopChromeView(topAvatarView, shouldShowAvatar)
         } else {
             bottomNavigationView.fadeIn()
         }

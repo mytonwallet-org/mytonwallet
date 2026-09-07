@@ -123,7 +123,9 @@ class NftDetailsPageView: UIView {
                                 )
                             )
                         ) { _ in
-                            menuConfig()
+                            var configuration = menuConfig()
+                            configuration.style.glassTint = .subtle
+                            return configuration
                         }
                         interaction.attach(to: button)
                         menuInteractions.append(interaction)

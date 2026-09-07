@@ -86,7 +86,7 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
         let limit = activityViewModel?.requestedCount
             ?? AppStorageHelper.homeActivityVisibleItemsLimit.rawValue
         guard let activityViewModel, let activityIDs = activityViewModel.activityIDs else {
-            return (0..<limit).map(ItemIdentifier.placeholder)
+            return (0..<limit).map(ItemIdentifier.placeholder) + [ItemIdentifier.showAll]
         }
 
         let visibleActivityIDs = Array(activityIDs.prefix(limit))
@@ -102,9 +102,7 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
 
         var items = visibleActivityIDs.map(ItemIdentifier.activity)
         items.append(contentsOf: (0..<missingCount).map(ItemIdentifier.placeholder))
-        if !visibleActivityIDs.isEmpty {
-            items.append(ItemIdentifier.showAll)
-        }
+        items.append(ItemIdentifier.showAll)
         return items
     }
 
@@ -220,23 +218,15 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
     }
 
     private func makeVisibleItemsLimitMenu() -> UIMenu {
-        UIMenu(
-            title: "",
-            options: [.displayInline, .singleSelection],
-            children: [
-                UIDeferredMenuElement.uncached { completion in
-                    let currentLimit = AppStorageHelper.homeActivityVisibleItemsLimit
-                    let actions = HomeActivityVisibleItemsLimit.allCases.map { limit in
-                        UIAction(
-                            title: limit.title,
-                            state: currentLimit == limit ? .on : .off
-                        ) { _ in
-                            AppStorageHelper.homeActivityVisibleItemsLimit = limit
-                        }
+        UIMenu(options: [.displayInline, .singleSelection], children: [
+            UIDeferredMenuElement.uncached { completion in
+                let currentLimit = AppStorageHelper.homeActivityVisibleItemsLimit
+                completion(HomeActivityVisibleItemsLimit.allCases.map { limit in
+                    UIAction(title: limit.title, state: currentLimit == limit ? .on : .off) { _ in
+                        AppStorageHelper.homeActivityVisibleItemsLimit = limit
                     }
-                    completion(actions)
-                }
-            ]
-        )
+                })
+            }
+        ])
     }
 }

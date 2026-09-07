@@ -370,11 +370,6 @@ class WalletCustomizationVC private constructor(
                 updateBlurViews(scrollView)
             }
             setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                if (scrollY > 0) {
-                    topReversedCornerView?.resumeBlurring()
-                } else {
-                    topReversedCornerView?.pauseBlurring(false)
-                }
                 if (scrollY > ViewConstants.BLOCK_RADIUS.dp) {
                     setTopBlur(true, animated = true)
                     topReversedCornerView?.setHorizontalPadding(0f)
