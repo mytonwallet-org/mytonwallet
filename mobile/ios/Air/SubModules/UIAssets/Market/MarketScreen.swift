@@ -218,8 +218,7 @@ private struct MarketSectionHeader: View {
                 .textStyle(.bodyStrong, scaling: .dynamic)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .accessibilityAddTraits(.isHeader)
-
-            Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if showsSeeAll {
                 Button(action: onSeeAll) {

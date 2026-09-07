@@ -183,7 +183,9 @@ private let SOLANA_DEFAULT_DERIVATION_PATH = "m/44'/501'/{index}'/0'"
 private let EVM_DEFAULT_DERIVATION_PATH = "m/44'/60'/0'/0/{index}"
 private let EVM_ADDRESS_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{40}$"#)
 private let EVM_ADDRESS_PREFIX_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{0,40}$"#)
-private let EVM_FEE_CHECK_ADDRESS = "0x0000000000000000000000000000000000000000"
+/// Low 20 bytes of `sha3_256("mytonwallet fee-check address")`. Must hold nothing: OpenZeppelin
+/// ERC20s revert on the zero address, and a funded recipient under-reports the gas of a fresh one.
+private let EVM_FEE_CHECK_ADDRESS = "0x93fa28647b06ab40554d6905e4e9d8e8bb24380c"
 
 public func getSupportedChains() -> [ApiChain] {
     CHAIN_ORDER
@@ -646,7 +648,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         canImportTokens: false,
         shouldShowScamWarningIfNotEnoughGas: false,
         doesSupportPushNotifications: false,
-        feeCheckAddress: "0x0000000000000000000000000000000000000000",
+        feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
         buySwap: .init(tokenInSlug: ETH_SLUG, amountIn: "0.001"),
         usdtSlug: [
             .mainnet: ETH_USDT_MAINNET_SLUG,
@@ -711,7 +713,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         canImportTokens: false,
         shouldShowScamWarningIfNotEnoughGas: false,
         doesSupportPushNotifications: false,
-        feeCheckAddress: "0x0000000000000000000000000000000000000000",
+        feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
         buySwap: .init(tokenInSlug: BASE_SLUG, amountIn: "0.001"),
         usdtSlug: [
             .mainnet: BASE_USDT_MAINNET_SLUG,

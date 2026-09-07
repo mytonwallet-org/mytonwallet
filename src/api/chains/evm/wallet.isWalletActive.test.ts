@@ -59,6 +59,7 @@ describe('getIsWalletActive', () => {
     getBalance.mockResolvedValue(1n);
 
     await expect(getIsWalletActive('mainnet', 'base', '0xa3')).resolves.toBe(true);
+    expect(inactiveWallets.has('mainnet', 'base', '0xa3')).toBe(false);
   });
 
   // The case a balance read alone cannot see: an address that received funds and spent them all

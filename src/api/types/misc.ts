@@ -40,6 +40,11 @@ export interface ApiInitArgs {
   langCode?: LangCode;
   referrer?: string;
   channel?: string;
+  attributionKind?: 'utm' | 'referrer';
+  referrerDomain?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
   accountIds?: string[];
   storage?: ApiStorageConfig;
 }

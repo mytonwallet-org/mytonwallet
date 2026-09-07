@@ -210,6 +210,15 @@ sealed class StakingState {
             }
         }
 
+    /**
+     * Whether the position still holds money of any kind. Ethena aside, `totalBalance` leaves out the
+     * amount waiting to be unstaked, so it reads a fully unstaking position as an empty one.
+     */
+    val hasStakingPosition: Boolean
+        get() = balance.signum() > 0 ||
+            (unstakeRequestAmount ?: BigInteger.ZERO).signum() > 0 ||
+            (this is Jetton && unclaimedRewards.signum() > 0)
+
     val isUnstakeRequestAmountUnlocked: Boolean
         get() {
             return (unstakeRequestAmount ?: BigInteger.ZERO) > BigInteger.ZERO &&

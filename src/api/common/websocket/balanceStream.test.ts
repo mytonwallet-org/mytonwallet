@@ -252,6 +252,113 @@ describe('BalanceStream', () => {
     expect(fetchBalances).toHaveBeenCalledTimes(2);
     expect(updateEvents).toEqual([{ bnb: 1n }, { bnb: 2n }]);
   });
+
+  it('applies a socket delta that arrives on an inactive wallet and fetches balances', async () => {
+    jest.useFakeTimers();
+    tokensPreload.resolve();
+
+    let onBalanceUpdate: BalanceUpdateCallback | undefined;
+    const watcher: WalletWatcher = {
+      isConnected: false,
+      destroy: jest.fn(),
+    };
+    const wsClient = {
+      watchWallets: jest.fn((_wallets, callbacks: Partial<WalletWatcherInternal>) => {
+        onBalanceUpdate = callbacks.onBalanceUpdate;
+        return watcher;
+      }),
+    } as unknown as AbstractWebsocketClient<any, any, any, any, any>;
+    const fetchBalances = jest.fn(() => Promise.resolve({ balances: { bnb: 7n } }));
+    const updateEvents: unknown[] = [];
+    const address = '0x5819e5Ff34198F315322e1863Be6C3dC927cC5C3';
+
+    const stream = new BalanceStream({
+      chain: 'bnb',
+      wsClient,
+      network: 'mainnet',
+      address,
+      sendUpdateTokens: jest.fn(),
+      fallbackPollingOptions: {
+        pollOnStart: true,
+        minPollDelay: 1,
+        pollingStartDelay: 60_000,
+        pollingPeriod: 60_000,
+        forcedPollingPeriod: 60_000,
+      },
+      fetchBalancesCb: fetchBalances,
+      ensureIsPollingNeeded: jest.fn().mockResolvedValue(false),
+    });
+
+    stream.onUpdate((balances) => updateEvents.push({ ...balances }));
+    stream.start();
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).not.toHaveBeenCalled();
+    expect(updateEvents).toEqual([]);
+
+    onBalanceUpdate!({ address, balance: 5n, finality: 'confirmed' });
+    await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+    await jest.advanceTimersByTimeAsync(1);
+    stream.destroy();
+
+    expect(updateEvents).toContainEqual({ bnb: 5n });
+    expect(fetchBalances).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies a socket delta that arrives while the inactive precheck is still in flight', async () => {
+    jest.useFakeTimers();
+    tokensPreload.resolve();
+
+    const precheck = new Deferred<boolean>();
+    let onBalanceUpdate: BalanceUpdateCallback | undefined;
+    const watcher: WalletWatcher = {
+      isConnected: false,
+      destroy: jest.fn(),
+    };
+    const wsClient = {
+      watchWallets: jest.fn((_wallets, callbacks: Partial<WalletWatcherInternal>) => {
+        onBalanceUpdate = callbacks.onBalanceUpdate;
+        return watcher;
+      }),
+    } as unknown as AbstractWebsocketClient<any, any, any, any, any>;
+    const fetchBalances = jest.fn(() => Promise.resolve({ balances: { bnb: 9n } }));
+    const updateEvents: unknown[] = [];
+    const address = '0x5819e5Ff34198F315322e1863Be6C3dC927cC5C3';
+
+    const stream = new BalanceStream({
+      chain: 'bnb',
+      wsClient,
+      network: 'mainnet',
+      address,
+      sendUpdateTokens: jest.fn(),
+      fallbackPollingOptions: {
+        pollOnStart: true,
+        minPollDelay: 1,
+        pollingStartDelay: 60_000,
+        pollingPeriod: 60_000,
+        forcedPollingPeriod: 60_000,
+      },
+      fetchBalancesCb: fetchBalances,
+      ensureIsPollingNeeded: () => precheck.promise,
+    });
+
+    stream.onUpdate((balances) => updateEvents.push({ ...balances }));
+    stream.start();
+
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchBalances).not.toHaveBeenCalled();
+
+    onBalanceUpdate!({ address, balance: 3n, finality: 'confirmed' });
+    await jest.advanceTimersByTimeAsync(SOCKET_THROTTLE_DELAY);
+
+    expect(updateEvents).toEqual([{ bnb: 3n }]);
+
+    precheck.resolve(false);
+    await jest.advanceTimersByTimeAsync(1);
+    stream.destroy();
+
+    expect(fetchBalances).toHaveBeenCalled();
+  });
 });
 
 describe('BalanceStream freshness guard', () => {

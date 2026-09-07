@@ -1,15 +1,23 @@
 import type { GlobalState } from '../../types';
 import type { SwapEstimateResult } from './swap';
-import { SwapInputSource, SwapState } from '../../types';
+import { SwapErrorType, SwapInputSource, SwapState } from '../../types';
 
-import { MYCOIN_MAINNET, TONCOIN, TRX } from '../../../config';
+import {
+  BASE, BASE_USDC_MAINNET, MYCOIN_MAINNET, SOLANA, TONCOIN, TRX,
+} from '../../../config';
+import { callApi } from '../../../api';
 import { getGlobal, setGlobal } from '../../index';
 import { clearCurrentSwap, updateCurrentSwap } from '../../reducers';
 import {
   buildSwapBuildRequest,
+  estimateSwap,
   estimateSwapConcurrently,
   shouldBlockUnsupportedNearIntentsMemo,
 } from './swap';
+
+jest.mock('../../../api', () => ({
+  callApi: jest.fn(),
+}));
 
 describe('estimateSwapConcurrently', () => {
   beforeEach(() => {
@@ -231,5 +239,79 @@ describe('buildSwapBuildRequest', () => {
     }));
 
     expect(request.toAmount).toBe('1000');
+  });
+});
+
+describe('estimateSwap', () => {
+  const ACCOUNT_ID = '0-mainnet';
+  const cexEstimate = {
+    route: 'cex',
+    cexLabel: 'near-intents',
+    from: BASE_USDC_MAINNET.slug,
+    fromAmount: '10',
+    to: SOLANA.slug,
+    toAmount: '0.05',
+    swapFee: '0',
+    fromMin: '1',
+    fromMax: '1000',
+  };
+
+  function mockApi(draft: unknown) {
+    (callApi as jest.Mock).mockImplementation((method: string) => Promise.resolve(
+      method === 'swapEstimate' ? cexEstimate : draft,
+    ));
+  }
+
+  beforeEach(() => {
+    const base = clearCurrentSwap(getGlobal());
+
+    setGlobal(updateCurrentSwap({
+      ...base,
+      currentAccountId: ACCOUNT_ID,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic',
+            title: 'Test',
+            byChain: { base: { address: '0x1' }, solana: { address: 'So1' } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: { balances: { bySlug: { [BASE_USDC_MAINNET.slug]: 20_000_000n, [BASE.slug]: 0n } } },
+      },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [BASE_USDC_MAINNET.slug]: BASE_USDC_MAINNET, [SOLANA.slug]: SOLANA },
+      },
+    } as unknown as GlobalState, {
+      state: SwapState.Initial,
+      tokenInSlug: BASE_USDC_MAINNET.slug,
+      tokenOutSlug: SOLANA.slug,
+      amountIn: '10',
+      inputSource: SwapInputSource.In,
+    }));
+  });
+
+  it('blocks the swap when the source chain cannot price the transfer', async () => {
+    mockApi(undefined);
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(result).toMatchObject({ errorType: SwapErrorType.UnexpectedError, amountOut: '0.05' });
+  });
+
+  it('keeps the swap submittable with the fee once the source chain prices the transfer', async () => {
+    mockApi({
+      explainedFee: {
+        fullFee: { nativeSum: 500_000_000_000_000n },
+        realFee: { nativeSum: 400_000_000_000_000n },
+      },
+    });
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(result).toMatchObject({ errorType: undefined, networkFee: '0.0005', realNetworkFee: '0.0004' });
   });
 });

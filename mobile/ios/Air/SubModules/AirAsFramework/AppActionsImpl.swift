@@ -148,20 +148,25 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func hideNft(accountId: String, nft: ApiNft, onHidden: (() -> Void)?) {
-        topViewController()?.showAlert(
+        guard let presenter = topViewController(),
+              !(presenter is UIAlertController),
+              !(presenter.presentedViewController is UIAlertController) else { return }
+        let alert = UIAlertController(
             title: lang("Hide NFT"),
-            text: lang("Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device."),
-            button: lang("Hide and Report"),
-            buttonStyle: .destructive,
-            buttonPressed: {
-                performHideAndReportNft(accountId: accountId, nft: nft, onHidden: onHidden)
-            },
-            secondaryButton: lang("Only Hide"),
-            secondaryButtonPressed: {
-                hideNftLocally(accountId: accountId, nft: nft, onHidden: onHidden)
-            },
-            preferPrimary: false
+            message: lang("Do you also want to report this NFT as inappropriate? It will be then permanently removed on this device."),
+            preferredStyle: .alert
         )
+        // Use the default style to keep Cancel first in the action list.
+        alert.addAction(UIAlertAction(title: lang("Cancel"), style: .default))
+        alert.addAction(UIAlertAction(title: lang("Hide and Report"), style: .destructive) { _ in
+            performHideAndReportNft(accountId: accountId, nft: nft, onHidden: onHidden)
+        })
+        let hideAction = UIAlertAction(title: lang("Hide"), style: .default) { _ in
+            hideNftLocally(accountId: accountId, nft: nft, onHidden: onHidden)
+        }
+        alert.addAction(hideAction)
+        alert.preferredAction = hideAction
+        presenter.present(alert, animated: true)
     }
 
     static func hideAndReportNft(accountId: String, nft: ApiNft, onConfirmed: (() -> Void)?) {
@@ -601,6 +606,10 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) {
         let vc = LinkDomainVC(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    static func showMarket() {
+        rootContainerRouter.showTab(.market)
     }
 
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) {

@@ -29,6 +29,7 @@ interface ITabsVC {
 
     val isOnHomeScreen: Boolean
     fun switchToExplore(targetUri: Uri? = null)
+    fun switchToMarket()
     fun switchToAgent(prompt: String? = null, pinnedMessageId: String? = null): Boolean
     fun switchToSettings(pushVC: WViewController? = null)
     fun navStackUpdated(nav: WNavigationController) {}

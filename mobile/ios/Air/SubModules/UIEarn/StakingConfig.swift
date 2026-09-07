@@ -95,10 +95,7 @@ public extension StakingConfig {
     func stakingState(stakingData: MStakingData?) -> ApiStakingState? {
         switch self {
         case .ton:
-            if stakingData?.shouldUseNominators == true {
-                return stakingData?.stateById["nominators"]
-            }
-            return stakingData?.stateById["liquid"]
+            return stakingData?.tonState
         default:
             return stakingData?.stateById[id]
         }

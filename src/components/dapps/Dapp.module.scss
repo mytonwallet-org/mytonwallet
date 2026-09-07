@@ -656,6 +656,12 @@ $labelSidePadding: 0.5rem;
   }
 }
 
+.signDataWarnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .warningTitle {
   font-weight: 700;
 }

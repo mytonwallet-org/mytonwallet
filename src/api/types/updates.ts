@@ -8,6 +8,7 @@ import type {
   WcPayPaymentInfo,
   WcPayPaymentOption,
 } from '../dappProtocols/adapters/walletConnect/types';
+import type { ApiParsedSignDataCellPreview } from '../dappProtocols/signDataCellPreview';
 import type { StoredDappConnection } from '../dappProtocols/storage';
 import type { UnifiedSignDataPayload } from '../dappProtocols/types';
 import type { ApiActivity } from './activities';
@@ -136,6 +137,7 @@ export type ApiUpdateDappSignData = {
   dapp: StoredDappConnection;
   operationChain: ApiChain;
   payloadToSign: UnifiedSignDataPayload;
+  parsedPayloadToSign?: ApiParsedSignDataCellPreview;
 };
 
 export type ApiUpdateDappSendTransactions = {

@@ -3,11 +3,16 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { EvmEip712SignDataPayload } from '../../api/dappProtocols/adapters/walletConnect/types';
 
-import buildClassName from '../../util/buildClassName';
-
 import useLang from '../../hooks/useLang';
 
-import styles from './Eip712TypedDataView.module.scss';
+import {
+  SignDataFieldRow,
+  SignDataLabel,
+  SignDataPayloadField,
+  SignDataStruct,
+  SignDataStructuredBlock,
+  signDataStructuredStyles as styles,
+} from './SignDataStructuredView';
 
 const MAX_EIP712_DEPTH = 32;
 
@@ -43,16 +48,13 @@ function formatEip712Scalar(value: unknown): string {
 function renderEip712LeafUnknown(value: unknown): TeactNode {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return (
-      <div className={styles.struct}>
+      <SignDataStruct>
         {Object.keys(value as Record<string, unknown>).sort().map((key) => (
-          <div key={key} className={styles.fieldRow}>
-            <div className={styles.fieldName}>{key}</div>
-            <div className={styles.fieldValue}>
-              {renderEip712LeafUnknown((value as Record<string, unknown>)[key])}
-            </div>
-          </div>
+          <SignDataFieldRow key={key} name={key}>
+            {renderEip712LeafUnknown((value as Record<string, unknown>)[key])}
+          </SignDataFieldRow>
         ))}
-      </div>
+      </SignDataStruct>
     );
   }
   if (Array.isArray(value)) {
@@ -129,19 +131,13 @@ function renderEip712Struct(
   }
 
   return (
-    <div className={styles.struct} style={`margin-left: ${depth}rem`}>
+    <SignDataStruct depth={depth}>
       {fields.map((field) => (
-        <div
-          key={`${keyPrefix}-${field.name}`}
-          className={styles.fieldRow}
-        >
-          <div className={styles.fieldName}>{field.name}</div>
-          <div className={styles.fieldValue}>
-            {renderEip712Value(obj[field.name], field.type, types, depth + 1, `${keyPrefix}-${field.name}`)}
-          </div>
-        </div>
+        <SignDataFieldRow key={`${keyPrefix}-${field.name}`} name={field.name}>
+          {renderEip712Value(obj[field.name], field.type, types, depth + 1, `${keyPrefix}-${field.name}`)}
+        </SignDataFieldRow>
       ))}
-    </div>
+    </SignDataStruct>
   );
 }
 
@@ -173,36 +169,19 @@ function Eip712TypedDataView({
 
   return (
     <>
-      <p className={styles.label}>{lang('EIP-712 typed data')}</p>
-      <p className={styles.label}>{lang('Primary type')}</p>
-      <div className={buildClassName(styles.payloadField, styles.payloadField_text)}>
+      <SignDataLabel>{lang('EIP-712 typed data')}</SignDataLabel>
+      <SignDataLabel>{lang('Primary type')}</SignDataLabel>
+      <SignDataPayloadField isText>
         {primaryType}
-      </div>
+      </SignDataPayloadField>
 
-      <div className={styles.typedBlock}>
-        <p className={styles.label}>{lang('EIP-712 domain')}</p>
-        <div
-          className={buildClassName(
-            styles.payloadField,
-            styles.payloadField_expanded,
-          )}
-        >
-          {renderEip712DomainBlock(domain, types)}
-        </div>
-      </div>
+      <SignDataStructuredBlock label={lang('EIP-712 domain')} isExpanded>
+        {renderEip712DomainBlock(domain, types)}
+      </SignDataStructuredBlock>
 
-      <div className={styles.typedBlock}>
-        <p className={styles.label}>{lang('Message')}</p>
-        <div
-          className={buildClassName(
-            styles.payloadField,
-            styles.payloadField_expanded,
-            styles.payloadField_text,
-          )}
-        >
-          {renderEip712MessageBlock(message, primaryType, types)}
-        </div>
-      </div>
+      <SignDataStructuredBlock label={lang('Message')} isExpanded isText>
+        {renderEip712MessageBlock(message, primaryType, types)}
+      </SignDataStructuredBlock>
     </>
   );
 }

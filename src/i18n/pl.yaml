@@ -1045,6 +1045,13 @@ Message: Wiadomość
 Binary Data: Dane binarne
 The binary data content is unclear. Sign it only if you trust the service.: Treść danych binarnych jest niejasna. Podpisz tylko jeśli ufasz tej usłudze.
 Cell Schema: Schemat komórki
+Parsed Cell: Przeanalizowana komórka
+Cell Metadata: Metadane komórki
+Bits: Bity
+References: Referencje
+Hash: Hash
+Parsing Error: Błąd analizy
+Cell Fields: Pola komórki
 Cell Data: Dane komórki
 Sign Data: Podpisz dane
 Please confirm signature on your Ledger: Proszę potwierdzić podpis na swoim Ledgerze

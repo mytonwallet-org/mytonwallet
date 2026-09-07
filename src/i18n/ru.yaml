@@ -1043,6 +1043,13 @@ Message: Сообщение
 Binary Data: Бинарные данные
 The binary data content is unclear. Sign it only if you trust the service.: Содержимое бинарных данных неясно. Подписывайте, только если доверяете сервису.
 Cell Schema: Схема ячейки
+Parsed Cell: Разобранная ячейка
+Cell Metadata: Метаданные ячейки
+Bits: Биты
+References: Ссылки
+Hash: Хеш
+Parsing Error: Ошибка разбора
+Cell Fields: Поля ячейки
 Cell Data: Данные ячейки
 Sign Data: Подписать данные
 Please confirm signature on your Ledger: Пожалуйста, подтвердите подпись на вашем Ledger

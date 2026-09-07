@@ -32,9 +32,11 @@ public class Api {
         shared = Api()
         vc.addChild(shared!.webViewBridge)
         vc.view.addSubview(shared!.webViewBridge.view)
+        InstallAttributionDelivery.shared.bridgePrepared()
     }
     
     @MainActor public static func stop() {
+        InstallAttributionDelivery.shared.bridgeStopped()
         shared?.webViewBridge.stop()
         shared?.webViewBridge.view.removeFromSuperview()
         shared?.webViewBridge.removeFromParent()

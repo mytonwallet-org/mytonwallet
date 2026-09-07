@@ -57,6 +57,14 @@ $labelSidePadding: 0.5rem;
   line-height: 1.25rem;
   color: var(--color-black);
   overflow-wrap: anywhere;
+
+  &_muted {
+    color: var(--color-gray-1);
+  }
+}
+
+.errorField {
+  color: var(--color-red);
 }
 
 .array {

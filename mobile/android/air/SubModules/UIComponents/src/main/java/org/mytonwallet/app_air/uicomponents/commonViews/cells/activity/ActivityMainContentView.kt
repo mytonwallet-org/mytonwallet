@@ -284,12 +284,12 @@ class ActivityMainContentView(context: Context) :
         }
         topRightLabel.contentView.setTextColor(
             when {
-                transaction.status == ApiTransactionStatus.FAILED -> WColor.Red.color
-                transaction.type == ApiTransactionType.STAKE -> WColor.Purple.color
-                transaction.type == ApiTransactionType.BURN -> WColor.Red.color
-                transaction.type == ApiTransactionType.APPROVAL -> WColor.PrimaryText.color
-                transaction.amount > BigInteger.ZERO -> WColor.Green.color
-                else -> WColor.PrimaryText.color
+                transaction.status == ApiTransactionStatus.FAILED -> WColor.Red
+                transaction.type == ApiTransactionType.STAKE -> WColor.Purple
+                transaction.type == ApiTransactionType.BURN -> WColor.Red
+                transaction.type == ApiTransactionType.APPROVAL -> WColor.PrimaryText
+                transaction.amount > BigInteger.ZERO -> WColor.Green
+                else -> WColor.PrimaryText
             }
         )
 

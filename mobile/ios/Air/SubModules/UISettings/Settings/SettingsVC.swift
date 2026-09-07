@@ -104,6 +104,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
 
         let listCellRegistration = AccountListCell.makeRegistration(
+            showsAddress: false,
             contextMenuConfigurationProvider: { accountId in
                 WalletNameContextMenu.makeConfiguration(accountId: { accountId })
             }

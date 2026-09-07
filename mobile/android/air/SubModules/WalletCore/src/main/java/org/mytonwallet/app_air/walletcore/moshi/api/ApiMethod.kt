@@ -63,6 +63,12 @@ sealed class ApiMethod<T> {
 
     /* Other */
     object Other {
+        class CaptureInstallAttribution(snapshot: JSONObject) : ApiMethod<Any>() {
+            override val name = "captureInstallAttribution"
+            override val type: Type = Any::class.java
+            override val arguments = ArgumentsBuilder().jsonObject(snapshot).build()
+        }
+
         class SetIsAppFocused(isFocused: Boolean) : ApiMethod<Array<String>>() {
             override val name: String = "setIsAppFocused"
             override val type: Type = Any::class.java

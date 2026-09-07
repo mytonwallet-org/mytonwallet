@@ -444,6 +444,7 @@ object WalletCore {
                 )
                 TokenStore.onBridgeReady()
                 setupWalletCore()
+                InstallAttributionDelivery.bridgeReady()
                 completePendingBridgeSetup(true)
             }
         } else {

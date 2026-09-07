@@ -21,11 +21,18 @@ public struct MStakingData: Equatable, Hashable, Codable, Sendable, FetchableRec
 
 
 extension MStakingData {
+    /// An account gets a nominators position only when the API builds one for it, so the position's own
+    /// presence answers whether this account stakes through nominators - `shouldUseNominators` is derived
+    /// separately and can contradict the list. An active liquid stake wins the tie, nominators being legacy.
     public var tonState: ApiStakingState? {
-        stateById.values.first { state in
-            state.tokenSlug == TONCOIN_SLUG &&
-            (shouldUseNominators == true ? state.type == .nominators : state.type == .liquid)
+        let matching = stateById.values.filter { $0.tokenSlug == TONCOIN_SLUG }
+        if matching.count < 2 {
+            return matching.first
         }
+        if let liquid = matching.first(where: { $0.type == .liquid }), getIsActiveStakingState(state: liquid) {
+            return liquid
+        }
+        return matching.first(where: { $0.type == .nominators }) ?? matching.first
     }
     public var tonLiquid: ApiStakingStateLiquid? {
         for state in stateById.values {

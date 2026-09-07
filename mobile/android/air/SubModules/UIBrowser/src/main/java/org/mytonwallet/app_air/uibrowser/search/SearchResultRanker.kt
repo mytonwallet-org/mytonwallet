@@ -24,6 +24,7 @@ sealed interface SearchTarget {
     data class Collectible(val match: ExploreVM.CollectibleMatch) : SearchTarget
     data class Dapp(val dapp: IDapp) : SearchTarget
     data class App(val entry: AppSearchEntry) : SearchTarget
+    object AskAgent : SearchTarget
 }
 
 /**

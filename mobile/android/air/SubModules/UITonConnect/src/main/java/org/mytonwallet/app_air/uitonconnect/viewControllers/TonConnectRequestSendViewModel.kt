@@ -79,6 +79,197 @@ import org.mytonwallet.app_air.walletcore.toAmountString
 private const val WRAPPED_TON_SLUG = "ton-eqcm3b12qk"
 private const val UNKNOWN_TOKEN_SYMBOL = "[Unknown]"
 
+internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List<BaseListItem> {
+    val uiItems = mutableListOf<BaseListItem>()
+
+    when (update.payloadToSign) {
+        is MSignDataPayload.SignDataPayloadBinary -> {
+            val payload =
+                update.payloadToSign as MSignDataPayload.SignDataPayloadBinary
+            uiItems.addAll(
+                listOf(
+                    Item.ListTitle(
+                        LocaleController.getString(
+                            "Binary Data"
+                        ),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        payload.bytes,
+                        "Binary Data",
+                        LocaleController.getString("Data Copied")
+                    )
+                )
+            )
+        }
+
+        is MSignDataPayload.SignDataPayloadCell -> {
+            val payload =
+                update.payloadToSign as MSignDataPayload.SignDataPayloadCell
+
+            update.parsedPayloadToSign?.let { parsedPreview ->
+                uiItems.addAll(
+                    listOf(
+                        Item.ListTitle(
+                            LocaleController.getString(
+                                "Parsed Cell"
+                            ),
+                            topRounding = HeaderCell.TopRounding.NORMAL
+                        ),
+                        Item.CopyableText(
+                            formatParsedCellPreview(parsedPreview),
+                            "Parsed Cell",
+                            LocaleController.getString("Data Copied")
+                        ),
+                        Item.Gap()
+                    )
+                )
+            }
+
+            uiItems.addAll(
+                listOf(
+                    Item.ListTitle(
+                        LocaleController.getString(
+                            "Cell Schema"
+                        ),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        payload.schema,
+                        "Cell Schema",
+                        LocaleController.getString("Data Copied")
+                    ),
+                    Item.Gap(),
+                    Item.ListTitle(
+                        LocaleController.getString(
+                            "Cell Data"
+                        ),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        payload.cell,
+                        "Cell Data",
+                        LocaleController.getString("Data Copied")
+                    )
+                )
+            )
+        }
+
+        is MSignDataPayload.SignDataPayloadText -> {
+            val payload =
+                update.payloadToSign as MSignDataPayload.SignDataPayloadText
+            uiItems.addAll(
+                listOf(
+                    Item.ListTitle(
+                        LocaleController.getString(
+                            "Message"
+                        ),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        payload.text,
+                        "Message",
+                        LocaleController.getString("Data Copied")
+                    )
+                )
+            )
+        }
+
+        is MSignDataPayload.SignDataPayloadEip712 -> {
+            val eip712 = update.payloadToSign as MSignDataPayload.SignDataPayloadEip712
+            fun pretty(value: Any?): String =
+                org.json.JSONObject.wrap(value)?.toString() ?: value.toString()
+            uiItems.addAll(
+                listOf(
+                    Item.ListTitle(
+                        LocaleController.getString("Primary type"),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        eip712.primaryType,
+                        "Primary type",
+                        LocaleController.getString("Data Copied")
+                    ),
+                    Item.Gap(),
+                    Item.ListTitle(
+                        LocaleController.getString("EIP-712 typed data"),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        pretty(eip712.types),
+                        "EIP-712 typed data",
+                        LocaleController.getString("Data Copied")
+                    ),
+                    Item.Gap(),
+                    Item.ListTitle(
+                        LocaleController.getString("Domain"),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        pretty(eip712.domain),
+                        "Domain",
+                        LocaleController.getString("Data Copied")
+                    ),
+                    Item.Gap(),
+                    Item.ListTitle(
+                        LocaleController.getString("Message"),
+                        topRounding = HeaderCell.TopRounding.NORMAL
+                    ),
+                    Item.CopyableText(
+                        pretty(eip712.message),
+                        "Message",
+                        LocaleController.getString("Data Copied")
+                    )
+                )
+            )
+        }
+    }
+
+    signDataWarningKinds(update.payloadToSign).forEach { warning ->
+        uiItems.add(Item.Gap())
+        uiItems.add(Item.Alert(LocaleController.getString(warning.localizationKey)))
+    }
+
+    return uiItems
+}
+
+private fun formatParsedCellPreview(
+    preview: ApiUpdate.ApiUpdateDappSignData.ParsedSignDataCellPreview
+): String {
+    val result = StringBuilder()
+    result.append(preview.title)
+    result.append(" · ")
+        .append(LocaleController.getString("Bits"))
+        .append(": ")
+        .append(preview.bits)
+        .append(" · ")
+        .append(LocaleController.getString("References"))
+        .append(": ")
+        .append(preview.refs)
+    preview.hash?.let {
+        result.append(" · ").append(shortenHash(it))
+    }
+    preview.error?.let {
+        result.append('\n')
+            .append(LocaleController.getString("Parsing Error"))
+            .append(": ")
+            .append(it)
+    }
+    preview.fields.forEach { field ->
+        result.append('\n')
+        result.append("  ".repeat(field.depth.coerceAtLeast(0)))
+        result.append(field.label).append(": ").append(field.value)
+    }
+    return result.toString()
+}
+
+private fun shortenHash(hash: String): String {
+    if (hash.length <= 20) {
+        return hash
+    }
+    return hash.take(10) + "..." + hash.takeLast(10)
+}
+
 class TonConnectRequestSendViewModel private constructor(
     private val update: ApiUpdate.ApiUpdateDappSignRequest
 ) : ViewModel() {
@@ -508,142 +699,7 @@ class TonConnectRequestSendViewModel private constructor(
             }
 
             is ApiUpdate.ApiUpdateDappSignData -> {
-                when (update.payloadToSign) {
-                    is MSignDataPayload.SignDataPayloadBinary -> {
-                        val payload =
-                            update.payloadToSign as MSignDataPayload.SignDataPayloadBinary
-                        uiItems.addAll(
-                            listOf(
-                                Item.ListTitle(
-                                    LocaleController.getString(
-                                        "Binary Data"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    payload.bytes,
-                                    "Binary Data",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.Alert(
-                                    LocaleController.getString(
-                                        "The binary data content is unclear. Sign it only if you trust the service."
-                                    )
-                                )
-                            )
-                        )
-                    }
-
-                    is MSignDataPayload.SignDataPayloadCell -> {
-                        val payload =
-                            update.payloadToSign as MSignDataPayload.SignDataPayloadCell
-                        uiItems.addAll(
-                            listOf(
-                                Item.ListTitle(
-                                    LocaleController.getString(
-                                        "Cell Schema"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    payload.schema,
-                                    "Cell Schema",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.ListTitle(
-                                    LocaleController.getString(
-                                        "Cell Data"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    payload.cell,
-                                    "Cell Data",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.Alert(
-                                    LocaleController.getString(
-                                        "The binary data content is unclear. Sign it only if you trust the service."
-                                    )
-                                )
-                            )
-                        )
-                    }
-
-                    is MSignDataPayload.SignDataPayloadText -> {
-                        val payload =
-                            update.payloadToSign as MSignDataPayload.SignDataPayloadText
-                        uiItems.addAll(
-                            listOf(
-                                Item.ListTitle(
-                                    LocaleController.getString(
-                                        "Message"
-                                    ),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    payload.text,
-                                    "Message",
-                                    LocaleController.getString("Data Copied")
-                                )
-                            )
-                        )
-                    }
-
-                    is MSignDataPayload.SignDataPayloadEip712 -> {
-                        val eip712 = update.payloadToSign as MSignDataPayload.SignDataPayloadEip712
-                        fun pretty(value: Any?): String =
-                            org.json.JSONObject.wrap(value)?.toString() ?: value.toString()
-                        uiItems.addAll(
-                            listOf(
-                                Item.ListTitle(
-                                    LocaleController.getString("Primary type"),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    eip712.primaryType,
-                                    "Primary type",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.ListTitle(
-                                    LocaleController.getString("EIP-712 typed data"),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    pretty(eip712.types),
-                                    "EIP-712 typed data",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.ListTitle(
-                                    LocaleController.getString("Domain"),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    pretty(eip712.domain),
-                                    "Domain",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.ListTitle(
-                                    LocaleController.getString("Message"),
-                                    topRounding = HeaderCell.TopRounding.NORMAL
-                                ),
-                                Item.CopyableText(
-                                    pretty(eip712.message),
-                                    "Message",
-                                    LocaleController.getString("Data Copied")
-                                ),
-                                Item.Gap(),
-                                Item.Alert(LocaleController.getString("\$signature_warning"))
-                            )
-                        )
-                    }
-                }
+                uiItems.addAll(buildSignDataUiItems(update))
             }
         }
 

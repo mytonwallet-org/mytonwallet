@@ -366,6 +366,16 @@ def select_default_value(key: str, value, parameter_names: list[str]) -> str:
     return candidates[0] if candidates else ""
 
 
+def validate_parameter_indices(definition: EntryDefinition):
+    interpolations = NAMED_PLACEHOLDER_RE.findall(definition.default_value)
+    for parameter in definition.parameters:
+        if not 1 <= parameter.index <= len(interpolations) or interpolations[parameter.index - 1] != parameter.name:
+            raise ValueError(
+                f"Localization '{definition.key}' parameter '{parameter.name}' at position {parameter.index} "
+                "does not match the Swift default value's interpolation order."
+            )
+
+
 def build_entry_definitions(source_map: dict) -> dict[str, EntryDefinition]:
     definitions = {}
     generated_names = {}
@@ -391,27 +401,36 @@ def build_entry_definitions(source_map: dict) -> dict[str, EntryDefinition]:
             )
         generated_names[swift_name] = key
 
+        default_value = select_default_value(str(key), value, parameter_names)
+        # Swift supplies arguments in interpolation order, including repeated occurrences.
+        # Public parameter order can differ when an earlier plural form omits a parameter.
+        argument_indices = {}
+        for index, name in enumerate(NAMED_PLACEHOLDER_RE.findall(default_value), start=1):
+            argument_indices.setdefault(name, index)
+
         is_plural = is_plural_block(value)
         parameters = tuple(
             Parameter(
                 name=name,
                 swift_name=lower_camel_case(name),
-                index=index,
+                index=argument_indices[name],
                 kind=infer_parameter_kind(str(key), name, is_plural),
             )
-            for index, name in enumerate(parameter_names, start=1)
+            for name in parameter_names
         )
         swift_parameter_names = [parameter.swift_name for parameter in parameters]
         if len(set(swift_parameter_names)) != len(swift_parameter_names):
             raise ValueError(f"Localization '{key}' contains colliding Swift parameter names.")
 
-        definitions[str(key)] = EntryDefinition(
+        definition = EntryDefinition(
             key=str(key),
             swift_name=swift_name,
             parameters=parameters,
             is_plural=is_plural,
-            default_value=select_default_value(str(key), value, parameter_names),
+            default_value=default_value,
         )
+        validate_parameter_indices(definition)
+        definitions[str(key)] = definition
 
     return definitions
 

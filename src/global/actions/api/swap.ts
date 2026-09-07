@@ -445,7 +445,7 @@ addActionHandler('submitSwapCex', withEnclaveSessionRelease(async (global, actio
     const transferOptions: ApiSubmitGasfullTransferOptions = {
       enclaveToken,
       accountId: currentAccountId,
-      fee: fromDecimal(swapItem.swap.networkFee, tokenIn.decimals),
+      fee: fromDecimal(swapItem.swap.networkFee, getNativeToken(tokenIn.chain as ApiChain).decimals),
       amount: fromDecimal(swapItem.swap.fromAmount, tokenIn.decimals),
       toAddress: swapItem.swap.cex!.payinAddress,
       tokenAddress: tokenIn.tokenAddress,
@@ -654,7 +654,7 @@ addActionHandler('estimateSwap', async () => {
   });
 });
 
-async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Promise<SwapEstimateResult> {
+export async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Promise<SwapEstimateResult> {
   const tokenIn = global.swapTokenInfo.bySlug[global.currentSwap.tokenInSlug!];
   const tokenOut = global.swapTokenInfo.bySlug[global.currentSwap.tokenOutSlug!];
 
@@ -809,6 +809,7 @@ async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Pro
     let networkFee: string | undefined;
     let realNetworkFee: string | undefined;
     let amountIn = cexEstimate.fromAmount;
+    let isNetworkFeeUnknown = false;
 
     if (swapType !== SwapType.CrosschainToWallet) {
       if (!getIsSupportedChain(tokenIn.chain)) {
@@ -830,6 +831,9 @@ async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Pro
       if (txDraft) {
         ({ networkFee, realNetworkFee } = convertTransferFeesToSwapFees(txDraft, tokenIn.chain));
       }
+
+      // An unpriced transfer may exceed the wallet's gas and would only fail at submit, so the button is blocked here.
+      isNetworkFeeUnknown = networkFee === undefined;
 
       // Auto-adjust amountIn for crosschain swaps when fee becomes known
       if (global.currentSwap.isMaxAmount && networkFee && getIsNativeToken(tokenIn.slug)) {
@@ -864,7 +868,9 @@ async function estimateSwap(global: GlobalState, shouldStop: () => boolean): Pro
         ? SwapErrorType.ChangellyMinSwap
         : Big(fromAmount).gt(cexEstimate.fromMax)
           ? SwapErrorType.ChangellyMaxSwap
-          : undefined,
+          : isNetworkFeeUnknown
+            ? SwapErrorType.UnexpectedError
+            : undefined,
     };
   }
 

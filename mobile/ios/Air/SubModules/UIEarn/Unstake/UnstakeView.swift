@@ -13,13 +13,13 @@ struct UnstakeView: View {
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
-            InsetList {
+            InsetList(topPadding: 0) {
                 AmountSection(model: model)
 
                 UnstakeInfoSection(model: model)
                     .padding(.top, -8)
             }
-            .padding(.top, -8)
+            .backportScrollEdgeEffectHidden(for: .top)
             .contentShape(.rect)
             .onTapGesture {
                 model.onBackgroundTapped()

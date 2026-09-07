@@ -126,7 +126,7 @@ class ToastView(context: Context) :
             glassView = WGlassView.attachTo(
                 this,
                 CORNER_RADIUS_DP.dp,
-                GlassProviders.legacy(WColor.SearchFieldBackground),
+                GlassProviders.legacy(WColor.SearchFieldBackground, shadow = true),
                 blurRootView,
                 flavor = GlassFlavor.FROSTED
             ).apply {

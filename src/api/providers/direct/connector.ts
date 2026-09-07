@@ -1,15 +1,22 @@
+import type { InstallAttributionCandidate } from '../../../util/installAttribution';
 import type { ApiInitArgs, OnApiUpdate } from '../../types';
 import type { MethodArgsWithMaybePrefix, MethodResponseWithMaybePrefix } from '../../types/methods';
 import { type AllMethods, recognizeDappMethod } from '../../types/methods';
 
+import { normalizeAttributionCandidate } from '../../../util/installAttribution';
 import { getProtocolManager } from '../../dappProtocols';
-import { setInstallChannel as claimInstallChannel } from '../../methods/attribution';
+import { acceptInstallAttribution, setInstallChannel as claimLegacyInstallChannel } from '../../methods/attribution';
 import init from '../../methods/init';
 import { methods } from '../../methods/registry';
 import { createStorage, withStorage } from '../../storages';
 
 export function createDirectApiConnector() {
   let initPromise: Promise<void> | undefined;
+  let attributionDrain: Promise<void> | undefined;
+  const pendingAttribution: (
+    { snapshot: InstallAttributionCandidate }
+    | { channel: string; referrerDomain?: string; technicalKind?: 'referral' }
+  )[] = [];
   let runtimeStorage = createStorage();
 
   function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs | (() => ApiInitArgs)) {
@@ -17,21 +24,49 @@ export function createDirectApiConnector() {
 
     runtimeStorage = createStorage(args.storage);
     initPromise = withStorage(runtimeStorage, () => init(onUpdate, args));
+    flushAttribution();
   }
 
-  // Native Android calls this once the Play Install Referrer resolves (after initApi, after page
-  // load), so it cannot ride the initApi args. `runtimeStorage` is read here, not captured at
-  // definition time, so this always targets whichever instance the most recent initApi call created.
-  // Native calls this only after initApi; if it somehow arrives before, there is no init to wait
-  // on and no storage context to claim against, so no-op rather than claim against the default.
-  // Stays fire-and-forget (`=> void`): the JS bridge calls this and ignores the return. The trailing
-  // catch is not about the claim (claimInstallChannel already self-guards) - it is there so a
-  // rejected initPromise (init() itself failing) cannot surface as an unhandled promise rejection.
-  function setInstallChannel(channel: string) {
-    if (!initPromise) return;
-    void initPromise
-      .then(() => claimInstallChannel(channel, runtimeStorage))
-      .catch(() => {});
+  function flushAttribution() {
+    if (!initPromise || attributionDrain === initPromise) return;
+    const ready = initPromise;
+    attributionDrain = ready;
+    const targetStorage = runtimeStorage;
+    let initialized = false;
+    let failed = false;
+    void ready.then(async () => {
+      initialized = true;
+      while (pendingAttribution.length && initPromise === ready) {
+        const pending = pendingAttribution[0];
+        if ('snapshot' in pending) {
+          await acceptInstallAttribution(pending.snapshot, targetStorage);
+        } else {
+          await claimLegacyInstallChannel(
+            pending.channel, targetStorage, pending.referrerDomain, pending.technicalKind,
+          );
+        }
+        if (pendingAttribution[0] === pending) pendingAttribution.shift();
+      }
+    }).catch(() => { failed = true; }).finally(() => {
+      if (attributionDrain === ready) attributionDrain = undefined;
+      if (pendingAttribution.length && ((initialized && !failed) || initPromise !== ready)) flushAttribution();
+    });
+  }
+
+  function captureInstallAttribution(snapshot: InstallAttributionCandidate) {
+    const candidate = normalizeAttributionCandidate(snapshot);
+    if (!candidate) return;
+    pendingAttribution.push({ snapshot: candidate });
+    flushAttribution();
+  }
+
+  function setInstallChannel(channel: string, referrerDomain?: string, technicalKind?: 'referral') {
+    if (technicalKind === 'referral' || (!referrerDomain && ['organic', 'unknown'].includes(channel))) {
+      pendingAttribution.push({ channel, referrerDomain, technicalKind });
+      flushAttribution();
+      return;
+    }
+    captureInstallAttribution({ channel, attributionKind: referrerDomain ? 'referrer' : 'utm', referrerDomain });
   }
 
   async function callApi<T extends keyof AllMethods>(
@@ -62,9 +97,10 @@ export function createDirectApiConnector() {
     initApi,
     callApi,
     setInstallChannel,
+    captureInstallAttribution,
   };
 }
 
 const defaultConnector = createDirectApiConnector();
 
-export const { initApi, callApi, setInstallChannel } = defaultConnector;
+export const { initApi, callApi, setInstallChannel, captureInstallAttribution } = defaultConnector;

@@ -1040,6 +1040,13 @@ Message: Повідомлення
 Binary Data: Бінарні дані
 The binary data content is unclear. Sign it only if you trust the service.: Зміст бінарних даних неясний. Підписуйте, лише якщо довіряєте сервісу.
 Cell Schema: Схема комірки
+Parsed Cell: Розібрана комірка
+Cell Metadata: Метадані комірки
+Bits: Біти
+References: Посилання
+Hash: Хеш
+Parsing Error: Помилка розбору
+Cell Fields: Поля комірки
 Cell Data: Дані комірки
 Sign Data: Підписати дані
 Please confirm signature on your Ledger: Будь ласка, підтвердіть підпис на вашому Ledger

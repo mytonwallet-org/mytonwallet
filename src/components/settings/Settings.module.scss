@@ -905,6 +905,35 @@ a.item:hover {
   color: var(--color-gray-2);
 }
 
+.languageStatus {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.languageStatusIcon {
+  --spinner-size: 1.125rem;
+
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: auto;
+
+  font-size: 1.25rem;
+  color: var(--color-accent);
+
+  @include mixins.transition("opacity 200ms ease-out, transform 200ms ease-out");
+}
+
+.languageStatusHidden {
+  transform: scale(0.4);
+  opacity: 0;
+}
+
 .wideTooltip {
   max-width: 17.5rem !important;
 }

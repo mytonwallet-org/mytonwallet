@@ -21,6 +21,10 @@ import WalletContext
         if swapEstimate.isEnoughNative == false {
             issue = sellingToken.isNative ? .insufficientBalance : .notEnoughToken(nativeToken(for: sellingToken))
         }
+        // An unknown fee blocks the swap; a short balance or a min/max violation is the more useful message.
+        if swapEstimate.isEnoughNative == nil, issue == nil {
+            issue = .unexpectedEstimateError
+        }
         if swapEstimate.fromAmount < swapEstimate.fromMin {
             issue = .minimumAmount(swapEstimate.fromMin, sellingToken)
         }

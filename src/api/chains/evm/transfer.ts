@@ -15,7 +15,7 @@ import { ApiCommonError, ApiTransactionDraftError, ApiTransactionError } from '.
 
 import { raceWithAbortSignal } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
-import { bigintMultiplyToNumber } from '../../../util/bigint';
+import { bigintMin, bigintMultiplyToNumber } from '../../../util/bigint';
 import { getChainConfig } from '../../../util/chain';
 import { SECOND } from '../../../util/dateFormat';
 import { explainApiTransferFee } from '../../../util/fee/transferFee';
@@ -71,13 +71,15 @@ export async function checkTransactionDraft(
 
     const { address } = await fetchEvmWallet(accountId, chain);
 
-    const draftAmount = amount ?? 0n;
+    const tokenBalance = tokenAddress
+      ? await raceWithAbortSignal(() => getErc20Balance(network, chain, address, tokenAddress), signal)
+      : undefined;
+    const probeAmount = getDraftProbeAmount({ amount, tokenBalance });
 
-    // Native transfer gas does not depend on the sent value; using 0 keeps the fee stable while max amount adjusts.
     const feeEstimateTransaction = buildTransaction({
       from: address,
       to: toAddress,
-      amount: tokenAddress ? draftAmount : 0n,
+      amount: probeAmount,
       tokenAddress,
       payload,
     });
@@ -87,7 +89,7 @@ export async function checkTransactionDraft(
       network,
       from: address,
       to: toAddress,
-      amount: tokenAddress ? draftAmount : undefined,
+      amount: tokenAddress ? probeAmount : undefined,
       tokenAddress,
       payload,
     });
@@ -115,24 +117,11 @@ export async function checkTransactionDraft(
     });
 
     if (amount !== undefined) {
-      if (tokenAddress) {
-        const tokenBalance = await raceWithAbortSignal(
-          () => getErc20Balance(network, chain, address, tokenAddress),
-          signal,
-        );
+      const requiredNative = tokenBalance === undefined ? amount + fee : fee;
+      const isEnoughToken = tokenBalance === undefined || tokenBalance >= amount;
 
-        const isEnoughNative = nativeBalance >= fee;
-        const isEnoughToken = tokenBalance >= amount;
-
-        if (!isEnoughNative || !isEnoughToken) {
-          result.error = ApiTransactionDraftError.InsufficientBalance;
-        }
-      } else {
-        const isEnoughNative = nativeBalance >= amount + fee;
-
-        if (!isEnoughNative) {
-          result.error = ApiTransactionDraftError.InsufficientBalance;
-        }
+      if (nativeBalance < requiredNative || !isEnoughToken) {
+        result.error = ApiTransactionDraftError.InsufficientBalance;
       }
     }
 
@@ -206,7 +195,7 @@ export async function submitGasfullTransfer(
   options: ApiSubmitGasfullTransferOptions,
 ): Promise<ApiSubmitGasfullTransferResult | { error: string }> {
   const {
-    accountId, enclaveToken = '', toAddress, amount, fee = 0n, tokenAddress, payload, noFeeCheck,
+    accountId, enclaveToken = '', toAddress, amount, tokenAddress, payload, noFeeCheck,
   } = options;
 
   const { network } = parseAccountId(accountId);
@@ -220,13 +209,27 @@ export async function submitGasfullTransfer(
     const { address } = account.byChain[chain];
     const provider = getEvmProvider(network, chain);
 
+    const transaction = buildTransaction({
+      from: address,
+      to: toAddress,
+      amount,
+      tokenAddress,
+      payload,
+    });
+
     if (!noFeeCheck) {
-      const nativeBalance = await getWalletBalance(chain, network, address);
+      // The caller's `fee` is a placeholder-recipient preview, or absent, so the gate prices the real transaction.
+      const [nativeBalance, { gasLimit, fee }] = await Promise.all([
+        getWalletBalance(chain, network, address),
+        estimateEvmGas(provider, transaction),
+      ]);
       const requiredNative = tokenAddress ? fee : fee + amount;
 
       if (nativeBalance < requiredNative) {
         return { error: ApiTransactionError.InsufficientBalance };
       }
+
+      transaction.gasLimit = gasLimit;
     }
 
     const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
@@ -236,14 +239,6 @@ export async function submitGasfullTransfer(
     }
 
     const signer = getSignerFromPrivateKey(network, privateKey).connect(provider);
-
-    const transaction = buildTransaction({
-      from: address,
-      to: toAddress,
-      amount,
-      tokenAddress,
-      payload,
-    });
 
     const response = await signer.sendTransaction(transaction);
 
@@ -260,6 +255,16 @@ export async function estimateEvmFee(
   txRequest: TransactionRequest,
   signal?: AbortSignal,
 ): Promise<bigint> {
+  const { fee } = await estimateEvmGas(provider, txRequest, signal);
+
+  return fee;
+}
+
+async function estimateEvmGas(
+  provider: EvmProvider,
+  txRequest: TransactionRequest,
+  signal?: AbortSignal,
+): Promise<{ gasLimit: bigint; fee: bigint }> {
   const [gasLimit, feeData] = await raceWithAbortSignal(() => Promise.all([
     provider.estimateGas(txRequest),
     provider.getFeeData(),
@@ -268,7 +273,7 @@ export async function estimateEvmFee(
   // Prefer EIP-1559 maxFeePerGas for a conservative upper-bound estimate or use fallback to legacy gasPrice.
   const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
 
-  return gasLimit * gasPrice;
+  return { gasLimit, fee: gasLimit * gasPrice };
 }
 
 async function getCachedEvmFeeEstimate(
@@ -367,6 +372,18 @@ export async function sendSignedTransaction(
   const response = await provider.broadcastTransaction(normalized);
 
   return response.hash;
+}
+
+/**
+ * `estimateGas` reverts a token transfer above the balance, so the probe is clamped to it and a shortfall is priced;
+ * one unit, not zero, prices the recipient's balance write. Native gas ignores the value, so zero keeps the fee stable.
+ */
+function getDraftProbeAmount({ amount, tokenBalance }: { amount?: bigint; tokenBalance?: bigint }): bigint {
+  if (tokenBalance === undefined) {
+    return 0n;
+  }
+
+  return bigintMin(amount ?? 1n, tokenBalance);
 }
 
 function getEvmDraftFullFee({

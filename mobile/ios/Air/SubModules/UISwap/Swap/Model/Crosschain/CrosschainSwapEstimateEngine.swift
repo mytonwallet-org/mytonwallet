@@ -43,6 +43,32 @@ func crosschainAdjustedNativeMaxAmount(
     ))
 }
 
+/// `nil` means the estimate could not price the transfer, and the validator blocks the swap on it. A balance
+/// the snapshot lacks counts as zero: a token the account does not hold is "not enough", not "unknown".
+@MainActor func isEnoughNativeForCrosschain(
+    selling: TokenAmount,
+    swapType: SwapType,
+    fee: BigInt?,
+    account: SwapAccountSnapshot
+) -> Bool? {
+    if swapType.cexTopology == .toWallet || !account.supports(chain: selling.token.chain) {
+        return true
+    }
+    guard let fee else {
+        return nil
+    }
+    let tokenBalance = account.balances[selling.token.slug] ?? 0
+    let nativeBalance = account.balances[selling.token.nativeTokenSlug] ?? 0
+    let maxAmount = getMaxSwapAmount(.init(
+        swapType: swapType,
+        tokenBalance: tokenBalance,
+        tokenIn: selling.token,
+        fullNetworkFee: .init(token: nil, native: fee, stars: nil),
+        maxAmountFromBackend: nil
+    )) ?? 0
+    return selling.amount <= maxAmount && fee <= nativeBalance
+}
+
 @MainActor struct CrosschainSwapEstimateEngine {
     var fetchEstimate: (String, ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse = {
         try await Api.swapEstimate(accountId: $0, request: $1)
@@ -154,10 +180,17 @@ func crosschainAdjustedNativeMaxAmount(
                 DecimalAmount.fromDouble(swapEstimate.fromAmount.value, selling.token).roundedForSwap.amount,
                 selling.token
             )
+            let nativeFee = swapEstimate.networkFee.flatMap {
+                FeeEstimationHelpers.networkFeeBigInt(
+                    sellToken: selling.token,
+                    swapType: swapType,
+                    networkFee: $0.value
+                )?.fee
+            }
             swapEstimate.isEnoughNative = isEnoughNativeForCrosschain(
                 selling: resolvedSelling,
                 swapType: swapType,
-                networkFee: swapEstimate.networkFee?.value,
+                fee: nativeFee,
                 account: account
             )
             swapEstimate.dieselStatus = .notAvailable
@@ -178,40 +211,6 @@ func crosschainAdjustedNativeMaxAmount(
                 isRateLimited: isRateLimited
             )
         }
-    }
-
-    private func isEnoughNativeForCrosschain(
-        selling: TokenAmount,
-        swapType: SwapType,
-        networkFee: Double?,
-        account: SwapAccountSnapshot
-    ) -> Bool? {
-        if swapType.cexTopology == .toWallet {
-            return true
-        }
-        guard
-            account.supports(chain: selling.token.chain),
-            let tokenBalance = account.balances[selling.token.slug],
-            let nativeToken = TokenStore.tokens[selling.token.nativeTokenSlug],
-            let nativeTokenBalance = account.balances[nativeToken.slug],
-            let networkFee,
-            let networkFeeData = FeeEstimationHelpers.networkFeeBigInt(
-                sellToken: selling.token,
-                swapType: swapType,
-                networkFee: networkFee
-            ),
-            let maxAmount = getMaxSwapAmount(.init(
-                swapType: swapType,
-                tokenBalance: tokenBalance,
-                tokenIn: selling.token,
-                fullNetworkFee: .init(token: nil, native: networkFeeData.fee, stars: nil),
-                maxAmountFromBackend: nil
-            ))
-        else {
-            return nil
-        }
-
-        return selling.amount <= maxAmount && networkFeeData.fee <= nativeTokenBalance
     }
 
     private func fetchNetworkFee(

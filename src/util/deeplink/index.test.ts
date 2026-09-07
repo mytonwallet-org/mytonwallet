@@ -3,9 +3,9 @@ import { getActions, getGlobal } from '../../global';
 import type { GlobalState } from '../../global/types';
 import { ContentTab } from '../../global/types';
 
+import * as config from '../../config';
 import {
   DEFAULT_SWAP_AMOUNT,
-  DEFAULT_SWAP_FIRST_TOKEN_SLUG,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
   TON_USDT_MAINNET,
   TONCOIN,
@@ -27,7 +27,7 @@ jest.mock('../../global', () => ({
 }));
 
 jest.mock('../../api', () => ({
-  callApi: jest.fn(),
+  callApi: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../openUrl', () => ({
@@ -290,6 +290,7 @@ describe('processSelfDeeplink', () => {
       openReceiveModal: jest.fn(),
       openTemporaryViewAccount: jest.fn(),
       switchToPortfolio: jest.fn(),
+      switchToMarket: jest.fn(),
       addSavedAddress: jest.fn(),
     };
 
@@ -299,6 +300,61 @@ describe('processSelfDeeplink', () => {
     // Setup getActions and getGlobal mocks
     (getActions as jest.Mock).mockReturnValue(mockActions);
     (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
+  });
+
+  it('captures attribution on an installed get entry without launching an action', async () => {
+    expect(await processSelfDeeplink('https://my.tt/get/android?utm_source=partner&utm_campaign=launch')).toBe(true);
+    expect(callApi).toHaveBeenCalledWith('captureInstallAttribution', {
+      channel: 'partner', attributionKind: 'utm', utmCampaign: 'launch',
+    });
+    expect(mockActions.startTransfer).not.toHaveBeenCalled();
+  });
+
+  it('captures marketed transfer entry and retains its business parameters', async () => {
+    const url = `https://my.tt/transfer/${TEST_TON_ADDRESS}?amount=1&text=Hello&utm_source=partner&utm_content=button`;
+    expect(await processSelfDeeplink(url)).toBe(true);
+    expect(callApi).toHaveBeenCalledWith('captureInstallAttribution', {
+      channel: 'partner', attributionKind: 'utm', utmContent: 'button',
+    });
+    expect(mockActions.startTransfer).toHaveBeenCalledWith(expect.objectContaining({
+      toAddress: TEST_TON_ADDRESS, amount: 1n, comment: 'Hello',
+    }));
+    expect(mockActions.showError).not.toHaveBeenCalled();
+  });
+
+  it('does not capture rejected explorer commands or installed get entries', async () => {
+    const explorer = jest.replaceProperty(config, 'IS_EXPLORER', true);
+    try {
+      expect(await processSelfDeeplink('https://my.tt/swap?utm_source=partner')).toBe(false);
+      expect(await processSelfDeeplink('https://my.tt/get?utm_source=partner')).toBe(false);
+      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
+    } finally {
+      explorer.restore();
+    }
+  });
+
+  it('does not capture handled errors, invalid routes, or blocked browser provenance', async () => {
+    mockGlobal.settings.isTestnet = true;
+    expect(await processSelfDeeplink('https://my.tt/swap?utm_source=partner')).toBe(true);
+    expect(await processSelfDeeplink('https://my.tt/not-a-command?utm_source=partner')).toBe(false);
+    expect(await processSelfDeeplink('https://my.tt/offramp?utm_source=partner', true)).toBe(true);
+    expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
+  });
+  it.each([
+    `https://my.tt/transfer/${TEST_TON_ADDRESS}?unsupported=1&utm_source=partner`,
+    `https://my.tt/send/ton:${TEST_TON_ADDRESS}?text=hello&bin=abc&utm_source=partner`,
+  ])('does not capture a transfer handled only by showing a parsing error: %s', async (url) => {
+    expect(await processSelfDeeplink(url)).toBe(true);
+    expect(mockActions.showError).toHaveBeenCalled();
+    expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
+  });
+
+  it('does not capture attribution for an unsupported Multisend route', async () => {
+    expect(await processSelfDeeplink('https://my.tt/multisend?utm_source=partner')).toBe(false);
+    expect(openUrl).not.toHaveBeenCalled();
+    expect(mockActions.startTransfer).not.toHaveBeenCalled();
+    expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
   });
 
   describe('Swap command', () => {
@@ -333,7 +389,7 @@ describe('processSelfDeeplink', () => {
       });
     });
 
-    it('should show error and use default tokenInSlug when in param is unknown', async () => {
+    it('should reject swap when in param is unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -341,20 +397,17 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=ton-usdt');
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=ton-usdt&utm_source=partner');
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
-      expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
-        tokenOutSlug: TON_USDT_MAINNET.slug,
-        amountIn: DEFAULT_SWAP_AMOUNT,
-      });
+      expect(mockActions.startSwap).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should show error and use default tokenInSlug when in is unknown and out is toncoin', async () => {
+    it('should reject swap when in is unknown and out is toncoin', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -362,20 +415,17 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin');
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin&utm_source=partner');
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
-      expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
-        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-        amountIn: DEFAULT_SWAP_AMOUNT,
-      });
+      expect(mockActions.startSwap).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should show error and use default tokenOutSlug when out param is unknown', async () => {
+    it('should reject swap when out param is unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -383,20 +433,17 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token`);
+      const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token&utm_source=partner`);
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
-      expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
-        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-        amountIn: DEFAULT_SWAP_AMOUNT,
-      });
+      expect(mockActions.startSwap).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should show error and use both defaults when both in and out params are unknown', async () => {
+    it('should reject swap when both in and out params are unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -404,17 +451,14 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out');
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out&utm_source=partner');
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
-      expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: DEFAULT_SWAP_FIRST_TOKEN_SLUG,
-        tokenOutSlug: DEFAULT_SWAP_SECOND_TOKEN_SLUG,
-        amountIn: DEFAULT_SWAP_AMOUNT,
-      });
+      expect(mockActions.startSwap).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
     it('should show error when swap is requested in testnet', async () => {
@@ -579,6 +623,22 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.switchToPortfolio).toHaveBeenCalled();
+    });
+  });
+
+  describe('Market command', () => {
+    it('should switch to market screen', async () => {
+      const result = await processSelfDeeplink('mtw://market');
+
+      expect(result).toBe(true);
+      expect(mockActions.switchToMarket).toHaveBeenCalled();
+    });
+
+    it('should switch to market screen from the universal link', async () => {
+      const result = await processSelfDeeplink('https://my.tt/market');
+
+      expect(result).toBe(true);
+      expect(mockActions.switchToMarket).toHaveBeenCalled();
     });
   });
 
@@ -1297,6 +1357,7 @@ describe('View-only mode deeplink blocking', () => {
       showTokenActivity: jest.fn(),
       addSavedAddress: jest.fn(),
       switchToAgent: jest.fn(),
+      switchToMarket: jest.fn(),
       openLoadingOverlay: jest.fn(),
       closeLoadingOverlay: jest.fn(),
     };
@@ -1323,6 +1384,11 @@ describe('View-only mode deeplink blocking', () => {
 
     (getActions as jest.Mock).mockReturnValue(mockActions);
     (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
+  });
+
+  it('does not capture a signing link rejected in view-only mode', async () => {
+    expect(await processSelfDeeplink('https://my.tt/send?utm_source=partner')).toBe(false);
+    expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
   });
 
   describe('processSelfDeeplink blocks signing commands', () => {
@@ -1359,6 +1425,7 @@ describe('View-only mode deeplink blocking', () => {
   describe('processSelfDeeplink allows read-only commands', () => {
     it.each([
       { name: 'Agent', url: 'mtw://agent' },
+      { name: 'Market', url: 'mtw://market' },
     ])('should allow $name in view-only mode', async ({ url }) => {
       const result = await processSelfDeeplink(url);
 

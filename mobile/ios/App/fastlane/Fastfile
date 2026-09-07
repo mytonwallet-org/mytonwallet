@@ -229,6 +229,27 @@ def beta_review_conflict_error?(exception)
   exception.message.include?("Another build in the same train is already in beta review")
 end
 
+def expire_older_beta_reviews(version)
+  app = Spaceship::ConnectAPI::App.find($app_identifier)
+  raise "Could not find App Store Connect app: #{$app_identifier}" if app.nil?
+
+  current_version = Gem::Version.new(version)
+  app.get_builds(
+    filter: {
+      "betaAppReviewSubmission.betaReviewState" => "WAITING_FOR_REVIEW",
+      "expired" => false,
+    },
+    includes: "preReleaseVersion",
+  ).each do |build|
+    next unless build.pre_release_version.platform == Spaceship::ConnectAPI::Platform::IOS
+    next unless Gem::Version.new(build.app_version) < current_version
+
+    # Expiration cancels beta review with API-key auth and stops TestFlight installs.
+    UI.important("Expiring older beta build waiting for review: #{build.app_version} (#{build.version})")
+    build.expire!
+  end
+end
+
 platform :ios do
   desc "Push a new beta build to TestFlight"
 
@@ -313,6 +334,8 @@ platform :ios do
       raise unless distribute_external && beta_review_conflict_error?(exception)
 
       UI.important("Internal TestFlight upload succeeded; external beta submission skipped because another #{version} build is in review")
+    else
+      expire_older_beta_reviews(version) if distribute_external
     end
   end
 

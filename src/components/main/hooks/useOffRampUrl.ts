@@ -106,21 +106,18 @@ export default function useOffRampUrl({
 
           if (isCancelled || !isOpenRef.current) return;
 
-          if (result && !('error' in result)) {
-            const { fullFee, canTransferFullBalance } = result.explainedFee ?? {
-              fullFee: undefined,
-              canTransferFullBalance: false,
-            };
+          // A whole-balance draft reports `InsufficientBalance` (fee on top of the amount) and still carries the fee.
+          const { fullFee, canTransferFullBalance } = result?.explainedFee ?? {
+            fullFee: undefined,
+            canTransferFullBalance: false,
+          };
 
-            maxAmount = getMaxTransferAmount({
-              tokenBalance: balance,
-              tokenSlug,
-              fullFee: fullFee?.terms,
-              canTransferFullBalance,
-            });
-          } else {
-            maxAmount = balance;
-          }
+          maxAmount = getMaxTransferAmount({
+            tokenBalance: balance,
+            tokenSlug,
+            fullFee: fullFee?.terms,
+            canTransferFullBalance,
+          });
         }
 
         if (isCancelled || !isOpenRef.current) return;

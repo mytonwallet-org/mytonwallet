@@ -427,17 +427,19 @@ extension InAppBrowserPageVC: WKNavigationDelegate, WKUIDelegate {
             isMainFrame: navigationAction.sourceFrame.isMainFrame,
             shouldOpenInNewPage: navigationAction.targetFrame == nil
         ) {
+        // Returning `.cancel` is the whole mechanism: the navigation never starts. Never call
+        // `webView.stopLoading()` here - it aborts every in-flight load of the page (lazy JS
+        // chunks, fetches), not just the navigation being refused. A sub-frame `about:blank`
+        // refused that way killed 1inch's swap-route chunk mid-load: its router fell back to `/`
+        // and its chunk guard reloaded that, landing the user on the marketing homepage.
         case .consume:
-            webView.stopLoading()
             return .cancel
         case .handleDeeplink(let source):
-            webView.stopLoading()
             if WalletContextManager.delegate?.handleDeeplink(url: url, source: source) ?? false {
                 dismissAfterHandledDeeplink()
             }
             return .cancel
         case .openSystemUrl:
-            webView.stopLoading()
             openSystemUrl(url)
             return .cancel
         case .openNewPage:

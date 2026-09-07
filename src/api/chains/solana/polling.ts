@@ -46,12 +46,14 @@ export function setupActivePolling(
   shouldResetBalances?: boolean,
 ): NoneToVoidFunction {
   const { address } = account.byChain.solana;
+  let markWalletActiveForBalancePolling: NoneToVoidFunction = () => {};
 
   const activityPolling = setupActivityPolling(
     accountId,
     newestActivityTimestamps,
     onUpdate,
     onUpdatingStatusChange.bind(undefined, 'activities'),
+    () => markWalletActiveForBalancePolling(),
   );
 
   const nftPolling = setupNftPolling(
@@ -60,6 +62,7 @@ export function setupActivePolling(
     true,
     activityPolling.update,
     onUpdate,
+    () => markWalletActiveForBalancePolling(),
   );
 
   const balancePolling = setupBalancePolling(
@@ -71,6 +74,7 @@ export function setupActivePolling(
     onUpdatingStatusChange.bind(undefined, 'balance'),
     shouldResetBalances,
   );
+  markWalletActiveForBalancePolling = balancePolling.markWalletActiveAndForcePoll;
 
   return () => {
     nftPolling.stop();
@@ -140,6 +144,9 @@ function setupBalancePolling(
     getBalances() {
       return balanceStream.getBalances();
     },
+    markWalletActiveAndForcePoll() {
+      balanceStream.markWalletActiveAndForcePoll();
+    },
   };
 }
 
@@ -148,6 +155,7 @@ function setupActivityPolling(
   newestActivityTimestamps: ApiActivityTimestamps,
   onUpdate: OnApiUpdate,
   onUpdatingStatusChange: (isUpdating: boolean) => void,
+  onActivityDetected: NoneToVoidFunction,
 ) {
   const initialTimestamps = compact(Object.values(newestActivityTimestamps));
   let newestConfirmedActivityTimestamp = initialTimestamps.length ? Math.max(...initialTimestamps) : undefined;
@@ -170,12 +178,16 @@ function setupActivityPolling(
         const timestamps = compact(Object.values(result));
 
         newestConfirmedActivityTimestamp = timestamps.length ? Math.max(...timestamps) : undefined;
+        if (timestamps.length) {
+          onActivityDetected();
+        }
       } else {
         const result = await loadNewActivities(accountId, newestConfirmedActivityTimestamp, onUpdate);
         const newTimestamps = compact(Object.values(result));
 
         if (newTimestamps.length && Math.max(...newTimestamps) > newestConfirmedActivityTimestamp) {
           newestConfirmedActivityTimestamp = Math.max(newestConfirmedActivityTimestamp, Math.max(...newTimestamps));
+          onActivityDetected();
         } else {
           lastEmptyTimestamp = newestConfirmedActivityTimestamp;
         }
@@ -210,6 +222,7 @@ function setupNftPolling(
   isActive: boolean,
   activityUpdate: NoneToVoidFunction,
   onUpdate: OnApiUpdate,
+  onNftActivity?: NoneToVoidFunction,
 ) {
   const nftStream = new NftStream(
     parseAccountId(accountId).network,
@@ -248,6 +261,7 @@ function setupNftPolling(
       });
     }
 
+    onNftActivity?.();
     activityUpdate();
   });
 

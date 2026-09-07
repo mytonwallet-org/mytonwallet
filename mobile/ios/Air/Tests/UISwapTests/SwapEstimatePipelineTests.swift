@@ -334,6 +334,74 @@ struct SwapEstimatePipelineTests {
 
     @Test
     @MainActor
+    func `cross chain unknown fee blocks with an unexpected estimate error`() {
+        let validator = CrosschainSwapValidator()
+        var estimate = makeCexEstimate(fromAmount: 10, toAmount: 20)
+        estimate.isEnoughNative = nil
+        let account = tronAccount(balances: [TRON_USDT_SLUG: 100, TRX_SLUG: 100])
+
+        let issue = validator.validationIssue(
+            input: usdtToTonInput(sellingAmount: 10),
+            swapEstimate: estimate,
+            account: account
+        )
+
+        #expect(issue == .unexpectedEstimateError)
+    }
+
+    @Test
+    @MainActor
+    func `cross chain unknown fee keeps the insufficient balance issue`() {
+        let validator = CrosschainSwapValidator()
+        var estimate = makeCexEstimate(fromAmount: 10, toAmount: 20)
+        estimate.isEnoughNative = nil
+        let account = tronAccount(balances: [TRON_USDT_SLUG: 5, TRX_SLUG: 100])
+
+        let issue = validator.validationIssue(
+            input: usdtToTonInput(sellingAmount: 10),
+            swapEstimate: estimate,
+            account: account
+        )
+
+        #expect(issue == .insufficientBalance)
+    }
+
+    @Test
+    @MainActor
+    func `cross chain fee gate is unknown only when the fee is unknown`() {
+        let selling = TokenAmount(10, token(slug: TRON_USDT_SLUG, symbol: "USDT", chain: .tron))
+        let account = tronAccount(balances: [:])
+
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainInsideWallet, fee: nil, account: account) == nil)
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainInsideWallet, fee: 1, account: account) == false)
+    }
+
+    @Test
+    @MainActor
+    func `cross chain fee gate needs the token for the swap and the native token for the fee`() {
+        let selling = TokenAmount(10, token(slug: TRON_USDT_SLUG, symbol: "USDT", chain: .tron))
+        let account = tronAccount(balances: [TRON_USDT_SLUG: 10, TRX_SLUG: 1])
+
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainInsideWallet, fee: 1, account: account) == true)
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainInsideWallet, fee: 2, account: account) == false)
+        #expect(isEnoughNativeForCrosschain(selling: TokenAmount(11, selling.token), swapType: .crosschainInsideWallet, fee: 1, account: account) == false)
+    }
+
+    @Test
+    @MainActor
+    func `cross chain fee gate passes without a fee when the wallet does not send the transfer`() {
+        let selling = TokenAmount(10, token(slug: TRON_USDT_SLUG, symbol: "USDT", chain: .tron))
+        let foreignAccount = SwapAccountSnapshot(
+            account: MAccount(id: "test-mainnet", title: nil, type: .mnemonic, byChain: [:]),
+            balances: [:]
+        )
+
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainInsideWallet, fee: nil, account: foreignAccount) == true)
+        #expect(isEnoughNativeForCrosschain(selling: selling, swapType: .crosschainToWallet, fee: nil, account: tronAccount(balances: [:])) == true)
+    }
+
+    @Test
+    @MainActor
     func `cross chain TRX balance is not reduced by magic reserve`() {
         let validator = CrosschainSwapValidator()
         var estimate = makeCexEstimate(fromAmount: 100, toAmount: 20)
@@ -514,6 +582,28 @@ private func makeCexEstimate(fromAmount: Double, toAmount: Double) -> ApiSwapCex
     }
     """.data(using: .utf8)!
     return try! JSONDecoder().decode(ApiSwapCexEstimateResponse.self, from: data)
+}
+
+private func tronAccount(balances: [String: BigInt]) -> SwapAccountSnapshot {
+    SwapAccountSnapshot(
+        account: MAccount(
+            id: "test-mainnet",
+            title: nil,
+            type: .mnemonic,
+            byChain: [.tron: AccountChain(address: "tron-address")]
+        ),
+        balances: balances
+    )
+}
+
+private func usdtToTonInput(sellingAmount: BigInt) -> SwapValidationInput {
+    SwapValidationInput(
+        sellingToken: token(slug: TRON_USDT_SLUG, symbol: "USDT", chain: .tron),
+        buyingToken: token(slug: "toncoin", symbol: "TON", chain: .ton),
+        sellingAmount: sellingAmount,
+        maxAmount: nil,
+        swapType: .crosschainInsideWallet
+    )
 }
 
 private func token(slug: String, symbol: String, chain: ApiChain, decimals: Int = 9) -> ApiToken {

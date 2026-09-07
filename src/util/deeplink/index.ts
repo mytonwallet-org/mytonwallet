@@ -34,6 +34,7 @@ import {
   VIEW_ACCOUNT_EVM_PARAM,
 } from '../chain';
 import { fromDecimal } from '../decimals';
+import { splitAttributionDeeplink } from '../installAttribution';
 import { isValidAddressOrDomain } from '../isValidAddress';
 import { omitUndefined } from '../iteratees';
 import { logDebug, logDebugError } from '../logs';
@@ -71,6 +72,7 @@ export const enum DeeplinkCommand {
   Transaction = 'tx',
   Nft = 'nft',
   Portfolio = 'portfolio',
+  Market = 'market',
   Agent = 'agent',
   Settings = 'settings',
 }
@@ -102,6 +104,7 @@ const VIEW_MODE_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Transaction,
   DeeplinkCommand.Nft,
   DeeplinkCommand.Portfolio,
+  DeeplinkCommand.Market,
   DeeplinkCommand.Agent,
 ]);
 
@@ -185,14 +188,14 @@ export function processDeeplink(url: string, isFromInAppBrowser = false): Promis
   }
 
   if (url.startsWith('tether:')) {
-    return processTronTetherDeeplink(url);
+    return processTronTetherDeeplink(url).then((result) => result !== false);
   }
 
   if (url.startsWith('tron:')) {
-    return processTronDeeplink(url);
+    return processTronDeeplink(url).then((result) => result !== false);
   }
 
-  return processTonDeeplink(url);
+  return processTonDeeplink(url).then((result) => result !== false);
 }
 
 export function getDeeplinkFromLocation(): string | undefined {
@@ -243,11 +246,13 @@ export function isTronDeeplink(url: string) {
   return url.startsWith('tron:') || url.startsWith('tether:');
 }
 
+type DeeplinkOpenResult = boolean | 'handledWithoutOpening';
+
 // Generic handler for transfer deeplinks
 async function processTransferDeeplink(
   parse: (global: GlobalState) =>
     (NonNullable<ActionPayloads['startTransfer']> & { error?: string }) | undefined,
-): Promise<boolean> {
+): Promise<DeeplinkOpenResult> {
   await waitRender();
 
   const actions = getActions();
@@ -268,7 +273,7 @@ async function processTransferDeeplink(
 
   if ('error' in startTransferParams) {
     actions.showError({ error: startTransferParams.error });
-    return true;
+    return 'handledWithoutOpening';
   }
 
   actions.startTransfer({
@@ -278,7 +283,7 @@ async function processTransferDeeplink(
   return true;
 }
 
-async function processTonDeeplink(url: string): Promise<boolean> {
+async function processTonDeeplink(url: string): Promise<DeeplinkOpenResult> {
   if (selectIsCurrentAccountViewMode(getGlobal())) {
     getActions().showError({ error: '$action_not_available_view_mode' });
     return false;
@@ -294,11 +299,11 @@ async function processTonDeeplink(url: string): Promise<boolean> {
   return processTransferDeeplink((global) => parseTonDeeplink(url, global));
 }
 
-async function processTronDeeplink(url: string): Promise<boolean> {
+async function processTronDeeplink(url: string): Promise<DeeplinkOpenResult> {
   return processTransferDeeplink((global) => parseTronDeeplinkForTrx(url, global));
 }
 
-async function processTronTetherDeeplink(url: string): Promise<boolean> {
+async function processTronTetherDeeplink(url: string): Promise<DeeplinkOpenResult> {
   return processTransferDeeplink((global) => parseTronTetherDeeplink(url, global));
 }
 
@@ -306,7 +311,7 @@ async function processTronTetherDeeplink(url: string): Promise<boolean> {
 async function processSendDeeplink(
   pathname: string,
   searchParams: URLSearchParams,
-): Promise<boolean> {
+): Promise<DeeplinkOpenResult> {
   const pathParts = pathname.split('/').filter(Boolean);
   // pathParts[0] = "send", pathParts[1] = "{chain}:{address}"
   const target = pathParts[1];
@@ -679,6 +684,20 @@ export function isSelfDeeplink(url: string) {
 
 // Returns `true` if the link has been processed, ideally resulting to a UI action
 export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser = false): Promise<boolean> {
+  const attribution = splitAttributionDeeplink(deeplink);
+  const result = attribution.isGet ? !IS_EXPLORER
+    : await openSelfDeeplink(attribution.url, isFromInAppBrowser);
+  if (result === true && attribution.candidate) {
+    void callApi('captureInstallAttribution', attribution.candidate).catch(() => {});
+  }
+  return result !== false;
+}
+
+// Some rejected commands historically return true after displaying an error. Keep that public
+// behavior separate from whether navigation actually opened, which permits attribution capture.
+async function openSelfDeeplink(
+  deeplink: string, isFromInAppBrowser: boolean,
+): Promise<DeeplinkOpenResult> {
   try {
     deeplink = convertSelfDeeplinkToSelfUrl(deeplink);
 
@@ -714,8 +733,10 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.Swap: {
         if (isTestnet) {
           actions.showError({ error: 'Swap is not supported in Testnet.' });
+          return 'handledWithoutOpening';
         } else if (isLedger) {
           actions.showError({ error: 'Swap is not yet supported by Ledger.' });
+          return 'handledWithoutOpening';
         } else {
           const swapBySlug = global.swapTokenInfo?.bySlug;
           const rawIn = searchParams.get('in');
@@ -730,6 +751,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
 
           if ((rawIn && tokenInSlug !== rawIn) || (rawOut && tokenOutSlug !== rawOut)) {
             actions.showError({ error: '$unknown_swap_token' });
+            return 'handledWithoutOpening';
           }
 
           actions.startSwap({
@@ -744,8 +766,10 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.BuyWithCrypto: {
         if (isTestnet) {
           actions.showError({ error: 'Swap is not supported in Testnet.' });
+          return 'handledWithoutOpening';
         } else if (isLedger) {
           actions.showError({ error: 'Swap is not yet supported by Ledger.' });
+          return 'handledWithoutOpening';
         } else {
           const { nativeToken, buySwap: defaultBuySwap } = getChainConfig('ton');
           actions.startSwap({
@@ -760,6 +784,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.BuyWithCard: {
         if (isTestnet) {
           actions.showError({ error: 'Buying with card is not supported in Testnet.' });
+          return 'handledWithoutOpening';
         } else {
           actions.openOnRampWidgetModal({ chain: 'ton' });
         }
@@ -769,6 +794,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.SellOnCard: {
         if (isTestnet) {
           actions.showError({ error: 'Selling to card is not supported in Testnet.' });
+          return 'handledWithoutOpening';
         } else {
           actions.openOffRampWidgetModal();
         }
@@ -778,7 +804,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.Offramp: {
         if (isFromInAppBrowser) {
           actions.showError({ error: '$unsupported_deeplink_parameter' });
-          return true;
+          return 'handledWithoutOpening';
         }
 
         const transactionId = searchParams.get('transactionId') ?? undefined;
@@ -843,7 +869,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       case DeeplinkCommand.Stake: {
         if (isTestnet) {
           actions.showError({ error: 'Staking is not supported in Testnet.' });
-          return true;
+          return 'handledWithoutOpening';
         }
 
         const productId = searchParams.get('product') ?? undefined;
@@ -861,7 +887,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
           || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(productId)
         ) {
           actions.showError({ error: '$unsupported_deeplink_parameter' });
-          return true;
+          return 'handledWithoutOpening';
         }
 
         let initialAmount: bigint | 'all' | undefined;
@@ -871,17 +897,17 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
           const match = /^(?:0|[1-9]\d*)(?:\.(\d+))?$/u.exec(amountValue);
           if (!match || (match[1]?.length ?? 0) > token.decimals) {
             actions.showError({ error: '$unsupported_deeplink_parameter' });
-            return true;
+            return 'handledWithoutOpening';
           }
           try {
             initialAmount = fromDecimal(amountValue, token.decimals);
           } catch {
             actions.showError({ error: '$unsupported_deeplink_parameter' });
-            return true;
+            return 'handledWithoutOpening';
           }
           if (initialAmount <= 0n) {
             actions.showError({ error: '$unsupported_deeplink_parameter' });
-            return true;
+            return 'handledWithoutOpening';
           }
         }
         actions.startStaking({
@@ -1022,7 +1048,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
 
         if (!activities?.length) {
           actions.showError({ error: '$transaction_not_found' });
-          return true;
+          return 'handledWithoutOpening';
         }
 
         // Get address from the first activity (toAddress for transactions, fromAddress for swaps)
@@ -1035,7 +1061,7 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
 
         if (!viewAddress) {
           actions.showError({ error: '$could_not_determine_address' });
-          return true;
+          return 'handledWithoutOpening';
         }
 
         if (shouldOpenViewAccount && !await openViewAccount(chain, viewAddress)) return false;
@@ -1081,7 +1107,12 @@ export async function processSelfDeeplink(deeplink: string, isFromInAppBrowser =
       }
 
       case DeeplinkCommand.Portfolio: {
-        getActions().switchToPortfolio();
+        actions.switchToPortfolio();
+        return true;
+      }
+
+      case DeeplinkCommand.Market: {
+        actions.switchToMarket();
         return true;
       }
 

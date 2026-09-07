@@ -25,6 +25,7 @@ struct NftSendComposeView: View {
                         )
                 }
             }
+            .backportScrollEdgeEffectHidden(for: .top)
             .scrollIndicators(.hidden)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear

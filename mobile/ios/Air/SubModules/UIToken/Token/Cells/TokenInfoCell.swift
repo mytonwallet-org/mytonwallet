@@ -117,7 +117,13 @@ final class TokenInfoCell: FirstRowCell {
     }
 
     private func presentationHostingHeight(for model: TokenInfoModel) -> CGFloat {
-        switch model.presentationOverlay {
+        // Once measured, the incoming content owns the host size even while the old layer fades out.
+        guard model.pendingPresentationRevision != nil else {
+            return model.state.isLoading
+                ? TokenInfoModel.collapsedHeight
+                : model.measuredExpandedHeight
+        }
+        return switch model.presentationOverlay {
         case .skeleton:
             TokenInfoModel.collapsedHeight
         case .content(let snapshot) where snapshot.state.canExpand && snapshot.expansionProgress > 0:

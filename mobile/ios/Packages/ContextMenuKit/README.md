@@ -173,12 +173,12 @@ style.verticalPlacementBehavior = .screenBalanced
 
 If a menu overlaps its source using a negative `sourceSpacing`, but you still want the animation to originate from a positive offset relative to the source, set `animationSourceSpacing` explicitly.
 
-Native menu glass on iOS 26 and later defaults to `glassTint: .strong` (60% white in light mode, 20% in dark mode). To use the original tint for a specific menu, choose `.subtle` (10% white in light mode, 2.5% in dark mode):
+Native menu glass on iOS 26 and later defaults to `glassTint: .subtle` (10% white in light mode, 2.5% in dark mode). For stronger separation from underlying content in a specific menu, choose `.strong` (60% white in light mode, 20% in dark mode):
 
 ```swift
-let style = ContextMenuStyle(glassTint: .subtle)
+let style = ContextMenuStyle(glassTint: .strong)
 // Or update an existing configuration:
-configuration.style.glassTint = .subtle
+configuration.style.glassTint = .strong
 ```
 
 The chosen tint also applies to submenu pages. Earlier iOS versions keep their existing material appearance.

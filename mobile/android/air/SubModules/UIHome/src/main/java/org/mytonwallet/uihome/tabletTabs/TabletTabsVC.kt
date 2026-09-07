@@ -31,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uimarket.viewControllers.market.MarketVC
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -704,6 +705,18 @@ class TabletTabsVC(context: Context) :
         selectTab(IBottomNavigationView.ID_EXPLORE)
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
+    }
+
+    override fun switchToMarket() {
+        if (!AppTabsManager.contains(IBottomNavigationView.ID_MARKET)) {
+            // Market is an optional tab the user may have hidden, and a deeplink must still land
+            // on the screen, so push it onto the current stack instead of selecting a missing tab.
+            window?.dismissToRoot()
+            activeNavigationController?.push(MarketVC(context))
+            return
+        }
+        selectTab(IBottomNavigationView.ID_MARKET)
+        window?.dismissToRoot()
     }
 
     override fun switchToAgent(prompt: String?, pinnedMessageId: String?): Boolean {

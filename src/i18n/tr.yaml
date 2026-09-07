@@ -1024,6 +1024,13 @@ Message: Mesaj
 Binary Data: İkili Veri
 The binary data content is unclear. Sign it only if you trust the service.: İkili veri içeriği belirsiz. Yalnızca servise güveniyorsanız imzalayın.
 Cell Schema: Hücre Şeması
+Parsed Cell: Ayrıştırılmış Hücre
+Cell Metadata: Hücre Meta Verileri
+Bits: Bitler
+References: Referanslar
+Hash: Hash
+Parsing Error: Ayrıştırma Hatası
+Cell Fields: Hücre Alanları
 Cell Data: Hücre Verisi
 Sign Data: Veriyi İmzala
 Please confirm signature on your Ledger: Lütfen imzayı Ledger cihazınızda onaylayın

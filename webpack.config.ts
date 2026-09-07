@@ -367,6 +367,9 @@ export default function createConfig(
       alias: {
         // It is used to remove duplicate dependencies
         'bn.js': path.join(__dirname, 'node_modules/bn.js/lib/bn.js'),
+        // Keep TL-B preview runtime on the same TON core copy as the app.
+        // @ton-community/tlb-runtime depends on @ton/core ^0.61, while the app already bundles 0.60.x.
+        '@ton/core': path.join(__dirname, 'node_modules/@ton/core'),
         // By default, the bundle for Node is imported
         tronweb: path.join(__dirname, 'node_modules/tronweb/dist/TronWeb.js'),
       },

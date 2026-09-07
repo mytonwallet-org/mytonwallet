@@ -127,13 +127,14 @@ object GlassProviders {
 
     fun shadowOnly(): BlurredBackgroundColorProvider = ShadowOnlyProvider()
 
-    /** The pre-port look: the color at [alpha]/255, no rim, no shadow, solid when blur is off. */
-    fun legacy(color: WColor, alpha: Int = LEGACY_ALPHA): GlassProvider = GlassProvider(
-        panelColor = { color.color },
-        panelAlpha = { alpha / 255f },
-        rim = false,
-        shadow = false
-    )
+    /** The pre-port look: the color at [alpha]/255, no rim, solid when blur is off. */
+    fun legacy(color: WColor, alpha: Int = LEGACY_ALPHA, shadow: Boolean = false): GlassProvider =
+        GlassProvider(
+            panelColor = { color.color },
+            panelAlpha = { alpha / 255f },
+            rim = false,
+            shadow = shadow
+        )
 
     private const val LEGACY_ALPHA = 204
 

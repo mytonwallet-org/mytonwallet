@@ -413,6 +413,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
             case .portfolio:
                 AppActions.showPortfolio(accountContext: accountContext)
 
+            case .market:
+                AppActions.showMarket()
+
             case .url(let url, let title, let injectDappConnect):
                 AppActions.openInBrowser(url, title: title, injectDappConnect: injectDappConnect)
 

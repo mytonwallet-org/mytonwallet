@@ -139,7 +139,7 @@ public final class AccountSwitcher {
         return ContextMenuConfiguration(
             rootPage: ContextMenuPage(items: items),
             backdrop: .dimmed(alpha: 0.18),
-            style: ContextMenuStyle(minWidth: menuWidth, maxWidth: menuWidth)
+            style: ContextMenuStyle(minWidth: menuWidth, maxWidth: menuWidth, glassTint: .strong)
         )
     }
 
@@ -169,13 +169,8 @@ private struct AccountSwitcherMenuRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            AccountListCell(
-                accountContext: AccountContext(accountId: account.id),
-                isReordering: false,
-                showCurrentAccountHighlight: false,
-                showBalance: false
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            AccountMenuCell(accountContext: AccountContext(accountId: account.id))
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if isSelected {
                 Image(systemName: "checkmark")

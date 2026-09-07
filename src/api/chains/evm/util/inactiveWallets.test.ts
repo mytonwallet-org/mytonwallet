@@ -11,6 +11,13 @@ describe('InactiveWalletRegistry', () => {
     currentTime = 1_000_000;
   });
 
+  it('forgets a marked address immediately', () => {
+    const registry = new InactiveWalletRegistry({ now });
+    registry.mark('mainnet', 'base', '0xabc');
+    registry.forget('mainnet', 'base', '0xabc');
+    expect(registry.has('mainnet', 'base', '0xabc')).toBe(false);
+  });
+
   it('reports an unmarked address as worth asking about', () => {
     const registry = new InactiveWalletRegistry({ now });
     expect(registry.has('mainnet', 'base', '0xabc')).toBe(false);

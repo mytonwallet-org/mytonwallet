@@ -145,6 +145,11 @@ class ExploreSearchBar(context: Context, private val config: Config) : WFrameLay
                         )
                 ) {
                     val submittedText = text.toString()
+                    if (submittedText.isBlank()) {
+                        clearFocus()
+                        hideKeyboard()
+                        return@setOnEditorActionListener true
+                    }
                     if (WalletContextManager.delegate?.get()?.handleDeeplink(submittedText) ==
                         true
                     ) {

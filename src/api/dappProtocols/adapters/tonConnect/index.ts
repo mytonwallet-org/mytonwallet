@@ -119,6 +119,7 @@ import {
   setSseLastEventId,
   updateDapp,
 } from '../../../methods/dapps';
+import { loadSignDataCellPreview } from '../../loadSignDataCellPreview';
 import {
   clearTonConnectFlowContext,
   finishTonConnectFlow,
@@ -785,6 +786,9 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       promiseId = dappPromise.promiseId;
       const { promise } = dappPromise;
       const payloadToSign = message.payload;
+      const parsedPayloadToSign = payloadToSign.type === 'cell'
+        ? await loadSignDataCellPreview(payloadToSign.cell, payloadToSign.schema)
+        : undefined;
 
       setTonConnectFlowContext(promiseId, {
         trace_id: traceId,
@@ -803,6 +807,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         accountId,
         dapp,
         payloadToSign,
+        parsedPayloadToSign,
       });
 
       const signedResponse: Parameters<typeof confirmDappRequestSignData<typeof this.protocolType>>[1] = await promise;

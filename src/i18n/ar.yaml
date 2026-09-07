@@ -1007,6 +1007,13 @@ Message: رسالة
 Binary Data: البيانات الثنائية
 The binary data content is unclear. Sign it only if you trust the service.: محتوى البيانات الثنائية غير واضح. قم بالتوقيع عليه فقط إذا كنت تثق في الخدمة.
 Cell Schema: مخطط الخلية
+Parsed Cell: الخلية المحللة
+Cell Metadata: بيانات الخلية الوصفية
+Bits: البتات
+References: المراجع
+Hash: التجزئة
+Parsing Error: خطأ التحليل
+Cell Fields: حقول الخلية
 Cell Data: بيانات الخلية
 Sign Data: بيانات التوقيع
 EIP-712 typed data: "\u200FEIP-712 البيانات المكتوبة"

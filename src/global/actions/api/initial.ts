@@ -1,7 +1,8 @@
-import { DEFAULT_PRICE_CURRENCY, IS_EXTENSION } from '../../../config';
+import { DEFAULT_PRICE_CURRENCY, IS_AIR_APP, IS_EXTENSION } from '../../../config';
 import { getAgentOverride } from '../../../util/agent/agentProtocolVersion';
+import { captureBrowserAttribution } from '../../../util/installAttribution';
 import { logDebug } from '../../../util/logs';
-import { IS_ELECTRON } from '../../../util/windowEnvironment';
+import { IS_ELECTRON, IS_WEB } from '../../../util/windowEnvironment';
 import { callApi, initApi } from '../../../api';
 import { removeTemporaryAccount } from '../../helpers/auth';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -19,7 +20,9 @@ addActionHandler('initApi', async (global, actions) => {
     agentOverride: getAgentOverride(),
     langCode: global.settings.langCode,
     referrer: new URLSearchParams(window.location.search).get('r') ?? undefined,
-    channel: new URLSearchParams(window.location.search).get('utm_source') ?? undefined,
+    ...(IS_WEB && !IS_AIR_APP && ['http:', 'https:'].includes(location.protocol)
+      ? captureBrowserAttribution()
+      : { channel: new URLSearchParams(window.location.search).get('utm_source') ?? undefined }),
     accountIds,
   });
 

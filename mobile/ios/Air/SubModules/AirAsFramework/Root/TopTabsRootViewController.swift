@@ -796,7 +796,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             self?.universalSearchSession?.updateQuery(text)
         }
         searchToolbar.onReturn = { [weak self] _ in
-            self?.universalSearchViewController?.selectPreselectedItem()
+            guard let self else { return }
+            if universalSearchViewController?.selectPreselectedItem() != true {
+                searchToolbar.endEditing()
+            }
         }
         searchToolbar.onToolbarActionTap = { [weak self] id in
             self?.activeSharedBottomToolbarProvider?.performSharedBottomToolbarAction(id: id)

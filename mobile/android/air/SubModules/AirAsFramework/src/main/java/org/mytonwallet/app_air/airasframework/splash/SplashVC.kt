@@ -104,6 +104,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.DApp.TonConnectHandleDeepLink
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
+import org.mytonwallet.app_air.walletcore.splitAttributionDeeplink
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -500,7 +501,16 @@ class SplashVC(context: Context) :
     override fun isAppUnlocked(): Boolean = appIsUnlocked
 
     override fun handleDeeplink(deeplink: String, source: DeeplinkOpenSource): Boolean {
-        val parsedDeeplink = DeeplinkParser.parse(deeplink.toUri())
+        val attributed = splitAttributionDeeplink(deeplink)
+        val parsedDeeplink = if (attributed.isGet) {
+            null
+        } else {
+            DeeplinkParser.parse(
+                attributed.url.toUri()
+            )
+        }
+        attributed.captureIfAdmitted(parsedDeeplink, source)
+        if (attributed.isGet) return true
         nextDeeplink = parsedDeeplink?.let { PendingDeeplink(it, source) }
         val isAValidDeeplink = parsedDeeplink != null
         handleDeeplinkIfRequired()
@@ -1148,6 +1158,10 @@ class SplashVC(context: Context) :
 
             is Deeplink.Explore -> {
                 tabsVC?.switchToExplore(deeplink.targetUri)
+            }
+
+            is Deeplink.Market -> {
+                tabsVC?.switchToMarket()
             }
 
             is Deeplink.Agent -> {

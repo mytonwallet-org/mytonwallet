@@ -26,16 +26,18 @@ public struct AccountListCell: View {
     var showBalance: Bool
     var addressLineSuffix: String?
     var isDimmed: Bool
+    var showsAddress: Bool
     
     @State private var _isReordering = false
     
-    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true, addressLineSuffix: String? = nil, isDimmed: Bool = false) {
+    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true, addressLineSuffix: String? = nil, isDimmed: Bool = false, showsAddress: Bool = true) {
         self.accountContext = accountContext
         self.isReordering = isReordering
         self.showCurrentAccountHighlight = showCurrentAccountHighlight
         self.showBalance = showBalance
         self.addressLineSuffix = addressLineSuffix
         self.isDimmed = isDimmed
+        self.showsAddress = showsAddress
     }
     
     static let topRowHeight: CGFloat = 22
@@ -44,25 +46,33 @@ public struct AccountListCell: View {
 
     public var body: some View {
         WithPerceptionTracking {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: showsAddress ? 10 : 13) {
                 selectionCircle
-                    .frame(width: avatarSize, height: avatarSize)
+                    .scaleEffect(showsAddress ? 1 : 0.9)
+                    .frame(width: showsAddress ? avatarSize : 36, height: showsAddress ? avatarSize : 36)
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(alignment: .center, spacing: 6) {
                             Text(accountContext.account.displayName)
-                                .textStyle(.calloutEmphasized)
+                                .textStyle(showsAddress ? .calloutEmphasized : .bodyEmphasized)
                                 .lineLimit(1)
                                 .allowsTightening(true)
                                 .foregroundStyle(Color.air.primaryLabel)
-                                .layoutPriority(1)
+                                .layoutPriority(showsAddress ? 1 : 0)
                             CardMiniature(accountContext: accountContext)
+                                .layoutPriority(showsAddress ? 0 : 1)
+                            if !showsAddress {
+                                accountTypeIcons
+                                    .layoutPriority(2)
+                            }
                         }
                         .frame(height: Self.topRowHeight)
-                        ListAddressLine(addressLine: accountContext.addressLine, suffix: addressLineSuffix)
-                            .lineLimit(1)
-                            .foregroundStyle(Color.air.secondaryLabel)
-                            .frame(height: Self.bottomRowHeight)
+                        if showsAddress {
+                            ListAddressLine(addressLine: accountContext.addressLine, suffix: addressLineSuffix)
+                                .lineLimit(1)
+                                .foregroundStyle(Color.air.secondaryLabel)
+                                .frame(height: Self.bottomRowHeight)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -72,7 +82,7 @@ public struct AccountListCell: View {
                             .opacity(0.5)
                             .transition(.opacity.combined(with: .offset(x: 12)).combined(with: .scale(scale: 0.9)))
                     } else if showBalance {
-                        ListBalanceView(viewModel: accountContext)
+                        ListBalanceView(viewModel: accountContext, textStyle: showsAddress ? .callout : .body)
                             .fixedSize()
                             .transition(.opacity.combined(with: .offset(x: -16)))
                             .frame(height: 22)
@@ -92,6 +102,27 @@ public struct AccountListCell: View {
             }
             .opacity(isDimmed ? 0.5 : 1)
         }
+    }
+
+    private var accountTypeIcons: some View {
+        HStack(spacing: 4) {
+            let addressLine = accountContext.addressLine
+            if addressLine.isTestnet {
+                addressLine.testnetImage
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
+            }
+            if let leadingIcon = addressLine.leadingIcon {
+                Image.airBundle(leadingIcon == .ledger ? "AccountTypeLedger" : "AccountTypeView")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 8)
+            }
+        }
+        .foregroundStyle(Color.air.secondaryLabel)
+        .fixedSize()
+        .accessibilityHidden(true)
     }
     
     private var selectionCircle: some View {
@@ -118,6 +149,7 @@ public struct AccountListCell: View {
 private struct ListBalanceView: View {
     
     var viewModel: AccountContext
+    var textStyle: WTextStyle
     
     var body: some View {
         WithPerceptionTracking {
@@ -125,7 +157,7 @@ private struct ListBalanceView: View {
                 Text(balance.formatted(.baseCurrencyEquivalent, roundHalfUp: true))
                     .lineLimit(1)
                     .foregroundStyle(Color.air.secondaryLabel)
-                    .textStyle(.callout, content: .technical)
+                    .textStyle(textStyle, content: .technical)
                     .sensitiveDataInPlace(cols: cols, rows: 2, cellSize: 8, theme: .adaptive, cornerRadius: 4)
                     .id(viewModel.accountId)
             }
@@ -159,6 +191,7 @@ public extension AccountListCell {
         showBalance: Bool = true,
         normalBackground: Color = .air.groupedItem,
         showCurrentAccountHighlight: Bool = true,
+        showsAddress: Bool = true,
         contextMenuConfigurationProvider: (@MainActor (String) -> ContextMenuConfiguration)? = nil
     ) -> UICollectionView.CellRegistration<UICollectionViewListCell, String> {
         UICollectionView.CellRegistration<UICollectionViewListCell, String> { cell, _, accountId in
@@ -169,15 +202,17 @@ public extension AccountListCell {
                         accountContext: accountContext,
                         isReordering: state.isEditing,
                         showCurrentAccountHighlight: showCurrentAccountHighlight,
-                        showBalance: showBalance
+                        showBalance: showBalance,
+                        showsAddress: showsAddress
                     )
                 }
                 .background {
                     CellBackgroundHighlight(isHighlighted: state.isHighlighted, isSwiped: state.isSwiped, normalColor: normalBackground)
                         .id(accountContext.account.id) // reset on cell reuse
                 }
-                .margins(.horizontal, 12)
-                .margins(.vertical, 10)
+                .margins(.leading, showsAddress ? 12 : 13)
+                .margins(.trailing, showsAddress ? 12 : 16)
+                .margins(.vertical, showsAddress ? 10 : 8)
             }
 
             if let contextMenuConfigurationProvider {

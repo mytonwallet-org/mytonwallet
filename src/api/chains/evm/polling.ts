@@ -18,6 +18,7 @@ import { logDebugError } from '../../../util/logs';
 import { pause } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
 import { fetchEvmWallet } from './util/account';
+import { inactiveWallets } from './util/inactiveWallets';
 import { NftStream } from './util/nftStream';
 import { getAlchemySocket } from './util/socket';
 import {
@@ -64,7 +65,13 @@ export function setupActivePolling<C extends EVMChain>(
   );
 
   const nftPolling = getChainConfig(chain).isNftSupported
-    ? setupNftPolling(chain, accountId, address, scheduleCrossApiActivityCatchUp, onUpdate)
+    ? setupNftPolling(
+      chain, accountId, address, onUpdate,
+      () => {
+        markWalletActiveForBalancePolling();
+        scheduleCrossApiActivityCatchUp('socket');
+      },
+    )
     : undefined;
 
   const balancePolling = setupBalancePolling(
@@ -165,9 +172,6 @@ function setupActivityPolling(
         if (found) {
           return;
         }
-        if (newestConfirmedActivityTimestamp === undefined) {
-          return;
-        }
         if (generation !== balanceCatchUpGeneration) {
           return;
         }
@@ -195,8 +199,8 @@ function setupNftPolling(
   chain: EVMChain,
   accountId: string,
   address: string,
-  scheduleCrossApiActivityCatchUp: (source: 'socket' | 'poll') => void,
   onUpdate: OnApiUpdate,
+  onNftActivity: NoneToVoidFunction,
 ) {
   const { network } = parseAccountId(accountId);
 
@@ -222,7 +226,7 @@ function setupNftPolling(
         nftAddress: params.nftAddress,
         newOwnerAddress: params.newOwner,
       });
-      scheduleCrossApiActivityCatchUp('socket');
+      onNftActivity();
     }
     if (params.direction === 'receive') {
       onUpdate({
@@ -231,7 +235,7 @@ function setupNftPolling(
         nft: params.nft,
         nftAddress: params.nft.address,
       });
-      scheduleCrossApiActivityCatchUp('socket');
+      onNftActivity();
     }
   });
 
@@ -272,6 +276,10 @@ function setupBalancePolling(
   });
 
   balanceStream.onUpdate((balances, updateSource) => {
+    if (updateSource === 'socket') {
+      inactiveWallets.forget(network, chain, address);
+    }
+
     const crosschainAssetsByChain = new Map<ApiChain, ApiBalanceBySlug>();
 
     const knownChains = getSupportedChains();
@@ -312,6 +320,7 @@ function setupBalancePolling(
       balanceStream.destroy();
     },
     markWalletActiveAndForcePoll() {
+      inactiveWallets.forget(network, chain, address);
       balanceStream.markWalletActiveAndForcePoll();
     },
   };

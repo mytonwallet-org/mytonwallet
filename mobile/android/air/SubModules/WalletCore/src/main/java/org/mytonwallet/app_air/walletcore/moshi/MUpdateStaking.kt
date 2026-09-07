@@ -19,12 +19,21 @@ data class MUpdateStaking(
     val shouldUseNominators: Boolean?
 ) {
 
+    /**
+     * An account gets a nominators position only when the API builds one for it, so the position's own
+     * presence answers whether this account stakes through nominators - `shouldUseNominators` is derived
+     * separately and can contradict the list. An active liquid stake wins the tie, nominators being legacy.
+     */
     val tonStakingState: StakingState? by lazy {
-        states.firstOrNull {
-            if (shouldUseNominators == true) {
-                it is StakingState.Nominators
+        val matching = states.filterNotNull().filter { it.tokenSlug == TONCOIN_SLUG }
+        if (matching.size < 2) {
+            matching.firstOrNull()
+        } else {
+            val liquid = matching.firstOrNull { it is StakingState.Liquid }
+            if (liquid != null && liquid.hasStakingPosition) {
+                liquid
             } else {
-                it is StakingState.Liquid
+                matching.firstOrNull { it is StakingState.Nominators } ?: matching.first()
             }
         }
     }

@@ -252,6 +252,8 @@ struct TokenInfoView: View {
         }
         .background(Color.air.groupedItem)
         .fixedSize(horizontal: false, vertical: true)
+        // The UIKit host can still have the previous height while the new content is measured.
+        .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
     }
 

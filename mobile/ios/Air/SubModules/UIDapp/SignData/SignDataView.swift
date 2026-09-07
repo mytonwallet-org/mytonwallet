@@ -5,6 +5,16 @@ import UIComponents
 import WalletCore
 import WalletContext
 
+enum SignDataWarningKind: Hashable {
+    case genericTrust
+}
+
+func signDataWarningKinds(
+    payload _: SignDataPayload
+) -> [SignDataWarningKind] {
+    [.genericTrust]
+}
+
 struct SignDataViewOrPlaceholder: View {
     var update: ApiUpdate.DappSignData?
     var accountContext: AccountContext
@@ -50,9 +60,15 @@ struct SignDataView: View {
             case .binary(let binary):
                 makeBinary(payload: binary)
             case .cell(let cell):
-                makeCell(payload: cell)
+                makeCell(payload: cell, parsedPreview: update.parsedPayloadToSign)
             case .eip712(let eip712):
                 makeEip712(payload: eip712)
+            }
+            ForEach(
+                signDataWarningKinds(payload: update.payloadToSign),
+                id: \.self
+            ) { warning in
+                makeWarningView(warning)
             }
 
         }
@@ -83,7 +99,6 @@ struct SignDataView: View {
         } header: {
             Text(lang("Binary Data"))
         }
-        warningView
     }
 
     @ViewBuilder
@@ -129,11 +144,16 @@ struct SignDataView: View {
         } header: {
             Text(lang("Message"))
         }
-        signatureWarningView
     }
 
     @ViewBuilder
-    func makeCell(payload: SignDataPayloadCell) -> some View {
+    func makeCell(
+        payload: SignDataPayloadCell,
+        parsedPreview: ApiUpdate.DappSignData.ParsedSignDataCellPreview?
+    ) -> some View {
+        if let parsedPreview {
+            makeParsedCell(preview: parsedPreview)
+        }
         InsetSection {
             InsetCell {
                 Text(verbatim: payload.schema)
@@ -162,18 +182,79 @@ struct SignDataView: View {
         } header: {
             Text(lang("Cell Data"))
         }
-        warningView
     }
 
-    var warningView: some View {
-        WarningView(
-            text: lang("The binary data content is unclear. Sign it only if you trust the service."),
-            kind: .warning,
-        )
-        .padding(.horizontal, 16)
+    @ViewBuilder
+    func makeParsedCell(preview: ApiUpdate.DappSignData.ParsedSignDataCellPreview) -> some View {
+        InsetSection {
+            InsetCell {
+                Text(verbatim: preview.title)
+                    .font(.system(size: 16, weight: .semibold))
+            }
+        } header: {
+            Text(lang("Parsed Cell"))
+        }
+        InsetSection {
+            InsetCell(verticalPadding: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ParsedCellFieldRow(
+                        label: lang("Bits"),
+                        value: String(preview.bits)
+                    )
+                    ParsedCellFieldRow(
+                        label: lang("References"),
+                        value: String(preview.refs)
+                    )
+                    if let hash = preview.hash {
+                        ParsedCellFieldRow(
+                            label: lang("Hash"),
+                            value: shortenHash(hash)
+                        )
+                    }
+                }
+            }
+        } header: {
+            Text(lang("Cell Metadata"))
+        }
+        if let error = preview.error {
+            InsetSection {
+                InsetCell {
+                    Text(verbatim: error)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.air.negativeAmount)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                Text(lang("Parsing Error"))
+            }
+        }
+        InsetSection {
+            InsetCell(verticalPadding: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(preview.fields.enumerated()), id: \.offset) { _, field in
+                        ParsedCellFieldRow(
+                            label: field.label,
+                            value: field.value,
+                            depth: field.depth,
+                            isMuted: field.isMuted == true
+                        )
+                    }
+                }
+            }
+        } header: {
+            Text(lang("Cell Fields"))
+        }
     }
 
-    var signatureWarningView: some View {
+    func shortenHash(_ hash: String) -> String {
+        if hash.count <= 20 {
+            return hash
+        }
+        return "\(hash.prefix(10))...\(hash.suffix(10))"
+    }
+
+    @ViewBuilder
+    func makeWarningView(_: SignDataWarningKind) -> some View {
         WarningView(
             text: lang("$signature_warning"),
             kind: .warning,
@@ -207,6 +288,26 @@ struct SignDataView: View {
             await onConfirm()
             isSubmitting = false
         }
+    }
+}
+
+private struct ParsedCellFieldRow: View {
+    var label: String
+    var value: String
+    var depth = 0
+    var isMuted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.air.secondaryLabel)
+            Text(verbatim: value)
+                .font(.system(size: 15, design: .monospaced))
+                .foregroundStyle(isMuted ? Color.air.secondaryLabel : Color.air.primaryLabel)
+                .textSelection(.enabled)
+        }
+        .padding(.leading, CGFloat(max(depth, 0)) * 10)
     }
 }
 
