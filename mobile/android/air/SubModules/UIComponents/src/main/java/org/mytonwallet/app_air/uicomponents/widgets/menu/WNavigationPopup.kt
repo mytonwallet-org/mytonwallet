@@ -306,10 +306,10 @@ class WNavigationPopup(
         }
 
         if (windowBlurBackground.parent is ViewGroup) {
-            (windowBlurBackground.parent as ViewGroup).removeView(windowBlurBackground)
+            (windowBlurBackground.parent as? ViewGroup)?.removeView(windowBlurBackground)
         }
         if (blurBackdropContainer.parent is ViewGroup) {
-            (blurBackdropContainer.parent as ViewGroup).removeView(blurBackdropContainer)
+            (blurBackdropContainer.parent as? ViewGroup)?.removeView(blurBackdropContainer)
         }
         if (windowBlurBackground.parent !== blurBackdropContainer) {
             blurBackdropContainer.addView(

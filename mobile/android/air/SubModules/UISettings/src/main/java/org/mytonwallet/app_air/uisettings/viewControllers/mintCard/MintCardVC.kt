@@ -607,7 +607,7 @@ class MintCardVC(context: Context) : WViewController(context) {
         get() {
             val info = orderedTypes[currentIndex]
             val maximumHeight =
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
+                ((window?.windowView?.height ?: 0) * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
                     .roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),
@@ -679,6 +679,7 @@ class MintCardVC(context: Context) : WViewController(context) {
 
     private fun mintWithHardware(cardInfo: MCardInfo) {
         val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
         val mycoin = MintCardHelpers.mycoin ?: return
         val options = buildTransferOptions(cardInfo, "") ?: run {
             showError(null)
@@ -687,7 +688,7 @@ class MintCardVC(context: Context) : WViewController(context) {
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.SignTransfer(
                     accountId = account.accountId,
                     transferOptions = options,

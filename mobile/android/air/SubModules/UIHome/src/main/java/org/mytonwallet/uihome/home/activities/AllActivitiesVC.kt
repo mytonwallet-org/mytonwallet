@@ -190,13 +190,14 @@ class AllActivitiesVC(
             LOADING_SECTION -> SKELETON_CELL
 
             else -> {
-                val transaction = showingTransactions!![indexPath.row]
+                val transactions = showingTransactions ?: return SKELETON_CELL
+                val transaction = transactions[indexPath.row]
                 if (transaction.isNft ||
                     (transaction as? MApiTransaction.Transaction)?.hasComment == true
                 ) {
                     TRANSACTION_CELL
                 } else if (indexPath.row == 0 ||
-                    !transaction.dt.isSameDayAs(showingTransactions!![indexPath.row - 1].dt)
+                    !transaction.dt.isSameDayAs(transactions[indexPath.row - 1].dt)
                 ) {
                     TRANSACTION_SMALL_FIRST_IN_DAY_CELL
                 } else {
@@ -259,10 +260,7 @@ class AllActivitiesVC(
                         isAdded = isApplyingUpdate &&
                             oldTransactions?.contains(transaction.getStableId()) == false,
                         isAddedAsNewDay = isFirstInDay &&
-                            (
-                                oldTransactionsFirstDt == null ||
-                                    !transaction.dt.isSameDayAs(oldTransactionsFirstDt!!)
-                                )
+                            oldTransactionsFirstDt?.let { !transaction.dt.isSameDayAs(it) } != false
                     )
                 )
             }

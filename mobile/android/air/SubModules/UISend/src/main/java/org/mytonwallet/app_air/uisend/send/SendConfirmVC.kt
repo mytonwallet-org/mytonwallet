@@ -77,7 +77,7 @@ class SendConfirmVC(
     override val displayedAccount =
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
     private var isShowingAccountMultichain =
-        WGlobalStorage.isMultichain(AccountStore.activeAccountId!!)
+        AccountStore.activeAccountId?.let { WGlobalStorage.isMultichain(it) } ?: false
 
     override val shouldDisplayBottomBar = false
 
@@ -362,7 +362,7 @@ class SendConfirmVC(
         val buttonsBottomMargin = getButtonsBottomMargin()
         view.setConstraints {
             toCenterX(scrollView)
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(confirmButton, buttonsBottomMargin)
             topToTop(
@@ -517,12 +517,13 @@ class SendConfirmVC(
             Logger.LogTag.SEND,
             "confirmHardware: Confirming send with hardware wallet slug=$slug"
         )
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
         confirmButton.lockView()
-        val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.SignTransfer(
                     accountId = account.accountId,
                     transferOptions = transferOptions,
@@ -554,6 +555,7 @@ class SendConfirmVC(
             Logger.LogTag.SEND,
             "confirmWithPassword: Confirming send with passcode slug=$slug"
         )
+        val account = AccountStore.activeAccount ?: return
         push(
             PasscodeConfirmVC(
                 context,
@@ -565,7 +567,7 @@ class SendConfirmVC(
                         configSendingToken(
                             config.request.token,
                             config.request.amountEquivalent.getFmt(false),
-                            AccountStore.activeAccount!!.network,
+                            account.network,
                             config.resolvedAddress
                         )
                     },

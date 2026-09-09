@@ -177,7 +177,7 @@ func emit(_ value: [String: Any]) {
     data.append(10)
     FileHandle.standardOutput.write(data)
 }
-for index in 0..<''' + str(len(cases)) + ''' {
+for index in Int(CommandLine.arguments[2])!..<''' + str(len(cases)) + ''' {
     emit(["starting": index])
     emit(["index": index, "value": evaluate(index)])
 }
@@ -193,19 +193,36 @@ for index in 0..<''' + str(len(cases)) + ''' {
                 runner = ["xcrun", "simctl", "spawn", simulator]
             self.run_command(compiler + [str(root / "L10n.swift"), str(root / "main.swift"), "-o", str(executable)])
             for locale, translations in locales.items():
-                with self.subTest(locale=locale):
-                    output = self.run_command(runner + [
-                        str(executable), str(bundle / f"{locale}.lproj"),
+                next_index = 0
+                while next_index < len(cases):
+                    result = subprocess.run(runner + [
+                        str(executable), str(bundle / f"{locale}.lproj"), str(next_index),
                         "-AppleLanguages", f"({locale})", "-AppleLocale", locale,
-                    ])
-                    rows = [json.loads(line) for line in output.splitlines()]
-                    rows = [row for row in rows if "value" in row]
-                    self.assertEqual(len(rows), len(cases))
+                    ], capture_output=True, text=True, timeout=180)
+                    events = [json.loads(line) for line in result.stdout.splitlines()]
+                    rows = [row for row in events if "value" in row]
                     for row in rows:
                         case = cases[row["index"]]
                         expected = self.expected_values(case, translations, locales["en"])
                         with self.subTest(locale=locale, key=case["key"], arguments=case["arguments"], days=case.get("relative_days")):
                             self.assertIn(normalize_output(row["value"]), [normalize_output(value) for value in expected])
+                    if result.returncode == 0:
+                        with self.subTest(locale=locale):
+                            self.assertEqual([row["index"] for row in rows], list(range(next_index, len(cases))))
+                        break
+                    started = [event["starting"] for event in events if "starting" in event]
+                    failed_index = started[-1] if started else None
+                    case = cases[failed_index] if failed_index is not None else {}
+                    with self.subTest(locale=locale, key=case.get("key"), arguments=case.get("arguments"), days=case.get("relative_days")):
+                        self.fail(
+                            f"Foundation exited with status {result.returncode} while formatting {case.get('key', '(startup)')!r}. "
+                            "Check this locale's placeholders against the generated Swift interpolation positions and types.\n"
+                            + result.stderr[-2000:]
+                        )
+                    if failed_index is None:
+                        break
+                    # A crashing format must not hide failures in later keys or locales.
+                    next_index = failed_index + 1
 
     def run_command(self, arguments):
         result = subprocess.run(arguments, capture_output=True, text=True, timeout=180)

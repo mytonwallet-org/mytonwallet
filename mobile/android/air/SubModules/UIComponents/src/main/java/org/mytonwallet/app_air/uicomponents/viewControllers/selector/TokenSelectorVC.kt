@@ -151,7 +151,7 @@ class TokenSelectorVC(
         }
 
         view.setConstraints {
-            topToBottom(searchContainer, navigationBar!!)
+            navigationBar?.let { topToBottom(searchContainer, it) }
             toCenterX(searchContainer)
 
             toCenterX(recyclerView)
@@ -472,7 +472,6 @@ class TokenSelectorVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()

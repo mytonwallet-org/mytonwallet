@@ -255,7 +255,7 @@ class ActivityListView<T>(
         if (!force && recyclerView.computeVerticalScrollOffset() == 0) {
             return
         }
-        (recyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(0, 0)
+        (recyclerView.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(0, 0)
         if (isVisible) delegate?.updateScroll(0)
     }
 
@@ -616,7 +616,8 @@ class ActivityListView<T>(
             super.onScrolled(recyclerView, dx, dy)
             val dataSource = dataSource ?: return
             if (ignoreScrolls || !isVisible) return
-            val layoutManager = recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+            val layoutManager =
+                recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return
             val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
             val computedOffset =
                 if (firstVisibleItem < 2) recyclerView.computeVerticalScrollOffset() else LARGE_INT
@@ -1217,13 +1218,7 @@ class ActivityListView<T>(
     fun insetsUpdated() {
         val startInset = dataSource?.systemBarStartInset ?: 0
         val endInset = dataSource?.systemBarEndInset ?: 0
-        val navigationController = dataSource?.navigationController
-        // The card layout ends with the "Show All" row, which must clear the floating bottom bar.
-        baseBottomPadding = if (usesCardSections) {
-            (navigationController?.bottomInset ?: 0) + ViewConstants.GAP.dp
-        } else {
-            navigationController?.getSystemBars()?.bottom ?: 0
-        }
+        baseBottomPadding = dataSource?.navigationController?.getSystemBars()?.bottom ?: 0
         recyclerView.setPaddingLocalized(
             ViewConstants.HORIZONTAL_PADDINGS.dp + additionalTabletPadding + startInset,
             recyclerView.paddingTop,
@@ -1670,10 +1665,8 @@ class ActivityListView<T>(
                             1 + displayedTransactionsCount + removingTransactionsCount +
                                 (if (showsShowAllActivitiesRow) 1 else 0)
                         }
-                    } else if ((showingTransactions?.size ?: 0) > 0) {
-                        showingTransactions!!.size
                     } else {
-                        0
+                        showingTransactions?.size ?: 0
                     }
 
                     EMPTY_VIEW_SECTION -> {
@@ -1744,16 +1737,15 @@ class ActivityListView<T>(
                         val index = transactionIndex(indexPath.row)
                         val tx = activityAt(index)
                         tx?.let { transaction ->
+                            val previousTransaction = showingTransactions?.getOrNull(index - 1)
                             if (transaction.isNft ||
                                 (transaction as? MApiTransaction.Transaction)?.hasComment == true
                             ) {
                                 TRANSACTION_CELL
                             } else if (!usesCardSections &&
                                 (
-                                    index == 0 ||
-                                        !transaction.dt.isSameDayAs(
-                                            showingTransactions!![index - 1].dt
-                                        )
+                                    previousTransaction == null ||
+                                        !transaction.dt.isSameDayAs(previousTransaction.dt)
                                     )
                             ) {
                                 TRANSACTION_SMALL_FIRST_IN_DAY_CELL
@@ -1815,13 +1807,14 @@ class ActivityListView<T>(
                     }
 
                     ASSETS_CELL -> {
-                        if (assetsCell == null) assetsCell = createAssetsCell(dataSource)
-                        assetsCell!!.asCell
+                        (assetsCell ?: createAssetsCell(dataSource).also { assetsCell = it }).asCell
                     }
 
                     TOKENS_CELL -> {
                         if (assetsCell == null) assetsCell = createAssetsCell(dataSource)
-                        tokensCell!!
+                        checkNotNull(tokensCell) {
+                            "createAssetsCell did not create the tokens cell"
+                        }
                     }
 
                     ACTIVITY_TITLE_CELL -> {
@@ -1841,7 +1834,7 @@ class ActivityListView<T>(
                         cell.showsInlineDate = usesCardSections
                         cell.allowNftMenu = true
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(showingAccountId!!, transaction)
+                            showingAccountId?.let { delegate?.onTransactionTap(it, transaction) }
                         }
                         cell.onRemoved = { transaction ->
                             finishRemovingActivity(transaction.getStableId())
@@ -1858,7 +1851,7 @@ class ActivityListView<T>(
                         cell.showsInlineDate = usesCardSections
                         cell.allowNftMenu = true
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(showingAccountId!!, transaction)
+                            showingAccountId?.let { delegate?.onTransactionTap(it, transaction) }
                         }
                         cell.onRemoved = { transaction ->
                             finishRemovingActivity(transaction.getStableId())
@@ -1874,7 +1867,7 @@ class ActivityListView<T>(
                         )
                         cell.allowNftMenu = true
                         cell.onTap = { transaction ->
-                            delegate?.onTransactionTap(showingAccountId!!, transaction)
+                            showingAccountId?.let { delegate?.onTransactionTap(it, transaction) }
                         }
                         cell
                     }
@@ -1896,8 +1889,7 @@ class ActivityListView<T>(
             skeletonRecyclerView -> {
                 return when (cellType) {
                     HEADER_CELL -> {
-                        skeletonEmptyHeaderCell = WCell(context)
-                        skeletonEmptyHeaderCell!!
+                        WCell(context).also { skeletonEmptyHeaderCell = it }
                     }
 
                     SKELETON_HEADER_CELL -> {
@@ -1976,6 +1968,7 @@ class ActivityListView<T>(
                     }
 
                     TRANSACTION_SECTION -> {
+                        val accountId = showingAccountId ?: return
                         val index = transactionIndex(indexPath.row)
                         val lastIndex = displayedTransactionsCount - 1
                         if (usesCardSections && cellHolder.cell !is ActivityCell) {
@@ -1994,7 +1987,7 @@ class ActivityListView<T>(
                                     index -
                                         displayedTransactionsCount
                                 ],
-                                accountId = showingAccountId!!,
+                                accountId = accountId,
                                 isMultichain = isShowingAccountMultichain,
                                 positioning = ActivityCell.Positioning(
                                     isFirst = false,
@@ -2006,26 +1999,24 @@ class ActivityListView<T>(
                             )
                         } else if (index <= lastIndex) {
                             val transactionCell = cellHolder.cell as ActivityCell
-                            val transaction = showingTransactions!![index]
+                            val transaction = showingTransactions?.getOrNull(index) ?: return
+                            val previousTransaction = showingTransactions?.getOrNull(index - 1)
+                            val nextTransaction = showingTransactions?.getOrNull(index + 1)
                             val isFirstInDay = !usesCardSections &&
                                 (
-                                    index == 0 ||
-                                        !transaction.dt.isSameDayAs(
-                                            showingTransactions!![index - 1].dt
-                                        )
+                                    previousTransaction == null ||
+                                        !transaction.dt.isSameDayAs(previousTransaction.dt)
                                     )
                             transactionCell.configure(
                                 transaction = transaction,
-                                accountId = showingAccountId!!,
+                                accountId = accountId,
                                 isMultichain = isShowingAccountMultichain,
                                 positioning = ActivityCell.Positioning(
                                     isFirst = index == 0 && !usesCardSections,
                                     isFirstInDay = isFirstInDay,
                                     isLastInDay =
-                                        (index == lastIndex) ||
-                                            !transaction.dt.isSameDayAs(
-                                                showingTransactions!![index + 1].dt
-                                            ),
+                                        nextTransaction == null ||
+                                            !transaction.dt.isSameDayAs(nextTransaction.dt),
                                     isLast =
                                         !usesCardSections &&
                                             index == lastIndex &&
@@ -2036,12 +2027,9 @@ class ActivityListView<T>(
                                         ) == false,
                                     isAddedAsNewDay =
                                         isFirstInDay &&
-                                            (
-                                                oldTransactionsFirstDt == null ||
-                                                    !transaction.dt.isSameDayAs(
-                                                        oldTransactionsFirstDt!!
-                                                    )
-                                                ),
+                                            oldTransactionsFirstDt?.let {
+                                                !transaction.dt.isSameDayAs(it)
+                                            } != false,
                                     revealsFromZero = usesCardSections
                                 )
                             )
@@ -2101,7 +2089,8 @@ class ActivityListView<T>(
                                         (assetsCell?.asCell?.height ?: 0)
                                 cell.layoutParams = cell.layoutParams.apply {
                                     height =
-                                        (dataSource?.view?.parent as View).height - occupiedHeight
+                                        ((dataSource?.view?.parent as? View)?.height ?: 0) -
+                                        occupiedHeight
                                 }
                             }
                         }
@@ -2174,9 +2163,9 @@ class ActivityListView<T>(
                         if (usesCardSections && indexPath.row == 0) return "activity_title"
                         val index = transactionIndex(indexPath.row)
                         if (index < displayedTransactionsCount) {
-                            showingTransactions!![index].getStableId()
+                            showingTransactions?.getOrNull(index)?.getStableId()
                         } else if (isRemovingActivityIndex(index)) {
-                            "removing_" + activityAt(index)!!.getStableId()
+                            activityAt(index)?.let { "removing_" + it.getStableId() }
                         } else if (isShowAllActivitiesRow(indexPath.row)) {
                             "activity_show_all"
                         } else {

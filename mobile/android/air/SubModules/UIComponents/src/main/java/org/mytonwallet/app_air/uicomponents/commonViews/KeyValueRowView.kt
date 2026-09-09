@@ -133,9 +133,7 @@ class KeyValueRowView(
             toStart(keyLabel, 20f)
             startToEnd(valueLabel, keyLabel, 16f)
             toEnd(valueLabel, 12f)
-            if (valView is WLabel) {
-                startToEnd(valView!!, keyLabel, 16f)
-            }
+            (valView as? WLabel)?.let { startToEnd(it, keyLabel, 16f) }
         }
 
         updateTheme()
@@ -182,19 +180,20 @@ class KeyValueRowView(
 
     private fun updateLoadingState() {
         if (isLoading && useSkeletonIndicatorWithWidth == null && progressIndicator == null) {
-            progressIndicator = CircularProgressIndicator(context).apply {
+            val indicator = CircularProgressIndicator(context).apply {
                 id = generateViewId()
                 isIndeterminate = true
                 setIndicatorColor(WColor.SecondaryText.color)
                 indicatorSize = 28.dp
             }
+            progressIndicator = indicator
             addView(
-                progressIndicator,
+                indicator,
                 ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
             )
             setConstraints {
-                toEnd(progressIndicator!!, 20f)
-                toCenterY(progressIndicator!!)
+                toEnd(indicator, 20f)
+                toCenterY(indicator)
             }
         }
         if (isLoading && useSkeletonIndicatorWithWidth == null) {
@@ -207,7 +206,7 @@ class KeyValueRowView(
     private fun updateSkeletonLoadingState() {
         val shouldShowSkeleton = isLoading && useSkeletonIndicatorWithWidth != null
         if (shouldShowSkeleton && skeletonView == null) {
-            val skeletonIndicatorWidth = useSkeletonIndicatorWithWidth!!
+            val skeletonIndicatorWidth = useSkeletonIndicatorWithWidth ?: return
             skeletonIndicator = WBaseView(context).apply {
                 id = generateViewId()
             }

@@ -98,7 +98,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
         view.addView(feeLabel, FrameLayout.LayoutParams(WRAP_CONTENT, 21.dp))
         view.addView(renewButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         view.setConstraints {
-            topToBottom(nftTagView, navigationBar!!, 16f)
+            navigationBar?.let { topToBottom(nftTagView, it, 16f) }
             toCenterX(nftTagView, 16f)
             topToBottom(feeLabel, nftTagView, 16f)
             toCenterX(feeLabel)
@@ -191,7 +191,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
 
     private val headerView: View
         get() {
-            val availableHeight = window!!.windowView.height
+            val availableHeight = window?.windowView?.height ?: 0
             val headerHeight =
                 (availableHeight * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             return PasscodeHeaderSendView(
@@ -208,34 +208,38 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
         }
 
     private fun renewWithHardware() {
+        val window = window ?: return
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
         renewButton.lockView()
-        val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.RenewNfts(
                     accountId = account.accountId,
                     nfts = listOf(nft),
                     realFee = realFee
                 ),
                 onDone = {
-                    window?.dismissLastNav {
-                        window?.dismissLastNav { }
+                    window.dismissLastNav {
+                        window.dismissLastNav { }
                     }
                 }
             ),
             headerView = headerView
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         nav.setRoot(ledgerConnectVC)
-        window?.present(nav)
+        window.present(nav)
     }
 
     private fun renewWithPassword() {
+        val window = window ?: return
+        val accountId = AccountStore.activeAccountId ?: return
         val passcodeConfirmVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.CustomHeader(
@@ -245,7 +249,7 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
             task = { passcode ->
                 WalletCore.call(
                     ApiMethod.Domains.SubmitDnsRenewal(
-                        AccountStore.activeAccountId!!,
+                        accountId,
                         passcode,
                         listOf(nft),
                         realFee
@@ -276,18 +280,18 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
                             })
                             return@call
                         }
-                        window?.dismissLastNav {
-                            window?.dismissLastNav { }
+                        window.dismissLastNav {
+                            window.dismissLastNav { }
                         }
                     }
                 )
             }
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         nav.setRoot(passcodeConfirmVC)
-        window?.present(nav)
+        window.present(nav)
     }
 }

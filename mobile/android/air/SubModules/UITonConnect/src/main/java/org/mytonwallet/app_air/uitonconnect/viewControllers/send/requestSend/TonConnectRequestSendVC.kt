@@ -467,12 +467,13 @@ class TonConnectRequestSendVC(
             hideSkeleton()
         }
 
-        viewModel = ViewModelProvider(
+        val viewModel = ViewModelProvider(
             this,
             TonConnectRequestSendViewModel.Factory(updateValue)
         )[TonConnectRequestSendViewModel::class.java]
+        this.viewModel = viewModel
 
-        title = when (updateValue) {
+        val title = when (updateValue) {
             is ApiUpdate.ApiUpdateDappSendTransactions -> {
                 LocaleController.getPluralWord(
                     updateValue.transactions.size,
@@ -486,14 +487,15 @@ class TonConnectRequestSendVC(
 
             else -> throw Exception()
         }
-        setNavTitle(title!!)
+        this.title = title
+        setNavTitle(title)
 
-        collectFlow(viewModel!!.eventsFlow, ::onEvent)
-        collectFlow(viewModel!!.uiItemsFlow, rvAdapter::submitList)
-        collectFlow(viewModel!!.uiStateFlow) {
+        collectFlow(viewModel.eventsFlow, ::onEvent)
+        collectFlow(viewModel.uiItemsFlow, rvAdapter::submitList)
+        collectFlow(viewModel.uiStateFlow) {
             cancelButtonView.isLoading = it.cancelButtonIsLoading
         }
-        collectFlow(viewModel!!.insufficientTokensFlow, ::updateInsufficientTokens)
+        collectFlow(viewModel.insufficientTokensFlow, ::updateInsufficientTokens)
 
         confirmButtonView.isEnabled = insufficientTokens == null
         updateConfirmButtonStyle()
@@ -818,7 +820,7 @@ class TonConnectRequestSendVC(
             if (viewModel?.isConfirmed != true && !didAccept) {
                 WalletCore.recordTonConnectEvent(declinedEventName, it.promiseId)
             }
-            viewModel?.cancel(it.promiseId, null, window!!.lifecycleScope)
+            viewModel?.cancel(it.promiseId, null, window?.lifecycleScope)
             if (shouldReturnToDapp) window?.moveTaskToBack(true)
         }
     }
@@ -909,11 +911,12 @@ class TonConnectRequestSendVC(
     }
 
     private fun confirmHardware() {
-        val account = AccountStore.activeAccount!!
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = ledgerSignDataObject,
                 onDone = {
                     viewModel?.notifyDone(true, null)
@@ -942,7 +945,7 @@ class TonConnectRequestSendVC(
     private val confirmHeaderView: View
         get() {
             val maximumHeight =
-                (window!!.windowView.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
+                ((window?.windowView?.height ?: 0) * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
                     .roundToInt()
             return PasscodeHeaderSendView(
                 WeakReference(this),

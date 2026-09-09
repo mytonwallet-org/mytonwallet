@@ -343,9 +343,10 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(context: Context) 
             lastH = measuredHeight
             val bitmapWidth = (measuredWidth - HORIZONTAL_PADDING * 2f).toInt()
             if (bitmapWidth > 0 && pikerHeight > 0) {
-                bottomChartBitmap =
+                val bitmap =
                     Bitmap.createBitmap(bitmapWidth, pikerHeight, Bitmap.Config.ARGB_4444)
-                bottomChartCanvas = Canvas(bottomChartBitmap!!)
+                bottomChartBitmap = bitmap
+                bottomChartCanvas = Canvas(bitmap)
                 sharedUiComponents.getPickerMaskBitmap(pikerHeight, bitmapWidth)
             }
             measureSizes()
@@ -677,7 +678,7 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(context: Context) 
                 y = y - textOffset,
                 paint = signaturePaint
             )
-            if (a.valuesStr2 != null) {
+            if (a.valuesStr2.isNotEmpty()) {
                 drawHorizontalLineSignature(
                     canvas = canvas,
                     linesData = a,
@@ -2200,21 +2201,23 @@ abstract class BaseChartView<T : ChartData, L : LineViewData>(context: Context) 
         private var invalidate = true
 
         fun getPickerMaskBitmap(h: Int, w: Int): Bitmap {
-            if (((h + w) shl 10) != k || invalidate) {
-                invalidate = false
-                k = (h + w) shl 10
-                pickerRoundBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                canvas = Canvas(pickerRoundBitmap!!)
-                rectF.set(0f, 0f, w.toFloat(), h.toFloat())
-                canvas?.drawColor(style.backgroundColor)
-                canvas?.drawRoundRect(
-                    rectF,
-                    6.dp.toFloat(),
-                    6.dp.toFloat(),
-                    xRefP
-                )
-            }
-            return pickerRoundBitmap!!
+            val cached = pickerRoundBitmap
+            if (cached != null && ((h + w) shl 10) == k && !invalidate) return cached
+            invalidate = false
+            k = (h + w) shl 10
+            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            pickerRoundBitmap = bitmap
+            val canvas = Canvas(bitmap)
+            this.canvas = canvas
+            rectF.set(0f, 0f, w.toFloat(), h.toFloat())
+            canvas.drawColor(style.backgroundColor)
+            canvas.drawRoundRect(
+                rectF,
+                6.dp.toFloat(),
+                6.dp.toFloat(),
+                xRefP
+            )
+            return bitmap
         }
 
         fun invalidate() {

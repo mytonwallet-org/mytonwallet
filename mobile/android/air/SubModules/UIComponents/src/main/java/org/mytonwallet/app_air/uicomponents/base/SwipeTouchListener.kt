@@ -112,13 +112,9 @@ class SwipeTouchListener(
      * the event
      */
     private fun actionDown(view: View, event: MotionEvent) {
-        if (mVelocityTracker == null) {
-            mVelocityTracker = VelocityTracker.obtain()
-        } else {
-            mVelocityTracker!!.clear()
-        }
-
-        mVelocityTracker!!.addMovement(event)
+        val velocityTracker = mVelocityTracker?.apply { clear() }
+            ?: VelocityTracker.obtain().also { mVelocityTracker = it }
+        velocityTracker.addMovement(event)
 
         mView = view
         mDownX = event.x
@@ -136,10 +132,11 @@ class SwipeTouchListener(
      * the event
      */
     private fun actionMove(event: MotionEvent) {
-        if (mVelocityTracker == null) return
-        mVelocityTracker!!.addMovement(event)
+        val velocityTracker = mVelocityTracker ?: return
+        velocityTracker.addMovement(event)
 
-        val currentX = event.x + mView!!.translationX
+        val view = mView ?: return
+        val currentX = event.x + view.translationX
         val deltaX = currentX - mDownX
 
         if (!isSwiping) {
@@ -180,12 +177,14 @@ class SwipeTouchListener(
             } else {
                 max(0f, currentX - mDownX)
             }
-            mView!!.translationX = translation
+            view.translationX = translation
 
-            val progress = abs(translation) / mView!!.width
+            val progress = abs(translation) / view.width
             if (scaleBehindView) {
-                behindView.get()?.scaleX = 0.95f + (progress / 20)
-                behindView.get()?.scaleY = behindView.get()!!.scaleX
+                behindView.get()?.let {
+                    it.scaleX = 0.95f + (progress / 20)
+                    it.scaleY = it.scaleX
+                }
             }
             darkView.get()?.alpha = 0.5f - (progress / 5)
         }
@@ -199,9 +198,10 @@ class SwipeTouchListener(
      * the event
      */
     private fun onSwipe(event: MotionEvent) {
-        val currentX = event.x + mView!!.translationX
+        val view = mView ?: return
+        val currentX = event.x + view.translationX
         val deltaX = currentX - mDownX
-        mVelocityTracker!!.computeCurrentVelocity(100)
+        mVelocityTracker?.computeCurrentVelocity(100)
         val velocityX =
             abs(mVelocityTracker?.xVelocity?.toDouble() ?: 0.0).toFloat()
 
@@ -217,26 +217,26 @@ class SwipeTouchListener(
             deltaX < 0 &&
                 (
                     velocityX > SWIPE_VELOCITY_MIN ||
-                        abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3
+                        abs(deltaX.toDouble()) > view.width.toFloat() / 3
                     )
         } else {
             deltaX > 0 &&
                 (
                     velocityX > SWIPE_VELOCITY_MIN ||
-                        abs(deltaX.toDouble()) > mView!!.width.toFloat() / 3
+                        abs(deltaX.toDouble()) > view.width.toFloat() / 3
                     )
         }
 
         if (shouldDismiss) {
-            outOfView = (abs(deltaX.toDouble()) / mView!!.width).toFloat()
-            endX = mView!!.width.toFloat()
+            outOfView = (abs(deltaX.toDouble()) / view.width).toFloat()
+            endX = view.width.toFloat()
             endAlpha = 1f
             dismiss = true
 
             /* The user has released the hold on the View before it
              * should be dismissed. */
         } else {
-            outOfView = (1 - (abs(deltaX.toDouble()) / mView!!.width)).toFloat()
+            outOfView = (1 - (abs(deltaX.toDouble()) / view.width)).toFloat()
             endX = 0f
             endAlpha = 1f
         }
@@ -303,7 +303,7 @@ class SwipeTouchListener(
                 behindView.get()?.scaleX = 1f
                 behindView.get()?.scaleY = 1f
             } else {
-                mView!!.translationX = 0f
+                mView?.translationX = 0f
                 behindView.get()?.let {
                     it.viewController.get()?.viewWillDisappear()
                     navigationController?.removeView(it)

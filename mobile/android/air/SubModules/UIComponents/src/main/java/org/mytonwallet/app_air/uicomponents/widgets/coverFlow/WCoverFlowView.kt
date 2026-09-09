@@ -327,7 +327,7 @@ class WCoverFlowView @JvmOverloads constructor(
                         val cover = covers.getOrNull(index)
                         coverDrawables[index] = cover?.let {
                             createColorDrawable(it.color ?: DEFAULT_PLACEHOLDER.color)
-                        } ?: placeholderDrawable!!
+                        } ?: placeholderDrawable
                         invalidate()
                     }
                 }

@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.TouchDelegate
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -96,7 +97,6 @@ import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAccount.AccountChain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -508,7 +508,8 @@ class WalletCardView(
         v.post {
             clippedContainer.setConstraints {
                 toBottom(mintIcon, 5f)
-                constrainMaxWidth(balanceViewContainer.id, (parent as View).width - 34.dp)
+                val parentWidth = (parent as? View)?.width ?: return@setConstraints
+                constrainMaxWidth(balanceViewContainer.id, parentWidth - 34.dp)
             }
         }
 
@@ -532,7 +533,7 @@ class WalletCardView(
             balanceViewMaskWrapper.setupLayout(
                 width = width,
                 height = 56.dp,
-                parentWidth = (this@WalletCardView.parent as HomeHeaderView).width
+                parentWidth = (this@WalletCardView.parent as? View)?.width ?: 0
             )
         }
         setupFooterLabel(footerLabel)
@@ -937,6 +938,10 @@ class WalletCardView(
             }
         }
     var mode = HomeHeaderView.DEFAULT_MODE
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean =
+        mode == HomeHeaderView.Mode.Collapsed || super.onInterceptTouchEvent(ev)
+
     fun expand(animated: Boolean) {
         if (mode == HomeHeaderView.Mode.Expanded) return
         mode = HomeHeaderView.Mode.Expanded
@@ -1555,7 +1560,7 @@ class WalletCardView(
             anchor,
             items,
             popupWidth = menuWidth,
-            xOffset = -location.x + ((parent as View).width / 2) - menuWidth / 2,
+            xOffset = -location.x + (((parent as? View)?.width ?: 0) / 2) - menuWidth / 2,
             yOffset = 0,
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(

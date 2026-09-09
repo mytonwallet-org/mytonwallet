@@ -429,7 +429,6 @@ class MfaVC(context: Context) :
         stopPolling()
         stateCollectorJob?.cancel()
         stateCollectorJob = null
-        WalletCore.unregisterObserver(this)
         super.onDestroy()
     }
 

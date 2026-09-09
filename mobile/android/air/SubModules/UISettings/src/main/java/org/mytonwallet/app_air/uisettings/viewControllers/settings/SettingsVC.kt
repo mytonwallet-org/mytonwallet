@@ -137,7 +137,7 @@ class SettingsVC(context: Context) :
             super.onScrolled(recyclerView, dx, dy)
             updateBlurViews(recyclerView)
             val layoutManager =
-                recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+                recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return
             updateScroll(
                 if (layoutManager.findFirstVisibleItemPosition() < 2) {
                     recyclerView.computeVerticalScrollOffset()
@@ -220,9 +220,10 @@ class SettingsVC(context: Context) :
         btn.setOnClickListener {
             val receiveVC =
                 ReceiveVC.createIfAvailable(context) ?: return@setOnClickListener
-            val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+            val window = window ?: return@setOnClickListener
+            val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
             navVC.setRoot(receiveVC)
-            window?.present(navVC)
+            window.present(navVC)
         }
         btn
     }
@@ -483,19 +484,19 @@ class SettingsVC(context: Context) :
     }
 
     private fun itemSelected(item: SettingsItem) {
+        val window = window ?: return
         when (item.identifier) {
             SettingsItem.Identifier.ADD_ACCOUNT -> {
                 val nav = WNavigationController(
-                    window!!,
+                    window,
                     PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
-                nav.setRoot(
-                    WalletContextManager.delegate?.get()
-                        ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
-                )
-                window?.present(nav)
+                val addAccountVC = WalletContextManager.delegate?.get()
+                    ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as? WViewController ?: return
+                nav.setRoot(addAccountVC)
+                window.present(nav)
             }
 
             SettingsItem.Identifier.ACCOUNT -> {
@@ -526,17 +527,16 @@ class SettingsVC(context: Context) :
 
             SettingsItem.Identifier.SHOW_ALL_WALLETS -> {
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
-                navVC.setRoot(
-                    WalletContextManager.delegate?.get()?.getWalletsTabsVC(
-                        MWalletSettingsViewMode.LIST
-                    ) as WViewController
-                )
-                window?.present(navVC)
+                val walletsTabsVC = WalletContextManager.delegate?.get()?.getWalletsTabsVC(
+                    MWalletSettingsViewMode.LIST
+                ) as? WViewController ?: return
+                navVC.setRoot(walletsTabsVC)
+                window.present(navVC)
             }
 
             SettingsItem.Identifier.NOTIFICATION_SETTINGS -> {
@@ -692,7 +692,8 @@ class SettingsVC(context: Context) :
     }
 
     private fun openUrl(title: String, url: String) {
-        val nav = WNavigationController(window!!)
+        val window = window ?: return
+        val nav = WNavigationController(window)
         nav.setRoot(
             InAppBrowserVC(
                 context,
@@ -705,7 +706,7 @@ class SettingsVC(context: Context) :
                 )
             )
         )
-        window?.present(nav)
+        window.present(nav)
     }
 
     private fun openExternalUrl(url: String) {
@@ -724,7 +725,7 @@ class SettingsVC(context: Context) :
                 LocaleController.getString("Locked"),
                 LocaleController.getString(
                     if (WGlobalStorage.isAnyBiometricActivated() &&
-                        BiometricHelpers.canAuthenticate(window!!)
+                        BiometricHelpers.canAuthenticate(context)
                     ) {
                         "Enter passcode or use fingerprint"
                     } else {
@@ -785,11 +786,11 @@ class SettingsVC(context: Context) :
         }
     }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
-        when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
+        val window = window ?: return WCell(context)
+        return when (cellType) {
             HEADER_CELL -> {
-                if (headerCell == null) headerCell = SettingsSpaceCell(context)
-                headerCell!!
+                headerCell ?: SettingsSpaceCell(context).also { headerCell = it }
             }
 
             SECTION_HEADER_CELL -> {
@@ -805,7 +806,7 @@ class SettingsVC(context: Context) :
             }
 
             VERSION_CELL -> {
-                SettingsVersionCell(window!!) {
+                SettingsVersionCell(window) {
                     settingsNavigationController?.push(
                         DebugMenuVC(context)
                     )
@@ -816,6 +817,7 @@ class SettingsVC(context: Context) :
                 throw Error()
             }
         }
+    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,

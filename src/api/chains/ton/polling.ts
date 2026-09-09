@@ -22,7 +22,6 @@ import { logDebug, logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
 import { shouldEmitNftFullLoadFinal } from './util/nft-polling-guards';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
-import { getLastPageTraceBoundaryId } from '../../common/activities/reconciler/pagination';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
 import { getConcurrencyLimiter } from '../../common/polling/setupInactiveChainPolling';
 import {
@@ -420,14 +419,7 @@ async function loadInitialConfirmedActivities(accountId: string, onUpdate: OnApi
   try {
     let mainActivities = await fetchActivitySlice({ accountId, limit: FIRST_TRANSACTIONS_LIMIT });
     const mainHistoryHasMore = mainActivities.length >= FIRST_TRANSACTIONS_LIMIT;
-    const incompleteTraceId = mainHistoryHasMore ? getLastPageTraceBoundaryId(mainActivities) : undefined;
-    mainActivities = await swapReplaceActivities(
-      accountId,
-      mainActivities,
-      undefined,
-      true,
-      { incompleteTonTraceIds: incompleteTraceId ? [incompleteTraceId] : [] },
-    );
+    mainActivities = await swapReplaceActivities(accountId, mainActivities, undefined, true);
 
     const bySlug = {
       // Loading the TON history is a side effect of loading the main history.

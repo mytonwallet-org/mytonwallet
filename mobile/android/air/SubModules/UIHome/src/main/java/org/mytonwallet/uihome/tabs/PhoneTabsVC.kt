@@ -1027,11 +1027,13 @@ class PhoneTabsVC(context: Context) :
                                 this@PhoneTabsVC,
                                 config
                             )
-                            val nav = WNavigationController(window!!)
-                            nav.setRoot(inAppBrowserVC)
-                            window!!.present(nav, onCompletion = {
-                                setText("")
-                            })
+                            window?.let { window ->
+                                val nav = WNavigationController(window)
+                                nav.setRoot(inAppBrowserVC)
+                                window.present(nav, onCompletion = {
+                                    setText("")
+                                })
+                            }
                             clearFocus()
                             hideKeyboard()
                         }
@@ -1439,18 +1441,18 @@ class PhoneTabsVC(context: Context) :
             ),
             hasSeparator = true,
             onTap = {
+                val window = window ?: return@Item
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
                 )
-                navVC.setRoot(
-                    WalletContextManager.delegate?.get()?.getWalletsTabsVC(
-                        MWalletSettingsViewMode.LIST
-                    ) as WViewController
-                )
-                window?.present(navVC)
+                val walletsTabsVC = WalletContextManager.delegate?.get()?.getWalletsTabsVC(
+                    MWalletSettingsViewMode.LIST
+                ) as? WViewController ?: return@Item
+                navVC.setRoot(walletsTabsVC)
+                window.present(navVC)
             }
         )
         val addAccountItem = WMenuPopup.Item(
@@ -1465,18 +1467,19 @@ class PhoneTabsVC(context: Context) :
             ),
             hasSeparator = false,
             onTap = {
+                val window = window ?: return@Item
                 val nav = WNavigationController(
-                    window!!,
+                    window,
                     PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet,
                         aboveKeyboard = true
                     )
                 )
-                nav.setRoot(
-                    WalletContextManager.delegate?.get()
-                        ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
-                )
-                window?.present(nav)
+                val addAccountVC = WalletContextManager.delegate?.get()
+                    ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as? WViewController
+                    ?: return@Item
+                nav.setRoot(addAccountVC)
+                window.present(nav)
             }
         )
         val freeSpaceToShowAccounts = if (positioning == WMenuPopup.Positioning.BELOW) {
@@ -1772,19 +1775,21 @@ class PhoneTabsVC(context: Context) :
             0
         }
 
-    private fun ensureStickyBottomGradientView() {
-        if (stickyBottomGradientView != null) return
-        stickyBottomGradientView = View(context).apply {
+    private fun ensureStickyBottomGradientView(): View {
+        stickyBottomGradientView?.let { return it }
+        val gradientView = View(context).apply {
             id = View.generateViewId()
         }
+        stickyBottomGradientView = gradientView
         view.addView(
-            stickyBottomGradientView,
+            gradientView,
             ViewGroup.LayoutParams(
                 MATCH_PARENT,
                 stickyGradientFullHeight()
             )
         )
         restackChromeAboveGradient()
+        return gradientView
     }
 
     private fun restackChromeAboveGradient() {
@@ -1855,9 +1860,9 @@ class PhoneTabsVC(context: Context) :
     ) {
         if (shouldShowStickyBottomGradientView) {
             if (stickyBottomGradientView == null) {
-                ensureStickyBottomGradientView()
+                val gradientView = ensureStickyBottomGradientView()
                 view.setConstraints {
-                    toBottom(stickyBottomGradientView!!)
+                    toBottom(gradientView)
                 }
             }
             stickyBackgroundColor =
@@ -1963,7 +1968,7 @@ class PhoneTabsVC(context: Context) :
 
     private fun createUpdateButtonIfNeeded() {
         if (updateFloatingButton == null) {
-            updateFloatingButton = WLabel(context).apply {
+            val button = WLabel(context).apply {
                 setStyle(adaptiveFontSize(), WFont.Medium)
                 text = LocaleController.getStringWithKeyValues(
                     "Update %app_name%",
@@ -1997,8 +2002,9 @@ class PhoneTabsVC(context: Context) :
                 }
             }
 
+            updateFloatingButton = button
             view.addView(
-                updateFloatingButton,
+                button,
                 ViewGroup.LayoutParams(
                     WRAP_CONTENT,
                     WRAP_CONTENT
@@ -2007,17 +2013,17 @@ class PhoneTabsVC(context: Context) :
             view.setConstraints {
                 if (experimentalTopTabsEnabled) {
                     toBottomPx(
-                        updateFloatingButton!!,
+                        button,
                         bottomBarHeight + ViewConstants.GAP.dp
                     )
                 } else {
                     bottomToTop(
-                        updateFloatingButton!!,
+                        button,
                         bottomNavigationView,
                         ViewConstants.GAP.toFloat()
                     )
                 }
-                toCenterX(updateFloatingButton!!)
+                toCenterX(button)
             }
         }
     }
@@ -2420,8 +2426,9 @@ class PhoneTabsVC(context: Context) :
                 updateStickyGradientHeight()
                 render()
             }
-            minimizedNavY = animatedFraction * finalY
-            nav.translationY = minimizedNavY!!
+            val navY = animatedFraction * finalY
+            minimizedNavY = navY
+            nav.translationY = navY
             val animatedHeight = finalHeight +
                 ((initialHeight - finalHeight) * (1 - animatedFraction)).roundToInt()
             val animatedWidth = finalWidth +
@@ -2668,7 +2675,6 @@ class PhoneTabsVC(context: Context) :
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         HomeStatusController.removeListener(topAvatarStatusListener)
         minimizedNav?.let { nav ->
             nav.willBeDismissed()

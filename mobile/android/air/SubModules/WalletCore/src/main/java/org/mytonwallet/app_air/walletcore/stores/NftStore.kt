@@ -752,7 +752,7 @@ object NftStore : IStore {
             val nftCollectionsJSONArray = JSONArray(it)
             val nftCollectionsArray = ArrayList<MCollectionTabToShow>()
             for (i in 0 until nftCollectionsJSONArray.length()) {
-                val nftJson = nftCollectionsJSONArray.get(i) as JSONObject
+                val nftJson = nftCollectionsJSONArray.optJSONObject(i) ?: continue
                 MCollectionTabToShow.fromJson(nftJson)?.let { nftCollection ->
                     nftCollectionsArray.add(nftCollection)
                 }
@@ -864,7 +864,7 @@ object NftStore : IStore {
             val nftsJSONArray = JSONArray(nftsString)
             val nftsArray = ArrayList<ApiNft>()
             for (i in 0 until nftsJSONArray.length()) {
-                val nftJson = nftsJSONArray.get(i) as JSONObject
+                val nftJson = nftsJSONArray.optJSONObject(i) ?: continue
                 ApiNft.fromJson(nftJson)?.let { nft ->
                     nftsArray.add(nft)
                 }

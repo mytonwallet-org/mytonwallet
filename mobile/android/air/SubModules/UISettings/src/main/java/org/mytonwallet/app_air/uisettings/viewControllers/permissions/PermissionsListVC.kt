@@ -306,7 +306,7 @@ class PermissionsListVC(
                 LocaleController.getString("Locked"),
                 LocaleController.getString(
                     if (WGlobalStorage.isAnyBiometricActivated() &&
-                        BiometricHelpers.canAuthenticate(window!!)
+                        BiometricHelpers.canAuthenticate(context)
                     ) {
                         "Enter passcode or use fingerprint"
                     } else {

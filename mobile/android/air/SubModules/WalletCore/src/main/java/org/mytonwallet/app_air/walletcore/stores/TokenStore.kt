@@ -18,12 +18,13 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.TESTNET_SLUGS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.fetchPriceHistory
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
+import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 object TokenStore : IStore {
@@ -69,7 +70,7 @@ object TokenStore : IStore {
             try {
                 val tokensJsonArray = JSONArray(tokensString)
                 for (item in 0..<tokensJsonArray.length()) {
-                    val token = MToken(tokensJsonArray.get(item) as JSONObject)
+                    val token = MToken(tokensJsonArray.getJSONObject(item))
                     setToken(token.slug, token)
                 }
                 setSwapAssets(tokens.values.toList())
@@ -88,7 +89,7 @@ object TokenStore : IStore {
                 val swapAssetsArray = JSONArray(swapAssetsString)
                 val assetsArray = ArrayList<MToken>()
                 for (item in 0..<swapAssetsArray.length()) {
-                    assetsArray.add(MToken(swapAssetsArray.get(item) as JSONObject))
+                    assetsArray.add(MToken(swapAssetsArray.getJSONObject(item)))
                 }
                 if (assetsArray.isNotEmpty()) {
                     setSwapAssets(assetsArray)
@@ -137,6 +138,22 @@ object TokenStore : IStore {
     @Volatile
     var swapAssetsLoaded = false
         private set
+
+    fun loadSwapAssets(
+        ifNotLoading: Boolean = false,
+        callback: ((Boolean, MBridgeError?) -> Unit)? = null
+    ) {
+        if (ifNotLoading && isLoadingSwapAssets) return
+        isLoadingSwapAssets = true
+        WalletCore.call(ApiMethod.Swap.SwapGetAssets()) { _, err ->
+            isLoadingSwapAssets = false
+            if (err != null) {
+                callback?.invoke(false, err.parsed)
+            } else {
+                callback?.invoke(true, null)
+            }
+        }
+    }
 
     fun setSwapAssets(tokens: List<MToken>?, isDefault: Boolean = false) {
         swapAssetTokens = tokens
@@ -328,23 +345,36 @@ object TokenStore : IStore {
         callback: (data: Array<Array<Double>>?, fromCache: Boolean, MBridgeError?) -> Unit,
         retriesLeft: Int = 3
     ) {
-        WalletCore.fetchPriceHistory(
-            slug,
-            period,
-            WalletCore.baseCurrency.currencyCode
+        WalletCore.call(
+            ApiMethod.Tokens.FetchPriceHistory(slug, period, WalletCore.baseCurrency.currencyCode)
         ) { res, err ->
             if (res == null || err != null) {
                 if (retriesLeft > 0) {
                     updatePriceHistory(slug, period, callback, retriesLeft - 1)
                 } else {
-                    callback(null, false, err)
+                    callback(null, false, err?.parsed)
                 }
-                return@fetchPriceHistory
+                return@call
             }
-            WGlobalStorage.setPriceHistory(slug, period.value, res)
-            callback(res, false, null)
+            val data = res.map { it.toTypedArray() }.toTypedArray()
+            WGlobalStorage.setPriceHistory(slug, period.value, data)
+            callback(data, false, null)
         }
     }
+
+    fun cacheMarketAssets(raw: String?) {
+        WCacheStorage.setMarketAssets(raw)
+    }
+
+    fun cachedMarketAssets(): MApiMarketAssetsResponse? =
+        WCacheStorage.getMarketAssets()?.let { cached ->
+            try {
+                WalletCore.moshi.adapter(MApiMarketAssetsResponse::class.java).fromJson(cached)
+            } catch (_: Exception) {
+                WCacheStorage.setMarketAssets(null)
+                null
+            }
+        }
 
     fun getTokenInfo(): JSONObject {
         val tokenInfo = JSONObject()

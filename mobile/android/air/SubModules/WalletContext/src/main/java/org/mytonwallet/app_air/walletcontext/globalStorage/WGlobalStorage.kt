@@ -1316,7 +1316,7 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 60
+    private const val LAST_STATE: Int = 61
 
     fun migrate() {
         // Lock the storage
@@ -1779,6 +1779,11 @@ object WGlobalStorage {
                 WSecureStorage.deleteLegacyBiometricPasscode()
                 removeIsLegacyBiometricActivated()
             }
+        }
+
+        // State 60→61: swap rows projected by the previous reconciler carry chain action ids; clear cached activities
+        if (currentState < 61) {
+            clearActivities()
         }
 
         // Update and unlock the storage

@@ -103,8 +103,8 @@ class PreviewVC(
                     initialY = v.y
                     touchStartRawX = event.rawX
                     touchStartRawY = event.rawY
-                    centerX = (v.parent as ViewGroup).width / 2f
-                    centerY = (v.parent as ViewGroup).height / 2f
+                    centerX = ((v.parent as? ViewGroup)?.width ?: 0) / 2f
+                    centerY = ((v.parent as? ViewGroup)?.height ?: 0) / 2f
                     true
                 }
 
@@ -177,10 +177,10 @@ class PreviewVC(
     }
 
     private val viewWidth: Int by lazy {
-        (navigationController?.parent as View).width
+        (navigationController?.parent as? View)?.width ?: 0
     }
     private val viewHeight: Int by lazy {
-        (navigationController?.parent as View).height
+        (navigationController?.parent as? View)?.height ?: 0
     }
 
     val imageSize: Int by lazy {

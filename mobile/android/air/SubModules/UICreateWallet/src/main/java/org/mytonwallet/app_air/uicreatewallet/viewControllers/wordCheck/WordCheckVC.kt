@@ -145,7 +145,7 @@ class WordCheckVC(
                 toCenterX(wordCheckerView, 32f)
                 prevWordCheckerView = wordCheckerView
             }
-            topToBottom(wordsDoNotMatchLabel, prevWordCheckerView!!, 40f)
+            topToBottom(wordsDoNotMatchLabel, prevWordCheckerView ?: headerView, 40f)
             toCenterX(wordsDoNotMatchLabel, 32f)
             toBottomPx(
                 wordsDoNotMatchLabel,
@@ -264,6 +264,7 @@ class WordCheckVC(
             return
         }
         Handler(Looper.getMainLooper()).postDelayed({
+            val window = window ?: return@postDelayed
             when (mode) {
                 WordCheckMode.Check -> {
                     pop()
@@ -278,7 +279,7 @@ class WordCheckVC(
                                     biometricsActivated
                                 ->
                                 walletCreationVM.finalizeAccount(
-                                    window!!,
+                                    window,
                                     network,
                                     words,
                                     0,
@@ -292,7 +293,7 @@ class WordCheckVC(
                     } else {
                         view.lockView()
                         walletCreationVM.finalizeAccount(
-                            window!!,
+                            window,
                             network,
                             words,
                             0,
@@ -315,7 +316,7 @@ class WordCheckVC(
                 viewController = this,
                 account = createdAccount
             )
-            window!!.dismissLastNav()
+            window?.dismissLastNav()
         }
     }
 

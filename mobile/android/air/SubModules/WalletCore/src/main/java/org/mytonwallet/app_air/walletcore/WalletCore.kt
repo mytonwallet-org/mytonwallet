@@ -13,15 +13,23 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import com.squareup.moshi.Moshi
 import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.mytonwallet.app_air.walletbasecontext.WBaseStorage
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
+import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -29,10 +37,11 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.api.activateAccount
-import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
@@ -278,6 +287,24 @@ object WalletCore {
 
     var baseCurrency = MBaseCurrency.valueOf(WGlobalStorage.getBaseCurrency())
 
+    fun setBaseCurrency(newBaseCurrency: String, callback: (Boolean, MBridgeError?) -> Unit) {
+        if (baseCurrency.currencyCode == newBaseCurrency) {
+            callback(true, null)
+            return
+        }
+        WGlobalStorage.clearPriceHistory()
+        baseCurrency = MBaseCurrency.valueOf(newBaseCurrency)
+        WGlobalStorage.setBaseCurrency(newBaseCurrency)
+        WBaseStorage.setBaseCurrency(newBaseCurrency)
+        scope.launch {
+            BalanceStore.resetBalanceInBaseCurrency()
+            withContext(Dispatchers.Main) {
+                notifyEvent(WalletEvent.BaseCurrencyChanged)
+                callback(true, null)
+            }
+        }
+    }
+
     var bridgeUsers = 0
     fun incBridgeUsers() {
         bridgeUsers++
@@ -294,24 +321,19 @@ object WalletCore {
         fun onWalletEvent(walletEvent: WalletEvent)
     }
 
-    private val eventObservers = ArrayList<WeakReference<EventObserver>>()
-    private var lock = false
+    private val eventObservers = CopyOnWriteArrayList<WeakReference<EventObserver>>()
 
     // Notify observers ////////////////////////////////////////////////////////////////////////////
-    private val expiredItems = ArrayList<WeakReference<EventObserver>>()
     fun notifyEvent(walletEvent: WalletEvent) {
         ensureMainThread {
-            lock = true
-            for (eventObserver in eventObservers) {
-                if (eventObserver.get() == null) expiredItems.add(eventObserver)
+            for (ref in eventObservers) {
+                val observer = ref.get()
+                if (observer == null) {
+                    eventObservers.remove(ref)
+                } else {
+                    observer.onWalletEvent(walletEvent)
+                }
             }
-            if (expiredItems.isNotEmpty()) {
-                eventObservers.removeAll(expiredItems.toSet())
-                expiredItems.clear()
-            }
-            lock = false
-            // Converted to list to prevent concurrent modification exception
-            eventObservers.toList().forEach { it.get()?.onWalletEvent(walletEvent) }
         }
     }
 
@@ -334,7 +356,7 @@ object WalletCore {
             notify = false,
             saveToStorage = false
         )
-        WalletCore.requestDAppList(accountId)
+        DappsStore.refresh(accountId)
         // WalletContextManager.delegate?.protectedModeChanged()
         notifyEvent(
             WalletEvent.AccountChanged(
@@ -356,15 +378,11 @@ object WalletCore {
 
     // Register to observers / Unregister
     fun registerObserver(observer: EventObserver) {
-        if (lock) throw IllegalStateException()
-
         eventObservers.add(WeakReference(observer))
     }
 
     fun unregisterObserver(observer: EventObserver) {
-        eventObservers.removeAll {
-            it.get() == observer
-        }
+        eventObservers.removeAll(eventObservers.filter { it.get() == observer })
     }
 
     // BRIDGE SETUP ////////////////////////////////////////////////////////////////////////////////
@@ -661,9 +679,6 @@ object WalletCore {
         return accounts
     }
 
-    object Swap
-    object Transfer
-
     suspend fun <T> call(method: ApiMethod<T>): T =
         requiredBridge.callApiAsync(method.name, method.arguments, method.type)
 
@@ -683,29 +698,39 @@ object WalletCore {
 
     /* This code allows to receive updates directly from the api bridge */
 
-    private val observers = mutableMapOf<Class<out ApiUpdate>, MutableSet<UpdatesObserver>>()
+    private val observers =
+        ConcurrentHashMap<Class<out ApiUpdate>, CopyOnWriteArraySet<UpdatesObserver>>()
 
     interface UpdatesObserver {
         fun onBridgeUpdate(update: ApiUpdate)
     }
 
     fun <T : ApiUpdate> subscribeToApiUpdates(type: Class<T>, observer: UpdatesObserver) {
-        observers[type]?.add(observer) ?: run {
-            observers[type] = mutableSetOf(observer)
-        }
+        observers.getOrPut(type) { CopyOnWriteArraySet() }.add(observer)
     }
 
     fun <T : ApiUpdate> unsubscribeFromApiUpdates(type: Class<T>, observer: UpdatesObserver) {
         observers[type]?.remove(observer)
     }
 
+    private fun List<MApiTransaction?>.knownActivities(updateType: String): List<MApiTransaction> {
+        val known = filterNotNull()
+        if (known.size != size) {
+            Logger.w(
+                Logger.LogTag.WALLET_CORE,
+                "$updateType: dropped ${size - known.size} activities of unknown kind"
+            )
+        }
+        return known
+    }
+
     fun <T : ApiUpdate> notifyApiUpdate(update: T) {
         when (update) {
             is ApiUpdate.ApiUpdateDappConnectComplete,
-            is ApiUpdate.ApiUpdateDapps -> WalletCore.requestDAppList()
+            is ApiUpdate.ApiUpdateDapps -> DappsStore.refresh()
 
             is ApiUpdate.ApiUpdateDappDisconnect -> {
-                WalletCore.requestDAppList()
+                DappsStore.refresh(update.accountId)
                 notifyEvent(WalletEvent.DappDisconnect(update.accountId, update.url))
             }
 
@@ -714,6 +739,157 @@ object WalletCore {
                     TokenStore.Tokens(update.tokens),
                     update.arePricesFresh
                 )
+            }
+
+            is ApiUpdate.ApiUpdateUpdatingStatus -> {
+                ensureMainThread {
+                    when (update.kind) {
+                        "activities" -> AccountStore.updatingActivities = update.isUpdating == true
+                        "balance" -> AccountStore.updatingBalance = update.isUpdating == true
+                    }
+                    notifyEvent(WalletEvent.UpdatingStatusChanged)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateShowError -> {
+                ensureMainThread {
+                    WalletContextManager.delegate?.get()?.showError(update.error?.takeIfNotBlank())
+                }
+            }
+
+            is ApiUpdate.ApiUpdateOpenUrl -> {
+                val url = update.url.takeIfNotBlank()?.decodeUrlOrNull() ?: return
+                ensureMainThread {
+                    notifyEvent(WalletEvent.OpenUrl(url, update.isExternal == true))
+                }
+            }
+
+            is ApiUpdate.ApiUpdateAccountConfig -> {
+                val accountConfig = update.accountConfig ?: return
+                ensureMainThread {
+                    WGlobalStorage.setAccountConfig(update.accountId, accountConfig)
+                    notifyEvent(WalletEvent.AccountConfigReceived)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateStaking -> {
+                StakingStore.setStakingState(update.accountId, update.toStakingData())
+                ensureMainThread {
+                    notifyEvent(WalletEvent.StakingDataUpdated)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateConfig -> {
+                ConfigStore.init(update)
+                ensureMainThread {
+                    notifyEvent(WalletEvent.ConfigReceived)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateNfts -> {
+                val accountId = update.accountId
+                val collectionAddress = update.collectionAddress.orEmpty()
+                val shouldAppend = collectionAddress.isNotEmpty() || update.isFullLoading == true
+                ensureMainThread {
+                    NftStore.checkCardNftOwnership(accountId)
+                }
+                val nfts = update.nfts ?: return
+                if (collectionAddress.isNotEmpty()) {
+                    ensureMainThread {
+                        notifyEvent(
+                            WalletEvent.CollectionNftsReceived(accountId, collectionAddress, nfts)
+                        )
+                    }
+                    return
+                }
+                if (AccountStore.activeAccountId != accountId) return
+                ensureMainThread {
+                    NftStore.setNfts(
+                        update.chain,
+                        nfts,
+                        accountId = accountId,
+                        notifyObservers = true,
+                        isReorder = false,
+                        shouldAppend = shouldAppend,
+                        preserveExistingOnConflict = shouldAppend,
+                        streamedAddresses = update.streamedAddresses?.toSet()
+                    )
+                }
+            }
+
+            is ApiUpdate.ApiUpdateNewActivities -> {
+                if (AccountStore.activeAccountId != update.accountId) return
+                val pendingActivities = update.pendingActivities?.knownActivities("newActivities")
+                pendingActivities?.takeIf { it.isNotEmpty() }?.let {
+                    ensureMainThread {
+                        notifyEvent(WalletEvent.ReceivedPendingActivities(update.accountId, it))
+                    }
+                }
+                ActivityStore.newActivities(
+                    context = bridge?.context ?: ApplicationContextHolder.applicationContext,
+                    accountId = update.accountId,
+                    newActivities = update.activities?.knownActivities("newActivities").orEmpty(),
+                    pendingActivities = pendingActivities,
+                    chain = update.chain
+                )
+            }
+
+            is ApiUpdate.ApiUpdateNewLocalActivities -> {
+                if (AccountStore.activeAccountId != update.accountId) return
+                val localActivities =
+                    update.activities?.knownActivities("newLocalActivities") ?: return
+                ActivityStore.receivedLocalTransactions(
+                    update.accountId,
+                    localActivities.toTypedArray()
+                )
+                notifyEvent(WalletEvent.NewLocalActivities(update.accountId, localActivities))
+            }
+
+            is ApiUpdate.ApiUpdateBalances -> {
+                val balances = update.balances?.let(::HashMap) ?: return
+                ensureMainThread {
+                    BalanceStore.setBalances(update.accountId, balances, false) {
+                        if (AccountStore.activeAccountId != update.accountId) {
+                            notifyEvent(WalletEvent.NotActiveAccountBalanceChanged)
+                        } else {
+                            notifyEvent(WalletEvent.BalanceChanged)
+                        }
+                    }
+                }
+            }
+
+            is ApiUpdate.ApiUpdateAccountDomainData -> {
+                if (AccountStore.activeAccountId != update.accountId) return
+                val expirationByAddress = update.expirationByAddress?.let(::HashMap)
+                val linkedAddressByAddress = update.linkedAddressByAddress?.let(::HashMap)
+                ensureMainThread {
+                    NftStore.setExpirationByAddress(update.accountId, expirationByAddress)
+                    NftStore.setLinkedAddressByAddress(update.accountId, linkedAddressByAddress)
+                    notifyEvent(WalletEvent.NftDomainDataUpdated)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateNftReceived -> {
+                val nft = update.nft ?: return
+                ensureMainThread {
+                    NftStore.checkCardNftOwnership(update.accountId)
+                    NftStore.applyIncomingMtwCard(update.accountId, nft)
+                    if (AccountStore.activeAccountId != update.accountId) {
+                        return@ensureMainThread
+                    }
+                    NftStore.add(update.accountId, nft)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateNftSent -> {
+                ensureMainThread {
+                    NftStore.checkCardNftOwnership(update.accountId)
+                    NftStore.pruneOwnedMtwCardAddress(update.accountId, update.nftAddress)
+                    if (AccountStore.activeAccountId != update.accountId) {
+                        return@ensureMainThread
+                    }
+                    NftStore.removeByAddress(update.accountId, update.nftAddress)
+                }
             }
 
             is ApiUpdate.ApiUpdateInitialActivities -> {
@@ -743,10 +919,10 @@ object WalletCore {
             else -> {}
         }
 
-        val iterator = observers[update::class.java] ?: return
-        if (iterator.isNotEmpty()) {
-            Handler(Looper.getMainLooper()).post {
-                iterator.forEach { it.onBridgeUpdate(update) }
+        val subscribers = observers[update::class.java] ?: return
+        if (subscribers.isNotEmpty()) {
+            ensureMainThread {
+                subscribers.forEach { it.onBridgeUpdate(update) }
             }
         }
     }

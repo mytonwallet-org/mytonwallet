@@ -37,6 +37,7 @@ import androidx.core.view.updateLayoutParams
 import com.facebook.drawee.backends.pipeline.Fresco
 import java.util.function.Consumer
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -75,6 +76,7 @@ abstract class WWindow :
         const val WIDE_LAYOUT_MIN_WIDTH_DP = 700
         const val WIDE_LAYOUT_INNER_WIDTH_DP = 600
         const val CENTERED_WINDOW_MIN_HEIGHT_DP = 500
+        const val MIN_BOTTOM_INSET_DP = 12
     }
 
     private val touchBlockerView: View by lazy {
@@ -370,10 +372,15 @@ abstract class WWindow :
 
         // Set padding for navigation controllers
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { v, insets ->
-            systemBars =
-                insets.getInsets(
-                    WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
-                )
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+            )
+            systemBars = Insets.of(
+                bars.left,
+                bars.top,
+                bars.right,
+                max(bars.bottom, MIN_BOTTOM_INSET_DP.dp)
+            )
             imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             notifyInsetsUpdated()
             WindowInsetsCompat.CONSUMED
@@ -734,8 +741,8 @@ abstract class WWindow :
                 } else {
                     presentAnimation
                 }
-            when (effectiveAnimation) {
-                is PresentAnimation.ExpandFrom -> {
+            when {
+                effectiveAnimation is PresentAnimation.ExpandFrom && expandTransition != null -> {
                     navigationController.alpha = 1f
                     presentAnimations[navigationController] = effectiveAnimation
                     // Tapping outside already dismisses while the sheet is still growing.
@@ -746,7 +753,7 @@ abstract class WWindow :
                     // Only the incoming nav is shielded, so the tap can reach the dim overlay.
                     unblockTouches()
                     navigationController.blockTouches()
-                    activeAnimator = expandTransition!!.run(
+                    activeAnimator = expandTransition.run(
                         from = 0f,
                         to = 1f,
                         onFrame = { expansion ->
@@ -775,7 +782,7 @@ abstract class WWindow :
                     )
                 }
 
-                PresentAnimation.Default -> {
+                effectiveAnimation is PresentAnimation.Default -> {
                     activeAnimator = ValueAnimator.ofInt(
                         finalY + 48.dp,
                         finalY
@@ -817,7 +824,7 @@ abstract class WWindow :
                         }
                 }
 
-                PresentAnimation.ScaleIn -> {
+                effectiveAnimation is PresentAnimation.ScaleIn -> {
                     navigationController.y = finalY.toFloat()
                     activeAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
                         duration = AnimationConstants.QUICK_ANIMATION
@@ -985,16 +992,19 @@ abstract class WWindow :
                         ) < 1f &&
                         (navigationController.viewControllers.lastOrNull()?.view?.top ?: 0) == 0
                 }
-                ?.let { ExpandFromTransition.create(this, navigationController!!, it) }
+                ?.let { transition ->
+                    navigationController?.let { ExpandFromTransition.create(this, it, transition) }
+                }
         // Unless the sheet springs back into it, the origin view of an ExpandFrom present fades
         // in alongside the dismiss.
         val expandOriginView =
             (presentAnimations[navigationController] as? PresentAnimation.ExpandFrom)?.originView
+        val runningAnimator = activeAnimator
         when {
-            interruptedTransition != null -> {
+            interruptedTransition != null && runningAnimator != null -> {
                 presentingExpandTransition = null
                 activeAnimator = interruptedTransition.reverse(
-                    activeAnimator!!,
+                    runningAnimator,
                     onFrame = { expansion ->
                         lastOverlay?.alpha = expansion.coerceIn(0f, 1f)
                     },

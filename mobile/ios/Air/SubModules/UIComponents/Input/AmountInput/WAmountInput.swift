@@ -13,7 +13,13 @@ import WalletContext
 @MainActor
 public class WAmountInput: UITextField {
     
-    public var maximumFractionDigits: Int
+    public var maximumFractionDigits: Int {
+        didSet {
+            if maximumFractionDigits != oldValue {
+                truncateFractionIfNeeded()
+            }
+        }
+    }
     
     public var integerFont: UIFont? = nil
     public var fractionFont: UIFont? = nil
@@ -68,6 +74,26 @@ public class WAmountInput: UITextField {
     
     @objc func changed() {
         onChange(self.amountValueOrNil)
+    }
+
+    private func truncateFractionIfNeeded() {
+        guard let text,
+              let separator = text.lastIndex(where: { $0 == "." || $0 == "," }) else { return }
+        let fractionStart = text.index(after: separator)
+        guard text[fractionStart...].count > maximumFractionDigits || maximumFractionDigits == 0 else { return }
+
+        let selection = selectedTextRange.map {
+            (offset(from: beginningOfDocument, to: $0.start), offset(from: beginningOfDocument, to: $0.end))
+        }
+        let end = maximumFractionDigits == 0 ? separator : text.index(fractionStart, offsetBy: maximumFractionDigits)
+        let truncatedText = String(text[..<end])
+        self.text = truncatedText
+        reapplyFormatting()
+        if let selection,
+           let start = position(from: beginningOfDocument, offset: min(selection.0, truncatedText.utf16.count)),
+           let end = position(from: beginningOfDocument, offset: min(selection.1, truncatedText.utf16.count)) {
+            selectedTextRange = textRange(from: start, to: end)
+        }
     }
     
     public func reapplyFormatting() {
@@ -127,8 +153,7 @@ extension WAmountInput: UITextFieldDelegate {
                           replacementString string: String) -> Bool {
         let currentText = textField.text ?? ""
         let oldLength = currentText.count
-        // Save cursor position
-        let cursorPosition = textField.offset(from: textField.beginningOfDocument, to: textField.selectedTextRange!.start)
+        let cursorPosition = NSMaxRange(range)
 
         let convertedInput = string.normalizeArabicPersianNumeralStringToWestern()
         let allowedCharacters = CharacterSet(charactersIn: "0123456789., '\u{00A0}\u{202F}\u{2009}’")
@@ -150,7 +175,7 @@ extension WAmountInput: UITextFieldDelegate {
 
         // check if has max allowed digits after .
         let newParts = newString.components(separatedBy: ".")
-        if newParts.count > 1 {
+        if !string.isEmpty, newParts.count > 1 {
             let afterDecimalsCount = newParts[1].count
             if afterDecimalsCount > maximumFractionDigits {
                 return false // can't have more digits after . !!
@@ -185,7 +210,7 @@ extension WAmountInput: UITextFieldDelegate {
             cursorOffset = -1
         }
         if let newPosition = textField.position(from: textField.beginningOfDocument,
-                                                offset: cursorPosition + (textField.text?.count ?? 0) - oldLength + max(0, string.count - 1) + cursorOffset) {
+                                                offset: cursorPosition + (textField.text?.count ?? 0) - oldLength + cursorOffset) {
             textField.selectedTextRange = textField.textRange(from: newPosition, to: newPosition)
         }
 

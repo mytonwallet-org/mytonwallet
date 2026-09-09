@@ -593,28 +593,25 @@ class StakingVC(context: Context, private val tokenSlug: String, mode: StakingVi
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
-    }
-
     private fun confirmHardware() {
         val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
         Logger.d(
             Logger.LogTag.STAKING,
             "confirmHardware: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}"
         )
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
+        val stakingState = stakingViewModel.stakingState ?: return
         view.lockView()
-        val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context,
             mode = LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 LedgerConnectVC.SignData.Staking(
                     isStaking = stakingViewModel.isStake(),
                     accountId = account.accountId,
                     amount = stakingViewModel.getAmountInCrypto() ?: BigInteger.ZERO,
-                    stakingState = stakingViewModel.stakingState!!,
+                    stakingState = stakingState,
                     realFee = stakingViewModel.realFee
                 ),
                 onDone = {

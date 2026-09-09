@@ -162,7 +162,7 @@ object WSecureStorage {
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {
-                    secureStorage!!.clear()
+                    requiredStorage.clear()
                     cachedValues.clear()
                 }
             }.get()

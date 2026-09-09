@@ -218,7 +218,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         }
 
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             toCenterX(scrollView)
             bottomToBottom(scrollView, view)
             allEdges(sharedSkeletonView)

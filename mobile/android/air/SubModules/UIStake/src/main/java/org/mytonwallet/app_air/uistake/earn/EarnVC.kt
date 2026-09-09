@@ -285,7 +285,8 @@ class EarnVC(
             updateBlurViews(recyclerView)
             onScroll?.invoke(recyclerView)
 
-            val layoutManager = recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+            val layoutManager =
+                recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return
             val firstVisibleItem = layoutManager.findFirstVisibleItemPosition() == 0
             if (dy > 3 && !firstVisibleItem) {
                 hideRewards()
@@ -748,20 +749,20 @@ class EarnVC(
         }
 
     private fun getHeaderCell(): EarnSpaceCell {
-        if (headerCell == null || headerCell?.contains(headerView) == false) {
-            headerCell = EarnSpaceCell(context)
-            headerCell?.addView(
-                headerView,
-                ViewGroup.LayoutParams(
-                    MATCH_PARENT,
-                    headerHeight
-                )
+        headerCell?.takeIf { it.contains(headerView) }?.let { return it }
+        val cell = EarnSpaceCell(context)
+        headerCell = cell
+        cell.addView(
+            headerView,
+            ViewGroup.LayoutParams(
+                MATCH_PARENT,
+                headerHeight
             )
-            headerCell?.setConstraints {
-                toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-            }
+        )
+        cell.setConstraints {
+            toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
         }
-        return headerCell!!
+        return cell
     }
 
     override fun recyclerViewConfigureCell(

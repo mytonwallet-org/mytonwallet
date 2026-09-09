@@ -12,7 +12,6 @@ import org.mytonwallet.app_air.uicomponents.adapter.BaseListItem
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -35,7 +34,7 @@ class ConnectedAppsViewModel :
 
     init {
         WalletCore.registerObserver(this)
-        WalletCore.requestDAppList()
+        DappsStore.refresh()
     }
 
     override fun onCleared() {
@@ -57,7 +56,7 @@ class ConnectedAppsViewModel :
                     )
                 }
                 WalletCore.notifyEvent(WalletEvent.DappRemoved(dapp))
-                WalletCore.requestDAppList()
+                DappsStore.refresh(accountId)
             } catch (_: JSWebViewBridge.ApiError) {
             } catch (_: IllegalArgumentException) {
             }
@@ -69,7 +68,7 @@ class ConnectedAppsViewModel :
         viewModelScope.launch {
             try {
                 WalletCore.call(ApiMethod.DApp.DeleteAllDapps(accountId))
-                WalletCore.requestDAppList()
+                DappsStore.refresh(accountId)
             } catch (e: JSWebViewBridge.ApiError) {
             } catch (e: IllegalArgumentException) {
             }

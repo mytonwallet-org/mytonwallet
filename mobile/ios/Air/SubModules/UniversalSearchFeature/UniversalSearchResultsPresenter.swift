@@ -371,7 +371,7 @@ public struct UniversalSearchResultsPresenter {
             id: "search-google",
             title: lang("Search in Google"),
             rowHeight: 52,
-            showsLeadingSeparator: false,
+            showsLeadingSeparator: true,
             items: [UniversalSearchItem(id: googleID, content: .google(query: query))]
         ))
         routesByItemID[googleID] = .google(query: query)

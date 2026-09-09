@@ -76,11 +76,12 @@ class WordCheckerView(context: Context, val onSelect: () -> Unit) :
         selectedIndex = null
         unlockView()
         correctWord = word
-        wordOptions = (getRandomAroundWord(word) + word).shuffled()
+        val options = (getRandomAroundWord(word) + word).shuffled()
+        wordOptions = options
         indexLabel.setStyle(17f)
         indexLabel.text = "$index."
         indexLabel.setTextColor(WColor.SecondaryText)
-        setupWordViews(wordOptions!!)
+        setupWordViews(options)
     }
 
     fun config(index: Int, word: String, animated: Boolean) {
@@ -199,8 +200,9 @@ class WordCheckerView(context: Context, val onSelect: () -> Unit) :
         }
 
     fun validate(): Boolean {
-        val isCorrect = wordOptions?.getOrNull(selectedIndex ?: -1) == correctWord
-        animateToColor(selectedIndex!!, if (isCorrect) WColor.Green.color else WColor.Red.color)
+        val selectedIndex = selectedIndex ?: return false
+        val isCorrect = wordOptions?.getOrNull(selectedIndex) == correctWord
+        animateToColor(selectedIndex, if (isCorrect) WColor.Green.color else WColor.Red.color)
         if (isCorrect) lockView() else isValidatedAndWrong = true
         return isCorrect
     }

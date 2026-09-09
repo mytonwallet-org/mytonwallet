@@ -107,9 +107,10 @@ class SecurityVC(context: Context) : WViewController(context) {
             isEnabled = true,
             onTap = {
                 confirmPasscode { enclaveToken ->
+                    val accountId = AccountStore.activeAccountId ?: return@confirmPasscode
                     WalletCore.call(
                         ApiMethod.Settings.FetchMnemonic(
-                            AccountStore.activeAccountId!!,
+                            accountId,
                             enclaveToken
                         ),
                         callback = { words, err ->
@@ -147,9 +148,10 @@ class SecurityVC(context: Context) : WViewController(context) {
                 if (isChecked) {
                     biometricAuthRow.isChecked = false
                     confirmPasscode { enclaveToken ->
+                        val window = window ?: return@confirmPasscode
                         navigationController?.pop {
                             WalletCore.enclaveMigrateAuth(
-                                window!!,
+                                window,
                                 enclaveToken,
                                 AuthType.BIOMETRIC,
                                 null,
@@ -471,7 +473,7 @@ class SecurityVC(context: Context) : WViewController(context) {
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             toCenterX(scrollView)
             toBottom(scrollView)
         }
@@ -552,6 +554,7 @@ class SecurityVC(context: Context) : WViewController(context) {
         changePasscodeVC: PasscodeConfirmVC,
         newPasscode: String
     ) {
+        val window = window ?: return
         val confirmPasscodeVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.Default(
@@ -565,7 +568,7 @@ class SecurityVC(context: Context) : WViewController(context) {
                 // The session confirming the change may be a biometric one, and replacing destroys the
                 // auth it came from. The new passcode overwrites the old credential either way.
                 WalletCore.enclaveMigrateAuth(
-                    window!!,
+                    window,
                     enclaveToken,
                     AuthType.PASSCODE,
                     newPasscode,
@@ -604,7 +607,7 @@ class SecurityVC(context: Context) : WViewController(context) {
                     LocaleController.getString("Locked"),
                     LocaleController.getString(
                         if (WGlobalStorage.isAnyBiometricActivated() &&
-                            BiometricHelpers.canAuthenticate(window!!)
+                            BiometricHelpers.canAuthenticate(context)
                         ) {
                             "Enter passcode or use fingerprint"
                         } else {

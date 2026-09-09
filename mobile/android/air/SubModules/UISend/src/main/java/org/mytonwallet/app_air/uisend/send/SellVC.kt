@@ -92,7 +92,7 @@ class SellVC(
         DisplayedAccount(AccountStore.activeAccountId, AccountStore.isPushedTemporary)
 
     private var isShowingAccountMultichain =
-        WGlobalStorage.isMultichain(AccountStore.activeAccountId!!)
+        AccountStore.activeAccountId?.let { WGlobalStorage.isMultichain(it) } ?: false
 
     private val viewModel by lazy { ViewModelProvider(this)[SendViewModel::class.java] }
 
@@ -228,7 +228,7 @@ class SellVC(
         view.addView(confirmButton, ViewGroup.LayoutParams(0, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(
                 confirmButton,
@@ -396,10 +396,14 @@ class SellVC(
             confirmButton.unlockView()
             return
         }
+        val tonAddress = account.tonAddress ?: run {
+            confirmButton.unlockView()
+            return
+        }
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.SignTransfer(
                     accountId = account.accountId,
                     transferOptions = transferOptions,
@@ -431,6 +435,7 @@ class SellVC(
             Logger.LogTag.SEND,
             "confirmWithPassword: Confirming sell with passcode slug=${viewModel.getTokenSlug()}"
         )
+        val account = AccountStore.activeAccount ?: return
         push(
             PasscodeConfirmVC(
                 context,
@@ -442,7 +447,7 @@ class SellVC(
                         configSendingToken(
                             config.request.token,
                             config.request.amountEquivalent.getFmt(false),
-                            AccountStore.activeAccount!!.network,
+                            account.network,
                             config.resolvedAddress
                         )
                     },
@@ -641,6 +646,7 @@ class SellVC(
     private var receivedLocalActivities: ArrayList<MApiTransaction>? = null
 
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        val accountId = displayedAccount.accountId ?: return
         if (sentActivityId == null) {
             if (receivedActivity.isLocal()) {
                 if (receivedLocalActivities == null) {
@@ -667,7 +673,7 @@ class SellVC(
         window?.dismissLastNav {
             WalletCore.notifyEvent(
                 WalletEvent.OpenActivity(
-                    displayedAccount.accountId!!,
+                    accountId,
                     receivedActivity
                 )
             )
@@ -694,7 +700,6 @@ class SellVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         confirmButton.setOnClickListener(null)
     }
 }

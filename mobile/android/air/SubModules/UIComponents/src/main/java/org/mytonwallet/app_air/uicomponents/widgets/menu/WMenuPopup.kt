@@ -7,7 +7,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import org.mytonwallet.app_air.uicomponents.extensions.atMost
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
 import org.mytonwallet.app_air.uicomponents.widgets.cancelAncestorTouches
@@ -291,7 +291,7 @@ class WMenuPopup {
                     displayProgressListener?.let { setDisplayProgressListener(it) }
                 }
 
-            val location = view.getLocationOnScreen()
+            val location = view.getLocationInWindow()
             val screenWidth = ApplicationContextHolder.screenWidth
             val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
             val popupMeasuredWidth = if (popupWidth == WRAP_CONTENT) {

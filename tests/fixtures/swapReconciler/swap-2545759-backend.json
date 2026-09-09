@@ -1,0 +1,744 @@
+{
+ "buildTransaction": {
+  "route": "cex",
+  "request": {
+   "from": "TON",
+   "fromAmount": "22",
+   "fromAddress": "EQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHgHt",
+   "to": "hyperliquid",
+   "toAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+   "swapFee": "0.003373746306306306",
+   "networkFee": "0.000543764",
+   "swapVersion": 3,
+   "historyAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly"
+  },
+  "swap": {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {},
+   "hashes": [],
+   "exchanger": "changelly",
+   "msgHash": null,
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "waiting",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  }
+ },
+ "history": [
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759/update",
+   "request": {
+    "swapVersion": 3,
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "msgHashNormalized": "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+   },
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "waiting",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3&forceProviderRefresh=true",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "waiting",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/by-addresses",
+   "request": {
+    "fromTimestamp": 1788517597000,
+    "toTimestamp": 1788517598032,
+    "hashes": [
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+    ],
+    "isCex": true,
+    "addressByChain": {
+     "ethereum": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "solana": "FkQ3b9dG6EWhK8Hsfj2m6RX5YMCtfSny8KXyG7R3rDDt",
+     "hyperliquid": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "ton": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+     "tron": "TCwmcydsdKVSVWzxaERnJo4nDtGHknevMN",
+     "bnb": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "base": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "robinhood": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "monad": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "arbitrum": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "polygon": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "avalanche": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032"
+    },
+    "swapVersion": 3
+   },
+   "response": [
+    {
+     "id": "2545759",
+     "timestamp": 1788517591927,
+     "from": "ton:native",
+     "fromAmount": "22.000000000000000000",
+     "to": "hyperliquid:native",
+     "toAmount": "0.341273600000000000",
+     "status": "pending",
+     "txIds": [],
+     "transactionIds": {},
+     "hashes": [
+      "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+     ],
+     "exchanger": "changelly",
+     "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+     "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+     "cexLabel": "changelly",
+     "swapFee": "0",
+     "networkFee": "0.000543764",
+     "cex": {
+      "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+      "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+      "status": "waiting",
+      "transactionId": "4jz5qvzj5ff9e75n",
+      "providerName": "Changelly",
+      "supportUrl": "https://changelly.com/",
+      "supportEmail": "support@changelly.com"
+     }
+    }
+   ]
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "waiting",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "waiting",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "confirming",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "exchanging",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "sending",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3&forceProviderRefresh=true",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "sending",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.341273600000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     },
+     "incoming": {
+      "hash": "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7",
+      "chain": "hyperliquid"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7"
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "sending",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo/2545759?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545759",
+    "timestamp": 1788517591927,
+    "from": "ton:native",
+    "fromAmount": "22.000000000000000000",
+    "to": "hyperliquid:native",
+    "toAmount": "0.332327440000000000",
+    "status": "completed",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+      "chain": "ton"
+     },
+     "incoming": {
+      "hash": "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7",
+      "chain": "hyperliquid"
+     }
+    },
+    "hashes": [
+     "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+     "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+     "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7"
+    ],
+    "exchanger": "changelly",
+    "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+    "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+    "cexLabel": "changelly",
+    "swapFee": "0",
+    "networkFee": "0.000543764",
+    "cex": {
+     "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+     "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+     "status": "finished",
+     "transactionId": "4jz5qvzj5ff9e75n",
+     "providerName": "Changelly",
+     "supportUrl": "https://changelly.com/",
+     "supportEmail": "support@changelly.com"
+    }
+   }
+  }
+ ],
+ "swapRowVersions": [
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {},
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8="
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "waiting",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {},
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "waiting",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "chain": "ton"
+    }
+   },
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "confirming",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "chain": "ton"
+    }
+   },
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "exchanging",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "chain": "ton"
+    }
+   },
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8="
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "sending",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.341273600000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "chain": "ton"
+    },
+    "incoming": {
+     "hash": "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7",
+     "chain": "hyperliquid"
+    }
+   },
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+    "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7"
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "sending",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  },
+  {
+   "id": "2545759",
+   "timestamp": 1788517591927,
+   "from": "ton:native",
+   "fromAmount": "22.000000000000000000",
+   "to": "hyperliquid:native",
+   "toAmount": "0.332327440000000000",
+   "status": "completed",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+     "chain": "ton"
+    },
+    "incoming": {
+     "hash": "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7",
+     "chain": "hyperliquid"
+    }
+   },
+   "hashes": [
+    "whGj+RuPfPhTKXjjDolV3trbkWvuAQ/vhWF9+gYmpD8=",
+    "hIhRldT2vZoyHWpKcDtzHmV2dxkWhyb6E3u5D0n/Z5w=",
+    "MOlNDNhy9IQqK2TW6m3OeKYgqacko1z3SPJwTwKdRo8=",
+    "0xed534be8a0b3bc87ae0d499297da60fc11f6e3987169c30ee90330107d4fdda7"
+   ],
+   "exchanger": "changelly",
+   "msgHash": "U2ASrgZx1GZPwH8I6LNG9yQihnPbmK2J8PUmdjlytcI=",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "cexLabel": "changelly",
+   "swapFee": "0",
+   "networkFee": "0.000543764",
+   "cex": {
+    "payinAddress": "UQAoWk9CAxu7Lawqy7EEbOPD6eyX_Qs_MBRtHn9RC3e6f07N",
+    "payoutAddress": "0x3E9526b6E3648AbE93DE78994CF4A3EDBEbe6032",
+    "status": "finished",
+    "transactionId": "4jz5qvzj5ff9e75n",
+    "providerName": "Changelly",
+    "supportUrl": "https://changelly.com/",
+    "supportEmail": "support@changelly.com"
+   }
+  }
+ ]
+}

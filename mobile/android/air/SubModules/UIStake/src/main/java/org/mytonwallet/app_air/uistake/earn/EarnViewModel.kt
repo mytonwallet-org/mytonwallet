@@ -26,7 +26,6 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.getStakingHistory
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
@@ -93,13 +92,14 @@ class EarnViewModel(val tokenSlug: String) :
 
     private var isLoadingStakingState = false
     private fun requestStakingState(accountId: String) {
-        if (isLoadingStakingState || token == null || AccountStore.stakingData == null) return
+        if (isLoadingStakingState || token == null) return
+        val stakingData = AccountStore.stakingData ?: return
 
         viewModelScope.launch {
             isLoadingStakingState = true
 
             try {
-                updateViewState(AccountStore.stakingData!!)
+                updateViewState(stakingData)
 
                 requestStakingHistory(accountId, page = 1)
                 requestTokenActivitiesForUnstakedItems(null)
@@ -125,6 +125,7 @@ class EarnViewModel(val tokenSlug: String) :
     }
 
     private fun updateViewState(updateStaking: MUpdateStaking) {
+        val token = token ?: return
         val stakingState = updateStaking.stakingState(tokenSlug)
 
         apy = stakingState?.annualYield
@@ -132,15 +133,15 @@ class EarnViewModel(val tokenSlug: String) :
 
         val stakingBalanceValue = stakingState?.totalBalance
         val stakingBalance = stakingBalanceValue?.toString(
-            token!!.decimals,
+            token.decimals,
             "",
-            stakingBalanceValue.smartDecimalsCount(token!!.decimals),
+            stakingBalanceValue.smartDecimalsCount(token.decimals),
             showPositiveSign = false,
             forceCurrencyToRight = true,
             roundUp = false
         )
         val stakingBalanceIsLarge =
-            stakingBalanceValue?.doubleAbsRepresentation(token!!.decimals)?.let { it >= 10 }
+            stakingBalanceValue?.doubleAbsRepresentation(token.decimals)?.let { it >= 10 }
                 ?: false
 
         val totalProfitAmount = when {
@@ -150,8 +151,8 @@ class EarnViewModel(val tokenSlug: String) :
             else -> BigInteger.ZERO
         }
         val totalProfit = totalProfitAmount?.toString(
-            token!!.decimals,
-            token!!.symbol,
+            token.decimals,
+            token.symbol,
             totalProfitAmount.smartDecimalsCount(9),
             showPositiveSign = false,
             forceCurrencyToRight = true
@@ -203,11 +204,7 @@ class EarnViewModel(val tokenSlug: String) :
                     TONCOIN_SLUG -> {
                         if (!isCheckingLatestChanges) {
                             val result =
-                                WalletCore.getStakingHistory(
-                                    accountId = accountId
-                                    /*page = page,
-                                    limit = 100*/
-                                )
+                                WalletCore.call(ApiMethod.Staking.GetStakingHistory(accountId))
                             lastLoadedPage = page
                             if (result.isNotEmpty()) {
                                 val distinctResult = result.distinctBy { it.timestamp }
@@ -227,11 +224,7 @@ class EarnViewModel(val tokenSlug: String) :
                             hasLoadedAllStakingHistoryItems = result.isEmpty()
                         } else {
                             val result =
-                                WalletCore.getStakingHistory(
-                                    accountId = accountId
-                                    /*page = 1,
-                                    limit = 100*/
-                                )
+                                WalletCore.call(ApiMethod.Staking.GetStakingHistory(accountId))
                             if (result.isNotEmpty()) {
                                 val distinctResult = result.distinctBy { it.timestamp }
                                 mergeHistory(distinctResult)
@@ -505,11 +498,7 @@ class EarnViewModel(val tokenSlug: String) :
 
     //
     fun getHistoryItems(): List<EarnItem> =
-        if (viewStateValue().historyListState is HistoryListState.HasItem) {
-            (viewStateValue().historyListState as HistoryListState.HasItem).historyItems
-        } else {
-            listOf()
-        }
+        (viewStateValue().historyListState as? HistoryListState.HasItem)?.historyItems ?: listOf()
 
     fun getTotalProfitFormatted() = viewStateValue().totalProfit
 
@@ -524,16 +513,15 @@ class EarnViewModel(val tokenSlug: String) :
     }
 
     //
-    private fun getTokenBalance(): BigInteger = if (token == null) {
-        BigInteger.ZERO
-    } else {
-        if (token?.isEarnAvailable == true) {
+    private fun getTokenBalance(): BigInteger {
+        val token = token ?: return BigInteger.ZERO
+        return if (token.isEarnAvailable) {
             AccountStore.activeAccountId?.let { activeAccountId ->
-                BalanceStore.getBalances(activeAccountId)?.get(token!!.slug)
+                BalanceStore.getBalances(activeAccountId)?.get(token.slug)
                     ?: BigInteger.valueOf(0)
             } ?: BigInteger.valueOf(0)
         } else {
-            AccountStore.stakingData?.stakingState(token!!.slug)?.balance
+            AccountStore.stakingData?.stakingState(token.slug)?.balance
                 ?: BigInteger.valueOf(0)
         }
     }
@@ -686,10 +674,10 @@ class EarnViewModel(val tokenSlug: String) :
                             }?.toMutableList()
                         }
                         historyItems = updatedItems
-                        if (!historyItems.isNullOrEmpty()) {
+                        if (!updatedItems.isNullOrEmpty()) {
                             _viewState.tryEmit(
                                 viewStateValue().updateHistoryItems(
-                                    newHistoryItems = groupConsecutiveProfitItems(historyItems!!),
+                                    newHistoryItems = groupConsecutiveProfitItems(updatedItems),
                                     replace = true
                                 )
                             )

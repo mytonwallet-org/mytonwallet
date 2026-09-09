@@ -6,6 +6,7 @@ import java.lang.reflect.Type
 import java.math.BigInteger
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.api.ArgumentsBuilder
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
@@ -18,6 +19,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
+import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubWallet
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
@@ -32,11 +34,21 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiReconcileActivityUpdateResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitMultiTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionRequest
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaults
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaultsRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItem
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapPairAsset
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapTransfer
 import org.mytonwallet.app_air.walletcore.moshi.MApiTokenDetails
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MEnvironmentVariables
@@ -45,6 +57,9 @@ import org.mytonwallet.app_air.walletcore.moshi.MImportedWalletResponse
 import org.mytonwallet.app_air.walletcore.moshi.MRevokeWalletPermissionOptions
 import org.mytonwallet.app_air.walletcore.moshi.MRevokeWalletPermissionResult
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
+import org.mytonwallet.app_air.walletcore.moshi.MStakeHistoryItem
+import org.mytonwallet.app_air.walletcore.moshi.MSwapCexValidateAddressParams
+import org.mytonwallet.app_air.walletcore.moshi.MSwapCexValidateAddressResult
 import org.mytonwallet.app_air.walletcore.moshi.MTonPlugin
 import org.mytonwallet.app_air.walletcore.moshi.MWalletPermission
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
@@ -386,6 +401,20 @@ sealed class ApiMethod<T> {
                 .string(langCode)
                 .build()
         }
+
+        class FetchPriceHistory(slug: String, period: MHistoryTimePeriod, baseCurrency: String) :
+            ApiMethod<List<List<Double>>>() {
+            override val name: String = "fetchPriceHistory"
+            override val type: Type = Types.newParameterizedType(
+                List::class.java,
+                Types.newParameterizedType(List::class.java, Double::class.javaObjectType)
+            )
+            override val arguments: String = ArgumentsBuilder()
+                .string(slug)
+                .string(period.value)
+                .string(baseCurrency)
+                .build()
+        }
     }
 
     object Settings {
@@ -568,6 +597,108 @@ sealed class ApiMethod<T> {
                 .string(accountId)
                 .string(swapId)
                 .string(txHash)
+                .build()
+        }
+
+        class SwapGetAssets : ApiMethod<List<MApiSwapAsset>>() {
+            override val name: String = "swapGetAssets"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MApiSwapAsset::class.java)
+            override val arguments: String = ArgumentsBuilder().build()
+        }
+
+        class SwapGetPairs(slug: String) : ApiMethod<List<MApiSwapPairAsset>>() {
+            override val name: String = "swapGetPairs"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MApiSwapPairAsset::class.java)
+            override val arguments: String = ArgumentsBuilder()
+                .string(slug)
+                .build()
+        }
+
+        class SwapCexEstimate(accountId: String, request: MApiSwapEstimateRequest) :
+            ApiMethod<MApiSwapCexEstimateResponse>() {
+            override val name: String = "swapEstimate"
+            override val type: Type = MApiSwapCexEstimateResponse::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .jsObject(request, MApiSwapEstimateRequest::class.java)
+                .build()
+        }
+
+        class SwapCexCreateTransaction(
+            accountId: String,
+            enclaveToken: String,
+            request: MApiSwapCexCreateTransactionRequest
+        ) : ApiMethod<MApiSwapCexCreateTransactionResponse>() {
+            override val name: String = "swapCexCreateTransaction"
+            override val type: Type = MApiSwapCexCreateTransactionResponse::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .jsObject(request, MApiSwapCexCreateTransactionRequest::class.java)
+                .build()
+        }
+
+        class SwapBuildTransfer(
+            accountId: String,
+            enclaveToken: String,
+            request: MApiSwapBuildRequest
+        ) : ApiMethod<MApiSwapBuildResponse>() {
+            override val name: String = "swapBuildTransfer"
+            override val type: Type = MApiSwapBuildResponse::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .jsObject(request, MApiSwapBuildRequest::class.java)
+                .build()
+        }
+
+        class SwapSubmit(
+            chain: MBlockchain,
+            accountId: String,
+            enclaveToken: String,
+            transfers: List<MApiSwapTransfer>?,
+            historyItem: MApiSwapHistoryItem,
+            withDiesel: Boolean,
+            transaction: String?
+        ) : ApiMethod<MApiSubmitMultiTransferResult>() {
+            override val name: String = "swapSubmit"
+            override val type: Type = MApiSubmitMultiTransferResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
+                .string(accountId)
+                .string(enclaveToken)
+                .jsObject(
+                    transfers,
+                    Types.newParameterizedType(List::class.java, MApiSwapTransfer::class.java)
+                )
+                .jsObject(historyItem, MApiSwapHistoryItem::class.java)
+                .boolean(withDiesel)
+                .string(transaction)
+                .build()
+        }
+
+        class SwapCexValidateAddress(params: MSwapCexValidateAddressParams) :
+            ApiMethod<MSwapCexValidateAddressResult>() {
+            override val name: String = "swapCexValidateAddress"
+            override val type: Type = MSwapCexValidateAddressResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsObject(params, MSwapCexValidateAddressParams::class.java)
+                .build()
+        }
+
+        class SwapCexSubmit(
+            chain: MBlockchain,
+            options: MApiSubmitTransferOptions,
+            swapId: String
+        ) : ApiMethod<ApiSubmitTransferResult>() {
+            override val name: String = "swapCexSubmit"
+            override val type: Type = ApiSubmitTransferResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(chain.name)
+                .jsObject(options, MApiSubmitTransferOptions::class.java)
+                .string(swapId)
                 .build()
         }
     }
@@ -1059,6 +1190,32 @@ sealed class ApiMethod<T> {
     }
 
     /* Staking */
+    object Portfolio {
+        enum class HistoryKind(val methodName: String) {
+            NET_WORTH("fetchPortfolioNetWorthHistory"),
+            PNL_CUMULATIVE("fetchPortfolioPnlCumulativeHistory"),
+            PNL("fetchPortfolioPnlHistory")
+        }
+
+        class FetchHistory(
+            kind: HistoryKind,
+            wallets: List<String>,
+            baseCurrency: String,
+            params: Params
+        ) : ApiMethod<ApiPortfolioHistoryResponse>() {
+            @JsonClass(generateAdapter = true)
+            data class Params(val from: String, val to: String, val density: String)
+
+            override val name: String = kind.methodName
+            override val type: Type = ApiPortfolioHistoryResponse::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .jsArray(wallets, String::class.java)
+                .string(baseCurrency)
+                .jsObject(params, Params::class.java)
+                .build()
+        }
+    }
+
     object Staking {
         class CheckStakeDraft(accountId: String, amount: BigInteger, state: StakingState) :
             ApiMethod<MApiCheckStakeDraftResult>() {
@@ -1094,6 +1251,51 @@ sealed class ApiMethod<T> {
                 .string(accountId)
                 .string(enclaveToken)
                 .jsObject(state, StakingState::class.java)
+                .bigInt(realFee)
+                .build()
+        }
+
+        class GetStakingHistory(accountId: String) : ApiMethod<List<MStakeHistoryItem>>() {
+            override val name: String = "getStakingHistory"
+            override val type: Type =
+                Types.newParameterizedType(List::class.java, MStakeHistoryItem::class.java)
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .build()
+        }
+
+        class SubmitStake(
+            accountId: String,
+            amount: BigInteger,
+            stakingState: StakingState,
+            enclaveToken: String,
+            realFee: BigInteger
+        ) : ApiMethod<ApiSubmitTransferResult>() {
+            override val name: String = "submitStake"
+            override val type: Type = ApiSubmitTransferResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .bigInt(amount)
+                .jsObject(stakingState, StakingState::class.java)
+                .bigInt(realFee)
+                .build()
+        }
+
+        class SubmitUnstake(
+            accountId: String,
+            amount: BigInteger,
+            stakingState: StakingState,
+            enclaveToken: String,
+            realFee: BigInteger
+        ) : ApiMethod<ApiSubmitTransferResult>() {
+            override val name: String = "submitUnstake"
+            override val type: Type = ApiSubmitTransferResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(enclaveToken)
+                .bigInt(amount)
+                .jsObject(stakingState, StakingState::class.java)
                 .bigInt(realFee)
                 .build()
         }

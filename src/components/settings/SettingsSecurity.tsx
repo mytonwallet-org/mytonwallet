@@ -560,7 +560,7 @@ function SettingsSecurity({
           ? lang(getDoesUsePinPad()
             ? 'If you turn off biometric protection, you will need to create a passcode.'
             : 'If you turn off biometric protection, you will need to create a password.')
-          : lang('Are you sure you want to disable biometric authentication?')}
+          : lang('Are you sure you want to disable biometrics?')}
         onClose={handleBiometricsClose}
         onConfirm={handleDisableBiometricsProceed}
       />

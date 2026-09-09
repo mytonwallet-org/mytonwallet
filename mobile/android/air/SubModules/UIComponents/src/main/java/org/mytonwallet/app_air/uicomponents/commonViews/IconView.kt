@@ -201,10 +201,9 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
         transaction: MApiTransaction.Transaction
     ): GradientDrawable {
         if (transaction.status == ApiTransactionStatus.FAILED) {
-            if (failedTransactionDrawable == null) {
-                failedTransactionDrawable = GradientDrawables.redDrawable
+            return failedTransactionDrawable ?: GradientDrawables.redDrawable.also {
+                failedTransactionDrawable = it
             }
-            return failedTransactionDrawable!!
         }
         return transactionGradientCache.getOrPut(transaction.type) {
             getTransactionGradientDrawable(transaction.type, transaction.isIncoming)

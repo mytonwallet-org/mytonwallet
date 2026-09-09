@@ -162,6 +162,32 @@ struct WalletCoreSearchSourceTests {
     }
 
     @Test
+    func `connections appear in Recent without search selections and stay account scoped`() async throws {
+        let connectedAt = 1_788_920_000_123
+        let app = ApiDapp(
+            url: "https://app.1inch.io/swap?network=1",
+            name: "1inch",
+            iconUrl: "",
+            manifestUrl: "https://cdn.example.com/tonconnect-manifest.json",
+            connectedAt: connectedAt,
+            urlTrustStatus: .verified,
+            sse: nil
+        )
+        let source = WalletCoreConnectedAppSearchSource(loader: { context in
+            context.scopeID == "used-account" ? [app] : []
+        })
+        let used = try await source.snapshot(for: .init(scopeID: "used-account", network: "mainnet", localeIdentifier: "en"))
+        let other = try await source.snapshot(for: .init(scopeID: "other-account", network: "mainnet", localeIdentifier: "en"))
+        let browse = UniversalSearchBrowseEngine()
+        let recent = browse.snapshot(in: used.documents, corpusRevision: 1).recentDocuments
+
+        #expect(recent.map(\.id) == [SearchEntityID("application:app.1inch.io")])
+        #expect(recent.first?.signals.interaction?.lastSelectedAt
+            == Date(timeIntervalSince1970: Double(connectedAt) / 1_000))
+        #expect(browse.snapshot(in: other.documents, corpusRevision: 2).recentDocuments.isEmpty)
+    }
+
+    @Test
     func `explore app source maps catalog metadata ranking and restrictions`() throws {
         let date = Date(timeIntervalSince1970: 42)
         let visible = Self.makeSite(

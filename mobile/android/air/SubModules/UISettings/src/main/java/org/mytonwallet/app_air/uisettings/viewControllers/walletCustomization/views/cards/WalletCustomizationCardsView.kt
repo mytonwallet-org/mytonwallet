@@ -56,7 +56,7 @@ open class WalletCustomizationCardsView(
             val center = rv.width / 2
 
             for (i in 0 until rv.childCount) {
-                val child = rv.getChildAt(i) as WalletCustomizationCardCell
+                val child = rv.getChildAt(i) as? WalletCustomizationCardCell ?: continue
                 val childCenter = (child.left + child.right) / 2
                 val distance = center - childCenter
                 val maxDistance = center
@@ -68,7 +68,7 @@ open class WalletCustomizationCardsView(
                 child.rotationY = rotationY
             }
 
-            val lm = rv.layoutManager as LinearLayoutManager
+            val lm = rv.layoutManager as? LinearLayoutManager ?: return
             val first = lm.findFirstVisibleItemPosition()
             val firstView = lm.findViewByPosition(first) ?: return
             val itemWidth = firstView.width

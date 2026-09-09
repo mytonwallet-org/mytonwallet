@@ -129,9 +129,9 @@ class PermissionCell(context: Context) :
         this.isLast = isLast
         this.onTap = onTap
         val hasImage = iconUrl != null
-        if (hasImage) {
+        if (iconUrl != null) {
             imageView.visibility = VISIBLE
-            imageView.set(Content(image = Content.Image.Url(iconUrl!!)))
+            imageView.set(Content(image = Content.Image.Url(iconUrl)))
         } else {
             imageView.clear()
             imageView.visibility = GONE

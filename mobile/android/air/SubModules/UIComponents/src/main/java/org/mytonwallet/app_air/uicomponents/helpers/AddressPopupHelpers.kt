@@ -58,7 +58,7 @@ class AddressPopupHelpers {
             color: Int? = null,
             showTemporaryViewOption: Boolean
         ) {
-            val context = viewController.get()!!.view.context
+            val context = viewController.get()?.view?.context ?: return
             context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
             )?.let { drawable ->
@@ -235,7 +235,7 @@ class AddressPopupHelpers {
             view: View,
             viewController: WeakReference<WViewController>
         ) {
-            val viewController = viewController.get()!!
+            val viewController = viewController.get() ?: return
             val context = viewController.context
             val input = object : WEditText(context, null, false) {
                 init {

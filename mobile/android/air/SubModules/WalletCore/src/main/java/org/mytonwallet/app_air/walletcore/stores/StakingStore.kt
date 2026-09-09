@@ -9,12 +9,16 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletCore.moshi
 import org.mytonwallet.app_air.walletcore.WalletCore.notifyEvent
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.buildVirtualStakingSlug
 import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
+import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 object StakingStore : IStore {
     private var stakingData = ConcurrentHashMap<String, MUpdateStaking?>()
@@ -115,6 +119,26 @@ object StakingStore : IStore {
     }
 
     fun getStakingState(accountId: String): MUpdateStaking? = stakingData[accountId]
+
+    suspend fun submitUnstake(
+        accountId: String,
+        amount: BigInteger,
+        stakingState: StakingState,
+        enclaveToken: String,
+        realFee: BigInteger
+    ): ApiSubmitTransferResult {
+        val unstakeDraft =
+            WalletCore.call(ApiMethod.Staking.CheckUnstakeDraft(accountId, amount, stakingState))
+        return WalletCore.call(
+            ApiMethod.Staking.SubmitUnstake(
+                accountId,
+                unstakeDraft.tokenAmount,
+                stakingState,
+                enclaveToken,
+                realFee
+            )
+        )
+    }
 
     override fun wipeData() {
         clearCache()

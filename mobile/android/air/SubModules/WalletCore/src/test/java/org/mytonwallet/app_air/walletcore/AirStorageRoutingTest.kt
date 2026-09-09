@@ -33,11 +33,7 @@ class AirStorageRoutingTest {
         val keys = listOf(
             "agentMessages",
             "agentConversationId",
-            "headlessBalanceSnapshots",
-            "walletOperationIntents",
-            "activeCexSwapReconciliationState",
-            "knownTonAggregatorTraceIds",
-            "knownTonAggregatorTraceProjections"
+            "headlessBalanceSnapshots"
         )
 
         keys.forEach {

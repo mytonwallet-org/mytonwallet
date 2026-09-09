@@ -282,11 +282,14 @@ class AssetsVC(
                 getEmptyThumbHeight().takeIf { it > 0 } ?: 192.dp
             } else {
                 val rows = if (assetsVM.nftsCount > 3) 2 else 1
+                val bottomPadding = when {
+                    thereAreMoreToShow -> 64.dp
+                    segmentedController?.headerHeight == 0 -> thumbRecyclerVerticalPadding()
+                    else -> 8.dp
+                }.coerceAtLeast(thumbRecyclerVerticalPadding())
                 val nftGridHeight = rows * (thumbGridItemWidth() + cellTitleExtraHeight) +
                     thumbRecyclerVerticalPadding() +
-                    (if (thereAreMoreToShow) 64 else 8).dp.coerceAtLeast(
-                        thumbRecyclerVerticalPadding()
-                    )
+                    bottomPadding
                 nftGridHeight +
                     (if (shouldShowWarningBanner) thumbBannerContainerHeight else 0)
             }
@@ -386,7 +389,7 @@ class AssetsVC(
         (if (window?.isWideLayout == true) 8 else THUMB_RECYCLER_HORIZONTAL_PADDING_DP).dp
 
     private fun thumbRecyclerVerticalPadding(): Int =
-        (if (window?.isWideLayout == true) 8 else 4).dp
+        (if (window?.isWideLayout == true) 8 else 5).dp
 
     private fun thumbGridItemWidth(): Int {
         val contentWidth = view.width.takeIf { it > 0 } ?: recyclerView.width
@@ -828,10 +831,10 @@ class AssetsVC(
                 listOf("%name%" to (title ?: ""))
             )
         )
-        v.onTap = {
+        v.onTap = onTap@{
             val initialSelectionSnapshot = selectionSnapshot()
             onShowAllTapped?.invoke()
-            val window = injectedWindow ?: this.window!!
+            val window = injectedWindow ?: this.window ?: return@onTap
             val navVC = WNavigationController(
                 window,
                 PresentationConfig.PreferredFullScreen
@@ -856,8 +859,8 @@ class AssetsVC(
         WImageButton(context).apply {
             setPadding(8.dp)
             setOnClickListener {
-                val homeNftCollections =
-                    WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId!!)
+                val accountId = AccountStore.activeAccountId ?: return@setOnClickListener
+                val homeNftCollections = WGlobalStorage.getHomeNftCollections(accountId)
                 if (isInHomeTabs) {
                     homeNftCollections.removeAll { it == homeCollectionTab }
                 } else {
@@ -866,7 +869,7 @@ class AssetsVC(
                     }
                 }
                 WGlobalStorage.setHomeNftCollections(
-                    AccountStore.activeAccountId!!,
+                    accountId,
                     homeNftCollections
                 )
                 WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
@@ -894,8 +897,8 @@ class AssetsVC(
 
     private val isInHomeTabs: Boolean
         get() {
-            val homeNftCollections =
-                WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId!!)
+            val accountId = AccountStore.activeAccountId ?: return false
+            val homeNftCollections = WGlobalStorage.getHomeNftCollections(accountId)
             return homeNftCollections.any { it == homeCollectionTab }
         }
 
@@ -1058,7 +1061,7 @@ class AssetsVC(
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(title!!)
+        setNavTitle(title ?: "")
         if (isShowingSingleCollection) {
             setupNavBar(true)
             if (!isReadOnly) {
@@ -1573,7 +1576,7 @@ class AssetsVC(
                 it.updateLayoutParams {
                     height = WNavigationBar.DEFAULT_HEIGHT.dp +
                         (navigationController?.getSystemBars()?.top ?: 0) +
-                        underSegmentedControlReversedCornerView!!.cornerRadius.roundToInt()
+                        it.cornerRadius.roundToInt()
                 }
             }
         }
@@ -1619,9 +1622,9 @@ class AssetsVC(
             context,
             assetsVM.showingAccountId,
             nft,
-            assetsVM.getAllNfts()!!
+            assetsVM.getAllNfts() ?: return
         )
-        val window = injectedWindow ?: window!!
+        val window = injectedWindow ?: window ?: return
         val tabNav = navigationController?.tabBarController?.mainNavigationController
         if (tabNav != null) {
             tabNav.push(assetVC)
@@ -1853,8 +1856,9 @@ class AssetsVC(
 
     private fun animateHeight() {
         if (currentHeight == finalHeight) return
-        if (currentHeight != null && shouldAnimateHeight?.invoke() != false) {
-            ValueAnimator.ofInt(currentHeight!!, finalHeight).apply {
+        val startHeight = currentHeight
+        if (startHeight != null && shouldAnimateHeight?.invoke() != false) {
+            ValueAnimator.ofInt(startHeight, finalHeight).apply {
                 duration = AnimationConstants.VERY_QUICK_ANIMATION
                 interpolator = CubicBezierInterpolator.EASE_BOTH
 
@@ -1949,12 +1953,13 @@ class AssetsVC(
     }
 
     private fun setReversedCornerViewRadius(radius: Float?) {
-        underSegmentedControlReversedCornerView?.setRadius(radius)
-        if (underSegmentedControlReversedCornerView?.layoutParams != null) {
-            underSegmentedControlReversedCornerView?.updateLayoutParams {
+        val cornerView = underSegmentedControlReversedCornerView ?: return
+        cornerView.setRadius(radius)
+        if (cornerView.layoutParams != null) {
+            cornerView.updateLayoutParams {
                 height = WNavigationBar.DEFAULT_HEIGHT.dp +
                     (navigationController?.getSystemBars()?.top ?: 0) +
-                    underSegmentedControlReversedCornerView!!.cornerRadius.roundToInt()
+                    cornerView.cornerRadius.roundToInt()
             }
         }
     }

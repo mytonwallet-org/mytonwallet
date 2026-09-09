@@ -72,7 +72,7 @@ class ImagePaletteHelpers {
                     )
                     index to distance
                 }
-            }.minByOrNull { it.second }!!.first
+            }.minByOrNull { it.second }?.first ?: 0
         }
 
         private fun rgbToLab(r: Int, g: Int, b: Int): DoubleArray {

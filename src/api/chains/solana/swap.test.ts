@@ -15,12 +15,6 @@ jest.mock('../../common/accounts', () => ({
   fetchStoredWallet: jest.fn(),
 }));
 
-jest.mock('../../common/activities/reconciler/operationIntentStore', () => ({
-  buildSwapOperationId: jest.fn((swapId: string) => `swap:${swapId}`),
-  rememberDexSwapOperationIntent: jest.fn(),
-  rememberWalletOperationSubmittedHashes: jest.fn(),
-}));
-
 jest.mock('../../common/swap', () => ({
   patchSwapItem: jest.fn(),
 }));

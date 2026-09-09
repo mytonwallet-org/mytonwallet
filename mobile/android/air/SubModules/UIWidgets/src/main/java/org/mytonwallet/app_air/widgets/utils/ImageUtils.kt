@@ -94,7 +94,10 @@ object ImageUtils {
                                 if (closeableImage is CloseableBitmap) {
                                     val bitmap = closeableImage.underlyingBitmap
                                     if (bitmap != null && !bitmap.isRecycled) {
-                                        val bitmapCopy = bitmap.copy(bitmap.config!!, false)
+                                        val bitmapCopy = bitmap.copy(
+                                            bitmap.config ?: Bitmap.Config.ARGB_8888,
+                                            false
+                                        )
                                         val finalBitmap = if (isCircular) {
                                             try {
                                                 getCircularBitmap(bitmapCopy)

@@ -260,8 +260,8 @@ class TokensVC(
             icon = R.drawable.ic_show_assets,
             text = LocaleController.getString("Show All Assets")
         )
-        v.onTap = {
-            val window = this.window!!
+        v.onTap = onTap@{
+            val window = this.window ?: return@onTap
             val navVC = WNavigationController(
                 window,
                 WNavigationController.PresentationConfig.PreferredFullScreen
@@ -568,12 +568,13 @@ class TokensVC(
                     val token = TokenStore.getToken(tokenBalance.token)
                     token?.let {
                         if (tokenBalance.isVirtualStakingRow) {
+                            val window = window ?: return@let
                             val navVC = WNavigationController(
-                                window!!,
+                                window,
                                 WNavigationController.PresentationConfig.PreferredFullScreen
                             )
                             navVC.setRoot(EarnRootVC(context, tokenSlug = token.slug))
-                            window?.present(navVC)
+                            window.present(navVC)
                             return@let
                         }
                         val account = AccountStore.activeAccount ?: return@let
@@ -623,7 +624,6 @@ class TokensVC(
         scope.cancel()
         queueDispatcher.close()
         heightAnimator?.cancel()
-        WalletCore.unregisterObserver(this)
         recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()

@@ -141,7 +141,7 @@ class SensitiveDataMaskView(context: Context) : View(context) {
 
         val currentSkin =
             skin ?: if (ThemeManager.isDark) Skin.DARK_THEME else Skin.LIGHT_THEME
-        val colorArray = SKIN_COLORS[currentSkin] ?: SKIN_COLORS[Skin.LIGHT_THEME]!!
+        val colorArray = SKIN_COLORS[currentSkin] ?: SKIN_COLORS.getValue(Skin.LIGHT_THEME)
 
         for (row in 0 until rows) {
             for (col in 0 until cols) {

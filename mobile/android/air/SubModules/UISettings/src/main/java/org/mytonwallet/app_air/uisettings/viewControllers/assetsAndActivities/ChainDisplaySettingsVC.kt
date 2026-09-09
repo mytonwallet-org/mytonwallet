@@ -236,7 +236,6 @@ class ChainDisplaySettingsVC(context: Context) :
     override fun onDestroy() {
         super.onDestroy()
         itemTouchHelper.attachToRecyclerView(null)
-        WalletCore.unregisterObserver(this)
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 4

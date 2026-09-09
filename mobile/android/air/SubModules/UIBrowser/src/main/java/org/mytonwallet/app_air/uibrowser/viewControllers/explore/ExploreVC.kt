@@ -388,7 +388,7 @@ class ExploreVC(context: Context) :
             is ExploreCategoryCell -> {
                 val colCount = calculateNoOfColumns()
                 (cellHolder.cell as ExploreCategoryCell).configure(
-                    exploreVM.showingExploreCategories!!.getOrNull(indexPath.row - 1),
+                    exploreVM.showingExploreCategories?.getOrNull(indexPath.row - 1),
                     isLeading = indexPath.row % colCount == 1,
                     isTrailing = indexPath.row % colCount == 0,
                     isFirstRow = indexPath.row <= colCount,
@@ -401,21 +401,23 @@ class ExploreVC(context: Context) :
     }
 
     override fun updateEmptyView() {
-        if (exploreVM.showingExploreCategories == null) {
+        val categories = exploreVM.showingExploreCategories
+        if (categories == null) {
             if ((emptyView?.alpha ?: 0f) > 0) emptyView?.fadeOut()
-        } else if (exploreVM.showingExploreCategories!!.isEmpty()) {
+        } else if (categories.isEmpty()) {
             // switch from loading view to wallet created view
             if (emptyView == null) {
-                emptyView =
+                val emptyView =
                     WEmptyIconView(
                         context,
                         R.raw.animation_empty,
                         LocaleController.getString("No Dapps Found!")
                     )
-                view.addView(emptyView!!, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+                this.emptyView = emptyView
+                view.addView(emptyView, ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
                 view.setConstraints {
-                    toCenterX(emptyView!!)
-                    toCenterY(emptyView!!)
+                    toCenterX(emptyView)
+                    toCenterY(emptyView)
                 }
             } else if ((emptyView?.alpha ?: 0f) < 1) {
                 if (emptyView?.startedAnimation == true) emptyView?.fadeIn()
@@ -509,7 +511,7 @@ class ExploreVC(context: Context) :
             val targetNavigationController = targetNavigationController ?: return
             isShowingSearch = true
             enhancedSearchEnabled = useEnhancedSearch
-            searchVC = SearchVC(
+            val searchVC = SearchVC(
                 context,
                 enhancedSearchEnabled,
                 usesGlobalSearchOverlay = isGlobalSearch,
@@ -519,15 +521,16 @@ class ExploreVC(context: Context) :
             )
             searchNavigationController = targetNavigationController
             isGlobalSearchSession = isGlobalSearch
+            this.searchVC = searchVC
             if (targetNavigationController.viewControllers.isEmpty()) {
                 // The overlay stack starts empty, and push() is a no-op without a root. setRoot()
                 // skips the appearance callbacks that push() drives, so run them here: results are
                 // dropped while the screen still reports itself as disappeared.
-                targetNavigationController.setRoot(searchVC!!)
-                searchVC!!.viewWillAppear()
-                searchVC!!.viewDidAppear()
+                targetNavigationController.setRoot(searchVC)
+                searchVC.viewWillAppear()
+                searchVC.viewDidAppear()
             } else {
-                targetNavigationController.push(searchVC!!, false)
+                targetNavigationController.push(searchVC, false)
             }
             if (isGlobalSearch) {
                 targetNavigationController.tabBarController?.revealSearchOverlay()
@@ -593,9 +596,10 @@ class ExploreVC(context: Context) :
                     saveInVisitedHistory = true
                 )
             )
-            val nav = WNavigationController(window!!)
+            val window = window ?: return
+            val nav = WNavigationController(window)
             nav.setRoot(inAppBrowserVC)
-            window?.present(nav)
+            window.present(nav)
         } ?: run {
             pushConfigure()
         }

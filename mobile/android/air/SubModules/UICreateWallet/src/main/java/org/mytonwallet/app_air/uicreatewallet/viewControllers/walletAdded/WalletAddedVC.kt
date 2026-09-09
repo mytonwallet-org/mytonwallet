@@ -62,12 +62,13 @@ class WalletAddedVC(context: Context, isNew: Boolean, importedAccountsCount: Int
     private val openWalletButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Open Wallet")
         setOnClickListener {
+            val window = window ?: return@setOnClickListener
             val navigationController =
-                WNavigationController(window!!, WNavigationController.PresentationConfig())
+                WNavigationController(window, WNavigationController.PresentationConfig())
             navigationController.setRoot(
-                if (window!!.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
+                if (window.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
             )
-            window!!.replace(navigationController, true)
+            window.replace(navigationController, true)
         }
         alpha = 0f
     }

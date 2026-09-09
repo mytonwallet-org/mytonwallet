@@ -4,8 +4,6 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MExplainedTransferFee
 
 @JsonClass(generateAdapter = true)
@@ -40,13 +38,10 @@ data class MApiCheckTransactionDraftOptions(
     val payload: ApiTransferPayload?
 )
 
-@JsonSealed("type")
 sealed class ApiTransferPayload {
-    @JsonSealedSubtype("comment")
     @JsonClass(generateAdapter = true)
     data class Comment(val text: String, val shouldEncrypt: Boolean? = null) : ApiTransferPayload()
 
-    @JsonSealedSubtype("binary")
     @JsonClass(generateAdapter = true)
     data class Binary(val data: ByteArray) : ApiTransferPayload() {
         override fun equals(other: Any?): Boolean {
@@ -58,7 +53,6 @@ sealed class ApiTransferPayload {
         override fun hashCode(): Int = data.contentHashCode()
     }
 
-    @JsonSealedSubtype("base64")
     @JsonClass(generateAdapter = true)
     data class Base64(val data: String) : ApiTransferPayload()
 }

@@ -3,7 +3,7 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.EnumJsonAdapterFactory
+import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapterFactory
 
 class ApprovalTransactionDecodingTest {
     private val adapter = Moshi.Builder()

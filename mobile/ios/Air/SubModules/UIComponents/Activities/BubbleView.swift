@@ -35,6 +35,7 @@ public final class BubbleView: UIView {
     
     private let bubbleLayer: CAShapeLayer = CAShapeLayer()
     let label = UILabel()
+    var constrainsLabelToBounds = false
     private var direction: Direction = .incoming
     private var isError: Bool = false
     
@@ -78,6 +79,9 @@ public final class BubbleView: UIView {
     }
 
     public override func layoutSubviews() {
+        if constrainsLabelToBounds {
+            label.preferredMaxLayoutWidth = max(0, bounds.width - (12 + 1) * 2)
+        }
         super.layoutSubviews()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -283,7 +287,8 @@ public struct SBubbleView: UIViewRepresentable {
     public func makeUIView(context: Context) -> BubbleView {
         let bubbleView = BubbleView()
         bubbleView.textStyle = .body
-        bubbleView.lineLimit = 30
+        bubbleView.lineLimit = 0
+        bubbleView.constrainsLabelToBounds = true
         return bubbleView
     }
     
@@ -297,20 +302,15 @@ public struct SBubbleView: UIViewRepresentable {
     }
     
     public func sizeThatFits(_ proposal: ProposedViewSize, uiView bubbleView: BubbleView, context: Context) -> CGSize? {
-        
-        let horizontalPadding = (12.0 + 1.0) * 2.0 // Label leading/trailing constraints: (12 + 1) on each side
-
-        var layoutSize = UIView.layoutFittingCompressedSize
-        
-        if let proposedWidth = proposal.width {
-            bubbleView.label.preferredMaxLayoutWidth = max(0, proposedWidth - horizontalPadding)
-            layoutSize.width = proposedWidth
-        } else {
-            bubbleView.label.preferredMaxLayoutWidth = 0
-        }
-
-        let calculatedSize = bubbleView.systemLayoutSizeFitting(layoutSize)
-        
-        return calculatedSize
+        let horizontalPadding = (12.0 + 1.0) * 2.0
+        let width = proposal.width.flatMap { $0.isFinite ? max(36, $0) : nil } ?? .greatestFiniteMagnitude
+        // SwiftUI probes several widths. Measuring must not relayout the live label.
+        let labelSize = bubbleView.label.sizeThatFits(
+            CGSize(width: width - horizontalPadding, height: .greatestFiniteMagnitude)
+        )
+        return CGSize(
+            width: max(36, labelSize.width + horizontalPadding),
+            height: max(32, labelSize.height + 16)
+        )
     }
 }

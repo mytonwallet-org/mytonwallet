@@ -136,25 +136,29 @@ object BalanceStore : IStore {
     }
 
     fun resetBalanceInBaseCurrency() {
-        totalBalanceInBaseCurrency.clear()
-        totalBalanceInBaseCurrencyPerChain.clear()
-        totalBalance24hInBaseCurrency.clear()
-        if (TokenStore.tokens.isEmpty() ||
-            balances.isEmpty() ||
-            TokenStore.currencyRates.isNullOrEmpty()
-        ) {
-            return
-        }
-        val accounts = WGlobalStorage.accountIds()
-        accounts.forEach {
-            calcTotalBalanceInBaseCurrency(it)?.let { result ->
-                totalBalanceInBaseCurrency[it] = result.total
-                totalBalanceInBaseCurrencyPerChain[it] = result.perChain
-            }
-            calcTotalBalance24hInBaseCurrency(it)?.let { balance ->
-                totalBalance24hInBaseCurrency[it] = balance
+        val totals = HashMap<String, Double>()
+        val totalsPerChain = HashMap<String, Map<MBlockchain, Double>>()
+        val totals24h = HashMap<String, Double>()
+        val canCalculate = TokenStore.tokens.isNotEmpty() &&
+            balances.isNotEmpty() &&
+            !TokenStore.currencyRates.isNullOrEmpty()
+        if (canCalculate) {
+            WGlobalStorage.accountIds().forEach {
+                calcTotalBalanceInBaseCurrency(it)?.let { result ->
+                    totals[it] = result.total
+                    totalsPerChain[it] = result.perChain
+                }
+                calcTotalBalance24hInBaseCurrency(it)?.let { balance ->
+                    totals24h[it] = balance
+                }
             }
         }
+        totalBalanceInBaseCurrency.keys.retainAll(totals.keys)
+        totalBalanceInBaseCurrency.putAll(totals)
+        totalBalanceInBaseCurrencyPerChain.keys.retainAll(totalsPerChain.keys)
+        totalBalanceInBaseCurrencyPerChain.putAll(totalsPerChain)
+        totalBalance24hInBaseCurrency.keys.retainAll(totals24h.keys)
+        totalBalance24hInBaseCurrency.putAll(totals24h)
     }
 
     fun totalBalanceInBaseCurrency(accountId: String): Double? =

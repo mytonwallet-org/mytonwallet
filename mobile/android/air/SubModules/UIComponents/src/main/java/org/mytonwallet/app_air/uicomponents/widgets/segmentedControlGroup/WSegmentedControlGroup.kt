@@ -185,19 +185,21 @@ class WSegmentedControlGroup(context: Context) :
         }
         var newPositionIndex = 0
 
-        if (optionPositionsMap[1] != null && pointerPosX < optionPositionsMap[1]!!) {
-            newPositionIndex = 0
+        optionPositionsMap[1]?.let { firstEnd ->
+            if (pointerPosX < firstEnd) newPositionIndex = 0
         }
 
         val endPos = childCount - 1
-        if (endPos > 0 && optionPositionsMap[endPos] != null &&
-            pointerPosX > optionPositionsMap[endPos]!!
-        ) {
-            newPositionIndex = endPos
+        if (endPos > 0) {
+            optionPositionsMap[endPos]?.let { lastStart ->
+                if (pointerPosX > lastStart) newPositionIndex = endPos
+            }
         }
 
         for (i in 1 until childCount - 1) {
-            if (pointerPosX in optionPositionsMap[i]!!..optionPositionsMap[i + 1]!!) {
+            val start = optionPositionsMap[i] ?: continue
+            val end = optionPositionsMap[i + 1] ?: continue
+            if (pointerPosX in start..end) {
                 newPositionIndex = i
             }
         }

@@ -156,7 +156,7 @@ class PriceWidget : AppWidgetProvider() {
             onUpdate(
                 context,
                 appWidgetManager,
-                intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS)!!
+                intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS) ?: return
             )
         }
         intent.getStringExtra(DeeplinkUtils.MTW_DEEPLINK)?.let { mtwDeeplink ->
@@ -520,7 +520,7 @@ class PriceWidget : AppWidgetProvider() {
             TextUtils.textToBitmap(
                 context,
                 TextUtils.DrawableText(
-                    Date(firstEntry!![0].toLong() * 1000).formatDateAndTime(
+                    Date((firstEntry?.get(0)?.toLong() ?: 0L) * 1000).formatDateAndTime(
                         config.period ?: MHistoryTimePeriod.DAY
                     ),
                     size = 14,

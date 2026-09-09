@@ -199,20 +199,19 @@ class NftAttributesView(context: Context) :
         addView(verticalBarrier)
         setConstraints {
             rowViews.forEachIndexed { i, rowView ->
-                val topView: View? =
-                    if (i == 0) null else rowViews[i - 1].separator
+                val topView: View? = rowViews.getOrNull(i - 1)?.separator
                 // Title
-                if (i == 0) {
+                if (topView == null) {
                     toTop(rowView.titleLabel, 10f)
                 } else {
-                    topToBottom(rowView.titleLabel, topView!!, 10f)
+                    topToBottom(rowView.titleLabel, topView, 10f)
                 }
                 toStart(rowView.titleLabel, 12f)
                 // Value
-                if (i == 0) {
+                if (topView == null) {
                     toTop(rowView.valueLabel, 10f)
                 } else {
-                    topToBottom(rowView.valueLabel, topView!!, 10f)
+                    topToBottom(rowView.valueLabel, topView, 10f)
                 }
                 setHorizontalBias(rowView.valueLabel.id, 0f)
                 startToEnd(rowView.valueLabel, verticalBarrier, 16f)

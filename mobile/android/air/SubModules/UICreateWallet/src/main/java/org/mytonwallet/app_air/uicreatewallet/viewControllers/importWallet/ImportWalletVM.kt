@@ -12,12 +12,12 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.api.enclaveImportSecrets
 import org.mytonwallet.app_air.walletcore.api.importPrivateKey
 import org.mytonwallet.app_air.walletcore.api.importWallet
-import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.api.validateMnemonic
 import org.mytonwallet.app_air.walletcore.helpers.PrivateKeyHelper
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
 
 class ImportWalletVM(delegate: Delegate) {
@@ -110,7 +110,7 @@ class ImportWalletVM(delegate: Delegate) {
                 )
                 AirPushNotifications.subscribe(account, ignoreIfLimitReached = true)
             }
-            WalletCore.refreshStoredMfaIfPossible(
+            AccountStore.refreshMfaIfPossible(
                 importedAccounts.map { it.accountId },
                 enclaveToken
             )

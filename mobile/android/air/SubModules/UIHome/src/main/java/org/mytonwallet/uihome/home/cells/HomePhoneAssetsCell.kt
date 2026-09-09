@@ -426,16 +426,19 @@ class HomePhoneAssetsCell(
                                                     LocaleController.getString("Yes"),
                                                     buttonPressed = {
                                                         remove(collectionMode)
+                                                        val accountId =
+                                                            AccountStore.activeAccountId
+                                                                ?: return@showAlert
                                                         val homeNftCollections =
                                                             WGlobalStorage.getHomeNftCollections(
-                                                                AccountStore.activeAccountId!!
+                                                                accountId
                                                             )
                                                         homeNftCollections.removeAll {
                                                             it.address ==
                                                                 collectionMode.collectionAddress
                                                         }
                                                         WGlobalStorage.setHomeNftCollections(
-                                                            AccountStore.activeAccountId!!,
+                                                            accountId,
                                                             homeNftCollections
                                                         )
                                                         // WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
@@ -603,6 +606,7 @@ class HomePhoneAssetsCell(
     }
 
     private fun saveOrderedItems() {
+        val accountId = AccountStore.activeAccountId ?: return
         val items = segmentedController.items
         val orderedCollections = items.mapNotNull { item ->
             when (val vc = item.viewController) {
@@ -630,7 +634,7 @@ class HomePhoneAssetsCell(
         if (excludeTokens) {
             // The tokens tab is not part of this controller; keep its stored position intact.
             val storedCollections =
-                WGlobalStorage.getHomeNftCollections(AccountStore.activeAccountId!!)
+                WGlobalStorage.getHomeNftCollections(accountId)
             val storedCoinsIndex =
                 storedCollections.indexOfFirst { it.address == AssetsTabVC.TAB_COINS }
             if (storedCoinsIndex >= 0) {
@@ -641,7 +645,7 @@ class HomePhoneAssetsCell(
             }
         }
         WGlobalStorage.setHomeNftCollections(
-            AccountStore.activeAccountId!!,
+            accountId,
             orderedCollections
         )
     }

@@ -119,7 +119,7 @@ class FeeDetailsContentView(
                             ).toFloat()
                     ) / 1000f
             }
-        val nativeToken = token.nativeToken!!
+        val nativeToken = token.nativeToken ?: return
         excessFeeValueLabel.text = "~${
             feeDetails.excessFee.toString(
                 nativeToken.decimals,
@@ -198,10 +198,7 @@ class FeeDetailsContentView(
                 ?.toString(token, appendNonNative = feeDetails.isGasless) ?: ""
         val nativeToken = token.nativeToken
         val symbol = nativeToken?.symbol?.uppercase() ?: ""
-        val chain = LocaleController.getFormattedString(
-            "%1$@",
-            listOf(nativeToken?.chain?.uppercase() ?: "")
-        )
+        val chain = nativeToken?.chain?.uppercase() ?: ""
 
         detailsLabel.text = LocaleController.getSpannableStringWithKeyValues(
             "\$fee_details",

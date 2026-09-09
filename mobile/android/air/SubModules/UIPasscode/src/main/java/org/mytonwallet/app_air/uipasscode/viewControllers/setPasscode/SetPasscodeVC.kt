@@ -212,6 +212,7 @@ class SetPasscodeVC(
             }
         } else {
             if (passcode == confirmingPasscode) {
+                val window = window ?: return
                 confirmedPasscode = true
                 Logger.d(
                     Logger.LogTag.PASSCODE_CONFIRM,
@@ -222,7 +223,7 @@ class SetPasscodeVC(
                 WSecureStorage.deleteLegacyBiometricPasscode()
                 WGlobalStorage.removeIsLegacyBiometricActivated()
                 WalletCore.enclaveRemoveAuth(AuthType.BIOMETRIC)
-                WalletCore.enclaveSetupAuth(window!!, AuthType.PASSCODE, confirmingPasscode) {
+                WalletCore.enclaveSetupAuth(window, AuthType.PASSCODE, confirmingPasscode) {
                         enclaveToken,
                         error
                     ->

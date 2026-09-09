@@ -361,13 +361,14 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
+        val accountId = checkNotNull(accountId) { "Cards configured before accountId was set" }
         val card = cards?.getOrNull(indexPath.row)
         (cellHolder.cell as WalletCustomizationAvailableCardCell).apply {
             tintColor = this@WalletCustomizationAvailableCardsView.tintColor
             configure(
-                accountId!!,
+                accountId,
                 card,
-                BalanceStore.totalBalanceInBaseCurrency(accountId!!)
+                BalanceStore.totalBalanceInBaseCurrency(accountId)
                     ?.toBigInteger(WalletCore.baseCurrency.decimalsCount) ?: BigInteger.ZERO,
                 selectedCardAddress == card?.address
             )

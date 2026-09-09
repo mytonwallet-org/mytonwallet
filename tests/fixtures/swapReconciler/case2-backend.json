@@ -1,0 +1,85 @@
+{
+ "buildTransaction": {
+  "route": "dex",
+  "chain": "ton",
+  "id": "2544987",
+  "transfers": [
+   {
+    "toAddress": "EQAZreS9rBeChuQ6uiYSzSgvOih_C5yhHVB-HPqv35WE346D",
+    "amount": "170000000",
+    "payload": "te6cckECBQEAASgAAbIPin6l0BFveHSgIRBQuKJ7uggBSS5Plbr1MwOOPK7Rv4XJRW12T7l36KIQg7nmzmVr0xsABe3tTR4dctmFyeBfMAsCvISb922RN6+oV9rbNztR9xyIDk4cAQECVeOg1IKAACPJjO6lPVWDAYQGj3uWDoKCGGZoF+pTv6IXqjPu1R/kLKT+k8ACAwBRgBv8fX2NcwfUbV9QiYybOdJOyAOLaGkmBX/6n09eRYPtJgT1jzxclUABSwAAAACAAvb2po8OuWzC5PAvmAWBXkJN+7bIm9fUK+1tm52o+45DBACNPDfX6YAC9vamjw65bMLk8C+YBYFeQk37tsib19Qr7W2bnaj7jlAAXt7U0eHXLZhcngXzALAryEm/dtkTevqFfa2zc7UfccoIJgXi"
+   },
+   {
+    "toAddress": "EQAZreS9rBeChuQ6uiYSzSgvOih_C5yhHVB-HPqv35WE346D",
+    "amount": "50000000",
+    "payload": "te6ccsEBAgEAXgAAWAGqD4p+pc0WPbl/5SCSQaE7hggBqSIN0pqkQW939dfEpio/b/PLoi5/8K9dC/KPz9XnQaEABe3tTR4dctmFyeBfMAsCvISb922RN6+oV9rbNztR9xyCAwEACE0jhUPZ+RhN"
+   }
+  ],
+  "withDiesel": false
+ },
+ "history": [
+  {
+   "url": "/swap/history/UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8/2544987/update",
+   "request": {
+    "swapVersion": 3,
+    "msgHash": "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0=",
+    "msgHashNormalized": "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+   },
+   "response": {
+    "id": "2544987",
+    "timestamp": 1788462416199,
+    "from": "ton:EQD0vdSA_NedR9uvbgN9EikRX-suesDxGeFg69XQMavfLqIw",
+    "fromAmount": "50.000000000000000000",
+    "to": "ton:EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo",
+    "toAmount": "5729.530427909000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+    ],
+    "exchanger": "omniston",
+    "msgHash": "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0=",
+    "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+    "networkFee": "0.205",
+    "ourFee": "0.4375",
+    "ourFeeMode": "included"
+   }
+  },
+  {
+   "url": "/swap/history/UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "request": {
+    "fromTimestamp": 1788462358565,
+    "toTimestamp": 1788462420650,
+    "hashes": [
+     "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=",
+     "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+    ],
+    "isCex": false,
+    "swapVersion": 3
+   },
+   "response": [
+    {
+     "id": "2544987",
+     "timestamp": 1788462416199,
+     "from": "ton:EQD0vdSA_NedR9uvbgN9EikRX-suesDxGeFg69XQMavfLqIw",
+     "fromAmount": "50.000000000000000000",
+     "to": "ton:EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo",
+     "toAmount": "5729.530427909000000000",
+     "status": "pending",
+     "txIds": [],
+     "transactionIds": {},
+     "hashes": [
+      "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+     ],
+     "exchanger": "omniston",
+     "msgHash": "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0=",
+     "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+     "networkFee": "0.205",
+     "ourFee": "0.4375",
+     "ourFeeMode": "included"
+    }
+   ]
+  }
+ ]
+}

@@ -538,13 +538,13 @@ function SettingsWalletVariants({
             onScroll={handleScroll}
           >
             <div className={styles.blockDescription}>
-              {lang('Use subwallets to get additional addresses without creating new secret words.')}
+              {lang('$subwallets_hint')}
             </div>
 
             {renderCurrentWalletBlock()}
 
             <div className={buildClassName(styles.blockDescription, styles.noTopMargin)}>
-              {lang('If you have previously created subwallets, they will appear in the list below.')}
+              {lang('$subwallets_created_wallets')}
             </div>
 
             {renderSubwalletsSection()}

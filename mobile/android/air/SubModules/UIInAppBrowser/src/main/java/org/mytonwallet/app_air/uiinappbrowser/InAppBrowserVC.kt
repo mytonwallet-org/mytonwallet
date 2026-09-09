@@ -412,7 +412,7 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             if (config.injectDappConnect) {
                 TonConnectInjectedInterface(
                     webView = webView,
-                    accountId = AccountStore.activeAccountId!!,
+                    accountId = AccountStore.activeAccountId ?: return@lazy null,
                     uri = config.url.toUri(),
                     showError = { error ->
                         showAlert(
@@ -729,9 +729,10 @@ class InAppBrowserVC(context: Context, tabBarController: ITabsVC?, val config: I
             duration = AnimationConstants.VERY_QUICK_ANIMATION
             interpolator = AccelerateDecelerateInterpolator()
             addUpdateListener { animator ->
-                topBackgroundColor = animator.animatedValue as Int
-                topReversedCornerView?.setBlurOverlayColor(topBackgroundColor!!)
-                bottomReversedCornerView?.setBlurOverlayColor(topBackgroundColor!!)
+                val color = animator.animatedValue as Int
+                topBackgroundColor = color
+                topReversedCornerView?.setBlurOverlayColor(color)
+                bottomReversedCornerView?.setBlurOverlayColor(color)
             }
             doOnEnd {
                 topReversedCornerView?.setBlurOverlayColor(newColor)

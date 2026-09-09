@@ -1,0 +1,2505 @@
+{
+ "actions": [
+  {
+   "trace_id": "GqvLqm27fTpXGfd7TAmQDwycuWJliYUJtW5L+NjcOMI=",
+   "action_id": "v0Yxe5uWuysSYdmnNnpvfJocnvU2RQHfPzuGlOpRaqs=",
+   "start_lt": "99538083000004",
+   "end_lt": "99538083000005",
+   "start_utime": 1787834119,
+   "end_utime": 1787834119,
+   "trace_end_lt": "99538083000005",
+   "trace_end_utime": 1787834119,
+   "trace_mc_seqno_end": 88847207,
+   "transactions": [
+    "GqvLqm27fTpXGfd7TAmQDwycuWJliYUJtW5L+NjcOMI=",
+    "yz62TyUYWe9vwUJ2aQkcEFM4Q2KoNSsUpLc/6AzOQUg="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:9959F0E5B04D0BFDA3BB1C92857565B89D9A8E3366F3EC23E69AB5893942432B",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "30000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "N0PrbXtlGj3w7VBKQJbSalxpqynR5/2cCKMkZXlgxNU=",
+   "trace_external_hash_norm": "36QDmGV0x+V8DB10/fDo8mLy2cyErTaHkq0EzuHELQA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "braTyuF06SdYtc0SXfmoJLtaOJLau2xhAkuuHpbAJWI=",
+   "action_id": "L01dNPr4+PSC/B5HgXfIF4ZIijl09pOOmMuccIdEWGk=",
+   "start_lt": "99537932000026",
+   "end_lt": "99537932000027",
+   "start_utime": 1787834058,
+   "end_utime": 1787834058,
+   "trace_end_lt": "99537932000027",
+   "trace_end_utime": 1787834058,
+   "trace_mc_seqno_end": 88847059,
+   "transactions": [
+    "braTyuF06SdYtc0SXfmoJLtaOJLau2xhAkuuHpbAJWI=",
+    "QMnzJxGINzsgBB7qH8djumUVZhMWu5k9yK0bkMFmL5g="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:9959F0E5B04D0BFDA3BB1C92857565B89D9A8E3366F3EC23E69AB5893942432B",
+    "value": "40000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "4iCMEktvQwKW29nSx+DrOad0A12KuXQRMrF1fyZcPf4=",
+   "trace_external_hash_norm": "lH8ClnYDJ9iUyab5+5zJkOQwSvjtnKg330ap7rjcEzA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "AtNjKw35+/QZQ1BP8KIwR1K0aPmTZ7Cju6PINJPKQJM=",
+   "action_id": "hOUVO0LS0ouGqe3UzviFGUVg3Pr7I4RTXF1aqvR161c=",
+   "start_lt": "99535339000002",
+   "end_lt": "99535339000008",
+   "start_utime": 1787833022,
+   "end_utime": 1787833022,
+   "trace_end_lt": "99535339000008",
+   "trace_end_utime": 1787833022,
+   "trace_mc_seqno_end": 88844482,
+   "transactions": [
+    "neZQyh7xmOW+yYH3LmgVVwl8fWmSFoDR3OKvErIyBaU=",
+    "GaO0JWdKXt2RUtgkxP7Xgkwup3G9NBn3tDTleIg9504=",
+    "ZKvGh/RPazUgfggndwEDSsrW7uH4fn1FkuQkuRFMrUI=",
+    "a1qGhL1L5vmoA44RxG2ppUFRMbT/y2UGI0S4crmZuy0=",
+    "AtNjKw35+/QZQ1BP8KIwR1K0aPmTZ7Cju6PINJPKQJM="
+   ],
+   "success": true,
+   "type": "jetton_transfer",
+   "details": {
+    "asset": "0:2F956143C461769579BAEF2E32CC2D7BC18283F40D20BB03E432CD603AC33FFC",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "receiver": "0:9959F0E5B04D0BFDA3BB1C92857565B89D9A8E3366F3EC23E69AB5893942432B",
+    "sender_jetton_wallet": "0:308429B87D0C6B36A17D6BFB1D664C85B5827B165945E3BE5A53E70995EE96C6",
+    "receiver_jetton_wallet": "0:1F3806AA9A012BBE4209DE707E9AC3F3420A67ECBC849F6BA8E073EDAE08106B",
+    "amount": "100000000000",
+    "comment": null,
+    "is_encrypted_comment": false,
+    "query_id": "5600396404825546385",
+    "response_destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "custom_payload": null,
+    "forward_payload": null,
+    "forward_amount": "1"
+   },
+   "trace_external_hash": "hifresz1feSbhrkqnaP6UC8bgquJP2o8MRC6ftlZGzg=",
+   "trace_external_hash_norm": "7fs0QFpxB7JQ1jEFpWSiJfODSsA0dz6kGz8NfO2IGw4=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "uhgySQLUEfB2MJXQ/CRK0MDlknfi9LrwUO38/uMUryo=",
+   "action_id": "Pe/ZWmo00aTal+1zA9Hd/kzUOkLUKwTueSLpCNvaNkc=",
+   "start_lt": "96679073000005",
+   "end_lt": "96679073000006",
+   "start_utime": 1786692084,
+   "end_utime": 1786692084,
+   "trace_end_lt": "96679073000006",
+   "trace_end_utime": 1786692084,
+   "trace_mc_seqno_end": 86014741,
+   "transactions": [
+    "uhgySQLUEfB2MJXQ/CRK0MDlknfi9LrwUO38/uMUryo=",
+    "evxicWD3IuKkMW8qOxit5eY06/duQnGStUmxAFmnp0s="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:D8CD999FB2B1B384E6CA254C3883375E23111A8B78C015B886286C31BF11E29D",
+    "value": "10000000",
+    "value_extra_currencies": {},
+    "comment": "Hello!",
+    "encrypted": false
+   },
+   "trace_external_hash": "tKFOYJjVr8jYxxzn9TMzRDf7Y7QZMLJbPhMY2ielMZ0=",
+   "trace_external_hash_norm": "7QC4Pwon0sFJ4Aj6b0VK0cWSTYPRYw6HsYVnoDHSYl8=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "qp1y7UmwjNOMScgT4rZCIi6pFLncdK7Ifj3TK/Dk+qY=",
+   "action_id": "4ey4LFBbU/wB33KaghE8zp0BJDi+w5WUXtUTep+Pasc=",
+   "start_lt": "94369397000036",
+   "end_lt": "94369397000037",
+   "start_utime": 1785769442,
+   "end_utime": 1785769442,
+   "trace_end_lt": "94369397000037",
+   "trace_end_utime": 1785769442,
+   "trace_mc_seqno_end": 83743212,
+   "transactions": [
+    "qp1y7UmwjNOMScgT4rZCIi6pFLncdK7Ifj3TK/Dk+qY=",
+    "hGhN52kczBB9SiD9gGVo03VB2TWljyaBfgR67suHyXY="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": "test",
+    "encrypted": false
+   },
+   "trace_external_hash": "gKAVs8pUDnnAtQnGTvIbv4IVDPAw/wbkdO5y8qdg1sU=",
+   "trace_external_hash_norm": "P1ndIj0KmAZQT9rA039cu/Xko02vd6M9IqNHqfkHnTs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "Xb7k56heOcjB4VEZ4c8qcyExbYCa6TNJ3VvPMVVHHjE=",
+   "action_id": "uY8RzdIR4UKVU/W7QA5IF2zQ14TX/+c0R90zSIUX9aw=",
+   "start_lt": "93938148000024",
+   "end_lt": "93938148000036",
+   "start_utime": 1785592864,
+   "end_utime": 1785592864,
+   "trace_end_lt": "93938148000036",
+   "trace_end_utime": 1785592864,
+   "trace_mc_seqno_end": 83334098,
+   "transactions": [
+    "Xb7k56heOcjB4VEZ4c8qcyExbYCa6TNJ3VvPMVVHHjE=",
+    "Lv7NmpV3im/YZVMxuxuus9AQ0rvulJ014V1V5kLFcx4=",
+    "UCds9aqQc5G21HGq+Ev9nMc49cBMB4nXbAWhWT9s0Tw=",
+    "KYLUXiHn4ORrWxCP9zmm+/iSz7BcsYosLsI+/BPYdcQ=",
+    "JSJwGsis48FRMORCnBOEly4LWULKwc1xVam6xYHSdBk=",
+    "kxwykUrx95hnSttypJ1g7LRaMLIcXrXa8ZQumo4HgAw=",
+    "3ZKegyz/epNcGHjcEFKSxDUA8bt9hiietkwQ8V2eI74="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "dedust",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": null,
+    "asset_out": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "dex_incoming_transfer": {
+     "asset": null,
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:DAE153A74D894BBC32748198CD626E4F5DF4A69AD2FA56CE80FC2644B5708D20",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "595399274"
+    },
+    "dex_outgoing_transfer": {
+     "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+     "source": "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387",
+     "destination_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+     "amount": "831142"
+    },
+    "peer_swaps": []
+   },
+   "trace_external_hash": "HWTvUf6CXj4qIqhwphvWpuspQmNapj1NAMm0viemPJ8=",
+   "trace_external_hash_norm": "bC/CW/vfjTYtpEC+Xa1CVx4s1m7Fhs4wK7IdqI4SoBo=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "Xb7k56heOcjB4VEZ4c8qcyExbYCa6TNJ3VvPMVVHHjE=",
+   "action_id": "XPqGh4ixk89kee5mVDcIe0Tk1ixkjlEoiLNe/k20UUM=",
+   "start_lt": "93938148000025",
+   "end_lt": "93938148000026",
+   "start_utime": 1785592864,
+   "end_utime": 1785592864,
+   "trace_end_lt": "93938148000036",
+   "trace_end_utime": 1785592864,
+   "trace_mc_seqno_end": 83334098,
+   "transactions": [
+    "Xb7k56heOcjB4VEZ4c8qcyExbYCa6TNJ3VvPMVVHHjE=",
+    "FkrYLGXHb+EaER0lctjZALXVY9ceyK0o/lzNm6saaF0="
+   ],
+   "success": true,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x4d238543",
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553",
+    "value": "5255731",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "HWTvUf6CXj4qIqhwphvWpuspQmNapj1NAMm0viemPJ8=",
+   "trace_external_hash_norm": "bC/CW/vfjTYtpEC+Xa1CVx4s1m7Fhs4wK7IdqI4SoBo=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "QSg1fG7cRfuy4aOvcq53Tv+YLr4V8Zkar6FuJH1A5fY=",
+   "action_id": "dXOrS4LoVgeXJcgZFKIbgcPCtJD48x6yeaFFfC7PSWo=",
+   "start_lt": "93936605000006",
+   "end_lt": "93936605000019",
+   "start_utime": 1785592228,
+   "end_utime": 1785592228,
+   "trace_end_lt": "93936605000019",
+   "trace_end_utime": 1785592228,
+   "trace_mc_seqno_end": 83332622,
+   "transactions": [
+    "IsTpmeYSFnBn1JRhC4l2hORyUJjVeAbzz1s8xk1XD08=",
+    "oGnuvwdX9f2fHXsr/2yFNJcHCqx4Q/YfA2mAnrMbX7Y=",
+    "7vwWTNoNjDQO4L7aIGXY2hpah730ckBgeCE9ROYiMr8=",
+    "67Y+cxvh62tXn36q6kpgYojwUlop4BOQrbdzVA7L1iY=",
+    "13qkTVlEh9/7KUw54MmxhDIHOgHsisxIinnUhlIuiM4=",
+    "p5EQ0+xOj5oDXmTlxfi+JbTBbyoJo6clZbhTWkYKgtw=",
+    "HwYs6HAtHUNEF2e5oOdog9XsL0fIsrc4NxHaTHra77Q=",
+    "NDT8JOBJCY96M41jpe1ENHjMLoQgQn0S/7H6b4INi1g=",
+    "gANZwDVVzLiXOO0NWPSPLigiy+KGQNRRcmXtQw/I8qg="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "stonfi",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "asset_out": "0:8CDC1D7640AD5EE326527FC1AD0514F468B30DC84B0173F0E155F451B4E11F7C",
+    "dex_incoming_transfer": {
+     "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:779DCC815138D9500E449C5291E7F12738C23D575B5310000F6A253BD607384E",
+     "source_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+     "destination_jetton_wallet": "0:4EEC921B9D4D56A0D94676016D49C26B39B1D7901A7E153E66033F146A0886F4",
+     "amount": "902941"
+    },
+    "dex_outgoing_transfer": {
+     "asset": "0:8CDC1D7640AD5EE326527FC1AD0514F468B30DC84B0173F0E155F451B4E11F7C",
+     "source": "0:779DCC815138D9500E449C5291E7F12738C23D575B5310000F6A253BD607384E",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "645589762"
+    },
+    "peer_swaps": []
+   },
+   "trace_external_hash": "17zu1+Esba9nnJcfTXA0qPJLXKJyRZCnfabn4UJrEso=",
+   "trace_external_hash_norm": "Kl7T5St23XMekA7ZtQ7n1pHHBnNrKvEgeGAPbnh9zS0=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "QSg1fG7cRfuy4aOvcq53Tv+YLr4V8Zkar6FuJH1A5fY=",
+   "action_id": "WOY/pkjRucdKXhii2TkLoaJA91os8J5sfMBR0MQH9so=",
+   "start_lt": "93936605000007",
+   "end_lt": "93936605000014",
+   "start_utime": 1785592228,
+   "end_utime": 1785592228,
+   "trace_end_lt": "93936605000019",
+   "trace_end_utime": 1785592228,
+   "trace_mc_seqno_end": 83332622,
+   "transactions": [
+    "8Gy2TKblRpv1vUzmHsPry7vlEYt0B44fXbkb3oacv+o=",
+    "Mwu164BD3rCOTHEuy5QuzLeGc6CzpfvzHqEXpKTkyWU=",
+    "p5EQ0+xOj5oDXmTlxfi+JbTBbyoJo6clZbhTWkYKgtw=",
+    "pTWWcJmFYY1gYGtkkLmT3jUvi/HnDLKpUaAGJs0fkJY=",
+    "Fqxu/pcPUJyBM0kylDJW8ePu0UHkgsQpl5GbR4sREYI="
+   ],
+   "success": true,
+   "type": "jetton_transfer",
+   "details": {
+    "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "receiver": "0:3C43FB179EC45C97D4E55FE74767B065292D557C98F09CA8086301C103492A1E",
+    "sender_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+    "receiver_jetton_wallet": "0:7C588200B2B60AB2A762BA896984A1B3F3B8C684CEC02835B34866A42101FB16",
+    "amount": "499045",
+    "comment": null,
+    "is_encrypted_comment": false,
+    "query_id": "14642312122678405471",
+    "response_destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "custom_payload": null,
+    "forward_payload": "te6cckEBAQEABgAACE0jhUPUcYAL",
+    "forward_amount": "1"
+   },
+   "trace_external_hash": "17zu1+Esba9nnJcfTXA0qPJLXKJyRZCnfabn4UJrEso=",
+   "trace_external_hash_norm": "Kl7T5St23XMekA7ZtQ7n1pHHBnNrKvEgeGAPbnh9zS0=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "QSg1fG7cRfuy4aOvcq53Tv+YLr4V8Zkar6FuJH1A5fY=",
+   "action_id": "gkIWnYz3o9cNWYnbs4x3MboglKUjLONDNZFeVJ9olLA=",
+   "start_lt": "93936605000004",
+   "end_lt": "93936605000005",
+   "start_utime": 1785592228,
+   "end_utime": 1785592228,
+   "trace_end_lt": "93936605000019",
+   "trace_end_utime": 1785592228,
+   "trace_mc_seqno_end": 83332622,
+   "transactions": [
+    "p5EQ0+xOj5oDXmTlxfi+JbTBbyoJo6clZbhTWkYKgtw=",
+    "JRcsPRpQR9nYSHPdDPW04ADhtILHI0SzvDbxcnJ16hA="
+   ],
+   "success": true,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x73696e74",
+    "source": "0:77BDC0E36408CE2FD30ECB090C227C36E5328F91A9553BBC52F8186315822CB0",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "230294883",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "17zu1+Esba9nnJcfTXA0qPJLXKJyRZCnfabn4UJrEso=",
+   "trace_external_hash_norm": "Kl7T5St23XMekA7ZtQ7n1pHHBnNrKvEgeGAPbnh9zS0=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "dnnQ2CfWh2GVoppImzslny/xYK00vnOItfrpQat3Qfc=",
+   "action_id": "uLAQkn70B9Z3raNDfjiL0KMrm3XJ7z3j+u4EmIUN+pQ=",
+   "start_lt": "93936396000002",
+   "end_lt": "93936396000008",
+   "start_utime": 1785592142,
+   "end_utime": 1785592142,
+   "trace_end_lt": "93936396000008",
+   "trace_end_utime": 1785592142,
+   "trace_mc_seqno_end": 83332418,
+   "transactions": [
+    "BjV3PrI4BXH5mSnH6SzShbch1XDhHcEuc8VQZbprSgo=",
+    "Cz7DNCtcyXk6yVhtR/307KEl4Hb3xtwF0AuFJpwvNsE=",
+    "3dDFu6lNthsEJJ/7p4uBqJjjKMnpP5ov5FSTQUp36LA=",
+    "UnPWW/EwGRUG/JzG/cyO5kiJUpfSduyy+1BMs5gE2oE=",
+    "dnnQ2CfWh2GVoppImzslny/xYK00vnOItfrpQat3Qfc="
+   ],
+   "success": true,
+   "type": "jetton_transfer",
+   "details": {
+    "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "sender": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "receiver": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "sender_jetton_wallet": "0:4627A5C99456D61AEFA0AC2E98154428C817D3FC5F5DD7CA738523526146344D",
+    "receiver_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+    "amount": "1000000",
+    "comment": null,
+    "is_encrypted_comment": false,
+    "query_id": "10857665798865441743",
+    "response_destination": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "custom_payload": null,
+    "forward_payload": null,
+    "forward_amount": "1"
+   },
+   "trace_external_hash": "QoUrTNR9soImzlDGRXQlWyKYyxyofOfYekIskpy7Rn0=",
+   "trace_external_hash_norm": "xOf15hrG3Q8u7/PuAEr9Wh1nyIXWKL5XVbDti9JepJQ=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "F4PfDGzzzl5uTc5nUnNVtuH9Iq4CAsl34L/Xv9IN3bs=",
+   "action_id": "qez2Kp2/c0Zmk+7s3jDbc7YCyKXAbtGEok88pRxfOYY=",
+   "start_lt": "93917491000002",
+   "end_lt": "93917491000003",
+   "start_utime": 1785584324,
+   "end_utime": 1785584324,
+   "trace_end_lt": "93917491000003",
+   "trace_end_utime": 1785584324,
+   "trace_mc_seqno_end": 83314515,
+   "transactions": [
+    "F4PfDGzzzl5uTc5nUnNVtuH9Iq4CAsl34L/Xv9IN3bs=",
+    "4aCvPY+CZUHKdO9v6EeXxFtWpt4SJktkxaO3+tL0HWk="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "value": "99387333",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "auOAOZSBqTSBoXZ9hKVvNPy6D4SiOPyKJJJxhAEw+90=",
+   "trace_external_hash_norm": "r3mNalWhSslT0ig0KUlEQNRbUMkBfse/9zzqvwy5SVA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "V6uh7T/soB8en9YQ6qE0QXMdf7tLsVkTpmnqh1YAjAw=",
+   "action_id": "u0KXpHKhYTHmoLopNZc18jZLnahQdIM8BFvPGAe4XO8=",
+   "start_lt": "93038038000002",
+   "end_lt": "93038038000003",
+   "start_utime": 1785219130,
+   "end_utime": 1785219130,
+   "trace_end_lt": "93038038000003",
+   "trace_end_utime": 1785219130,
+   "trace_mc_seqno_end": 82490629,
+   "transactions": [
+    "JPpu1MZTZfEzGct2Tx8FF8EmLREdOrJ5ifhOhiNNNqk=",
+    "V6uh7T/soB8en9YQ6qE0QXMdf7tLsVkTpmnqh1YAjAw="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "MXqy/nbhQH4ksw1O9lGLbJAcy9Xa1ge8RBCNkGhIJ98=",
+   "trace_external_hash_norm": "pgb67di0Z5Mt+9lzRrKFWzIAHnlwkSd8gHg+NGUAgH8=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "QYV+qXWnCKukpSeHw/sYsOgSbw4xjiUJ0MOh6Ioap6M=",
+   "action_id": "iXgbw+nP6VODpxSKZMxXb19UhXK2WiGh0G7m+7qcJIc=",
+   "start_lt": "90533759000011",
+   "end_lt": "90533759000012",
+   "start_utime": 1784206590,
+   "end_utime": 1784206590,
+   "trace_end_lt": "90533759000012",
+   "trace_end_utime": 1784206590,
+   "trace_mc_seqno_end": 80043236,
+   "transactions": [
+    "QYV+qXWnCKukpSeHw/sYsOgSbw4xjiUJ0MOh6Ioap6M=",
+    "KQH/ccRcyOYRnP02PugkLqBK/5HXoMk5oEST07SnjNQ="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+    "value": "499451005",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "0zDo1O2ya7iuLZdVCcd18kP371QQQwaacyz+gyCwykw=",
+   "trace_external_hash_norm": "jaWQ7s3eo4Ztfq1s+JgyeK8qJPRNY7nsItYTQ+wuW7E=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "tGkkqS9sKjNYw09nFFLVD7uMDRVMeYVZqR2441Dt9TA=",
+   "action_id": "jF3DevCNu8ISmrv4NPROjrCBfDHtB4UY19eUjbjtpnE=",
+   "start_lt": "90533674000011",
+   "end_lt": "90533674000012",
+   "start_utime": 1784206556,
+   "end_utime": 1784206556,
+   "trace_end_lt": "90533674000012",
+   "trace_end_utime": 1784206556,
+   "trace_mc_seqno_end": 80043151,
+   "transactions": [
+    "RByCxJN2Jz67R+uGOQIesGdk5nZsnbPoi1p93WS5mOY=",
+    "tGkkqS9sKjNYw09nFFLVD7uMDRVMeYVZqR2441Dt9TA="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "500000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "YUUXpd+z5fM18L90rmsrGPWzXrDfnwGX3xLoqkauvyE=",
+   "trace_external_hash_norm": "jZ7etz6fGvlpkcxkTsy2JbXA2LbjGohFSFnnxIYIIJs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "G5Sxf4T9R0mvpGmMqKyA+MFWx3CSymy8NaStTUVa8K4=",
+   "action_id": "f1wHrxChjyzzARa5ldIBMurLPUrckpnKXWwY8DfYUXg=",
+   "start_lt": "90533336000002",
+   "end_lt": "90533336000003",
+   "start_utime": 1784206422,
+   "end_utime": 1784206422,
+   "trace_end_lt": "90533336000003",
+   "trace_end_utime": 1784206422,
+   "trace_mc_seqno_end": 80042819,
+   "transactions": [
+    "oHoXnljcm2KQlEmWanOnIwVfmSXnuvQwM7ddMOo3D58=",
+    "G5Sxf4T9R0mvpGmMqKyA+MFWx3CSymy8NaStTUVa8K4="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5",
+    "value": "369663701",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "jLENR9WXabvsCLRRa02wJRZWRDk7F4fQywymjMpwwpQ=",
+   "trace_external_hash_norm": "0iaJw4gPo3q1n0dqoxaSgpXgVHdqhGHkDHDe7GMESFc=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "zhzuWReusc3xcyYatB4txMoGutlXvilaCkbXchOJeKw=",
+   "action_id": "R/XAWSLzfGMIbvR++xXHQEA1nUmvRy9CK5eO/YO/Plg=",
+   "start_lt": "90115018000002",
+   "end_lt": "90115018000003",
+   "start_utime": 1784039052,
+   "end_utime": 1784039052,
+   "trace_end_lt": "90115018000003",
+   "trace_end_utime": 1784039052,
+   "trace_mc_seqno_end": 79628747,
+   "transactions": [
+    "zhzuWReusc3xcyYatB4txMoGutlXvilaCkbXchOJeKw=",
+    "1+bEMQiFf3jcf37h/P+Qa2UWj2OFCWZ9C6/dHQGIFiU="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": "🥀",
+    "encrypted": false
+   },
+   "trace_external_hash": "/fTBv+BtUBr1y+bvNm3XvxUJGpEZz8dM9qei8KhUo40=",
+   "trace_external_hash_norm": "N3zKfAzv92YZ8ruRktwIOtGq59s4LkGSBL6J7vExCJo=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "ALdqSzzRJnZVbHceC+ckAB6aX1i8Rtn1Zj9O1eNRS6U=",
+   "action_id": "KQzfkPWN/2G0ppYY05d8CnaUewxTLvJm1pxaaeJnRL0=",
+   "start_lt": "89874353000010",
+   "end_lt": "89874353000011",
+   "start_utime": 1783942617,
+   "end_utime": 1783942617,
+   "trace_end_lt": "89874353000011",
+   "trace_end_utime": 1783942617,
+   "trace_mc_seqno_end": 79391947,
+   "transactions": [
+    "ALdqSzzRJnZVbHceC+ckAB6aX1i8Rtn1Zj9O1eNRS6U=",
+    "6W2/egZzg0hUQbGXcjzeyTAJeCvbSn9hOWYKz6JV7Bw="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:9F49B7F572743E8DA529543E8EEAA99DF85DC1B4B035B2E2739FFCED186FC333",
+    "value": "40000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "B88Ho8JERcadl0itS0Vo8HJpAP3bre8ARDmvkzc+qHo=",
+   "trace_external_hash_norm": "G39NGNK0+okA485p1NpIQWyMfLCIPnV/6APk2V6/WFs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "XrxWwrtut4ZMfcDoJgIdPcm6s2TYhZkiSPS9J6x7JIo=",
+   "action_id": "cP2L9SsqRESkSiWslo1h7m3O3y+BkNqkmf0XXbsH+Fc=",
+   "start_lt": "89065327000002",
+   "end_lt": "89065327000003",
+   "start_utime": 1783618691,
+   "end_utime": 1783618691,
+   "trace_end_lt": "89065327000003",
+   "trace_end_utime": 1783618691,
+   "trace_mc_seqno_end": 78592806,
+   "transactions": [
+    "GAbbaFSgU03seID0Or/HwiA7KQqySn4MBywFbmai+h4=",
+    "XrxWwrtut4ZMfcDoJgIdPcm6s2TYhZkiSPS9J6x7JIo="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:5B4340152121A19CF7D86E7EA4D0AFF98D8850FC14573DBF74FC67B35E999A8C",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "RFpz709zKaEZr4UnxjSMZaw/E3lXMhkV+V1GCCtTLK4=",
+   "trace_external_hash_norm": "jOKZCpdFrm8KiZHIBZygh/6XaUEky2rS70msqhgwGsY=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "HPeLmTkYzagZjq8fft3QDgxPcyXGl7S0aBZ28G+o+JY=",
+   "action_id": "rXTGkcPkMFNk/LCTST+9XQmbeYL4eRCYgWEwMVSvx3U=",
+   "start_lt": "89065292000002",
+   "end_lt": "89065292000003",
+   "start_utime": 1783618677,
+   "end_utime": 1783618677,
+   "trace_end_lt": "89065292000003",
+   "trace_end_utime": 1783618677,
+   "trace_mc_seqno_end": 78592771,
+   "transactions": [
+    "HPeLmTkYzagZjq8fft3QDgxPcyXGl7S0aBZ28G+o+JY=",
+    "MxaonEwmFC60fSEFUr9eSLGIXOSjSAh+DDOR3Pgw1yM="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:26B1DD8D28F0180382352679C13DDE66BB694716D3B861021AE8D7CF9DFBAC89",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "/He0hTlM2rKXgPi/bu4OEOeypSfFERvpsz/H6rMUPOg=",
+   "trace_external_hash_norm": "upFDhinBynELoN7kTsar62ndc7atfdqe0I1WXU25gC4=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "qWX770GTGt71p49iM58LaY/QcchSfflW0PrUuXxcxmw=",
+   "action_id": "DTDdNjwaxadYZoPlvLoA2vcMoFoCpAYkR54nx/l7+Nw=",
+   "start_lt": "86469944000015",
+   "end_lt": "86469944000016",
+   "start_utime": 1782576821,
+   "end_utime": 1782576821,
+   "trace_end_lt": "86469944000016",
+   "trace_end_utime": 1782576821,
+   "trace_mc_seqno_end": 76038343,
+   "transactions": [
+    "kJw3zgsou9ZlzG6M7sxZiAycNr2QG+J5nGmlv4sPxjM=",
+    "UNO3VNV8lfJ2QvM25iUEKt8b1TIWIVM6/IvYWCZ0fDQ="
+   ],
+   "success": false,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x7362d09c",
+    "source": "0:E80F9C1C9E90620A8DCC9DC43C382063E55214BBDAFEBC845A60833D8A49BAEC",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "1",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "+eCw9BGSfyjDSjSSCFuZEe1IROF03yRGQHMvqYzFnZM=",
+   "trace_external_hash_norm": "orMDdKenoU2HPyev8bKIT3sljDBwgbLsObsol2kSoUA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "DQHEf0vv2tyoO0ndiKHpqsQb5eAhuRllIJDBAo6we80=",
+   "action_id": "RL4WoRZN7rcpSI/RnKPgRtww7P4jVdl5hjzmx9pXyHM=",
+   "start_lt": "85448930000006",
+   "end_lt": "85448930000007",
+   "start_utime": 1782166143,
+   "end_utime": 1782166143,
+   "trace_end_lt": "85448930000016",
+   "trace_end_utime": 1782166143,
+   "trace_mc_seqno_end": 75038864,
+   "transactions": [
+    "gJFZxB+6Xw6tM2jfXH2G1+V5zSsJYtcToeJKjjJvWws=",
+    "L2e2y1ENCj27/fbKk1dC1C9Tvt+DwlD0R5j3BIPrGXg="
+   ],
+   "success": false,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x7362d09c",
+    "source": "0:5D67B5BBBE57287460F18CD75EB937FAA538CDAE8DAAF452991F1EF4DD28C69E",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "1",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "/FXGgdptWdG4RdrPFp88U8Uc9SlFQEovOqrteAtrL1o=",
+   "trace_external_hash_norm": "8ex+KDJSm2y5/Vm2id76io8U9EqpFSs10qPo6QgnhII=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "STc+DjwkuCLfovnh+rUmeivUFvChzIciF2NK4Wo15J8=",
+   "action_id": "7JdRyymDuKzHVIL5chskB9O0u5LG8YKKfUS1grLeNdk=",
+   "start_lt": "85312430000014",
+   "end_lt": "85312430000015",
+   "start_utime": 1782111241,
+   "end_utime": 1782111241,
+   "trace_end_lt": "85312430000015",
+   "trace_end_utime": 1782111241,
+   "trace_mc_seqno_end": 74904767,
+   "transactions": [
+    "cPHXJna18Z2q4uVxP2rS4221TK9JooTUweN2w+1+SUQ=",
+    "STc+DjwkuCLfovnh+rUmeivUFvChzIciF2NK4Wo15J8="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:9F49B7F572743E8DA529543E8EEAA99DF85DC1B4B035B2E2739FFCED186FC333",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "5WUo1kJAI1yGIV6UoEtT5zj7Tj11Q1pk3004egIYbkk=",
+   "trace_external_hash_norm": "eq7spRqC8p6vG6EwW51h/jqj6gCsyZivRGqc3CZlpjk=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "CNjgxKDUkMBm/ilLYx2hg/H3N/Scn3NwJaprRrvXPrk=",
+   "action_id": "fFU5/BWVJFxhZiw7wJOTZpBL5hPBtOwyZVyIPnPVHKo=",
+   "start_lt": "85311310000002",
+   "end_lt": "85311310000003",
+   "start_utime": 1782110791,
+   "end_utime": 1782110791,
+   "trace_end_lt": "85311310000003",
+   "trace_end_utime": 1782110791,
+   "trace_mc_seqno_end": 74903668,
+   "transactions": [
+    "CNjgxKDUkMBm/ilLYx2hg/H3N/Scn3NwJaprRrvXPrk=",
+    "nrW5CZd1mNEr5xrnNq/DUo5HO1ErQz7n5Jh8yPkIBHQ="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "500000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "uvVegaUl47cBvp5LY2lhSNhBsmJlT50HkY7XgevszwA=",
+   "trace_external_hash_norm": "b+TpFR0cKUV8Ie1r/8hCp6vhhV3oUaZYzgGjF4MbIhw=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "dlqvDzFYuX0POnM7j/hFzHIPM95zTtsnu5dqXYasPrY=",
+   "action_id": "WDEITp5HeVchuge9sAwhD01fw206gYFT0Dsy9fa7qt4=",
+   "start_lt": "85126702000027",
+   "end_lt": "85126702000028",
+   "start_utime": 1782036600,
+   "end_utime": 1782036600,
+   "trace_end_lt": "85126703000009",
+   "trace_end_utime": 1782036601,
+   "trace_mc_seqno_end": 74722160,
+   "transactions": [
+    "eX/q3hhUNwokKhzCgEy6qmMkCfm0aMFTGgg+j8OvrII=",
+    "bR3uNJLlygC9mft1XlA5FC6s6aup4Og4Oh5YUwyGOjU="
+   ],
+   "success": true,
+   "type": "nft_transfer",
+   "details": {
+    "nft_collection": "0:9321A6DC7FF3F3F1A869AA83DE9A1FADB24FD793C8459431B6125DA5E0E8344C",
+    "nft_item": "0:DAA5C8B2EE04CFB3746556DB1216CB4D21CF373775FAB6644CA52FB35D142CA8",
+    "nft_item_index": "5",
+    "old_owner": "0:9321A6DC7FF3F3F1A869AA83DE9A1FADB24FD793C8459431B6125DA5E0E8344C",
+    "new_owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "is_purchase": false,
+    "query_id": "0",
+    "response_destination": null,
+    "custom_payload": null,
+    "forward_payload": null,
+    "forward_amount": null,
+    "comment": null,
+    "is_encrypted_comment": null,
+    "marketplace": null,
+    "real_old_owner": null,
+    "marketplace_address": null,
+    "payout_amount": null,
+    "payout_address": null,
+    "payout_comment": null,
+    "payout_comment_encrypted": null,
+    "payout_comment_encoded": null,
+    "royalty_amount": null,
+    "royalty_address": null
+   },
+   "trace_external_hash": "cOkIRNiToIuBrlOnI3nXNzp4mplTrOKcvSGEN82vVpY=",
+   "trace_external_hash_norm": "qqB8NrdZ/qLdLrUh/kjRPQkaHCmaMVpv/xuF+BLZ65k=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "vlh36IDZ+a09/CqCSDBwVLlTS9rre5QvWYNWHTsuBsg=",
+   "action_id": "QAPZ7m35pheg9zZlYYRq+nEh+VCUmmam5PobvLIV5U8=",
+   "start_lt": "85101782000006",
+   "end_lt": "85101782000007",
+   "start_utime": 1782026593,
+   "end_utime": 1782026593,
+   "trace_end_lt": "85101782000007",
+   "trace_end_utime": 1782026593,
+   "trace_mc_seqno_end": 74697600,
+   "transactions": [
+    "EL5G0f4ZOW5+a1SnhFxElT6ea1dTftuMmHZ5wSbABHQ=",
+    "vlh36IDZ+a09/CqCSDBwVLlTS9rre5QvWYNWHTsuBsg="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "500000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "T3E7S92NXVpamN94N/99Jd9ljnleGrzoS0hDKkikJf8=",
+   "trace_external_hash_norm": "bkVrGERe0PkBS52gKGaacrOHhc2wW6uTBk3mV0i8rDE=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "pFwzzJ3kP4iGjBNfhjR/6rHuThEN4+Eoc0cJnOhI3Ys=",
+   "action_id": "pIAWOiKcINEdoFYtlzaOf+4E7UY9GyzIPZ+Wf6jepU4=",
+   "start_lt": "81376168000004",
+   "end_lt": "81376168000005",
+   "start_utime": 1780528463,
+   "end_utime": 1780528463,
+   "trace_end_lt": "81376168000005",
+   "trace_end_utime": 1780528463,
+   "trace_mc_seqno_end": 71045606,
+   "transactions": [
+    "BsSvZOQd9twekXfUfZ3IIyYGRaLTCYVrgCgk5mArzcI=",
+    "HyKr+I2+yhjExQ6TR21iGSELILpku5hIdORotjQgx0U="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "eabvYf9UxM80vZZYveRtYTYAI/vOOPgKhzvSosQY6wU=",
+   "trace_external_hash_norm": "C3SSyUUPWVUuRqOD/NKhcjRiziAuTSDtzNB2D+93LBY=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "bx1Blp69iGF2quC9yuDqvrnWZ2yJ7C9fCbLjp8EaFWA=",
+   "action_id": "ZLk53mZYMrgpSProWW+AIaogmOsbTieV7X000rQqXTg=",
+   "start_lt": "81372298000002",
+   "end_lt": "81372298000003",
+   "start_utime": 1780526929,
+   "end_utime": 1780526929,
+   "trace_end_lt": "81372298000003",
+   "trace_end_utime": 1780526929,
+   "trace_mc_seqno_end": 71041834,
+   "transactions": [
+    "bx1Blp69iGF2quC9yuDqvrnWZ2yJ7C9fCbLjp8EaFWA=",
+    "0FimnK8kF1NC0plRKlw/VOHGLjDpOf5ksXtPhd7hGo0="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "value": "1000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "G22sLRMr22kfxHdrrBXV5sUeeXoN1ZUiQCRtfmKwEuA=",
+   "trace_external_hash_norm": "3EltCqEfomVt0Vxx4IxKhaPNAKi9ed1K36GbxHAhpiw=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "vtxBN2+rZtWN9ac3/JZ4i7zB0hcjhUm8CN6qJRN0nHs=",
+   "action_id": "Nr2ld0lG4NLxIWkXFdHfVJKIUSo4rFwjDUbwu1x13SY=",
+   "start_lt": "81341437000002",
+   "end_lt": "81341437000003",
+   "start_utime": 1780514666,
+   "end_utime": 1780514666,
+   "trace_end_lt": "81341437000003",
+   "trace_end_utime": 1780514666,
+   "trace_mc_seqno_end": 71011668,
+   "transactions": [
+    "vtxBN2+rZtWN9ac3/JZ4i7zB0hcjhUm8CN6qJRN0nHs=",
+    "K4W92eM0sw2iwCop30Xsoxwv3VQWfQxWXhVzI67u5NA="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:A35884719E3B78E40800FC85E15E74DFCD6C41B0D386BCCD020B7F063AE4BAA1",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "13167459",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "EWWcoWpJR7nsnoLY4DemW/uQp0fYloufp2PmKkKAlXc=",
+   "trace_external_hash_norm": "I141NlspAwmlr9jQROCdB6XntTQoIfG+JWZzTh6iZ+U=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "ZU0y98nsbAFMHUe844k1Z5ZBoxQGR5XnmkczZWJwuIg=",
+   "action_id": "DgkMbC1xAYlx5bFQehGDDcMYp6d5dNXBtTirkah2ggQ=",
+   "start_lt": "81273537000004",
+   "end_lt": "81273537000005",
+   "start_utime": 1780487626,
+   "end_utime": 1780487626,
+   "trace_end_lt": "81273537000005",
+   "trace_end_utime": 1780487626,
+   "trace_mc_seqno_end": 70945717,
+   "transactions": [
+    "APp0crWCD7PWpBG2O66Qudu6/njkmttwoJO0wYOc7Xo=",
+    "RmnAqCyh85L4hW1wUcoZ27H8BLeBX3qEsGpPgnxzrFM="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "m/ifyyZOQC5SVJY4wLiH5d1W0rkboBnMFg8XsxSG1PM=",
+   "trace_external_hash_norm": "GnNOLHiMn6vuJ2+YcgENkHDlPPS2A7OAKC3BPFB6L+s=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "HemQOAq2m1SnWgGw+ap3osgPqzG5Ns4+5o4bCiCnknY=",
+   "action_id": "JJsUxstJMLAWd/www4s/wR4TLmj4CSqn+GCCd7V90Zs=",
+   "start_lt": "81273223000004",
+   "end_lt": "81273223000005",
+   "start_utime": 1780487500,
+   "end_utime": 1780487500,
+   "trace_end_lt": "81273223000005",
+   "trace_end_utime": 1780487500,
+   "trace_mc_seqno_end": 70945410,
+   "transactions": [
+    "TAbnohAIPIlVD/06yKNH+dYjrutTbTz0fTnRcIDExKY=",
+    "oi4BiDSM4Q0glYojpASWikb7SIl20KWBmf3pOosDxvQ="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "8INLJmaVLlpJNPhKFINCGXwUVAmpEN6d0A/UOPHx3oU=",
+   "trace_external_hash_norm": "rEzGsr45Bs09s0U90L0t+GPf2031YsGxYmi5uj1kpFs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "FSqgKLVyNvhW2NY0kW7Lqp924o2E2TanAeajKfObmE8=",
+   "action_id": "kbP2kpHzwonolVt4/2L6aSFYuJeEFpA+CE+0gsCTT3E=",
+   "start_lt": "81272572000015",
+   "end_lt": "81272572000027",
+   "start_utime": 1780487241,
+   "end_utime": 1780487241,
+   "trace_end_lt": "81272572000027",
+   "trace_end_utime": 1780487241,
+   "trace_mc_seqno_end": 70944777,
+   "transactions": [
+    "suA0UD80rB1l5jL4zoJ4OkW/F1TI63SEsHxWKbRxmFc=",
+    "oJtk0xNKFFt8cKG2cWEmkol/cGYO5pnmVvFkUhiNddY=",
+    "pWK3jOV1jByrEPD1eWxRsHXfxqc7sAtP7h7dILYdxLM=",
+    "FSqgKLVyNvhW2NY0kW7Lqp924o2E2TanAeajKfObmE8=",
+    "ephI1WQhcIcgoDppSivPXnIfDm7eaJWE0W/H5du+d1s=",
+    "0eOnyfmWtW8FMJkoRKGXz+AhnjIJeTQYk2NCtV1RyOQ=",
+    "jrLDIQoJWosCpvDX7lcyrVf61VOvhuwFOxemw/EWKHA="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "dedust",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": null,
+    "asset_out": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "dex_incoming_transfer": {
+     "asset": null,
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:DAE153A74D894BBC32748198CD626E4F5DF4A69AD2FA56CE80FC2644B5708D20",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "100000000"
+    },
+    "dex_outgoing_transfer": {
+     "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+     "source": "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387",
+     "destination_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+     "amount": "200981"
+    },
+    "peer_swaps": []
+   },
+   "trace_external_hash": "ZyfDLMJt3Xw97ESLzTQXCwlz4jQf7kiW7yZ+j83omEc=",
+   "trace_external_hash_norm": "+kkho0nJEmU5Ms+9k2S27mW4uINmaE5SwzkV0fD2jwg=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "FSqgKLVyNvhW2NY0kW7Lqp924o2E2TanAeajKfObmE8=",
+   "action_id": "NDwPvWwTE14rQP21JhEUoBrovkBzw4oM9EG+PzA9PbE=",
+   "start_lt": "81272572000016",
+   "end_lt": "81272572000017",
+   "start_utime": 1780487241,
+   "end_utime": 1780487241,
+   "trace_end_lt": "81272572000027",
+   "trace_end_utime": 1780487241,
+   "trace_mc_seqno_end": 70944777,
+   "transactions": [
+    "nJ+vXUuG5M//0rLbAvdKmcj6M/Myx8ljRPBRizPuvQc=",
+    "FSqgKLVyNvhW2NY0kW7Lqp924o2E2TanAeajKfObmE8="
+   ],
+   "success": true,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x4d238543",
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553",
+    "value": "875000",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "ZyfDLMJt3Xw97ESLzTQXCwlz4jQf7kiW7yZ+j83omEc=",
+   "trace_external_hash_norm": "+kkho0nJEmU5Ms+9k2S27mW4uINmaE5SwzkV0fD2jwg=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "k6J00wqJQHHcHtARHIeF17QEixeWCTjmwyprYPCvUvM=",
+   "action_id": "0ezShuUURaeiCi9vdl0b20YkCxSl/mKF/oAk4rjDRxk=",
+   "start_lt": "81272550000009",
+   "end_lt": "81272550000021",
+   "start_utime": 1780487232,
+   "end_utime": 1780487232,
+   "trace_end_lt": "81272550000021",
+   "trace_end_utime": 1780487232,
+   "trace_mc_seqno_end": 70944756,
+   "transactions": [
+    "H735uf6m830sC/ud+BQTrn2O+liJmFhx2UzLDrTELxQ=",
+    "T5nQ5sPhTKHuTVpHXd3IUgt7khuua4EoqVDfp0u1sRQ=",
+    "D7tdi8PPSNnLhq6zbAr8I7owRQ/Psi3YI8u6yXcoIOU=",
+    "P4cLXokhyRkKiyRsjclhfAEO/PO0kx944IiTntRgbxs=",
+    "8+Z+6/JyKHy8s1ewtmVgiX4mTQCu/Z/weZKMs9hXP+U=",
+    "k6J00wqJQHHcHtARHIeF17QEixeWCTjmwyprYPCvUvM=",
+    "t7JneiqbJAgRqoXiWUabRsyoQ8w1Ed5Fz7PA6N94PLY="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "dedust",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": null,
+    "asset_out": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "dex_incoming_transfer": {
+     "asset": null,
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:DAE153A74D894BBC32748198CD626E4F5DF4A69AD2FA56CE80FC2644B5708D20",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "100000000"
+    },
+    "dex_outgoing_transfer": {
+     "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+     "source": "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387",
+     "destination_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+     "amount": "201004"
+    },
+    "peer_swaps": []
+   },
+   "trace_external_hash": "LVFhDCuLRAwRqzKB63/xk5uvCyYBkK36Up1t+r6Mo4s=",
+   "trace_external_hash_norm": "feUOt+WfkqjcwpNudwAy8F654xed/aKKkHKKrYUYUzk=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "k6J00wqJQHHcHtARHIeF17QEixeWCTjmwyprYPCvUvM=",
+   "action_id": "HpU1UmileuZYF2nxQbnoQf9nO8kds10r7ehnwMfnsHU=",
+   "start_lt": "81272550000010",
+   "end_lt": "81272550000011",
+   "start_utime": 1780487232,
+   "end_utime": 1780487232,
+   "trace_end_lt": "81272550000021",
+   "trace_end_utime": 1780487232,
+   "trace_mc_seqno_end": 70944756,
+   "transactions": [
+    "z0sOR6Di1j/0eahhPvy4/CtxiGCX59pMto961OyJwRw=",
+    "k6J00wqJQHHcHtARHIeF17QEixeWCTjmwyprYPCvUvM="
+   ],
+   "success": true,
+   "type": "call_contract",
+   "details": {
+    "opcode": "0x4d238543",
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553",
+    "value": "875000",
+    "extra_currencies": {}
+   },
+   "trace_external_hash": "LVFhDCuLRAwRqzKB63/xk5uvCyYBkK36Up1t+r6Mo4s=",
+   "trace_external_hash_norm": "feUOt+WfkqjcwpNudwAy8F654xed/aKKkHKKrYUYUzk=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "cxw+gL3FEt+jPp/zq6BV+VFqms9sdNLrQKHMh4QVuuM=",
+   "action_id": "9awbu0CGvYOEmmZ4pIDR5NUo96/bQ4oG9i3Hx4b37dE=",
+   "start_lt": "81092521000023",
+   "end_lt": "81092521000024",
+   "start_utime": 1780415635,
+   "end_utime": 1780415635,
+   "trace_end_lt": "81092521000024",
+   "trace_end_utime": 1780415635,
+   "trace_mc_seqno_end": 70769313,
+   "transactions": [
+    "xSEZEZ4NBvhkBVHkd83BEEVEgWMX9D8riP789Cmz5uw=",
+    "vDP8E0TuLY90LOZH5emH01SEmltadKWnci/vbSYKNpk="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "cfJuoT7qCUMWOtg7e2deKIYlO3TZb4SjdyFMy3/d5yM=",
+   "trace_external_hash_norm": "J2Kq0fIqsn+5SQVV07H9TsFAnyzjadtYt7hJrmdvzXI=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "4ppXxJJ1O+GMiqotlSBQ74o5gvrLh1A3135Nz5bFcMo=",
+   "action_id": "ua2ps6nKQ3qENeXfYqMPt8SfxWhkpcpYw1R35YzmB9s=",
+   "start_lt": "81088842000004",
+   "end_lt": "81088842000005",
+   "start_utime": 1780414168,
+   "end_utime": 1780414168,
+   "trace_end_lt": "81088842000005",
+   "trace_end_utime": 1780414168,
+   "trace_mc_seqno_end": 70765704,
+   "transactions": [
+    "0jQO3exO44AV1+hY0xQ2cPti0XSYxzP+Wtf1fgVN0nU=",
+    "yjC3n0Ge7s34D95ho9tM6IBBodTOsy4Xh11DIlqtn+4="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": "Hi",
+    "encrypted": false
+   },
+   "trace_external_hash": "Eydv0mah/cmFLeF1AHtRVDOHSErXPWdkTm8xYbf0EhI=",
+   "trace_external_hash_norm": "DjTi3W5ZVsgWxXaYrJ0dkyIBfacYZY5aHVp8A0ozxks=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "lDK6VCDY1sXTHXNYMwYVQZ0p7jPtqIwdLZeDEM7gQcA=",
+   "action_id": "FvrdDVxXf2GiliXkkPcJKkLS80ekRHFTn2sPjmoDhjY=",
+   "start_lt": "81059448000019",
+   "end_lt": "81059448000020",
+   "start_utime": 1780402466,
+   "end_utime": 1780402466,
+   "trace_end_lt": "81059448000020",
+   "trace_end_utime": 1780402466,
+   "trace_mc_seqno_end": 70736922,
+   "transactions": [
+    "blT/RjDfykmb04TIlk9yZH6I8JPfwXrkGw90cuPnA8s=",
+    "O+XdxKtA6QH/vLJ9CHwyGYuah/vkVaXtxXeOplCo4GM="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "100000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "/JFGwjtalzmdaE0YOfhv2EIc0p+TnQ3GK3uF8JzNrII=",
+   "trace_external_hash_norm": "q509tjEsArqc5IfVWCuvCrwMAxuyCy9LQ7BQX0DiFhc=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "TGKCRQH5W2YENB3TTiAewJ/wwaDh5BroRh56Z2FjUyo=",
+   "action_id": "W2UOJGQXWSrSTUvVuPsXHNHqtoJI3PIAXZbZz/Rt04g=",
+   "start_lt": "81049731000045",
+   "end_lt": "81049731000046",
+   "start_utime": 1780398604,
+   "end_utime": 1780398604,
+   "trace_end_lt": "81049731000046",
+   "trace_end_utime": 1780398604,
+   "trace_mc_seqno_end": 70727424,
+   "transactions": [
+    "zmUYLQHYmkrGuA9v3cuH8P97co9GR++4eoGXCsO09f8=",
+    "TGKCRQH5W2YENB3TTiAewJ/wwaDh5BroRh56Z2FjUyo="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:73E9C67A2E3F1469AEA3891960D565AE0BEECAAC8B1D6AEAE57C8989D08D8902",
+    "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "value": "1000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "YjchVujIEHcSpgz74cpNFzau2pZaQ+xIEPEVTLf/Z2c=",
+   "trace_external_hash_norm": "LbN2gUi3QzmYWetTVqjzVeylIW1wFHnNoKI27JSFqEU=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "dwblyAyG8j44V0CZjruNtRMD+cz9zzZVbZJYkjXT2Ak=",
+   "action_id": "org7tJmLxgEQrtfIi2Ky0zaUmxTuXQ+1FjHSTY4oL0Y=",
+   "start_lt": "80913055000006",
+   "end_lt": "80913055000007",
+   "start_utime": 1780344148,
+   "end_utime": 1780344148,
+   "trace_end_lt": "80913055000007",
+   "trace_end_utime": 1780344148,
+   "trace_mc_seqno_end": 70594869,
+   "transactions": [
+    "A21ruHDqwwQumtXFbKR/2/zM0DVbYQwSmR5whXgL7yg=",
+    "dwblyAyG8j44V0CZjruNtRMD+cz9zzZVbZJYkjXT2Ak="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "value": "2000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "SVpzSB7JOmE3FFAZWI15RJ8P5FUm1r+3IalIB2FVdNM=",
+   "trace_external_hash_norm": "CSEWouBY3H37YQbcUMNvpcaV8GTjMtT0kuiwittTVuA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "raDJhYzuXpU2RlbPvQuHVkIsqUEtXlzg6bAcHrfKP90=",
+   "action_id": "7se4dpghTkieSTCpt2PSbTXPpkoq9TAtEg1yoMW5Xtw=",
+   "start_lt": "80912943000014",
+   "end_lt": "80912943000021",
+   "start_utime": 1780344102,
+   "end_utime": 1780344102,
+   "trace_end_lt": "80912943000021",
+   "trace_end_utime": 1780344102,
+   "trace_mc_seqno_end": 70594757,
+   "transactions": [
+    "S0vTQmmB3wvVvJVTKU8b2DZmV/hf8rN5ZsFaMh3wWy0=",
+    "HjSReql9ybvbWSePuK6GMYz17cnfWtBu5cqWAn5pCPU=",
+    "raDJhYzuXpU2RlbPvQuHVkIsqUEtXlzg6bAcHrfKP90=",
+    "PsQAWw4cCVZzwvnXaLbxpzSm/2BzF7jf/6oIPzf8Jb4=",
+    "COxt5zkZa+DiX8n3Ew3A1KnxfPXTbXaFPuAKWwLEdOo="
+   ],
+   "success": true,
+   "type": "stake_withdrawal",
+   "details": {
+    "provider": "liquid_staking",
+    "stake_holder": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "pool": "0:F6FF877DD4CE1355B101572045F09D54C29309737EB52CA542CFA6C195F7CC5B",
+    "amount": "1024176508",
+    "payout_nft": null,
+    "tokens_burnt": "924059509",
+    "asset": "0:AA0BA121449FEDA569E02B12FA755D24E834A7454AECF4649590B6DF742AAC8F"
+   },
+   "trace_external_hash": "jOnwE0/sIaOuuV1JC0J1oAXvQFnasBVd9OUuais8qqg=",
+   "trace_external_hash_norm": "42D0Dusm+YQ0YNs05+theqHHqPqHe0ddu8A6/qiGROs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "mbGCTW77opmy1GRqa9NtaGMe6u3AazzJ2aRCrz4BeXM=",
+   "action_id": "nMyMeP1swyoODKl7F5ZP3FAuIY2QoqwqbSjR2G87N+4=",
+   "start_lt": "79400614000008",
+   "end_lt": "79400614000009",
+   "start_utime": 1779741982,
+   "end_utime": 1779741982,
+   "trace_end_lt": "79400614000009",
+   "trace_end_utime": 1779741982,
+   "trace_mc_seqno_end": 69119662,
+   "transactions": [
+    "i45YskPfpnPOPeL0QEJVkC+CKAekVrFw6aKqjI/dAMU=",
+    "mbGCTW77opmy1GRqa9NtaGMe6u3AazzJ2aRCrz4BeXM="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "value": "13000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "wB8RVgj09GDDR5vhrhQyvB/QYcKvJlNhTTl2zbG7zc0=",
+   "trace_external_hash_norm": "3fEje1ypYsCEiZ9rdI5KxkRzfb8jzF6t1BoJ+lnC4L0=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "KtqSAfK5ef2YB1hsarAhbI30cb3iv0K+Kx1C+sH7/yc=",
+   "action_id": "a7JpJGH5K6mBVtY+x4wTkjpmgkOw6iGcvm1r/dfRN9o=",
+   "start_lt": "79400556000002",
+   "end_lt": "79400556000030",
+   "start_utime": 1779741960,
+   "end_utime": 1779741960,
+   "trace_end_lt": "79400556000030",
+   "trace_end_utime": 1779741960,
+   "trace_mc_seqno_end": 69119606,
+   "transactions": [
+    "3lqFbtQE9UcRY/Z444OgzuekdsfPAW2jz3Rx1hyrQvs=",
+    "0ub5Gi+PM8CpOhTycjYXo5LqCe7sO4zPGyhNzSqz4hM=",
+    "KtqSAfK5ef2YB1hsarAhbI30cb3iv0K+Kx1C+sH7/yc=",
+    "gHC9kY3kGtq7ktK7vuRR0PQNUhZopeFQJ/IO9s/kajs=",
+    "T1lA8PrN0HV3oIWW6waHqTGaubeZOSmjuKF9fyxRqOo=",
+    "Wy5dStyf23x59R5pF1goZnBxYnw20VrjGYGb4TBIGVE=",
+    "/teI/6ClbJa4U5uTxMuIpdXcUgzdEsvcnpAXwH2YAOs=",
+    "Mw2tQStEHdHTqFTlKL47IoL+5hIH+PmIXVWJEO1/1T8=",
+    "9xRimzs/Qa/j4g1Nkmbpb2dt7V8BeSsY9Rb5g4hnFpI=",
+    "VBTJT0W4RNU923akhqQ7Q/xkd9Zb9p668ty1nQgiTLU=",
+    "6eEiyeFm45BiA/H+ngIVNkwU1f5Xm3DU5fzi3AwT3r0=",
+    "uzccXqR9DoiHHaHMAdjn3MnoSnoUmH4ZXEnIfg1NmUI=",
+    "iJQXYn/fceIRO5GXwt6RWIOjTP96aZB7FvgZ3tCeKDk=",
+    "bGRAQR9nDmYgbIUHMkFABSuJjVA2N4PLDEi3fwrHEF0=",
+    "oE0dKz9MTyOOH9IGLDxSPBbqrnbBttyGBnI4wEBTxfM="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "stonfi_v2",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+    "asset_out": null,
+    "dex_incoming_transfer": {
+     "asset": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:52357FF99928A4055B6D5A121A21BD1FF23254EDF2FA92FCB2155A6977B75644",
+     "source_jetton_wallet": "0:BC3BED2D55D75CD4A58F751D9F311DE76085601D7F1200AC4EABE430783080E1",
+     "destination_jetton_wallet": "0:519AA82CEA278028775F33E7A2889658BF0C94D9C8B0CD449D25E3E618767A3B",
+     "amount": "25885819"
+    },
+    "dex_outgoing_transfer": {
+     "asset": null,
+     "source": "0:92E1411AE546892F33B2C8A89EA90390D8FF4CFBB917A643B91E73F706FDB9D1",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "13078815191"
+    },
+    "peer_swaps": [
+     {
+      "asset_in": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+      "amount_in": "25885819",
+      "asset_out": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "amount_out": "25885895"
+     },
+     {
+      "asset_in": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "amount_in": "25885895",
+      "asset_out": null,
+      "amount_out": "13078815191"
+     }
+    ]
+   },
+   "trace_external_hash": "jIb3gnL6HcaTIfxThafw7W7ZwoAPtijVxGDZoQYB3ZQ=",
+   "trace_external_hash_norm": "UlqcyvXDvYZlpHT1toe5xhbBFO/u5Xind11uYloLbzA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "KtqSAfK5ef2YB1hsarAhbI30cb3iv0K+Kx1C+sH7/yc=",
+   "action_id": "7xOXP7gyI1xAqDxacWe67LLdb9LybIhrTFlLc7iCALg=",
+   "start_lt": "79400556000003",
+   "end_lt": "79400556000010",
+   "start_utime": 1779741960,
+   "end_utime": 1779741960,
+   "trace_end_lt": "79400556000030",
+   "trace_end_utime": 1779741960,
+   "trace_mc_seqno_end": 69119606,
+   "transactions": [
+    "Ww/Lr2fTYeu+tZNffhva66w9IpwAYCWZl6j5XKej+4Q=",
+    "KtqSAfK5ef2YB1hsarAhbI30cb3iv0K+Kx1C+sH7/yc=",
+    "yLKe/w1YAondgeBgL8SLsPWXFZMwxyFCe3WLCc+BYp4=",
+    "00P4AmXmk9MR/Mj2NmwClZtibGMsERA2eVTemnHDAPA=",
+    "88LM9+OW2KydpGvZvlWIQOcybj4CVHnsZ/Wo6VVXJeU="
+   ],
+   "success": true,
+   "type": "jetton_transfer",
+   "details": {
+    "asset": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "receiver": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553",
+    "sender_jetton_wallet": "0:BC3BED2D55D75CD4A58F751D9F311DE76085601D7F1200AC4EABE430783080E1",
+    "receiver_jetton_wallet": "0:9F10FF13550DF3B9502E7972C0AE9E89D1608D02C987B87011BCF59517A63F00",
+    "amount": "226500",
+    "comment": null,
+    "is_encrypted_comment": false,
+    "query_id": "13880052422905729642",
+    "response_destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "custom_payload": null,
+    "forward_payload": "te6cckEBAQEABgAACE0jhUPUcYAL",
+    "forward_amount": "1"
+   },
+   "trace_external_hash": "jIb3gnL6HcaTIfxThafw7W7ZwoAPtijVxGDZoQYB3ZQ=",
+   "trace_external_hash_norm": "UlqcyvXDvYZlpHT1toe5xhbBFO/u5Xind11uYloLbzA=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "UkcGFu9CgYRgh0sSk7te4WCY6sYrtMsIWHRWUQziOAY=",
+   "action_id": "oogNh/sjJ6Q2U9GQRTUHy1D7S8CPKRzij4g4on00wSE=",
+   "start_lt": "79392511000002",
+   "end_lt": "79392511000003",
+   "start_utime": 1779738765,
+   "end_utime": 1779738765,
+   "trace_end_lt": "79392511000003",
+   "trace_end_utime": 1779738765,
+   "trace_mc_seqno_end": 69111746,
+   "transactions": [
+    "UkcGFu9CgYRgh0sSk7te4WCY6sYrtMsIWHRWUQziOAY=",
+    "+6rvA3ylP7wJd1FnBTNKpmDPgmwFWj9iJ85E3qz1Y1U="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "value": "8000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "Y7xKFu3SpPgXVojgoeDc8XVGNcUGgXg89sMrnfq7qGo=",
+   "trace_external_hash_norm": "uDG17aPiRxT1D0JDwnVydFwjEZdrVuVUfZGzfkRa5ZQ=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "5cFupGYJNciKRLhHgm1XyP7Oyu3mkES374ryE2QghVs=",
+   "action_id": "TyEdDd7LW8jExYA9rcWE1l10MpYTpud086Gn88OGv6s=",
+   "start_lt": "79341577000002",
+   "end_lt": "79341577000003",
+   "start_utime": 1779718498,
+   "end_utime": 1779718498,
+   "trace_end_lt": "79341577000003",
+   "trace_end_utime": 1779718498,
+   "trace_mc_seqno_end": 69061831,
+   "transactions": [
+    "KOU1jOnzFJP6llj66uE8LSOjwGbJ25aM5NZ5WSw54Kg=",
+    "5cFupGYJNciKRLhHgm1XyP7Oyu3mkES374ryE2QghVs="
+   ],
+   "success": true,
+   "type": "ton_transfer",
+   "details": {
+    "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "destination": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E",
+    "value": "10000000000",
+    "value_extra_currencies": {},
+    "comment": null,
+    "encrypted": false
+   },
+   "trace_external_hash": "B/sljakAYkHXing10zbqwU/Ic7r73hvQUgHiSVbBdRA=",
+   "trace_external_hash_norm": "dtqhJH419e5Vm+3tays9jvLuYsjUjCFzDtyL5KfWq88=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "qeLCEDkofbme7BDpfkeks0FDVjjZJQGYgYmsGHlcZaE=",
+   "action_id": "p+ApdMkNVzk3jTMnlFbd90Xw0y2lmYSUe7xGJ5TKwFM=",
+   "start_lt": "76921126000002",
+   "end_lt": "76921126000014",
+   "start_utime": 1778756080,
+   "end_utime": 1778756080,
+   "trace_end_lt": "76921126000014",
+   "trace_end_utime": 1778756080,
+   "trace_mc_seqno_end": 66701325,
+   "transactions": [
+    "qeLCEDkofbme7BDpfkeks0FDVjjZJQGYgYmsGHlcZaE=",
+    "tDPqq6h+dl3cJ6Z/StIvz0mMEWmUKKcLK862iGGx77Q=",
+    "5k45wrnZPugFlSlkeFEzZUJtct6ed/GyepLGJ2ZtnoQ=",
+    "PN71AKudBv4qHnhw+fC/twgCQFp+y9buAov9HP6Umbo=",
+    "PTXNsOZeH8m80228aKJSiB33RvZVONW1ikeZqJfe6tU=",
+    "Z/Uq/q6haQedr8z9ERNOAazD0+bsfFubUkUvaKEpS2Q=",
+    "ukVk0DedWEz9XWbw2McI6vsMRVomXpjM4csMF0TsNQE=",
+    "d77l+Suljis0FBr1FBGrau+IqT6EVACPHb5wy0mu9bI="
+   ],
+   "success": true,
+   "type": "jetton_swap",
+   "details": {
+    "dex": "dedust",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "asset_in": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "asset_out": null,
+    "dex_incoming_transfer": {
+     "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+     "source": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "destination": "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D",
+     "source_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+     "destination_jetton_wallet": "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387",
+     "amount": "4782885"
+    },
+    "dex_outgoing_transfer": {
+     "asset": null,
+     "source": "0:DAE153A74D894BBC32748198CD626E4F5DF4A69AD2FA56CE80FC2644B5708D20",
+     "destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+     "source_jetton_wallet": null,
+     "destination_jetton_wallet": null,
+     "amount": "2236902907"
+    },
+    "peer_swaps": []
+   },
+   "trace_external_hash": "I1D8A+0kkaCOUzxM/kMrj03Kq+dm4tFsH5n+y4jxiNE=",
+   "trace_external_hash_norm": "uFhkEB3+IGaSV1lFcC3i0sYUgs54lg071+ty/0lBhbQ=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "qeLCEDkofbme7BDpfkeks0FDVjjZJQGYgYmsGHlcZaE=",
+   "action_id": "0YRjYnVODLRXtDy8g5/gS3CbNmwQjgHnAm1+EivIuY4=",
+   "start_lt": "76921126000003",
+   "end_lt": "76921126000010",
+   "start_utime": 1778756080,
+   "end_utime": 1778756080,
+   "trace_end_lt": "76921126000014",
+   "trace_end_utime": 1778756080,
+   "trace_mc_seqno_end": 66701325,
+   "transactions": [
+    "qeLCEDkofbme7BDpfkeks0FDVjjZJQGYgYmsGHlcZaE=",
+    "WCPNMumPZA1KdpvOaevo2xOHkYovuJkQ4MQF9gA0PPQ=",
+    "c86SaddAZqAsjbQObFzD/TV5jw3QOvmTsA8WBdlNSUM=",
+    "XRTS9aXoh30UsWEcEL2/b32fwoF+94XoPJHxpOBHMvk=",
+    "bdJa9Kma1CyM4VyqCPF5fagGcmuwS/E2Yb44I1XmXuY="
+   ],
+   "success": true,
+   "type": "jetton_transfer",
+   "details": {
+    "asset": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+    "sender": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "receiver": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553",
+    "sender_jetton_wallet": "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF",
+    "receiver_jetton_wallet": "0:F085A8FDA92721C6913EADA1D1A7CDB26295A041F9F7E32936DF39B61A303300",
+    "amount": "41850",
+    "comment": null,
+    "is_encrypted_comment": false,
+    "query_id": "6942079862339741701",
+    "response_destination": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "custom_payload": null,
+    "forward_payload": "te6cckEBAQEABgAACE0jhUPUcYAL",
+    "forward_amount": "1"
+   },
+   "trace_external_hash": "I1D8A+0kkaCOUzxM/kMrj03Kq+dm4tFsH5n+y4jxiNE=",
+   "trace_external_hash_norm": "uFhkEB3+IGaSV1lFcC3i0sYUgs54lg071+ty/0lBhbQ=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "x+J6xYNIYHpDAOyAFqgqfp2kuwPQ1A9fyAxMCwAbDic=",
+   "action_id": "kiuIzXfEI7b8bH9aITRE7JWhYEP8XbFAOUe0NDhdEJM=",
+   "start_lt": "76715465000007",
+   "end_lt": "76715465000011",
+   "start_utime": 1778674334,
+   "end_utime": 1778674334,
+   "trace_end_lt": "76715465000011",
+   "trace_end_utime": 1778674334,
+   "trace_mc_seqno_end": 66501293,
+   "transactions": [
+    "f4GL3tz67FDqbfHifaDeuQZaw5/uiPJR4wxzQz4EVC8=",
+    "73oldq1m9Qqg8ift0EZULPzuCZxG3oxo1NcxGAQ+ZA4=",
+    "YqO+O0fGfmdPf3RTXiHgCPZJdfEBKq3hGR7ryUIQDy8=",
+    "SnFg9gT4N0KExkXGbb6Rw07V9XwHtaipN8etMN20vjA="
+   ],
+   "success": true,
+   "type": "nft_transfer",
+   "details": {
+    "nft_collection": "0:F56156F01B974D57D959833D7C178723066E62A985F2794A9D19EDB52578EC2C",
+    "nft_item": "0:2A0D0428200BFABDD7015D8E02CEB1103DB1875D08938B6EDC328616CE5A3919",
+    "nft_item_index": "56124",
+    "old_owner": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "new_owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "is_purchase": false,
+    "query_id": "15238435974510524386",
+    "response_destination": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "custom_payload": null,
+    "forward_payload": "te6cckEBAQEACgAAEAAAAAB0ZXN0cbBecQ==",
+    "forward_amount": "1",
+    "comment": "test",
+    "is_encrypted_comment": false,
+    "marketplace": null,
+    "real_old_owner": null,
+    "marketplace_address": null,
+    "payout_amount": null,
+    "payout_address": null,
+    "payout_comment": null,
+    "payout_comment_encrypted": null,
+    "payout_comment_encoded": null,
+    "royalty_amount": null,
+    "royalty_address": null
+   },
+   "trace_external_hash": "xvznKsizlYAWCKSs1GPQ+Is0EsbY7+/W9NH00aThJNE=",
+   "trace_external_hash_norm": "6jmE7z0ihm+tM5iM8XY8HY4m6tDK+fa4MgaslQh0Vqs=",
+   "finality": "finalized"
+  },
+  {
+   "trace_id": "x+J6xYNIYHpDAOyAFqgqfp2kuwPQ1A9fyAxMCwAbDic=",
+   "action_id": "vwlgIh4RUZujjDjmb9EES9nqEWhGPLV7tzc7xThsNT4=",
+   "start_lt": "76715465000006",
+   "end_lt": "76715465000010",
+   "start_utime": 1778674334,
+   "end_utime": 1778674334,
+   "trace_end_lt": "76715465000011",
+   "trace_end_utime": 1778674334,
+   "trace_mc_seqno_end": 66501293,
+   "transactions": [
+    "WadYHMYCBuNAoD+83f8F08ZspU9P8GmJaTuR2bmY644=",
+    "73oldq1m9Qqg8ift0EZULPzuCZxG3oxo1NcxGAQ+ZA4=",
+    "t2b7SwaidI9t0k5IdEDnB2w0xfd5jXolfoK2JqMa0gI=",
+    "2pDz4KYD9A36iQDyCbsVrYNCWnoLe4ROArsgfVwuYh8="
+   ],
+   "success": true,
+   "type": "nft_transfer",
+   "details": {
+    "nft_collection": "0:D12147A0C98F8FD3F8D61AE7F2BC311436768E64EEE8A971BD71A437F8E03145",
+    "nft_item": "0:5C18F1B20E28FDA26E7B46A19EC1E0F5C11542837FBEDD55DC37125D71C19754",
+    "nft_item_index": "4653",
+    "old_owner": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "new_owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+    "is_purchase": false,
+    "query_id": "2913901654424041055",
+    "response_destination": "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013",
+    "custom_payload": null,
+    "forward_payload": "te6cckEBAQEACgAAEAAAAAB0ZXN0cbBecQ==",
+    "forward_amount": "1",
+    "comment": "test",
+    "is_encrypted_comment": false,
+    "marketplace": null,
+    "real_old_owner": null,
+    "marketplace_address": null,
+    "payout_amount": null,
+    "payout_address": null,
+    "payout_comment": null,
+    "payout_comment_encrypted": null,
+    "payout_comment_encoded": null,
+    "royalty_amount": null,
+    "royalty_address": null
+   },
+   "trace_external_hash": "xvznKsizlYAWCKSs1GPQ+Is0EsbY7+/W9NH00aThJNE=",
+   "trace_external_hash_norm": "6jmE7z0ihm+tM5iM8XY8HY4m6tDK+fa4MgaslQh0Vqs=",
+   "finality": "finalized"
+  }
+ ],
+ "address_book": {
+  "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC": {
+   "user_friendly": "EQAIb6KmdfdDR7CN1GBqVJuP25iCnLKCvBlJ07Evuu2dzP5f",
+   "domain": null,
+   "interfaces": [
+    "jetton_master"
+   ]
+  },
+  "0:1150B518B2626AD51899F98887F8824B70065456455F7FE2813F012699A4061F": {
+   "user_friendly": "EQARULUYsmJq1RiZ-YiH-IJLcAZUVkVff-KBPwEmmaQGH6aC",
+   "domain": "join-hashtag-on-tele-gram.ton",
+   "interfaces": [
+    "jetton_wallet"
+   ]
+  },
+  "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72": {
+   "user_friendly": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D": {
+   "user_friendly": "EQAYqo4u7VF0fa4DPAebk4g9lBytj2VFny7pzXR0trjtXQaO",
+   "domain": "bidask-tondev--scam.ton",
+   "interfaces": [
+    "dedust_vault"
+   ]
+  },
+  "0:1F3806AA9A012BBE4209DE707E9AC3F3420A67ECBC849F6BA8E073EDAE08106B": {
+   "user_friendly": "EQAfOAaqmgErvkIJ3nB-msPzQgpn7LyEn2uo4HPtrggQa70T",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_v2"
+   ]
+  },
+  "0:26B1DD8D28F0180382352679C13DDE66BB694716D3B861021AE8D7CF9DFBAC89": {
+   "user_friendly": "UQAmsd2NKPAYA4I1JnnBPd5mu2lHFtO4YQIa6NfPnfusiRXm",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:2A0D0428200BFABDD7015D8E02CEB1103DB1875D08938B6EDC328616CE5A3919": {
+   "user_friendly": "EQAqDQQoIAv6vdcBXY4CzrEQPbGHXQiTi27cMoYWzlo5GXYj",
+   "domain": null,
+   "interfaces": [
+    "nft_item"
+   ]
+  },
+  "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF": {
+   "user_friendly": "EQArNvS9lo9CxGDqRk65RxiP0hCw2UVlCwxbLmjRBwChr-VF",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:2F956143C461769579BAEF2E32CC2D7BC18283F40D20BB03E432CD603AC33FFC": {
+   "user_friendly": "EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT",
+   "domain": "notcoin-minter.ton",
+   "interfaces": [
+    "jetton_master"
+   ]
+  },
+  "0:308429B87D0C6B36A17D6BFB1D664C85B5827B165945E3BE5A53E70995EE96C6": {
+   "user_friendly": "EQAwhCm4fQxrNqF9a_sdZkyFtYJ7FllF475aU-cJle6WxvZF",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_v2"
+   ]
+  },
+  "0:3C43FB179EC45C97D4E55FE74767B065292D557C98F09CA8086301C103492A1E": {
+   "user_friendly": "UQA8Q_sXnsRcl9TlX-dHZ7BlKS1VfJjwnKgIYwHBA0kqHgsa",
+   "domain": null,
+   "interfaces": [
+    "wallet_v4r2"
+   ]
+  },
+  "0:4627A5C99456D61AEFA0AC2E98154428C817D3FC5F5DD7CA738523526146344D": {
+   "user_friendly": "EQBGJ6XJlFbWGu-grC6YFUQoyBfT_F9d18pzhSNSYUY0TUnM",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:4EEC921B9D4D56A0D94676016D49C26B39B1D7901A7E153E66033F146A0886F4": {
+   "user_friendly": "EQBO7JIbnU1WoNlGdgFtScJrObHXkBp-FT5mAz8UagiG9KQR",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:519AA82CEA278028775F33E7A2889658BF0C94D9C8B0CD449D25E3E618767A3B": {
+   "user_friendly": "EQBRmqgs6ieAKHdfM-eiiJZYvwyU2ciwzUSdJePmGHZ6OwSU",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet"
+   ]
+  },
+  "0:52357FF99928A4055B6D5A121A21BD1FF23254EDF2FA92FCB2155A6977B75644": {
+   "user_friendly": "EQBSNX_5mSikBVttWhIaIb0f8jJU7fL6kvyyFVppd7dWRO6M",
+   "domain": null,
+   "interfaces": []
+  },
+  "0:5B4340152121A19CF7D86E7EA4D0AFF98D8850FC14573DBF74FC67B35E999A8C": {
+   "user_friendly": "UQBbQ0AVISGhnPfYbn6k0K_5jYhQ_BRXPb90_GezXpmajIV4",
+   "domain": null,
+   "interfaces": []
+  },
+  "0:5C18F1B20E28FDA26E7B46A19EC1E0F5C11542837FBEDD55DC37125D71C19754": {
+   "user_friendly": "EQBcGPGyDij9om57RqGeweD1wRVCg3--3VXcNxJdccGXVLjK",
+   "domain": null,
+   "interfaces": [
+    "editable",
+    "nft_item"
+   ]
+  },
+  "0:5D67B5BBBE57287460F18CD75EB937FAA538CDAE8DAAF452991F1EF4DD28C69E": {
+   "user_friendly": "EQBdZ7W7vlcodGDxjNdeuTf6pTjNro2q9FKZHx703SjGnj2-",
+   "domain": null,
+   "interfaces": []
+  },
+  "0:73E9C67A2E3F1469AEA3891960D565AE0BEECAAC8B1D6AEAE57C8989D08D8902": {
+   "user_friendly": "UQBz6cZ6Lj8Uaa6jiRlg1WWuC-7KrIsdaurlfImJ0I2JAhLA",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:779DCC815138D9500E449C5291E7F12738C23D575B5310000F6A253BD607384E": {
+   "user_friendly": "EQB3ncyBUTjZUA5EnFKR5_EnOMI9V1tTEAAPaiU71gc4TiUt",
+   "domain": null,
+   "interfaces": [
+    "stonfi_router"
+   ]
+  },
+  "0:77BDC0E36408CE2FD30ECB090C227C36E5328F91A9553BBC52F8186315822CB0": {
+   "user_friendly": "EQB3vcDjZAjOL9MOywkMInw25TKPkalVO7xS-BhjFYIssIOz",
+   "domain": null,
+   "interfaces": [
+    "wallet_highload_v3r1"
+   ]
+  },
+  "0:7C588200B2B60AB2A762BA896984A1B3F3B8C684CEC02835B34866A42101FB16": {
+   "user_friendly": "EQB8WIIAsrYKsqdiuolphKGz87jGhM7AKDWzSGakIQH7FhNq",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387": {
+   "user_friendly": "EQCI2sZ8zq25yub6rHEY8FwPqV3zbCqS5oasOdljENCjh0bs",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:8CDC1D7640AD5EE326527FC1AD0514F468B30DC84B0173F0E155F451B4E11F7C": {
+   "user_friendly": "EQCM3B12QK1e4yZSf8GtBRT0aLMNyEsBc_DhVfRRtOEffLez",
+   "domain": null,
+   "interfaces": [
+    "jetton_master"
+   ]
+  },
+  "0:92E1411AE546892F33B2C8A89EA90390D8FF4CFBB917A643B91E73F706FDB9D1": {
+   "user_friendly": "EQCS4UEa5UaJLzOyyKieqQOQ2P9M-7kXpkO5HnP3Bv250cN3",
+   "domain": "bidask-scammer.ton",
+   "interfaces": []
+  },
+  "0:9321A6DC7FF3F3F1A869AA83DE9A1FADB24FD793C8459431B6125DA5E0E8344C": {
+   "user_friendly": "EQCTIabcf_Pz8ahpqoPemh-tsk_Xk8hFlDG2El2l4Og0TL1A",
+   "domain": null,
+   "interfaces": [
+    "nft_collection"
+   ]
+  },
+  "0:9959F0E5B04D0BFDA3BB1C92857565B89D9A8E3366F3EC23E69AB5893942432B": {
+   "user_friendly": "UQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK6BH",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:9F10FF13550DF3B9502E7972C0AE9E89D1608D02C987B87011BCF59517A63F00": {
+   "user_friendly": "EQCfEP8TVQ3zuVAueXLArp6J0WCNAsmHuHARvPWVF6Y_ALym",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet"
+   ]
+  },
+  "0:9F49B7F572743E8DA529543E8EEAA99DF85DC1B4B035B2E2739FFCED186FC333": {
+   "user_friendly": "UQCfSbf1cnQ-jaUpVD6O6qmd-F3BtLA1suJzn_ztGG_DMxlp",
+   "domain": "mywallet-dev.ton",
+   "interfaces": [
+    "wallet_v4r2"
+   ]
+  },
+  "0:A35884719E3B78E40800FC85E15E74DFCD6C41B0D386BCCD020B7F063AE4BAA1": {
+   "user_friendly": "UQCjWIRxnjt45AgA_IXhXnTfzWxBsNOGvM0CC38GOuS6oYs3",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553": {
+   "user_friendly": "UQCmuhNQvH2yAh5rUplL_ZQ2xy4AqCSlRQTviNZ687m1U_CW",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:AA0BA121449FEDA569E02B12FA755D24E834A7454AECF4649590B6DF742AAC8F": {
+   "user_friendly": "EQCqC6EhRJ_tpWngKxL6dV0k6DSnRUrs9GSVkLbfdCqsj6TE",
+   "domain": null,
+   "interfaces": [
+    "jetton_master"
+   ]
+  },
+  "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE": {
+   "user_friendly": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+   "domain": null,
+   "interfaces": [
+    "jetton_master"
+   ]
+  },
+  "0:B9A7DCE19431B56044254C69858E8DC11FEC5C0761DED415E386FBE4B4E116F5": {
+   "user_friendly": "UQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9Xi0",
+   "domain": "enenf.t.me",
+   "interfaces": [
+    "wallet_v3r2"
+   ]
+  },
+  "0:BC3BED2D55D75CD4A58F751D9F311DE76085601D7F1200AC4EABE430783080E1": {
+   "user_friendly": "EQC8O-0tVddc1KWPdR2fMR3nYIVgHX8SAKxOq-QweDCA4bDu",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet"
+   ]
+  },
+  "0:D12147A0C98F8FD3F8D61AE7F2BC311436768E64EEE8A971BD71A437F8E03145": {
+   "user_friendly": "EQDRIUegyY-P0_jWGufyvDEUNnaOZO7oqXG9caQ3-OAxRUcx",
+   "domain": null,
+   "interfaces": [
+    "nft_collection"
+   ]
+  },
+  "0:D8CD999FB2B1B384E6CA254C3883375E23111A8B78C015B886286C31BF11E29D": {
+   "user_friendly": "UQDYzZmfsrGzhObKJUw4gzdeIxEai3jAFbiGKGwxvxHinf4K",
+   "domain": "6895.ton",
+   "interfaces": [
+    "wallet_v4r2"
+   ]
+  },
+  "0:DAA5C8B2EE04CFB3746556DB1216CB4D21CF373775FAB6644CA52FB35D142CA8": {
+   "user_friendly": "EQDapciy7gTPs3RlVtsSFstNIc83N3X6tmRMpS-zXRQsqG_a",
+   "domain": null,
+   "interfaces": [
+    "nft_item"
+   ]
+  },
+  "0:DAE153A74D894BBC32748198CD626E4F5DF4A69AD2FA56CE80FC2644B5708D20": {
+   "user_friendly": "EQDa4VOnTYlLvDJ0gZjNYm5PXfSmmtL6Vs6A_CZEtXCNICq_",
+   "domain": "mergesort.t.me",
+   "interfaces": [
+    "dedust_vault"
+   ]
+  },
+  "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E": {
+   "user_friendly": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:DBCF94B4999CFD8294FD5F9A69A6DFDA1AFBEC79C9825CF41852966566D73013": {
+   "user_friendly": "UQDbz5S0mZz9gpT9X5pppt_aGvvsecmCXPQYUpZlZtcwEwEQ",
+   "domain": null,
+   "interfaces": [
+    "wallet_v5r1"
+   ]
+  },
+  "0:E80F9C1C9E90620A8DCC9DC43C382063E55214BBDAFEBC845A60833D8A49BAEC": {
+   "user_friendly": "EQDoD5wcnpBiCo3MncQ8OCBj5VIUu9r-vIRaYIM9ikm67FrF",
+   "domain": null,
+   "interfaces": []
+  },
+  "0:F085A8FDA92721C6913EADA1D1A7CDB26295A041F9F7E32936DF39B61A303300": {
+   "user_friendly": "EQDwhaj9qSchxpE-raHRp82yYpWgQfn34yk23zm2GjAzALL_",
+   "domain": null,
+   "interfaces": [
+    "jetton_wallet_governed"
+   ]
+  },
+  "0:F56156F01B974D57D959833D7C178723066E62A985F2794A9D19EDB52578EC2C": {
+   "user_friendly": "EQD1YVbwG5dNV9lZgz18F4cjBm5iqYXyeUqdGe21JXjsLCIo",
+   "domain": null,
+   "interfaces": [
+    "nft_collection"
+   ]
+  },
+  "0:F6FF877DD4CE1355B101572045F09D54C29309737EB52CA542CFA6C195F7CC5B": {
+   "user_friendly": "EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o",
+   "domain": null,
+   "interfaces": [
+    "tonstake_pool"
+   ]
+  }
+ },
+ "metadata": {
+  "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "Ethena USDe",
+     "symbol": "USDe",
+     "description": "Ethena USDe",
+     "image": "https://metadata.layerzero-api.com/assets/USDe.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/bfN1M_R0St-m-0BxnWXnOW3oU6Zrru8pM1BXDG8vemk/pr:big/bG9jYWw6Ly8vN2QvZWUvN2RlZTVlOTQ0NmY3YjFlMmMzMjFhMTdlNWFlMjY3NDdhY2VlM2I3YzhlMWRkN2QwNTU3ZjhjN2FjYWRjYTY1YQ",
+      "_image_medium": "https://proxy.toncenter.com/ijc-RqnvK0BZ8hTPTskrCNaH6xGvh-NRewksXAQuXis/pr:medium/bG9jYWw6Ly8vN2QvZWUvN2RlZTVlOTQ0NmY3YjFlMmMzMjFhMTdlNWFlMjY3NDdhY2VlM2I3YzhlMWRkN2QwNTU3ZjhjN2FjYWRjYTY1YQ",
+      "_image_small": "https://proxy.toncenter.com/HFlUnJIyKg1q8a8Yp7dajaWXwRSowbA6WlBQZBZohYI/pr:small/bG9jYWw6Ly8vN2QvZWUvN2RlZTVlOTQ0NmY3YjFlMmMzMjFhMTdlNWFlMjY3NDdhY2VlM2I3YzhlMWRkN2QwNTU3ZjhjN2FjYWRjYTY1YQ",
+      "decimals": "6",
+      "uri": "https://metadata.layerzero-api.com/v1/metadata/ton/ofts/USDe"
+     }
+    }
+   ]
+  },
+  "0:1150B518B2626AD51899F98887F8824B70065456455F7FE2813F012699A4061F": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "3986762331959943",
+      "jetton": "0:8CDC1D7640AD5EE326527FC1AD0514F468B30DC84B0173F0E155F451B4E11F7C",
+      "owner": "0:779DCC815138D9500E449C5291E7F12738C23D575B5310000F6A253BD607384E"
+     }
+    }
+   ]
+  },
+  "0:1F3806AA9A012BBE4209DE707E9AC3F3420A67ECBC849F6BA8E073EDAE08106B": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "100000000000",
+      "jetton": "0:2F956143C461769579BAEF2E32CC2D7BC18283F40D20BB03E432CD603AC33FFC",
+      "owner": "0:9959F0E5B04D0BFDA3BB1C92857565B89D9A8E3366F3EC23E69AB5893942432B"
+     }
+    }
+   ]
+  },
+  "0:2A0D0428200BFABDD7015D8E02CEB1103DB1875D08938B6EDC328616CE5A3919": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_items",
+     "name": "ZarGates GiftBox",
+     "description": "THE GOLDEN ORC HUNTING SEASON IS OPEN!\n\nZarGates offers a massive bounty to all treasure hunters out there for capturing them. 🔥 OPEN GIFTBOXES, pull Stickerboxes, and collect Golden Orc stickers to claim the most valuable rewards from ZarGates!\n\n100% of all proceeds go toward the prize pool and collection promotion.\n\n💎 Don't miss your chance to claim your share of the loot from the $300,000 prize pool!\n\n✅ For details and links to our official channels, see the collection description.\n\n🚀 Let's go — adventure awaits!",
+     "image": "https://metadata.zargates.com/giftbox/0.png",
+     "nft_index": "56124",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://imgproxy.toncenter.com/B8kjIMEu6eya4Dkuodlw5ZX5ZiLlC7B1NuNXKjrh2YA/pr:big/aHR0cHM6Ly9tZXRhZGF0YS56YXJnYXRlcy5jb20vZ2lmdGJveC8wLnBuZw",
+      "_image_medium": "https://imgproxy.toncenter.com/Gd_zpbMmNc6yTkKOS4ogzZDCta1YJpZ-b8n9YfXhIHo/pr:medium/aHR0cHM6Ly9tZXRhZGF0YS56YXJnYXRlcy5jb20vZ2lmdGJveC8wLnBuZw",
+      "_image_small": "https://imgproxy.toncenter.com/MiWJ9IbF2DN-4K1XFp1CQbaQOcUy6lKkPow42YYexBw/pr:small/aHR0cHM6Ly9tZXRhZGF0YS56YXJnYXRlcy5jb20vZ2lmdGJveC8wLnBuZw",
+      "attributes": [],
+      "buttons": [
+       {
+        "label": "Open GiftBox!",
+        "uri": "https://t.me/ZARGatesBot/twa?startapp=utm_source=button-open-gb==utm_medium=zargates-giftbox"
+       }
+      ],
+      "uri": "https://metadata.zargates.com/giftbox/0"
+     }
+    }
+   ]
+  },
+  "0:2B36F4BD968F42C460EA464EB947188FD210B0D945650B0C5B2E68D10700A1AF": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "831142",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72"
+     }
+    }
+   ]
+  },
+  "0:2F956143C461769579BAEF2E32CC2D7BC18283F40D20BB03E432CD603AC33FFC": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "Notcoin",
+     "symbol": "NOT",
+     "description": "",
+     "image": "https://cdn.joincommunity.xyz/clicker/not_logo.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/_iut5ajDIUq5PotzS1SIPrtOSgnHuQXy9Qd0GYA3sIg/pr:big/bG9jYWw6Ly8vZDIvMzMvZDIzMzVkY2E1YzBiMTdhODA0NTQzOGZjYWFjNTgyNjczMGNlZDFiYTg1MDQ0MDQzYjM3MmM2NmZkZDNlYmZiMw",
+      "_image_medium": "https://proxy.toncenter.com/8iZJ_9dS2BvKfMVS0KOx9nHMPeEW1qrLyZecir65aSw/pr:medium/bG9jYWw6Ly8vZDIvMzMvZDIzMzVkY2E1YzBiMTdhODA0NTQzOGZjYWFjNTgyNjczMGNlZDFiYTg1MDQ0MDQzYjM3MmM2NmZkZDNlYmZiMw",
+      "_image_small": "https://proxy.toncenter.com/njBiS7pUu6l1WoLx6ojwQjeb5SkuHp59jH_MvKXcKb4/pr:small/bG9jYWw6Ly8vZDIvMzMvZDIzMzVkY2E1YzBiMTdhODA0NTQzOGZjYWFjNTgyNjczMGNlZDFiYTg1MDQ0MDQzYjM3MmM2NmZkZDNlYmZiMw",
+      "decimals": "9",
+      "uri": "https://cdn.joincommunity.xyz/clicker/not.json"
+     }
+    }
+   ]
+  },
+  "0:308429B87D0C6B36A17D6BFB1D664C85B5827B165945E3BE5A53E70995EE96C6": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "367271822586",
+      "jetton": "0:2F956143C461769579BAEF2E32CC2D7BC18283F40D20BB03E432CD603AC33FFC",
+      "owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72"
+     }
+    }
+   ]
+  },
+  "0:4627A5C99456D61AEFA0AC2E98154428C817D3FC5F5DD7CA738523526146344D": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "2190606",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:DB94199585803B125DA905C562529449BDBB5FE08A3280375220C16BBD03E81E"
+     }
+    }
+   ]
+  },
+  "0:4EEC921B9D4D56A0D94676016D49C26B39B1D7901A7E153E66033F146A0886F4": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "3674497568127",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:779DCC815138D9500E449C5291E7F12738C23D575B5310000F6A253BD607384E"
+     }
+    }
+   ]
+  },
+  "0:519AA82CEA278028775F33E7A2889658BF0C94D9C8B0CD449D25E3E618767A3B": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "105486033020",
+      "jetton": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+      "owner": "0:52357FF99928A4055B6D5A121A21BD1FF23254EDF2FA92FCB2155A6977B75644"
+     }
+    }
+   ]
+  },
+  "0:5C18F1B20E28FDA26E7B46A19EC1E0F5C11542837FBEDD55DC37125D71C19754": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_items",
+     "name": "10,000 $WCOIN Voucher",
+     "description": "You can exchange this collectible for $WCOIN tokens after the token generation event.",
+     "image": "https://w-coin-pre-market.fra1.cdn.digitaloceanspaces.com/voucher.png",
+     "nft_index": "4653",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://imgproxy.toncenter.com/oOsOdqXiOoY9NDcpHtLit8bYNxtUhWlSMme8MVkQc7M/pr:big/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL3ZvdWNoZXIucG5n",
+      "_image_medium": "https://imgproxy.toncenter.com/YX_YP2qMfS6v-u9P0I78sVBKVtrWgYSKFD4opBGl7A4/pr:medium/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL3ZvdWNoZXIucG5n",
+      "_image_small": "https://imgproxy.toncenter.com/QL_LVZuguNc_9-QKRohpRo20FO7N4Enr7WXovngUo40/pr:small/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL3ZvdWNoZXIucG5n",
+      "attributes": [
+       {
+        "trait_type": "Value",
+        "value": "10,000"
+       }
+      ],
+      "buttons": [
+       {
+        "label": "Open Pre-Market",
+        "uri": "https://getgems.io/wcoin-io"
+       }
+      ],
+      "uri": "https://w-coin-pre-market.fra1.cdn.digitaloceanspaces.com/nft.json"
+     }
+    }
+   ]
+  },
+  "0:5D67B5BBBE57287460F18CD75EB937FAA538CDAE8DAAF452991F1EF4DD28C69E": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "100000000000",
+      "jetton": "0:84ADB6854F4A5EA5D7A4A0A12C336A1507F76FFB808BE51A98D37C596AEFBFEF",
+      "owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72"
+     }
+    }
+   ]
+  },
+  "0:77417749181172D73FA3F0010508FDFFEB988882FFD3D4C0A4E5DE9A93F09E7D": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "LOCKED GRAM",
+     "symbol": "GRAM Unlock at gramunlock.org",
+     "description": "GRAM Unlock at gramunlock.org #1782576725200",
+     "image": "https://raw.githubusercontent.com/hcbwhcbcg1c/gram-assets/main/logo.jpg",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/g2Cvw7epBySKauV47lbXBH4W3JmNTV_3UnJe0Gqbmeg/pr:big/bG9jYWw6Ly8vMDgvNTEvMDg1MWIxOTNkYjAxYTFjOWRiZGQ1OTdlMmYxYmRmMDg0NjYxM2M1ZjQ2YzdjODQ2NjU5ODQyMzM5NTIzYmU4NQ",
+      "_image_medium": "https://proxy.toncenter.com/LEWcKFZp8_MU0N_8Rwy46eHlXsF6ngM7XksBL1vJ0c8/pr:medium/bG9jYWw6Ly8vMDgvNTEvMDg1MWIxOTNkYjAxYTFjOWRiZGQ1OTdlMmYxYmRmMDg0NjYxM2M1ZjQ2YzdjODQ2NjU5ODQyMzM5NTIzYmU4NQ",
+      "_image_small": "https://proxy.toncenter.com/m9k3S9_74hiwIMsA9iKlLTKZy2agY2RVmXuAg1aj3Ks/pr:small/bG9jYWw6Ly8vMDgvNTEvMDg1MWIxOTNkYjAxYTFjOWRiZGQ1OTdlMmYxYmRmMDg0NjYxM2M1ZjQ2YzdjODQ2NjU5ODQyMzM5NTIzYmU4NQ",
+      "decimals": "9"
+     }
+    }
+   ]
+  },
+  "0:7C588200B2B60AB2A762BA896984A1B3F3B8C684CEC02835B34866A42101FB16": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "6990614",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:3C43FB179EC45C97D4E55FE74767B065292D557C98F09CA8086301C103492A1E"
+     }
+    }
+   ]
+  },
+  "0:84ADB6854F4A5EA5D7A4A0A12C336A1507F76FFB808BE51A98D37C596AEFBFEF": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "GRAM AIRDROP",
+     "symbol": "GRAM AT GRAMEVENT.ORG",
+     "description": "GRAM at GRAMEVENT.ORG #1782165644463",
+     "image": "https://cache.tonapi.io/imgproxy/QfGdcG8txfGw734uCV1-SBzgSYppucacdLesesk-8Kw/rs:fill:200:200:1/g:no/aHR0cHM6Ly9jLnRvbmFwaS5pby9vbmNoYWluL2ltYWdlLzA6MjI0NjY0MTE3MDBlYjliZDg5YjQ4NWY4ZTdkZDY3OTRjZjhjZDMzZmUxZDg4NDgwZGYxMmZiZTg0ZTcxNTc4Yi9qZXR0b24.webp",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/_ACRsr5i2gtgXByVjvp3bQPu8sTNekdRoN256wPXCNY/pr:big/bG9jYWw6Ly8vYjIvOWYvYjI5ZmI2OGUyMWU3MmMwNjBmNWFmNTkzMzg1MzhhOGNlZmUyMmI1OTY3OWE4NGU1ODg3ZWJkOTZkZWEyODlmNw",
+      "_image_medium": "https://proxy.toncenter.com/QyGGkFaoFSMENfMlyDxhzyhPQAOgPut6ygeYkwk7qwU/pr:medium/bG9jYWw6Ly8vYjIvOWYvYjI5ZmI2OGUyMWU3MmMwNjBmNWFmNTkzMzg1MzhhOGNlZmUyMmI1OTY3OWE4NGU1ODg3ZWJkOTZkZWEyODlmNw",
+      "_image_small": "https://proxy.toncenter.com/v4lb9fODmDQpzWP3dIkGU0sMYeDQeAKJ1rMPueDP4eU/pr:small/bG9jYWw6Ly8vYjIvOWYvYjI5ZmI2OGUyMWU3MmMwNjBmNWFmNTkzMzg1MzhhOGNlZmUyMmI1OTY3OWE4NGU1ODg3ZWJkOTZkZWEyODlmNw",
+      "decimals": "9"
+     }
+    }
+   ]
+  },
+  "0:88DAC67CCEADB9CAE6FAAC7118F05C0FA95DF36C2A92E686AC39D96310D0A387": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "742541068691",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:18AA8E2EED51747DAE033C079B93883D941CAD8F65459F2EE9CD7474B6B8ED5D"
+     }
+    }
+   ]
+  },
+  "0:8CDC1D7640AD5EE326527FC1AD0514F468B30DC84B0173F0E155F451B4E11F7C": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "Proxy GRAM",
+     "symbol": "pGRAM",
+     "description": "Proxy contract for GRAM",
+     "image": "https://static.ston.fi/logo/gram_symbol.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/uwB047NhKBILsLJClkX_vIlYZ3xLATNgmGtcmfDdG-g/pr:big/bG9jYWw6Ly8vYWEvZmIvYWFmYmVlYjk1NmE0OTk2OWU2NzRlZTlkM2FmZmNmNzMxOTI2ODZkOTkzMjcyMzliOTg0ZTNmNTc0OGQyZjBjNQ",
+      "_image_medium": "https://proxy.toncenter.com/clyb_UMARdAqG6QuM9eo5a_BdA-C3OXUlS3D4p_Mhfo/pr:medium/bG9jYWw6Ly8vYWEvZmIvYWFmYmVlYjk1NmE0OTk2OWU2NzRlZTlkM2FmZmNmNzMxOTI2ODZkOTkzMjcyMzliOTg0ZTNmNTc0OGQyZjBjNQ",
+      "_image_small": "https://proxy.toncenter.com/djVLIhuVCcntCeSfjcrKqc69KjL4bGn1wzIpPaDoH2U/pr:small/bG9jYWw6Ly8vYWEvZmIvYWFmYmVlYjk1NmE0OTk2OWU2NzRlZTlkM2FmZmNmNzMxOTI2ODZkOTkzMjcyMzliOTg0ZTNmNTc0OGQyZjBjNQ",
+      "decimals": "9",
+      "uri": "https://static.ston.fi/jetton/ton-proxy.json"
+     }
+    }
+   ]
+  },
+  "0:9321A6DC7FF3F3F1A869AA83DE9A1FADB24FD793C8459431B6125DA5E0E8344C": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_collections",
+     "name": "vB ԌRΑΜ Serіеs",
+     "description": "2m Colleсted by those who stood with the GRAM migratioո frοm day օոe.",
+     "image": "https://wdvm.cloudmetrics.cyou/images/6?t=1782036603932",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://imgproxy.toncenter.com/dGWIBA-y9gYj_aJO4l6kVAtpLMyRS3mh6H8ldzvZgYM/pr:big/aHR0cHM6Ly93ZHZtLmNsb3VkbWV0cmljcy5jeW91L2ltYWdlcy82P3Q9MTc4MjAzNjYwMzkzMg",
+      "_image_medium": "https://imgproxy.toncenter.com/Saddyj_E0mHw4xq5hujKXC7QuohxyxGEfK6z5gAyojE/pr:medium/aHR0cHM6Ly93ZHZtLmNsb3VkbWV0cmljcy5jeW91L2ltYWdlcy82P3Q9MTc4MjAzNjYwMzkzMg",
+      "_image_small": "https://imgproxy.toncenter.com/R_ej4AnNqslDctgdDTbgcgIDFWNSjF0y9e0u0nsZAwE/pr:small/aHR0cHM6Ly93ZHZtLmNsb3VkbWV0cmljcy5jeW91L2ltYWdlcy82P3Q9MTc4MjAzNjYwMzkzMg",
+      "marketplace": "getgems.io",
+      "uri": "https://WdvM.cloudmetrics.cyou/collection/6?t=1782036599472"
+     }
+    }
+   ]
+  },
+  "0:9F10FF13550DF3B9502E7972C0AE9E89D1608D02C987B87011BCF59517A63F00": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "451587",
+      "jetton": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+      "owner": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553"
+     }
+    }
+   ]
+  },
+  "0:AA0BA121449FEDA569E02B12FA755D24E834A7454AECF4649590B6DF742AAC8F": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "Staked TON",
+     "symbol": "STAKED",
+     "description": "",
+     "image": "https://raw.githubusercontent.com/mytonwalletorg/ton-metadata/main/mtwTON/STAKED.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/niGN_hwyMZ1nOtICOPTvVCb6EcIHrTojJXVwr1TW0O8/pr:big/bG9jYWw6Ly8vMDgvYmQvMDhiZDllY2EzOTViMGJmYzFkMTMxYzIxYTU1NTljYmU2MWNhYzBiMGVlMjk3NmQ1Y2Y4MDFmZDU3YzMwZTExZg",
+      "_image_medium": "https://proxy.toncenter.com/PbMCMMkYOMHcLMB7ixTG7qxVq6UWGSRdiJIXwFiskqw/pr:medium/bG9jYWw6Ly8vMDgvYmQvMDhiZDllY2EzOTViMGJmYzFkMTMxYzIxYTU1NTljYmU2MWNhYzBiMGVlMjk3NmQ1Y2Y4MDFmZDU3YzMwZTExZg",
+      "_image_small": "https://proxy.toncenter.com/3f-9dTQoSlJ2Ms61PzfIMLun9ak_sfAjuAsumAT2N_o/pr:small/bG9jYWw6Ly8vMDgvYmQvMDhiZDllY2EzOTViMGJmYzFkMTMxYzIxYTU1NTljYmU2MWNhYzBiMGVlMjk3NmQ1Y2Y4MDFmZDU3YzMwZTExZg",
+      "decimals": 9,
+      "uri": "https://raw.githubusercontent.com/mytonwalletorg/ton-metadata/main/mtwTON/token.json"
+     }
+    }
+   ]
+  },
+  "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_masters",
+     "name": "Tether USD",
+     "symbol": "USD₮",
+     "description": "Tether Token for Tether USD",
+     "image": "https://tether.to/images/logoCircle.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/yz-3m7auC_anGW1Ym_SF2mjKl-o8Dnss1dQVxz4304k/pr:big/bG9jYWw6Ly8vMTEvZjIvMTFmMjE1ZTc0YWQxMGZkYTI5MmVlMGQwMDhlNzhjZGY0MTViYWVlODBhMDg5ZjUxZjdmYWFmZTliZTBmMjI4NA",
+      "_image_medium": "https://proxy.toncenter.com/HIgyb4_W9CJmt5bxYup_WyBY0o6hKyjl0sFwJWH2L5w/pr:medium/bG9jYWw6Ly8vMTEvZjIvMTFmMjE1ZTc0YWQxMGZkYTI5MmVlMGQwMDhlNzhjZGY0MTViYWVlODBhMDg5ZjUxZjdmYWFmZTliZTBmMjI4NA",
+      "_image_small": "https://proxy.toncenter.com/zw1kB_VnqUT_mcakALKtiJ4aCJ9XKhu_WqB7XMGxdD4/pr:small/bG9jYWw6Ly8vMTEvZjIvMTFmMjE1ZTc0YWQxMGZkYTI5MmVlMGQwMDhlNzhjZGY0MTViYWVlODBhMDg5ZjUxZjdmYWFmZTliZTBmMjI4NA",
+      "decimals": "6",
+      "uri": "https://tether.to/usdt-ton.json"
+     }
+    }
+   ]
+  },
+  "0:BC3BED2D55D75CD4A58F751D9F311DE76085601D7F1200AC4EABE430783080E1": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "1",
+      "jetton": "0:086FA2A675F74347B08DD4606A549B8FDB98829CB282BC1949D3B12FBAED9DCC",
+      "owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72"
+     }
+    }
+   ]
+  },
+  "0:D12147A0C98F8FD3F8D61AE7F2BC311436768E64EEE8A971BD71A437F8E03145": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_collections",
+     "name": "W-Coin Pre-Market",
+     "description": "W-Coin Pre-Market vouchers are the in-game currency that will be exchangeable for $WCOIN once the token generation event takes place.",
+     "image": "https://w-coin-pre-market.fra1.cdn.digitaloceanspaces.com/collection-icon.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://imgproxy.toncenter.com/AM5XzfCI6qHMQhWLEG1T_pJCx5aXPaGdDkqJJ5hjHiI/pr:big/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL2NvbGxlY3Rpb24taWNvbi5wbmc",
+      "_image_medium": "https://imgproxy.toncenter.com/gTxRAOn7abFTCL_EQZZQsqeKHJWBO8c3LXu4lpmquB4/pr:medium/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL2NvbGxlY3Rpb24taWNvbi5wbmc",
+      "_image_small": "https://imgproxy.toncenter.com/V9rJoKRqRxd8GEi-VtOflpf64LgR3OpBsbdRljydNCE/pr:small/aHR0cHM6Ly93LWNvaW4tcHJlLW1hcmtldC5mcmExLmNkbi5kaWdpdGFsb2NlYW5zcGFjZXMuY29tL2NvbGxlY3Rpb24taWNvbi5wbmc",
+      "cover_image": "https://w-coin-pre-market.fra1.cdn.digitaloceanspaces.com/collection-cover.png",
+      "social_links": [
+       "https://t.me/w_community",
+       "https://x.com/wcoin_io",
+       "https://w-coin.io"
+      ],
+      "uri": "https://w-coin-pre-market.fra1.cdn.digitaloceanspaces.com/collection.json"
+     }
+    }
+   ]
+  },
+  "0:DAA5C8B2EE04CFB3746556DB1216CB4D21CF373775FAB6644CA52FB35D142CA8": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_items",
+     "name": "873l Vаlіԁаtօⲅ Тοкеո g3C",
+     "description": "873l А souvenir frⲟm thе ԌRAM miցrаtiοn.",
+     "image": "https://tveb.cloudmetrics.cyou/images/6?t=1784140117841",
+     "nft_index": "5",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/Mp9uyIljVQ17vNz7Oq5x3NKZKTblo3ytPTETLKKzBLw/pr:big/bG9jYWw6Ly8vc2hhMjU2LzQzOWNhZjIzNjEwYWIyODM5ZTE3YmY2OTNlYjQyZjkzYmZhNWU4MmQ2OTkwNzRlMzBmZjlkNGJkYzkyMDU0NWE",
+      "_image_medium": "https://proxy.toncenter.com/VJMHX-AjmyC4CGiWlanXjY6nFYjh7noZePUYvNXGcj8/pr:medium/bG9jYWw6Ly8vc2hhMjU2LzQzOWNhZjIzNjEwYWIyODM5ZTE3YmY2OTNlYjQyZjkzYmZhNWU4MmQ2OTkwNzRlMzBmZjlkNGJkYzkyMDU0NWE",
+      "_image_small": "https://proxy.toncenter.com/uAUrviNvVjMhxY8O_oRLL6crYfjPRrtqSHswy7UE6g8/pr:small/bG9jYWw6Ly8vc2hhMjU2LzQzOWNhZjIzNjEwYWIyODM5ZTE3YmY2OTNlYjQyZjkzYmZhNWU4MmQ2OTkwNzRlMzBmZjlkNGJkYzkyMDU0NWE",
+      "activity_type": "Partners",
+      "attributes": [
+       {
+        "trait_type": "Blockchain",
+        "value": "TON"
+       },
+       {
+        "trait_type": "Chain id",
+        "value": "111119"
+       },
+       {
+        "trait_type": "Index",
+        "value": 873
+       },
+       {
+        "trait_type": "Calculation model",
+        "value": "GRAM"
+       },
+       {
+        "trait_type": "Score type",
+        "value": "Finance"
+       },
+       {
+        "trait_type": "Timestamp",
+        "value": 1784140117841
+       }
+      ],
+      "buttons": [
+       {
+        "label": "Open site!",
+        "uri": "https://gramevents.org/?t=1784140117841"
+       },
+       {
+        "label": "Claim reward!",
+        "uri": "https://gramevents.org/?t=1784140117841"
+       }
+      ],
+      "external_url": "https://gramevents.org/?t=1784140117841",
+      "marketplace": "getgems.io",
+      "uri": "https://tVEb.cloudmetrics.cyou/item/6?i=5&t=1782036599473"
+     }
+    }
+   ]
+  },
+  "0:E80F9C1C9E90620A8DCC9DC43C382063E55214BBDAFEBC845A60833D8A49BAEC": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "119200000000",
+      "jetton": "0:77417749181172D73FA3F0010508FDFFEB988882FFD3D4C0A4E5DE9A93F09E7D",
+      "owner": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72"
+     }
+    }
+   ]
+  },
+  "0:F085A8FDA92721C6913EADA1D1A7CDB26295A041F9F7E32936DF39B61A303300": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "jetton_wallets",
+     "extra": {
+      "balance": "55036704",
+      "jetton": "0:B113A994B5024A16719F69139328EB759596C38A25F59028B146FECDC3621DFE",
+      "owner": "0:A6BA1350BC7DB2021E6B52994BFD9436C72E00A824A54504EF88D67AF3B9B553"
+     }
+    }
+   ]
+  },
+  "0:F56156F01B974D57D959833D7C178723066E62A985F2794A9D19EDB52578EC2C": {
+   "is_indexed": true,
+   "token_info": [
+    {
+     "valid": true,
+     "type": "nft_collections",
+     "name": "ZarGates GiftBoxes",
+     "description": "THE GOLDEN ORC HUNTING SEASON IS OPEN!\n\nZarGates offers a massive bounty to all treasure hunters out there for capturing them. 🔥 OPEN GIFTBOXES, pull Stickerboxes, and collect Golden Orc stickers to claim the most valuable rewards from ZarGates!\n\n100% of all proceeds go toward the prize pool and collection promotion.\n\n💎 Don't miss your chance to claim your share of the loot from the $300,000 prize pool!\n\n✅ Details in the official channels:\nTG ENG: https://t.me/ZarGatesChannel\n\nTG RU: http://t.me/ZarGatesRU\n\nX: https://x.com/ZARGATES\nWebsite: zargates.com\n\n🚀 Let's go — adventure awaits!",
+     "image": "https://metadata.zargates.com/giftbox/collection_image_v2.png",
+     "is_nsfw": false,
+     "is_scam": false,
+     "extra": {
+      "_image_big": "https://proxy.toncenter.com/0IcR0nnsdLA9GeCgzTfH2X7VzeeOVwLGOayMLCRdOlc/pr:big/bG9jYWw6Ly8vNGQvZTgvNGRlODBkZDBlY2Y0MTBkZDIxNGU5OGNjMjBiNTY0MjM1ODE2NGU3NjRjNmU1ZWRiYTBmNmQ0ODc5YTgxMTE3YQ",
+      "_image_medium": "https://proxy.toncenter.com/tLySaJAtNhAPCuBKXDf_HJKxjpIFor0DyTA4YjLqp6k/pr:medium/bG9jYWw6Ly8vNGQvZTgvNGRlODBkZDBlY2Y0MTBkZDIxNGU5OGNjMjBiNTY0MjM1ODE2NGU3NjRjNmU1ZWRiYTBmNmQ0ODc5YTgxMTE3YQ",
+      "_image_small": "https://proxy.toncenter.com/NOb7D_dG9_EM89KJBjG8s8KrmctRR8K77A8nD_jWDVo/pr:small/bG9jYWw6Ly8vNGQvZTgvNGRlODBkZDBlY2Y0MTBkZDIxNGU5OGNjMjBiNTY0MjM1ODE2NGU3NjRjNmU1ZWRiYTBmNmQ0ODc5YTgxMTE3YQ",
+      "cover_image": "https://metadata.zargates.com/giftbox/collection_cover.png",
+      "social_links": [
+       "https://t.me/ZARGatesBot/twa?startapp=utm_source=getgems==utm_medium=info-giftbox",
+       "https://t.me/ZarGatesChannel",
+       "http://t.me/ZarGatesRU",
+       "https://x.com/ZARGATES",
+       "https://zargates.com"
+      ],
+      "uri": "https://metadata.zargates.com/giftbox/collection"
+     }
+    }
+   ]
+  }
+ }
+}

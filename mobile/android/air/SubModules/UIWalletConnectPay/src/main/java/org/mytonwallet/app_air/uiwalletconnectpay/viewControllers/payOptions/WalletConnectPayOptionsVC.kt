@@ -417,7 +417,6 @@ class WalletConnectPayOptionsVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         if (!isConfirmed) cancel()
     }
 

@@ -154,6 +154,7 @@ private struct CardView: View {
                 }
                 .background {
                     MtwCardBackground(nft: nft, borderWidthMultiplier: 0.5)
+                        .allowsHitTesting(false)
                 }
                 .clipShape(.containerRelative)
                 .containerShape(.rect(cornerRadius: 12))

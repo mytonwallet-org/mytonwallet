@@ -1,0 +1,307 @@
+{
+ "t": 1788462678844,
+ "top": [
+  {
+   "id": "2544987::backend-swap",
+   "timestamp": 1788462416199,
+   "from": "ton-eqd0vdsane",
+   "fromAmount": "50.000000000000000000",
+   "to": "ton-eqaj8uwd7e",
+   "toAmount": "5729.530427909000000000",
+   "status": "pendingTrusted",
+   "txIds": [],
+   "transactionIds": {},
+   "hashes": [
+    "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk=",
+    "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0="
+   ],
+   "exchanger": "omniston",
+   "msgHash": "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0=",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "networkFee": "0.205",
+   "ourFee": "0.4375",
+   "ourFeeMode": "included",
+   "kind": "swap",
+   "shouldLoadDetails": true,
+   "extra": {
+    "reconciliation": {
+     "operationId": "swap:2544987",
+     "sourceActionIds": [
+      "2544987::backend-swap",
+      "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=:101109703000061-RqLI+hduIsoA7KWmlR3nWIurYXRRROhnIBSmTbcJPW4=",
+      "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=:101109703000060-iYBpvedcBg6v8gej5o/hzS/6imJH4u1BcoWJTOHAVLI="
+     ],
+     "hiddenSourceActionIds": [
+      "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=:101109703000061-RqLI+hduIsoA7KWmlR3nWIurYXRRROhnIBSmTbcJPW4=",
+      "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=:101109703000060-iYBpvedcBg6v8gej5o/hzS/6imJH4u1BcoWJTOHAVLI="
+     ],
+     "reason": "ton-aggregated-swap"
+    }
+   }
+  },
+  {
+   "kind": "swap",
+   "id": "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=:101083246000006-zlDBJNPTeds1TnjxJ4jV40CuQuqzS2SEAz8UGrX1BqI=",
+   "timestamp": 1788451837000,
+   "from": "toncoin",
+   "fromAmount": "0.05",
+   "fromAddress": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+   "to": "ton-eqcxe6mutq",
+   "toAmount": "0.067386",
+   "networkFee": "0",
+   "swapFee": "0",
+   "ourFee": "0",
+   "status": "completed",
+   "hashes": [],
+   "transactionIds": {},
+   "externalMsgHashNorm": "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g=",
+   "shouldLoadDetails": true,
+   "extra": {
+    "mtwAggregator": {
+     "traceId": "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=",
+     "swapIds": [
+      "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=:101083246000006-zlDBJNPTeds1TnjxJ4jV40CuQuqzS2SEAz8UGrX1BqI="
+     ],
+     "from": "toncoin",
+     "to": "ton-eqcxe6mutq"
+    },
+    "reconciliation": {
+     "sourceActionIds": [
+      "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=:101083246000006-zlDBJNPTeds1TnjxJ4jV40CuQuqzS2SEAz8UGrX1BqI=",
+      "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=:101083246000007-2vKn2GvqwItUFbsGEY+7Jy6CvxoTH4bxz6HNPFyB8jE="
+     ],
+     "hiddenSourceActionIds": [
+      "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=:101083246000007-2vKn2GvqwItUFbsGEY+7Jy6CvxoTH4bxz6HNPFyB8jE="
+     ],
+     "reason": "ton-aggregated-swap"
+    }
+   }
+  },
+  {
+   "kind": "transaction",
+   "id": "GqvLqm27fTpXGfd7TAmQDwycuWJliYUJtW5L+NjcOMI=:99538083000004-v0Yxe5uWuysSYdmnNnpvfJocnvU2RQHfPzuGlOpRaqs=",
+   "timestamp": 1787834119000,
+   "externalMsgHashNorm": "36QDmGV0x+V8DB10/fDo8mLy2cyErTaHkq0EzuHELQA=",
+   "fee": "bigint:0",
+   "fromAddress": "UQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK6BH",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK_2C",
+   "amount": "bigint:30000000",
+   "status": "completed",
+   "slug": "toncoin",
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "braTyuF06SdYtc0SXfmoJLtaOJLau2xhAkuuHpbAJWI=:99537932000026-L01dNPr4+PSC/B5HgXfIF4ZIijl09pOOmMuccIdEWGk=",
+   "timestamp": 1787834058000,
+   "externalMsgHashNorm": "lH8ClnYDJ9iUyab5+5zJkOQwSvjtnKg330ap7rjcEzA=",
+   "fee": "bigint:0",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "toAddress": "UQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK6BH",
+   "isIncoming": false,
+   "normalizedAddress": "EQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK_2C",
+   "amount": "bigint:-40000000",
+   "status": "completed",
+   "slug": "toncoin",
+   "shouldLoadDetails": true,
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "AtNjKw35+/QZQ1BP8KIwR1K0aPmTZ7Cju6PINJPKQJM=:99535339000002-hOUVO0LS0ouGqe3UzviFGUVg3Pr7I4RTXF1aqvR161c=",
+   "timestamp": 1787833022000,
+   "externalMsgHashNorm": "7fs0QFpxB7JQ1jEFpWSiJfODSsA0dz6kGz8NfO2IGw4=",
+   "fee": "bigint:0",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "toAddress": "UQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK6BH",
+   "isIncoming": false,
+   "normalizedAddress": "EQCZWfDlsE0L_aO7HJKFdWW4nZqOM2bz7CPmmrWJOUJDK_2C",
+   "amount": "bigint:-100000000000",
+   "status": "completed",
+   "slug": "ton-eqavlwfdxg",
+   "shouldHide": false,
+   "extra": {
+    "queryId": "5600396404825546385"
+   },
+   "shouldLoadDetails": true,
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "uhgySQLUEfB2MJXQ/CRK0MDlknfi9LrwUO38/uMUryo=:96679073000005-Pe/ZWmo00aTal+1zA9Hd/kzUOkLUKwTueSLpCNvaNkc=",
+   "timestamp": 1786692084000,
+   "externalMsgHashNorm": "7QC4Pwon0sFJ4Aj6b0VK0cWSTYPRYw6HsYVnoDHSYl8=",
+   "fee": "bigint:0",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "toAddress": "UQDYzZmfsrGzhObKJUw4gzdeIxEai3jAFbiGKGwxvxHinf4K",
+   "isIncoming": false,
+   "normalizedAddress": "EQDYzZmfsrGzhObKJUw4gzdeIxEai3jAFbiGKGwxvxHinaPP",
+   "amount": "bigint:-10000000",
+   "metadata": {
+    "name": "Pavel Durov"
+   },
+   "status": "completed",
+   "slug": "toncoin",
+   "comment": "Hello!",
+   "shouldLoadDetails": true
+  },
+  {
+   "kind": "transaction",
+   "id": "qp1y7UmwjNOMScgT4rZCIi6pFLncdK7Ifj3TK/Dk+qY=:94369397000036-4ey4LFBbU/wB33KaghE8zp0BJDi+w5WUXtUTep+Pasc=",
+   "timestamp": 1785769442000,
+   "externalMsgHashNorm": "P1ndIj0KmAZQT9rA039cu/Xko02vd6M9IqNHqfkHnTs=",
+   "fee": "bigint:0",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHgHt",
+   "amount": "bigint:100000000",
+   "status": "completed",
+   "slug": "toncoin",
+   "comment": "test",
+   "metadata": {}
+  },
+  {
+   "kind": "swap",
+   "id": "Xb7k56heOcjB4VEZ4c8qcyExbYCa6TNJ3VvPMVVHHjE=:93938148000024-uY8RzdIR4UKVU/W7QA5IF2zQ14TX/+c0R90zSIUX9aw=",
+   "timestamp": 1785592864000,
+   "from": "toncoin",
+   "fromAmount": "0.595399274",
+   "fromAddress": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+   "to": "ton-eqcxe6mutq",
+   "toAmount": "0.831142",
+   "networkFee": "0",
+   "swapFee": "0",
+   "ourFee": "0",
+   "status": "completed",
+   "hashes": [],
+   "transactionIds": {},
+   "externalMsgHashNorm": "bC/CW/vfjTYtpEC+Xa1CVx4s1m7Fhs4wK7IdqI4SoBo=",
+   "shouldLoadDetails": true
+  },
+  {
+   "kind": "swap",
+   "id": "QSg1fG7cRfuy4aOvcq53Tv+YLr4V8Zkar6FuJH1A5fY=:93936605000006-dXOrS4LoVgeXJcgZFKIbgcPCtJD48x6yeaFFfC7PSWo=",
+   "timestamp": 1785592228000,
+   "from": "ton-eqcxe6mutq",
+   "fromAmount": "0.902941",
+   "fromAddress": "0:17B7B5347875CB661727817CC02C0AF2126FDDB644DEBEA15F6B6CDCED47DC72",
+   "to": "toncoin",
+   "toAmount": "0.645589762",
+   "networkFee": "0",
+   "swapFee": "0",
+   "ourFee": "0",
+   "status": "completed",
+   "hashes": [],
+   "transactionIds": {},
+   "externalMsgHashNorm": "Kl7T5St23XMekA7ZtQ7n1pHHBnNrKvEgeGAPbnh9zS0=",
+   "shouldLoadDetails": true
+  },
+  {
+   "kind": "transaction",
+   "id": "QSg1fG7cRfuy4aOvcq53Tv+YLr4V8Zkar6FuJH1A5fY=:93936605000004-gkIWnYz3o9cNWYnbs4x3MboglKUjLONDNZFeVJ9olLA=",
+   "timestamp": 1785592228000,
+   "externalMsgHashNorm": "Kl7T5St23XMekA7ZtQ7n1pHHBnNrKvEgeGAPbnh9zS0=",
+   "fee": "bigint:0",
+   "fromAddress": "EQB3vcDjZAjOL9MOywkMInw25TKPkalVO7xS-BhjFYIssIOz",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQB3vcDjZAjOL9MOywkMInw25TKPkalVO7xS-BhjFYIssIOz",
+   "amount": "bigint:230294883",
+   "status": "completed",
+   "slug": "toncoin",
+   "shouldHide": false,
+   "extra": {},
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "dnnQ2CfWh2GVoppImzslny/xYK00vnOItfrpQat3Qfc=:93936396000002-uLAQkn70B9Z3raNDfjiL0KMrm3XJ7z3j+u4EmIUN+pQ=",
+   "timestamp": 1785592142000,
+   "externalMsgHashNorm": "xOf15hrG3Q8u7/PuAEr9Wh1nyIXWKL5XVbDti9JepJQ=",
+   "fee": "bigint:0",
+   "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHgHt",
+   "amount": "bigint:1000000",
+   "status": "completed",
+   "slug": "ton-eqcxe6mutq",
+   "shouldHide": false,
+   "extra": {
+    "queryId": "10857665798865441743"
+   },
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "F4PfDGzzzl5uTc5nUnNVtuH9Iq4CAsl34L/Xv9IN3bs=:93917491000002-qez2Kp2/c0Zmk+7s3jDbc7YCyKXAbtGEok88pRxfOYY=",
+   "timestamp": 1785584324000,
+   "externalMsgHashNorm": "r3mNalWhSslT0ig0KUlEQNRbUMkBfse/9zzqvwy5SVA=",
+   "fee": "bigint:0",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "toAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+   "isIncoming": false,
+   "normalizedAddress": "EQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHgHt",
+   "amount": "bigint:-99387333",
+   "status": "completed",
+   "slug": "toncoin",
+   "shouldLoadDetails": true,
+   "metadata": {}
+  },
+  {
+   "kind": "transaction",
+   "id": "V6uh7T/soB8en9YQ6qE0QXMdf7tLsVkTpmnqh1YAjAw=:93038038000002-u0KXpHKhYTHmoLopNZc18jZLnahQdIM8BFvPGAe4XO8=",
+   "timestamp": 1785219130000,
+   "externalMsgHashNorm": "pgb67di0Z5Mt+9lzRrKFWzIAHnlwkSd8gHg+NGUAgH8=",
+   "fee": "bigint:0",
+   "fromAddress": "UQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9Xi0",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9SVx",
+   "amount": "bigint:100000000",
+   "metadata": {
+    "name": "enenf.t.me"
+   },
+   "status": "completed",
+   "slug": "toncoin"
+  },
+  {
+   "kind": "transaction",
+   "id": "QYV+qXWnCKukpSeHw/sYsOgSbw4xjiUJ0MOh6Ioap6M=:90533759000011-iXgbw+nP6VODpxSKZMxXb19UhXK2WiGh0G7m+7qcJIc=",
+   "timestamp": 1784206590000,
+   "externalMsgHashNorm": "jaWQ7s3eo4Ztfq1s+JgyeK8qJPRNY7nsItYTQ+wuW7E=",
+   "fee": "bigint:0",
+   "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "toAddress": "UQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9Xi0",
+   "isIncoming": false,
+   "normalizedAddress": "EQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9SVx",
+   "amount": "bigint:-499451005",
+   "metadata": {
+    "name": "enenf.t.me"
+   },
+   "status": "completed",
+   "slug": "toncoin",
+   "shouldLoadDetails": true
+  },
+  {
+   "kind": "transaction",
+   "id": "tGkkqS9sKjNYw09nFFLVD7uMDRVMeYVZqR2441Dt9TA=:90533674000011-jF3DevCNu8ISmrv4NPROjrCBfDHtB4UY19eUjbjtpnE=",
+   "timestamp": 1784206556000,
+   "externalMsgHashNorm": "jZ7etz6fGvlpkcxkTsy2JbXA2LbjGohFSFnnxIYIIJs=",
+   "fee": "bigint:0",
+   "fromAddress": "UQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9Xi0",
+   "toAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "isIncoming": true,
+   "normalizedAddress": "EQC5p9zhlDG1YEQlTGmFjo3BH-xcB2He1BXjhvvktOEW9SVx",
+   "amount": "bigint:500000000",
+   "metadata": {
+    "name": "enenf.t.me"
+   },
+   "status": "completed",
+   "slug": "toncoin"
+  }
+ ]
+}

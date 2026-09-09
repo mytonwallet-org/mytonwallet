@@ -27,7 +27,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.refreshStoredMfa
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AuthCooldownError
@@ -170,9 +169,7 @@ class PasscodeConfirmVC(
         view.setConstraints {
             toTopPx(passcodeScreenView, passcodeScreenViewTopInset)
         }
-        if (passcodeViewState !is PasscodeViewState.Default ||
-            !passcodeViewState.showMotionBackgroundDrawable
-        ) {
+        if (passcodeViewState is PasscodeViewState.CustomHeader) {
             val startPadding =
                 ViewConstants.HORIZONTAL_PADDINGS.dp +
                     additionalTabletPadding +
@@ -181,9 +178,10 @@ class PasscodeConfirmVC(
                 startPadding,
                 0,
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-                if (passcodeViewState is PasscodeViewState.CustomHeader) 48.dp else 0
+                48.dp
             )
         }
+        passcodeScreenView.insetsUpdated()
     }
 
     override fun viewWillAppear() {
@@ -210,7 +208,6 @@ class PasscodeConfirmVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         passcodeScreenView.clearCooldown()
         if (!isDoingTask) onCancel?.invoke()
     }
@@ -244,7 +241,7 @@ class PasscodeConfirmVC(
             AccountStore.activeAccountId?.let { accountId ->
                 WalletCore.scope.launch {
                     try {
-                        WalletCore.refreshStoredMfa(accountId)
+                        AccountStore.refreshMfa(accountId)
                     } catch (t: Throwable) {
                         Logger.e(
                             Logger.LogTag.PASSCODE_CONFIRM,
@@ -260,8 +257,9 @@ class PasscodeConfirmVC(
         passcode: String,
         callback: (wasCorrect: Boolean, cooldownDate: Long?) -> Unit
     ) {
+        val customPasscodeVerifier = customPasscodeVerifier
         if (customPasscodeVerifier != null) {
-            val isCorrect = customPasscodeVerifier!!(passcode)
+            val isCorrect = customPasscodeVerifier(passcode)
             callback(isCorrect, null)
             if (isCorrect) {
                 // customPasscodeVerifier path passes raw passcode (e.g., change passcode flow)

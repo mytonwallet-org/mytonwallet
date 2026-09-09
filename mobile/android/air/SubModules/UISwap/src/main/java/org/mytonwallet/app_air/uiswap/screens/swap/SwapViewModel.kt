@@ -44,14 +44,6 @@ import org.mytonwallet.app_air.walletcore.DEFAULT_SWAP_VERSION
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.checkTransactionDraft
-import org.mytonwallet.app_air.walletcore.api.swapBuildTransfer
-import org.mytonwallet.app_air.walletcore.api.swapCexCreateTransaction
-import org.mytonwallet.app_air.walletcore.api.swapCexEstimate
-import org.mytonwallet.app_air.walletcore.api.swapCexSubmit
-import org.mytonwallet.app_air.walletcore.api.swapEstimateHint
-import org.mytonwallet.app_air.walletcore.api.swapGetPairs
-import org.mytonwallet.app_air.walletcore.api.swapSubmit
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -66,6 +58,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionRequ
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexCreateTransactionResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaults
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapDefaultsRequest
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateErrorResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapHistoryItemStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapPairAsset
@@ -264,7 +257,7 @@ class SwapViewModel :
         if (!tokenPairsLoading.add(slug)) return
 
         try {
-            val pairs = swapGetPairs(slug)
+            val pairs = WalletCore.call(ApiMethod.Swap.SwapGetPairs(slug))
 
             tokenPairsCache[slug] = pairs.filter { it.slug != slug }
             validatePair()
@@ -1029,20 +1022,22 @@ class SwapViewModel :
                             BigInteger.ONE
                         }
                     try {
-                        transactionDraft = WalletCore.Transfer.checkTransactionDraft(
-                            request.tokenToSendChain,
-                            MApiCheckTransactionDraftOptions(
-                                accountId = request.wallet.accountId,
-                                toAddress = estFeeAddress,
-                                amount = estAmount,
-                                stateInit = null,
-                                tokenAddress = if (!request.tokenToSend.isBlockchainNative) {
-                                    request.tokenToSend.tokenAddress
-                                } else {
-                                    null
-                                },
-                                payload = null,
-                                allowGasless = null
+                        transactionDraft = WalletCore.call(
+                            ApiMethod.Transfer.CheckTransactionDraft(
+                                request.tokenToSendChain,
+                                MApiCheckTransactionDraftOptions(
+                                    accountId = request.wallet.accountId,
+                                    toAddress = estFeeAddress,
+                                    amount = estAmount,
+                                    stateInit = null,
+                                    tokenAddress = if (!request.tokenToSend.isBlockchainNative) {
+                                        request.tokenToSend.tokenAddress
+                                    } else {
+                                        null
+                                    },
+                                    payload = null,
+                                    allowGasless = null
+                                )
                             )
                         )
                     } catch (apiError: JSWebViewBridge.ApiError) {
@@ -1055,9 +1050,11 @@ class SwapViewModel :
                     }
                 }
 
-                val cex = WalletCore.Swap.swapCexEstimate(
-                    request.wallet.accountId,
-                    request.estimateRequestCex
+                val cex = WalletCore.call(
+                    ApiMethod.Swap.SwapCexEstimate(
+                        request.wallet.accountId,
+                        request.estimateRequestCex
+                    )
                 )
                 if (cex.route != null && cex.route != "cex") {
                     return SwapEstimateResponse(
@@ -1126,7 +1123,7 @@ class SwapViewModel :
                 fee = null,
                 realFee = null,
                 error = apiError.parsed,
-                hint = apiError.swapEstimateHint()
+                hint = MApiSwapEstimateErrorResponse.hintFrom(apiError.raw)
             )
         }
     }
@@ -1158,27 +1155,29 @@ class SwapViewModel :
                 val fromAddress = tokenToSend.mBlockchain?.name?.let {
                     estimate.request.wallet.addressByChain[it]
                 } ?: accountTonAddress
-                val build = WalletCore.Swap.swapBuildTransfer(
-                    accountId,
-                    enclaveToken,
-                    MApiSwapBuildRequest(
-                        dexLabel = dex.dexLabel?.name?.lowercase(),
-                        from = dex.from,
-                        fromAddress = fromAddress,
-                        historyAddress = accountTonAddress,
-                        fromAmount = dex.fromAmount,
-                        networkFee = dex.realNetworkFee ?: dex.networkFee,
-                        shouldTryDiesel = estimate.request.shouldTryDiesel,
-                        slippage = estimate.request.slippage,
-                        swapFee = dex.swapFee,
-                        to = dex.to,
-                        toAmount = dex.toAmount,
-                        toMinAmount = dex.toMinAmount,
-                        ourFee = dex.ourFee,
-                        dexRouterLabel = dex.dexRouterLabel,
-                        dieselFee = dex.dieselFee,
-                        swapVersion = ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION,
-                        routes = dex.routes
+                val build = WalletCore.call(
+                    ApiMethod.Swap.SwapBuildTransfer(
+                        accountId,
+                        enclaveToken,
+                        MApiSwapBuildRequest(
+                            dexLabel = dex.dexLabel?.name?.lowercase(),
+                            from = dex.from,
+                            fromAddress = fromAddress,
+                            historyAddress = accountTonAddress,
+                            fromAmount = dex.fromAmount,
+                            networkFee = dex.realNetworkFee ?: dex.networkFee,
+                            shouldTryDiesel = estimate.request.shouldTryDiesel,
+                            slippage = estimate.request.slippage,
+                            swapFee = dex.swapFee,
+                            to = dex.to,
+                            toAmount = dex.toAmount,
+                            toMinAmount = dex.toMinAmount,
+                            ourFee = dex.ourFee,
+                            dexRouterLabel = dex.dexRouterLabel,
+                            dieselFee = dex.dieselFee,
+                            swapVersion = ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION,
+                            routes = dex.routes
+                        )
                     )
                 )
                 val buildId = build.id
@@ -1203,29 +1202,31 @@ class SwapViewModel :
                 }
 
                 swappedEstimateConfig = estimate
-                val submitResult = WalletCore.Swap.swapSubmit(
-                    buildChain,
-                    accountId,
-                    enclaveToken,
-                    build.transfers,
-                    MApiSwapHistoryItem(
-                        id = buildId,
-                        timestamp = System.currentTimeMillis(),
-                        lt = null,
-                        from = dex.from,
-                        fromAddress = fromAddress,
-                        fromAmount = dex.fromAmount,
-                        to = dex.to,
-                        toAmount = dex.toAmount,
-                        networkFee = dex.realNetworkFee ?: dex.networkFee,
-                        swapFee = dex.swapFee,
-                        status = MApiSwapHistoryItemStatus.PENDING,
-                        transactionIds = MApiSwapTransactionIds(),
-                        isCanceled = null,
-                        cex = null
-                    ),
-                    estimate.explainedFee.isGasless,
-                    build.transaction
+                val submitResult = WalletCore.call(
+                    ApiMethod.Swap.SwapSubmit(
+                        buildChain,
+                        accountId,
+                        enclaveToken,
+                        build.transfers,
+                        MApiSwapHistoryItem(
+                            id = buildId,
+                            timestamp = System.currentTimeMillis(),
+                            lt = null,
+                            from = dex.from,
+                            fromAddress = fromAddress,
+                            fromAmount = dex.fromAmount,
+                            to = dex.to,
+                            toAmount = dex.toAmount,
+                            networkFee = dex.realNetworkFee ?: dex.networkFee,
+                            swapFee = dex.swapFee,
+                            status = MApiSwapHistoryItemStatus.PENDING,
+                            transactionIds = MApiSwapTransactionIds(),
+                            isCanceled = null,
+                            cex = null
+                        ),
+                        estimate.explainedFee.isGasless,
+                        build.transaction
+                    )
                 )
                 submitResult.mfaRequestHash?.let { hash ->
                     _eventsFlow.tryEmit(
@@ -1289,21 +1290,23 @@ class SwapViewModel :
                 }
 
                 swappedEstimateConfig = estimate
-                val result = WalletCore.Swap.swapCexCreateTransaction(
-                    accountId,
-                    enclaveToken,
-                    MApiSwapCexCreateTransactionRequest(
-                        from = tokenToSend.swapSlug,
-                        fromAmount = fromAmount,
-                        fromAddress = sourceAddress,
-                        historyAddress = historyAddress,
-                        cexLabel = cexLabel,
-                        to = tokenToReceive.swapSlug,
-                        toAmount = cex.toAmount,
-                        toAddress = toUserAddress,
-                        payoutExtraId = null,
-                        swapFee = swapFee,
-                        networkFee = networkFee
+                val result = WalletCore.call(
+                    ApiMethod.Swap.SwapCexCreateTransaction(
+                        accountId,
+                        enclaveToken,
+                        MApiSwapCexCreateTransactionRequest(
+                            from = tokenToSend.swapSlug,
+                            fromAmount = fromAmount,
+                            fromAddress = sourceAddress,
+                            historyAddress = historyAddress,
+                            cexLabel = cexLabel,
+                            to = tokenToReceive.swapSlug,
+                            toAmount = cex.toAmount,
+                            toAddress = toUserAddress,
+                            payoutExtraId = null,
+                            swapFee = swapFee,
+                            networkFee = networkFee
+                        )
                     )
                 )
                 val createdCex = result.swap.cex ?: run {
@@ -1332,24 +1335,26 @@ class SwapViewModel :
                     } else {
                         null
                     }
-                    val cexSubmit = WalletCore.Transfer.swapCexSubmit(
-                        estimate.request.tokenToSendChain,
-                        MApiSubmitTransferOptions(
-                            accountId = accountId,
-                            enclaveToken = enclaveToken,
-                            toAddress = createdCex.payinAddress,
-                            amount = estimate.fromAmount ?: BigInteger.ZERO,
-                            fee = estimate.fee,
-                            payload = payload,
-                            tokenAddress = if (!tokenToSend.isBlockchainNative) {
-                                tokenToSend.tokenAddress
-                            } else {
-                                null
-                            },
-                            noFeeCheck = false,
-                            isGasless = false
-                        ),
-                        result.swap.id
+                    val cexSubmit = WalletCore.call(
+                        ApiMethod.Swap.SwapCexSubmit(
+                            estimate.request.tokenToSendChain,
+                            MApiSubmitTransferOptions(
+                                accountId = accountId,
+                                enclaveToken = enclaveToken,
+                                toAddress = createdCex.payinAddress,
+                                amount = estimate.fromAmount ?: BigInteger.ZERO,
+                                fee = estimate.fee,
+                                payload = payload,
+                                tokenAddress = if (!tokenToSend.isBlockchainNative) {
+                                    tokenToSend.tokenAddress
+                                } else {
+                                    null
+                                },
+                                noFeeCheck = false,
+                                isGasless = false
+                            ),
+                            result.swap.id
+                        )
                     )
                     cexSubmit.error?.let { error ->
                         swappedEstimateConfig = null

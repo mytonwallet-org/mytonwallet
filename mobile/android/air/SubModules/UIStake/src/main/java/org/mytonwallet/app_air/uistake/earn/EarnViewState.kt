@@ -20,8 +20,7 @@ data class EarnViewState(
 ) {
     fun updateHistoryItems(newHistoryItems: List<EarnItem>, replace: Boolean): EarnViewState =
         (historyListState as? HistoryListState.HasItem)?.run {
-            if (replace) (historyItems as MutableList).clear()
-            val allItems = (historyItems as MutableList)
+            val allItems = if (replace) mutableListOf() else historyItems.toMutableList()
             allItems.addAll(newHistoryItems)
 
             copy(historyListState = HistoryListState.HasItem(allItems))

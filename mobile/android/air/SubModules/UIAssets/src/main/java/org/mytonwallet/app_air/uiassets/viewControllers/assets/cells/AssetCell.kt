@@ -380,10 +380,11 @@ class AssetCell(
         }
         if (viewMode == AssetsVC.ViewMode.COMPLETE || DevicePerformanceClassifier.isHighClass) {
             animationView.visibility = GONE
-            if (nft.metadata?.lottie?.isNotBlank() == true) {
+            val lottie = nft.metadata?.lottie
+            if (!lottie.isNullOrBlank()) {
                 animationView.visibility = VISIBLE
                 animationView.playFromUrl(
-                    url = nft.metadata!!.lottie!!,
+                    url = lottie,
                     play = !animationsPaused,
                     onStart = {}
                 )

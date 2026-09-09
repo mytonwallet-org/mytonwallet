@@ -705,7 +705,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     public func updateVisibleActivityNftAnimationPlayback() {
-        guard isViewLoaded, dataSource != nil else {
+        // Rotation builds a new Home before it appears. Its scroll/layout callbacks
+        // must not force another layout just to prepare playback for an inactive view.
+        guard isViewVisibleForNftAnimationPlayback, isViewLoaded, dataSource != nil else {
             return
         }
 

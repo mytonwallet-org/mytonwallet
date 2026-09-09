@@ -62,7 +62,9 @@ object DevicePerformanceClassifier {
     }
 
     private fun getMemoryClass(context: Context): Int {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val activityManager =
+            context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                ?: return Int.MAX_VALUE
         return activityManager.memoryClass // MB
     }
 

@@ -222,7 +222,8 @@ class TabletSidePanelView(
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 if (ignoreScrolls) return
                 val firstVisible =
-                    (rv.layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()
+                    (rv.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()
+                        ?: return
                 val computedOffset =
                     if (firstVisible < 1) rv.computeVerticalScrollOffset() else Int.MAX_VALUE / 2
                 updateHeaderScroll(computedOffset)
@@ -643,9 +644,9 @@ class TabletSidePanelView(
         if (headerView.mode == HomeHeaderView.Mode.Expanded) return
         if (!headerView.canExpandForHeight) return
         expandingProgrammatically = true
-        recyclerView.scrollToOverScroll(
-            (headerView.expandedContentHeight - headerView.collapsedHeight).toInt()
-        )
+        val overScroll = (headerView.expandedContentHeight - headerView.collapsedHeight).toInt()
+        recyclerView.scrollToOverScroll(overScroll)
+        recyclerView.setBounceBackSkipValue(overScroll)
         recyclerView.removeOverScroll()
     }
 
@@ -697,7 +698,7 @@ class TabletSidePanelView(
             updateUnderCardFade()
             return
         }
-        val lm = recyclerView.layoutManager as LinearLayoutManager
+        val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
         if (rvMode != headerView.mode) {
             headerModeChanged()
             if (lm.findFirstVisibleItemPosition() == 0) {

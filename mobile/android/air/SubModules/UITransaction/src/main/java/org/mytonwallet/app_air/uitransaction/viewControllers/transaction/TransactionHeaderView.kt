@@ -263,7 +263,9 @@ class TransactionHeaderView(
             addressLabel.highlightColor = Color.TRANSPARENT
         } else if (transaction.type == ApiTransactionType.STAKE) {
             val stakingState =
-                StakingStore.getStakingState(AccountStore.activeAccountId!!)?.states?.firstOrNull {
+                AccountStore.activeAccountId?.let {
+                    StakingStore.getStakingState(it)
+                }?.states?.firstOrNull {
                     it?.tokenSlug == transaction.slug
                 }
             stakingState?.let { stakingState ->

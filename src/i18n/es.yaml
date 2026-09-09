@@ -2024,7 +2024,7 @@ $remove_wallets:
   otherValue: Eliminar %count% carteras
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: No es posible cifrar. El destinatario no es una cartera o no tiene transacciones salientes.
 just now: ahora mismo
-"No": No
+"No": "No"
 Search: Buscar
 State init supplied without message body: Inicialización de estado enviada sin cuerpo de mensaje
 Swap Failed: Intercambio fallido
@@ -2275,3 +2275,28 @@ Tokenized Stocks: Acciones tokenizadas
 Tokenized Gold: Oro tokenizado
 Index Funds: Fondos indexados
 Search token or stock: Buscar token o acción
+"Activity Failed to Load": "No se pudo cargar la actividad"
+"Address was copied!": "¡Dirección copiada!"
+"Allow App Lock": "Permitir el bloqueo de la app"
+"An error occurred": "Se produjo un error"
+"App Fee Details": "Detalles de la comisión de la app"
+"Copied": "Copiado"
+"Customize the wallet's home screen and color accents the way you like.": "Personaliza la pantalla de inicio de la cartera y los colores de acento a tu gusto."
+"Dangerous": "Peligroso"
+"Failed to Load": "Error al cargar"
+"HardwareOutdated": "La app de tu Ledger está desactualizada. Actualízala con Ledger Live."
+"Icon": "Icono"
+"Loading more": "Cargando más"
+"Menu": "Menú"
+"My Accounts": "Mis cuentas"
+"My Wallets": "Mis carteras"
+"Name and collection are not available. Please check back later.": "El nombre y la colección no están disponibles. Vuelve a comprobarlo más tarde."
+"Nothing to revoke on this chain": "No hay permisos que revocar en esta red"
+"Open Menu": "Abrir menú"
+"Overrides": "Ajustes forzados"
+"Please try again later": "Inténtalo de nuevo más tarde"
+"Saved Addresses": "Direcciones guardadas"
+"Saved Wallets": "Carteras guardadas"
+"Seasonal Theme Override": "Forzar tema de temporada"
+"Sending to": "Enviando a"
+"confirming actions in Telegram": "confirmar las acciones en Telegram"

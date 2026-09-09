@@ -19,26 +19,16 @@ import type {
 
 import { SWAP_API_VERSION } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
+import { unique } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import chains from '../chains';
 import { fetchStoredAccount, fetchStoredWallet } from '../common/accounts';
 import {
-  expireActiveCexSwaps,
-  rememberActiveCexSwap,
-  rememberActiveCexSwaps,
-  rememberActiveCexSwapSubmittedHashes,
-} from '../common/activities/reconciler/activeCexSwapState';
-import {
-  buildCexSwapRefreshPatch,
-  normalizeCexSwapRefreshActivity,
-} from '../common/activities/reconciler/cexSwapReconciler';
-import {
-  buildSwapOperationId,
-  getWalletOperationIntents,
-  rememberCexSwapOperationIntent,
-  rememberDexSwapOperationIntent,
-  rememberWalletOperationSubmittedHashes,
-} from '../common/activities/reconciler/operationIntentStore';
+  getSwapRowBackendId,
+  isSwapRow,
+  projectSwapActivities,
+  uniqueSwapRows,
+} from '../common/activities/swapReconciler';
 import { callBackendGet, callBackendPost } from '../common/backend';
 import { getBackendConfigCache } from '../common/cache';
 import {
@@ -110,7 +100,6 @@ export async function swapSubmit(
   const to = getSwapItemSlug(historyItem.to, chain);
 
   const localActivityId = buildLocalTxId(swapId);
-  const operationId = buildSwapOperationId(swapId);
   const localSwap: ApiSwapActivity = {
     ...historyItem,
     id: localActivityId,
@@ -119,14 +108,13 @@ export async function swapSubmit(
     kind: 'swap',
     extra: {
       reconciliation: {
-        operationId,
+        operationId: `swap:${swapId}`,
         sourceActionIds: [localActivityId],
         hiddenSourceActionIds: [],
         reason: 'local-intent',
       },
     },
   };
-  await rememberDexSwapOperationIntent(accountId, localSwap, { gasless: isGasless });
 
   const result = await chains[chain].submitOnchainSwapTransfer({
     accountId,
@@ -142,7 +130,6 @@ export async function swapSubmit(
   }, onUpdate);
 
   if ('error' in result) {
-    await rememberDexSwapOperationIntent(accountId, { ...localSwap, status: 'failed' }, { gasless: isGasless });
     return result;
   }
 
@@ -151,8 +138,6 @@ export async function swapSubmit(
 
     return { swapId, mfaRequestHash };
   }
-
-  await rememberWalletOperationSubmittedHashes(accountId, operationId, result.submittedHashes);
 
   return { activityId: result.activityId, swapId };
 }
@@ -165,7 +150,6 @@ export async function confirmSwapMfaRequest(accountId: string, swapId: string, t
     throw new Error('Missing backend auth token for swap MFA confirmation');
   }
 
-  await rememberWalletOperationSubmittedHashes(accountId, buildSwapOperationId(swapId), [txHash]);
   await patchSwapItem({
     address,
     swapId,
@@ -236,33 +220,47 @@ export async function fetchSwaps(
   }));
 
   const nonExistentIds: string[] = [];
-  const swaps: ApiSwapActivity[] = [];
+  const swapRows: ApiSwapActivity[] = [];
 
   for (const result of perIdResults) {
     if (result.found) {
-      swaps.push(swapItemToActivity(result.found.swap, result.found.chain));
+      const swap = swapItemToActivity(result.found.swap, result.found.chain);
+      swapRows.push(swap.isCanceled ? { ...swap, status: 'expired' } : swap);
     } else if (result.isNonExistent) {
       nonExistentIds.push(result.id);
     }
   }
 
-  const normalizedSwaps = swaps.map((swap) => {
-    return swap.cex ? normalizeCexSwapRefreshActivity(swap) : swap;
-  });
-  const cexSwaps = normalizedSwaps.filter((swap) => swap.cex);
-  await Promise.all(cexSwaps.map((swap) => rememberCexSwapOperationIntent(accountId, swap)));
-  await Promise.all([
-    rememberActiveCexSwaps(accountId, cexSwaps),
-    expireActiveCexSwaps(accountId, nonExistentIds),
-  ]);
+  // A row the backend no longer knows is a canceled provider order: its swap keeps its identity but is expired
+  for (const id of nonExistentIds) {
+    const backendId = id.replace('swap:', '');
+    const existing = existingActivities.find((activity) => {
+      return isSwapRow(activity) && Boolean(activity.cex) && getSwapRowBackendId(activity) === backendId;
+    }) as ApiSwapActivity | undefined;
+    if (existing) swapRows.push({ ...existing, status: 'expired' });
+  }
 
-  const intents = await getWalletOperationIntents(accountId);
-  const patch = buildCexSwapRefreshPatch(accountId, normalizedSwaps, nonExistentIds, existingActivities, intents);
+  // The refreshed rows are projected next to every swap row the caller holds, so a source of another swap keeps its
+  // owner. Only the refreshed rows and the sources they claim reach the patch.
+  const refreshedIds = new Set(swapRows.map(({ id }) => id));
+  const refreshedOperationIds = new Set(swapRows.map((swap) => `swap:${getSwapRowBackendId(swap)}`));
+  const existingById = new Map(existingActivities.map((activity) => [activity.id, activity]));
+  const projected = projectSwapActivities(
+    existingActivities,
+    uniqueSwapRows([...swapRows, ...existingActivities.filter(isSwapRow)]),
+    { fromTime: 0, toTime: Infinity },
+  );
+  const upsert = projected.filter((activity) => {
+    if (refreshedIds.has(activity.id)) return true;
+    return activity !== existingById.get(activity.id)
+      && activity.shouldHide === true
+      && refreshedOperationIds.has(activity.extra?.reconciliation?.operationId ?? '');
+  });
 
   return {
     nonExistentIds,
-    swaps: patch.upsert.filter((activity): activity is ApiSwapActivity => activity.kind === 'swap'),
-    patch,
+    swaps: upsert.filter((activity): activity is ApiSwapActivity => activity.kind === 'swap'),
+    patch: { accountId, upsert, removeIds: [] as string[], replacedIds: {} as Record<string, string> },
   };
 }
 
@@ -351,8 +349,6 @@ export async function swapCexCreateTransaction(
 
   // TODO: use actual chain!!!
   const activity = swapItemToActivity(swap, 'ton');
-  await rememberCexSwapOperationIntent(accountId, activity);
-  await rememberActiveCexSwap(accountId, activity);
 
   onUpdate({
     type: 'newActivities',
@@ -387,23 +383,37 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitG
     return { swapId, mfaRequestHash };
   }
 
+  // The provider tracks the deposit by the raw message hash; the chain reports it by the hash of the transaction
+  // (on TON the normalized external message hash), which is what `txId` carries for every chain.
   const backendMsgHash = result.msgHashForCexSwap ?? result.txId;
   if (backendMsgHash) {
     const { accountId, enclaveToken } = transferOptions;
-    // TON keeps the backend BOC hash and the activity external-message hash in different namespaces.
-    // Persist both explicit values for SDK matching, but keep the backend-facing hash unchanged below.
-    const submittedHashes = Array.from(new Set(
-      [result.msgHashForCexSwap, result.txId].filter((hash): hash is string => Boolean(hash)),
-    ));
-    await rememberWalletOperationSubmittedHashes(accountId, buildSwapOperationId(swapId), submittedHashes);
-    await rememberActiveCexSwapSubmittedHashes(accountId, swapId, submittedHashes);
     // The transfer already went through - if we can't tell the backend, just log it and move on
     try {
       // CEX swap history rows are owned by the TON history address even when the
       // actual deposit transfer is submitted from another source chain.
       const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
       const authToken = await getBackendAuthToken(accountId, enclaveToken ?? '');
-      await patchSwapItem({ address: historyAddress, authToken, msgHash: backendMsgHash, swapId });
+      const swap = await patchSwapItem({
+        address: historyAddress,
+        authToken,
+        msgHash: backendMsgHash,
+        msgHashNormalized: result.txId,
+        swapId,
+      });
+
+      // The deposit reaches the socket before the backend echoes its hash, so the row learns it here
+      if (swap) {
+        const activity = swapItemToActivity(convertSwapItemToTrusted(swap));
+        onUpdate({
+          type: 'newActivities',
+          accountId,
+          activities: [{
+            ...activity,
+            hashes: unique([...activity.hashes, result.txId].filter((hash): hash is string => Boolean(hash))),
+          }],
+        });
+      }
     } catch (err) {
       logDebugError('swapCexSubmit: failed to patch swap item', err);
     }

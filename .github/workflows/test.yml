@@ -8,13 +8,17 @@ on:
 
 jobs:
   ios-localizations:
-    name: iOS localization safety
+    name: Localization health
+    permissions:
+      contents: read
     # Match the iOS release toolchain; named catalog placeholders require Xcode 26.
     runs-on: macos-26
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Prepare Python
         uses: actions/setup-python@v5
@@ -22,9 +26,22 @@ jobs:
           python-version: '3.12'
 
       - name: Install localization dependencies
+        id: localization-dependencies
         run: python -m pip install -r mobile/ios/Air/scripts/strings/requirements.txt
 
-      - name: Test localization generation and formatting
+      - name: Test localization health checker
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m unittest discover -s dev/locales -p 'test_*.py' -v
+
+      - name: Check catalogs and localization call sites
+        if: ${{ !cancelled() && steps.localization-dependencies.outcome == 'success' }}
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python dev/locales/check_localization_health.py --exclude-path mobile/ios/Air/SubModules/UIAgent
+
+      - name: Test iOS localization generation and Foundation formatting
+        if: ${{ !cancelled() && steps.localization-dependencies.outcome == 'success' }}
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |

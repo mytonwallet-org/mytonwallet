@@ -57,7 +57,6 @@ jest.mock('../../../methods/dapps', () => ({
 }));
 
 jest.mock('../../../methods', () => ({
-  createLocalActivitiesFromEmulation: jest.fn(),
   createLocalTransactions: jest.fn(),
 }));
 

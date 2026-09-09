@@ -27,13 +27,13 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.submitStake
-import org.mytonwallet.app_air.walletcore.api.submitUnstake
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.tokenSlugToStakingSlug
 
@@ -66,7 +66,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
         if (AccountStore.stakingData?.stakingState(tokenSlug) is StakingState.Nominators) {
             BigInteger.valueOf(10001) * ONE_TON
         } else {
-            1.0.toBigInteger(TokenStore.getToken(tokenSlug)?.decimals ?: 9)!!
+            BigInteger.TEN.pow(TokenStore.getToken(tokenSlug)?.decimals ?: 9)
         }
 
     //
@@ -101,14 +101,17 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
 
     var currentToken =
         TokenStore.getToken(if (mode == Mode.STAKE) tokenSlug else stakedTokenSlug)
-            ?: TokenStore.getToken(TONCOIN_SLUG)!!
+            ?: checkNotNull(TokenStore.getToken(TONCOIN_SLUG)) {
+                "Toncoin is missing from TokenStore"
+            }
     private val stakedTokenSlug: String
         get() = tokenSlugToStakingSlug(tokenSlug) ?: throw Exception()
     private val tonOperationFees = getTonStakingFees(stakingState?.stakingType).run {
         if (mode == Mode.UNSTAKE) this["unstake"] else this["stake"]
     }
     private val networkFee: BigInteger = tonOperationFees?.gas ?: ONE_TON
-    val realFee: BigInteger = tonOperationFees!!.real
+    val realFee: BigInteger =
+        checkNotNull(tonOperationFees) { "Missing TON staking fees" }.real
 
     //
     var amount = BigInteger.valueOf(0)
@@ -328,16 +331,19 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     }
 
     private fun submitStake(enclaveToken: String) {
-        if (stakingState == null) return
+        val stakingState = stakingState ?: return
+        val accountId = accountId ?: return
 
         viewModelScope.launch {
             try {
-                val result = WalletCore.submitStake(
-                    accountId!!,
-                    amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
-                    stakingState!!,
-                    enclaveToken = enclaveToken,
-                    realFee = realFee
+                val result = WalletCore.call(
+                    ApiMethod.Staking.SubmitStake(
+                        accountId,
+                        amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
+                        stakingState,
+                        enclaveToken = enclaveToken,
+                        realFee = realFee
+                    )
                 )
                 val mfaHash = result.mfaRequestHash
                 if (mfaHash != null) {
@@ -356,14 +362,15 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     }
 
     private fun submitUnstake(enclaveToken: String) {
-        if (stakingState == null) return
+        val stakingState = stakingState ?: return
+        val accountId = accountId ?: return
 
         viewModelScope.launch {
             try {
-                val result = WalletCore.submitUnstake(
-                    accountId!!,
+                val result = StakingStore.submitUnstake(
+                    accountId,
                     amount = inputStateValue().amountInCrypto ?: BigInteger.ZERO,
-                    stakingState!!,
+                    stakingState,
                     enclaveToken = enclaveToken,
                     realFee = realFee
                 )
@@ -549,11 +556,11 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 tokenPrice = TokenStore.getToken(tokenSlug)?.price
                 _walletStateFlow.value = createWalletState()
 
-                if (inputStateValue().amountInCrypto == null) return
+                val amountInCrypto = inputStateValue().amountInCrypto ?: return
                 val inputValue = inputStateValue().run {
                     if (isInputCurrencyCrypto) {
                         CoinUtils.toDecimalString(
-                            amountInCrypto!!,
+                            amountInCrypto,
                             currentToken.decimals
                         )
                     } else {

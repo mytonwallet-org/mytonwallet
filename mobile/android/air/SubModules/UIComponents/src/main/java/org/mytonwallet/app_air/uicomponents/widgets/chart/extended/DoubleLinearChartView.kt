@@ -187,7 +187,7 @@ class DoubleLinearChartView(context: Context) :
                     chartHeight *
                     ((a.values[i] - currentMinHeight) / (currentMaxHeight - currentMinHeight))
             if (a.valuesStr != null && lines.isNotEmpty()) {
-                if (a.valuesStr2 == null || lines.size < 2) {
+                if (a.valuesStr2.isEmpty() || lines.size < 2) {
                     signaturePaint.color = style.signatureColor
                     signaturePaint.alpha =
                         (
@@ -212,7 +212,7 @@ class DoubleLinearChartView(context: Context) :
                     paint = signaturePaint
                 )
             }
-            if (a.valuesStr2 != null && lines.size > 1) {
+            if (a.valuesStr2.isNotEmpty() && lines.size > 1) {
                 signaturePaint2.color = lines[rightIndex].lineColor
                 signaturePaint2.alpha =
                     (
@@ -237,13 +237,12 @@ class DoubleLinearChartView(context: Context) :
 
     override fun findMaxValue(startXIndex: Int, endXIndex: Int): Long {
         if (lines.isEmpty()) return 0
+        val data = chartData ?: return 0
         var maxValue = 0L
         for (i in lines.indices) {
-            val localMax = if (lines[i].enabled) {
-                (
-                    chartData!!.lines[i].segmentTree!!.rMaxQ(startXIndex, endXIndex) *
-                        chartData!!.linesK[i]
-                    ).toLong()
+            val segmentTree = data.lines[i].segmentTree
+            val localMax = if (lines[i].enabled && segmentTree != null) {
+                (segmentTree.rMaxQ(startXIndex, endXIndex) * data.linesK[i]).toLong()
             } else {
                 0L
             }
@@ -254,13 +253,12 @@ class DoubleLinearChartView(context: Context) :
 
     override fun findMinValue(startXIndex: Int, endXIndex: Int): Long {
         if (lines.isEmpty()) return 0
+        val data = chartData ?: return 0
         var minValue = Long.MAX_VALUE
         for (i in lines.indices) {
-            val localMin = if (lines[i].enabled) {
-                (
-                    chartData!!.lines[i].segmentTree!!.rMinQ(startXIndex, endXIndex) *
-                        chartData!!.linesK[i]
-                    ).toLong()
+            val segmentTree = data.lines[i].segmentTree
+            val localMin = if (lines[i].enabled && segmentTree != null) {
+                (segmentTree.rMinQ(startXIndex, endXIndex) * data.linesK[i]).toLong()
             } else {
                 Int.MAX_VALUE.toLong()
             }
@@ -279,8 +277,9 @@ class DoubleLinearChartView(context: Context) :
         for (line in lines) {
             if (line.enabled && line.line.maxValue > maxValue) maxValue = line.line.maxValue
         }
-        if (lines.size > 1) {
-            maxValue = (maxValue * chartData!!.linesK[1]).toLong()
+        val data = chartData
+        if (lines.size > 1 && data != null) {
+            maxValue = (maxValue * data.linesK[1]).toLong()
         }
         if (maxValue > 0 && maxValue.toFloat() != animatedToPickerMaxHeight) {
             animatedToPickerMaxHeight = maxValue.toFloat()

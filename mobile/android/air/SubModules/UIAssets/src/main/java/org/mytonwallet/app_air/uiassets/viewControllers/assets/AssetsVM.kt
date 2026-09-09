@@ -193,9 +193,10 @@ class AssetsVM(
 
         val oldNfts = nfts?.toList()
 
-        if (keepOrder && interactionMode == InteractionMode.DRAG && cachedNftsToSave != null) {
+        val orderedNfts = cachedNftsToSave
+        if (keepOrder && interactionMode == InteractionMode.DRAG && orderedNfts != null) {
             val oldOrder =
-                cachedNftsToSave!!.mapIndexed { index, nft -> nft.address to index }.toMap()
+                orderedNfts.mapIndexed { index, nft -> nft.address to index }.toMap()
 
             val updated = cachedNfts
                 ?.filter {
@@ -342,23 +343,21 @@ class AssetsVM(
     fun moveItem(fromPosition: Int, toPosition: Int, shouldSave: Boolean) {
         nfts?.let { nftList ->
             if (fromPosition < nftList.size && toPosition < nftList.size) {
-                if (cachedNftsToSave == null) {
-                    cachedNftsToSave =
-                        NftStore.nftData?.cachedNfts?.toMutableList() ?: return
-                }
+                val nftsToSave = cachedNftsToSave
+                    ?: (NftStore.nftData?.cachedNfts?.toMutableList() ?: return).also {
+                        cachedNftsToSave = it
+                    }
 
                 val mainFromPos =
-                    cachedNftsToSave!!
-                        .indexOfFirst { it.address == nftList[fromPosition].address }
+                    nftsToSave.indexOfFirst { it.address == nftList[fromPosition].address }
                 val mainToPos =
-                    cachedNftsToSave!!
-                        .indexOfFirst { it.address == nftList[toPosition].address }
+                    nftsToSave.indexOfFirst { it.address == nftList[toPosition].address }
 
                 val item = nftList.removeAt(fromPosition)
                 nftList.add(toPosition, item)
 
-                val mainItem = cachedNftsToSave!!.removeAt(mainFromPos)
-                cachedNftsToSave!!.add(mainToPos, mainItem)
+                val mainItem = nftsToSave.removeAt(mainFromPos)
+                nftsToSave.add(mainToPos, mainItem)
 
                 rebuildAssetRows()
 

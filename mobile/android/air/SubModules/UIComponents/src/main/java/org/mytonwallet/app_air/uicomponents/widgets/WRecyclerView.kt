@@ -127,7 +127,7 @@ open class WRecyclerView(context: Context) :
             override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {}
             override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
         }
-        addOnItemTouchListener(overscrollListener!!)
+        overscrollListener?.let(::addOnItemTouchListener)
     }
 
     fun onDestroy() {

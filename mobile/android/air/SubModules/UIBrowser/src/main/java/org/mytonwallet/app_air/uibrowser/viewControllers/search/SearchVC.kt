@@ -358,7 +358,7 @@ class SearchVC(
             val intent = Intent(Intent.ACTION_VIEW)
             intent.setData(url?.toUri())
             try {
-                window!!.startActivity(intent)
+                window?.startActivity(intent)
             } catch (_: Exception) {
             }
             return
@@ -490,9 +490,10 @@ class SearchVC(
             navigationController?.tabBarController,
             config
         )
-        val nav = WNavigationController(window!!)
+        val window = window ?: return
+        val nav = WNavigationController(window)
         nav.setRoot(inAppBrowserVC)
-        window!!.present(nav)
+        window.present(nav)
     }
 
     internal fun createCell(cellType: WCell.Type): WCell = if (enhancedSearchEnabled) {

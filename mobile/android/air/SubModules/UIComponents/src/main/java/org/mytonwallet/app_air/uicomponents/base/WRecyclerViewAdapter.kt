@@ -97,10 +97,9 @@ class WRecyclerViewAdapter(
 
         override fun onInserted(position: Int, count: Int) {
             adapter.apply {
-                if (_cachedTotalCount != null) _cachedTotalCount = _cachedTotalCount!! + count
-                if (_cachedSectionItemCount.containsKey(section)) {
-                    _cachedSectionItemCount[section] =
-                        _cachedSectionItemCount[section]!! + count
+                _cachedTotalCount = _cachedTotalCount?.plus(count)
+                _cachedSectionItemCount[section]?.let {
+                    _cachedSectionItemCount[section] = it + count
                 }
                 notifyItemRangeInserted(position + itemsAbove, count)
             }
@@ -108,10 +107,9 @@ class WRecyclerViewAdapter(
 
         override fun onRemoved(position: Int, count: Int) {
             adapter.apply {
-                if (_cachedTotalCount != null) _cachedTotalCount = _cachedTotalCount!! - count
-                if (_cachedSectionItemCount.containsKey(section)) {
-                    _cachedSectionItemCount[section] =
-                        _cachedSectionItemCount[section]!! - count
+                _cachedTotalCount = _cachedTotalCount?.minus(count)
+                _cachedSectionItemCount[section]?.let {
+                    _cachedSectionItemCount[section] = it - count
                 }
                 notifyItemRangeRemoved(position + itemsAbove, count)
             }
@@ -189,21 +187,30 @@ class WRecyclerViewAdapter(
     }
 
     // Function to map position into index path
-    fun positionToIndexPath(position: Int): IndexPath {
-        if (_cachedNumberOfSections == null) {
-            _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
+    private fun cachedNumberOfSections(): Int? {
+        _cachedNumberOfSections?.let { return it }
+        val rv = recyclerView ?: return null
+        return datasource.get()?.recyclerViewNumberOfSections(rv)?.also {
+            _cachedNumberOfSections = it
         }
+    }
+
+    private fun cachedSectionItemCount(section: Int): Int =
+        _cachedSectionItemCount.getOrPut(section) {
+            val rv = recyclerView ?: return@getOrPut 0
+            datasource.get()?.recyclerViewNumberOfItems(rv, section) ?: 0
+        }
+
+    fun positionToIndexPath(position: Int): IndexPath {
+        val sections = cachedNumberOfSections() ?: return IndexPath(0, position)
         var section = 0
         var offset = 0
-        for (i in 0.._cachedNumberOfSections!!) {
-            if (!_cachedSectionItemCount.containsKey(i)) {
-                _cachedSectionItemCount[i] =
-                    datasource.get()?.recyclerViewNumberOfItems(recyclerView!!, i) ?: 0
-            }
-            if (position < offset + _cachedSectionItemCount[i]!!) {
+        for (i in 0..sections) {
+            val itemCount = cachedSectionItemCount(i)
+            if (position < offset + itemCount) {
                 break
             } else {
-                offset += _cachedSectionItemCount[i]!!
+                offset += itemCount
                 section += 1
             }
         }
@@ -211,16 +218,9 @@ class WRecyclerViewAdapter(
     }
 
     fun indexPathToPosition(indexPath: IndexPath): Int {
-        if (_cachedNumberOfSections == null) {
-            _cachedNumberOfSections = datasource.get()?.recyclerViewNumberOfSections(recyclerView!!)
-        }
         var position = 0
         for (section in 0 until indexPath.section) {
-            if (!_cachedSectionItemCount.containsKey(section)) {
-                _cachedSectionItemCount[section] =
-                    datasource.get()?.recyclerViewNumberOfItems(recyclerView!!, section) ?: 0
-            }
-            position += _cachedSectionItemCount[section]!!
+            position += cachedSectionItemCount(section)
         }
         position += indexPath.row
         return position
@@ -260,7 +260,7 @@ class WRecyclerViewAdapter(
 
     override fun getItemCount(): Int {
         // Check if cached total count, because we do NOT expect it be calculated every time.
-        if (_cachedTotalCount != null) return _cachedTotalCount!!
+        _cachedTotalCount?.let { return it }
         // Not cached, so count the items for all sections
         val ds = datasource.get() ?: return 0
         val rv = recyclerView ?: return 0
@@ -270,10 +270,8 @@ class WRecyclerViewAdapter(
         val sections = _cachedNumberOfSections ?: return 0
         var totalCount = 0
         for (i in 0..<sections) {
-            if (!_cachedSectionItemCount.containsKey(i)) {
-                _cachedSectionItemCount[i] = ds.recyclerViewNumberOfItems(rv, i)
-            }
-            totalCount += _cachedSectionItemCount[i]!!
+            totalCount +=
+                _cachedSectionItemCount.getOrPut(i) { ds.recyclerViewNumberOfItems(rv, i) }
         }
         _cachedTotalCount = totalCount
         return totalCount

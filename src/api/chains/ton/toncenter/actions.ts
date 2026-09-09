@@ -77,7 +77,6 @@ import {
   EXCESS_OP_CODES,
   JettonStakingOpCode,
   OpCode,
-  OUR_FEE_PAYLOAD_BOC,
   TeleitemOpCode,
 } from '../constants';
 import { extractMetadata, getProxiedImage } from './metadata';
@@ -413,7 +412,7 @@ function parseJettonTransfer(action: JettonTransferAction, options: ParseOptions
   const encryptedComment = (isEncrypted && details.comment) || undefined;
   const tokenAddress = addressBook[details.asset].user_friendly;
   const slug = buildTokenSlug('ton', tokenAddress);
-  const isOurSwapFee = !isIncoming && forwardPayload === OUR_FEE_PAYLOAD_BOC;
+  const isOurSwapFee = !isIncoming && isOurSwapFeePayload(forwardPayload);
 
   let type: ApiTransactionType;
   if (toAddress === BURN_ADDRESS) {
@@ -693,7 +692,7 @@ function parseStakeWithdrawalRequest(action: StakeWithdrawalRequestAction, optio
 }
 
 function parseJettonSwap(action: SwapAction, options: ParseOptions): ParsedAction {
-  const { metadata, isPending } = options;
+  const { metadata, isPending, addressBook, walletAddress } = options;
   const {
     end_utime: endUtime,
     success: isSuccess,
@@ -701,10 +700,12 @@ function parseJettonSwap(action: SwapAction, options: ParseOptions): ParsedActio
       dex_incoming_transfer: {
         amount: fromAmount,
         asset: fromAsset,
+        source: fromSource,
       },
       dex_outgoing_transfer: {
         amount: toAmount,
         asset: toAsset,
+        destination: toDestination,
       },
       sender,
     },
@@ -718,20 +719,24 @@ function parseJettonSwap(action: SwapAction, options: ParseOptions): ParsedActio
 
   let from: string;
   let to: string;
+  // The TON a leg takes or gives changes the wallet's balance only when the wallet is the leg's counterparty. In a
+  // route through TON the router hands the TON of one hop to the next one, so it is neither the wallet's cost nor
+  // its income
   let toncoinChange = 0n;
+  const isWallet = (rawAddress: string) => addressBook[rawAddress]?.user_friendly === walletAddress;
 
   if (fromTokenAddress && fromTokenAddress !== STON_PTON_ADDRESS) {
     from = buildTokenSlug('ton', fromTokenAddress);
   } else {
     from = TONCOIN.slug;
-    toncoinChange = -BigInt(fromAmount);
+    if (isWallet(fromSource)) toncoinChange = -BigInt(fromAmount);
   }
 
   if (toTokenAddress && toTokenAddress !== STON_PTON_ADDRESS) {
     to = buildTokenSlug('ton', toTokenAddress);
   } else {
     to = TONCOIN.slug;
-    toncoinChange = BigInt(toAmount);
+    if (isWallet(toDestination)) toncoinChange = BigInt(toAmount);
   }
 
   const activity: ApiSwapActivity = {
@@ -1136,6 +1141,20 @@ function parseToncenterJetton(rawAddress: string, metadata: MetadataMap): ApiTok
     image: getProxiedImage(jettonMetadata),
     decimals: Number(jettonMetadata.extra!.decimals),
   };
+}
+
+/**
+ * Whether a forward payload is the marker our backend attaches to the swap fee transfer. Toncenter serializes the cell
+ * without a CRC, so the payload is compared by content, not by its base64 form.
+ */
+export function isOurSwapFeePayload(payloadBase64: string | null | undefined) {
+  if (!payloadBase64) return false;
+
+  return safeExec(() => {
+    const slice = Cell.fromBase64(payloadBase64).beginParse();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+    return slice.remainingBits >= 32 && slice.loadUint(32) === OpCode.OurFee;
+  }) ?? false;
 }
 
 function safeReadComment(payloadBase64: string) {

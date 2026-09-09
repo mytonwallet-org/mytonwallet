@@ -77,9 +77,9 @@ class AssetsAndActivitiesVC(context: Context) :
         set(value) {
             field = value
             val data = AccountStore.assetsAndActivityData
-            oldHiddenTokens = value.map { row ->
+            oldHiddenTokens = value.mapTo(ArrayList()) { row ->
                 isTokenHidden(row, data)
-            } as ArrayList<Boolean>
+            }
         }
 
     private val recyclerView: WRecyclerView by lazy {
@@ -159,7 +159,6 @@ class AssetsAndActivitiesVC(context: Context) :
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         scope.cancel()
     }
 
@@ -204,16 +203,18 @@ class AssetsAndActivitiesVC(context: Context) :
             else -> TOKEN_CELL
         }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
-        when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
+        val navigationController = navigationController ?: return WCell(context)
+        return when (cellType) {
             HEADER_CELL -> {
-                AssetsAndActivitiesHeaderCell(navigationController!!, recyclerView)
+                AssetsAndActivitiesHeaderCell(navigationController, recyclerView)
             }
 
             else -> {
                 AssetsAndActivitiesTokenCell(recyclerView)
             }
         }
+    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -239,9 +240,9 @@ class AssetsAndActivitiesVC(context: Context) :
                         scope.launch {
                             val data = AccountStore.assetsAndActivityData
                             this@AssetsAndActivitiesVC.oldHiddenTokens =
-                                allTokens.map { row ->
+                                allTokens.mapTo(ArrayList()) { row ->
                                     isTokenHidden(row, data)
-                                } as ArrayList<Boolean>
+                                }
                             allTokens.forEachIndexed { index, row ->
                                 val isHidden = isTokenHidden(row, data)
                                 if (isHidden != oldHiddenTokens[index]) indexes.add(index)

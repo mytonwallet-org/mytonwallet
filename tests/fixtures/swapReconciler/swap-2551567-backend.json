@@ -1,0 +1,20 @@
+{
+ "row": {
+  "id": "2551567",
+  "timestamp": 1788942256279,
+  "from": "EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo",
+  "fromAmount": "5000.000000000000000000",
+  "to": "EQD0vdSA_NedR9uvbgN9EikRX-suesDxGeFg69XQMavfLqIw",
+  "toAmount": "40.232071505000000000",
+  "status": "completed",
+  "txIds": [],
+  "transactionIds": {},
+  "hashes": [
+   "KqYMr6nBhp8phoavlGBOtwVWuBdFIDKsDGpNNdS1Ycw="
+  ],
+  "exchanger": "omniston",
+  "msgHash": "/248oTX4kN0L2oYuKhRpCmHBhy2IMun/XKGh3Y/44nQ=",
+  "fromAddress": "UQDblBmVhYA7El2pBcViUpRJvbtf4IoygDdSIMFrvQPoHlwo",
+  "networkFee": 0.4945
+ }
+}

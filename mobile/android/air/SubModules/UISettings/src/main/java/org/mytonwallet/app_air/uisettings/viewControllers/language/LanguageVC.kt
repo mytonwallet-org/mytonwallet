@@ -92,7 +92,7 @@ class LanguageVC(context: Context) :
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            topToBottom(recyclerView, navigationBar!!)
+            navigationBar?.let { topToBottom(recyclerView, it) }
             toCenterX(recyclerView)
             toBottom(recyclerView)
         }

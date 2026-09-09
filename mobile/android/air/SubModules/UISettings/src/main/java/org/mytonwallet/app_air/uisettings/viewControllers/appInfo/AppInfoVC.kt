@@ -360,7 +360,8 @@ class AppInfoVC(context: Context) : WViewController(context) {
     }
 
     private fun openLink(link: String) {
-        val nav = WNavigationController(window!!)
+        val window = window ?: return
+        val nav = WNavigationController(window)
         nav.setRoot(
             InAppBrowserVC(
                 context,
@@ -372,6 +373,6 @@ class AppInfoVC(context: Context) : WViewController(context) {
                 )
             )
         )
-        window?.present(nav)
+        window.present(nav)
     }
 }

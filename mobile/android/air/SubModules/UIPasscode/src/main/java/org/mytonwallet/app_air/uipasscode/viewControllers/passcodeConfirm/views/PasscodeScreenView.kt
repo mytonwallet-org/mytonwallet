@@ -157,12 +157,7 @@ class PasscodeScreenView(
                 passcodeViewState.showMotionBackgroundDrawable,
         ignoreBiometry = ignoreBiometry
     ).apply {
-        setPadding(
-            0,
-            0,
-            0,
-            4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
-        )
+        setPadding(0, 0, 0, keyboardBottomInset)
     }
 
     val topLinearLayout = object : LinearLayout(context) {
@@ -292,7 +287,7 @@ class PasscodeScreenView(
     }
 
     private fun setupAsDefaultPasscodeView() {
-        val defaultState = passcodeViewState as PasscodeViewState.Default
+        val defaultState = passcodeViewState as? PasscodeViewState.Default ?: return
 
         addView(gapView1, LayoutParams(WRAP_CONTENT, 0))
         addView(gapView2, LayoutParams(WRAP_CONTENT, 0))
@@ -340,7 +335,7 @@ class PasscodeScreenView(
     // Layout metrics are derived from the current insets / parent height, so they
     // are recomputed on demand (also keeps them correct across rotation).
     private fun defaultTopInset() =
-        if ((passcodeViewState as PasscodeViewState.Default).showNavBar) {
+        if ((passcodeViewState as? PasscodeViewState.Default)?.showNavBar == true) {
             0
         } else {
             containerVC.navigationController?.getSystemBars()?.top ?: 0
@@ -358,24 +353,15 @@ class PasscodeScreenView(
         if (isWideDefaultLayout == isWide) return
         isWideDefaultLayout = isWide
 
-        val defaultState = passcodeViewState as PasscodeViewState.Default
-        val scaleFactor = defaultScaleFactor()
-        val imageMargin = (16.dp * scaleFactor).roundToInt()
-        val inputMarginTop = (28.dp * scaleFactor).roundToInt()
+        val defaultState = passcodeViewState as? PasscodeViewState.Default ?: return
+        val inputMarginTop = (28.dp * defaultScaleFactor()).roundToInt()
 
         if (isWide) {
             // Wide screens: header on the left, passcode input + pinpad on the right.
             if (defaultState.isUnlockScreen) {
                 titleTextView.text = LocaleController.getString("Locked")
             }
-            val bottomInset =
-                4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
-            // No status-bar top inset here, so the header column stays vertically
-            // centered instead of being pushed down.
-            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin =
-                imageMargin
-            passcodeKeyboardView.setPadding(0, 0, 0, 0)
-            setPaddingLocalized(horizontalStartPadding, 0, horizontalEndPadding, bottomInset)
+            applyDefaultInsets(isWide = true)
             topLinearLayout.layoutParams =
                 LayoutParams(0, WRAP_CONTENT)
             bottomLayout.layoutParams =
@@ -420,15 +406,7 @@ class PasscodeScreenView(
         } else {
             // Phone / narrow: original layout, unchanged.
             titleTextView.text = defaultState.title
-            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin =
-                imageMargin + defaultTopInset()
-            setPaddingLocalized(horizontalStartPadding, 0, horizontalEndPadding, 0)
-            passcodeKeyboardView.setPadding(
-                0,
-                0,
-                0,
-                4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
-            )
+            applyDefaultInsets(isWide = false)
             topLinearLayout.layoutParams =
                 LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             bottomLayout.layoutParams =
@@ -469,6 +447,42 @@ class PasscodeScreenView(
                     null,
                     ConstraintSet.CHAIN_PACKED
                 )
+            }
+        }
+    }
+
+    private val keyboardBottomInset: Int
+        get() = 4.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
+
+    private fun applyDefaultInsets(isWide: Boolean) {
+        val imageMargin = (16.dp * defaultScaleFactor()).roundToInt()
+        if (isWide) {
+            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin = imageMargin
+            passcodeKeyboardView.setPadding(0, 0, 0, 0)
+            setPaddingLocalized(
+                horizontalStartPadding,
+                0,
+                horizontalEndPadding,
+                keyboardBottomInset
+            )
+        } else {
+            (topImageView.layoutParams as LinearLayout.LayoutParams).topMargin =
+                imageMargin + defaultTopInset()
+            setPaddingLocalized(horizontalStartPadding, 0, horizontalEndPadding, 0)
+            passcodeKeyboardView.setPadding(0, 0, 0, keyboardBottomInset)
+        }
+    }
+
+    fun insetsUpdated() {
+        if (!isConfigured) return
+        when (passcodeViewState) {
+            is PasscodeViewState.Default -> {
+                applyDefaultInsets(isWideDefaultLayout ?: return)
+                topImageView.requestLayout()
+            }
+
+            is PasscodeViewState.CustomHeader -> {
+                passcodeKeyboardView.setPadding(0, 0, 0, keyboardBottomInset)
             }
         }
     }
@@ -756,6 +770,7 @@ class PasscodeScreenView(
     }
 
     fun tryBiometrics() {
+        val window = containerVC.window ?: return
         Logger.d(
             Logger.LogTag.PASSCODE_CONFIRM,
             "tryBiometrics: Attempting biometric authentication"
@@ -769,7 +784,7 @@ class PasscodeScreenView(
             showUpdatingLabel()
         }
         AuthStore.authorizeWithBiometrics(
-            containerVC.window!!,
+            window,
             onBridgeReady = {
                 if (isWaitingForBridge) {
                     hideUpdatingLabel()
@@ -815,9 +830,10 @@ class PasscodeScreenView(
             return
         }
 
+        val delegate = delegate ?: return
         Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Verifying passcode")
         isLoading.animatedValue = true
-        delegate!!.onEnterPasscode(passcode) { correct, cooldownDate ->
+        delegate.onEnterPasscode(passcode) { correct, cooldownDate ->
             isLoading.animatedValue = false
             if (correct) {
                 Logger.d(Logger.LogTag.PASSCODE_CONFIRM, "checkPasscode: Passcode correct")
@@ -862,13 +878,13 @@ class PasscodeScreenView(
 
         val remainingMillis = cooldownEndTime?.let { it - System.currentTimeMillis() } ?: 0
 
-        if (remainingMillis > 0) {
+        if (cooldownEndTime != null && remainingMillis > 0) {
             Logger.d(
                 Logger.LogTag.PASSCODE_CONFIRM,
                 "setupCooldown: Cooldown active remainingMs=$remainingMillis"
             )
             passcodeKeyboardView.lockKeypad()
-            startCooldownTimer(cooldownEndTime!!)
+            startCooldownTimer(cooldownEndTime)
         } else {
             resetToNormalState()
         }

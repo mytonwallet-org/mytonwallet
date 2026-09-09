@@ -76,7 +76,7 @@ class MintCardDoneVC(context: Context) : WViewController(context) {
         view.addView(doneButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
 
         view.setConstraints {
-            topToBottom(centerView, navigationBar!!)
+            navigationBar?.let { topToBottom(centerView, it) }
             bottomToTop(centerView, doneButton)
             toCenterX(centerView, 32f)
             toCenterX(doneButton, 16f)

@@ -54,6 +54,33 @@ describe('getSwapTransactionIdRows', () => {
     ]);
   });
 
+  it('names a TON swap summary by the trace it was signed as, never by its row id', () => {
+    expect(getSwapTransactionIdRows(makeSwapActivity({
+      id: '2551567::backend-swap',
+      externalMsgHashNorm: 'external-message-hash',
+      hashes: ['external-message-hash'],
+    }))).toEqual([
+      { label: 'Transaction ID', hash: 'external-message-hash', chain: 'ton' },
+    ]);
+    expect(getSwapTransactionIdRows(makeSwapActivity({
+      id: '2551567::backend-swap',
+      hashes: ['submitted-hash'],
+    }))).toEqual([
+      { label: 'Transaction ID', hash: 'submitted-hash', chain: 'ton' },
+    ]);
+  });
+
+  it('renders no transaction id for a swap row that has no hash yet', () => {
+    expect(getSwapTransactionIdRows(makeSwapActivity({ id: '2551567::local' }))).toEqual([]);
+    expect(getSwapTransactionIdRows(makeSwapActivity({ id: '2551567::backend-swap' }))).toEqual([]);
+  });
+
+  it('names a raw swap action by its trace when it carries no message hash', () => {
+    expect(getSwapTransactionIdRows(makeSwapActivity({ id: 'trace-id:102309952000025-action-id' }))).toEqual([
+      { label: 'Transaction ID', hash: 'trace-id', chain: 'ton' },
+    ]);
+  });
+
   it('falls back to the legacy CEX hash', () => {
     expect(getSwapTransactionIdRows(makeSwapActivity({
       cex: {} as ApiSwapActivity['cex'],

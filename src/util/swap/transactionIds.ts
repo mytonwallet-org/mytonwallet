@@ -1,6 +1,6 @@
 import type { ApiChain, ApiSwapActivity } from '../../api/types';
 
-import { parseTxId } from '../activities';
+import { getIsBackendSwapId, getIsTxIdLocal, parseTxId } from '../activities';
 import { getChainBySlug } from '../tokens';
 
 type SwapTransactionId = {
@@ -31,15 +31,17 @@ export function getSwapTransactionIdRows(activity: ApiSwapActivity): SwapTransac
   return fallback ? [{ ...fallback, label: 'Transaction ID' }] : [];
 }
 
-function getFallbackSwapTransactionId({ id, cex, hashes, from }: ApiSwapActivity): SwapTransactionId | undefined {
+function getFallbackSwapTransactionId(activity: ApiSwapActivity): SwapTransactionId | undefined {
+  const { id, cex, hashes, externalMsgHashNorm, from } = activity;
   const chain = getChainBySlug(from);
   if (!chain) return undefined;
 
   if (!cex) {
-    return {
-      hash: parseTxId(id).hash,
-      chain,
-    };
+    // The transaction of a DEX swap is the trace the wallet signed. The id of a summary row (`<id>::backend-swap`,
+    // `<id>::local`) names the backend record, not a transaction, so such a row without a hash has nothing to show
+    const isSummaryRow = getIsBackendSwapId(id) || getIsTxIdLocal(id);
+    const hash = externalMsgHashNorm ?? hashes[0] ?? (isSummaryRow ? undefined : parseTxId(id).hash);
+    return hash ? { hash, chain } : undefined;
   }
 
   if (!hashes[0]) return undefined;

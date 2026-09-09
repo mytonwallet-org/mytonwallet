@@ -50,10 +50,13 @@ PYTHONDONTWRITEBYTECODE=1 mobile/ios/Air/scripts/strings/.venv/bin/python -m uni
 
 CI runs the suite on `macos-26`, matching the iOS release runner. Xcode 26 or newer is required
 to compile the named catalog placeholders; the integration test checks this before compilation.
+The same job runs the [cross-platform localization health checks](../../../../../dev/locales/README.md#ci-localization-health)
+for YAML parity, named placeholders, and literal call-site keys in web, Android, and iOS.
 It checks every catalog placeholder against the emitted
 Swift interpolation, then uses Xcode and Foundation to compile and format all generated
 functions in all languages. Runtime cases include repeated placeholders, plural counts, and real
-localized domain-expiry date strings. To run the Foundation check on an already booted iOS Simulator,
+localized domain-expiry date strings. Formatting crashes report the key, locale, and arguments,
+then resume at the next case to report later failures too. To run the Foundation check on an already booted iOS Simulator,
 set `LOCALIZATION_TEST_SIMULATOR_UDID` to its UDID before running the command above.
 
 ## Scripts
@@ -172,7 +175,7 @@ src/i18n/
 
 ## Requirements
 
-- Python 3.6+
+- Python 3.10+ (CI uses 3.12)
 - PyYAML (`pip install pyyaml`)
 
 ## Exit Codes

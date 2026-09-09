@@ -86,9 +86,12 @@ object FontManager {
             }
 
             FontFamily.MISANS -> {
-                ltrRegular = ResourcesCompat.getFont(context, R.font.misans_regular)!!
-                ltrMedium = ResourcesCompat.getFont(context, R.font.misans_demibold)!!
-                ltrBold = ResourcesCompat.getFont(context, R.font.misans_bold)!!
+                ltrRegular = ResourcesCompat.getFont(context, R.font.misans_regular)
+                    ?: Typeface.DEFAULT
+                ltrMedium = ResourcesCompat.getFont(context, R.font.misans_demibold)
+                    ?: Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                ltrBold = ResourcesCompat.getFont(context, R.font.misans_bold)
+                    ?: Typeface.DEFAULT_BOLD
             }
         }
 
@@ -97,9 +100,9 @@ object FontManager {
             activeLang == WLanguage.PERSIAN.langCode || activeLang == WLanguage.ARABIC.langCode
         inlineIconVerticalOffsetEm = if (useVazirmatn) -1f / 14f else 0f
         if (useVazirmatn) {
-            regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular)!!
-            medium = ResourcesCompat.getFont(context, R.font.vazirmatn_semibold)!!
-            bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold)!!
+            regular = ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: ltrRegular
+            medium = ResourcesCompat.getFont(context, R.font.vazirmatn_semibold) ?: ltrMedium
+            bold = ResourcesCompat.getFont(context, R.font.vazirmatn_bold) ?: ltrBold
         } else {
             regular = ltrRegular
             medium = ltrMedium
@@ -107,7 +110,7 @@ object FontManager {
         }
 
         balance = if (WGlobalStorage.isRoundedBalanceFontActive()) {
-            ResourcesCompat.getFont(context, R.font.google_sans_flex_round_bold)!!
+            ResourcesCompat.getFont(context, R.font.google_sans_flex_round_bold) ?: bold
         } else {
             bold
         }

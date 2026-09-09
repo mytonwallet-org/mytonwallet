@@ -456,6 +456,7 @@ class InAppBrowserTopBarView(
         isMinimizing = true
         minimizeStarted()
         viewController.view.post {
+            val navigationController = viewController.navigationController ?: return@post
             titleLabel.pivotY = titleLabel.height / 2f
             backDrawable.setRotation(1f, true)
             titleLabel.animateTextColor(WColor.PrimaryText.color)
@@ -467,10 +468,10 @@ class InAppBrowserTopBarView(
             } else {
                 0f
             }
-            tabBarController?.minimize(viewController.navigationController!!, onProgress = {
+            tabBarController?.minimize(navigationController, onProgress = {
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
-                val parent = parent as ViewGroup
-                parent.layoutParams = (parent.layoutParams as MarginLayoutParams).apply {
+                val parent = parent as? ViewGroup
+                parent?.layoutParams = (parent?.layoutParams as? MarginLayoutParams)?.apply {
                     topMargin = (-it * heightDiff).roundToInt()
                 }
                 moreButton.layoutParams = (moreButton.layoutParams as MarginLayoutParams).apply {
@@ -513,8 +514,8 @@ class InAppBrowserTopBarView(
                     titleLabel.isClickable = true
                 }
                 val heightDiff = (viewController.navigationController?.getSystemBars()?.top ?: 0)
-                val parent = parent as ViewGroup
-                parent.layoutParams = (parent.layoutParams as MarginLayoutParams).apply {
+                val parent = parent as? ViewGroup
+                parent?.layoutParams = (parent?.layoutParams as? MarginLayoutParams)?.apply {
                     topMargin = (-(1 - it) * heightDiff).roundToInt()
                 }
                 moreButton.layoutParams = (moreButton.layoutParams as MarginLayoutParams).apply {

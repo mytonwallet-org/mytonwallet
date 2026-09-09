@@ -1,5 +1,4 @@
 import type {
-  ApiActivity,
   ApiChain,
   ApiCheckTransactionDraftOptions,
   ApiCheckTransactionDraftResult,
@@ -12,14 +11,12 @@ import type {
 } from '../types';
 
 import { parseAccountId } from '../../util/account';
-import { buildLocalTxId } from '../../util/activities';
 import { SECOND } from '../../util/dateFormat';
 import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import { fetchStoredAddress } from '../common/accounts';
 import { buildLocalTransaction } from '../common/helpers';
 import { bytesToBase64 } from '../common/utils';
-import { FAKE_TX_ID } from '../constants';
 import { requireMfaMethods } from './optional';
 import { buildTokenSlug } from './tokens';
 
@@ -270,44 +267,4 @@ export function createLocalTransactions(
 
 export function fetchEstimateDiesel(accountId: string, chain: ApiChain, tokenAddress: string) {
   return chains[chain].fetchEstimateDiesel(accountId, tokenAddress);
-}
-
-/**
- * Creates local activities from emulation results instead of basic transaction parameters.
- * This provides richer, parsed transaction details like "liquidity withdrawal" instead of "send TON".
- */
-export function createLocalActivitiesFromEmulation(
-  accountId: string,
-  msgHashNormalized: string,
-  emulationActivities: ApiActivity[],
-): ApiActivity[] {
-  const localActivities: ApiActivity[] = [];
-  let localActivityIndex = 0;
-
-  emulationActivities.forEach((activity) => {
-    if (activity.shouldHide || activity.id === FAKE_TX_ID) {
-      return;
-    }
-
-    localActivities.push({
-      ...activity,
-      id: buildLocalTxId(msgHashNormalized, localActivityIndex),
-      timestamp: Date.now(),
-      externalMsgHashNorm: msgHashNormalized,
-      // Emulation activities are not trusted
-      status: 'pending',
-    });
-
-    localActivityIndex++; // Increment only for visible activities
-  });
-
-  if (localActivities.length) {
-    onUpdate({
-      type: 'newLocalActivities',
-      activities: localActivities,
-      accountId,
-    });
-  }
-
-  return localActivities;
 }

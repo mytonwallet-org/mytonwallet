@@ -512,9 +512,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     private func updateRootChromeVisibilityForSelectedPage() {
         guard let navigationController = navigationController(for: selectedPage),
-              let viewController = navigationController.visibleViewController else {
+              let viewController = navigationController.topViewController else {
             return
         }
+        // Presented sheets do not change the navigation stack's toolbar.
         updateRootChromeVisibility(for: navigationController, showing: viewController)
     }
 
@@ -574,11 +575,11 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             finishBottomChromeVisibility(at: finalPresentation)
             guard let navigationController,
                   universalSearchViewController == nil,
-                  let visibleViewController = navigationController.visibleViewController else {
+                  let topViewController = navigationController.topViewController else {
                 return
             }
             synchronizeSharedBottomToolbar(
-                for: visibleViewController,
+                for: topViewController,
                 in: navigationController
             )
         }
@@ -1100,9 +1101,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         tabControlContainer.accessibilityElementsHidden = false
         segmentedController.accessibilityElementsHidden = false
         if let navigationController = sharedMainNavigationController,
-           let visibleViewController = navigationController.visibleViewController {
+           let topViewController = navigationController.topViewController {
             synchronizeSharedBottomToolbar(
-                for: visibleViewController,
+                for: topViewController,
                 in: navigationController
             )
         } else {
@@ -1330,7 +1331,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func installSharedNavigationPath(for page: Page) {
         guard let sharedMainNavigationController else { return }
         let path = sharedNavigationPaths[page] ?? []
-        sharedMainNavigationController.setViewControllers([self] + path, animated: false)
+        let viewControllers = [self] + path
+        if !sharedMainNavigationController.viewControllers.elementsEqual(viewControllers, by: { $0 === $1 }) {
+            sharedMainNavigationController.setViewControllers(viewControllers, animated: false)
+        }
         updateRootChromeVisibilityForSelectedPage()
     }
 

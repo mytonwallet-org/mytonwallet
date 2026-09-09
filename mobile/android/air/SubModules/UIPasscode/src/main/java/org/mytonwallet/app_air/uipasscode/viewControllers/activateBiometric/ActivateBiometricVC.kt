@@ -78,8 +78,9 @@ class ActivateBiometricVC(
     private val connectButton = WButton(context, WButton.Type.PRIMARY).apply {
         text = LocaleController.getString("Connect Biometrics")
         setOnClickListener {
+            val window = window ?: return@setOnClickListener
             WalletCore.enclaveMigrateAuth(
-                window!!,
+                window,
                 enclaveToken,
                 AuthType.BIOMETRIC,
                 null,

@@ -375,7 +375,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         view.addView(continueButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 50.dp))
         view.setConstraints {
             toCenterX(scrollView)
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             bottomToTop(scrollView, feeLabel, 12f)
             toCenterX(feeLabel)
             bottomToTop(feeLabel, continueButton, 16f)
@@ -432,7 +432,6 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         super.onDestroy()
         suggestionAnimator?.cancel()
         viewModel.onDestroy()
-        WalletCore.unregisterObserver(this)
         addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
     }
 
@@ -785,6 +784,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
 
     private var sentNftAddress: String? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        val accountId = displayedAccount.accountId ?: return
         if (sentNftAddress == null) {
             return
         }
@@ -806,7 +806,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             window?.dismissLastNav {
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
+                        accountId,
                         receivedActivity
                     )
                 )
@@ -815,7 +815,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             navigationController?.popToRoot {
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
+                        accountId,
                         receivedActivity
                     )
                 )

@@ -208,11 +208,12 @@ class ParticleRenderer : GLSurfaceView.Renderer {
         systems[system.id] = system
 
         if (config.selfDestroyTime > 0) {
-            system.selfDestroyTimeout = Runnable {
+            val selfDestroyTimeout = Runnable {
                 removeSystem(system.id)
             }
+            system.selfDestroyTimeout = selfDestroyTimeout
             handler.postDelayed(
-                system.selfDestroyTimeout!!,
+                selfDestroyTimeout,
                 (config.selfDestroyTime * 1000).toLong()
             )
         }

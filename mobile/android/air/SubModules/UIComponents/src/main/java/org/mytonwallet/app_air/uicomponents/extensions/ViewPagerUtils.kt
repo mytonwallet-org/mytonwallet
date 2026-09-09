@@ -41,8 +41,8 @@ private fun startSpring(recyclerView: RecyclerView, springAnim: SpringAnimation)
 }
 
 fun ViewPager2.setupSpringFling(onScrollingToTarget: (targetIndex: Int) -> Int) {
-    val recyclerView = getChildAt(0) as RecyclerView
-    val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+    val recyclerView = getChildAt(0) as? RecyclerView ?: return
+    val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
 
     recyclerView.onFlingListener = object : RecyclerView.OnFlingListener() {
         override fun onFling(velocityX: Int, velocityY: Int): Boolean {
@@ -103,7 +103,7 @@ fun ViewPager2.springToItem(
     velocityX: Float = 0f,
     onCompletion: (() -> Unit)? = null
 ) {
-    val recyclerView = getChildAt(0) as RecyclerView
+    val recyclerView = getChildAt(0) as? RecyclerView ?: return
     val itemCount = recyclerView.adapter?.itemCount ?: return
 
     val clampedPosition = targetPosition.coerceIn(0, itemCount - 1)

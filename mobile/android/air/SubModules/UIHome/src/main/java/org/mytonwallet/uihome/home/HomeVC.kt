@@ -438,13 +438,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 }
                 stickyHeaderView.update(
                     stickyHeaderViewMode,
-                    if (stickyHeaderView.updateStatusView.state != null &&
-                        stickyHeaderView.updateStatusView.state !is UpdateStatusView.State.Updated
-                    ) {
-                        stickyHeaderView.updateStatusView.state!!
-                    } else {
-                        UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: "")
-                    },
+                    stickyHeaderView.updateStatusView.state
+                        ?.takeIf { it !is UpdateStatusView.State.Updated }
+                        ?: UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: ""),
                     true
                 )
             },
@@ -558,6 +554,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     }
 
     private fun onClick(identifier: HeaderActionsView.Identifier) {
+        val window = window ?: return
         when (identifier) {
             HeaderActionsView.Identifier.BACK -> {
                 navigationController?.pop()
@@ -579,20 +576,20 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             HeaderActionsView.Identifier.RECEIVE -> {
                 val receiveVC = ReceiveVC.createIfAvailable(context) ?: return
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(receiveVC)
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             HeaderActionsView.Identifier.SEND -> {
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(SendVC(context))
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             HeaderActionsView.Identifier.SELL -> {
@@ -605,11 +602,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
             HeaderActionsView.Identifier.SWAP -> {
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(SwapVC(context))
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             HeaderActionsView.Identifier.SCAN_QR -> {
@@ -618,7 +615,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     for (blockchain in MBlockchain.supportedChains) {
                         if (blockchain.isValidAddress(qr)) {
                             val navVC = WNavigationController(
-                                window!!,
+                                window,
                                 WNavigationController.PresentationConfig.PreferredFullScreen
                             )
                             navVC.setRoot(
@@ -630,7 +627,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                                     )
                                 )
                             )
-                            window?.present(navVC)
+                            window.present(navVC)
                             return@build
                         }
                     }
@@ -658,7 +655,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
                 val activeStakingTokenSlug = AccountStore.stakingData?.activeStakingTokenSlug()
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 if (activeStakingTokenSlug != null) {
@@ -666,7 +663,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 } else {
                     navVC.setRoot(StakingVC(context, TONCOIN_SLUG, StakingViewModel.Mode.STAKE))
                 }
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             HeaderActionsView.Identifier.SCROLL_TO_TOP -> {
@@ -676,7 +673,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             HeaderActionsView.Identifier.WALLET_SETTINGS -> {
                 if (phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed) return
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig(
                         style = WNavigationController.PresentationStyle.BottomSheet
                     )
@@ -687,7 +684,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         WGlobalStorage.getAccountSelectorViewMode() ?: MWalletSettingsViewMode.GRID
                     )
                 )
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             HeaderActionsView.Identifier.WALLET_MENU -> {
@@ -826,12 +823,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (!phoneHeaderView.canExpandForHeight) return
         currentActivityListView.expandingProgrammatically = true
         topBlurReversedCornerView.isGone = true
-        currentActivityListView.recyclerView.scrollToOverScroll(
-            (
-                phoneHeaderView.expandedContentHeight -
-                    phoneHeaderView.collapsedHeight
-                ).toInt()
-        )
+        val overScroll = (
+            phoneHeaderView.expandedContentHeight -
+                phoneHeaderView.collapsedHeight
+            ).toInt()
+        currentActivityListView.recyclerView.scrollToOverScroll(overScroll)
+        currentActivityListView.recyclerView.setBounceBackSkipValue(overScroll)
     }
 
     override fun onDestroy() {
@@ -1229,7 +1226,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
         prevActivityListView =
             (
-                prevView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+                prevView ?: activityListViewsCopy.removeAt(0).apply {
                     configure(
                         prevAccountId,
                         shouldLoadNewWallets,
@@ -1244,7 +1241,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         currentActivityListView =
             (
-                currentView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+                currentView ?: activityListViewsCopy.removeAt(0).apply {
                     configure(
                         activeAccount.accountId,
                         shouldLoadNewWallets,
@@ -1257,7 +1254,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 if (swipeItemsOffset == 0) alpha = 1f
             }
         nextActivityListView = (
-            nextView ?: activityListViewsCopy.removeFirstOrNull()!!.apply {
+            nextView ?: activityListViewsCopy.removeAt(0).apply {
                 configure(
                     nextAccountId,
                     shouldLoadNewWallets,
@@ -1324,6 +1321,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
             val transactionNav: WNavigationController
             if (isWaitingToPaySwap) {
+                val fromToken = transaction.fromToken ?: return@let
+                val toToken = transaction.toToken ?: return@let
                 transactionNav = WNavigationController(
                     window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
@@ -1331,12 +1330,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 transactionNav.setRoot(
                     SwapSendAddressOutputVC(
                         context,
-                        transaction.fromToken!!,
-                        transaction.toToken!!,
+                        fromToken,
+                        toToken,
                         transaction.fromAmount.absoluteValue
-                            .toBigInteger(transaction.fromToken!!.decimals),
+                            .toBigInteger(fromToken.decimals),
                         transaction.toAmount
-                            .toBigInteger(transaction.toToken!!.decimals),
+                            .toBigInteger(toToken.decimals),
                         transaction.cex?.payinAddress ?: "",
                         transaction.cex?.transactionId ?: ""
                     )

@@ -339,8 +339,9 @@ class TabletTabsVC(context: Context) :
     }
 
     private fun presentWalletSettings() {
+        val window = window ?: return
         val navVC = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig(
                 style = WNavigationController.PresentationStyle.BottomSheet
             )
@@ -351,21 +352,21 @@ class TabletTabsVC(context: Context) :
                 WGlobalStorage.getAccountSelectorViewMode() ?: MWalletSettingsViewMode.GRID
             )
         )
-        window?.present(navVC)
+        window.present(navVC)
     }
 
     private fun presentAddAccount() {
+        val window = window ?: return
         val navVC = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig(
                 style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
-        navVC.setRoot(
-            WalletContextManager.delegate?.get()
-                ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as WViewController
-        )
-        window?.present(navVC)
+        val addAccountVC = WalletContextManager.delegate?.get()
+            ?.getAddAccountVC(MBlockchainNetwork.MAINNET) as? WViewController ?: return
+        navVC.setRoot(addAccountVC)
+        window.present(navVC)
     }
 
     private fun onAccountSelected(account: MAccount) {
@@ -745,7 +746,6 @@ class TabletTabsVC(context: Context) :
         panelStartAnimator?.cancel()
         panelStartAnimator = null
         HomeStatusController.removeListener(statusListener)
-        WalletCore.unregisterObserver(this)
         contentHostVC.detachContent()
         contentNav.onDestroy()
         sidePanel.onDestroy()

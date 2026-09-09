@@ -39,7 +39,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private let showsActionsRow: Bool
     private var removesTemporaryAccountOnDeinit = true
 
-    private var calledReady = false
+    private var didReportDataReady = false
 
     /// `headerContainerView` is used to set colored background under safe area and also under the collection view when scrolling down. (bounce mode)
     private var headerContainerView = WTouchPassView()
@@ -82,6 +82,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private let tokensSectionDataProvider: HomeWalletTokensSectionDataProvider
     private let activitySectionDataProvider = HomeActivitySectionDataProvider()
     private var activityPreviewViewModel: ActivityPreviewViewModel?
+    private var isPreparingActivityHistory = false
 
     public var onWalletAssetsEditingStateChange: (() -> Void)?
     public var onUpdateStatusChange: ((UpdateStatusView.State, Bool) -> Void)?
@@ -127,7 +128,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             accountSource: accountSource,
             rootNavigationStyle: rootNavigationStyle
         )
-        if rootNavigationStyle.usesNavigationBarTopTabs {
+        if rootNavigationStyle.usesNavigationBarTopTabs, !homeVM.account.isTemporaryView {
             headerViewModel.state = .collapsed
         }
         super.init(nibName: nil, bundle: nil)
@@ -397,7 +398,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         ])
         updateHeaderCardLayout()
 
-        let initialTopInset: CGFloat = rootNavigationStyle.usesNavigationBarTopTabs ? 0 : expansionInset
+        let initialTopInset: CGFloat = headerViewModel.state == .expanded ? expansionInset : 0
         collectionView.contentInset.top = initialTopInset
         collectionView.contentOffset.y = -initialTopInset
 
@@ -467,6 +468,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
         StartupTrace.markOnce("home.visible", details: "layout=tab")
         StartupTrace.endInterval("startup.toHomeVisible", details: "layout=tab")
+        // Deep links can proceed while activity history is loading; the runtime still requires unlock.
+        if WalletContextManager.delegate?.isWalletReady == false {
+            WalletContextManager.delegate?.walletIsReady(isReady: true)
+        }
     }
 
     public override func viewDidLayoutSubviews() {
@@ -490,8 +495,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         let titleBarHeight = max(44, navBarHeight)
         balanceHeaderView.updateStatusViewContainerTopConstraint.constant = (titleBarHeight - 44) / 2 - S.updateStatusViewTopAdjustment
         if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
-            headerViewModel.state = .collapsed
-            collectionView.contentInset.top = 0
+            headerViewModel.state = homeVM.account.isTemporaryView ? .expanded : .collapsed
+            collectionView.contentInset.top = headerViewModel.state == .expanded ? expansionInset : 0
             collectionView.contentOffset.y = -collectionView.adjustedContentInset.top
         }
         scrollViewDidScroll(collectionView)
@@ -763,11 +768,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     public override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
-        if activityPreviewViewModel?.activityIDs != nil && !calledReady {
-            calledReady = true
+        if activityPreviewViewModel?.activityIDs != nil && !didReportDataReady {
+            didReportDataReady = true
             StartupTrace.markOnce("home.dataReady", details: "layout=tab")
             StartupTrace.endInterval("startup.toHomeReady", details: "layout=tab")
-            WalletContextManager.delegate?.walletIsReady(isReady: true)
         }
         super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
     }
@@ -790,11 +794,23 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func showActivityHistory(initialActivityID: String?) {
-        let viewController = ActivityHistoryVC(
-            accountId: displayedActivitiesAccountId,
-            initialActivityID: initialActivityID
-        )
-        navigationController?.pushViewController(viewController, animated: true)
+        guard !isPreparingActivityHistory, let navigationController else { return }
+        isPreparingActivityHistory = true
+        let accountId = displayedActivitiesAccountId
+        let sourceViewController = navigationController.topViewController
+        Task { [weak self, weak navigationController] in
+            guard let self else { return }
+            defer { isPreparingActivityHistory = false }
+            let viewController = await ActivityHistoryVC(
+                accountId: accountId,
+                initialActivityID: initialActivityID
+            )
+            guard let navigationController,
+                  navigationController.topViewController === sourceViewController,
+                  viewIfLoaded?.window != nil,
+                  displayedActivitiesAccountId == accountId else { return }
+            navigationController.pushViewController(viewController, animated: true)
+        }
     }
 
     private func makeActivityPreviewViewModel(accountId: String) async -> ActivityPreviewViewModel {

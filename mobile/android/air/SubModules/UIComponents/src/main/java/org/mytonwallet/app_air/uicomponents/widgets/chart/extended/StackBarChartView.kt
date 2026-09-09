@@ -164,10 +164,7 @@ class StackBarChartView(context: Context) :
         val nl = lines.size
         lines.forEach { it.linesPathBottomSize = 0 }
         val step = max(1, round(n / 200f).toInt())
-        if (yMaxPoints == null || yMaxPoints!!.size < nl) {
-            yMaxPoints = LongArray(nl)
-        }
-        val yMax = yMaxPoints!!
+        val yMax = yMaxPoints?.takeIf { it.size >= nl } ?: LongArray(nl).also { yMaxPoints = it }
 
         for (i in 0 until n) {
             var stackOffset = 0f

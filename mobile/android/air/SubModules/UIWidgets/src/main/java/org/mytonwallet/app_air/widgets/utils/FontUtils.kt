@@ -16,15 +16,22 @@ object FontUtils {
         }
 
     fun balance(context: Context): Typeface =
-        ResourcesCompat.getFont(context, R.font.google_sans_flex_round_bold)!!
+        ResourcesCompat.getFont(context, R.font.google_sans_flex_round_bold)
+            ?: Typeface.DEFAULT_BOLD
 
     fun medium(context: Context): Typeface {
-        if (useVazirmatn) return ResourcesCompat.getFont(context, R.font.vazirmatn_semibold)!!
-        return Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        val medium = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        if (useVazirmatn) {
+            return ResourcesCompat.getFont(context, R.font.vazirmatn_semibold) ?: medium
+        }
+        return medium
     }
 
     fun regular(context: Context): Typeface {
-        if (useVazirmatn) return ResourcesCompat.getFont(context, R.font.vazirmatn_regular)!!
-        return Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        val regular = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        if (useVazirmatn) {
+            return ResourcesCompat.getFont(context, R.font.vazirmatn_regular) ?: regular
+        }
+        return regular
     }
 }

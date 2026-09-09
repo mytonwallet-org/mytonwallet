@@ -199,7 +199,7 @@ class ExploreCategoryCell(
             if (sites.isNotEmpty()) {
                 img1.set(
                     Content.ofUrl(
-                        sites.getOrNull(0)!!.iconUrl ?: ""
+                        sites[0].iconUrl ?: ""
                     )
                 )
             } else {
@@ -208,7 +208,7 @@ class ExploreCategoryCell(
             if (sites.size > 1) {
                 img2.set(
                     Content.ofUrl(
-                        sites.getOrNull(1)!!.iconUrl ?: ""
+                        sites[1].iconUrl ?: ""
                     )
                 )
             } else {
@@ -217,7 +217,7 @@ class ExploreCategoryCell(
             if (sites.size > 2) {
                 img3.set(
                     Content.ofUrl(
-                        sites.getOrNull(2)!!.iconUrl ?: ""
+                        sites[2].iconUrl ?: ""
                     )
                 )
             } else {
@@ -228,7 +228,7 @@ class ExploreCategoryCell(
             for (i in otherImages.indices) {
                 val site = sites.getOrNull(i + 3)
                 if (site != null) {
-                    otherImages[i].set(Content.ofUrl(site.iconUrl!!))
+                    otherImages[i].set(Content.ofUrl(site.iconUrl ?: ""))
                     otherImages[i].isGone = false
                 } else {
                     otherImages[i].clear()

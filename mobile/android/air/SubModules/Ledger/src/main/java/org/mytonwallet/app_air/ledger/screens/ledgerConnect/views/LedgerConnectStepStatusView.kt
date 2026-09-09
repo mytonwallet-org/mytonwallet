@@ -144,16 +144,16 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
     private fun drawWaitingState(canvas: Canvas, cx: Float, cy: Float) {
         when (previousState) {
             State.DONE, State.ERROR -> {
-                val prevPaint = paints[previousState]!!
+                val prevPaint = paints.getValue(previousState)
                 val doneAlpha = (255 * (1 - animationProgress)).toInt()
                 val waitAlpha = (255 * animationProgress).toInt()
                 if (previousState == State.DONE) {
-                    drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp, doneAlpha)
+                    drawCircle(canvas, paints.getValue(State.DONE), cx, cy, 8.dp, doneAlpha)
                     drawTick(canvas, 1f, doneAlpha)
                 } else {
                     drawCircle(canvas, prevPaint, cx, cy, 4.dp, doneAlpha)
                 }
-                drawCircle(canvas, paints[State.WAITING]!!, cx, cy, 4.dp, waitAlpha)
+                drawCircle(canvas, paints.getValue(State.WAITING), cx, cy, 4.dp, waitAlpha)
             }
 
             State.IN_PROGRESS -> {
@@ -166,7 +166,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 canvas.restore()
                 drawCircle(
                     canvas,
-                    paints[State.WAITING]!!,
+                    paints.getValue(State.WAITING),
                     cx,
                     cy,
                     4.dp,
@@ -174,19 +174,19 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 )
             }
 
-            else -> drawCircle(canvas, paints[State.WAITING]!!, cx, cy, 4.dp)
+            else -> drawCircle(canvas, paints.getValue(State.WAITING), cx, cy, 4.dp)
         }
     }
 
     private fun drawErrorState(canvas: Canvas, cx: Float, cy: Float) {
-        val errorPaint = paints[State.ERROR]!!
+        val errorPaint = paints.getValue(State.ERROR)
         val prevPaint = paints[previousState] ?: errorPaint
         when (previousState) {
             State.WAITING, State.DONE -> {
                 val prevAlpha = (255 * (1 - animationProgress)).toInt()
                 val errorAlpha = (255 * animationProgress).toInt()
                 if (previousState == State.DONE) {
-                    drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp, prevAlpha)
+                    drawCircle(canvas, paints.getValue(State.DONE), cx, cy, 8.dp, prevAlpha)
                     drawTick(canvas, 1f, prevAlpha)
                 } else {
                     drawCircle(canvas, prevPaint, cx, cy, 4.dp, prevAlpha)
@@ -214,7 +214,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
 
         when (previousState) {
             State.WAITING, State.ERROR -> {
-                val prevPaint = paints[previousState]!!
+                val prevPaint = paints.getValue(previousState)
                 if (animationProgress < 0.5f) {
                     drawCircle(
                         canvas,
@@ -235,7 +235,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
             State.DONE -> {
                 if (animationProgress < 0.5f) {
                     val alpha = (255 * (1 - normalizedProgress)).toInt()
-                    drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp, alpha)
+                    drawCircle(canvas, paints.getValue(State.DONE), cx, cy, 8.dp, alpha)
                     drawTick(canvas, 1f, alpha)
                 } else {
                     roundDrawable.alpha = (255 * normalizedProgress).toInt()
@@ -268,7 +268,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 } else {
                     drawCircle(
                         canvas,
-                        paints[State.DONE]!!,
+                        paints.getValue(State.DONE),
                         cx,
                         cy,
                         8.dp,
@@ -279,7 +279,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
             }
 
             State.WAITING, State.ERROR -> {
-                val prevPaint = paints[previousState]!!
+                val prevPaint = paints.getValue(previousState)
                 if (animationProgress < 0.5f) {
                     drawCircle(
                         canvas,
@@ -292,7 +292,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
                 } else {
                     drawCircle(
                         canvas,
-                        paints[State.DONE]!!,
+                        paints.getValue(State.DONE),
                         cx,
                         cy,
                         8.dp,
@@ -303,7 +303,7 @@ class LedgerConnectStepStatusView(context: Context) : View(context) {
             }
 
             else -> {
-                drawCircle(canvas, paints[State.DONE]!!, cx, cy, 8.dp)
+                drawCircle(canvas, paints.getValue(State.DONE), cx, cy, 8.dp)
                 canvas.drawPath(tickPath, doneTickPaint)
             }
         }

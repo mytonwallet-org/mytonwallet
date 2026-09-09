@@ -149,16 +149,17 @@ class SwapHeaderView(
     fun reloadData() {
         val transaction = transaction
         if (transaction !is MApiTransaction.Swap) throw Exception()
-        if (transaction.fromToken != null) {
+        val fromToken = transaction.fromToken
+        if (fromToken != null) {
             tokenToSendIconView.setAsset(
-                transaction.fromToken!!,
+                fromToken,
                 showChain = true
             )
 
             val sendAmount = transaction.fromAmount.absoluteValue.toString(
-                decimals = transaction.fromToken!!.decimals,
-                currency = transaction.fromToken!!.symbol,
-                currencyDecimals = transaction.fromToken!!.decimals,
+                decimals = fromToken.decimals,
+                currency = fromToken.symbol,
+                currencyDecimals = fromToken.decimals,
                 smartDecimals = true,
                 showPositiveSign = false,
                 forceCurrencyToRight = true
@@ -171,16 +172,17 @@ class SwapHeaderView(
         } else {
             tokenToSendIconView.clear()
         }
-        if (transaction.toToken != null) {
+        val toToken = transaction.toToken
+        if (toToken != null) {
             tokenToReceiveIconView.setAsset(
-                transaction.toToken!!,
+                toToken,
                 showChain = true
             )
 
             val receiveAmount = transaction.toAmount.toDouble().toString(
-                decimals = transaction.toToken!!.decimals,
-                currency = transaction.toToken!!.symbol,
-                currencyDecimals = transaction.toToken!!.decimals,
+                decimals = toToken.decimals,
+                currency = toToken.symbol,
+                currencyDecimals = toToken.decimals,
                 smartDecimals = true,
                 showPositiveSign = true,
                 forceCurrencyToRight = true

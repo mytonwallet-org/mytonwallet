@@ -743,13 +743,13 @@ open class HomeHeaderView(
         val nextView = getViewForAccountId(nextAccountId)
         if (nextView != null) cardViewsCopy.remove(nextView)
 
-        prevCardView = (prevView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
+        prevCardView = (prevView ?: cardViewsCopy.removeAt(0)).apply {
             updateAccountData(AccountStore.accountById(prevAccountId))
             expand(false)
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
         }
         prevCardView.isInGoneState = expandProgress <= 0.9f
-        cardView = (currentView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
+        cardView = (currentView ?: cardViewsCopy.removeAt(0)).apply {
             updateAccountData(activeAccount)
             this@HomeHeaderView.updateStatusView.state?.let {
                 setStatusViewState(it, animated = false)
@@ -765,7 +765,7 @@ open class HomeHeaderView(
         }
         cardView.isInGoneState = false
         cardView.alpha = 1f
-        nextCardView = (nextView ?: cardViewsCopy.removeFirstOrNull()!!).apply {
+        nextCardView = (nextView ?: cardViewsCopy.removeAt(0)).apply {
             updateAccountData(AccountStore.accountById(nextAccountId))
             expand(false)
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
@@ -1456,7 +1456,7 @@ open class HomeHeaderView(
 
         springAnimation?.cancel()
 
-        springAnimation = SpringAnimation(FloatValueHolder(startVelocity)).apply {
+        val animation = SpringAnimation(FloatValueHolder(startVelocity)).apply {
             setStartValue(startOffset)
             spring = SpringForce(targetHorizontalOffset).apply {
                 dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
@@ -1473,8 +1473,9 @@ open class HomeHeaderView(
             }
         }
 
+        springAnimation = animation
         heavyAnimationInProgress()
-        springAnimation!!.start()
+        animation.start()
     }
 
     var changingAccountTo: String? = null

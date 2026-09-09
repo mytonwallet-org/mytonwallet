@@ -13,7 +13,6 @@ import org.mytonwallet.app_air.uicomponents.base.WActionBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
 import org.mytonwallet.app_air.uicomponents.helpers.NftActionHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.palette.ImagePaletteHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.INavigationPopup
@@ -206,7 +205,7 @@ object CollectionsMenuHelpers {
                 WMenuPopup.Item.Config.Item(
                     icon = Icon(org.mytonwallet.app_air.icons.R.drawable.ic_menu_gifts),
                     title = LocaleController.getString("Telegram Gifts"),
-                    subItems = telegramGifts!!
+                    subItems = telegramGifts.orEmpty()
                         .mapNotNull { it.collectionAddress }
                         .distinct()
                         .mapNotNull { giftCollectionAddress ->
@@ -378,7 +377,7 @@ object CollectionsMenuHelpers {
             return null
         }
         val popupWidth = WMenuPopupView.measureWidth(view.context, menuItems)
-        val viewLocation = view.getLocationOnScreen()
+        val viewLocation = view.getLocationInWindow()
         val viewCenterX = viewLocation.x + view.width / 2
         val xOffset = if (viewCenterX <= view.resources.displayMetrics.widthPixels / 2) {
             view.width + 11.dp
@@ -752,7 +751,7 @@ object CollectionsMenuHelpers {
                         title = MMarketplace.Fragment.title
                     )
                 ) {
-                    openLink(nft.fragmentUrl!!)
+                    nft.fragmentUrl?.let { openLink(it) }
                 }
             )
         }
