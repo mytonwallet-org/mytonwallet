@@ -9,7 +9,7 @@ import type {
 
 import { DEBUG } from '../../config';
 import { throwIfAborted } from '../../util/abortSignal';
-import { getActivityChains, getIsBackendSwapId } from '../../util/activities';
+import { getActivityChains, getIsActivityPendingForUser, parseTxId } from '../../util/activities';
 import { areActivitiesSortedAndUnique, mergeSortedActivitiesToMaxTime } from '../../util/activities/order';
 import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { unique } from '../../util/iteratees';
@@ -18,17 +18,19 @@ import { pause } from '../../util/schedulers';
 import { getChainBySlug } from '../../util/tokens';
 import chains from '../chains';
 import { fetchStoredAccount } from '../common/accounts';
-import { getActiveCexSwapStates } from '../common/activities/reconciler/activeCexSwapState';
-import { preserveActivityStatusProgress } from '../common/activities/reconciler/matcher';
-import { getWalletOperationIntents } from '../common/activities/reconciler/operationIntentStore';
 import {
-  getLastPageTraceBoundaryId,
-  trimPageBoundaryTraceActivities,
-} from '../common/activities/reconciler/pagination';
-import { reconcileNewActivitiesUpdate } from '../common/activities/reconciler/pendingReconciler';
-import { reconcileTonAggregatorActivitiesForAccount } from '../common/activities/reconciler/tonTraceReconciler';
+  getSwapRowBackendId,
+  getSwapRowKeys,
+  isSwapRow,
+  normalizeIdentifier,
+  preserveActivityStatusProgress,
+  reconcileActivityUpdate as projectActivityUpdate,
+} from '../common/activities/swapReconciler';
 import {
-  getBackendDexSwapIdsDuplicatedByTonAggregates as findBackendDexSwapIdsDuplicatedByTonAggregates,
+  getSwapHistoryAddressByChain,
+  swapGetHistory,
+  swapGetHistoryByAddresses,
+  swapItemToActivity,
   swapReplaceActivities,
 } from '../common/swap';
 import { requireSwapMethods } from './optional';
@@ -38,30 +40,16 @@ export type ActivitySliceResult = {
   hasMore: boolean;
 };
 
-type RawActivitySliceResult = ActivitySliceResult & {
-  incompleteTraceIds: string[];
-};
-
 export type ReconcileActivityUpdateResult = Awaited<ReturnType<typeof reconcileActivityUpdate>>;
 
-const CEX_PRE_RENDER_FORCE_REFRESH_TIMEOUT_MS = 1500;
+type ActivitiesPatch = {
+  accountId: string;
+  upsert: ApiActivity[];
+  removeIds: string[];
+  replacedIds: Record<string, string>;
+};
 
-export async function getBackendDexSwapIdsDuplicatedByTonAggregates(
-  accountId: string,
-  activities: readonly ApiActivity[],
-) {
-  // The store hands over its own copy of a page next to the freshly projected one, and an aggregate listed twice reads
-  // as two aggregates answering to one row, which is the ambiguity that keeps suppression from ever firing.
-  const uniqueActivities = uniqueActivitiesById(activities);
-  const backendSwaps = uniqueActivities.filter((activity): activity is ApiSwapActivity => {
-    return activity.kind === 'swap' && !activity.cex && getIsBackendSwapId(activity.id);
-  });
-  if (!backendSwaps.length) return [];
-
-  const intents = await getWalletOperationIntents(accountId);
-
-  return [...findBackendDexSwapIdsDuplicatedByTonAggregates(uniqueActivities, backendSwaps, intents)];
-}
+const PRE_RENDER_BACKEND_TIMEOUT_MS = 1500;
 
 export async function fetchPastActivities(
   accountId: string,
@@ -73,16 +61,10 @@ export async function fetchPastActivities(
   const { signal, shouldThrowOnError = false } = options ?? {};
   try {
     if (tokenSlug) {
-      const { activities: rawActivities, hasMore, incompleteTraceIds } = await fetchTokenActivitySlice(
+      const { activities: rawActivities, hasMore } = await fetchTokenActivitySlice(
         accountId, limit, tokenSlug, toTimestamp, signal,
       );
-      const activities = await swapReplaceActivities(
-        accountId,
-        rawActivities,
-        tokenSlug,
-        undefined,
-        { incompleteTonTraceIds: incompleteTraceIds, ...(signal && { signal }) },
-      );
+      const activities = await swapReplaceActivities(accountId, rawActivities, tokenSlug, undefined, signal);
 
       return { activities, hasMore };
     }
@@ -97,6 +79,12 @@ export async function fetchPastActivities(
   }
 }
 
+/**
+ * Projects a live activity update for a platform store. Two backend lookups happen before render so that rows are
+ * hidden under their swap in the same commit instead of flickering as separate rows: a pending trace whose hash no
+ * known swap row carries (a swap submitted from another device) is looked up by hash, and a new visible raw
+ * transaction arriving while a CEX swap is pending refreshes the provider state.
+ */
 export async function reconcileActivityUpdate(
   accountId: string,
   previousActivities: readonly ApiActivity[],
@@ -107,82 +95,86 @@ export async function reconcileActivityUpdate(
     forceCexRefreshTimeoutMs?: number;
   } = {},
 ) {
-  const incomingActivities = uniqueActivitiesById([...(pendingActivities ?? []), ...confirmedActivities]);
-  const [intents, tonProjection, cexPatch] = await Promise.all([
-    getWalletOperationIntents(accountId),
-    reconcileTonAggregatorActivitiesForAccount(accountId, incomingActivities, { isLiveUpdate: true }),
-    fetchActiveCexPatchBeforeRender(
+  const incomingActivities = [...(pendingActivities ?? []), ...confirmedActivities];
+  const contextActivities = options.contextActivities ?? previousActivities;
+  const timeoutMs = options.forceCexRefreshTimeoutMs ?? PRE_RENDER_BACKEND_TIMEOUT_MS;
+  const [swapRowsOfPendingTraces, cexPatch] = await Promise.all([
+    fetchSwapRowsOfPendingTraces(
       accountId,
-      incomingActivities,
-      options.contextActivities ?? previousActivities,
-      options.forceCexRefreshTimeoutMs ?? CEX_PRE_RENDER_FORCE_REFRESH_TIMEOUT_MS,
+      pendingActivities ?? [],
+      [...previousActivities, ...contextActivities, ...confirmedActivities],
+      timeoutMs,
     ),
+    fetchActiveCexPatchBeforeRender(accountId, incomingActivities, contextActivities, timeoutMs),
   ]);
-  const projectedActivities = partitionLiveProjectedActivities(
-    tonProjection.activities,
+  const result = projectActivityUpdate(
+    previousActivities,
+    [...confirmedActivities, ...swapRowsOfPendingTraces],
     pendingActivities,
+    contextActivities,
   );
-  const previousActivitiesWithBackendDexSwaps = uniqueActivitiesById([
-    ...previousActivities,
-    ...(options.contextActivities ?? []).filter((activity) => {
-      return activity.kind === 'swap' && !activity.cex && getIsBackendSwapId(activity.id);
-    }),
-  ]);
 
-  const baseResult = reconcileNewActivitiesUpdate(
+  const patch: ActivitiesPatch = {
     accountId,
-    previousActivitiesWithBackendDexSwaps,
-    projectedActivities.confirmedActivities,
-    projectedActivities.pendingActivities,
-    {
-      previousIntents: intents,
-      nextIntents: intents,
-      terminalTonTraceIds: tonProjection.deaggregatedTraceIds,
-      terminalTonExternalMsgHashes: tonProjection.deaggregatedExternalMsgHashes,
-    },
-  );
-  if (!cexPatch) return baseResult;
+    upsert: result.upsert,
+    removeIds: result.removeIds,
+    replacedIds: result.replacedIds,
+  };
+  if (!cexPatch) {
+    return { confirmedActivities: result.confirmedActivities, pendingActivities: result.pendingActivities, patch };
+  }
 
-  const patch = mergeActivityPatches(baseResult.patch, cexPatch);
-  const nextPendingActivities = baseResult.pendingActivities
-    ? applyPatchToActivityList(baseResult.pendingActivities, patch)
-    : undefined;
-  const pendingIds = new Set((nextPendingActivities ?? []).map(({ id }) => id));
+  const mergedPatch = mergeActivityPatches(patch, cexPatch);
+  const upsertById = new Map(mergedPatch.upsert.map((activity) => [activity.id, activity]));
+  const apply = (activity: ApiActivity) => upsertById.get(activity.id) ?? activity;
 
   return {
-    ...baseResult,
-    pendingActivities: nextPendingActivities,
-    confirmedActivities: patch.upsert.filter((activity) => !pendingIds.has(activity.id)),
-    patch,
+    confirmedActivities: result.confirmedActivities.map(apply),
+    pendingActivities: result.pendingActivities?.map(apply),
+    patch: mergedPatch,
   };
 }
 
-function partitionLiveProjectedActivities(
-  activities: readonly ApiActivity[],
-  incomingPendingActivities: readonly ApiActivity[] | undefined,
-) {
-  if (!incomingPendingActivities) {
-    return {
-      confirmedActivities: [...activities],
-      pendingActivities: undefined,
-    };
-  }
+/**
+ * The socket delivers a pending trace before any history enrichment. When no known swap row carries its hash, the
+ * swap was submitted elsewhere (another device) and its row is fetched by hash so the trace is projected under it
+ * from the first render. Both history endpoints answer with rows matching either the hashes or a time window, so
+ * the window is collapsed to the current moment.
+ */
+async function fetchSwapRowsOfPendingTraces(
+  accountId: string,
+  pendingActivities: readonly ApiActivity[],
+  knownActivities: readonly ApiActivity[],
+  timeoutMs: number,
+): Promise<ApiSwapActivity[]> {
+  const knownKeys = new Set(knownActivities.filter(isSwapRow).flatMap(getSwapRowKeys));
+  const hashes = unique(pendingActivities
+    .filter((activity) => !isSwapRow(activity))
+    .flatMap((activity) => [activity.externalMsgHashNorm, parseTxId(activity.id).hash])
+    .map(normalizeIdentifier)
+    .filter((hash): hash is string => Boolean(hash) && !knownKeys.has(hash)));
+  if (!hashes.length) return [];
 
-  const incomingPendingIds = new Set(incomingPendingActivities.map(({ id }) => id));
-  const confirmedActivities: ApiActivity[] = [];
-  const pendingActivities: ApiActivity[] = [];
+  const rows = await Promise.race([
+    (async () => {
+      const addressByChain = getSwapHistoryAddressByChain(await fetchStoredAccount(accountId));
+      const now = Date.now();
+      const params = { fromTimestamp: now, toTimestamp: now, hashes };
+      const [cexRows, dexRows] = await Promise.all([
+        Object.keys(addressByChain).length
+          ? swapGetHistoryByAddresses(addressByChain, { ...params, isCex: true })
+          : [],
+        addressByChain.ton ? swapGetHistory(addressByChain.ton, { ...params, isCex: false }) : [],
+      ]);
+      return [...cexRows, ...dexRows];
+    })().catch((err) => {
+      logDebugError('fetchSwapRowsOfPendingTraces', err);
+      return [];
+    }),
+    pause(timeoutMs).then(() => []),
+  ]);
 
-  for (const activity of activities) {
-    const isTonProjection = activity.extra?.reconciliation?.reason === 'ton-aggregated-swap';
-    const isPending = isTonProjection
-      ? activity.status === 'pending' || activity.status === 'pendingTrusted'
-      : incomingPendingIds.has(activity.id)
-        && (activity.status === 'pending' || activity.status === 'pendingTrusted');
-
-    (isPending ? pendingActivities : confirmedActivities).push(activity);
-  }
-
-  return { confirmedActivities, pendingActivities };
+  return rows.map((row) => swapItemToActivity(row));
 }
 
 async function fetchActiveCexPatchBeforeRender(
@@ -194,18 +186,18 @@ async function fetchActiveCexPatchBeforeRender(
   const hasVisibleRawTransaction = incomingActivities.some((activity) => {
     return activity.kind === 'transaction' && activity.shouldHide !== true;
   });
-  if (!hasVisibleRawTransaction) {
-    return undefined;
-  }
+  if (!hasVisibleRawTransaction) return undefined;
 
-  const activeCexSwaps = await getActiveCexSwapStates(accountId);
-  if (!activeCexSwaps.length) return undefined;
+  const pendingCexSwaps = contextActivities.filter((activity): activity is ApiSwapActivity => {
+    return isSwapRow(activity) && Boolean(activity.cex) && getIsActivityPendingForUser(activity);
+  });
+  if (!pendingCexSwaps.length) return undefined;
 
   const projectionContext = uniqueActivitiesById([...contextActivities, ...incomingActivities]);
   const result = await Promise.race([
     requireSwapMethods().fetchSwaps(
       accountId,
-      activeCexSwaps.map(({ backendSwapId }) => ({ id: backendSwapId, chain: 'ton' as const })),
+      unique(pendingCexSwaps.map(getSwapRowBackendId)).map((id) => ({ id, chain: 'ton' as const })),
       projectionContext,
       { forceProviderRefresh: true },
     ).catch(() => undefined),
@@ -216,21 +208,7 @@ async function fetchActiveCexPatchBeforeRender(
   return patch && (patch.upsert.length || patch.removeIds.length) ? patch : undefined;
 }
 
-function applyPatchToActivityList(
-  activities: readonly ApiActivity[],
-  patch: ReturnType<typeof reconcileNewActivitiesUpdate>['patch'],
-) {
-  const upsertById = new Map(patch.upsert.map((activity) => [activity.id, activity]));
-  const removeIds = new Set(patch.removeIds);
-  return activities
-    .filter((activity) => !removeIds.has(activity.id))
-    .map((activity) => upsertById.get(activity.id) ?? activity);
-}
-
-function mergeActivityPatches(
-  first: ReturnType<typeof reconcileNewActivitiesUpdate>['patch'],
-  second: ReturnType<typeof reconcileNewActivitiesUpdate>['patch'],
-) {
+function mergeActivityPatches(first: ActivitiesPatch, second: ActivitiesPatch): ActivitiesPatch {
   const upsertById = new Map<string, ApiActivity>();
   for (const activity of first.upsert) upsertById.set(activity.id, activity);
   for (const activity of second.upsert) {
@@ -241,10 +219,7 @@ function mergeActivityPatches(
     ...first,
     upsert: Array.from(upsertById.values()),
     removeIds: unique([...first.removeIds, ...second.removeIds]),
-    replacedIds: {
-      ...(first.replacedIds ?? {}),
-      ...(second.replacedIds ?? {}),
-    },
+    replacedIds: { ...first.replacedIds, ...second.replacedIds },
   };
 }
 
@@ -260,7 +235,7 @@ function fetchTokenActivitySlice(
   tokenSlug: string,
   toTimestamp?: number,
   signal?: AbortSignal,
-): Promise<RawActivitySliceResult> {
+): Promise<ActivitySliceResult> {
   const chain = getChainBySlug(tokenSlug);
   return fetchAndCheckActivitySlice(chain, {
     accountId,
@@ -300,13 +275,13 @@ async function fetchAllActivitySlice(
   throwIfAborted(signal);
 
   let firstRejection: Error | undefined;
-  const results: RawActivitySliceResult[] = settled.map((settledResult, index) => {
+  const results: ActivitySliceResult[] = settled.map((settledResult, index) => {
     if (settledResult.status === 'fulfilled') {
       return settledResult.value;
     }
     logDebugError(`fetchAllActivitySlice ${deduplicatedChains[index]}`, settledResult.reason);
     firstRejection ??= settledResult.reason;
-    return { activities: [], hasMore: false, incompleteTraceIds: [] };
+    return { activities: [], hasMore: false };
   });
 
   // If every chain came back empty and at least one failed, we cannot tell "real end of history"
@@ -317,14 +292,7 @@ async function fetchAllActivitySlice(
   }
 
   const rawActivities = mergeSortedActivitiesToMaxTime(...results.map((r) => r.activities));
-  const incompleteTraceIds = unique(results.flatMap((result) => result.incompleteTraceIds));
-  const activities = await swapReplaceActivities(
-    accountId,
-    rawActivities,
-    undefined,
-    undefined,
-    { incompleteTonTraceIds: incompleteTraceIds, ...(signal && { signal }) },
-  );
+  const activities = await swapReplaceActivities(accountId, rawActivities, undefined, undefined, signal);
   const hasMore = results.some((r) => r.hasMore);
 
   return { activities, hasMore };
@@ -375,7 +343,7 @@ async function fetchAndCheckActivitySlice(
   {
     shouldFetchCrossChain = false,
   }: { shouldFetchCrossChain?: boolean } = {},
-): Promise<RawActivitySliceResult> {
+): Promise<ActivitySliceResult> {
   const chainStandard = getChainConfig(chain).chainStandard;
 
   let activities: ApiActivity[] = [];
@@ -387,31 +355,35 @@ async function fetchAndCheckActivitySlice(
   }
   throwIfAborted(options.signal);
 
-  // const activities = await chains[chain].fetchActivitySlice(options);
-
   // Sorting is important for `mergeSortedActivities`, so it's checked in the debug mode
   if (DEBUG && !areActivitiesSortedAndUnique(activities)) {
     logDebugError(`The all activity slice of ${chain} is not sorted properly or has duplicates`, options);
   }
 
-  // When we receive exactly `limit` activities, the last trace might be incomplete
-  // (e.g., only some swap actions without the fee transfer). We trim that trace
-  // so it will be loaded completely on the next page. Sorting may move another
-  // action from the same trace outside the contiguous tail, so the reconciler
-  // must still treat the boundary trace as incomplete in the current slice.
+  // A page that hits the limit may cut the last trace (e.g. some swap legs without the rest). The cut trace is
+  // trimmed so that the next page loads it whole and the swap summary nets every leg.
   if (options.limit && activities.length === options.limit) {
-    const trimmedActivities = trimPageBoundaryTraceActivities(activities);
-    const incompleteTraceId = getLastPageTraceBoundaryId(activities);
-    return {
-      activities: trimmedActivities,
-      hasMore: true,
-      incompleteTraceIds: incompleteTraceId ? [incompleteTraceId] : [],
-    };
+    return { activities: trimPageBoundaryTrace(activities), hasMore: true };
   }
 
-  return {
-    activities,
-    hasMore: false,
-    incompleteTraceIds: [],
-  };
+  return { activities, hasMore: false };
+}
+
+const MAX_TRIMMED_BOUNDARY_ACTIVITIES = 10;
+
+function trimPageBoundaryTrace(activities: readonly ApiActivity[]): ApiActivity[] {
+  const traceIdOf = (activity: ApiActivity) => parseTxId(activity.id).hash;
+  const boundaryTraceId = activities.length ? traceIdOf(activities[activities.length - 1]) : undefined;
+  if (!boundaryTraceId) return [...activities];
+
+  let firstTrimmedIndex = activities.length;
+  while (firstTrimmedIndex > 0 && traceIdOf(activities[firstTrimmedIndex - 1]) === boundaryTraceId) {
+    firstTrimmedIndex--;
+  }
+
+  const trimmedCount = activities.length - firstTrimmedIndex;
+  // An empty page would stall pagination, and a trace larger than the limit cannot be completed by paging anyway
+  if (firstTrimmedIndex === 0 || trimmedCount >= MAX_TRIMMED_BOUNDARY_ACTIVITIES) return [...activities];
+
+  return activities.slice(0, firstTrimmedIndex);
 }

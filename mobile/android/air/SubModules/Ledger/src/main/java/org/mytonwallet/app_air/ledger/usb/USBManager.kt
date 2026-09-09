@@ -19,7 +19,7 @@ class USBManager(val applicationContext: Context) {
     private var selectedDevice: UsbDevice? = null
 
     init {
-        usbManager = applicationContext.getSystemService(Context.USB_SERVICE) as UsbManager
+        usbManager = applicationContext.getSystemService(Context.USB_SERVICE) as? UsbManager
         usbReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent) {
                 val action = intent.action

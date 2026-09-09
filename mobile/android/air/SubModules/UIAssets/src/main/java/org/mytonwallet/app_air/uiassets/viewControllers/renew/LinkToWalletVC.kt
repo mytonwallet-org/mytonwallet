@@ -133,11 +133,12 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
     private val onInputDestinationTextWatcher = object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-            address = s.toString()
-            if (MBlockchain.ton.isValidAddress(address ?: "")) {
+            val address = s.toString()
+            this@LinkToWalletVC.address = address
+            if (MBlockchain.ton.isValidAddress(address)) {
                 linkButton.isEnabled = false
                 linkButton.setText(LocaleController.getString("Link"))
-                calculateFee(address!!)
+                calculateFee(address)
             } else {
                 linkButton.isEnabled = false
                 linkButton.isLoading = false
@@ -178,7 +179,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
         view.addView(linkedWalletView, FrameLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         view.addView(linkButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         view.setConstraints {
-            topToBottom(nftTagView, navigationBar!!, 16f)
+            navigationBar?.let { topToBottom(nftTagView, it, 16f) }
             toCenterX(nftTagView, 16f)
             topToBottom(linkedWalletView, nftTagView, 16f)
             toCenterX(linkedWalletView, 16f)
@@ -303,7 +304,7 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
 
     private val headerView: View
         get() {
-            val availableHeight = window!!.windowView.height
+            val availableHeight = window?.windowView?.height ?: 0
             val headerHeight =
                 (availableHeight * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
             return PasscodeHeaderSendView(
@@ -320,37 +321,43 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
         }
 
     private fun submitDnsChangeWithHardware() {
+        val window = window ?: return
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
+        val address = address ?: return
         linkButton.lockView()
-        val account = AccountStore.activeAccount!!
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.LinkNftToWallet(
                     accountId = account.accountId,
                     nft = nft,
-                    address = address!!,
+                    address = address,
                     realFee = realFee
                 ),
                 onDone = {
-                    window?.dismissLastNav {
-                        window?.dismissLastNav { }
+                    window.dismissLastNav {
+                        window.dismissLastNav { }
                     }
                 }
             ),
             headerView = headerView
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         nav.setRoot(ledgerConnectVC)
-        window?.present(nav, onCompletion = {
+        window.present(nav, onCompletion = {
             linkButton.unlockView()
         })
     }
 
     private fun submitDnsChangeWithPassword() {
+        val window = window ?: return
+        val accountId = AccountStore.activeAccountId ?: return
+        val address = address ?: return
         val passcodeConfirmVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.CustomHeader(
@@ -360,10 +367,10 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
             task = { passcode ->
                 WalletCore.call(
                     ApiMethod.Domains.SubmitDnsChangeWallet(
-                        AccountStore.activeAccountId!!,
+                        accountId,
                         passcode,
                         nft,
-                        address!!,
+                        address,
                         realFee
                     ),
                     callback = { res, err ->
@@ -383,19 +390,19 @@ class LinkToWalletVC(context: Context, val nft: ApiNft) : WViewController(contex
                             })
                             return@call
                         }
-                        window?.dismissLastNav {
-                            window?.dismissLastNav { }
+                        window.dismissLastNav {
+                            window.dismissLastNav { }
                         }
                     }
                 )
             }
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         nav.setRoot(passcodeConfirmVC)
-        window?.present(nav, onCompletion = {
+        window.present(nav, onCompletion = {
             linkButton.unlockView()
         })
     }

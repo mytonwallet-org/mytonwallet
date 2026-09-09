@@ -298,8 +298,10 @@ class TransactionVC(
         btn.gravity = Gravity.CENTER
         btn.setPaddingDp(8, 4, 8, 4)
         btn.setOnClickListener {
+            val window = window ?: return@setOnClickListener
+            val accountId = AccountStore.activeAccountId ?: return@setOnClickListener
             val nav = WNavigationController(
-                window!!,
+                window,
                 WNavigationController.PresentationConfig.PreferredFullScreen
             )
             nav.setRoot(
@@ -309,7 +311,7 @@ class TransactionVC(
                         LocaleController.getString("Message is encrypted"),
                         LocaleController.getString(
                             if (WGlobalStorage.isAnyBiometricActivated() &&
-                                BiometricHelpers.canAuthenticate(window!!)
+                                BiometricHelpers.canAuthenticate(context)
                             ) {
                                 "Enter passcode or use fingerprint"
                             } else {
@@ -323,7 +325,7 @@ class TransactionVC(
                     task = { passcode ->
                         WalletCore.call(
                             ApiMethod.WalletData.DecryptComment(
-                                AccountStore.activeAccountId!!,
+                                accountId,
                                 transaction,
                                 passcode
                             )
@@ -338,7 +340,7 @@ class TransactionVC(
                                     ConstraintSet.MATCH_CONSTRAINT_SPREAD
                                 )
                             }
-                            window?.dismissLastNav()
+                            window.dismissLastNav()
                         }
                     }
                 )
@@ -465,13 +467,14 @@ class TransactionVC(
             }
 
             headerView.setConstraints {
-                val innerHeaderView: WView = nftHeaderView ?: transactionHeaderView!!
+                val innerHeaderView: WView = nftHeaderView ?: transactionHeaderView
+                    ?: error("Transaction header view was not created")
 
                 toTop(innerHeaderView, 24f)
                 toCenterX(innerHeaderView)
 
                 if (transaction.hasComment) {
-                    commentView.maxWidth = window!!.windowView.width - 40.dp
+                    window?.windowView?.width?.let { commentView.maxWidth = it - 40.dp }
                     topToBottom(commentView, innerHeaderView, 23f)
                     toCenterX(commentView, 20f)
                     toBottom(commentView, 22f)
@@ -491,15 +494,16 @@ class TransactionVC(
             headerView.removeAllViews()
             nftHeaderView = null
             transactionHeaderView = null
-            swapHeaderView = SwapHeaderView(context, transaction) { slug ->
+            val swapHeaderView = SwapHeaderView(context, transaction) { slug ->
                 navigateToToken(slug)
             }
+            this.swapHeaderView = swapHeaderView
             headerView.addView(swapHeaderView)
 
             headerView.setConstraints {
-                toCenterX(swapHeaderView!!)
-                toTop(swapHeaderView!!, 24f)
-                toBottom(swapHeaderView!!, 21f)
+                toCenterX(swapHeaderView)
+                toTop(swapHeaderView, 24f)
+                toBottom(swapHeaderView, 21f)
             }
         }
     }
@@ -595,7 +599,8 @@ class TransactionVC(
         val transaction = transaction
         when (transaction) {
             is MApiTransaction.Transaction -> {
-                if (transaction.isNft && transaction.nft != null) {
+                val nft = transaction.nft
+                if (transaction.isNft && nft != null) {
                     detailsRowViews.add(
                         KeyValueRowView(
                             context,
@@ -610,7 +615,6 @@ class TransactionVC(
                                     setTextColor(WColor.Tint)
                                     isTinted = true
                                     setOnClickListener {
-                                        val nft = transaction.nft ?: return@setOnClickListener
                                         if (
                                             NftStore.accountOwnsCollection(
                                                 showingAccountId,
@@ -634,12 +638,12 @@ class TransactionVC(
                                         )
                                     }
                                     text =
-                                        if (transaction.nft!!.isStandalone()) {
+                                        if (nft.isStandalone()) {
                                             LocaleController.getString(
                                                 "Standalone"
                                             )
                                         } else {
-                                            transaction.nft!!.collectionName ?: ""
+                                            nft.collectionName ?: ""
                                         }
                                 }
                             )
@@ -695,13 +699,8 @@ class TransactionVC(
                         )
                     }
                 }
-                if (
-                    (
-                        transaction.fee > BigInteger.ZERO ||
-                            transaction.shouldLoadDetails == true
-                        ) && feeRow != null
-                ) {
-                    detailsRowViews.add(feeRow!!)
+                if (transaction.fee > BigInteger.ZERO || transaction.shouldLoadDetails == true) {
+                    feeRow?.let { detailsRowViews.add(it) }
                 }
                 if (detailsRowViews.isEmpty()) {
                     transactionDetailsLabel.visibility = View.GONE
@@ -770,8 +769,8 @@ class TransactionVC(
                         !shouldShowFeeRow && !shouldShowViewInExplorer
                     )
                 )
-                if (shouldShowFeeRow && feeRow != null) {
-                    detailsRowViews.add(feeRow!!)
+                if (shouldShowFeeRow) {
+                    feeRow?.let { detailsRowViews.add(it) }
                 }
             }
         }
@@ -780,7 +779,7 @@ class TransactionVC(
         val swapTransactionIds = getSwapTransactionIdItems(swapTransaction)
         val swapProviderName = swapTransaction?.cex?.providerName
         if (!swapTransaction?.cex?.transactionId.isNullOrEmpty() && swapProviderName != null) {
-            swapProviderIdRow = KeyValueRowView(
+            val providerIdRow = KeyValueRowView(
                 context,
                 LocaleController.getString("Swap ID for %provider%")
                     .replace("%provider%", swapProviderName),
@@ -788,7 +787,8 @@ class TransactionVC(
                 mode = KeyValueRowView.Mode.SECONDARY,
                 isLast = false
             )
-            detailsRowViews.add(swapProviderIdRow!!)
+            swapProviderIdRow = providerIdRow
+            detailsRowViews.add(providerIdRow)
         }
         if (swapTransactionIds.isNotEmpty()) {
             swapTransactionIds.forEach { item ->
@@ -803,14 +803,15 @@ class TransactionVC(
                 swapTransactionIdRows.add(SwapTransactionIdRow(row, item))
             }
         } else if (shouldShowViewInExplorer && swapProviderIdRow == null) {
-            transactionIdRow = KeyValueRowView(
+            val txIdRow = KeyValueRowView(
                 context,
                 LocaleController.getString("Transaction ID"),
                 "",
                 mode = KeyValueRowView.Mode.SECONDARY,
                 isLast = false
             )
-            detailsRowViews.add(transactionIdRow!!)
+            transactionIdRow = txIdRow
+            detailsRowViews.add(txIdRow)
         }
 
         detailsRowViews.forEach { v.addView(it) }
@@ -878,7 +879,7 @@ class TransactionVC(
                 )
                 constrainMinHeight(
                     innerContentView.id,
-                    window!!.windowView.height - (
+                    (window?.windowView?.height ?: 0) - (
                         navigationController?.getSystemBars()?.top
                             ?: 0
                         ) - WNavigationBar.DEFAULT_HEIGHT.dp
@@ -1038,11 +1039,6 @@ class TransactionVC(
         if (transaction.shouldLoadDetails == true) loadActivityDetails()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
-    }
-
     private var appliedDetailsExpandedByDefault: Boolean? = null
     override fun insetsUpdated() {
         super.insetsUpdated()
@@ -1069,7 +1065,7 @@ class TransactionVC(
             )
             constrainMinHeight(
                 innerContentView.id,
-                window!!.windowView.height - (
+                (window?.windowView?.height ?: 0) - (
                     navigationController?.getSystemBars()?.top
                         ?: 0
                     ) - WNavigationBar.DEFAULT_HEIGHT.dp
@@ -1471,9 +1467,10 @@ class TransactionVC(
                                         txHash
                                     ) ?: return@Item
                                     val browserVC = InAppBrowserVC(context, null, config)
-                                    val nav = WNavigationController(window!!)
+                                    val window = window ?: return@Item
+                                    val nav = WNavigationController(window)
                                     nav.setRoot(browserVC)
-                                    window?.present(nav)
+                                    window.present(nav)
                                 }
                             ),
                             yOffset = 0,
@@ -1560,9 +1557,10 @@ class TransactionVC(
                                     transactionId.hash
                                 ) ?: return@Item
                                 val browserVC = InAppBrowserVC(context, null, config)
-                                val nav = WNavigationController(window!!)
+                                val window = window ?: return@Item
+                                val nav = WNavigationController(window)
                                 nav.setRoot(browserVC)
-                                window?.present(nav)
+                                window.present(nav)
                             }
                         ),
                         yOffset = 0,
@@ -1693,8 +1691,9 @@ class TransactionVC(
     }
 
     private fun repeatPressed() {
+        val window = window ?: return
         val navVC = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
 
@@ -1755,9 +1754,9 @@ class TransactionVC(
             }
         }
 
-        window?.present(navVC, onCompletion = {
-            window?.navigationControllers?.size?.let { size ->
-                window?.dismissNav(size - 2)
+        window.present(navVC, onCompletion = {
+            window.navigationControllers?.size?.let { size ->
+                window.dismissNav(size - 2)
             }
         })
     }

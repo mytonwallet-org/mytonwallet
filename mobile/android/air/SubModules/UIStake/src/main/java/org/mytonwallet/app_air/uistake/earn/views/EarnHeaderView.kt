@@ -326,14 +326,16 @@ class EarnHeaderView(
     private fun startUpdateTimer() {
         stopUpdateTimer()
 
-        updateHandler = Handler(Looper.getMainLooper())
-        updateRunnable = object : Runnable {
+        val handler = Handler(Looper.getMainLooper())
+        val runnable = object : Runnable {
             override fun run() {
                 updateMessageLabel()
                 updateHandler?.postDelayed(this, 1000)
             }
         }
-        updateHandler?.postDelayed(updateRunnable!!, 1000)
+        updateHandler = handler
+        updateRunnable = runnable
+        handler.postDelayed(runnable, 1000)
     }
 
     private fun stopUpdateTimer() {
@@ -344,8 +346,9 @@ class EarnHeaderView(
 
     @SuppressLint("SetTextI18n")
     private fun updateMessageLabel() {
-        currentStakingState?.getRequestedAmount()?.let {
-            val inProgressWithdraw = formatWithdrawText(currentStakingState!!)
+        val stakingState = currentStakingState
+        stakingState?.getRequestedAmount()?.let {
+            val inProgressWithdraw = formatWithdrawText(stakingState)
             messageLabel.text = (
                 LocaleController.getString("Currently Staked") +
                     "\n\n$inProgressWithdraw"

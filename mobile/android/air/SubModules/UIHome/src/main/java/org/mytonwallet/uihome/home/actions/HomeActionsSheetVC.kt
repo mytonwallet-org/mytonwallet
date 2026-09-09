@@ -43,6 +43,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 /**
  * Bottom sheet listing every wallet action as a colored round button. Tapping one hands the
@@ -103,7 +104,15 @@ class HomeActionsSheetVC(
             LocaleController.getString("Scan"),
             context.requireDrawableCompat(R.drawable.ic_action_scan)
         ) { GradientDrawables.grayDrawable }
-    )
+    ).filter { action ->
+        val account = AccountStore.activeAccount
+        if (account?.isViewOnly != true) return@filter true
+        when (action.identifier) {
+            HeaderActionsView.Identifier.RECEIVE -> !account.isTemporary
+            HeaderActionsView.Identifier.SCAN_QR -> true
+            else -> false
+        }
+    }
 
     private val handleView = View(context).apply { id = View.generateViewId() }
 
@@ -235,11 +244,14 @@ class HomeActionsSheetVC(
     override fun onDestroy() {
         super.onDestroy()
         clearPendingRemoveSheet()
-        WalletCore.unregisterObserver(this)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
-        if (walletEvent !is WalletEvent.WideLayoutChanged) return
+        if (walletEvent !is WalletEvent.WideLayoutChanged &&
+            walletEvent !is WalletEvent.AccountChanged
+        ) {
+            return
+        }
         window?.dismissNav(navigationController ?: return, animated = false)
     }
 

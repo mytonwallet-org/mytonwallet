@@ -108,7 +108,8 @@ class NftHeaderView(
     fun reloadData() {
         val transaction = transaction
         if (transaction !is MApiTransaction.Transaction) throw Exception()
-        val nft = transaction.nft!!
+        val nft = requireNotNull(transaction.nft) { "NFT header for a transaction without NFT" }
+        val network = AccountStore.activeAccount?.network ?: return
 
         nameTextView.text = nft.name
         nftImageView.setNftImage(nft.image)
@@ -134,7 +135,7 @@ class NftHeaderView(
                 spannedString = this,
                 startIndex = length - formattedAddress.length,
                 length = formattedAddress.length,
-                network = AccountStore.activeAccount!!.network,
+                network = network,
                 blockchain = nft.chain,
                 address = address,
                 popupXOffset = startOffset.roundToInt(),

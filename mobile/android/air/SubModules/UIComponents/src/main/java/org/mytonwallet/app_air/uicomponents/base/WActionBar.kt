@@ -591,13 +591,11 @@ class WActionBar(
     private fun updateTitleConstraints() {
         val leadingAnchor = when {
             leadingActionsContainer.isVisible -> leadingActionsContainer
-            leadingView != null -> leadingView!!
-            else -> null
+            else -> leadingView
         }
         val trailingAnchor = when {
             trailingActionsContainer.isVisible -> trailingActionsContainer
-            trailingView != null -> trailingView!!
-            else -> null
+            else -> trailingView
         }
 
         contentView.setConstraints {

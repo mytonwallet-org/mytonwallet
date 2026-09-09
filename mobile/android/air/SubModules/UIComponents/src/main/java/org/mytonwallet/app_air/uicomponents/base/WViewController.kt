@@ -310,10 +310,11 @@ abstract class WViewController(val context: Context) :
                         }
 
                         MotionEvent.ACTION_MOVE -> {
-                            if (initialX == null) return@let
+                            val startX = initialX ?: return@let
+                            val startY = initialY ?: return@let
                             if (isScrollingVertical == null) {
-                                val diffX = abs(it.x - initialX!!)
-                                val diffY = abs(it.y - initialY!!)
+                                val diffX = abs(it.x - startX)
+                                val diffY = abs(it.y - startY)
                                 if (diffX > 20) {
                                     isScrollingVertical = false
                                 } else if (diffY > 10) {
@@ -377,10 +378,11 @@ abstract class WViewController(val context: Context) :
                     }
 
                     MotionEvent.ACTION_MOVE -> {
-                        if (initialX == null) return@let
+                        val startX = initialX ?: return@let
+                        val startY = initialY ?: return@let
                         if (isScrollingVertical == null) {
-                            val diffX = abs(it.x - initialX!!)
-                            val diffY = abs(it.y - initialY!!)
+                            val diffX = abs(it.x - startX)
+                            val diffY = abs(it.y - startY)
                             if (diffX > 20) {
                                 isScrollingVertical = false
                             } else if (diffY > 10) {
@@ -421,9 +423,9 @@ abstract class WViewController(val context: Context) :
     // Performance Tracker ///////////////////////////
     open val shouldMonitorFrames = false
     private val frameMonitor: WFramePerformanceMonitor? by lazy {
-        if (window == null) return@lazy null
+        val window = window ?: return@lazy null
         WFramePerformanceMonitor(
-            activity = window!!,
+            activity = window,
             isEnabled = shouldMonitorFrames
         ).apply {
             setContextProvider { getPerformanceContext() }
@@ -591,6 +593,7 @@ abstract class WViewController(val context: Context) :
         isDestroyed = true
         frameMonitor?.stopMonitoring()
         dismissActiveDialogs()
+        if (this is WalletCore.EventObserver) WalletCore.unregisterObserver(this)
         view.removeAllViews()
     }
     // ////////////////////////////////////////////////
@@ -663,20 +666,16 @@ abstract class WViewController(val context: Context) :
     fun setupNavBar(shouldShow: Boolean, defaultHeight: Int = WNavigationBar.DEFAULT_HEIGHT) {
         if (navigationController == null) throw Exception()
         if (shouldShow) {
-            if (navigationBar == null) {
-                navigationBar =
-                    WNavigationBar(
-                        this,
-                        defaultHeight
-                    )
-                view.addView(navigationBar, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            val navigationBar = navigationBar ?: WNavigationBar(this, defaultHeight).also {
+                navigationBar = it
+                view.addView(it, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             }
-            navigationBar!!.setTitle(title ?: "", false)
-            navigationBar!!.setSubtitle(subtitle, false)
-            navigationBar!!.setTitleContentVisible(
+            navigationBar.setTitle(title ?: "", false)
+            navigationBar.setSubtitle(subtitle, false)
+            navigationBar.setTitleContentVisible(
                 navigationController?.usesRootTopGradient(this) != true
             )
-            navigationBar?.visibility = View.VISIBLE
+            navigationBar.visibility = View.VISIBLE
         } else {
             navigationBar?.visibility = View.GONE
         }

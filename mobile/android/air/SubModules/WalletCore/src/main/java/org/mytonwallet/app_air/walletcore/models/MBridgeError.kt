@@ -105,7 +105,7 @@ sealed interface MBridgeError {
                 )
 
                 Type.PARTIAL_TRANSACTION_FAILURE -> LocaleController.getString(
-                    "Not all transactions were sent successfully"
+                    "Not all transactions were sent successfully."
                 )
 
                 Type.INCORRECT_DEVICE_TIME -> LocaleController.getString(

@@ -532,7 +532,7 @@ class WalletsVC(
             recyclerView.animateBackgroundColor(WColor.SecondaryBackground.color)
             emptyView?.isGone = false
             if (emptyView == null) {
-                emptyView =
+                val emptyView =
                     WEmptyIconTitleSubtitleView(
                         context,
                         R.raw.animation_empty,
@@ -555,16 +555,17 @@ class WalletsVC(
                             }
                         )
                     )
+                this.emptyView = emptyView
                 view.addView(
-                    emptyView!!,
+                    emptyView,
                     ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
                 )
                 bottomReversedCornerViewUpsideDown.bringToFront()
                 view.setConstraints {
-                    toCenterX(emptyView!!, 16f)
-                    setVerticalBias(emptyView!!.id, 0f)
+                    toCenterX(emptyView, 16f)
+                    setVerticalBias(emptyView.id, 0f)
                     toTopPx(
-                        emptyView!!,
+                        emptyView,
                         topInset + 120.dp
                     )
                 }
@@ -601,8 +602,8 @@ class WalletsVC(
             val child = recyclerView.getChildAt(i)
             val position = recyclerView.getChildAdapterPosition(child)
             if (position != NO_POSITION) {
-                val viewHolder = recyclerView.getChildViewHolder(child) as WCell.Holder
-                (viewHolder.cell as? IWalletCardCell)?.notifyBalanceChange()
+                val viewHolder = recyclerView.getChildViewHolder(child) as? WCell.Holder
+                (viewHolder?.cell as? IWalletCardCell)?.notifyBalanceChange()
             }
         }
     }
@@ -747,12 +748,13 @@ class WalletsVC(
                         val walletCustomizationVC =
                             WalletCustomizationVC.create(context, account.accountId)
                                 ?: return@Item
+                        val window = window ?: return@Item
                         val navVC = WNavigationController(
-                            window!!,
+                            window,
                             WNavigationController.PresentationConfig.PreferredFullScreen
                         )
                         navVC.setRoot(walletCustomizationVC)
-                        window?.present(navVC)
+                        window.present(navVC)
                     }
                 ),
                 WMenuPopup.Item(
@@ -805,11 +807,12 @@ class WalletsVC(
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type =
         if (viewMode == MWalletSettingsViewMode.GRID) ACCOUNT_GRID_CELL else ACCOUNT_ROW_CELL
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
-        when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
+        val window = window ?: return WCell(context)
+        return when (cellType) {
             ACCOUNT_GRID_CELL -> {
                 WalletCardCell(
-                    window!!,
+                    window,
                     cellWidth,
                     onTouchStart = { v ->
                         touchingItem = v
@@ -825,7 +828,7 @@ class WalletsVC(
 
             ACCOUNT_ROW_CELL -> {
                 WalletCardRowCell(
-                    window!!,
+                    window,
                     reordering = isReordering,
                     onTouchStart = { v ->
                         touchingItem = v
@@ -851,6 +854,7 @@ class WalletsVC(
                 throw Error()
             }
         }
+    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,

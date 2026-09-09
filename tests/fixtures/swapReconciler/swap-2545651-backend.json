@@ -1,0 +1,251 @@
+{
+ "buildTransaction": {
+  "route": "cex",
+  "request": {
+   "from": "TON",
+   "fromAmount": "1.0",
+   "fromAddress": "EQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVEBS",
+   "to": "sol",
+   "toAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+   "swapFee": "0.000101425",
+   "networkFee": "0.000539857",
+   "swapVersion": 3,
+   "historyAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+   "cexLabel": "near-intents"
+  },
+  "swap": {
+   "id": "2545651",
+   "timestamp": 1788510754712,
+   "from": "ton:native",
+   "fromAmount": "1.000000000000000000",
+   "to": "solana:native",
+   "toAmount": "0.012843712000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {},
+   "hashes": [],
+   "exchanger": "near-intents",
+   "msgHash": null,
+   "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+   "cexLabel": "near-intents",
+   "swapFee": "0.000101571",
+   "ourFee": "0.0088",
+   "ourFeeMode": "included",
+   "networkFee": "0.000539857",
+   "cex": {
+    "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+    "status": "waiting",
+    "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+    "providerName": "Near Intents",
+    "supportUrl": "https://t.me/auroraisnear"
+   }
+  }
+ },
+ "history": [
+  {
+   "url": "/swap/history/UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X/2545651/update",
+   "request": {
+    "swapVersion": 3,
+    "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4="
+   },
+   "response": {
+    "id": "2545651",
+    "timestamp": 1788510754712,
+    "from": "ton:native",
+    "fromAmount": "1.000000000000000000",
+    "to": "solana:native",
+    "toAmount": "0.012843712000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [],
+    "exchanger": "near-intents",
+    "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "cexLabel": "near-intents",
+    "swapFee": "0.000101571",
+    "ourFee": "0.0088",
+    "ourFeeMode": "included",
+    "networkFee": "0.000539857",
+    "cex": {
+     "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+     "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+     "status": "waiting",
+     "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+     "providerName": "Near Intents",
+     "supportUrl": "https://t.me/auroraisnear"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X/2545651?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545651",
+    "timestamp": 1788510754712,
+    "from": "ton:native",
+    "fromAmount": "1.000000000000000000",
+    "to": "solana:native",
+    "toAmount": "0.012843712000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+      "chain": "ton"
+     }
+    },
+    "hashes": [],
+    "exchanger": "near-intents",
+    "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "cexLabel": "near-intents",
+    "swapFee": "0.000101571",
+    "ourFee": "0.0088",
+    "ourFeeMode": "included",
+    "networkFee": "0.000539857",
+    "cex": {
+     "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+     "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+     "status": "waiting",
+     "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+     "providerName": "Near Intents",
+     "supportUrl": "https://t.me/auroraisnear"
+    }
+   }
+  },
+  {
+   "url": "/swap/history/UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X/2545651?swapVersion=3",
+   "request": null,
+   "response": {
+    "id": "2545651",
+    "timestamp": 1788510754712,
+    "from": "ton:native",
+    "fromAmount": "1.000000000000000000",
+    "to": "solana:native",
+    "toAmount": "0.012841297000000000",
+    "status": "completed",
+    "txIds": [],
+    "transactionIds": {
+     "outgoing": {
+      "hash": "15461ff955a62f08be078594163291216c2cf17ee3d019bc509e08eccdf68439",
+      "chain": "ton"
+     },
+     "incoming": {
+      "hash": "3V4MnwtyZ66rvzdHtCQHoA9C4HYyoaEczgskV6UoK5epgpE3xszsviUHSVbMFawbpnQABwi4xs9uCcJmC3qizhNf",
+      "chain": "solana"
+     }
+    },
+    "hashes": [
+     "15461ff955a62f08be078594163291216c2cf17ee3d019bc509e08eccdf68439",
+     "3V4MnwtyZ66rvzdHtCQHoA9C4HYyoaEczgskV6UoK5epgpE3xszsviUHSVbMFawbpnQABwi4xs9uCcJmC3qizhNf",
+     "7zQJAfhMocqmyPYW5iyfFd5JzsQMWjgqCxz6DpvYnZh7",
+     "Aj9ZF4yjdtdVvsRwrzyV69ky2PSZNMLa2q8bNRjw9oco",
+     "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+     "zH7OcerkA/DU9tnBXx6GyNc/SHHlm/lSLk2MezRaoTU="
+    ],
+    "exchanger": "near-intents",
+    "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "cexLabel": "near-intents",
+    "swapFee": "0.000101571",
+    "ourFee": "0.0088",
+    "ourFeeMode": "included",
+    "networkFee": "0.000539857",
+    "cex": {
+     "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+     "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+     "status": "finished",
+     "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+     "providerName": "Near Intents",
+     "supportUrl": "https://t.me/auroraisnear"
+    }
+   }
+  }
+ ],
+ "swapRowVersions": [
+  {
+   "id": "2545651",
+   "timestamp": 1788510754712,
+   "from": "ton:native",
+   "fromAmount": "1.000000000000000000",
+   "to": "solana:native",
+   "toAmount": "0.012843712000000000",
+   "status": "pending",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+     "chain": "ton"
+    }
+   },
+   "hashes": [],
+   "exchanger": "near-intents",
+   "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+   "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+   "cexLabel": "near-intents",
+   "swapFee": "0.000101571",
+   "ourFee": "0.0088",
+   "ourFeeMode": "included",
+   "networkFee": "0.000539857",
+   "cex": {
+    "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+    "status": "waiting",
+    "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+    "providerName": "Near Intents",
+    "supportUrl": "https://t.me/auroraisnear"
+   }
+  },
+  {
+   "id": "2545651",
+   "timestamp": 1788510754712,
+   "from": "ton:native",
+   "fromAmount": "1.000000000000000000",
+   "to": "solana:native",
+   "toAmount": "0.012841297000000000",
+   "status": "completed",
+   "txIds": [],
+   "transactionIds": {
+    "outgoing": {
+     "hash": "15461ff955a62f08be078594163291216c2cf17ee3d019bc509e08eccdf68439",
+     "chain": "ton"
+    },
+    "incoming": {
+     "hash": "3V4MnwtyZ66rvzdHtCQHoA9C4HYyoaEczgskV6UoK5epgpE3xszsviUHSVbMFawbpnQABwi4xs9uCcJmC3qizhNf",
+     "chain": "solana"
+    }
+   },
+   "hashes": [
+    "15461ff955a62f08be078594163291216c2cf17ee3d019bc509e08eccdf68439",
+    "3V4MnwtyZ66rvzdHtCQHoA9C4HYyoaEczgskV6UoK5epgpE3xszsviUHSVbMFawbpnQABwi4xs9uCcJmC3qizhNf",
+    "7zQJAfhMocqmyPYW5iyfFd5JzsQMWjgqCxz6DpvYnZh7",
+    "Aj9ZF4yjdtdVvsRwrzyV69ky2PSZNMLa2q8bNRjw9oco",
+    "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+    "zH7OcerkA/DU9tnBXx6GyNc/SHHlm/lSLk2MezRaoTU="
+   ],
+   "exchanger": "near-intents",
+   "msgHash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+   "fromAddress": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+   "cexLabel": "near-intents",
+   "swapFee": "0.000101571",
+   "ourFee": "0.0088",
+   "ourFeeMode": "included",
+   "networkFee": "0.000539857",
+   "cex": {
+    "payinAddress": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "payoutAddress": "64XiryXijgcKVEn5EG9YMGgWCJe47DTUzX31JSio9Buk",
+    "status": "finished",
+    "transactionId": "571e9dbd-6b13-4ad0-94e5-dc00ed7a79ee",
+    "providerName": "Near Intents",
+    "supportUrl": "https://t.me/auroraisnear"
+   }
+  }
+ ]
+}

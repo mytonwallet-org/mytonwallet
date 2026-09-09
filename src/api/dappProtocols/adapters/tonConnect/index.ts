@@ -67,7 +67,7 @@ import {
 import { DappProtocolType } from '../../types';
 import { CHAIN } from './types';
 
-import { IS_AIR_APP, IS_EXTENSION, SSE_BRIDGE_URL, TONCOIN } from '../../../../config';
+import { IS_AIR_APP, IS_EXTENSION, SSE_BRIDGE_URL } from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { areDeepEqual } from '../../../../util/areDeepEqual';
 import { bigintDivideToNumber } from '../../../../util/bigint';
@@ -106,8 +106,6 @@ import { ApiServerError, ApiUserRejectsError } from '../../../errors';
 import { callHook } from '../../../hooks';
 import {
   type confirmDappRequestConnect,
-  createLocalActivitiesFromEmulation,
-  createLocalTransactions,
 } from '../../../methods';
 import {
   addDapp,
@@ -693,32 +691,12 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         });
       }
 
+      // This is not always correct for Ledger, because in that case the messages are split into individual transactions
+      // which have different message hashes. Though, this appears not to cause problems.
       const externalMsgHashNorm = sentTransactions[0].msgHashNormalized;
 
-      if (!checkResult.emulation.isFallback && checkResult.emulation.activities?.length > 0) {
-        // Use rich emulation activities for optimistic UI
-        createLocalActivitiesFromEmulation(
-          accountId,
-          externalMsgHashNorm, // This is not always correct for Ledger, because in that case the messages are split into individual transactions which have different message hashes. Though, this appears not to cause problems.
-          checkResult.emulation.activities,
-        );
-      } else {
-        // Fallback to basic local transactions when emulation is not available
-        createLocalTransactions(accountId, 'ton', transactionsForRequest.map((transaction) => {
-          const { amount, normalizedAddress, payload, networkFee } = transaction;
-          const comment = payload?.type === 'comment' ? payload.comment : undefined;
-          return {
-            id: externalMsgHashNorm,
-            amount,
-            fromAddress: address,
-            toAddress: normalizedAddress,
-            comment,
-            fee: networkFee,
-            slug: TONCOIN.slug,
-            externalMsgHashNorm, // This is not always correct for Ledger, because in that case the messages are split into individual transactions which have different message hashes. Though, this appears not to cause problems.
-          };
-        }));
-      }
+      // A dapp transaction is shown as Toncenter reports it. Emulation stays a preview for the confirmation screen:
+      // rows predicted from it would stand in the feed for actions the wallet does not own the summary of.
 
       // Notify that dapp transfer is complete after successful blockchain submission
       this.onUpdate({

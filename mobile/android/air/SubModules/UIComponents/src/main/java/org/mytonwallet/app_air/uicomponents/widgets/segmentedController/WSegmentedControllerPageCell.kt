@@ -14,7 +14,7 @@ class WSegmentedControllerPageCell(context: Context) :
         if (viewController.view.parent == this) return
 
         if (viewController.view.parent != null) {
-            (viewController.view.parent as ViewGroup).removeView(viewController.view)
+            (viewController.view.parent as? ViewGroup)?.removeView(viewController.view)
         }
         if (isNotEmpty()) removeAllViews()
         addView(viewController.view, LayoutParams(MATCH_PARENT, MATCH_PARENT))

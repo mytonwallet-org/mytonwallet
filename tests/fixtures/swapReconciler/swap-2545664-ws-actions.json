@@ -1,0 +1,110 @@
+[
+ {
+  "type": "actions",
+  "finality": "confirmed",
+  "trace_external_hash_norm": "86NLosivl9a/I+YzmG+joQrZYatMZFNlNuocGBX/aCU=",
+  "actions": [
+   {
+    "trace_id": "zsb0G9xd/llW86KUllTblxXppZiW/9OEKhCtAdyUIfQ=",
+    "action_id": "HnuB5ENPASniGNLFrvszryWqVrva7ckZq9Vp0gjtBIc=",
+    "start_lt": "101234413000010",
+    "end_lt": "101234413000011",
+    "start_utime": 1788512274,
+    "end_utime": 1788512274,
+    "trace_end_lt": "101234413000012",
+    "trace_end_utime": 1788512274,
+    "trace_mc_seqno_end": 90513937,
+    "transactions": [
+     "Oa50qA7Jka+/JcD2QYQGxGkEw0kzjQDGgqyc12X4nBY=",
+     "b2vFzlC1OI6astpAG5rz/gdYlyQuIrvMl4VxkIYIvrw="
+    ],
+    "success": true,
+    "type": "ton_transfer",
+    "details": {
+     "source": "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708",
+     "destination": "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754",
+     "value": "21593918314",
+     "value_extra_currencies": {},
+     "comment": null,
+     "encrypted": false
+    },
+    "trace_external_hash": "xfoG7fb++uOkQmS556TjMuzwJ4TIp1Qvmx44tPy9lwM=",
+    "trace_external_hash_norm": "86NLosivl9a/I+YzmG+joQrZYatMZFNlNuocGBX/aCU=",
+    "accounts": [
+     "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708",
+     "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754"
+    ],
+    "finality": "confirmed"
+   }
+  ],
+  "address_book": {
+   "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708": {
+    "user_friendly": "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
+    "domain": "near-intents-1.ton",
+    "interfaces": null
+   },
+   "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754": {
+    "user_friendly": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "domain": "damiora.t.me",
+    "interfaces": [
+     "wallet_v5r1"
+    ]
+   }
+  },
+  "metadata": {}
+ },
+ {
+  "type": "actions",
+  "finality": "finalized",
+  "trace_external_hash_norm": "86NLosivl9a/I+YzmG+joQrZYatMZFNlNuocGBX/aCU=",
+  "actions": [
+   {
+    "trace_id": "zsb0G9xd/llW86KUllTblxXppZiW/9OEKhCtAdyUIfQ=",
+    "action_id": "HnuB5ENPASniGNLFrvszryWqVrva7ckZq9Vp0gjtBIc=",
+    "start_lt": "101234413000010",
+    "end_lt": "101234413000011",
+    "start_utime": 1788512274,
+    "end_utime": 1788512274,
+    "trace_end_lt": "101234413000012",
+    "trace_end_utime": 1788512274,
+    "trace_mc_seqno_end": 90513938,
+    "transactions": [
+     "Oa50qA7Jka+/JcD2QYQGxGkEw0kzjQDGgqyc12X4nBY=",
+     "b2vFzlC1OI6astpAG5rz/gdYlyQuIrvMl4VxkIYIvrw="
+    ],
+    "success": true,
+    "type": "ton_transfer",
+    "details": {
+     "source": "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708",
+     "destination": "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754",
+     "value": "21593918314",
+     "value_extra_currencies": {},
+     "comment": null,
+     "encrypted": false
+    },
+    "trace_external_hash": "xfoG7fb++uOkQmS556TjMuzwJ4TIp1Qvmx44tPy9lwM=",
+    "trace_external_hash_norm": "86NLosivl9a/I+YzmG+joQrZYatMZFNlNuocGBX/aCU=",
+    "accounts": [
+     "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708",
+     "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754"
+    ],
+    "finality": "finalized"
+   }
+  ],
+  "address_book": {
+   "0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708": {
+    "user_friendly": "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
+    "domain": "near-intents-1.ton",
+    "interfaces": null
+   },
+   "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754": {
+    "user_friendly": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "domain": "damiora.t.me",
+    "interfaces": [
+     "wallet_v5r1"
+    ]
+   }
+  },
+  "metadata": {}
+ }
+]

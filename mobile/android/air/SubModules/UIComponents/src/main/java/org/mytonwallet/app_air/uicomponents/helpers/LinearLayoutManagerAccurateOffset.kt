@@ -20,8 +20,8 @@ open class LinearLayoutManagerAccurateOffset(context: Context?) : LinearLayoutMa
             return 0
         }
 
-        val firstChild = getChildAt(0)
-        val firstChildPosition = getPosition(firstChild!!)
+        val firstChild = getChildAt(0) ?: return 0
+        val firstChildPosition = getPosition(firstChild)
         var scrolledY = -firstChild.y.toInt()
         for (i in 0 until firstChildPosition) {
             scrolledY += mChildSizesMap[i] ?: 0

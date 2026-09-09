@@ -167,7 +167,7 @@ class NftVC(
             nft,
             collectionNFTs,
             navigationController?.getSystemBars()?.top ?: 0,
-            (view.parent as View).width,
+            (view.parent as? View)?.width ?: 0,
             WeakReference(this@NftVC)
         ) {
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean =
@@ -529,7 +529,7 @@ class NftVC(
         val v = WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setPadding(
             0,
-            NftHeaderView.OVERSCROLL_OFFSET.dp + (view.parent as View).width,
+            NftHeaderView.OVERSCROLL_OFFSET.dp + ((view.parent as? View)?.width ?: 0),
             0,
             (navigationController?.getSystemBars()?.bottom ?: 0)
         )
@@ -852,7 +852,6 @@ class NftVC(
     }
 
     override fun onDestroy() {
-        WalletCore.unregisterObserver(this)
         super.onDestroy()
         headerView.onDestroy()
     }
@@ -942,21 +941,21 @@ class NftVC(
                     ) +
                 attributesSectionHeight
 
-        if (view.parent != null) {
-            scrollingContentView.setPadding(
-                0,
-                NftHeaderView.OVERSCROLL_OFFSET.dp + (view.parent as View).width,
-                0,
-                navigationController!!.getSystemBars().bottom.coerceAtLeast(
-                    view.height -
-                        (
-                            contentHeight +
-                                navigationController!!.getSystemBars().top +
-                                WNavigationBar.DEFAULT_HEIGHT.dp
-                            )
-                )
+        val parentView = view.parent as? View ?: return
+        val systemBars = navigationController?.getSystemBars() ?: return
+        scrollingContentView.setPadding(
+            0,
+            NftHeaderView.OVERSCROLL_OFFSET.dp + parentView.width,
+            0,
+            systemBars.bottom.coerceAtLeast(
+                view.height -
+                    (
+                        contentHeight +
+                            systemBars.top +
+                            WNavigationBar.DEFAULT_HEIGHT.dp
+                        )
             )
-        }
+        )
     }
 
     private var displayedSectionColor: Int? = null
@@ -1333,9 +1332,10 @@ class NftVC(
     }
 
     private fun updateActionsPosition(scrollOffset: Int) {
+        val systemBarsTop = navigationController?.getSystemBars()?.top ?: return
         actionsView.translationY =
             max(
-                navigationController!!.getSystemBars().top + WNavigationBar.DEFAULT_HEIGHT.dp,
+                systemBarsTop + WNavigationBar.DEFAULT_HEIGHT.dp,
                 recyclerView.width - scrollOffset + NftHeaderView.OVERSCROLL_OFFSET.dp
             ) - 50f.dp
     }
@@ -1343,9 +1343,10 @@ class NftVC(
     private fun updateToggleText() {
         val txt =
             LocaleController.getString(if (isAttributesSectionExpanded) "Collapse" else "Show All")
+        val arrowDrawable = arrowDrawable ?: return
         val ss = SpannableStringBuilder(txt)
         val imageSpan = VerticalImageSpan(
-            arrowDrawable as Drawable,
+            arrowDrawable,
             startPadding = 3.dp,
             endPadding = 3.dp,
             verticalOffsetEm = FontManager.inlineIconVerticalOffsetEm,
@@ -1387,6 +1388,7 @@ class NftVC(
 
     override fun onPreviewTapped() {
         val image = nft.image ?: return
+        val window = window ?: return
         touchHandler.stopScroll()
         view.lockView()
         val previewVC = PreviewVC(
@@ -1406,13 +1408,13 @@ class NftVC(
             }
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig(
                 style = WNavigationController.PresentationStyle.Overlay
             )
         )
         nav.setRoot(previewVC)
-        window?.present(nav, animated = false)
+        window.present(nav, animated = false)
         fun startTransition() {
             headerView.removeView(headerView.animationView)
             previewVC.startTransition()

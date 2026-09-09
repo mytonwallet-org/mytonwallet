@@ -126,11 +126,6 @@ class TransactionListVC(
         rvAdapter.reloadData()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
-    }
-
     private fun onTransactionTap(transaction: MApiTransaction) {
         navigationController?.push(
             TransactionVC(

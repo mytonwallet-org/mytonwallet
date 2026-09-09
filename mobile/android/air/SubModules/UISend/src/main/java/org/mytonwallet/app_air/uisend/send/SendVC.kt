@@ -1380,7 +1380,7 @@ class SendVC(
     private fun showScamWarningIfRequired() {
         TokenStore.getToken(viewModel.getTokenSlug())?.mBlockchain?.let { blockchain ->
             if (ScamDetectionHelpers.shouldShowSeedPhraseScamWarning(blockchain)) {
-                WGlobalStorage.removeAccountImportedAt(AccountStore.activeAccountId!!)
+                AccountStore.activeAccountId?.let { WGlobalStorage.removeAccountImportedAt(it) }
                 AccountStore.activeAccount?.importedAt = null
                 showAlert(
                     LocaleController.getString("Warning!"),
@@ -1443,7 +1443,6 @@ class SendVC(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         scrollView.setOnScrollChangeListener(null)
         addressInputView.qrScanImageView.setOnClickListener(null)
         addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
@@ -1476,6 +1475,7 @@ class SendVC(
     private var sentActivityId: String? = null
     private var receivedLocalActivities: ArrayList<MApiTransaction>? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        val accountId = displayedAccount.accountId ?: return
         if (sentActivityId == null) {
             // Send in-progress, cached received local activity to process on send api callback is called
             if (receivedActivity.isLocal()) {
@@ -1501,7 +1501,7 @@ class SendVC(
         window?.dismissLastNav {
             WalletCore.notifyEvent(
                 WalletEvent.OpenActivity(
-                    displayedAccount.accountId!!,
+                    accountId,
                     receivedActivity
                 )
             )

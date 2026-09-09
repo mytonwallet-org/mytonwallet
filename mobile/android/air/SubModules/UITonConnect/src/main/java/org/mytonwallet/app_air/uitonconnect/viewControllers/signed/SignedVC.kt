@@ -52,7 +52,7 @@ class SignedVC(context: Context) : WViewController(context) {
         view.addView(animationView)
         view.addView(continueButton, ViewGroup.LayoutParams(0, WRAP_CONTENT))
         view.setConstraints {
-            topToBottom(animationView, navigationBar!!, 16f)
+            navigationBar?.let { topToBottom(animationView, it, 16f) }
             toCenterX(animationView)
             toCenterX(continueButton, 20f)
             toBottomPx(

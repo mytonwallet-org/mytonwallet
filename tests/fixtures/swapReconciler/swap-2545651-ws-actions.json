@@ -1,0 +1,164 @@
+[
+ {
+  "type": "actions",
+  "finality": "pending",
+  "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+  "actions": [
+   {
+    "trace_id": null,
+    "action_id": "sM2c3yuOunwTDFMTkFqwvtSpacsY4o0R0TnHgaCVF00=",
+    "start_lt": "101230623000001",
+    "end_lt": "101230623000002",
+    "start_utime": 1788510762,
+    "end_utime": 1788510762,
+    "trace_end_lt": "101230623000002",
+    "trace_end_utime": 1788510762,
+    "trace_mc_seqno_end": 90510220,
+    "transactions": [
+     "EPYSiZQaYh1ftgXK7CfvgT62P/gtLG0jHRXDBthHnbg=",
+     "URpMzZVyK4vup0xMxDQ4wgMTTa2w2HxSRI7ISrGIlSs="
+    ],
+    "success": true,
+    "type": "ton_transfer",
+    "details": {
+     "source": "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754",
+     "destination": "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "value": "1000000000",
+     "value_extra_currencies": {},
+     "comment": null,
+     "encrypted": false
+    },
+    "trace_external_hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+    "accounts": [
+     "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754"
+    ],
+    "finality": "pending"
+   }
+  ],
+  "address_book": {
+   "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651": {
+    "user_friendly": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "domain": null,
+    "interfaces": []
+   },
+   "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754": {
+    "user_friendly": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "domain": "damiora.t.me",
+    "interfaces": [
+     "wallet_v5r1"
+    ]
+   }
+  },
+  "metadata": {}
+ },
+ {
+  "type": "actions",
+  "finality": "confirmed",
+  "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+  "actions": [
+   {
+    "trace_id": "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+    "action_id": "t0HvAY8ovaNVo0TiXnLOFHrS4N1cE2lQcewCE/OacCM=",
+    "start_lt": "101230625000009",
+    "end_lt": "101230625000010",
+    "start_utime": 1788510760,
+    "end_utime": 1788510760,
+    "trace_end_lt": "101230625000010",
+    "trace_end_utime": 1788510760,
+    "trace_mc_seqno_end": 90510221,
+    "transactions": [
+     "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+     "zH7OcerkA/DU9tnBXx6GyNc/SHHlm/lSLk2MezRaoTU="
+    ],
+    "success": true,
+    "type": "ton_transfer",
+    "details": {
+     "source": "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754",
+     "destination": "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "value": "1000000000",
+     "value_extra_currencies": {},
+     "comment": null,
+     "encrypted": false
+    },
+    "trace_external_hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+    "accounts": [
+     "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754"
+    ],
+    "finality": "confirmed"
+   }
+  ],
+  "address_book": {
+   "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651": {
+    "user_friendly": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "domain": null,
+    "interfaces": []
+   },
+   "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754": {
+    "user_friendly": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "domain": "damiora.t.me",
+    "interfaces": [
+     "wallet_v5r1"
+    ]
+   }
+  },
+  "metadata": {}
+ },
+ {
+  "type": "actions",
+  "finality": "finalized",
+  "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+  "actions": [
+   {
+    "trace_id": "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+    "action_id": "t0HvAY8ovaNVo0TiXnLOFHrS4N1cE2lQcewCE/OacCM=",
+    "start_lt": "101230625000009",
+    "end_lt": "101230625000010",
+    "start_utime": 1788510760,
+    "end_utime": 1788510760,
+    "trace_end_lt": "101230625000010",
+    "trace_end_utime": 1788510760,
+    "trace_mc_seqno_end": 90510222,
+    "transactions": [
+     "FUYf+VWmLwi+B4WUFjKRIWws8X7j0Bm8UJ4I7M32hDk=",
+     "zH7OcerkA/DU9tnBXx6GyNc/SHHlm/lSLk2MezRaoTU="
+    ],
+    "success": true,
+    "type": "ton_transfer",
+    "details": {
+     "source": "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754",
+     "destination": "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "value": "1000000000",
+     "value_extra_currencies": {},
+     "comment": null,
+     "encrypted": false
+    },
+    "trace_external_hash": "WLGYLyMOCi6kDrjn53OGp64ISKr9etleHSbhZzx1/C4=",
+    "trace_external_hash_norm": "vOgwLFxP0vw04xFJx6gRsHHdcVE/ZlUtX0w/nWJ9Fek=",
+    "accounts": [
+     "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651",
+     "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754"
+    ],
+    "finality": "finalized"
+   }
+  ],
+  "address_book": {
+   "0:10332A61A7170C0040F5EAB35A2551BFCCC67776CF825E423C13D5E30665D651": {
+    "user_friendly": "UQAQMyphpxcMAED16rNaJVG_zMZ3ds-CXkI8E9XjBmXWUeKQ",
+    "domain": null,
+    "interfaces": []
+   },
+   "0:3AA5B929A04C84FA305B2BDBB3F803E418050EFB21E10D7C9ABCFD1333C25754": {
+    "user_friendly": "UQA6pbkpoEyE-jBbK9uz-APkGAUO-yHhDXyavP0TM8JXVB2X",
+    "domain": "damiora.t.me",
+    "interfaces": [
+     "wallet_v5r1"
+    ]
+   }
+  },
+  "metadata": {}
+ }
+]

@@ -206,8 +206,6 @@ struct DebugView: View {
         Text("TestFlight Only")
             .header(.purple)
 
-        WalletTokenChainAccessoryExperimentToggle()
-
         Section {
             Toggle("View as production", isOn: $forceProductionMode)
         } footer: {
@@ -249,22 +247,6 @@ struct DebugView: View {
             }
         } catch {
             Log.shared.error("failed to share logs \(error, .public)")
-        }
-    }
-}
-
-private struct WalletTokenChainAccessoryExperimentToggle: View {
-    @AppStorage(WalletTokenChainAccessoryExperiment.userDefaultsKey)
-    private var isEnabled = true
-
-    var body: some View {
-        Section {
-            Toggle("Hide Unlabeled Token Chains", isOn: $isEnabled)
-        } footer: {
-            Text("Hides chain accessories in wallet token rows unless the token has a visible label badge, such as stablecoins and stocks. Off preserves the current behavior.")
-        }
-        .onChange(of: isEnabled) { _ in
-            WalletCoreData.notify(event: .tokensChanged)
         }
     }
 }

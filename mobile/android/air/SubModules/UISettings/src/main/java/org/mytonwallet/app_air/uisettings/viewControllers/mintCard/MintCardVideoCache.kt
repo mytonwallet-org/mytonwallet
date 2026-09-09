@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uisettings.viewControllers.mintCard
 
 import android.content.Context
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.CoroutineScope
@@ -91,10 +92,10 @@ object MintCardVideoCache {
         if (target.exists() && target.length() > 0) return target
 
         val tmp = File(target.parentFile, "${target.name}.part")
-        val connection = (URL(remoteUrl(type)).openConnection() as HttpURLConnection).apply {
+        val connection = (URL(remoteUrl(type)).openConnection() as? HttpURLConnection)?.apply {
             connectTimeout = 15_000
             readTimeout = 30_000
-        }
+        } ?: throw IOException("Card video URL is not an HTTP URL")
         try {
             connection.inputStream.use { input ->
                 tmp.outputStream().use { output ->

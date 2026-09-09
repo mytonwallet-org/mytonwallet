@@ -214,7 +214,8 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
     }
 
     private var lastDisplayedActivityID: String? {
-        itemIdentifiers.reversed().compactMap(ItemIdentifier.activityID(from:)).first
+        let activityIDs = itemIdentifiers.compactMap(ItemIdentifier.activityID(from:))
+        return activityIDs.count > 5 ? activityIDs.last : nil
     }
 
     private func makeVisibleItemsLimitMenu() -> UIMenu {

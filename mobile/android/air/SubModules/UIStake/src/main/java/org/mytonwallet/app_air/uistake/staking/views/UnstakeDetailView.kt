@@ -111,14 +111,16 @@ class UnstakeDetailView(context: Context) :
     private fun startUpdateTimer() {
         stopUpdateTimer()
 
-        updateHandler = Handler(Looper.getMainLooper())
-        updateRunnable = object : Runnable {
+        val handler = Handler(Looper.getMainLooper())
+        val runnable = object : Runnable {
             override fun run() {
                 updateReceivingRow()
                 updateHandler?.postDelayed(this, 1000)
             }
         }
-        updateHandler?.postDelayed(updateRunnable!!, 1000)
+        updateHandler = handler
+        updateRunnable = runnable
+        handler.postDelayed(runnable, 1000)
     }
 
     private fun stopUpdateTimer() {

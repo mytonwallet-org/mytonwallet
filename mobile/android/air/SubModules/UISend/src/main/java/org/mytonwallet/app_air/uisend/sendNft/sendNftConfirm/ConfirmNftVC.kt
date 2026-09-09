@@ -339,7 +339,7 @@ class ConfirmNftVC(
         super.setupViews()
 
         WalletCore.registerObserver(this)
-        setNavTitle(title!!)
+        setNavTitle(title ?: "")
         setupNavBar(true)
 
         if (mode is Mode.Send && mode.isScam) {
@@ -365,7 +365,7 @@ class ConfirmNftVC(
         }
         view.setConstraints {
             toCenterX(scrollView)
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             if (mode is Mode.Burn) {
                 bottomToTop(scrollView, burnWarningLabel, 20f)
                 bottomToTop(burnWarningLabel, confirmButton, 35f)
@@ -463,11 +463,6 @@ class ConfirmNftVC(
                 nfts = nfts
             )
         )
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
     }
 
     override fun updateTheme() {
@@ -751,6 +746,7 @@ class ConfirmNftVC(
 
     private var sentNftAddresses: MutableSet<String>? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {
+        val accountId = displayedAccount.accountId ?: return
         val pendingAddresses = sentNftAddresses ?: return
         val nftAddress = (receivedActivity as? MApiTransaction.Transaction)?.nft?.address ?: return
         if (!pendingAddresses.remove(nftAddress)) {
@@ -775,7 +771,7 @@ class ConfirmNftVC(
             window?.dismissLastNav {
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
+                        accountId,
                         receivedActivity,
                         completionTitle
                     )
@@ -785,7 +781,7 @@ class ConfirmNftVC(
             navigationController?.popToRoot {
                 WalletCore.notifyEvent(
                     WalletEvent.OpenActivity(
-                        displayedAccount.accountId!!,
+                        accountId,
                         receivedActivity,
                         completionTitle
                     )

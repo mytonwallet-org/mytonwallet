@@ -342,7 +342,7 @@ open class NftHeaderView(
         animationView.isGone =
             !isAnimatedNft || avatarCoverFlowView.scrollState != WCoverFlowView.ScrollState.IDLE
         if (isAnimatedNft) {
-            animationView.playFromUrl(nft.metadata!!.lottie!!, play = true, onStart = null)
+            nft.metadata?.lottie?.let { animationView.playFromUrl(it, play = true, onStart = null) }
         }
         updateTitleLabel()
         updateSubtitleText()
@@ -519,18 +519,20 @@ open class NftHeaderView(
     private var isShowingActions = true
 
     private fun lerpProperty(a: Float, b: Float): Float {
-        if (offsetAnimator == null ||
+        val animator = offsetAnimator
+        if (animator == null ||
             (scrollState is ScrollState.Expanded && targetState is ScrollState.Expanded)
         ) {
             return a
         }
-        return lerp(a, b, offsetAnimator!!.animatedFraction)
+        return lerp(a, b, animator.animatedFraction)
     }
 
     private inline fun lerpProperty(selector: (ScrollState) -> Float): Float =
         lerpProperty(selector(scrollState), selector(targetState))
 
     private fun render() {
+        val scrollState = scrollState
         val avatarWidth = lerpProperty { it.avatarWidth.toFloat() }.roundToInt()
         val avatarHeight = lerpProperty { it.avatarHeight.toFloat() }.roundToInt()
         val avatarRounding = lerpProperty { it.avatarRounding }
@@ -577,7 +579,7 @@ open class NftHeaderView(
         subtitleLabel.alpha = 1f
 
         if (scrollState !is ScrollState.NormalToCompact ||
-            (scrollState as ScrollState.NormalToCompact).percent > 0f
+            scrollState.percent > 0f
         ) {
             avatarImageView.visibility = VISIBLE
             if (isAnimatedNft) animationView.visibility = VISIBLE
@@ -585,7 +587,7 @@ open class NftHeaderView(
 
         when (scrollState) {
             is ScrollState.NormalToCompact -> {
-                val percent = (scrollState as ScrollState.NormalToCompact).percent
+                val percent = scrollState.percent
                 avatarCoverFlowView.setCollapsed(percent)
 
                 if (!isShowingActions && percent <= 0.8) showActions()
@@ -601,7 +603,7 @@ open class NftHeaderView(
             }
 
             is ScrollState.NormalToExpand -> {
-                var percent = (scrollState as ScrollState.NormalToExpand).percent
+                var percent = scrollState.percent
                 if (!isShowingActions) showActions()
                 if (!isAnimatingImageToExpand) {
                     avatarCoverFlowView.setExpanded((percent * EXPAND_PERCENT).pow(2f))
@@ -617,12 +619,12 @@ open class NftHeaderView(
 
             is ScrollState.Expanded -> {
                 if (!isShowingActions) showActions()
-                val percent = (scrollState as ScrollState.Expanded).percent
+                val percent = scrollState.percent
                 avatarCoverFlowView.setExpanded(
                     lerp(
-                        ((scrollState as ScrollState.Expanded).expandStartPercent).pow(2),
+                        (scrollState.expandStartPercent).pow(2),
                         1f,
-                        (scrollState as ScrollState.Expanded).percent
+                        scrollState.percent
                     )
                 )
                 if (percent == 1f) isAnimatingImageToExpand = false
@@ -709,8 +711,8 @@ open class NftHeaderView(
             return
         }
         // Appearing fades in from a transparent gradient; disappearing dissolves out
-        val fromColor = prevBaseColor ?: baseColor!!.colorWithAlpha(0)
-        val toColor = baseColor ?: prevBaseColor!!.colorWithAlpha(0)
+        val fromColor = prevBaseColor ?: baseColor?.colorWithAlpha(0) ?: return
+        val toColor = baseColor ?: prevBaseColor?.colorWithAlpha(0) ?: return
         val fadeDrawable = makeFadeDrawable(fromColor)
         backgroundFadeView.background = fadeDrawable
         backgroundFadeAnimator = ValueAnimator.ofArgb(fromColor, toColor).apply {

@@ -715,6 +715,12 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     }
     cached.stateVersion = 63;
   }
+
+  if (cached.stateVersion === 63) {
+    // Swap rows projected by the previous reconciler carry chain action ids; the backend id is canonical now
+    clearActivities();
+    cached.stateVersion = 64;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 

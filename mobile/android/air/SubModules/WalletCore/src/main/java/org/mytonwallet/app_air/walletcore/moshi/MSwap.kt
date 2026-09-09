@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -90,7 +91,20 @@ data class MApiSwapHint(
 )
 
 @JsonClass(generateAdapter = true)
-data class MApiSwapEstimateErrorResponse(val error: String? = null, val hint: MApiSwapHint? = null)
+data class MApiSwapEstimateErrorResponse(
+    val error: String? = null,
+    val hint: MApiSwapHint? = null
+) {
+    companion object {
+        fun hintFrom(raw: String?): MApiSwapHint? = raw?.let {
+            runCatching {
+                WalletCore.moshi.adapter(
+                    MApiSwapEstimateErrorResponse::class.java
+                ).fromJson(it)?.hint
+            }.getOrNull()
+        }
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapEstimateResponse(

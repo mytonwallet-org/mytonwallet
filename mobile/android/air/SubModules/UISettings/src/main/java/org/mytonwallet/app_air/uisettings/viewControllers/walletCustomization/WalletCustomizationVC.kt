@@ -286,7 +286,9 @@ class WalletCustomizationVC private constructor(
                 cardsView,
                 LinearLayout.LayoutParams(
                     MATCH_PARENT,
-                    WalletCustomizationCardsView.heightForWidth(window!!.windowView.width)
+                    WalletCustomizationCardsView.heightForWidth(
+                        window?.windowView?.width ?: context.resources.displayMetrics.widthPixels
+                    )
                 ).apply {
                     topMargin = 17.dp
                 }
@@ -553,7 +555,6 @@ class WalletCustomizationVC private constructor(
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         cardsView.onDestroy()
         availableCardsView.onDestroy()
     }

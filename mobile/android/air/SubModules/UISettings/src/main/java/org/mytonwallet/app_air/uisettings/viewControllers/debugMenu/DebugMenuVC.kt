@@ -77,7 +77,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         KeyValueRowView.Mode.PRIMARY,
         isLast = true
     ).apply {
-        setOnClickListener { Logger.shareLogFile(window!!) }
+        setOnClickListener { window?.let { Logger.shareLogFile(it) } }
     }
 
     private val spacer1 = WBaseView(context)
@@ -95,18 +95,19 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         isLast = true
     ).apply {
         setOnClickListener {
+            val window = window ?: return@setOnClickListener
+            val addAccountVC = WalletContextManager.delegate?.get()
+                ?.getAddAccountVC(MBlockchainNetwork.TESTNET) as? WViewController
+                ?: return@setOnClickListener
             val nav = WNavigationController(
-                window!!,
+                window,
                 WNavigationController.PresentationConfig(
                     style = WNavigationController.PresentationStyle.BottomSheet,
                     aboveKeyboard = true
                 )
             )
-            nav.setRoot(
-                WalletContextManager.delegate?.get()
-                    ?.getAddAccountVC(MBlockchainNetwork.TESTNET) as WViewController
-            )
-            window?.present(nav)
+            nav.setRoot(addAccountVC)
+            window.present(nav)
         }
     }
 
@@ -225,7 +226,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             KeyValueRowView.Mode.PRIMARY,
             isLast = false
         ).apply {
-            setValueView(seasonalThemeDropdown!!)
+            seasonalThemeDropdown?.let { setValueView(it) }
             setOnClickListener { presentSeasonalThemeOverrideMenu() }
         }
     } else {
@@ -252,7 +253,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             KeyValueRowView.Mode.PRIMARY,
             isLast = true
         ).apply {
-            setValueView(tokenInfoSourceDropdown!!)
+            tokenInfoSourceDropdown?.let { setValueView(it) }
             setOnClickListener { presentTokenInfoSourceMenu() }
         }
     } else {
@@ -260,6 +261,14 @@ class DebugMenuVC(context: Context) : WViewController(context) {
     }
 
     private val scrollingContentView: WView by lazy {
+        val spacer4 = spacer4
+        val debugTitleLabel = debugTitleLabel
+        val experimentalFeaturesRow = experimentalFeaturesRow
+        val seasonalThemeRow = seasonalThemeRow
+        val tokenInfoSourceRow = tokenInfoSourceRow
+        val showDebugSection = spacer4 != null && debugTitleLabel != null &&
+            experimentalFeaturesRow != null && seasonalThemeRow != null &&
+            tokenInfoSourceRow != null
         WView(context).apply {
             // Section 1: Logs
             addView(logsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -282,15 +291,15 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             addView(androidVersionRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(performanceClassRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             // Section 5: Debug (debug and beta builds only)
-            if (isDebugSectionVisible) {
-                addView(spacer4!!, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
-                addView(debugTitleLabel!!, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            if (showDebugSection) {
+                addView(spacer4, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+                addView(debugTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
                 addView(
-                    experimentalFeaturesRow!!,
+                    experimentalFeaturesRow,
                     ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp)
                 )
-                addView(seasonalThemeRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
-                addView(tokenInfoSourceRow!!, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+                addView(seasonalThemeRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+                addView(tokenInfoSourceRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             }
             setConstraints {
                 // Logs
@@ -319,13 +328,13 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 topToBottom(androidVersionRow, deviceModelRow)
                 topToBottom(performanceClassRow, androidVersionRow)
                 // Debug or bottom
-                if (isDebugSectionVisible) {
-                    topToBottom(spacer4!!, performanceClassRow)
-                    topToBottom(debugTitleLabel!!, spacer4)
-                    topToBottom(experimentalFeaturesRow!!, debugTitleLabel)
+                if (showDebugSection) {
+                    topToBottom(spacer4, performanceClassRow)
+                    topToBottom(debugTitleLabel, spacer4)
+                    topToBottom(experimentalFeaturesRow, debugTitleLabel)
                     toCenterX(experimentalFeaturesRow)
-                    topToBottom(seasonalThemeRow!!, experimentalFeaturesRow)
-                    topToBottom(tokenInfoSourceRow!!, seasonalThemeRow)
+                    topToBottom(seasonalThemeRow, experimentalFeaturesRow)
+                    topToBottom(tokenInfoSourceRow, seasonalThemeRow)
                     toBottomPx(tokenInfoSourceRow, navigationController?.bottomInset ?: 0)
                 } else {
                     toBottomPx(
@@ -360,7 +369,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             toCenterX(scrollView)
             toBottom(scrollView)
         }

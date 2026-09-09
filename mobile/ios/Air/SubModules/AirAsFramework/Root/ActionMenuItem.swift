@@ -42,16 +42,12 @@ private struct ActionMenuIcon: View {
 
 private struct ActionMenuIconBackground: View {
     let item: SplitHomeActionItem
+    private let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
 
     var body: some View {
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             sharedContent
-                // Liquid Glass extends past its shape; 64.8 pt aligns its visible edge with the 67 pt asset.
-                .frame(width: 64.8, height: 64.8)
-                .glassEffect(
-                    .regular.tint(item.actionMenuGlassTint),
-                    in: .circle
-                )
+                .glassEffect(.clear, in: shape.inset(by: 1))
         } else {
             sharedContent
         }
@@ -62,6 +58,7 @@ private struct ActionMenuIconBackground: View {
             .resizable()
             .renderingMode(.original)
             .frame(width: 67, height: 67)
+            .clipShape(shape)
     }
 }
 
@@ -109,25 +106,13 @@ private extension SplitHomeActionItem {
 
     var actionMenuGlyphSize: CGSize {
         switch self {
-        case .buy: CGSize(width: 33, height: 33)
+        case .buy: CGSize(width: 41, height: 37)
         case .deposit: CGSize(width: 28, height: 34)
         case .swap: CGSize(width: 35, height: 42)
         case .sell: CGSize(width: 24, height: 40)
         case .send: CGSize(width: 28, height: 34)
         case .earn: CGSize(width: 36.002, height: 35.1)
         case .scan: CGSize(width: 33.841, height: 33.841)
-        }
-    }
-
-    var actionMenuGlassTint: Color {
-        switch self {
-        case .buy: Color(red: 1, green: 195 / 255, blue: 43 / 255)
-        case .deposit: Color(red: 160 / 255, green: 222 / 255, blue: 126 / 255)
-        case .swap: Color(red: 224 / 255, green: 162 / 255, blue: 243 / 255)
-        case .sell: Color(red: 1, green: 136 / 255, blue: 94 / 255)
-        case .send: Color(red: 114 / 255, green: 213 / 255, blue: 253 / 255)
-        case .earn: Color(red: 130 / 255, green: 177 / 255, blue: 1)
-        case .scan: Color(red: 189 / 255, green: 189 / 255, blue: 189 / 255)
         }
     }
 }

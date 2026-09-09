@@ -215,7 +215,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 is HeaderSpaceCell -> {
                     val cellLayoutParams = cellHolder.cell.layoutParams
                     val layoutManager =
-                        recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+                        recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset
+                            ?: return
                     val height =
                         (navigationController?.getSystemBars()?.top ?: 0) +
                             TokenHeaderView.navDefaultHeight +
@@ -286,7 +287,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
             if (showingTransactions == null) return
             val layoutManager =
-                recyclerView.layoutManager as LinearLayoutManagerAccurateOffset
+                recyclerView.layoutManager as? LinearLayoutManagerAccurateOffset ?: return
             updateScroll(
                 if (layoutManager.findFirstVisibleItemPosition() < 2) {
                     recyclerView.computeVerticalScrollOffset()
@@ -383,9 +384,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             updateScroll(
                 -offset.toInt() + computeVerticalScrollOffset()
             )
-            if (emptyView != null) {
+            emptyView?.let { emptyView ->
                 view.setConstraints {
-                    topToBottomPx(emptyView!!, headerView, offset.toInt())
+                    topToBottomPx(emptyView, headerView, offset.toInt())
                 }
             }
         }
@@ -527,20 +528,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
             )
         )
-        view.addView(
-            headerView,
-            ViewGroup.LayoutParams(
-                MATCH_PARENT,
-                (navigationController?.getSystemBars()?.top ?: 0) +
-                    TokenHeaderView.navDefaultHeight + headerView.contentHeight
-            )
-        )
-        headerView.setPaddingLocalized(
-            additionalTabletPadding + systemBarStartInset,
-            0,
-            systemBarEndInset,
-            0
-        )
+        HeaderSpaceCell(context).also { headerCell = it }.apply {
+            addView(headerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            setConstraints {
+                toCenterX(headerView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            }
+        }
         view.addView(navigationBar, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         view.addView(skeletonView)
         if (areTradeActionsAvailable) {
@@ -611,12 +604,13 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     }
 
     private fun onClick(identifier: HeaderActionsView.Identifier) {
+        val window = window ?: return
         when (identifier) {
             HeaderActionsView.Identifier.RECEIVE -> {
                 val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
                 val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(receiveVC)
@@ -625,7 +619,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
             HeaderActionsView.Identifier.SEND -> {
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(SendVC(context, token.slug))
@@ -644,7 +638,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 val hasActiveStaking =
                     AccountStore.stakingData?.hasActiveStaking(token.slug) == true
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
                 if (hasActiveStaking) {
@@ -805,7 +799,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     ) {
                         TRANSACTION_CELL
                     } else if (indexPath.row == 0 || !transaction.dt.isSameDayAs(
-                            showingTransactions!![indexPath.row - 1].dt
+                            showingTransactions?.getOrNull(indexPath.row - 1)?.dt ?: transaction.dt
                         )
                     ) {
                         TRANSACTION_SMALL_FIRST_IN_DAY_CELL
@@ -823,15 +817,14 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         if (!isExpanding) updateScroll(recyclerView.computeVerticalScrollOffset())
     }
 
-    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell {
-        return when (cellType) {
+    override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
+        when (cellType) {
             HEADER_CELL -> {
-                if (headerCell == null) headerCell = HeaderSpaceCell(context)
-                headerCell!!
+                headerCell ?: HeaderSpaceCell(context).also { headerCell = it }
             }
 
             ACTIONS_CELL -> {
-                actionsView = HeaderActionsView(
+                val actionsView = HeaderActionsView(
                     context,
                     tabs = HeaderActionsView.headerTabs(context, token.isEarnAvailable)
                         .filterNot { it.identifier == HeaderActionsView.Identifier.SWAP },
@@ -839,46 +832,41 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                         onClick(it)
                     }
                 )
-                actionsView?.setPadding(0, 0, 0, 16.dp)
-                actionsView?.updateActions(account, token.slug)
+                this.actionsView = actionsView
+                actionsView.setPadding(0, 0, 0, 16.dp)
+                actionsView.updateActions(account, token.slug)
                 if (account.accountType == MAccount.AccountType.VIEW) {
-                    actionsView?.updateLayoutParams {
+                    actionsView.updateLayoutParams {
                         height = 0
                     }
                 }
-                actionsView!!
+                actionsView
             }
 
             CHART_CELL -> {
-                if (tokenChartCell == null) {
-                    tokenChartCell = TokenChartCell(
-                        recyclerView,
-                        activePeriod = tokenVM.selectedPeriod,
-                        onSelectedPeriodChanged = {
-                            tokenVM.selectedPeriod = it
-                        },
-                        onAgentPrompt = ::openAgent,
-                        onHeightChange = { isExpanding, _ ->
-                            onHeightChange(isExpanding)
-                        }
-                    )
-                }
-                return tokenChartCell!!
+                tokenChartCell ?: TokenChartCell(
+                    recyclerView,
+                    activePeriod = tokenVM.selectedPeriod,
+                    onSelectedPeriodChanged = {
+                        tokenVM.selectedPeriod = it
+                    },
+                    onAgentPrompt = ::openAgent,
+                    onHeightChange = { isExpanding, _ ->
+                        onHeightChange(isExpanding)
+                    }
+                ).also { tokenChartCell = it }
             }
 
             INFO_CELL -> {
-                if (tokenInfoCell == null) {
-                    tokenInfoCell = TokenInfoCell(
-                        recyclerView,
-                        onHeightChange = { isExpanding, _ ->
-                            onHeightChange(isExpanding)
-                        },
-                        onShowInfo = { title, text ->
-                            showAlert(title, text)
-                        }
-                    )
-                }
-                tokenInfoCell!!
+                tokenInfoCell ?: TokenInfoCell(
+                    recyclerView,
+                    onHeightChange = { isExpanding, _ ->
+                        onHeightChange(isExpanding)
+                    },
+                    onShowInfo = { title, text ->
+                        showAlert(title, text)
+                    }
+                ).also { tokenInfoCell = it }
             }
 
             TRANSACTION_CELL -> {
@@ -923,7 +911,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 throw Error()
             }
         }
-    }
 
     override fun recyclerViewConfigureCell(
         rv: RecyclerView,
@@ -965,15 +952,17 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
 
             TRANSACTION_SECTION -> {
-                if (indexPath.row < (showingTransactions?.size ?: 0)) {
+                val transactions = showingTransactions
+                val transaction = transactions?.getOrNull(indexPath.row)
+                if (transactions != null && transaction != null) {
                     val homeTransactionCell = cellHolder.cell as ActivityCell
-                    val transaction = showingTransactions!![indexPath.row]
+                    val nextTransaction = transactions.getOrNull(indexPath.row + 1)
+                    val previousTransaction = transactions.getOrNull(indexPath.row - 1)
                     val isFirstInDay =
-                        (indexPath.row == showingTransactions!!.size - 1) ||
+                        nextTransaction == null ||
                             (
-                                !transaction.dt.isSameDayAs(
-                                    showingTransactions!![indexPath.row + 1].dt
-                                ) && tokenVM.activityLoader?.loadedAll != false
+                                !transaction.dt.isSameDayAs(nextTransaction.dt) &&
+                                    tokenVM.activityLoader?.loadedAll != false
                                 )
                     homeTransactionCell.configure(
                         transaction,
@@ -981,9 +970,8 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                         account.isMultichain,
                         ActivityCell.Positioning(
                             isFirst = indexPath.row == 0,
-                            isFirstInDay = indexPath.row == 0 || !transaction.dt.isSameDayAs(
-                                showingTransactions!![indexPath.row - 1].dt
-                            ),
+                            isFirstInDay = previousTransaction == null ||
+                                !transaction.dt.isSameDayAs(previousTransaction.dt),
                             isLastInDay = isFirstInDay,
                             isLast =
                                 !topTabsEnabled &&
@@ -993,12 +981,9 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                                 oldTransactions?.contains(transaction.getStableId()) == false,
                             isAddedAsNewDay =
                                 isFirstInDay &&
-                                    (
-                                        oldTransactionsFirstDt == null ||
-                                            !transaction.dt.isSameDayAs(
-                                                oldTransactionsFirstDt!!
-                                            )
-                                        ),
+                                    oldTransactionsFirstDt?.let {
+                                        !transaction.dt.isSameDayAs(it)
+                                    } != false,
                             revealsFromZero = topTabsEnabled
                         )
                     )
@@ -1055,9 +1040,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override fun recyclerViewCellItemId(rv: RecyclerView, indexPath: IndexPath): String? {
         when (indexPath.section) {
             TRANSACTION_SECTION -> {
-                if (indexPath.row < (showingTransactions?.size ?: 0)) {
-                    return showingTransactions!![indexPath.row].getStableId()
-                }
+                showingTransactions?.getOrNull(indexPath.row)?.let { return it.getStableId() }
             }
         }
         return super.recyclerViewCellItemId(rv, indexPath)

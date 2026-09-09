@@ -29,7 +29,7 @@ object NetworkUtils {
             var connection: HttpURLConnection? = null
             try {
                 val url = URL(urlString)
-                connection = url.openConnection() as HttpURLConnection
+                connection = url.openConnection() as? HttpURLConnection ?: return null
                 connection.requestMethod = method.value
                 connection.doInput = true
                 connection.connectTimeout = connectTimeout

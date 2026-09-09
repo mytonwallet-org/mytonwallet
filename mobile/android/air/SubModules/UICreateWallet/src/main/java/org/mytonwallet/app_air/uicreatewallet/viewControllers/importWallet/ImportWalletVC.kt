@@ -312,7 +312,7 @@ class ImportWalletVC(
                 prevRightWordInput = wordInput
             }
 
-            topToBottom(continueButton, prevLeftWordInput!!, 16f)
+            prevLeftWordInput?.let { topToBottom(continueButton, it, 16f) }
             toCenterX(continueButton, 32f)
             toBottomPx(
                 continueButton,
@@ -439,9 +439,9 @@ class ImportWalletVC(
 
     private var activeField: WWordInput? = null
     private fun makeFieldVisible(view: WWordInput) {
-        if (activeField != view) activeField = view
-        scrollView.makeViewVisible(activeField!!)
-        suggestionView.attachToWordInput(activeField!!)
+        activeField = view
+        scrollView.makeViewVisible(view)
+        suggestionView.attachToWordInput(view)
     }
 
     private fun showMnemonicAlert() {
@@ -454,13 +454,14 @@ class ImportWalletVC(
     }
 
     override fun walletCanBeImported(words: Array<String>) {
+        val window = window ?: return
         if (passedEnclaveToken == null) {
             continueButton.isLoading = false
             view.unlockView()
             push(
                 SetPasscodeVC(context, true, null) { enclaveToken, biometricsActivated ->
                     importWalletVM.finalizeAccount(
-                        window!!,
+                        window,
                         network,
                         words,
                         biometricsActivated,
@@ -473,7 +474,7 @@ class ImportWalletVC(
                 }
             )
         } else {
-            importWalletVM.finalizeAccount(window!!, network, words, null, 0, passedEnclaveToken)
+            importWalletVM.finalizeAccount(window, network, words, null, 0, passedEnclaveToken)
         }
     }
 
@@ -507,7 +508,7 @@ class ImportWalletVC(
                         viewController = this,
                         accountId = accountId
                     )
-                    window!!.dismissLastNav()
+                    window?.dismissLastNav()
                 }
             }
         }

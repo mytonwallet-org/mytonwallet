@@ -1,0 +1,37 @@
+[
+ {
+  "url": "/swap/history/UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+  "request": {
+   "fromTimestamp": 1788462358565,
+   "toTimestamp": 1788462682002,
+   "hashes": [
+    "llavy3Q/XBVWY/2TFi6RXeh7N1c1bwaHMm0T43ny0O8=",
+    "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+   ],
+   "isCex": false,
+   "swapVersion": 3
+  },
+  "response": [
+   {
+    "id": "2544987",
+    "timestamp": 1788462416199,
+    "from": "ton:EQD0vdSA_NedR9uvbgN9EikRX-suesDxGeFg69XQMavfLqIw",
+    "fromAmount": "50.000000000000000000",
+    "to": "ton:EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo",
+    "toAmount": "5729.530427909000000000",
+    "status": "completed",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "rDZoc5OhOCvTD7r+eyJIYgf9dfJg9BsTMxEFVQ8MKLk="
+    ],
+    "exchanger": "omniston",
+    "msgHash": "1/5G5PcwLaBHtBQ8bSx+F/28Ooyoty0b1S6fZNkmRW0=",
+    "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+    "networkFee": "0.205",
+    "ourFee": "0.4375",
+    "ourFeeMode": "included"
+   }
+  ]
+ }
+]

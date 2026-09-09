@@ -2,12 +2,12 @@ package org.mytonwallet.app_air.uimarket.viewControllers.market
 
 import android.os.SystemClock
 import java.lang.ref.WeakReference
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.cachedMarketAssets
-import org.mytonwallet.app_air.walletcore.api.fetchMarketAssets
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
@@ -20,7 +20,7 @@ class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
     }
 
     private val delegate = WeakReference(delegate)
-    private var marketResponse: MApiMarketAssetsResponse? = WalletCore.cachedMarketAssets()
+    private var marketResponse: MApiMarketAssetsResponse? = TokenStore.cachedMarketAssets()
     private var allSections = marketResponse?.let(::buildSections) ?: emptyList()
     private var query = ""
     private var observingWalletCore = false
@@ -64,9 +64,12 @@ class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
         val now = SystemClock.elapsedRealtime()
         if (lastFetchedAt?.let { now - it < REFRESH_INTERVAL_MS } == true) return
         isFetching = true
-        WalletCore.fetchMarketAssets { res, err ->
+        WalletCore.call(
+            ApiMethod.Tokens.FetchMarketAssets(WGlobalStorage.getLangCode())
+        ) { raw, res, err ->
             isFetching = false
-            if (!observingWalletCore || err != null || res == null) return@fetchMarketAssets
+            if (!observingWalletCore || err != null || res == null) return@call
+            TokenStore.cacheMarketAssets(raw)
             lastFetchedAt = SystemClock.elapsedRealtime()
             marketResponse = res
             rebuildSections()

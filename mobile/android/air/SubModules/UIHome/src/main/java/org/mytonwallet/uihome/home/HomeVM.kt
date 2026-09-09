@@ -9,12 +9,11 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.requestDAppList
-import org.mytonwallet.app_air.walletcore.api.swapGetAssets
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -178,7 +177,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
                 swapAssetsRetryScheduled = true
                 swapAssetsRetryHandler.postDelayed({
                     if (!TokenStore.swapAssetsLoaded) {
-                        WalletCore.swapGetAssets(true) { _, _ ->
+                        TokenStore.loadSwapAssets(true) { _, _ ->
                             swapAssetsRetryScheduled = false
                             if (!isDestroyed) dataUpdated(updateBalance)
                         }
@@ -272,7 +271,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
                 if (waitingForNetwork) {
                     waitingForNetwork = false
                     delegate.get()?.loadStakingData()
-                    WalletCore.requestDAppList(showingAccountId)
+                    DappsStore.refresh(showingAccountId)
                 }
             }
 

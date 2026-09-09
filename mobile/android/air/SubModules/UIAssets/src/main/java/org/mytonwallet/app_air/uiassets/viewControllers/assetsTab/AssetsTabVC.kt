@@ -328,11 +328,11 @@ class AssetsTabVC(
                         collectiblesVC,
                         identifier = TAB_COLLECTIBLES,
                         onMenuPressed = if (showCollectionsMenu) {
-                            { v ->
+                            menu@{ v ->
                                 CollectionsMenuHelpers.presentCollectionsMenuOn(
                                     showingAccountId,
                                     v,
-                                    navigationController!!,
+                                    navigationController ?: return@menu,
                                     onReorderTapped = {
                                         openReordering(collectiblesVC)
                                     },
@@ -365,11 +365,11 @@ class AssetsTabVC(
                                     collectiblesVC,
                                     identifier = TAB_COLLECTIBLES,
                                     onMenuPressed = if (showCollectionsMenu) {
-                                        { v ->
+                                        menu@{ v ->
                                             CollectionsMenuHelpers.presentCollectionsMenuOn(
                                                 showingAccountId,
                                                 v,
-                                                navigationController!!,
+                                                navigationController ?: return@menu,
                                                 onReorderTapped = {
                                                     openReordering(collectiblesVC)
                                                 },
@@ -443,9 +443,12 @@ class AssetsTabVC(
                                                         ),
                                                         LocaleController.getString("Yes"),
                                                         buttonPressed = {
+                                                            val accountId =
+                                                                AccountStore.activeAccountId
+                                                                    ?: return@showAlert
                                                             val homeNftCollections =
                                                                 WGlobalStorage.getHomeNftCollections(
-                                                                    AccountStore.activeAccountId!!
+                                                                    accountId
                                                                 )
                                                             val collectionChain =
                                                                 when (collectionMode) {
@@ -464,7 +467,7 @@ class AssetsTabVC(
                                                                     it.chain == collectionChain
                                                             }
                                                             WGlobalStorage.setHomeNftCollections(
-                                                                AccountStore.activeAccountId!!,
+                                                                accountId,
                                                                 homeNftCollections
                                                             )
                                                             WalletCore.notifyEvent(
@@ -619,11 +622,11 @@ class AssetsTabVC(
                 segmentedController.updateOnMenuPressed(
                     identifier = TAB_COLLECTIBLES,
                     onMenuPressed = if (showCollectionsMenu) {
-                        { v ->
+                        menu@{ v ->
                             CollectionsMenuHelpers.presentCollectionsMenuOn(
                                 showingAccountId,
                                 v,
-                                navigationController!!,
+                                navigationController ?: return@menu,
                                 onReorderTapped = {
                                     openReordering(collectiblesVC)
                                 },

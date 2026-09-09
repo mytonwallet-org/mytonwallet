@@ -86,9 +86,9 @@ class ExploreLargeConnectedItemCell(
             imageView.scaleType = ImageView.ScaleType.CENTER_INSIDE
             val drawable = context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_details
-            )!!
+            )
             imageView.setImageDrawable(
-                drawable.resize(context, 30.dp, 30.dp, WColor.SecondaryText.color)
+                drawable?.resize(context, 30.dp, 30.dp, WColor.SecondaryText.color)
             )
             titleLabel.text = LocaleController.getString("Settings")
         }

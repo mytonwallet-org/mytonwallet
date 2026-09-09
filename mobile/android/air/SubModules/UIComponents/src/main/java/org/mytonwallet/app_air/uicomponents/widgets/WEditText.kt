@@ -113,11 +113,7 @@ open class WEditText(
         for (line in lines) {
             currentEditText.setText(line)
             try {
-                if (currentEditText.nextFocusView?.get() != null) {
-                    currentEditText = currentEditText.nextFocusView?.get()!!
-                } else {
-                    break
-                }
+                currentEditText = currentEditText.nextFocusView?.get() ?: break
             } catch (e: Exception) {
                 break
             }

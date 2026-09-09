@@ -2,25 +2,26 @@ package org.mytonwallet.app_air.walletcore.moshi.api
 
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
+import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiConnectionType
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.MSignDataPayload
+import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
+import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentInfo
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 
-@JsonSealed("type", fallbackToNull = true)
 sealed class ApiUpdate {
 
     interface ApiUpdateDappSignRequest {
@@ -30,7 +31,6 @@ sealed class ApiUpdate {
         val isDangerous: Boolean
     }
 
-    @JsonSealedSubtype("dappSendTransactions")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappSendTransactions(
         override val promiseId: String,
@@ -52,7 +52,6 @@ sealed class ApiUpdate {
         data class Emulation(val activities: List<MApiTransaction>, val realFee: BigInteger)
     }
 
-    @JsonSealedSubtype("dappSignData")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappSignData(
         override val promiseId: String,
@@ -85,7 +84,6 @@ sealed class ApiUpdate {
         )
     }
 
-    @JsonSealedSubtype("dappConnect")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappConnect(
         val identifier: String? = null,
@@ -103,15 +101,12 @@ sealed class ApiUpdate {
             get() = multichainResolution == "needs-new-wallet"
     }
 
-    @JsonSealedSubtype("dappAlreadyConnected")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappAlreadyConnected(val url: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("dappDisconnect")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappDisconnect(val accountId: String, val url: String) : ApiUpdate()
 
-    @JsonSealedSubtype("dappLoading")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappLoading(
         val connectionType: ApiConnectionType,
@@ -122,26 +117,102 @@ sealed class ApiUpdate {
         val returnUrl: String? = null
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("updateTokens")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateTokens(
         val arePricesFresh: Boolean,
         val tokens: Map<String, ApiTokenWithPrice>
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("dappConnectComplete")
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateUpdatingStatus(val kind: String, val isUpdating: Boolean? = null) :
+        ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateShowError(val error: String? = null) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateOpenUrl(val url: String, val isExternal: Boolean? = null) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateAccountConfig(
+        val accountId: String,
+        val accountConfig: JSONObject? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateStaking(
+        val accountId: String,
+        val states: List<StakingState?>,
+        val totalProfit: BigInteger,
+        val shouldUseNominators: Boolean? = null
+    ) : ApiUpdate() {
+        fun toStakingData() = MUpdateStaking(accountId, states, totalProfit, shouldUseNominators)
+    }
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateConfig(
+        val isLimited: Boolean? = null,
+        val isCopyStorageEnabled: Boolean? = null,
+        val supportAccountsCount: Double? = null,
+        val countryCode: String? = null,
+        val isAppUpdateRequired: Boolean? = null,
+        val swapVersion: Int? = null,
+        val seasonalTheme: String? = null,
+        val allowedOnOffRampCurrencies: List<String>? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateNftSent(val accountId: String, val nftAddress: String) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateNftReceived(val accountId: String, val nft: ApiNft? = null) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateAccountDomainData(
+        val accountId: String,
+        val expirationByAddress: Map<String, Long>? = null,
+        val linkedAddressByAddress: Map<String, String>? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateBalances(
+        val accountId: String,
+        val balances: Map<String, BigInteger>? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateNewLocalActivities(
+        val accountId: String,
+        val activities: List<MApiTransaction?>? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateNewActivities(
+        val accountId: String,
+        val chain: MBlockchain? = null,
+        val activities: List<MApiTransaction?>? = null,
+        val pendingActivities: List<MApiTransaction?>? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateNfts(
+        val accountId: String,
+        val chain: MBlockchain? = null,
+        val nfts: List<ApiNft>? = null,
+        val collectionAddress: String? = null,
+        val isFullLoading: Boolean? = null,
+        val streamedAddresses: List<String>? = null
+    ) : ApiUpdate()
+
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappConnectComplete(val type: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("dappDisconnected")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappDisconnected(val url: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("dappCloseLoading")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappCloseLoading(val type: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("dappRequestSettled")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDappRequestSettled(
         val promiseId: String,
@@ -149,11 +220,9 @@ sealed class ApiUpdate {
         val error: String? = null
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("updateDapps")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateDapps(val type: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("initialActivities")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateInitialActivities(
         val accountId: String,
@@ -162,7 +231,6 @@ sealed class ApiUpdate {
         val bySlug: Map<String, List<MApiTransaction>>
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("updateWalletVersions")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletVersions(
         val accountId: String,
@@ -178,11 +246,9 @@ sealed class ApiUpdate {
         )
     }
 
-    @JsonSealedSubtype("updateCurrencyRates")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateCurrencyRates(val rates: Map<String, Double>) : ApiUpdate()
 
-    @JsonSealedSubtype("updateAccount")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateUpdateAccount(
         val accountId: String,
@@ -198,15 +264,12 @@ sealed class ApiUpdate {
 
     /* WalletConnect Pay */
 
-    @JsonSealedSubtype("walletConnectPayLoading")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayLoading(val accountId: String) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayCloseLoading")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayCloseLoading(val type: String? = null) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPaySignTransaction")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPaySignTransaction(
         val promiseId: String,
@@ -223,11 +286,9 @@ sealed class ApiUpdate {
         val validUntil: Long? = null
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPaySignTransactionComplete")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPaySignTransactionComplete(val accountId: String) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPaySignData")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPaySignData(
         val promiseId: String,
@@ -239,21 +300,17 @@ sealed class ApiUpdate {
         val paymentOption: WcPayPaymentOption? = null
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPaySignDataComplete")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPaySignDataComplete(val accountId: String) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayDataCollection")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayDataCollection(val promiseId: String, val url: String) :
         ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayDataCollectionComplete")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayDataCollectionComplete(val type: String? = null) :
         ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayOptionSelection")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayOptionSelection(
         val promiseId: String,
@@ -266,12 +323,10 @@ sealed class ApiUpdate {
         val shouldSwitchWallet: Boolean? = null
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayOptionSelectionComplete")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayOptionSelectionComplete(val type: String? = null) :
         ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayProcessing")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayProcessing(
         val accountId: String,
@@ -279,7 +334,6 @@ sealed class ApiUpdate {
         val operationChain: String
     ) : ApiUpdate()
 
-    @JsonSealedSubtype("walletConnectPayPaymentComplete")
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletConnectPayPaymentComplete(
         val accountId: String,

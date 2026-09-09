@@ -3,21 +3,15 @@ package org.mytonwallet.app_air.walletcore.moshi
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 
-@JsonSealed("type")
 sealed class ApiParsedPayload {
 
-    @JsonSealedSubtype("comment")
     @JsonClass(generateAdapter = true)
     data class ApiCommentPayload(val comment: String?, val text: String?) : ApiParsedPayload()
 
-    @JsonSealedSubtype("encrypted-comment")
     @JsonClass(generateAdapter = true)
     data class ApiEncryptedCommentPayload(val encryptedComment: String) : ApiParsedPayload()
 
-    @JsonSealedSubtype("nft:transfer")
     @JsonClass(generateAdapter = true)
     data class ApiNftTransferPayload(
         val queryId: BigInteger,
@@ -32,7 +26,6 @@ sealed class ApiParsedPayload {
         val comment: String? = null
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("nft:ownership-assigned")
     @JsonClass(generateAdapter = true)
     data class ApiNftOwnershipAssignedPayload(
         val queryId: BigInteger,
@@ -42,7 +35,6 @@ sealed class ApiParsedPayload {
         val comment: String? = null
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("tokens:transfer")
     @JsonClass(generateAdapter = true)
     data class ApiTokensTransferPayload(
         val queryId: BigInteger,
@@ -55,7 +47,6 @@ sealed class ApiParsedPayload {
         val slug: String
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("tokens:transfer-non-standard")
     @JsonClass(generateAdapter = true)
     data class ApiTokensTransferNonStandardPayload(
         val queryId: BigInteger,
@@ -64,11 +55,9 @@ sealed class ApiParsedPayload {
         val slug: String
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("unknown")
     @JsonClass(generateAdapter = true)
     data class ApiUnknownPayload(val base64: String) : ApiParsedPayload()
 
-    @JsonSealedSubtype("tokens:burn")
     @JsonClass(generateAdapter = true)
     data class ApiTokensBurnPayload(
         val queryId: BigInteger,
@@ -79,27 +68,22 @@ sealed class ApiParsedPayload {
         val isLiquidUnstakeRequest: Boolean
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("liquid-staking:deposit")
     @JsonClass(generateAdapter = true)
     data class ApiLiquidStakingDepositPayload(
         val queryId: BigInteger,
         val appId: BigInteger? = null
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("liquid-staking:withdrawal-nft")
     @JsonClass(generateAdapter = true)
     data class ApiLiquidStakingWithdrawalNftPayload(val queryId: BigInteger) : ApiParsedPayload()
 
-    @JsonSealedSubtype("liquid-staking:withdrawal")
     @JsonClass(generateAdapter = true)
     data class ApiLiquidStakingWithdrawalPayload(val queryId: BigInteger) : ApiParsedPayload()
 
-    @JsonSealedSubtype("token-bridge:pay-swap")
     @JsonClass(generateAdapter = true)
     data class ApiTokenBridgePaySwap(val queryId: BigInteger, val swapId: String) :
         ApiParsedPayload()
 
-    @JsonSealedSubtype("dns:change-record")
     @JsonClass(generateAdapter = true)
     data class ApiDnsChangeRecord(val queryId: BigInteger, val record: Record, val domain: String) :
         ApiParsedPayload() {
@@ -112,24 +96,20 @@ sealed class ApiParsedPayload {
         )
     }
 
-    @JsonSealedSubtype("vesting:add-whitelist")
     @JsonClass(generateAdapter = true)
     data class ApiVestingAddWhitelistPayload(val queryId: BigInteger, val address: String) :
         ApiParsedPayload()
 
-    @JsonSealedSubtype("single-nominator:withdraw")
     @JsonClass(generateAdapter = true)
     data class ApiSingleNominatorWithdrawPayload(val queryId: BigInteger, val amount: BigInteger) :
         ApiParsedPayload()
 
-    @JsonSealedSubtype("single-nominator:change-validator")
     @JsonClass(generateAdapter = true)
     data class ApiSingleNominatorChangeValidatorPayload(
         val queryId: BigInteger,
         val address: String
     ) : ApiParsedPayload()
 
-    @JsonSealedSubtype("liquid-staking:vote")
     @JsonClass(generateAdapter = true)
     data class ApiLiquidStakingVotePayload(
         val queryId: BigInteger,

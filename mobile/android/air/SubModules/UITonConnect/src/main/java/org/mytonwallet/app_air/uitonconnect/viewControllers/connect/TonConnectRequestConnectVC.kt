@@ -239,7 +239,7 @@ class TonConnectRequestConnectVC(
                 ) { success ->
                     buttonView.isLoading = false
                     if (success) {
-                        window!!.dismissLastNav()
+                        window?.dismissLastNav()
                     }
                 }
                 return@setOnClickListener
@@ -318,21 +318,24 @@ class TonConnectRequestConnectVC(
 
     private fun confirmHardware() {
         val update = update ?: return
-        val account = AccountStore.activeAccount!!
+        val window = window ?: return
+        val account = AccountStore.activeAccount ?: return
+        val tonAddress = account.tonAddress ?: return
+        val proof = update.proof ?: return
         val ledgerConnectVC = LedgerConnectVC(
             context,
             LedgerConnectVC.Mode.ConnectToSubmitTransfer(
-                account.tonAddress!!,
+                tonAddress,
                 signData = LedgerConnectVC.SignData.SignLedgerProof(
                     accountId = update.accountId,
                     operationChain = TON_CHAIN,
                     promiseId = update.promiseId,
-                    proof = update.proof!!
+                    proof = proof
                 ),
                 onDone = {
                     isConfirmed = true
-                    window!!.dismissLastNav {
-                        window!!.dismissLastNav {
+                    window.dismissLastNav {
+                        window.dismissLastNav {
                             returnToDappIfNeeded(update.promiseId)
                         }
                     }
@@ -341,11 +344,11 @@ class TonConnectRequestConnectVC(
             headerView = ConnectRequestConfirmView(context).apply { configure(update.dapp) }
         )
         val nav = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         nav.setRoot(ledgerConnectVC)
-        window!!.present(nav)
+        window.present(nav)
     }
 
     private fun confirmPasscode() {
@@ -386,11 +389,12 @@ class TonConnectRequestConnectVC(
         onCompletion: (success: Boolean) -> Unit
     ) {
         val update = update ?: return
+        val window = window ?: return
         isConfirmed = true
         WalletCore.recordTonConnectEvent("wallet-connect-accepted", promiseId)
 
         fun callback(account: MAccount) {
-            window!!.lifecycleScope.launch {
+            window.lifecycleScope.launch {
                 try {
                     val signResult = if (update.proof != null) {
                         WalletCore.call(
@@ -423,8 +427,9 @@ class TonConnectRequestConnectVC(
             }
         }
 
-        if (AccountStore.activeAccount?.accountId == update.accountId) {
-            callback(AccountStore.activeAccount!!)
+        val activeAccount = AccountStore.activeAccount
+        if (activeAccount != null && activeAccount.accountId == update.accountId) {
+            callback(activeAccount)
         } else {
             WalletCore.activateAccount(
                 accountId = update.accountId,
@@ -648,7 +653,7 @@ class TonConnectRequestConnectVC(
             buttonView.alpha = 1.0f
             buttonView.type = WButton.Type.PRIMARY
             buttonView.setText(
-                LocaleController.getString("Select Multichain Wallet"),
+                LocaleController.getString("Select multichain wallet"),
                 isAnimated = false
             )
             return
@@ -718,6 +723,7 @@ class TonConnectRequestConnectVC(
     }
 
     private fun openWalletSelection() {
+        val window = window ?: return
         val dappHost = update?.dapp?.host ?: ""
         val walletSelectionVC = WalletSelectionVC(
             context = context,
@@ -736,11 +742,11 @@ class TonConnectRequestConnectVC(
 
         // Open as regular modal (not bottom sheet) so push works inside it
         val navVC = WNavigationController(
-            window!!,
+            window,
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         navVC.setRoot(walletSelectionVC)
-        window!!.present(navVC)
+        window.present(navVC)
     }
 
     private fun isSelectedWalletConnectable(): Boolean {

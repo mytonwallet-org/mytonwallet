@@ -305,11 +305,6 @@ class PriceWidgetConfigurationVC(
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        WalletCore.unregisterObserver(this)
-    }
-
     var openSelectorsOnTokenReceive = false
     private fun openTokenSelector() {
         if (continueButton.isLoading || isDisappeared) {

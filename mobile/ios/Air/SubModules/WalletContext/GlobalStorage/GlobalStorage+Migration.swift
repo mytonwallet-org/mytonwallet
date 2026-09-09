@@ -1,6 +1,6 @@
 import Foundation
 
-public let STATE_VERSION: Int = 60
+public let STATE_VERSION: Int = 61
 
 private let log = Log("GlobalStorage+Migration")
 private let mainAccountId = "0-ton-mainnet"
@@ -278,6 +278,12 @@ extension GlobalStorage {
             // Web's 59→60 drops unneeded legacy `settings.authConfig`; iOS keeps auth config in the database
             // settings row instead, so there is nothing to clean in the global storage.
             self.stateVersion = 60
+        }
+
+        if self.stateVersion == 60 {
+            // Swap rows projected by the previous reconciler carry chain action ids; the backend id is canonical now
+            _clearActivities()
+            self.stateVersion = 61
         }
 
         assert(self.stateVersion == STATE_VERSION)

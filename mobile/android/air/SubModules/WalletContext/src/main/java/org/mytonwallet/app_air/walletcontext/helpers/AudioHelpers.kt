@@ -15,7 +15,7 @@ class AudioHelpers {
 
         fun play(context: Context, sound: Sound) {
             val audioManager =
-                context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
 
             if (audioManager.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
                 return

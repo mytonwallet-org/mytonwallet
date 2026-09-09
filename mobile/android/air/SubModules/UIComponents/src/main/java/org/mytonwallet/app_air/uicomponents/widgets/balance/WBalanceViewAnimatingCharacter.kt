@@ -86,20 +86,24 @@ data class WBalanceViewAnimatingCharacter(
         decimalsAlpha: Int
     ): List<WBalanceViewDrawingCharacterRect> {
         val easedProgress = ((elapsed - delay) / charAnimationDuration.toFloat()).coerceIn(0f, 1f)
+        val fromChar = prevChar ?: nextChar ?: return emptyList()
+        val toChar = nextChar ?: prevChar ?: return emptyList()
 
         val currentLeftOffset = lerp(
-            normalizedLeft(scale1, scale2, prevChar?.left ?: nextChar!!.left, prevIntegerPartWidth),
-            normalizedLeft(scale1, scale2, nextChar?.left ?: prevChar!!.left, integerPartWidth),
+            normalizedLeft(scale1, scale2, fromChar.left, prevIntegerPartWidth),
+            normalizedLeft(scale1, scale2, toChar.left, integerPartWidth),
             easedProgress
         )
 
         if (change == Change.NONE) {
+            val prevChar = prevChar ?: return emptyList()
+            val startChar = startChar ?: return emptyList()
             return listOf(
                 WBalanceViewDrawingCharacterRect(
                     leftOffset = currentLeftOffset,
-                    offsetY = if (prevChar!!.isDecimalPart) offset2 else 0f,
+                    offsetY = if (prevChar.isDecimalPart) offset2 else 0f,
                     yOffsetPercent = 0f,
-                    char = startChar!!,
+                    char = startChar,
                     textSize = prevChar.size,
                     color = prevChar.color,
                     alpha = if (prevChar.isDecimalOrBaseCurrency) decimalsAlpha else 255,
@@ -109,28 +113,24 @@ data class WBalanceViewAnimatingCharacter(
         }
 
         val color = ColorUtils.blendARGB(
-            prevChar?.color ?: nextChar!!.color,
-            nextChar?.color ?: prevChar!!.color,
+            fromChar.color,
+            toChar.color,
             easedProgress
         )
 
         val offsetY = lerp(
-            if (prevChar?.isDecimalPart ?: nextChar!!.isDecimalPart) offset2 else 0f,
-            if (nextChar?.isDecimalPart ?: prevChar!!.isDecimalPart) offset2 else 0f,
+            if (fromChar.isDecimalPart) offset2 else 0f,
+            if (toChar.isDecimalPart) offset2 else 0f,
             easedProgress
         )
 
         val alphaMult = lerp(
-            if (prevChar?.isDecimalOrBaseCurrency
-                ?: nextChar!!.isDecimalOrBaseCurrency
-            ) {
+            if (fromChar.isDecimalOrBaseCurrency) {
                 decimalsAlpha.toFloat()
             } else {
                 255f
             },
-            if (nextChar?.isDecimalOrBaseCurrency
-                ?: prevChar!!.isDecimalOrBaseCurrency
-            ) {
+            if (toChar.isDecimalOrBaseCurrency) {
                 decimalsAlpha.toFloat()
             } else {
                 255f
@@ -139,14 +139,14 @@ data class WBalanceViewAnimatingCharacter(
         )
 
         val textSize = lerp(
-            prevChar?.size ?: nextChar!!.size,
-            nextChar?.size ?: prevChar!!.size,
+            fromChar.size,
+            toChar.size,
             easedProgress
         )
 
         val scaleMultiplier = lerp(
-            if (prevChar?.isDecimalPart ?: nextChar!!.isDecimalPart) 1f else 0f,
-            if (nextChar?.isDecimalPart ?: prevChar!!.isDecimalPart) 1f else 0f,
+            if (fromChar.isDecimalPart) 1f else 0f,
+            if (toChar.isDecimalPart) 1f else 0f,
             easedProgress
         )
 

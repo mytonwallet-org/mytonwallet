@@ -222,7 +222,7 @@ class TokenChartCell(
             endPercentage = 1f
             if (!areChartsFadeOut) {
                 isChangingPeriod = true
-                configure(token!!, null, activePeriod)
+                token?.let { configure(it, null, activePeriod) }
             }
             onSelectedPeriodChanged?.invoke(activePeriod)
         }
@@ -377,7 +377,9 @@ class TokenChartCell(
         super.setupViews()
 
         expandedChartView.layoutParams = expandedChartView.layoutParams.apply {
-            height = (((parent as ViewGroup).width.toFloat() - 20.dp) * 79f / 392f).toInt() + 28.dp
+            height =
+                ((((parent as? ViewGroup)?.width ?: 0).toFloat() - 20.dp) * 79f / 392f).toInt() +
+                28.dp
         }
         if (isExpanded) {
             collapsedChartView.visibility = INVISIBLE
@@ -869,48 +871,38 @@ class TokenChartCell(
             } else {
                 MBaseCurrency.USD.sign
             }
-        val price = if (highlightedHistoryData.isNullOrEmpty()) {
-            token!!.price
-        } else {
-            highlightedHistoryData!!.last()[1]
-        }
+        val price = highlightedHistoryData?.lastOrNull()?.get(1) ?: token?.price
         val firstPrice = (highlightedHistoryData ?: historyData)?.firstOrNull {
             it[1] != 0.0
         }?.get(1)
+        val highlight = highlight
         if (highlight == null) {
             if (token?.price != null) {
                 percentChange = firstPrice?.let { firstPriceInChart ->
-                    ((price!! - firstPriceInChart) / firstPriceInChart * 10000)
+                    price?.let { (it - firstPriceInChart) / firstPriceInChart * 10000 }
                 }?.let {
                     kotlin.math.round(it) / 100
                 }
+                val percentChange = percentChange
                 if (percentChange != null) {
                     if (priceChangeLabel.alpha == 0f) priceChangeLabel.fadeIn()
                     priceChangeLabel.text =
                         "\u202D" +
                         (
-                            if (percentChange!! >
-                                0
-                            ) {
+                            if (percentChange > 0) {
                                 "+$signSpace"
-                            } else if (percentChange!! <
-                                0
-                            ) {
+                            } else if (percentChange < 0) {
                                 "-$signSpace"
                             } else {
                                 ""
                             }
                             ).plus(
-                            kotlin.math.abs(percentChange!!).withLocalizedNumbers.plus("%")
+                            kotlin.math.abs(percentChange).withLocalizedNumbers.plus("%")
                         )
                     priceChangeLabel.setTextColor(
-                        if (percentChange!! >
-                            0
-                        ) {
+                        if (percentChange > 0) {
                             WColor.Green.color
-                        } else if (percentChange!! <
-                            0
-                        ) {
+                        } else if (percentChange < 0) {
                             WColor.Red.color
                         } else {
                             WColor.SecondaryText.color
@@ -946,7 +938,7 @@ class TokenChartCell(
             } ?: ""
         } else {
             val decimals = token?.decimals ?: 9
-            val priceBigInt = highlight!!.y.toDouble().toBigInteger(decimals)!!
+            val priceBigInt = highlight.y.toDouble().toBigInteger(decimals) ?: return
             priceLabel.text = priceBigInt.toString(
                 decimals,
                 baseCurrencySign,
@@ -955,7 +947,7 @@ class TokenChartCell(
                 forceCurrencyToRight = false
             )
             priceChangeLabel.text =
-                Date(highlight!!.x.toLong() * 1000).formatDateAndTime(activePeriod)
+                Date(highlight.x.toLong() * 1000).formatDateAndTime(activePeriod)
         }
         updatePriceChangeLabelColor()
     }

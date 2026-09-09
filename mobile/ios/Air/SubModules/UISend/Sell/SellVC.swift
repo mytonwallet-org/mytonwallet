@@ -125,33 +125,13 @@ public class SellVC: WViewController {
                 let amountString: String
                 do {
                     let balance = balancesStore.getAccountBalances(accountId: account.id)[tokenSlug] ?? .zero
-                    let chainConfig = getChainConfig(chain: chain)
-                    var amount: BigInt?
-                    if chainConfig.canTransferFullNativeBalance {
-                        amount = balance
-                    } else {
-                        do {
-                            let draftResult = try await Api.checkTransactionDraft(chain: chain, options: .init(
-                                accountId: account.id,
-                                toAddress: chainConfig.feeCheckAddress,
-                                amount: balance,
-                                payload: nil,
-                                stateInit: nil,
-                                tokenAddress: nil,
-                                allowGasless: nil
-                            ))
-                            let explainedFee = draftResult.explainedFee
-                            amount = getMaxTransferAmount(.init(
-                                tokenBalance: balance,
-                                tokenSlug: tokenSlug,
-                                fullFee: explainedFee?.fullFee?.terms,
-                                canTransferFullBalance: explainedFee?.canTransferFullBalance ?? false
-                            ))
-                        } catch {
-                            amount = balance
-                        }
-                    }
-                    guard var amount, amount > 0 else {
+                    let estimatedAmount = try await SellFeeEstimate.maximumAmount(
+                        accountId: account.id,
+                        tokenSlug: tokenSlug,
+                        chain: chain,
+                        balance: balance
+                    )
+                    guard var amount = estimatedAmount, amount > 0 else {
                         throw DisplayError(text: lang("Insufficient balance"))
                     }
                     if let limit = Moonpay.Offramp.limitsBySlug[tokenSlug] {

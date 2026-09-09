@@ -56,17 +56,7 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
 
       updatePoisoningCacheFromActivities(mainActivities);
 
-      const currentActivities = Object.values(selectAccountState(global, accountId)?.activities?.byId ?? {});
-      const duplicateIds = await callApi(
-        'getBackendDexSwapIdsDuplicatedByTonAggregates',
-        accountId,
-        [...currentActivities, ...mainActivities],
-      );
-      global = getGlobal();
       global = addInitialActivities(global, accountId, mainActivities, bySlug, chain, mainHistoryHasMore);
-      if (duplicateIds?.length) {
-        global = applyActivitiesPatch(global, accountId, { upsert: [], removeIds: duplicateIds });
-      }
       setGlobal(global);
 
       void preloadTopTokenHistory(accountId, chain);

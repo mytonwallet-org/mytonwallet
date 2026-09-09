@@ -230,13 +230,14 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
             id = generateViewId()
             clickableError = true
             setOnClickListener {
+                val window = window ?: return@setOnClickListener
                 if (isReordering && !isListReordering) {
                     toggleReorder(false)
                 }
                 if (isListReordering) {
                     val checkedAccounts =
                         walletsViewControllers[tabs.indexOf(WalletCategory.ALL)].checkedAccounts
-                    AccountDialogHelpers.presentSignOut(window!!, checkedAccounts.toList())
+                    AccountDialogHelpers.presentSignOut(window, checkedAccounts.toList())
                 } else {
                     val walletCategory = selectedCategory
                     val vc = when (walletCategory) {
@@ -256,7 +257,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                         }
                     } as? WViewController ?: return@setOnClickListener
                     val nav = WNavigationController(
-                        window!!,
+                        window,
                         if (walletCategory == WalletCategory.LEDGER) {
                             WNavigationController.PresentationConfig()
                         } else {
@@ -267,8 +268,8 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                     ).apply {
                         setRoot(vc)
                     }
-                    window?.dismissLastNav {
-                        window?.present(nav)
+                    window.dismissLastNav {
+                        window.present(nav)
                     }
                 }
             }
@@ -355,8 +356,9 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
         if (scrollView.layoutParams == null) return
         val centered = isInCenteredWindow
         val isBottomSheet = navigationController?.isBottomSheet == true
+        val windowHeight = window?.windowView?.height ?: return
         scrollView.updateLayoutParams {
-            height = if (centered) MATCH_CONSTRAINT else window!!.windowView.height
+            height = if (centered) MATCH_CONSTRAINT else windowHeight
         }
         view.setConstraints {
             toStartPx(addNewWalletButton, 20.dp + if (centered) 0 else systemBarStartInset)
@@ -411,7 +413,6 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         segmentedController.onDestroy()
     }
 

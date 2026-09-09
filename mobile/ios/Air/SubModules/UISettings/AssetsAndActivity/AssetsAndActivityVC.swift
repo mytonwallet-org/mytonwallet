@@ -47,6 +47,7 @@ public class AssetsAndActivityVC: WViewController {
     private enum Item: Equatable, Hashable, Sendable {
         case baseCurrency
         case blockchains
+        case blockchainBadges
         case hideTinyTransfers
         case hideUnverifiedNfts
         case hiddenNfts
@@ -151,7 +152,7 @@ public class AssetsAndActivityVC: WViewController {
             if sectionId?.headerTitle != nil {
                 listConfig.headerMode = .supplementary
             }
-            if sectionId == .general || sectionId == .hideNoCost || sectionId == .percentChangeThreshold {
+            if sectionId == .general || sectionId == .blockchains || sectionId == .hideNoCost || sectionId == .percentChangeThreshold {
                 listConfig.footerMode = .supplementary
             }
             return NSCollectionLayoutSection.list(using: listConfig, layoutEnvironment: environment)
@@ -202,6 +203,15 @@ public class AssetsAndActivityVC: WViewController {
         let blockchainsReg = UICollectionView.CellRegistration<ChainDisplaySettingsRowCell, Item> { [weak self] cell, _, _ in
             guard let self else { return }
             cell.configure(chains: _account.displayedChains.map(\.0))
+        }
+
+        let blockchainBadgesReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
+            cell.title = lang("Blockchain Badges")
+            cell.isSelectable = false
+            cell.configureSwitchAccessory(isOn: !WalletTokenChainAccessoryExperiment.isEnabled) { isOn in
+                UserDefaults.standard.set(!isOn, forKey: WalletTokenChainAccessoryExperiment.userDefaultsKey)
+                WalletCoreData.notify(event: .tokensChanged)
+            }
         }
 
         let hideNoCostReg = UICollectionView.CellRegistration<SimpleGroupCell, Item> { cell, _, _ in
@@ -291,6 +301,8 @@ public class AssetsAndActivityVC: WViewController {
                 return collectionView.dequeueConfiguredReusableCell(using: baseCurrencyReg, for: indexPath, item: item)
             case .blockchains:
                 return collectionView.dequeueConfiguredReusableCell(using: blockchainsReg, for: indexPath, item: item)
+            case .blockchainBadges:
+                return collectionView.dequeueConfiguredReusableCell(using: blockchainBadgesReg, for: indexPath, item: item)
             case .hideTinyTransfers:
                 return collectionView.dequeueConfiguredReusableCell(using: hideTinyTransfersReg, for: indexPath, item: item)
             case .hideUnverifiedNfts:
@@ -328,6 +340,10 @@ public class AssetsAndActivityVC: WViewController {
             view.text = lang("Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.")
         }
 
+        let blockchainBadgesFooterReg = UICollectionView.SupplementaryRegistration<SimpleGroupSectionFooter>(elementKind: UICollectionView.elementKindSectionFooter) { view, _, _ in
+            view.text = lang("$settings_blockchain_badges_description")
+        }
+
         let percentChangeThresholdFooterReg = UICollectionView.SupplementaryRegistration<SimpleGroupSectionFooter>(elementKind: UICollectionView.elementKindSectionFooter) { view, _, _ in
             view.text = lang("$settings_token_change_threshold_description")
         }
@@ -340,6 +356,8 @@ public class AssetsAndActivityVC: WViewController {
                 switch self?.dataSource.sectionIdentifier(for: indexPath.section) {
                 case .general:
                     return collectionView.dequeueConfiguredReusableSupplementary(using: baseCurrencyFooterReg, for: indexPath)
+                case .blockchains:
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: blockchainBadgesFooterReg, for: indexPath)
                 case .hideNoCost:
                     return collectionView.dequeueConfiguredReusableSupplementary(using: hideNoCostFooterReg, for: indexPath)
                 case .percentChangeThreshold:
@@ -363,8 +381,8 @@ public class AssetsAndActivityVC: WViewController {
         snapshot.reconfigureItems([.hiddenNfts])
         if account.orderedChains.count > 1 {
             snapshot.appendSections([.blockchains])
-            snapshot.appendItems([.blockchains])
-            snapshot.reconfigureItems([.blockchains])
+            snapshot.appendItems([.blockchains, .blockchainBadges])
+            snapshot.reconfigureItems([.blockchains, .blockchainBadges])
         }
         snapshot.appendSections([.hideNoCost])
         snapshot.appendItems(hasLocalizedTokenNames ? [.localizedTokenNames, .hideNoCost] : [.hideNoCost])
@@ -419,7 +437,7 @@ public class AssetsAndActivityVC: WViewController {
 extension AssetsAndActivityVC: UICollectionViewDelegate {
     public func collectionView(_: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .percentChangeThreshold: return false
+        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .blockchainBadges, .percentChangeThreshold: return false
         case .baseCurrency, .blockchains, .addToken, .hiddenNfts, .token, nil: return true
         }
     }
@@ -427,14 +445,14 @@ extension AssetsAndActivityVC: UICollectionViewDelegate {
     public func collectionView(_: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
         case .baseCurrency, .blockchains, .addToken, .hiddenNfts: return true
-        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .percentChangeThreshold, .token, nil: return false
+        case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .blockchainBadges, .percentChangeThreshold, .token, nil: return false
         }
     }
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if let identifier = dataSource.itemIdentifier(for: indexPath) {
             switch identifier {
-            case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .percentChangeThreshold, .token:
+            case .hideNoCost, .hideTinyTransfers, .hideUnverifiedNfts, .localizedTokenNames, .blockchainBadges, .percentChangeThreshold, .token:
                 break
             case .baseCurrency:
                 navigationController?.pushViewController(BaseCurrencyVC(isModal: isModal), animated: true)

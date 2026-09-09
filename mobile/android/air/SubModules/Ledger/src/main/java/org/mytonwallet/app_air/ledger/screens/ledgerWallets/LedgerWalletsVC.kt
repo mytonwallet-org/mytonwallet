@@ -239,12 +239,11 @@ class LedgerWalletsVC(
 
     override fun finalizedWallets(importedAccountsCount: Int) {
         if (prevAccountsCount == 0) {
-            push(
-                WalletContextManager.delegate?.get()?.getWalletAddedVC(
-                    false,
-                    importedAccountsCount
-                ) as WViewController
-            ) {
+            val walletAddedVC = WalletContextManager.delegate?.get()?.getWalletAddedVC(
+                false,
+                importedAccountsCount
+            ) as? WViewController ?: return
+            push(walletAddedVC) {
                 navigationController?.removePrevViewControllers()
             }
         } else {
@@ -255,7 +254,7 @@ class LedgerWalletsVC(
                     account = AccountStore.activeAccount
                 )
             }
-            window!!.dismissLastNav()
+            window?.dismissLastNav()
         }
     }
 

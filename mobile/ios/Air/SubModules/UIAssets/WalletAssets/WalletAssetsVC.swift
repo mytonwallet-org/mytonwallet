@@ -29,7 +29,7 @@ import WalletContext
     
     private var tabViewControllers: [DisplayAssetTab: any WSegmentedControllerContent] = [:]
     private var lastMeasuredWidth: CGFloat = 0
-    private var calculatedTabHeights: [ObjectIdentifier: CGFloat] = [:]
+    private var calculatedTabHeights: [ObjectIdentifier: (width: CGFloat, height: CGFloat)] = [:]
     private var lastReportedHasVisibleContent: Bool?
     
     private lazy var tabContextMenuProviders = WalletAssetsTabContextMenuProviders(
@@ -299,37 +299,39 @@ import WalletContext
 
     private var heightMeasurementWidth: CGFloat {
         let candidates: [CGFloat] = [
-            walletAssetsView.tabsContainer.bounds.width,
             walletAssetsView.bounds.width,
+            walletAssetsView.tabsContainer.bounds.width,
             lastMeasuredWidth,
         ]
         return candidates.first(where: { $0 > 0 }) ?? 0
     }
 
-    private func prepareForHeightCalculation(_ content: any WSegmentedControllerContent) {
+    private func prepareForHeightCalculation(_ content: any WSegmentedControllerContent, width: CGFloat) {
         let vc = content as UIViewController
         vc.loadViewIfNeeded()
 
-        guard vc.view.superview == nil else { return }
-        let width = heightMeasurementWidth
         guard width > 0 else { return }
 
         let targetSize = CGSize(width: width, height: max(vc.view.bounds.height, 1))
-        guard vc.view.bounds.size != targetSize else { return }
-
-        vc.view.frame = CGRect(origin: .zero, size: targetSize)
-        vc.view.setNeedsLayout()
+        if vc.view.bounds.size != targetSize {
+            vc.view.frame.size = targetSize
+            vc.view.setNeedsLayout()
+        }
+        // The pager's child may still have its previous width when Home asks for a height.
         vc.view.layoutIfNeeded()
     }
 
     private func calculatedHeight(for content: any WSegmentedControllerContent) -> CGFloat {
         let id = ObjectIdentifier(content as AnyObject)
-        if let height = calculatedTabHeights[id] {
-            return height
+        let width = heightMeasurementWidth
+        if let measurement = calculatedTabHeights[id], measurement.width == width {
+            return measurement.height
         }
-        prepareForHeightCalculation(content)
+        prepareForHeightCalculation(content, width: width)
         let height = content.calculateHeight(isHosted: false)
-        calculatedTabHeights[id] = height
+        if width > 0 {
+            calculatedTabHeights[id] = (width: width, height: height)
+        }
         return height
     }
 

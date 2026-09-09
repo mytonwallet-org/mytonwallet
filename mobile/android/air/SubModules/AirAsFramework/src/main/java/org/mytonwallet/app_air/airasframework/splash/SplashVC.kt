@@ -86,7 +86,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
-import org.mytonwallet.app_air.walletcore.api.swapGetAssets
 import org.mytonwallet.app_air.walletcore.deeplink.Deeplink
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkNavigator
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
@@ -286,7 +285,7 @@ class SplashVC(context: Context) :
                 }
             } else {
                 // Everything is fine, let's go!
-                WalletCore.swapGetAssets(true)
+                TokenStore.loadSwapAssets(true)
                 if (preloadedScreen == null) {
                     if (!WGlobalStorage.isPasscodeSet()) appIsUnlocked = true
                     presentTabsAndLockScreen()
@@ -298,19 +297,21 @@ class SplashVC(context: Context) :
 
     private fun presentIntro(network: MBlockchainNetwork) {
         if (preloadedScreen == WCacheStorage.InitialScreen.INTRO) return
-        val navigationController = WNavigationController(window!!)
+        val window = window ?: return
+        val navigationController = WNavigationController(window)
         navigationController.setRoot(IntroVC(context, network))
-        window!!.replace(navigationController, false)
+        window.replace(navigationController, false)
         Logger.i(Logger.LogTag.AIR_APPLICATION, "presentIntro: Done")
     }
 
     private fun presentTabsAndLockScreen() {
-        val tabsNav = WNavigationController(window!!)
+        val window = window ?: return
+        val tabsNav = WNavigationController(window)
         val tabsVC: WViewController =
-            if (window!!.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
+            if (window.isWideLayout) TabletTabsVC(context) else PhoneTabsVC(context)
         tabsNav.setRoot(tabsVC)
         tabsVC.view.isVisible = appIsUnlocked
-        window!!.replace(tabsNav, appIsUnlocked, onCompletion = {
+        window.replace(tabsNav, appIsUnlocked, onCompletion = {
             Logger.i(Logger.LogTag.AIR_APPLICATION, "presentTabsAndLockScreen: Done")
             if (!appIsUnlocked) presentLockScreen()
         })
@@ -338,8 +339,9 @@ class SplashVC(context: Context) :
 
     override fun restartApp() {
         // Make sure we are on splash screen
-        if ((window?.navigationControllers?.size ?: 1) > 1) {
-            for (i in (window?.navigationControllers!!.size - 2) downTo 1) {
+        val navCount = window?.navigationControllers?.size ?: 1
+        if (navCount > 1) {
+            for (i in (navCount - 2) downTo 1) {
                 window?.dismissNav(i)
             }
             window?.dismissLastNav {
@@ -415,14 +417,15 @@ class SplashVC(context: Context) :
     }
 
     private fun presentLockScreen(startWithBiometrics: Boolean = true) {
+        val window = window ?: return
         // To prevent ui glitches, make sure window has background
         if (tabsVC?.view?.isVisible != true) {
-            window?.window?.decorView?.setBackgroundColor(WColor.Background.color)
+            window.window?.decorView?.setBackgroundColor(WColor.Background.color)
         }
         // Make sure to dismiss all popups or dialogs when presenting lock screen
         PopupHelpers.dismissAllPopups()
         dismissActiveDialogs()
-        window?.topViewController?.dismissActiveDialogs()
+        window.topViewController?.dismissActiveDialogs()
         view.hideKeyboard()
         appIsUnlocked = false
         val passcodeConfirmVC = PasscodeConfirmVC(
@@ -432,7 +435,7 @@ class SplashVC(context: Context) :
                 LocaleController.getString(
                     (
                         if (WGlobalStorage.isAnyBiometricActivated() &&
-                            BiometricHelpers.canAuthenticate(window!!)
+                            BiometricHelpers.canAuthenticate(window)
                         ) {
                             "Enter passcode or use fingerprint"
                         } else {
@@ -449,19 +452,18 @@ class SplashVC(context: Context) :
             ),
             task = {
                 // After unlock:
-                val window = window
-                window?.forceStatusBarLight = null
-                window?.forceBottomBarLight = null
+                window.forceStatusBarLight = null
+                window.forceBottomBarLight = null
                 val tabsVC = tabsVC
-                window?.preparePreviousNavigationControllerForDisplay()
+                window.preparePreviousNavigationControllerForDisplay()
                 tabsVC?.view?.isVisible = true
                 var dismissalRequested = false
                 lateinit var renderTimeout: Runnable
                 val dismissLockScreen = {
                     if (!dismissalRequested) {
                         dismissalRequested = true
-                        window?.windowView?.removeCallbacks(renderTimeout)
-                        window?.dismissLastNav(
+                        window.windowView.removeCallbacks(renderTimeout)
+                        window.dismissLastNav(
                             WWindow.DismissAnimation.SCALE_OUT,
                             onCompletion = {
                                 appIsUnlocked = true
@@ -473,7 +475,7 @@ class SplashVC(context: Context) :
                     Unit
                 }
                 renderTimeout = Runnable { dismissLockScreen() }
-                window?.windowView?.postDelayed(
+                window.windowView.postDelayed(
                     renderTimeout,
                     UNLOCK_HOME_RENDER_TIMEOUT_MS
                 )
@@ -484,16 +486,16 @@ class SplashVC(context: Context) :
             allowedToCancel = false
         )
         val navigationController = WNavigationController(
-            window!!,
+            window,
             PresentationConfig(style = WNavigationController.PresentationStyle.ForceFullScreen)
         )
         navigationController.setRoot(passcodeConfirmVC)
-        window!!.present(
+        window.present(
             navigationController,
             presentAnimation = WWindow.PresentAnimation.ScaleIn,
             onCompletion = {
                 // Lock-screen is on, remove unnecessary window background
-                window?.window?.decorView?.background = null
+                window.window?.decorView?.background = null
             }
         )
     }
@@ -747,6 +749,7 @@ class SplashVC(context: Context) :
     }
 
     private fun handleWalletReadyDeeplinks(deeplink: Deeplink, source: DeeplinkOpenSource) {
+        val window = window ?: return
         if (deeplink.accountAddress != null) {
             val accountId = AccountStore.accountIdByAddress(deeplink.accountAddress)
             if (accountId == null) {
@@ -818,7 +821,7 @@ class SplashVC(context: Context) :
         when (deeplink) {
             is Deeplink.Invoice -> {
                 if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) {
-                    window?.topViewController?.showAlert(
+                    window.topViewController?.showAlert(
                         LocaleController.getString("Error"),
                         LocaleController.getString("Action is not possible on a view-only wallet.")
                     )
@@ -831,8 +834,7 @@ class SplashVC(context: Context) :
                         deeplink.hasUnsupportedParams ->
                             "\$unsupported_deeplink_parameter"
 
-                        deeplink.expiry != null &&
-                            (System.currentTimeMillis() / 1000 > deeplink.expiry!!) ->
+                        deeplink.expiry?.let { System.currentTimeMillis() / 1000 > it } == true ->
                             "\$transfer_link_expired"
 
                         deeplink.comment != null && deeplink.binary != null ->
@@ -861,7 +863,7 @@ class SplashVC(context: Context) :
                 val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
 
                 val navVC = WNavigationController(
-                    window!!,
+                    window,
                     PresentationConfig.PreferredFullScreen
                 )
                 navVC.setRoot(
@@ -878,7 +880,7 @@ class SplashVC(context: Context) :
                         shouldRequireFreshAuth = source.requiresFreshAuth
                     )
                 )
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.Send -> {
@@ -896,8 +898,7 @@ class SplashVC(context: Context) :
                         deeplink.hasUnsupportedParams ->
                             "\$unsupported_deeplink_parameter"
 
-                        deeplink.expiry != null &&
-                            (System.currentTimeMillis() / 1000 > deeplink.expiry!!) ->
+                        deeplink.expiry?.let { System.currentTimeMillis() / 1000 > it } == true ->
                             "\$transfer_link_expired"
 
                         deeplink.comment != null && deeplink.binary != null ->
@@ -926,7 +927,7 @@ class SplashVC(context: Context) :
                 val token = TokenStore.getToken(tokenSlug)
                 val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
 
-                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(
                     SendVC(
                         context,
@@ -941,7 +942,7 @@ class SplashVC(context: Context) :
                         shouldRequireFreshAuth = source.requiresFreshAuth
                     )
                 )
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.TonConnect2 -> {
@@ -979,14 +980,14 @@ class SplashVC(context: Context) :
                     if (toToken != null) MApiSwapAsset.from(toToken) else null,
                     deeplink.amountIn
                 )
-                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(swapVC)
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.Receive -> {
                 if (!account.supportsReceiveScreen) {
-                    window?.topViewController?.showAlert(
+                    window.topViewController?.showAlert(
                         LocaleController.getString("Error"),
                         LocaleController.getString("Action is not possible on a view-only wallet.")
                     )
@@ -994,9 +995,9 @@ class SplashVC(context: Context) :
                     return
                 }
                 val receiveVC = ReceiveVC.createIfAvailable(context) ?: return
-                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(receiveVC)
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.BuyWithCard -> {
@@ -1012,9 +1013,9 @@ class SplashVC(context: Context) :
                 }
                 val receiveVC =
                     ReceiveVC.createIfAvailable(context, MBlockchain.ton, true) ?: return
-                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(receiveVC)
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.SellOnCard -> {
@@ -1046,7 +1047,7 @@ class SplashVC(context: Context) :
                 }
 
                 if (!account.supportsBuyWithCard) {
-                    window?.topViewController?.showAlert(
+                    window.topViewController?.showAlert(
                         LocaleController.getString("Error"),
                         LocaleController.getString("Action is not possible on a view-only wallet.")
                     )
@@ -1096,9 +1097,9 @@ class SplashVC(context: Context) :
                     return
                 }
 
-                window?.dismissToRoot {
+                window.dismissToRoot {
                     val navVC =
-                        WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                        WNavigationController(window, PresentationConfig.PreferredFullScreen)
                     if (source.requiresFreshAuth) {
                         navVC.setRoot(
                             SendVC(
@@ -1125,7 +1126,7 @@ class SplashVC(context: Context) :
                             )
                         )
                     }
-                    window?.present(navVC)
+                    window.present(navVC)
                 }
             }
 
@@ -1138,9 +1139,9 @@ class SplashVC(context: Context) :
                     nextDeeplink = null
                     return
                 }
-                val navVC = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(EarnRootVC(context))
-                window?.present(navVC)
+                window.present(navVC)
             }
 
             is Deeplink.Portfolio -> {
@@ -1150,9 +1151,9 @@ class SplashVC(context: Context) :
                     homeNav.push(PortfolioVC(context))
                 } else {
                     val nav =
-                        WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                        WNavigationController(window, PresentationConfig.PreferredFullScreen)
                     nav.setRoot(PortfolioVC(context))
-                    window?.present(nav)
+                    window.present(nav)
                 }
             }
 
@@ -1174,9 +1175,9 @@ class SplashVC(context: Context) :
                     null,
                     deeplink.config
                 )
-                val nav = WNavigationController(window!!)
+                val nav = WNavigationController(window)
                 nav.setRoot(inAppBrowserVC)
-                window?.present(nav)
+                window.present(nav)
             }
 
             is Deeplink.NotificationUrl -> {
@@ -1208,9 +1209,9 @@ class SplashVC(context: Context) :
                     nextDeeplink = null
                     return
                 }
-                val nav = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+                val nav = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 nav.setRoot(EarnRootVC(context))
-                window?.present(nav)
+                window.present(nav)
             }
 
             is Deeplink.Transaction -> {
@@ -1254,7 +1255,7 @@ class SplashVC(context: Context) :
                     if (AccountStore.activeAccountId != accountId) return@call // Account changed
                     val isSingleTransaction = activities.size == 1
                     val transactionNav = WNavigationController(
-                        window!!,
+                        window,
                         if (isSingleTransaction) {
                             PresentationConfig(
                                 style = WNavigationController.PresentationStyle.BottomSheet
@@ -1280,7 +1281,7 @@ class SplashVC(context: Context) :
                             )
                         )
                     }
-                    window!!.present(transactionNav)
+                    window.present(transactionNav)
                 }
             }
 
@@ -1439,10 +1440,11 @@ class SplashVC(context: Context) :
             openExternalUri(url.toUri())
             return
         }
+        val window = window ?: return
         val inAppBrowserVC = InAppBrowserVC(context, null, config)
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(window)
         nav.setRoot(inAppBrowserVC)
-        window?.present(nav)
+        window.present(nav)
     }
 
     private fun shouldOpenUrlExternally(url: String): Boolean {
@@ -1640,26 +1642,28 @@ class SplashVC(context: Context) :
             account,
             token
         )
-        (window?.topViewController as? ITabsVC)?.let { tabsVC ->
+        val window = window ?: return
+        (window.topViewController as? ITabsVC)?.let { tabsVC ->
             tabsVC.mainNavigationController?.let { navigationController ->
                 navigationController.push(tokenVC)
                 return
             }
         }
-        val nav = WNavigationController(window!!, PresentationConfig.PreferredFullScreen)
+        val nav = WNavigationController(window, PresentationConfig.PreferredFullScreen)
         nav.setRoot(tokenVC)
-        window?.present(nav)
+        window.present(nav)
     }
 
     private fun presentDomainRenewal(nft: ApiNft) {
+        val window = window ?: return
         val nav = WNavigationController(
-            window!!,
+            window,
             PresentationConfig(
                 style = WNavigationController.PresentationStyle.BottomSheet
             )
         )
         nav.setRoot(RenewVC(context, nft))
-        window?.presentOnWalletReady(nav)
+        window.presentOnWalletReady(nav)
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

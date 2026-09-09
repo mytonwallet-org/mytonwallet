@@ -369,7 +369,7 @@ class ImportViewWalletVC(
                             viewController = this,
                             accountId = result.accountId
                         )
-                        window!!.dismissLastNav()
+                        window?.dismissLastNav()
                     }
                 }
             }

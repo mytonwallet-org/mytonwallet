@@ -25,8 +25,6 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexTransactionStatus.SENDING
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealed
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.JsonSealedSubtype
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AddressStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -168,7 +166,6 @@ data class ApiSwapCexTransaction(
     @Json(name = "supportEmail") val supportEmail: String? = null
 )
 
-@JsonSealed("kind")
 sealed class MApiTransaction : WEquatable<MApiTransaction> {
     abstract val id: String
     abstract val shouldHide: Boolean?
@@ -182,7 +179,6 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
     val tokenPrice: Double? = TokenStore.getToken(getTxSlug())?.price
     var isEmulation: Boolean = false
 
-    @JsonSealedSubtype("transaction")
     @JsonClass(generateAdapter = true)
     data class Transaction(
         @Json(name = "id") override val id: String,
@@ -283,7 +279,6 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             }
     }
 
-    @JsonSealedSubtype("swap")
     @JsonClass(generateAdapter = true)
     data class Swap(
         @Json(name = "id") override val id: String,

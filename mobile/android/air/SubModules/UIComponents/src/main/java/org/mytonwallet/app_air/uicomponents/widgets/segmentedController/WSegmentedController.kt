@@ -191,12 +191,12 @@ class WSegmentedController(
             }
         })
         vp.requestDisallowInterceptTouchEvent(true)
-        val recyclerView = vp.getChildAt(0) as RecyclerView
-        recyclerView.itemAnimator = null
+        val recyclerView = vp.getChildAt(0) as? RecyclerView
+        recyclerView?.itemAnimator = null
         initialPagePrefetchCount?.let { count ->
-            (recyclerView.layoutManager as? LinearLayoutManager)?.initialPrefetchItemCount = count
+            (recyclerView?.layoutManager as? LinearLayoutManager)?.initialPrefetchItemCount = count
         }
-        recyclerView.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+        recyclerView?.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {

@@ -85,6 +85,7 @@ public final class ContextMenuInteraction: NSObject, UIGestureRecognizerDelegate
     }
 
     public func attach(to view: UIView) {
+        guard self.sourceView !== view else { return }
         self.detach()
         self.sourceView = view
 

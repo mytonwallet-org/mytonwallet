@@ -215,7 +215,8 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
     }
 
     private fun openLink(link: String, title: String) {
-        val nav = WNavigationController(window!!)
+        val window = window ?: return
+        val nav = WNavigationController(window)
         nav.setRoot(
             InAppBrowserVC(
                 context,
@@ -228,6 +229,6 @@ class UserResponsibilityVC(context: Context) : WViewController(context) {
                 )
             )
         )
-        window?.present(nav)
+        window.present(nav)
     }
 }

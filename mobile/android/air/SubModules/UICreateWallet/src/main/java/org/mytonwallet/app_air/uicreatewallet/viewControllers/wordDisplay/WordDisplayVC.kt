@@ -49,19 +49,21 @@ class WordDisplayVC(
     }
 
     override fun skipPressed() {
+        val window = window ?: return
         if (isFirstPasscodeProtectedWallet) {
             push(
                 SetPasscodeVC(context, true, null) { enclaveToken, biometricsActivated ->
-                    walletCreationVM.finalizeAccount(window!!, network, words, 0, enclaveToken)
+                    walletCreationVM.finalizeAccount(window, network, words, 0, enclaveToken)
                 },
                 onCompletion = {
                     navigationController?.removePrevViewControllers()
                 }
             )
         } else {
+            val enclaveToken = passedEnclaveToken ?: return
             skipButton.isLoading = true
             view.lockView()
-            walletCreationVM.finalizeAccount(window!!, network, words, 0, passedEnclaveToken!!)
+            walletCreationVM.finalizeAccount(window, network, words, 0, enclaveToken)
         }
     }
 
@@ -83,7 +85,7 @@ class WordDisplayVC(
                 viewController = this,
                 account = createdAccount
             )
-            window!!.dismissLastNav()
+            window?.dismissLastNav()
         }
     }
 }

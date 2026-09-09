@@ -30,7 +30,7 @@ function EmptyState({ onGetFirstCard }: OwnProps) {
           nonInteractive
         />
         <h3 className={styles.emptyTitle}>
-          {lang('You don\'t have any cards to customize yet')}
+          {lang('You don’t have any cards to customize yet')}
         </h3>
         <p className={styles.helperTextInside}>
           {lang(

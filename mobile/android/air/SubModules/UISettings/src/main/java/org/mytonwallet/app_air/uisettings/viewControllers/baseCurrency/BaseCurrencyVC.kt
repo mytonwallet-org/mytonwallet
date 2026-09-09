@@ -24,7 +24,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.api.setBaseCurrency
 
 class BaseCurrencyVC(context: Context) :
     WViewController(context),
@@ -87,7 +86,7 @@ class BaseCurrencyVC(context: Context) :
 
         view.addView(recyclerView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            topToBottom(recyclerView, navigationBar!!)
+            navigationBar?.let { topToBottom(recyclerView, it) }
             toCenterX(recyclerView)
             toBottom(recyclerView)
         }

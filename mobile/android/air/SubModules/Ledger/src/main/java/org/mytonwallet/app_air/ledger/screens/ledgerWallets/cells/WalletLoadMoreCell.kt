@@ -105,7 +105,7 @@ class LedgerLoadMoreCell(context: Context) :
         arrowImageView.setImageDrawable(
             context.getDrawableCompat(
                 org.mytonwallet.app_air.icons.R.drawable.ic_arrow_bottom_24
-            )!!.apply {
+            )?.apply {
                 setTint(WColor.Tint.color)
             }
         )

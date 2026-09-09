@@ -11,7 +11,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     @AccountContext private var account: MAccount
 
     var splitHomeAccountContext: AccountContext { $account }
-    private var calledReady = false
+    private var didReportDataReady = false
 
     private var switchAccountTask: Task<Void, Never>?
     private weak var accountSwitchSnapshotView: UIView?
@@ -82,6 +82,10 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         (splitViewController as? SplitRootViewController)?.syncSidebarFocusWithHomeStack(animated: animated)
         StartupTrace.markOnce("home.visible", details: "layout=split")
         StartupTrace.endInterval("startup.toHomeVisible", details: "layout=split")
+        // Deep links can proceed while activity history is loading; the runtime still requires unlock.
+        if WalletContextManager.delegate?.isWalletReady == false {
+            WalletContextManager.delegate?.walletIsReady(isReady: true)
+        }
     }
 
     override func otherViewControllerDidAppear(_ vc: UIViewController) {
@@ -126,11 +130,10 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     }
 
     override func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
-        if activityViewModel?.idsByDate != nil && !calledReady {
-            calledReady = true
+        if activityViewModel?.idsByDate != nil && !didReportDataReady {
+            didReportDataReady = true
             StartupTrace.markOnce("home.dataReady", details: "layout=split")
             StartupTrace.endInterval("startup.toHomeReady", details: "layout=split")
-            WalletContextManager.delegate?.walletIsReady(isReady: true)
         }
         super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
     }
@@ -158,7 +161,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         case .accountsReset:
             guard $account.source == .current else { return }
             cancelEditing()
-            calledReady = false
+            didReportDataReady = false
         case .balanceChanged(let accountId):
             if accountId == resolvedAccountId, activityViewModel == nil {
                 Task {
@@ -211,7 +214,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
             activityViewModel = nil
             applySnapshot(makeSnapshot(), animatingDifferences: true)
             updateSkeletonState()
-            calledReady = false
+            didReportDataReady = false
             return
         }
         activityViewModel = await ActivityListViewModel(accountId: accountId, token: nil, customSectionIDs: customSectionIDs, delegate: self)

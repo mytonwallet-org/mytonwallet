@@ -125,14 +125,14 @@ object MMCQ {
         private var _avg: IntArray? = null
 
         fun volume(force: Boolean = false): Int {
-            if (_volume == null || force) {
-                _volume = ((r2 - r1 + 1) * (g2 - g1 + 1) * (b2 - b1 + 1))
-            }
-            return _volume!!
+            return _volume?.takeUnless { force }
+                ?: ((r2 - r1 + 1) * (g2 - g1 + 1) * (b2 - b1 + 1)).also { _volume = it }
         }
 
         fun count(force: Boolean = false): Int {
-            if (!_count_set || force) {
+            val cached = _count
+            if (cached != null && _count_set && !force) return cached
+            run {
                 var npix = 0
                 for (i in r1..r2) {
                     for (j in g1..g2) {
@@ -144,8 +144,8 @@ object MMCQ {
                 }
                 _count = npix
                 _count_set = true
+                return npix
             }
-            return _count!!
         }
 
         fun copy(): VBox {
@@ -173,7 +173,7 @@ object MMCQ {
                     }
                 }
 
-                _avg = if (ntot > 0) {
+                val avg = if (ntot > 0) {
                     intArrayOf((rsum / ntot), (gsum / ntot), (bsum / ntot))
                 } else {
                     intArrayOf(
@@ -182,8 +182,10 @@ object MMCQ {
                         (mult * (b1 + b2 + 1) / 2)
                     )
                 }
+                _avg = avg
+                return avg
             }
-            return _avg!!
+            return _avg ?: avg(force = true)
         }
 
         fun contains(pixel: IntArray): Boolean {
@@ -244,7 +246,7 @@ object MMCQ {
                     pColor = vboxColor
                 }
             }
-            return pColor!!
+            return pColor ?: color
         }
 
         fun forcebw() {

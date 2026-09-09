@@ -147,9 +147,9 @@ class ReceiveVC private constructor(
         val defaultIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
         val segmentedController = WSegmentedController(
             navigationController!!,
-            availableChains.map { chain ->
-                WSegmentedControllerItem(qrCodeVCs[chain]!!, null)
-            } as ArrayList<WSegmentedControllerItem>,
+            availableChains.mapTo(ArrayList()) { chain ->
+                WSegmentedControllerItem(qrCodeVCs.getValue(chain), null)
+            },
             isTransparent = true,
             applySideGutters = false,
             defaultSelectedIndex = defaultIndex,
@@ -181,8 +181,8 @@ class ReceiveVC private constructor(
                 if (chainCount > 1) {
                     val floorIdx = currentOffset.toInt().coerceIn(0, chainCount - 2)
                     val frac = currentOffset - floorIdx
-                    val vcA = qrCodeVCs[availableChains[floorIdx]]!!
-                    val vcB = qrCodeVCs[availableChains[floorIdx + 1]]!!
+                    val vcA = qrCodeVCs.getValue(availableChains[floorIdx])
+                    val vcB = qrCodeVCs.getValue(availableChains[floorIdx + 1])
                     val height = ((1 - frac) * qrCodeHeight(vcA)) + (frac * qrCodeHeight(vcB))
                     val layoutParams = qrSegmentView.layoutParams
                     layoutParams.height = height.toInt()
@@ -223,7 +223,7 @@ class ReceiveVC private constructor(
 
     private val currentQRCode: QRCodeVC
         get() {
-            return (qrSegmentView.currentItem as QRCodeVC)
+            return qrSegmentView.currentItem as? QRCodeVC ?: activeVC
         }
 
     private val copyAddressLabel: WLabel by lazy {
@@ -711,12 +711,12 @@ class ReceiveVC private constructor(
         super.viewWillAppear()
         resubscribeQrHeightListener()
         if (navigationController?.isSwipingBack == true) return
-        window!!.forceStatusBarLight = true
+        window?.forceStatusBarLight = true
     }
 
     override fun viewDidAppear() {
         super.viewDidAppear()
-        window!!.forceStatusBarLight = true
+        window?.forceStatusBarLight = true
 
         if (openBuyWithCardInstantly && defaultChain != null) {
             openBuyWithCardInstantly = false
@@ -728,14 +728,14 @@ class ReceiveVC private constructor(
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
-        window!!.forceStatusBarLight = null
+        window?.forceStatusBarLight = null
     }
 
     private val activeVC: QRCodeVC
         get() {
             val offset = qrSegmentView.currentOffset
             val idx = offset.toInt().coerceIn(0, availableChains.size - 1)
-            return qrCodeVCs[availableChains[idx]]!!
+            return qrCodeVCs.getValue(availableChains[idx])
         }
 
     private val qrHeight: Int

@@ -204,11 +204,6 @@ class AppearanceVC(context: Context) :
         }
     )
 
-    /*private val appIconView: AppearanceAppIconView by lazy {
-        val v = AppearanceAppIconView(window!!.applicationContext)
-        v
-    }*/
-
     private val topTabsRow = SwitchCell(
         context,
         title = LocaleController.getString("Top Tabs"),
@@ -525,7 +520,7 @@ class AppearanceVC(context: Context) :
 
         view.addView(scrollView, ConstraintLayout.LayoutParams(MATCH_PARENT, 0))
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             toCenterX(scrollView)
             toBottom(scrollView)
         }
@@ -566,7 +561,6 @@ class AppearanceVC(context: Context) :
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         scrollView.setOnScrollChangeListener(null)
         animationsRow.setOnClickListener(null)
         appPaletteView.onCustomizePressed = null

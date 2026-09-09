@@ -16,9 +16,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
-import com.squareup.moshi.Types
 import java.lang.reflect.Type
-import java.math.BigInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,38 +25,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okio.Buffer
-import org.json.JSONArray
 import org.json.JSONObject
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
-import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
-import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
-import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapLong
-import org.mytonwallet.app_air.walletbasecontext.utils.toHashMapString
 import org.mytonwallet.app_air.walletbasecontext.utils.toJSONString
 import org.mytonwallet.app_air.walletbasecontext.utils.toUriOrNull
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
-import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import org.mytonwallet.app_air.walletcore.moshi.ApiNft
-import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
-import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
-import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
-import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
-import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 val INIT_SCRIPT
@@ -254,11 +235,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             private val sdkStorageKeys = setOf(
                 "agentMessages",
                 "agentConversationId",
-                "headlessBalanceSnapshots",
-                "walletOperationIntents",
-                "activeCexSwapReconciliationState",
-                "knownTonAggregatorTraceIds",
-                "knownTonAggregatorTraceProjections"
+                "headlessBalanceSnapshots"
             )
 
             internal fun usesSecureStorage(key: String): Boolean = key !in sdkStorageKeys
@@ -471,357 +448,23 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
-        @Deprecated("Use moshi ApiUpdate")
-        private fun parseUpdate(updateString: String) {
+        private fun streamTokenUpdates(updateString: String) {
             val updateType = peekUpdateType(updateString) ?: return
             when (updateType) {
-                "updateTokens" -> {
-                    streamUpdateTokens(updateString)
-                    return
-                }
-
-                "updateSwapTokens" -> {
-                    streamUpdateSwapTokens(updateString)
-                    return
-                }
-            }
-            val objectJSONObject = JSONObject(updateString)
-            when (updateType) {
-                "updateBalances" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    Handler(Looper.getMainLooper()).post {
-                        val balances = HashMap<String, BigInteger>()
-                        scope.launch {
-                            val balancesToUpdate =
-                                objectJSONObject.optJSONObject("balances")
-                                    ?: return@launch
-                            for (token in balancesToUpdate.keys()) {
-                                val valueString: String =
-                                    balancesToUpdate.optString(token).substringAfter("bigint:")
-                                val value =
-                                    if (valueString.isNotEmpty()) {
-                                        valueString.toBigInteger()
-                                    } else {
-                                        BigInteger.valueOf(
-                                            0
-                                        )
-                                    }
-                                balances[token] = value
-                            }
-                            withContext(Dispatchers.Main) {
-                                BalanceStore.setBalances(accountId, balances, false) {
-                                    if (AccountStore.activeAccount?.accountId != accountId) {
-                                        WalletCore.notifyEvent(
-                                            WalletEvent.NotActiveAccountBalanceChanged
-                                        )
-                                    } else {
-                                        WalletCore.notifyEvent(WalletEvent.BalanceChanged)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                "updatingStatus" -> {
-                    val kind = objectJSONObject.optString("kind")
-                    Handler(Looper.getMainLooper()).post {
-                        when (kind) {
-                            "activities" -> {
-                                AccountStore.updatingActivities =
-                                    objectJSONObject.optBoolean("isUpdating")
-                            }
-
-                            "balance" -> {
-                                AccountStore.updatingBalance =
-                                    objectJSONObject.optBoolean("isUpdating")
-                            }
-                        }
-                        Handler(Looper.getMainLooper()).post {
-                            WalletCore.notifyEvent(WalletEvent.UpdatingStatusChanged)
-                        }
-                    }
-                }
-
-                "newLocalActivities" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    if (AccountStore.activeAccount?.accountId != accountId) {
-                        return
-                    }
-                    val transactionJSONArray = objectJSONObject.optJSONArray("activities") ?: return
-                    val localTransactions = ArrayList<MApiTransaction>()
-                    for (index in 0..<transactionJSONArray.length()) {
-                        val transactionObj = transactionJSONArray.getJSONObject(index)
-                        val transaction = MApiTransaction.fromJson(transactionObj)
-                        if (transaction == null) {
-                            Logger.e(
-                                Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                                "newLocalActivities: dropped unparsable activity"
-                            )
-                            throw Exception()
-                        }
-                        localTransactions.add(transaction)
-                    }
-                    ActivityStore.receivedLocalTransactions(
-                        accountId,
-                        localTransactions.toTypedArray()
-                    )
-                    WalletCore.notifyEvent(
-                        WalletEvent.NewLocalActivities(
-                            accountId,
-                            localTransactions
-                        )
-                    )
-                }
-
-                "newActivities" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    if (AccountStore.activeAccount?.accountId != accountId) {
-                        return
-                    }
-                    val transactionJSONArray =
-                        objectJSONObject.optJSONArray("activities") ?: JSONArray()
-                    val pendingTransactionsJSONArray =
-                        objectJSONObject.optJSONArray("pendingActivities")
-                    val chain = objectJSONObject.optString("chain")
-                        .takeIfNotBlank()
-                        ?.let { runCatching { MBlockchain.valueOf(it) }.getOrNull() }
-                    try {
-                        val transactions = ArrayList<MApiTransaction>()
-                        for (index in 0..<transactionJSONArray.length()) {
-                            val transactionObj = transactionJSONArray.getJSONObject(index)
-                            val transaction = MApiTransaction.fromJson(transactionObj)
-                            if (transaction == null) {
-                                Logger.e(
-                                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                                    "newActivities: dropped unparsable activity"
-                                )
-                                throw Exception()
-                            }
-                            transactions.add(transaction)
-                        }
-                        val pendingTransactions = pendingTransactionsJSONArray?.let { jsonArray ->
-                            ArrayList<MApiTransaction>().apply {
-                                for (index in 0..<jsonArray.length()) {
-                                    val transactionObj = jsonArray.getJSONObject(index)
-                                    val transaction = MApiTransaction.fromJson(transactionObj)
-                                    if (transaction == null) {
-                                        Logger.e(
-                                            Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                                            "newActivities: dropped unparsable pending activity"
-                                        )
-                                        throw Exception()
-                                    }
-                                    add(transaction)
-                                }
-                            }
-                        }
-                        pendingTransactions?.takeIf { it.isNotEmpty() }?.let {
-                            Handler(Looper.getMainLooper()).post {
-                                WalletCore.notifyEvent(
-                                    WalletEvent.ReceivedPendingActivities(
-                                        accountId,
-                                        it
-                                    )
-                                )
-                            }
-                        }
-                        ActivityStore.newActivities(
-                            context = bridge.context,
-                            accountId = accountId,
-                            newActivities = transactions,
-                            pendingActivities = pendingTransactions,
-                            chain = chain
-                        )
-                    } catch (e: Exception) {
-                        Logger.e(
-                            Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                            "newActivities: failed to process update error=${e.javaClass.simpleName}"
-                        )
-                    }
-                }
-
-                "updateStaking" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-
-                    val stakingAdapter: JsonAdapter<MUpdateStaking> =
-                        WalletCore.moshi.adapter(MUpdateStaking::class.java)
-                    val stakingData = stakingAdapter.fromJson(updateString)
-                    StakingStore.setStakingState(accountId, stakingData)
-
-                    ensureMainThread {
-                        WalletCore.notifyEvent(WalletEvent.StakingDataUpdated)
-                    }
-                }
-
-                "updateNfts" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    val collectionAddress = objectJSONObject.optString("collectionAddress")
-                    val chainRaw = objectJSONObject.optString("chain")
-                    val chain = MBlockchain.valueOfOrNull(chainRaw)
-                    val isFullLoading = objectJSONObject.opt("isFullLoading") as? Boolean
-                    val streamedAddresses =
-                        objectJSONObject.optJSONArray("streamedAddresses")?.let { array ->
-                            buildSet {
-                                for (index in 0 until array.length()) {
-                                    add(array.optString(index))
-                                }
-                            }
-                        }
-                    val shouldAppend = collectionAddress.isNotEmpty() || isFullLoading == true
-                    ensureMainThread {
-                        NftStore.checkCardNftOwnership(accountId)
-                    }
-                    val nftsJSONArray =
-                        objectJSONObject.optJSONArray("nfts") ?: return
-                    val nfts = ArrayList<ApiNft>()
-                    for (index in 0..<nftsJSONArray.length()) {
-                        val nft = ApiNft.fromJson(nftsJSONArray.getJSONObject(index))
-                        if (nft == null) {
-                            Logger.e(
-                                Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                                "nfts: dropped unparsable nft"
-                            )
-                            throw Exception()
-                        }
-                        nfts.add(nft)
-                    }
-                    if (collectionAddress.isNotEmpty()) {
-                        ensureMainThread {
-                            WalletCore.notifyEvent(
-                                WalletEvent.CollectionNftsReceived(
-                                    accountId,
-                                    collectionAddress,
-                                    nfts
-                                )
-                            )
-                        }
-                        return
-                    }
-                    if (AccountStore.activeAccount?.accountId != accountId) {
-                        return
-                    }
-                    ensureMainThread {
-                        NftStore.setNfts(
-                            chain,
-                            nfts,
-                            accountId = accountId,
-                            notifyObservers = true,
-                            isReorder = false,
-                            shouldAppend = shouldAppend,
-                            preserveExistingOnConflict = shouldAppend,
-                            streamedAddresses = streamedAddresses
-                        )
-                    }
-                }
-
-                "nftReceived" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    val nft = objectJSONObject
-                        .optJSONObject("nft")
-                        ?.let(ApiNft::fromJson)
-                        ?: return
-                    ensureMainThread {
-                        NftStore.checkCardNftOwnership(accountId)
-                        NftStore.applyIncomingMtwCard(accountId, nft)
-                        if (AccountStore.activeAccount?.accountId != accountId) {
-                            return@ensureMainThread
-                        }
-                        NftStore.add(accountId, nft)
-                    }
-                }
-
-                "nftSent" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    val nftAddress = objectJSONObject.optString("nftAddress")
-                    ensureMainThread {
-                        NftStore.checkCardNftOwnership(accountId)
-                        NftStore.pruneOwnedMtwCardAddress(accountId, nftAddress)
-                        if (AccountStore.activeAccount?.accountId != accountId) {
-                            return@ensureMainThread
-                        }
-                        NftStore.removeByAddress(accountId, nftAddress)
-                    }
-                }
-
-                "updateConfig" -> {
-                    val configAdapter: JsonAdapter<Map<String, Any>> =
-                        WalletCore.moshi.adapter(
-                            Types.newParameterizedType(
-                                Map::class.java,
-                                String::class.java,
-                                Any::class.java
-                            )
-                        )
-                    val configMapString = configAdapter.fromJson(updateString)
-                    ConfigStore.init(configMapString)
-                    ensureMainThread {
-                        WalletCore.notifyEvent(WalletEvent.ConfigReceived)
-                    }
-                }
-
-                "updateAccountConfig" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    val accountConfig = objectJSONObject.optJSONObject("accountConfig") ?: return
-                    ensureMainThread {
-                        WGlobalStorage.setAccountConfig(accountId, accountConfig)
-                        WalletCore.notifyEvent(WalletEvent.AccountConfigReceived)
-                    }
-                }
-
-                "updateAccountDomainData" -> {
-                    val accountId = objectJSONObject.optString("accountId")
-                    if (AccountStore.activeAccount?.accountId != accountId) {
-                        return
-                    }
-                    val expirationByAddress =
-                        objectJSONObject.optJSONObject("expirationByAddress")?.toHashMapLong()
-                    val linkedAddresses =
-                        objectJSONObject.optJSONObject("linkedAddressByAddress")?.toHashMapString()
-                    ensureMainThread {
-                        NftStore.setExpirationByAddress(
-                            accountId,
-                            expirationByAddress
-                        )
-                        NftStore.setLinkedAddressByAddress(
-                            accountId,
-                            linkedAddresses
-                        )
-                        WalletCore.notifyEvent(WalletEvent.NftDomainDataUpdated)
-                    }
-                }
-
-                "openUrl" -> {
-                    val rawUrl = objectJSONObject.optString("url").takeIfNotBlank() ?: return
-                    val url = rawUrl.decodeUrlOrNull() ?: return
-                    val isExternal = objectJSONObject.optBoolean("isExternal", false)
-                    ensureMainThread {
-                        WalletCore.notifyEvent(WalletEvent.OpenUrl(url, isExternal))
-                    }
-                }
-
-                "showError" -> {
-                    val error = objectJSONObject.optString("error").takeIfNotBlank()
-                    ensureMainThread {
-                        WalletContextManager.delegate?.get()?.showError(error)
-                    }
-                }
-
-                else -> {}
+                "updateTokens" -> streamUpdateTokens(updateString)
+                "updateSwapTokens" -> streamUpdateSwapTokens(updateString)
             }
         }
 
         @JavascriptInterface
         fun onUpdate(updateString: String) {
             scope.launch {
-                parseUpdate(updateString)
+                streamTokenUpdates(updateString)
 
-                // New Approach
                 val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
                 try {
                     val update = adapter.fromJson(updateString) ?: return@launch
                     WalletCore.notifyApiUpdate(update)
-                    // return@execute
                 } catch (e: Exception) {
                     Logger.w(
                         Logger.LogTag.JS_WEBVIEW_BRIDGE,

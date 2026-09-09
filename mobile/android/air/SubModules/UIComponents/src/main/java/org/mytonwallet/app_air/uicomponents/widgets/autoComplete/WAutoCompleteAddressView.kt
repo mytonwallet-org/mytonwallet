@@ -16,7 +16,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.AddressInputLayout
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.helpers.AddressPopupHelpers.Companion.presentMenu
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -452,7 +452,7 @@ class WAutoCompleteAddressView(context: Context) :
         val keyboardHeight = viewController.window?.imeInsets?.bottom ?: 0
         val windowHeight = viewController.navigationController?.height ?: 0
         val availableHeight = windowHeight - keyboardHeight
-        val viewLocation = view.getLocationOnScreen()
+        val viewLocation = view.getLocationInWindow()
         val positioning =
             if (keyboardHeight > 0 && viewLocation.y - view.height / 2 > availableHeight / 2) {
                 Positioning.ABOVE

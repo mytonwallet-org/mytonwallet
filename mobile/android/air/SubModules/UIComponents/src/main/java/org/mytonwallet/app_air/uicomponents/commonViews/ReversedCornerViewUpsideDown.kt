@@ -207,18 +207,18 @@ class ReversedCornerViewUpsideDown(
 
     private fun detachGradientView() {
         if (gradientView.parent != null) {
-            (gradientView.parent as ViewGroup).removeView(gradientView)
+            (gradientView.parent as? ViewGroup)?.removeView(gradientView)
         }
     }
 
     private fun syncBlurView() {
         if (isGradientMode) {
             blurryBackgroundView?.let { blur ->
-                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+                (blur.parent as? ViewGroup)?.removeView(blur)
             }
             blurryBackgroundView = null
             if (backgroundView.parent != null) {
-                (backgroundView.parent as ViewGroup).removeView(backgroundView)
+                (backgroundView.parent as? ViewGroup)?.removeView(backgroundView)
             }
             attachGradientView()
             return
@@ -235,12 +235,12 @@ class ReversedCornerViewUpsideDown(
                 setProvider(GlassProviders.plain(WColor.SecondaryBackground))
             }
             if (backgroundView.parent != null) {
-                (backgroundView.parent as ViewGroup).removeView(backgroundView)
+                (backgroundView.parent as? ViewGroup)?.removeView(backgroundView)
             }
             attachBackground()
         } else if (!blurEnabled && blurryBackgroundView != null) {
             blurryBackgroundView?.let { blur ->
-                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+                (blur.parent as? ViewGroup)?.removeView(blur)
             }
             blurryBackgroundView = null
             if (backgroundView.parent == null) {
@@ -295,7 +295,7 @@ class ReversedCornerViewUpsideDown(
         blurryBackgroundView?.let {
             if (it.parent == null) {
                 addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-                it.setupWith(blurRootView!!)
+                blurRootView?.let { root -> it.setupWith(root) }
             }
         } ?: run {
             if (backgroundView.parent == null) {

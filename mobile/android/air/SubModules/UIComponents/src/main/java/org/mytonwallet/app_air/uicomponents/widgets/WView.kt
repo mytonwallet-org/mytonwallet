@@ -42,7 +42,7 @@ import me.vkryl.android.AnimatorUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
@@ -720,7 +720,7 @@ fun View.animateHeight(fromValue: Int, toValue: Int) {
 }
 
 fun View.frameAsRectF(padding: Float): RectF {
-    val location = getLocationOnScreen()
+    val location = getLocationInWindow()
     return RectF(
         location.x.toFloat() - padding,
         location.y.toFloat() - padding,
@@ -754,7 +754,7 @@ fun View.frameAsPath(
     rightOffset: Float = 0f,
     bottomOffset: Float = 0f
 ): Path {
-    val location = getLocationOnScreen()
+    val location = getLocationInWindow()
     return Path().apply {
         addRoundRect(
             RectF(

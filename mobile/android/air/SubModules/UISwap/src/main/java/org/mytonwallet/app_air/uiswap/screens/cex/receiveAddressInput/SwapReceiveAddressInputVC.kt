@@ -34,8 +34,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.api.swapCexValidateAddress
 import org.mytonwallet.app_air.walletcore.moshi.MSwapCexValidateAddressParams
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 @SuppressLint("ViewConstructor")
 class SwapReceiveAddressInputVC(
@@ -116,7 +116,7 @@ class SwapReceiveAddressInputVC(
 
         view.setConstraints {
             toCenterX(scrollView)
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             bottomToTop(scrollView, continueButton, 20f)
             toCenterX(continueButton, 20f)
             toBottomPx(
@@ -202,10 +202,12 @@ class SwapReceiveAddressInputVC(
         val address = input ?: return false
 
         return try {
-            WalletCore.Swap.swapCexValidateAddress(
-                MSwapCexValidateAddressParams(
-                    slug = estimate.request.tokenToReceive.slug,
-                    address = address
+            WalletCore.call(
+                ApiMethod.Swap.SwapCexValidateAddress(
+                    MSwapCexValidateAddressParams(
+                        slug = estimate.request.tokenToReceive.slug,
+                        address = address
+                    )
                 )
             ).result
         } catch (_: JSWebViewBridge.ApiError) {

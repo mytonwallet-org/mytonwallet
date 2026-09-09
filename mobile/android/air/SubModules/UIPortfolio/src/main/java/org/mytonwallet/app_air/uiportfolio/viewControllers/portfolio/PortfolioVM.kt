@@ -33,9 +33,6 @@ import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.STAKING_SLUGS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.fetchPortfolioNetWorthHistory
-import org.mytonwallet.app_air.walletcore.api.fetchPortfolioPnlCumulativeHistory
-import org.mytonwallet.app_air.walletcore.api.fetchPortfolioPnlHistory
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -43,9 +40,11 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiHistoryList
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryDataset
 import org.mytonwallet.app_air.walletcore.moshi.ApiPortfolioHistoryResponse
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.normalizedForPortfolioDisplay
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
@@ -480,31 +479,18 @@ class PortfolioVM :
         request: PortfolioHistoryRequest,
         kind: PortfolioChartKind,
         cacheOnly: Boolean = false
-    ): ApiPortfolioHistoryResponse? = when (kind) {
-        PortfolioChartKind.NET_WORTH -> WalletCore.fetchPortfolioNetWorthHistory(
-            request.accountId,
-            request.wallets,
-            request.baseCurrency,
-            request.period,
-            cacheOnly
-        )
-
-        PortfolioChartKind.TOTAL_PNL -> WalletCore.fetchPortfolioPnlCumulativeHistory(
-            request.accountId,
-            request.wallets,
-            request.baseCurrency,
-            request.period,
-            cacheOnly
-        )
-
-        PortfolioChartKind.DAILY_PNL -> WalletCore.fetchPortfolioPnlHistory(
-            request.accountId,
-            request.wallets,
-            request.baseCurrency,
-            request.period,
-            cacheOnly
-        )
-    }
+    ): ApiPortfolioHistoryResponse? = PortfolioStore.fetchHistory(
+        when (kind) {
+            PortfolioChartKind.NET_WORTH -> ApiMethod.Portfolio.HistoryKind.NET_WORTH
+            PortfolioChartKind.TOTAL_PNL -> ApiMethod.Portfolio.HistoryKind.PNL_CUMULATIVE
+            PortfolioChartKind.DAILY_PNL -> ApiMethod.Portfolio.HistoryKind.PNL
+        },
+        request.accountId,
+        request.wallets,
+        request.baseCurrency,
+        request.period,
+        cacheOnly
+    )
 
     private suspend fun runCatchingFetch(
         block: suspend () -> ApiPortfolioHistoryResponse?

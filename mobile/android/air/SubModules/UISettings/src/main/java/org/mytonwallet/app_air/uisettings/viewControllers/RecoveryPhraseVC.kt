@@ -304,14 +304,13 @@ open class RecoveryPhraseVC(
         val shuffledNumbers = numbers.shuffled(Random)
         val randomNumbers = shuffledNumbers.take(3)
 
-        push(
-            WalletContextManager.delegate?.get()?.getWordCheckVC(
-                network,
-                words,
-                randomNumbers.sorted(),
-                checkMode
-            ) as WViewController
-        )
+        val wordCheckVC = WalletContextManager.delegate?.get()?.getWordCheckVC(
+            network,
+            words,
+            randomNumbers.sorted(),
+            checkMode
+        ) as? WViewController ?: return
+        push(wordCheckVC)
     }
 
     open fun skipPressed() {

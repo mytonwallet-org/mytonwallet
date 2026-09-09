@@ -1,0 +1,102 @@
+{
+ "buildTransaction": {
+  "route": "dex",
+  "chain": "ton",
+  "id": "2544725",
+  "transfers": [
+   {
+    "toAddress": "EQDa4VOnTYlLvDJ0gZjNYm5PXfSmmtL6Vs6A_CZEtXCNICq_",
+    "amount": "299562500",
+    "payload": "te6cckEBAwEARwABaeoGGF067OBLlaiIm0AvRDhIAHy/+VG7+ebYbZP+jeYqxVVqNzIpCLWthNl7zJOrFKsQL5pEAQIJapmqCw4CAgAILhz6goBtmNY="
+   },
+   {
+    "toAddress": "EQDUkQbpTVIgt7v66-JTFR-3-eXRFz_4V66F-Ufn6vOg0D5s",
+    "amount": "437500",
+    "payload": "te6ccsEBAQEABgAAAAhNI4VDTOLDmQ=="
+   }
+  ],
+  "withDiesel": false
+ },
+ "history": [
+  {
+   "url": "/swap/history/UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8/2544725/update",
+   "request": {
+    "swapVersion": 3,
+    "msgHash": "cd4/X5PRxxoa1K6YKZvDEvXBxYrKSWEywkC/8jCeh0M=",
+    "msgHashNormalized": "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g="
+   },
+   "response": {
+    "id": "2544725",
+    "timestamp": 1788451835542,
+    "from": "ton:native",
+    "fromAmount": "0.050000000000000000",
+    "to": "ton:EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+    "toAmount": "0.067272000000000000",
+    "status": "pending",
+    "txIds": [],
+    "transactionIds": {},
+    "hashes": [
+     "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g="
+    ],
+    "exchanger": "dedust-router-v2",
+    "msgHash": "cd4/X5PRxxoa1K6YKZvDEvXBxYrKSWEywkC/8jCeh0M=",
+    "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+    "networkFee": "0.03",
+    "ourFee": "0.0004375",
+    "ourFeeMode": "included"
+   }
+  },
+  {
+   "url": "/swap/history/by-addresses",
+   "request": {
+    "fromTimestamp": 1788451837000,
+    "toTimestamp": 1788451838471,
+    "hashes": [
+     "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=",
+     "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g="
+    ],
+    "isCex": true,
+    "addressByChain": {
+     "ton": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8"
+    },
+    "swapVersion": 3
+   },
+   "response": []
+  },
+  {
+   "url": "/swap/history/UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+   "request": {
+    "fromTimestamp": 1788451776715,
+    "toTimestamp": 1788451838583,
+    "hashes": [
+     "L8+a40nwNwSqIBFl8wbJXMNeaBjYzN81eHPhAef0Ewc=",
+     "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g="
+    ],
+    "isCex": false,
+    "swapVersion": 3
+   },
+   "response": [
+    {
+     "id": "2544725",
+     "timestamp": 1788451835542,
+     "from": "ton:native",
+     "fromAmount": "0.050000000000000000",
+     "to": "ton:EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+     "toAmount": "0.067272000000000000",
+     "status": "pending",
+     "txIds": [],
+     "transactionIds": {},
+     "hashes": [
+      "Re7rdj1re2tYpupQ5x8MRSznAfVtccY+Z8ePz+y6T5g="
+     ],
+     "exchanger": "dedust-router-v2",
+     "msgHash": "cd4/X5PRxxoa1K6YKZvDEvXBxYrKSWEywkC/8jCeh0M=",
+     "fromAddress": "UQAXt7U0eHXLZhcngXzALAryEm_dtkTevqFfa2zc7UfcciR8",
+     "networkFee": "0.03",
+     "ourFee": "0.0004375",
+     "ourFeeMode": "included"
+    }
+   ]
+  }
+ ]
+}

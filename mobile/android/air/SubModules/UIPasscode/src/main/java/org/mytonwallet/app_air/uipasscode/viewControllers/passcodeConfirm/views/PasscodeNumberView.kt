@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.extensions.crossFadeImage
@@ -80,9 +81,12 @@ class PasscodeNumberView(
         updateTheme()
     }
 
+    private var appliedScaleFactor = 1f
+
     fun updateConstraintsForSize(currentSize: Int) {
-        val scaleFactor = currentSize / 80f.dp
-        if (scaleFactor >= 1) return
+        val scaleFactor = (currentSize / 80f.dp).coerceAtMost(1f)
+        if (scaleFactor == appliedScaleFactor) return
+        appliedScaleFactor = scaleFactor
 
         titleLabel.setStyle(22f * scaleFactor)
         subtitleLabel.setStyle(14f * scaleFactor, WFont.Medium)
@@ -92,8 +96,10 @@ class PasscodeNumberView(
             imageView.scaleY = scaleFactor
         } else {
             if (scaleFactor > 0.5) {
+                subtitleLabel.visibility = VISIBLE
                 val scaledSpacing = 16f * scaleFactor
                 setConstraints {
+                    clear(titleLabel.id, ConstraintSet.BOTTOM)
                     toTop(titleLabel, scaledSpacing)
                     toCenterX(titleLabel)
                     toBottom(subtitleLabel, scaledSpacing)
@@ -136,6 +142,7 @@ class PasscodeNumberView(
     }
 
     fun updateImage(animated: Boolean) {
+        val customDrawable = customDrawable
         isEnabled = customDrawable != null
         if (customDrawable == null) {
             if (isVisible && animated) {
@@ -154,10 +161,10 @@ class PasscodeNumberView(
         }
 
         val color = drawableTint ?: if (light ?: ThemeManager.isDark) Color.WHITE else Color.BLACK
-        customDrawable!!.setTint(color)
+        customDrawable.setTint(color)
 
         if (animated) {
-            imageView.crossFadeImage(customDrawable!!)
+            imageView.crossFadeImage(customDrawable)
         } else {
             imageView.setImageDrawable(customDrawable)
             imageView.alpha = 1f

@@ -52,7 +52,6 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.requestDAppList
 import org.mytonwallet.app_air.walletcore.helpers.DappFeeHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -73,6 +72,7 @@ import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeePrecision
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFeeTerms
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.DappsStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.toAmountString
 
@@ -82,10 +82,9 @@ private const val UNKNOWN_TOKEN_SYMBOL = "[Unknown]"
 internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List<BaseListItem> {
     val uiItems = mutableListOf<BaseListItem>()
 
-    when (update.payloadToSign) {
+    when (val payloadToSign = update.payloadToSign) {
         is MSignDataPayload.SignDataPayloadBinary -> {
-            val payload =
-                update.payloadToSign as MSignDataPayload.SignDataPayloadBinary
+            val payload = payloadToSign
             uiItems.addAll(
                 listOf(
                     Item.ListTitle(
@@ -104,8 +103,7 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
         }
 
         is MSignDataPayload.SignDataPayloadCell -> {
-            val payload =
-                update.payloadToSign as MSignDataPayload.SignDataPayloadCell
+            val payload = payloadToSign
 
             update.parsedPayloadToSign?.let { parsedPreview ->
                 uiItems.addAll(
@@ -156,8 +154,7 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
         }
 
         is MSignDataPayload.SignDataPayloadText -> {
-            val payload =
-                update.payloadToSign as MSignDataPayload.SignDataPayloadText
+            val payload = payloadToSign
             uiItems.addAll(
                 listOf(
                     Item.ListTitle(
@@ -176,7 +173,7 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
         }
 
         is MSignDataPayload.SignDataPayloadEip712 -> {
-            val eip712 = update.payloadToSign as MSignDataPayload.SignDataPayloadEip712
+            val eip712 = payloadToSign
             fun pretty(value: Any?): String =
                 org.json.JSONObject.wrap(value)?.toString() ?: value.toString()
             uiItems.addAll(
@@ -456,11 +453,12 @@ class TonConnectRequestSendViewModel private constructor(
                     try {
                         val account = AccountStore.accountById(update.accountId) ?: return@launch
                         val dappChain = account.dappChain(update.operationChain) ?: return@launch
+                        val dappUrl = update.dapp.url ?: return@launch
                         val signedData = WalletCore.call(
                             ApiMethod.Transfer.SignDappData(
                                 dappChain = dappChain,
                                 accountId = update.accountId,
-                                dappUrl = update.dapp.url!!,
+                                dappUrl = dappUrl,
                                 payloadToSign = update.payloadToSign,
                                 enclaveToken = enclaveToken
                             )
@@ -528,7 +526,7 @@ class TonConnectRequestSendViewModel private constructor(
                         ),
                         callback = { _, _ ->
                             WalletCore.notifyEvent(WalletEvent.DappRemoved(update.dapp))
-                            WalletCore.requestDAppList()
+                            DappsStore.refresh(update.accountId)
                         }
                     )
                     update.dapp.url?.let { url ->
@@ -671,7 +669,7 @@ class TonConnectRequestSendViewModel private constructor(
                                     isEmulation = true
                                 },
                                 isMultichain = isMultichain,
-                                accountId = AccountStore.activeAccountId!!,
+                                accountId = AccountStore.activeAccountId ?: update.accountId,
                                 isFirst = index == 0,
                                 isLast = index == previewActivities.lastIndex
                             )

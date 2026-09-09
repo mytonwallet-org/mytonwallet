@@ -198,14 +198,15 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
                 termsView.shakeView(AnimationConstants.INSTANT_ANIMATION)
                 return@setOnClickListener
             }
+            val window = window ?: return@setOnClickListener
             val nav = WNavigationController(
-                window!!,
+                window,
                 WNavigationController.PresentationConfig(
                     style = WNavigationController.PresentationStyle.BottomSheet
                 )
             )
             nav.setRoot(AddAccountOptionsVC(context, network = network, isOnIntro = true))
-            window?.present(nav)
+            window.present(nav)
         }
         btn
     }
@@ -442,7 +443,7 @@ class IntroVC(context: Context, private val network: MBlockchainNetwork) :
         }
 
         termsView.setOnTouchListener { v, event ->
-            val widget = v as TextView
+            val widget = v as? TextView ?: return@setOnTouchListener false
             val action = event.action
 
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_DOWN) {

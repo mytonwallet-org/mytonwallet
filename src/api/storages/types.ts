@@ -59,9 +59,4 @@ export type StorageKey = 'accounts'
   | 'agentV2Consent'
   | 'agentV2WalletProtocolVersion'
   // For Headless
-  | 'headlessBalanceSnapshots'
-  // SDK activity reconciliation
-  | 'walletOperationIntents'
-  | 'activeCexSwapReconciliationState'
-  | 'knownTonAggregatorTraceIds'
-  | 'knownTonAggregatorTraceProjections';
+  | 'headlessBalanceSnapshots';

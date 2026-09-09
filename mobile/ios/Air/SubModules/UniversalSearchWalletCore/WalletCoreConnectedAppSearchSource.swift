@@ -62,7 +62,16 @@ public struct WalletCoreConnectedAppSearchSource: UniversalSearchSource {
                     (WalletCoreSearchAttributeKey.iconURL, app.iconUrl),
                     (WalletCoreSearchAttributeKey.url, app.url),
                 ]),
-                signals: SearchSignals(traits: [.connected])
+                signals: SearchSignals(
+                    traits: [.connected],
+                    interaction: app.connectedAt.flatMap { connectedAt in
+                        guard connectedAt > 0 else { return nil }
+                        return SearchInteractionSignal(
+                            lastSelectedAt: Date(timeIntervalSince1970: Double(connectedAt) / 1_000),
+                            selectionCount: 1
+                        )
+                    }
+                )
             )
         }.sorted { $0.id < $1.id }
     }

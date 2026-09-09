@@ -11,7 +11,6 @@ import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcore.MFA_BOT_URL
 import org.mytonwallet.app_air.walletcore.WalletCore
-import org.mytonwallet.app_air.walletcore.api.refreshStoredMfa
 import org.mytonwallet.app_air.walletcore.buildMfaStartParam
 import org.mytonwallet.app_air.walletcore.models.AccountMfa
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -99,7 +98,7 @@ class MfaFlowViewModel(val accountId: String) {
     suspend fun refreshStoredMfa() {
         _stateFlow.value = state.copy(isRefreshingMfa = true)
         try {
-            WalletCore.refreshStoredMfa(accountId)
+            AccountStore.refreshMfa(accountId)
         } catch (e: Throwable) {
             Logger.e(Logger.LogTag.SETTINGS, "refreshStoredMfa failed: $e")
         } finally {

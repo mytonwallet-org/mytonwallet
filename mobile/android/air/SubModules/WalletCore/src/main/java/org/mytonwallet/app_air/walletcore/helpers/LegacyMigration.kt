@@ -173,7 +173,11 @@ object LegacyMigration {
                 activity,
                 object : EnclaveManager.SessionCallback {
                     override fun onSuccess(token: String?, validUntil: Long) {
-                        onSuccessCallback(token!!)
+                        if (token == null) {
+                            onErrorCallback("migrateToEnclave returned no session token")
+                            return
+                        }
+                        onSuccessCallback(token)
                     }
 
                     override fun onError(error: String?) {

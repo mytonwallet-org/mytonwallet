@@ -276,7 +276,7 @@ class MfaActionConfirmVC(
         view.addView(confirmButton, ConstraintLayout.LayoutParams(0, 50.dp))
 
         view.setConstraints {
-            topToBottom(scrollView, navigationBar!!)
+            navigationBar?.let { topToBottom(scrollView, it) }
             toCenterX(scrollView)
             bottomToTop(scrollView, confirmButton, 20f)
             toBottomPx(confirmButton, buttonsBottomMargin())
@@ -311,7 +311,6 @@ class MfaActionConfirmVC(
         stopPolling()
         awaitingActivity = false
         activityTimeoutHandler.removeCallbacks(activityTimeoutRunnable)
-        WalletCore.unregisterObserver(this)
         super.onDestroy()
         if (didFinish) return
         val onClosedBeforeFinish = onClosedBeforeFinish ?: return

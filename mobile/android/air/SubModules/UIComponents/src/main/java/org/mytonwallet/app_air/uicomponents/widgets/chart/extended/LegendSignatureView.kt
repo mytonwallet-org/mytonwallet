@@ -353,11 +353,12 @@ open class LegendSignatureView(context: Context) : FrameLayout(context) {
             holder.value.setTextColor(style.resolveLineColor(line.line))
             holder.signature.setTextColor(style.primaryTextColor)
 
-            if (showPercentage && holder.percentage != null) {
-                holder.percentage!!.visibility = VISIBLE
-                holder.percentage!!.setTextColor(style.primaryTextColor)
+            val percentageView = holder.percentage
+            if (showPercentage && percentageView != null) {
+                percentageView.visibility = VISIBLE
+                percentageView.setTextColor(style.primaryTextColor)
                 val v = line.line.y[index] / sum.toFloat()
-                holder.percentage!!.text =
+                percentageView.text =
                     percentageFormatter?.invoke(v) ?: if (v < 0.1f && v != 0f) {
                         String.format(Locale.ENGLISH, "%.1f%s", 100f * v, "%")
                     } else {
@@ -489,19 +490,19 @@ open class LegendSignatureView(context: Context) : FrameLayout(context) {
     ): CharSequence {
         if (formatter == ChartData.FORMATTER_TON) {
             if (formatterIndex == 0) {
-                if (formatterTON == null) {
+                val formatterTON = formatterTON ?: run {
                     val symbols = DecimalFormatSymbols(Locale.US).apply {
                         decimalSeparator = '.'
                     }
-                    formatterTON = DecimalFormat("#.##", symbols).apply {
+                    DecimalFormat("#.##", symbols).apply {
                         minimumFractionDigits = 2
                         maximumFractionDigits = 6
                         isGroupingUsed = false
-                    }
+                    }.also { this.formatterTON = it }
                 }
-                formatterTON!!.maximumFractionDigits = if (v > 1_000_000_000) 2 else 6
+                formatterTON.maximumFractionDigits = if (v > 1_000_000_000) 2 else 6
                 return ChannelMonetizationLayout.replaceTON(
-                    "GRAM " + formatterTON!!.format(v / 1_000_000_000.0),
+                    "GRAM " + formatterTON.format(v / 1_000_000_000.0),
                     textView.paint,
                     .82f,
                     plain = false
@@ -515,9 +516,7 @@ open class LegendSignatureView(context: Context) : FrameLayout(context) {
             }
             return "≈" + ChartFormatters.formatCurrency((v / k).toLong(), "USD")
         }
-        if (valueFormatter != null) {
-            return valueFormatter!!.formatLegendValue(v, textView.paint)
-        }
+        valueFormatter?.let { return it.formatLegendValue(v, textView.paint) }
         val formattedValue = if (useCompactValueFormatting) {
             ChartFormatters.compactWholeNumber(v)
         } else {

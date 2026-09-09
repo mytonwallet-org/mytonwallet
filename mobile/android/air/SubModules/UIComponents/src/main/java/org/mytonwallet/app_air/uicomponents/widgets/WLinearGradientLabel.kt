@@ -18,6 +18,7 @@ open class WLinearGradientLabel(context: Context) : WLabel(context) {
     }
 
     private fun applyGradient() {
+        val gradientColors = gradientColors
         if (gradientColors == null || width == 0) {
             paint.shader = null
             return
@@ -28,7 +29,7 @@ open class WLinearGradientLabel(context: Context) : WLabel(context) {
             0f,
             width.toFloat(),
             0f,
-            gradientColors!!,
+            gradientColors,
             null,
             Shader.TileMode.CLAMP
         )

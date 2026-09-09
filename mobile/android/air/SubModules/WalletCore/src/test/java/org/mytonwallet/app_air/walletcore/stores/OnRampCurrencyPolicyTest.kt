@@ -1,14 +1,18 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import com.squareup.moshi.JsonDataException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
+import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 class OnRampCurrencyPolicyTest {
 
     @Test
     fun absentListKeepsFullBaselineOnTon() {
-        ConfigStore.init(mapOf())
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig())
         assertEquals(
             listOf(MBaseCurrency.USD, MBaseCurrency.EUR, MBaseCurrency.RUB),
             OnRampCurrencyPolicy.supportedCurrencies("ton")
@@ -20,7 +24,9 @@ class OnRampCurrencyPolicyTest {
     // only the ones known today
     @Test
     fun rubIsNeverOfferedOffTon() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "eur", "rub")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "eur", "rub"))
+        )
         for (chain in listOf("tron", "solana", "ethereum", "base", "bnb")) {
             assertEquals(
                 listOf(MBaseCurrency.USD, MBaseCurrency.EUR),
@@ -31,7 +37,9 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun serverListNarrowsTheBaseline() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "eur")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "eur"))
+        )
         assertEquals(
             listOf(MBaseCurrency.USD, MBaseCurrency.EUR),
             OnRampCurrencyPolicy.supportedCurrencies("ton")
@@ -40,13 +48,17 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun emptyListYieldsNoCurrencies() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to emptyList<String>()))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = emptyList<String>())
+        )
         assertEquals(emptyList<MBaseCurrency>(), OnRampCurrencyPolicy.supportedCurrencies("ton"))
     }
 
     @Test
     fun currencyCodesAreMatchedRegardlessOfCase() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("USD", "Eur")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("USD", "Eur"))
+        )
         assertEquals(
             listOf(MBaseCurrency.USD, MBaseCurrency.EUR),
             OnRampCurrencyPolicy.supportedCurrencies("ton")
@@ -55,33 +67,38 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun unknownCodesDropWithoutHidingTheKnownOnes() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "gbp", "usd")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "gbp", "usd"))
+        )
         assertEquals(listOf(MBaseCurrency.USD), OnRampCurrencyPolicy.supportedCurrencies("ton"))
     }
 
     @Test
-    fun malformedValueReadsAsAbsent() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to "rub"))
-        assertEquals(
-            listOf(MBaseCurrency.USD, MBaseCurrency.EUR, MBaseCurrency.RUB),
-            OnRampCurrencyPolicy.supportedCurrencies("ton")
-        )
+    fun malformedListRejectsTheWholeUpdate() {
+        val adapter = MoshiBuilder.build().adapter(ApiUpdate.ApiUpdateConfig::class.java)
+        assertThrows(JsonDataException::class.java) {
+            adapter.fromJson("""{"allowedOnOffRampCurrencies":"rub"}""")
+        }
     }
 
     @Test
     fun narrowingAfterAWiderConfigTakesEffect() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "eur", "rub")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "eur", "rub"))
+        )
         assertEquals(
             listOf(MBaseCurrency.USD, MBaseCurrency.EUR, MBaseCurrency.RUB),
             OnRampCurrencyPolicy.supportedCurrencies("ton")
         )
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd")))
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd")))
         assertEquals(listOf(MBaseCurrency.USD), OnRampCurrencyPolicy.supportedCurrencies("ton"))
     }
 
     @Test
     fun preferredCurrencyTakesTheFirstOfferedPreference() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "eur", "rub")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "eur", "rub"))
+        )
         assertEquals(
             MBaseCurrency.RUB,
             OnRampCurrencyPolicy.preferredCurrency(
@@ -93,7 +110,9 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun preferredCurrencySkipsAPreferenceTheServerWithdrew() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("usd", "eur")))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("usd", "eur"))
+        )
         assertEquals(
             MBaseCurrency.USD,
             OnRampCurrencyPolicy.preferredCurrency("ton", listOf(MBaseCurrency.RUB))
@@ -102,7 +121,7 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun preferredCurrencyNeverAnswersOutsideTheOfferedSet() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to listOf("eur")))
+        ConfigStore.init(ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = listOf("eur")))
         assertEquals(
             MBaseCurrency.EUR,
             OnRampCurrencyPolicy.preferredCurrency("ton", listOf(MBaseCurrency.USD))
@@ -111,7 +130,9 @@ class OnRampCurrencyPolicyTest {
 
     @Test
     fun preferredCurrencyAnswersNothingWhenNothingIsOffered() {
-        ConfigStore.init(mapOf("allowedOnOffRampCurrencies" to emptyList<String>()))
+        ConfigStore.init(
+            ApiUpdate.ApiUpdateConfig(allowedOnOffRampCurrencies = emptyList<String>())
+        )
         assertEquals(
             null,
             OnRampCurrencyPolicy.preferredCurrency(

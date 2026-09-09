@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -27,6 +28,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 
@@ -326,6 +328,26 @@ object AccountStore : IStore {
         updateAccountByChain(accountId, byChain)
         if (activeAccountId == accountId) {
             activeAccount?.byChain = byChain
+        }
+    }
+
+    suspend fun refreshMfa(accountId: String, password: String? = null) {
+        val result = WalletCore.call(ApiMethod.Mfa.RefreshMfaState(accountId, password))
+        updateMfa(accountId, result.mfa)
+    }
+
+    fun refreshMfaIfPossible(accountIds: Iterable<String>, password: String?) {
+        WalletCore.scope.launch {
+            for (accountId in accountIds) {
+                try {
+                    refreshMfa(accountId, password)
+                } catch (t: Throwable) {
+                    Logger.e(
+                        Logger.LogTag.WALLET_CORE,
+                        "refreshMfa failed for imported account $accountId: $t"
+                    )
+                }
+            }
         }
     }
 

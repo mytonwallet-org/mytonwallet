@@ -67,9 +67,11 @@ class PieLegendView(context: Context) : LegendSignatureView(context) {
         } else {
             "$percentagePrefix $name"
         }
-        this.value?.text =
-            valueFormatter?.formatLegendValue(value, this.value!!.paint) ?: value.toString()
-        this.value?.setTextColor(color)
+        this.value?.let { valueView ->
+            valueView.text =
+                valueFormatter?.formatLegendValue(value, valueView.paint) ?: value.toString()
+            valueView.setTextColor(color)
+        }
     }
 
     override fun setSize(n: Int) {

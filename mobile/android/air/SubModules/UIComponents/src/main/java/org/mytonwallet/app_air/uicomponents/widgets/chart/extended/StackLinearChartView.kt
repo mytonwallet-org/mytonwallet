@@ -66,12 +66,10 @@ open class StackLinearChartView<T : StackLinearViewData>(context: Context) :
         }
 
         canvas.save()
-        if (skipPoints == null || skipPoints!!.size < data.lines.size) {
-            skipPoints = BooleanArray(data.lines.size)
-            startFromY = FloatArray(data.lines.size)
-        }
-        val localSkipPoints = skipPoints!!
-        val localStartFromY = startFromY!!
+        val localSkipPoints = skipPoints?.takeIf { it.size >= data.lines.size }
+            ?: BooleanArray(data.lines.size).also { skipPoints = it }
+        val localStartFromY = startFromY?.takeIf { it.size >= data.lines.size }
+            ?: FloatArray(data.lines.size).also { startFromY = it }
 
         var transitionAlpha = 255
         var transitionProgressHalf = 0f

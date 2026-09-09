@@ -105,7 +105,7 @@ function CardRoster({ cardsInfo, mycoin, mycoinBalance, toncoinBalance }: OwnPro
         <button
           className={buildClassName(styles.navigation, styles.navigationLeft)}
           type="button"
-          aria-label={lang('Prev')}
+          aria-label={lang('Previous')}
           onClick={() => showPrevSlide()}
         >
           <i className={buildClassName(styles.navigationIcon, 'icon-chevron-left')} aria-hidden />

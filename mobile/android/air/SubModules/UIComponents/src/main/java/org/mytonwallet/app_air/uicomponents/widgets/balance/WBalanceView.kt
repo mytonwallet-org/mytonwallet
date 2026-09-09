@@ -147,6 +147,7 @@ class WBalanceView(context: Context) :
         val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = this@WBalanceView.typeface
         }
+        val str = _str ?: ""
         this._text = _str?.mapIndexed { i, character ->
             if (!decimalsPart && !character.isDigit() && i > 0 && character != thinSpace) {
                 size = decimalsSize.dp
@@ -170,18 +171,14 @@ class WBalanceView(context: Context) :
             val charSize = if (isBaseCurrency) currencySize.dp else size
             val key = Pair(character, charSize)
             basePaint.textSize = charSize
-            if (!textMeasureCache.containsKey(key)) {
+            val charWidth = textMeasureCache.getOrPut(key) {
                 basePaint.measureText(character.toString()).let {
-                    if (character == thinSpace) {
-                        textMeasureCache[key] = it / 2
-                    } else {
-                        textMeasureCache[key] = it
-                    }
+                    if (character == thinSpace) it / 2 else it
                 }
             }
             val charLeft =
-                left + (if (i > 0) getKerning(basePaint, _str!![i - 1], character) else 0f)
-            left = charLeft + textMeasureCache[key]!!
+                left + (if (i > 0) getKerning(basePaint, str[i - 1], character) else 0f)
+            left = charLeft + charWidth
             WBalanceViewCharacter(
                 character,
                 charSize,
@@ -256,8 +253,7 @@ class WBalanceView(context: Context) :
     }
 
     private fun applyNextAnimation() {
-        if (nextValue == null) return
-        runAnimateConfig(nextValue!!)
+        runAnimateConfig(nextValue ?: return)
     }
 
     val text: String?

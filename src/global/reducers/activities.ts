@@ -11,7 +11,7 @@ import {
 import { mergeSortedActivityIds } from '../../util/activities/order';
 import { getOrderedAccountChains } from '../../util/chain';
 import { extractKey, mapValues, unique } from '../../util/iteratees';
-import { preserveActivityStatusProgress } from '../../api/common/activities/reconciler/matcher';
+import { preserveActivityStatusProgress } from '../../api/common/activities/swapReconciler';
 import { replaceActivityId } from '../helpers/misc';
 import { selectAccountOrAuthAccount, selectAccountState } from '../selectors';
 import { updateAccountState } from './misc';

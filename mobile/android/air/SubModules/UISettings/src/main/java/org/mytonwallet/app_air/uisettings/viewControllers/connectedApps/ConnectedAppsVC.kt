@@ -151,7 +151,7 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
             )
         )
         view.setConstraints {
-            topToBottom(noItemView, navigationBar!!)
+            navigationBar?.let { topToBottom(noItemView, it) }
             toCenterX(noItemView)
             toBottomPx(noItemView, (navigationController?.bottomInset ?: 0))
 

@@ -27,7 +27,7 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.extensions.unspecified
 import org.mytonwallet.app_air.uicomponents.helpers.NftActionHelpers
@@ -522,8 +522,8 @@ class ActivityCell(
     }
 
     private fun contentCutoutPath(roundRadius: Float): Path {
-        val cellLocation = getLocationOnScreen()
-        val contentTop = mainContentView.getLocationOnScreen().y.toFloat()
+        val cellLocation = getLocationInWindow()
+        val contentTop = mainContentView.getLocationInWindow().y.toFloat()
         val left = cellLocation.x.toFloat()
         val right = (cellLocation.x + width).toFloat()
         val bottom = (cellLocation.y + height).toFloat()
@@ -535,7 +535,7 @@ class ActivityCell(
         val topBlurView = topVC?.topBlurView
         val topBlurBottom = topBlurView?.let {
             val cornerRadius = (it as? ReversedCornerView)?.cornerRadius ?: 0f
-            it.getLocationOnScreen().y + it.height - cornerRadius
+            it.getLocationInWindow().y + it.height - cornerRadius
         } ?: 0f
         val clampTop = maxOf(
             topBlurBottom,
@@ -629,8 +629,9 @@ class ActivityCell(
         setConstraints {
             toBottom(commentContainer, 12f)
 
-            if (singleTagView?.isVisible == true) {
-                topToBottom(commentContainer, singleTagView!!, 8f)
+            val visibleTagView = singleTagView?.takeIf { it.isVisible }
+            if (visibleTagView != null) {
+                topToBottom(commentContainer, visibleTagView, 8f)
             } else {
                 topToTop(commentContainer, mainContentView, 60f)
             }

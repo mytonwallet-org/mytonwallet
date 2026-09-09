@@ -216,11 +216,8 @@ class WMenuPopupView(
             itemYPositions[index] = totalHeight
             totalHeight += itemHeight
             itemViews.add(itemView)
-            val itemParent = if (hasExpandingHeader && index > 0) {
-                expandingBodyContainer!!
-            } else {
-                contentContainer
-            }
+            val itemParent = expandingBodyContainer?.takeIf { hasExpandingHeader && index > 0 }
+                ?: contentContainer
             itemParent.addView(itemView, LayoutParams(WRAP_CONTENT, itemHeight))
         }
         expandingBodyContainer?.updateLayoutParams {

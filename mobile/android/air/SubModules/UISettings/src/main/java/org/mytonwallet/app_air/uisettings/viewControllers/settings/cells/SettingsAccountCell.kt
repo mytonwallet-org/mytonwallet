@@ -169,7 +169,7 @@ class SettingsAccountCell(context: Context) :
         isEnabled: Boolean,
         onTap: () -> Unit
     ) {
-        val account = item.account!!
+        val account = requireNotNull(item.account) { "Account cell configured without an account" }
         val accountChanged = this.account != account
         val avatarUrlChanged = accountAvatarUrl != account.telegramAvatarUrl
         if (!accountChanged &&

@@ -1,9 +1,9 @@
 package org.mytonwallet.app_air.walletcore.stores
 
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
-import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 object ConfigStore : IStore {
     enum class SeasonalTheme(val value: String) {
@@ -38,20 +38,17 @@ object ConfigStore : IStore {
 
     fun getEffectiveSeasonalTheme(): SeasonalTheme? = seasonalThemeOverride ?: seasonalTheme
 
-    fun init(configMap: Map<String, Any>?) {
-        if (configMap == null) return
-        isCopyStorageEnabled = configMap["isCopyStorageEnabled"] as? Boolean
-        supportAccountsCount = configMap["supportAccountsCount"] as? Double
-        isLimited = configMap["isLimited"] as? Boolean
-        countryCode = configMap["countryCode"] as? String
-        isAppUpdateRequired = configMap["isAppUpdateRequired"] as? Boolean
-        swapVersion = (configMap["swapVersion"] as? Number)?.toInt()
+    fun init(config: ApiUpdate.ApiUpdateConfig) {
+        isCopyStorageEnabled = config.isCopyStorageEnabled
+        supportAccountsCount = config.supportAccountsCount
+        isLimited = config.isLimited
+        countryCode = config.countryCode
+        isAppUpdateRequired = config.isAppUpdateRequired
+        swapVersion = config.swapVersion
         // Resolved to currencies at ingest rather than kept as strings, so no later comparison can
-        // disagree on case or spelling. Shape is validated at runtime: a non-list reads as an absent
-        // field, and anything that is not a known currency code drops out
+        // disagree on case or spelling. Anything that is not a known currency code drops out
         allowedOnOffRampCurrencies =
-            (configMap["allowedOnOffRampCurrencies"] as? List<*>)
-                ?.filterIsInstance<String>()
+            config.allowedOnOffRampCurrencies
                 ?.mapNotNull { code ->
                     val currencyCode = code.uppercase()
                     MBaseCurrency.entries.firstOrNull { it.currencyCode == currencyCode }
@@ -60,7 +57,7 @@ object ConfigStore : IStore {
 
         // Seasonal Theme
         val oldEffectiveSeasonalTheme = getEffectiveSeasonalTheme()
-        seasonalTheme = SeasonalTheme.fromString(configMap["seasonalTheme"] as? String)
+        seasonalTheme = SeasonalTheme.fromString(config.seasonalTheme)
         if (getEffectiveSeasonalTheme() != oldEffectiveSeasonalTheme) {
             WalletCore.notifyEvent(WalletEvent.SeasonalThemeChanged)
         }

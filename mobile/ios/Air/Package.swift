@@ -708,6 +708,7 @@ let package = Package(
             "UIComponentsTests",
             dependencies: [
                 "UIComponents",
+                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -739,6 +740,7 @@ let package = Package(
                 "ProtectedAction",
                 "UIAssets",
                 "WalletCore",
+                "WalletResources",
             ]
         ),
         airTestTarget(

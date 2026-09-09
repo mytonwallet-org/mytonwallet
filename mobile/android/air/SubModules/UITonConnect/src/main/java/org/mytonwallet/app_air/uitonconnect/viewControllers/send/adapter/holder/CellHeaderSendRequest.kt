@@ -283,7 +283,8 @@ class CellHeaderSendRequest(context: Context) :
 
     private fun updateContent() {
         val update = update ?: return
-        val account = MAccount(update.accountId, WGlobalStorage.getAccount(update.accountId)!!)
+        val accountJson = WGlobalStorage.getAccount(update.accountId) ?: return
+        val account = MAccount(update.accountId, accountJson)
 
         accountIconView.config(account)
         walletBalanceLabel.text = formatWalletBalance(update.accountId)

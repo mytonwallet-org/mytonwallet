@@ -95,8 +95,6 @@ export const ALL_WALLET_VERSIONS: ApiTonWalletVersion[] = [
   'simpleR1', 'simpleR2', 'simpleR3', 'v2R1', 'v2R2', 'v3R1', 'v3R2', 'v4R2', 'W5',
 ];
 
-export const OUR_FEE_PAYLOAD_BOC = 'te6cckEBAQEABgAACE0jhUPUcYAL';
-
 export const RAW_ADDRESS_LENGTH = 66;
 
 export enum Workchain {

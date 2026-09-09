@@ -29,7 +29,6 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.enclaveDuplicateSecrets
 import org.mytonwallet.app_air.walletcore.api.importNewWalletVersion
-import org.mytonwallet.app_air.walletcore.api.refreshStoredMfaIfPossible
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
@@ -277,7 +276,7 @@ class WalletVersionsVC(context: Context) :
                 importedAt = importedAccount.importedAt
             )
             AirPushNotifications.subscribe(importedAccount, ignoreIfLimitReached = true)
-            WalletCore.refreshStoredMfaIfPossible(listOf(importedAccountId), null)
+            AccountStore.refreshMfaIfPossible(listOf(importedAccountId), null)
             WalletCore.activateAccount(
                 accountId = importedAccountId,
                 notifySDK = true

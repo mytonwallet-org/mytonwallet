@@ -100,7 +100,8 @@ class HighlightOverlayView(
 
         viewRect.set(left, top, left + width, top + height)
 
-        if (!RectF.intersects(holeRect!!, viewRect)) return
+        val holeRect = holeRect ?: return
+        if (!RectF.intersects(holeRect, viewRect)) return
 
         cornerCutoutPath.reset()
         cornerCutoutPath.addRect(viewRect, Path.Direction.CW)

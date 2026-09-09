@@ -120,11 +120,12 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
             GlassProviders.plain(overlayColor, alpha?.let { it / 255f })
         )
         val solidAlpha = alpha ?: if (ThemeManager.isDark) 204 else 140
-        this.overlayColor = overlayColor.color.colorWithAlpha(solidAlpha)
+        val solidColor = overlayColor.color.colorWithAlpha(solidAlpha)
+        this.overlayColor = solidColor
         if (isGradientMode) {
             rebuildGradientDrawable()
         } else {
-            backgroundView.setBackgroundColor(this.overlayColor!!)
+            backgroundView.setBackgroundColor(solidColor)
         }
         postInvalidateOnAnimation()
     }
@@ -286,7 +287,7 @@ class ReversedCornerView(context: Context, private val initialConfig: Config) :
             }
         } else if (!blurEnabled && blurryBackgroundView != null) {
             blurryBackgroundView?.let { blur ->
-                if (blur.parent != null) (blur.parent as ViewGroup).removeView(blur)
+                (blur.parent as? ViewGroup)?.removeView(blur)
             }
             blurryBackgroundView = null
             backgroundView.alpha = 1f

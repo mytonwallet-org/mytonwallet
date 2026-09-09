@@ -14,7 +14,7 @@ import {
 type FetchInput = string | URL | Request;
 
 const DEFAULT_TIMEOUT_MS = 30000;
-const PROVIDER_MIN_DELAY_MS = 250;
+const PROVIDER_MIN_DELAY_MS = 100;
 const PROVIDER_RETRIES = 6;
 const PROVIDER_FALLBACK_RETRY_AFTER_MS = 5000;
 // A 429 is provider-controlled back-pressure, so the pause it asks for is provider-controlled

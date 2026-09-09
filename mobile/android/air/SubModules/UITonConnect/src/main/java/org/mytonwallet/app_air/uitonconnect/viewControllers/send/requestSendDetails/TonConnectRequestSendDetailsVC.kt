@@ -65,7 +65,7 @@ class TonConnectRequestSendDetailsVC(context: Context, private val items: List<B
         view.addView(recyclerView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
         view.setConstraints {
             toCenterX(recyclerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-            topToBottom(recyclerView, navigationBar!!)
+            navigationBar?.let { topToBottom(recyclerView, it) }
             toBottom(recyclerView)
         }
 
@@ -95,11 +95,6 @@ class TonConnectRequestSendDetailsVC(context: Context, private val items: List<B
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
             )
         })
-    }
-
-    override fun onDestroy() {
-        WalletCore.unregisterObserver(this)
-        super.onDestroy()
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {

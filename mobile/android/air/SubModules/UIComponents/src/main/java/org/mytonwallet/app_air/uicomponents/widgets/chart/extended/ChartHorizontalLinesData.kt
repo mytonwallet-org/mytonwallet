@@ -29,9 +29,9 @@ class ChartHorizontalLinesData(
 ) {
     var values: LongArray
     var valuesStr: Array<CharSequence?>
-    var valuesStr2: Array<CharSequence?>? = null
+    var valuesStr2: Array<CharSequence?> = emptyArray()
     private var layouts: Array<StaticLayout?>
-    private var layouts2: Array<StaticLayout?>? = null
+    private var layouts2: Array<StaticLayout?> = emptyArray()
     var alpha: Int = 0
     var fixedAlpha: Int = 255
     private var formatterTON: DecimalFormat? = null
@@ -55,7 +55,7 @@ class ChartHorizontalLinesData(
                 valuesStr[i] = format(0, firstTextPaint, values[i], formatter)
                 if (k > 0f) {
                     val value2 = values[i] / k
-                    valuesStr2!![i] = if (skipFloatValues) {
+                    valuesStr2[i] = if (skipFloatValues) {
                         if (
                             value2 - value2.toLong() < 0.01f ||
                             formatter == ChartData.FORMATTER_TON ||
@@ -77,7 +77,7 @@ class ChartHorizontalLinesData(
                 valuesStr[i] = format(0, firstTextPaint, values[i], formatter)
                 if (k > 0f) {
                     val value2 = values[i] / k
-                    valuesStr2!![i] = if (skipFloatValues) {
+                    valuesStr2[i] = if (skipFloatValues) {
                         if (
                             value2 - value2.toLong() < 0.01f ||
                             formatter == ChartData.FORMATTER_TON ||
@@ -98,18 +98,18 @@ class ChartHorizontalLinesData(
     fun format(a: Int, paint: TextPaint, v: Long, formatter: Int): CharSequence {
         if (formatter == ChartData.FORMATTER_TON) {
             if (a == 1) return "≈" + ChartFormatters.formatCurrency(v, "USD")
-            if (formatterTON == null) {
+            val formatterTON = formatterTON ?: run {
                 val symbols = DecimalFormatSymbols(Locale.US)
                 symbols.decimalSeparator = '.'
-                formatterTON = DecimalFormat("#.##", symbols).apply {
+                DecimalFormat("#.##", symbols).apply {
                     minimumFractionDigits = 2
                     maximumFractionDigits = 6
                     isGroupingUsed = false
-                }
+                }.also { this.formatterTON = it }
             }
-            formatterTON!!.maximumFractionDigits = if (v > 1_000_000_000L) 2 else 6
+            formatterTON.maximumFractionDigits = if (v > 1_000_000_000L) 2 else 6
             return ChannelMonetizationLayout.replaceTON(
-                "GRAM " + formatterTON!!.format(v / 1_000_000_000.0),
+                "GRAM " + formatterTON.format(v / 1_000_000_000.0),
                 paint,
                 .8f,
                 -0.66f.dp,
@@ -158,10 +158,10 @@ class ChartHorizontalLinesData(
     }
 
     private fun getLayout(a: Int, i: Int, paint: TextPaint): StaticLayout {
-        val layoutArray = if (a == 0) layouts else layouts2!!
+        val layoutArray = if (a == 0) layouts else layouts2
         var layout = layoutArray[i]
         if (layout == null) {
-            val string = if (a == 0) valuesStr[i] else valuesStr2!![i]
+            val string = if (a == 0) valuesStr[i] else valuesStr2[i]
             layout = StaticLayout(
                 string ?: "",
                 paint,

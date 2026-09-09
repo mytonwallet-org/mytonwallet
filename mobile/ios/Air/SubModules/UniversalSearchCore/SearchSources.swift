@@ -209,7 +209,13 @@ public struct UniversalSearchCorpus: Sendable {
             let signals = candidate.signals
             result.traits.formUnion(signals.traits)
             result.baseCurrencyValue = result.baseCurrencyValue ?? signals.baseCurrencyValue
-            result.interaction = result.interaction ?? signals.interaction
+            if let interaction = signals.interaction {
+                // Connection and selection history can describe overlapping usage.
+                result.interaction = SearchInteractionSignal(
+                    lastSelectedAt: max(result.interaction?.lastSelectedAt ?? .distantPast, interaction.lastSelectedAt),
+                    selectionCount: max(result.interaction?.selectionCount ?? 0, interaction.selectionCount)
+                )
+            }
             result.popularity = result.popularity ?? signals.popularity
             result.recommendation = result.recommendation ?? signals.recommendation
         }

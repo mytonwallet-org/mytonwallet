@@ -19,7 +19,7 @@ class ShareHelpers {
 
         fun shareQRImage(activity: Activity, imageView: ImageView, text: String) {
             try {
-                val bitmapDrawable = imageView.drawable as BitmapDrawable
+                val bitmapDrawable = imageView.drawable as? BitmapDrawable ?: return
                 var f = File(activity.cacheDir, "sharing/")
                 f.mkdirs()
                 f = File(f, "qr.jpg")

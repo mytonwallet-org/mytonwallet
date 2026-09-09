@@ -174,6 +174,8 @@ public struct MtwCardBalanceView: View, Equatable {
 
     // MARK: Private
 
+    private let sensitiveDataColumns = 14
+
     private var isPlaceholder: Bool { balance == nil }
 
     private func mainView(_ balance: BaseCurrencyAmount) -> some View {
@@ -183,9 +185,11 @@ public struct MtwCardBalanceView: View, Equatable {
             .environment(\.layoutDirection, .leftToRight)
             .backportGeometryGroup()
             .minimumScaleFactor(0.1)
+            // Keep the entire reveal mask tappable even when the balance is short.
+            .frame(minWidth: CGFloat(sensitiveDataColumns) * style.sensitiveDataCellSize)
             .sensitiveData(
                 alignment: .center,
-                cols: 14,
+                cols: sensitiveDataColumns,
                 rows: 3,
                 cellSize: style.sensitiveDataCellSize,
                 theme: style.sensitiveDataTheme,

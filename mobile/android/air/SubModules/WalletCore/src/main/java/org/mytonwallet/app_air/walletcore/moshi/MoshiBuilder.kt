@@ -6,13 +6,12 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdateAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.BigDecimalJsonAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.BigIntegerJsonAdapter
+import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONArrayAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONObjectAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdateAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.ReturnStrategyAdapter
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.EnumJsonAdapterFactory
-import org.mytonwallet.app_air.walletcore.moshi.adapter.factory.SealedJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 class MoshiBuilder {
@@ -21,7 +20,6 @@ class MoshiBuilder {
             .add(NftAttributeAdapter())
             .add(BigIntegerJsonAdapter())
             .add(BigDecimalJsonAdapter())
-            .add(SealedJsonAdapterFactory())
             .add(ReturnStrategyAdapter())
             .add(AccountDomainUpdateAdapter())
             .add(MfaUpdateAdapter())
@@ -73,6 +71,31 @@ class MoshiBuilder {
                         "dappDisconnected"
                     )
                     .withSubtype(ApiUpdate.ApiUpdateTokens::class.java, "updateTokens")
+                    .withSubtype(
+                        ApiUpdate.ApiUpdateUpdatingStatus::class.java,
+                        "updatingStatus"
+                    )
+                    .withSubtype(ApiUpdate.ApiUpdateShowError::class.java, "showError")
+                    .withSubtype(ApiUpdate.ApiUpdateOpenUrl::class.java, "openUrl")
+                    .withSubtype(
+                        ApiUpdate.ApiUpdateAccountConfig::class.java,
+                        "updateAccountConfig"
+                    )
+                    .withSubtype(ApiUpdate.ApiUpdateStaking::class.java, "updateStaking")
+                    .withSubtype(ApiUpdate.ApiUpdateConfig::class.java, "updateConfig")
+                    .withSubtype(ApiUpdate.ApiUpdateNftSent::class.java, "nftSent")
+                    .withSubtype(ApiUpdate.ApiUpdateNftReceived::class.java, "nftReceived")
+                    .withSubtype(
+                        ApiUpdate.ApiUpdateAccountDomainData::class.java,
+                        "updateAccountDomainData"
+                    )
+                    .withSubtype(ApiUpdate.ApiUpdateBalances::class.java, "updateBalances")
+                    .withSubtype(
+                        ApiUpdate.ApiUpdateNewLocalActivities::class.java,
+                        "newLocalActivities"
+                    )
+                    .withSubtype(ApiUpdate.ApiUpdateNewActivities::class.java, "newActivities")
+                    .withSubtype(ApiUpdate.ApiUpdateNfts::class.java, "updateNfts")
                     .withSubtype(
                         ApiUpdate.ApiUpdateDappConnectComplete::class.java,
                         "dappConnectComplete"

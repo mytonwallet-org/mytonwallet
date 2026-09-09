@@ -115,19 +115,20 @@ class WidgetPreviewView(context: Context) :
 
     private fun updateLoadingState() {
         if (progressIndicator == null) {
-            progressIndicator = CircularProgressIndicator(context).apply {
+            val indicator = CircularProgressIndicator(context).apply {
                 id = generateViewId()
                 isIndeterminate = true
                 setIndicatorColor(WColor.SecondaryText.color)
                 indicatorSize = 28.dp
             }
+            progressIndicator = indicator
             addView(
-                progressIndicator,
+                indicator,
                 ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
             )
             setConstraints {
-                toCenterX(progressIndicator!!)
-                toBottom(progressIndicator!!, 20 + HEIGHT / 2 - 14f)
+                toCenterX(indicator)
+                toBottom(indicator, 20 + HEIGHT / 2 - 14f)
             }
         }
         if (isLoadingPreview) {

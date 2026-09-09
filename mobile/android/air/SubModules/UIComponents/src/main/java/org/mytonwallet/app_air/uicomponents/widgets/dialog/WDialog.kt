@@ -262,7 +262,7 @@ class WDialog(private val customView: ViewGroup, private val config: Config) : I
                 secondaryButton.layoutParams =
                     (secondaryButton.layoutParams as FrameLayout.LayoutParams).apply {
                         topMargin = fullHeight - 52.dp
-                        marginEnd = actionButton!!.width + 24.dp
+                        marginEnd = (actionButton?.width ?: 0) + 24.dp
                     }
             }
             presentAnimator = ValueAnimator.ofInt(0, fullHeight).apply {

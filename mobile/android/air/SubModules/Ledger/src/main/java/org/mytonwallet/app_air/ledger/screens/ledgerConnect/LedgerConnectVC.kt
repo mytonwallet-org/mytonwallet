@@ -73,8 +73,6 @@ import org.mytonwallet.app_air.walletcontext.utils.VerticalImageSpan
 import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.api.submitStake
-import org.mytonwallet.app_air.walletcore.api.submitUnstake
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -99,6 +97,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappT
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod.Transfer.SignDappTransfers.Options
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
 
 class LedgerConnectVC(
     context: Context,
@@ -378,7 +377,7 @@ class LedgerConnectVC(
     override fun setupViews() {
         super.setupViews()
 
-        LedgerManager.init(window!!.applicationContext)
+        LedgerManager.init(context.applicationContext)
 
         title = when (mode) {
             is Mode.AddAccount -> {
@@ -553,12 +552,12 @@ class LedgerConnectVC(
     private var bluetoothReceiverRegistered = false
     private fun initBluetooth() {
         val bluetoothManager =
-            window!!.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return
         bluetoothAdapter = bluetoothManager.adapter
 
         if (!bluetoothReceiverRegistered) {
             ContextCompat.registerReceiver(
-                window!!,
+                context,
                 bluetoothStateReceiver,
                 IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
                 ContextCompat.RECEIVER_NOT_EXPORTED
@@ -617,11 +616,13 @@ class LedgerConnectVC(
                                         )
                                     )
                                 )
-                                if (!ActivityCompat.shouldShowRequestPermissionRationale(
-                                        window!!,
+                                val showsRationale = window?.let {
+                                    ActivityCompat.shouldShowRequestPermissionRationale(
+                                        it,
                                         Manifest.permission.BLUETOOTH_SCAN
                                     )
-                                ) {
+                                }
+                                if (showsRationale == false) {
                                     configureTryAgainButton(toOpenSettings = true)
                                 }
                             }
@@ -899,15 +900,17 @@ class LedgerConnectVC(
                 is SignData.Staking -> {
                     try {
                         val result = if (signData.isStaking) {
-                            WalletCore.submitStake(
-                                accountId = signData.accountId,
-                                enclaveToken = "",
-                                amount = signData.amount,
-                                stakingState = signData.stakingState,
-                                realFee = signData.realFee
+                            WalletCore.call(
+                                ApiMethod.Staking.SubmitStake(
+                                    accountId = signData.accountId,
+                                    enclaveToken = "",
+                                    amount = signData.amount,
+                                    stakingState = signData.stakingState,
+                                    realFee = signData.realFee
+                                )
                             )
                         } else {
-                            WalletCore.submitUnstake(
+                            StakingStore.submitUnstake(
                                 accountId = signData.accountId,
                                 enclaveToken = "",
                                 amount = signData.amount,
@@ -1182,13 +1185,12 @@ class LedgerConnectVC(
         super.onDestroy()
         if (bluetoothReceiverRegistered) {
             try {
-                window!!.unregisterReceiver(bluetoothStateReceiver)
+                context.unregisterReceiver(bluetoothStateReceiver)
             } catch (_: IllegalArgumentException) {
             }
             bluetoothReceiverRegistered = false
         }
         if (shouldDestroyLedgerManager) LedgerManager.stopConnection()
-        WalletCore.unregisterObserver(this)
         onCancel?.invoke()
     }
 
@@ -1198,10 +1200,12 @@ class LedgerConnectVC(
             configureTryAgainButton(
                 toOpenSettings = LedgerManager.activeMode == LedgerManager.ConnectionMode.BLE &&
                     !LedgerBleManager.isPermissionGranted() &&
-                    !ActivityCompat.shouldShowRequestPermissionRationale(
-                        window!!,
-                        Manifest.permission.BLUETOOTH_SCAN
-                    )
+                    window?.let {
+                        ActivityCompat.shouldShowRequestPermissionRationale(
+                            it,
+                            Manifest.permission.BLUETOOTH_SCAN
+                        )
+                    } == false
             )
         } else {
             configureTryAgainButton(false)

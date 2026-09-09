@@ -126,7 +126,8 @@ object EmojiProvider {
     private fun downloadUrl(urlStr: String): DownloadResult {
         var conn: HttpURLConnection? = null
         return try {
-            conn = URL(urlStr).openConnection() as HttpURLConnection
+            conn = URL(urlStr).openConnection() as? HttpURLConnection
+                ?: return DownloadResult.NetworkError
             conn.connectTimeout = 5_000
             conn.readTimeout = 5_000
             conn.instanceFollowRedirects = true

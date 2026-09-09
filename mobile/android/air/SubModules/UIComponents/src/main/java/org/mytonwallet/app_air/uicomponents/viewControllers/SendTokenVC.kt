@@ -129,7 +129,7 @@ class SendTokenVC(context: Context, private val selectedChain: MBlockchain? = nu
         }
 
         view.setConstraints {
-            topToBottom(searchContainer, navigationBar!!)
+            navigationBar?.let { topToBottom(searchContainer, it) }
             toCenterX(searchContainer)
 
             toCenterX(recyclerView, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
@@ -311,7 +311,6 @@ class SendTokenVC(context: Context, private val selectedChain: MBlockchain? = nu
 
     override fun onDestroy() {
         super.onDestroy()
-        WalletCore.unregisterObserver(this)
         recyclerView.onDestroy()
         recyclerView.adapter = null
         recyclerView.removeAllViews()

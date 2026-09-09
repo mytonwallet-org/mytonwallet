@@ -118,15 +118,17 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
     }
 
     private fun onSiteTap(app: MExploreSite) {
-        if (app.url.isNullOrEmpty()) return
+        val url = app.url
+        if (url.isNullOrEmpty()) return
+        val window = window ?: return
         if (app.isExternal ||
-            (!app.url!!.startsWith("http://") && !app.url!!.startsWith("https://")) ||
+            (!url.startsWith("http://") && !url.startsWith("https://")) ||
             app.isTelegram
         ) {
             val intent = Intent(Intent.ACTION_VIEW)
-            intent.setData(Uri.parse(app.url))
+            intent.setData(Uri.parse(url))
             try {
-                window!!.startActivity(intent)
+                window.startActivity(intent)
             } catch (_: Exception) {
             }
             return
@@ -135,16 +137,16 @@ class ExploreCategoryVC(context: Context, val category: MExploreCategory) :
             context,
             navigationController?.tabBarController,
             InAppBrowserConfig(
-                url = app.url!!,
+                url = url,
                 title = app.name,
                 thumbnail = app.iconUrl,
                 injectDappConnect = true,
                 saveInVisitedHistory = true
             )
         )
-        val nav = WNavigationController(window!!)
+        val nav = WNavigationController(window)
         nav.setRoot(inAppBrowserVC)
-        window!!.present(nav)
+        window.present(nav)
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
