@@ -38,7 +38,7 @@ Follow your portfolio and net worth over time in the base fiat currency you choo
 Stake TON and other supported assets, including options like USDe, directly in the wallet.
 
 **🛡️ Industry-leading security**  
-**My Wallet** uses advanced security practices audited by CertiK. We also run a [bug bounty on CertiK SkyShield](https://skyshield.certik.com/bounties/mytonwallet) with **$100K** in reserved funds and rewards of up to **$5,000**. The program has been live since **March 23, 2024**, and no vulnerabilities have been found to date.
+**My Wallet** uses advanced security practices audited by CertiK.
 
 **🧰 Hundreds of handy features**  
 Connect Ledger hardware wallets, hide balances, personalize interface, send multiple transfers at once, view other wallets, use AI plugins for OpenClaw, ChatGPT, and Claude, and much more.
