@@ -169,7 +169,7 @@ public struct WalletCoreTokenAddressQuerySource: UniversalSearchQuerySource {
             revision: address,
             generatedAt: clock(),
             documents: tokens.map {
-                WalletCoreTokenSearchSource.document(token: $0)
+                WalletCoreTokenSearchDocuments.document(token: $0)
             }
         )
     }

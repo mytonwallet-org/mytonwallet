@@ -179,14 +179,11 @@ final class HomeCard: UICollectionViewCell {
         let layout = container.layout
         let usesNavigationBarTopTabs = headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs
         let miniatureCardWidth: CGFloat = usesNavigationBarTopTabs ? 40.5 : 34
-        let miniatureCardVerticalOffset: CGFloat = usesNavigationBarTopTabs
-            ? -126
-            : (IOS_26_MODE_ENABLED ? -124 : -126)
         // background
         let ofs: CGFloat =
             layout.itemHeight/2 -
             miniatureCardWidth/2*CARD_RATIO +
-            miniatureCardVerticalOffset
+            headerViewModel.miniatureCardVerticalOffset
         let scale: CGFloat = miniatureCardWidth/layout.itemWidth
         // card content
         let collapsedBalanceFontSize: CGFloat =
@@ -329,7 +326,7 @@ private struct PromotionContainer: View {
         WithPerceptionTracking {
             if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
                 HomeCardPromotionVisual(accountContext: accountContext)
-                    .opacity(headerViewModel.isCardHidden ? 0 : 1)
+                    .opacity(headerViewModel.cardOpacity)
             }
         }
     }

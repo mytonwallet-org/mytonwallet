@@ -18,7 +18,6 @@ public class ReceiveVC: WViewController {
     
     private let selectedChain: ApiChain?
     private let buyingToken: String?
-    private let isAccountSwitchingAllowed: Bool
     
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
@@ -31,10 +30,9 @@ public class ReceiveVC: WViewController {
     @AccountContext private var account: MAccount
 
     public init(accountContext: AccountContext, chain: ApiChain? = nil, buyingToken: String? = nil) {
-        self._account = accountContext
+        self._account = AccountContext(accountId: accountContext.account.id)
         self.selectedChain = chain
         self.buyingToken = buyingToken
-        self.isAccountSwitchingAllowed = accountContext.source == .current
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -165,11 +163,6 @@ public class ReceiveVC: WViewController {
     }
 
     private func updateAccountSwitcher() {
-        guard isAccountSwitchingAllowed else {
-            navigationItem.setLeftBarButtonItems(nil, animated: true)
-            return
-        }
-
         accountSwitcher.update(selectedAccountId: account.id)
         let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
             ? [accountSwitcher.barButtonItem]
@@ -179,8 +172,7 @@ public class ReceiveVC: WViewController {
 
     private func updateChainSelector() {
         let isMultichain = segmentedController.model.items.count > 1
-        let canSwitchAccounts = isAccountSwitchingAllowed
-            && accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
+        let canSwitchAccounts = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
         let showsChainSelector = canSwitchAccounts || isMultichain
         segmentedController.scrollView.isScrollEnabled = isMultichain
         segmentedController.segmentedControl.isHidden = !showsChainSelector
@@ -210,14 +202,9 @@ public class ReceiveVC: WViewController {
     }
 
     private func makeChainItems() -> [SegmentedControlItem] {
-        let visibleChains = _account.displayedChains
-        let visibleChainSet = Set(visibleChains.map(\.0))
-        let allChains = visibleChains + _account.orderedChains.filter { chain, _ in
-            !visibleChainSet.contains(chain)
-        }
-
-        return allChains.map { (chain, _) in
-            SegmentedControlItem(
+        getSupportedChains().compactMap { chain in
+            guard account.supports(chain: chain) else { return nil }
+            return SegmentedControlItem(
                 id: chain.rawValue,
                 title: chain.title,
                 viewController: ReceiveTableVC(account: _account, chain: chain, preferredBuyingToken: buyingToken),

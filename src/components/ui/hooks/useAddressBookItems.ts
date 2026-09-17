@@ -84,7 +84,7 @@ export default function useAddressBookItems({
               name: account.title || shortenAddress(address)!,
               chain: isMultichainAccount ? accountChain : undefined,
               domain,
-              isHardware: account.type === 'hardware',
+              accountType: account.type,
               isSavedAddress: false,
             });
           }

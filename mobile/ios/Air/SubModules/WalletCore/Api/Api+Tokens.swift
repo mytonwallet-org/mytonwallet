@@ -10,6 +10,10 @@ import WalletContext
 import WalletCoreTypes
 
 extension Api {
+    public static func refreshTokens() async throws {
+        try await bridge.callApiVoid("refreshTokens")
+    }
+
     public static func fetchToken(accountId: String, chain: ApiChain, tokenAddress: String) async throws -> ApiToken {
         try await bridge.callApi("fetchToken", accountId, chain, tokenAddress, decoding: ApiToken.self)
     }

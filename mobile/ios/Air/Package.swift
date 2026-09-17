@@ -255,6 +255,7 @@ let package = Package(
                 "WReachability",
                 "WalletContext",
                 "WalletCore",
+                "UniversalSearchWalletCore",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "Kingfisher", package: "kingfisher"),
                 .product(name: "LottieKit", package: "LottieKit"),
@@ -360,6 +361,7 @@ let package = Package(
             dependencies: [
                 contextMenuKitDependency,
                 "UIComponents",
+                "UniversalSearchWalletCore",
                 "WalletCore",
                 "WalletContext",
                 .product(name: "Perception", package: "swift-perception"),
@@ -591,6 +593,7 @@ let package = Package(
         airTarget(
             "AirUILab",
             dependencies: [
+                .product(name: "Kingfisher", package: "kingfisher"),
                 "ProtectedAction",
                 "UIAssets",
                 "UIAgent",
@@ -717,6 +720,14 @@ let package = Package(
                 "UIAgent",
                 "WalletCore",
                 "WalletContext",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UIPortfolioTests",
+            dependencies: [
+                "UIPortfolio",
+                "WalletCore",
             ]
         ),
         airTestTarget(
@@ -738,6 +749,7 @@ let package = Package(
             "UIAssetsTests",
             dependencies: [
                 "ProtectedAction",
+                "UIActivityList",
                 "UIAssets",
                 "WalletCore",
                 "WalletResources",

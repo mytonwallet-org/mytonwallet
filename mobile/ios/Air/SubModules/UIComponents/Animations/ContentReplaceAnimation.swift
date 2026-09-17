@@ -25,6 +25,7 @@ private final class ContentReplaceAnimation: NSObject, UIViewControllerAnimatedT
         }
         
         let container = context.containerView
+        let originalBackgroundColor = container.backgroundColor
         let toView = context.view(forKey: .to) ?? toVC.view!
         let fromView = context.view(forKey: .from) ?? fromVC.view!
         
@@ -35,7 +36,6 @@ private final class ContentReplaceAnimation: NSObject, UIViewControllerAnimatedT
             fromView.alpha = 1.0
             fromView.transform = .identity
             container.addSubview(toView)
-            container.backgroundColor = toView.backgroundColor
             toView.setNeedsLayout()
             toView.layoutIfNeeded()
         }
@@ -47,6 +47,7 @@ private final class ContentReplaceAnimation: NSObject, UIViewControllerAnimatedT
             delay: 0,
             options: [.curveEaseInOut, .allowUserInteraction]
         ) {
+            container.backgroundColor = toView.backgroundColor
             fromView.alpha = 0.0
             fromView.transform = CGAffineTransform(scaleX: scaleIn, y: scaleIn)
             toView.alpha = 1.0
@@ -54,6 +55,9 @@ private final class ContentReplaceAnimation: NSObject, UIViewControllerAnimatedT
         } completion: { _ in
             fromView.alpha = 1.0
             fromView.transform = .identity
+            if context.transitionWasCancelled {
+                container.backgroundColor = originalBackgroundColor
+            }
             context.completeTransition(!context.transitionWasCancelled)
         }
     }
@@ -85,7 +89,48 @@ public final class ContentReplaceAnimationCoordinator {
 
     public init() { }
     
-    public func replaceNavigationTop(with vc: UIViewController, in navigationController: UINavigationController, animateAlongside: @escaping () -> ()) {
+    public func replaceNavigationTop(
+        with vc: UIViewController,
+        in navigationController: UINavigationController,
+        prepareLayout: (() -> Void)? = nil,
+        isValid: @escaping () -> Bool = { true },
+        animateAlongside: @escaping () -> Void,
+        completion: (() -> Void)? = nil
+    ) {
+        guard isValid() else {
+            completion?()
+            return
+        }
+        if let activeTransition = navigationController.transitionCoordinator {
+            activeTransition.animate(alongsideTransition: nil) { [self, weak navigationController] context in
+                let wasCancelled = context.isCancelled
+                // UIKit clears the old coordinator after its completion callbacks return.
+                DispatchQueue.main.async {
+                    guard !wasCancelled, let navigationController,
+                          !navigationController.isBeingDismissed,
+                          navigationController.viewIfLoaded?.window != nil else {
+                        completion?()
+                        return
+                    }
+                    self.replaceNavigationTop(
+                        with: vc,
+                        in: navigationController,
+                        prepareLayout: prepareLayout,
+                        isValid: isValid,
+                        animateAlongside: animateAlongside,
+                        completion: completion
+                    )
+                }
+            }
+            return
+        }
+        if let prepareLayout {
+            prepareLayout()
+            // Resolve the destination geometry before UIKit creates the navigation transition.
+            // The sheet can still animate from its previous presentation-layer frame.
+            navigationController.presentationController?.containerView?.layoutIfNeeded()
+            navigationController.view.layoutIfNeeded()
+        }
         self.navigationController = navigationController
         previousNavigationDelegate = navigationController.delegate
         navigationController.delegate = navigationDelegate
@@ -95,6 +140,7 @@ public final class ContentReplaceAnimationCoordinator {
             navigationController.setViewControllers([vc], animated: false)
             animateAlongside()
             restoreNavigationDelegate(in: navigationController)
+            completion?()
             return
         }
 
@@ -103,6 +149,7 @@ public final class ContentReplaceAnimationCoordinator {
         } completion: { [self] _ in
             navigationController.setViewControllers([vc], animated: false)
             restoreNavigationDelegate(in: navigationController)
+            completion?()
             // do not deallocate self until transition completes
             _ = self
         }
@@ -110,6 +157,7 @@ public final class ContentReplaceAnimationCoordinator {
             navigationController.setViewControllers([vc], animated: false)
             animateAlongside()
             restoreNavigationDelegate(in: navigationController)
+            completion?()
         }
     }
 

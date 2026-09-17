@@ -12,6 +12,7 @@ import type {
   ApiTransactionActivity,
 } from '../../../../api/types';
 import type { Account, SavedAddress, Theme } from '../../../../global/types';
+import type { LangFn } from '../../../../hooks/useLang';
 
 import {
   ANIMATED_STICKER_TINY_ICON_PX,
@@ -27,6 +28,7 @@ import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle } from '../../../../util/chain';
 import { formatRelativeHumanDateTime } from '../../../../util/dateFormat';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
+import { toNativeDigits } from '../../../../util/nativeDigits';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
 import { getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
@@ -233,6 +235,23 @@ function TransactionInfo({
     );
   }
 
+  function renderEstimatedTime() {
+    const formattedEta = transaction?.etaSeconds !== undefined && transaction.etaSeconds > 0 && status !== 'completed'
+      ? toNativeDigits(formatUtxoEtaForModal(lang, transaction.etaSeconds))
+      : undefined;
+
+    if (!formattedEta) return undefined;
+
+    return (
+      <>
+        <div className={transferStyles.label}>{lang('Estimated Time')}</div>
+        <div className={styles.estimatedTime}>
+          {formattedEta}
+        </div>
+      </>
+    );
+  }
+
   function renderComment() {
     if (!comment && !encryptedComment) {
       return undefined;
@@ -413,6 +432,7 @@ function TransactionInfo({
         )
       )}
 
+      {renderEstimatedTime()}
       {renderFee()}
       {renderComment()}
       {shouldRenderTransactionId && renderTransactionId()}
@@ -420,6 +440,25 @@ function TransactionInfo({
       {renderFooter()}
     </div>
   );
+}
+
+export function formatUtxoEtaForModal(lang: LangFn, etaSeconds: number) {
+  const duration = formatUtxoEtaDuration(lang, etaSeconds);
+  return lang('$utxo_estimated_time', duration) as string;
+}
+
+function formatUtxoEtaDuration(lang: LangFn, etaSeconds: number) {
+  const seconds = Math.max(0, Math.ceil(etaSeconds));
+  if (seconds < 60) return lang('second', seconds, undefined, seconds) as string;
+
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return lang('minute', minutes, undefined, minutes) as string;
+
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) return lang('hour', hours, undefined, hours) as string;
+
+  const days = Math.ceil(hours / 24);
+  return lang('day', days, undefined, days) as string;
 }
 
 export default memo(TransactionInfo);

@@ -322,7 +322,6 @@ async function loadNewActivities(
       type: 'newActivities',
       chain: 'tron',
       activities,
-      pendingActivities: [],
       accountId,
     });
   }

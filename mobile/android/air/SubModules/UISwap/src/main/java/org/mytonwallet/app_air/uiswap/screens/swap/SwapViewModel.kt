@@ -322,6 +322,8 @@ class SwapViewModel :
 
     fun openSwapConfirmation(addressToReceive: String?) {
         val estimated = _simulatedSwapFlow.value ?: return
+        val currentKey = buildUiInputStateFlow(_walletStateFlow.value, _inputStateFlow.value)?.key
+        if (estimated.request.key != currentKey) return
 
         if (!estimated.request.tokenToReceiveIsSupported && addressToReceive.isNullOrEmpty()) {
             _eventsFlow.tryEmit(Event.ShowAddressToReceiveInput(estimated))
@@ -770,9 +772,6 @@ class SwapViewModel :
 
         val isLoading: Boolean
             get() = this == Loading
-
-        val isError: Boolean
-            get() = this == Error
     }
 
     data class ButtonState(val status: ButtonStatus, val title: String = "")
@@ -783,7 +782,7 @@ class SwapViewModel :
     val hintFlow: Flow<SwapHint?> = combine(uiInputStateFlow, simulatedSwapFlow) { state, est ->
         SwapHint.resolve(
             state,
-            est?.takeIf { it.request.key == state.key && it.request.slippage == state.slippage }
+            est?.takeIf { it.request.key == state.key }
         )
     }.distinctUntilChanged()
 
@@ -793,25 +792,17 @@ class SwapViewModel :
         loading: LoadingState
     ): UiStatus {
         val buttonState = getButtonState(assets, est, loading)
-        val sendAmountError = (!assets.amountInput.isNullOrEmpty() && assets.amount == null) ||
-            buttonState.status == ButtonStatus.NotEnoughToken ||
-            buttonState.status == ButtonStatus.LessThanMinCex ||
-            buttonState.status == ButtonStatus.MoreThanMaxCex
-
-        val inputState = FieldState(
-            isError = sendAmountError && !assets.reverse,
-            isLoading = false
-        )
-
-        val outputState = FieldState(
-            isLoading = (est?.let { it.request.key != assets.key } ?: true),
-            isError = sendAmountError && assets.reverse
-        )
+        val isEstimateStale = est?.let { it.request.key != assets.key } ?: true
 
         return UiStatus(
             button = buttonState,
-            tokenToSend = if (!assets.reverse) inputState else outputState,
-            tokenToReceive = if (assets.reverse) inputState else outputState
+            tokenToSend = FieldState(
+                isError = buttonState.status == ButtonStatus.NotEnoughToken ||
+                    buttonState.status == ButtonStatus.LessThanMinCex ||
+                    buttonState.status == ButtonStatus.MoreThanMaxCex,
+                isLoading = assets.reverse && isEstimateStale
+            ),
+            tokenToReceive = FieldState(isLoading = !assets.reverse && isEstimateStale)
         )
     }
 
@@ -895,6 +886,13 @@ class SwapViewModel :
             }
         }
 
+        if (sendAmount > calcSwapMaxBalance() && state.tokenToSendIsSupported) {
+            return ButtonState(
+                ButtonStatus.NotEnoughToken,
+                LocaleController.getString("Insufficient Balance")
+            )
+        }
+
         estimated.error?.let {
             when (it) {
                 MBridgeError.Type.AXIOS_ERROR -> return ButtonState(
@@ -902,44 +900,45 @@ class SwapViewModel :
                     LocaleController.getString("Waiting for Network")
                 )
 
+                MBridgeError.Type.INSUFFICIENT_BALANCE -> {
+                    val walletBalance =
+                        est.request.wallet.balances[est.request.tokenToSend.slug]
+                            ?: BigInteger.ZERO
+                    val requestAmount = estimated.fromAmount ?: estimated.request.amount
+                    return if (walletBalance >= requestAmount && state.tokenToSendIsSupported) {
+                        ButtonState(
+                            ButtonStatus.NotEnoughNativeToken,
+                            state.nativeTokenToSend?.symbol?.let { symbol ->
+                                LocaleController.getStringWithKeyValues(
+                                    "Insufficient %symbol% Balance",
+                                    listOf("%symbol%" to symbol)
+                                )
+                            } ?: LocaleController.getString("Insufficient Balance")
+                        )
+                    } else {
+                        ButtonState(
+                            ButtonStatus.NotEnoughToken,
+                            LocaleController.getString("Insufficient Balance")
+                        )
+                    }
+                }
+
+                MBridgeError.Type.PAIR_NOT_FOUND -> return ButtonState(
+                    ButtonStatus.Error,
+                    LocaleController.getString("Unsupported Pair")
+                )
+
+                MBridgeError.Type.TOO_SMALL_AMOUNT,
+                MBridgeError.Type.SLIPPAGE_ERROR -> return ButtonState(
+                    ButtonStatus.Error,
+                    it.toShortLocalized ?: ""
+                )
+
                 else -> return ButtonState(
                     ButtonStatus.Error,
-                    when (it) {
-                        MBridgeError.Type.INSUFFICIENT_BALANCE -> {
-                            val walletBalance =
-                                (
-                                    est.request.wallet.balances[est.request.tokenToSend.slug]
-                                        ?: BigInteger.ZERO
-                                    )
-                            val requestAmount = estimated.fromAmount ?: estimated.request.amount
-                            if (walletBalance >= requestAmount && state.tokenToSendIsSupported) {
-                                state.nativeTokenToSend?.symbol?.let { symbol ->
-                                    LocaleController.getStringWithKeyValues(
-                                        "Insufficient %symbol% Balance",
-                                        listOf("%symbol%" to symbol)
-                                    )
-                                }
-                                    ?: LocaleController.getString("Insufficient Balance")
-                            } else {
-                                LocaleController.getString("Insufficient Balance")
-                            }
-                        }
-
-                        MBridgeError.Type.TOO_SMALL_AMOUNT,
-                        MBridgeError.Type.PAIR_NOT_FOUND,
-                        MBridgeError.Type.SLIPPAGE_ERROR -> it.toShortLocalized ?: ""
-
-                        else -> LocaleController.getString("Error")
-                    }
+                    LocaleController.getString("Unexpected Error")
                 )
             }
-        }
-
-        if (sendAmount > calcSwapMaxBalance() && state.tokenToSendIsSupported) {
-            return ButtonState(
-                ButtonStatus.NotEnoughToken,
-                LocaleController.getString("Insufficient Balance")
-            )
         }
 
         val nativeFeeGate = resolveNativeFeeGate(
@@ -948,7 +947,10 @@ class SwapViewModel :
             isSourceChainSupported = state.tokenToSendIsSupported
         )
         if (nativeFeeGate == NativeFeeGate.Unknown) {
-            return ButtonState(ButtonStatus.Error, LocaleController.getString("Error"))
+            return ButtonState(
+                ButtonStatus.Error,
+                LocaleController.getString("Unexpected Error")
+            )
         }
         if (nativeFeeGate == NativeFeeGate.Insufficient) {
             if (estimated.explainedFee.isGasless) {

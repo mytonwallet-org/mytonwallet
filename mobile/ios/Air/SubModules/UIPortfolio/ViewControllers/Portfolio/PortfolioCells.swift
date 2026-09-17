@@ -99,7 +99,7 @@ enum PortfolioGraphKind: String {
 struct PortfolioChartTileCellConfiguration {
     enum State {
         case idle
-        case error(String)
+        case error
         case loading
         case noData
         case chart(presentation: PortfolioGraphKitAdapter.ChartPresentation, kind: PortfolioGraphKind, pieVisible: Bool?)
@@ -173,7 +173,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private let noDataLabel = UILabel()
     private let errorStack = UIStackView()
     private let errorTitleLabel = UILabel()
-    private let errorTextLabel = UILabel()
     private let retryButton = UIButton(type: .system)
     private let refreshIndicator = UIActivityIndicatorView(style: .medium)
     private let stateHeightConstraint: NSLayoutConstraint
@@ -346,10 +345,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         errorStack.spacing = 10
         errorTitleLabel.applyTextStyle(.bodyStrong)
         errorTitleLabel.textColor = .label
-        errorTextLabel.applyTextStyle(.supportingEmphasized)
-        errorTextLabel.textColor = .air.secondaryLabel
-        errorTextLabel.numberOfLines = 0
-        errorTextLabel.textAlignment = .center
         retryButton.translatesAutoresizingMaskIntoConstraints = false
         var retryConfiguration = UIButton.Configuration.plain()
         retryConfiguration.contentInsets = .init(top: 10, leading: 14, bottom: 10, trailing: 14)
@@ -361,7 +356,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         retryButton.backgroundColor = .air.groupedItem
         retryButton.addTarget(self, action: #selector(retryButtonPressed), for: .touchUpInside)
         errorStack.addArrangedSubview(errorTitleLabel)
-        errorStack.addArrangedSubview(errorTextLabel)
         errorStack.addArrangedSubview(retryButton)
         stateContainer.addSubview(errorStack)
 
@@ -415,7 +409,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             errorStack.centerYAnchor.constraint(equalTo: stateContainer.centerYAnchor),
             errorStack.leadingAnchor.constraint(greaterThanOrEqualTo: stateContainer.leadingAnchor),
             errorStack.trailingAnchor.constraint(lessThanOrEqualTo: stateContainer.trailingAnchor),
-            errorTextLabel.widthAnchor.constraint(lessThanOrEqualTo: stateContainer.widthAnchor, multiplier: 0.85),
         ])
 
         updateLocalizedStrings()
@@ -443,9 +436,8 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         switch state {
         case .idle:
             break
-        case .error(let errorText):
+        case .error:
             chartView.setLimitedRange(fraction: nil, tapAction: nil)
-            errorTextLabel.text = errorText
             errorStack.isHidden = false
         case .loading:
             chartView.setLimitedRange(fraction: nil, tapAction: nil)

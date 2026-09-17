@@ -448,7 +448,7 @@ class WSegmentedController(
 
         clipChildren = clipContent
         clipToPadding = clipContent
-        applyItems()
+        applyItems(selectedItem = defaultSelectedIndex)
 
         if (!isTransparent) {
             blurSourceContainerView.setBackgroundColor(WColor.Background.color)
@@ -736,6 +736,9 @@ class WSegmentedController(
         currentOffset = index.toFloat()
         targetIndex = index
         viewPager.setCurrentItem(index, false)
+        if (viewPager.width == 0) {
+            viewPager.post { viewPager.setCurrentItem(index, false) }
+        }
         clearSegmentedControl.updateThumbPosition(
             index,
             targetIndex = index,

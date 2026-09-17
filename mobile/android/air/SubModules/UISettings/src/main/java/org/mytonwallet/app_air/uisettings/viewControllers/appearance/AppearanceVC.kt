@@ -43,7 +43,6 @@ import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 
 class AppearanceVC(context: Context) :
     WViewController(context),
@@ -204,22 +203,11 @@ class AppearanceVC(context: Context) :
         }
     )
 
-    private val topTabsRow = SwitchCell(
-        context,
-        title = LocaleController.getString("Top Tabs"),
-        isChecked = WGlobalStorage.areTopTabsEnabled(),
-        isFirst = true,
-        onChange = { isChecked ->
-            WGlobalStorage.setAreTopTabsEnabled(isChecked)
-            WalletContextManager.delegate?.get()?.restartApp()
-        }
-    )
-
     private val gradientNavigationBarRow = SwitchCell(
         context,
         title = LocaleController.getString("Gradient Navigation Bar"),
         isChecked = WGlobalStorage.isGradientNavigationBarActive(),
-        isFirst = !EnvironmentStore.isTopTabsSettingAvailable,
+        isFirst = true,
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "gradientNavigationBarRow: isChecked=$isChecked")
             WGlobalStorage.setIsGradientNavigationBarActive(isChecked)
@@ -421,9 +409,6 @@ class AppearanceVC(context: Context) :
         v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        if (EnvironmentStore.isTopTabsSettingAvailable) {
-            v.addView(topTabsRow, ConstraintLayout.LayoutParams(0, 50.dp))
-        }
         v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedToolbarsRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -462,19 +447,8 @@ class AppearanceVC(context: Context) :
             toCenterX(animationsRow)
             topToBottom(seasonalThemingRow, animationsRow)
             toCenterX(seasonalThemingRow)
-            // Group 4: Top Tabs, Gradient Navigation Bar, Rounded Corners, Rounded Toolbars,
-            // Side Gutters
-            if (EnvironmentStore.isTopTabsSettingAvailable) {
-                topToBottom(topTabsRow, seasonalThemingRow, ViewConstants.GAP.toFloat())
-                toCenterX(topTabsRow)
-                topToBottom(gradientNavigationBarRow, topTabsRow)
-            } else {
-                topToBottom(
-                    gradientNavigationBarRow,
-                    seasonalThemingRow,
-                    ViewConstants.GAP.toFloat()
-                )
-            }
+            // Group 4: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
+            topToBottom(gradientNavigationBarRow, seasonalThemingRow, ViewConstants.GAP.toFloat())
             toCenterX(gradientNavigationBarRow)
             topToBottom(roundedCornersRow, gradientNavigationBarRow)
             toCenterX(roundedCornersRow)

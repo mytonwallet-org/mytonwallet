@@ -19,6 +19,8 @@ public struct SearchMatch: Hashable, Sendable {
     public let fieldKind: SearchFieldKind
     public let matchedTermCount: Int
     public let totalTermCount: Int
+    /// Query terms matched as whole words or word prefixes, including metadata qualifiers.
+    public let wordMatchCount: Int
     public let usedTransliteration: Bool
     public let matchedValue: String
 
@@ -32,6 +34,7 @@ public struct SearchMatch: Hashable, Sendable {
         fieldKind: SearchFieldKind,
         matchedTermCount: Int,
         totalTermCount: Int,
+        wordMatchCount: Int? = nil,
         usedTransliteration: Bool,
         matchedValue: String
     ) {
@@ -39,6 +42,7 @@ public struct SearchMatch: Hashable, Sendable {
         self.fieldKind = fieldKind
         self.matchedTermCount = matchedTermCount
         self.totalTermCount = totalTermCount
+        self.wordMatchCount = wordMatchCount ?? (kind >= .wordPrefix ? matchedTermCount : 0)
         self.usedTransliteration = usedTransliteration
         self.matchedValue = matchedValue
     }
@@ -98,21 +102,40 @@ public struct UniversalSearchMatcher: Sendable {
         guard !query.requiresExactIdentifierMatch else { return nil }
         guard document.matchRequirement != .exactIdentifier else { return nil }
 
-        if let phraseMatch = bestPhraseMatch(in: preparedFields, query: query) {
+        let phraseMatch = bestPhraseMatch(in: preparedFields, query: query)
+        if let phraseMatch, phraseMatch.relevanceBand >= .phrase {
             return phraseMatch.searchMatch(
                 matchedTermCount: query.termCount,
                 totalTermCount: query.termCount
             )
         }
 
-        let termMatches = query.normalizedText.terms.compactMap { term in
-            bestMatch(for: term, in: preparedFields)
+        var termMatches: [MatchCandidate] = []
+        var wordMatchCount = 0
+        var hasMeaningfulMatch = false
+        for term in query.normalizedText.terms {
+            let isStopWord = query.isStopWord(term)
+            guard let match = bestMatch(
+                for: term, in: preparedFields, requiresExactWord: isStopWord
+            ) else { continue }
+            termMatches.append(match.candidate)
+            if match.hasWordMatch { wordMatchCount += 1 }
+            hasMeaningfulMatch = hasMeaningfulMatch || !isStopWord
         }
-        guard let strongest = termMatches.max() else { return nil }
+        let strongest = hasMeaningfulMatch ? termMatches.max() : nil
+        // Metadata phrases must not mask stronger name/symbol matches on this entity.
+        if let phraseMatch, strongest.map({ $0 < phraseMatch }) ?? true {
+            return phraseMatch.searchMatch(
+                matchedTermCount: query.termCount,
+                totalTermCount: query.termCount
+            )
+        }
+        guard let strongest else { return nil }
 
         return strongest.searchMatch(
             matchedTermCount: termMatches.count,
-            totalTermCount: query.termCount
+            totalTermCount: query.termCount,
+            wordMatchCount: wordMatchCount
         )
     }
 
@@ -171,9 +194,11 @@ public struct UniversalSearchMatcher: Sendable {
 
     private func bestMatch(
         for queryTerm: NormalizedSearchTerm,
-        in fields: [PreparedSearchField]
-    ) -> MatchCandidate? {
+        in fields: [PreparedSearchField],
+        requiresExactWord: Bool
+    ) -> (candidate: MatchCandidate, hasWordMatch: Bool)? {
         var best: MatchCandidate?
+        var hasWordMatch = false
 
         for field in fields where field.field.matchPolicy == .text {
             for (queryIndex, queryAlternative) in queryTerm.alternatives.enumerated() {
@@ -182,7 +207,8 @@ public struct UniversalSearchMatcher: Sendable {
                         guard let kind = matchKind(
                             query: queryAlternative,
                             candidate: fieldAlternative
-                        ) else { continue }
+                        ), !requiresExactWord || kind == .exactWord else { continue }
+                        hasWordMatch = hasWordMatch || kind >= .wordPrefix
 
                         let candidate = MatchCandidate(
                             kind: kind,
@@ -197,7 +223,7 @@ public struct UniversalSearchMatcher: Sendable {
                 }
             }
         }
-        return best
+        return best.map { ($0, hasWordMatch) }
     }
 
     private func matchKind(query: String, candidate: String) -> SearchMatchKind? {
@@ -267,7 +293,14 @@ private struct MatchCandidate: Comparable {
     let usedTransliteration: Bool
     let matchedValue: String
 
+    var relevanceBand: SearchRelevanceBand {
+        SearchRelevanceBand(kind: kind, field: fieldKind)
+    }
+
     static func < (lhs: Self, rhs: Self) -> Bool {
+        if lhs.relevanceBand != rhs.relevanceBand {
+            return lhs.relevanceBand < rhs.relevanceBand
+        }
         if lhs.kind != rhs.kind {
             return lhs.kind < rhs.kind
         }
@@ -280,12 +313,13 @@ private struct MatchCandidate: Comparable {
         return lhs.matchedValue > rhs.matchedValue
     }
 
-    func searchMatch(matchedTermCount: Int, totalTermCount: Int) -> SearchMatch {
+    func searchMatch(matchedTermCount: Int, totalTermCount: Int, wordMatchCount: Int? = nil) -> SearchMatch {
         SearchMatch(
             kind: kind,
             fieldKind: fieldKind,
             matchedTermCount: matchedTermCount,
             totalTermCount: totalTermCount,
+            wordMatchCount: wordMatchCount,
             usedTransliteration: usedTransliteration,
             matchedValue: matchedValue
         )

@@ -31,6 +31,7 @@ class TokenActionsView: WTouchPassStackView {
     private let accountContext: AccountContext
     let usesSplitHomeActionStyle: Bool
     var rowHeight: CGFloat { Self.rowHeight(usesSplitHomeActionStyle: usesSplitHomeActionStyle) }
+    var glassSpacing: CGFloat { usesSplitHomeActionStyle ? Self.splitStyleSpacing * 0.5 : buttonsToolbar.spacing }
     
     var token: ApiToken?
     

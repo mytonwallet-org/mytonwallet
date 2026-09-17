@@ -7,7 +7,6 @@ import {
   type ApiNetwork,
   type ApiToken,
   type ApiTokenWithMaybePrice,
-  type ApiTokenWithPrice,
 } from '../../types';
 
 import { UNKNOWN_TOKEN } from '../../../config';
@@ -455,10 +454,10 @@ export async function importToken(network: ApiNetwork, address: string, sendUpda
     return;
   }
 
-  const token: ApiTokenWithPrice = {
+  const token: ApiTokenWithMaybePrice = {
     ...rawToken,
-    priceUsd: 0,
-    percentChange24h: 0,
+    priceUsd: undefined,
+    percentChange24h: undefined,
   };
   await updateTokens([token], sendUpdateTokens);
   await updateTokenHashes(network, [token.slug], sendUpdateTokens);

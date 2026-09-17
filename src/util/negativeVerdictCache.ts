@@ -9,7 +9,7 @@
  * the host - collapsing any such storm to <= 1 upstream call per URL per TTL, by construction.
  *
  * Scope: L1, in-process, GET-only (the caller enforces the method). Sibling to the circuit
- * breaker (src/util/circuit-breaker.ts): the breaker guards host health, this guards wasted
+ * breaker (src/util/circuitBreaker.ts): the breaker guards host health, this guards wasted
  * repeats of a known-terminal request. A replay carries no host-health signal, so the caller
  * must serve it WITHOUT acquiring a breaker slot. Bounded LRU (recency-bumped on read) so a
  * flood of distinct URLs cannot grow it without limit.

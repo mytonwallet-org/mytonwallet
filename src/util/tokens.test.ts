@@ -1,7 +1,8 @@
+import type { ApiTokenWithPrice } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { PRIORITY_TOKENS } from '../config';
-import { sortTokens } from './tokens';
+import { PRICELESS_TOKEN_HASHES, PRIORITY_TOKENS, TINY_TRANSFER_MAX_COST } from '../config';
+import { buildTokenVisibilityOptions, getIsTokenDisabled, sortTokens } from './tokens';
 
 function makeToken(overrides: Partial<UserToken> & Pick<UserToken, 'slug' | 'symbol'>): UserToken {
   return {
@@ -126,5 +127,76 @@ describe('sortTokens', () => {
 
     expect(tokens.map((t) => t.slug)).toEqual(snapshot);
     expect(sorted).not.toBe(tokens);
+  });
+});
+
+describe('getIsTokenDisabled', () => {
+  const slug = 'ton-x';
+  const token = { slug, decimals: 9, priceUsd: 1 } as ApiTokenWithPrice;
+  const options = {
+    accountSettings: {},
+    areTokensWithNoCostHidden: false,
+    shouldShowOnlyDefaultTokens: false,
+    defaultEnabledSlugs: new Set<string>(),
+  };
+
+  it('shows a token with a meaningful cost and hides an empty one', () => {
+    expect(getIsTokenDisabled(slug, 1_000_000_000n, token, options)).toBe(false);
+    expect(getIsTokenDisabled(slug, 0n, token, options)).toBe(true);
+  });
+
+  it('hides dust only when zero-cost tokens are hidden', () => {
+    expect(getIsTokenDisabled(slug, 1n, token, options)).toBe(false);
+    expect(getIsTokenDisabled(slug, 1n, token, { ...options, areTokensWithNoCostHidden: true })).toBe(true);
+  });
+
+  it('follows the user overrides', () => {
+    const hidden = { ...options, accountSettings: { alwaysHiddenSlugs: [slug] } };
+    const shown = { ...options, accountSettings: { alwaysShownSlugs: [slug] } };
+
+    expect(getIsTokenDisabled(slug, 1_000_000_000n, token, hidden)).toBe(true);
+    expect(getIsTokenDisabled(slug, 0n, token, shown)).toBe(false);
+  });
+
+  it('shows a priceless token that holds a balance', () => {
+    const [codeHash] = PRICELESS_TOKEN_HASHES;
+    const pricelessToken = { slug, decimals: 9, priceUsd: 0, codeHash } as ApiTokenWithPrice;
+    const hideNoCost = { ...options, areTokensWithNoCostHidden: true };
+
+    expect(getIsTokenDisabled(slug, 1n, pricelessToken, hideNoCost)).toBe(false);
+    expect(getIsTokenDisabled(slug, 0n, pricelessToken, hideNoCost)).toBe(true);
+  });
+
+  it('shows only the default tokens of an empty wallet', () => {
+    const emptyWallet = { ...options, shouldShowOnlyDefaultTokens: true, defaultEnabledSlugs: new Set([slug]) };
+
+    expect(getIsTokenDisabled(slug, 0n, token, emptyWallet)).toBe(false);
+    expect(getIsTokenDisabled('ton-y', 1_000_000_000n, token, emptyWallet)).toBe(true);
+  });
+});
+
+describe('buildTokenVisibilityOptions', () => {
+  const accountId = '0-mainnet';
+  const slug = 'ton-x';
+  const tokensBySlug = { [slug]: { slug, decimals: 9, priceUsd: 1 } as ApiTokenWithPrice };
+
+  it('shows only the default tokens when every balance is dust and the wallet has no activity', () => {
+    const options = buildTokenVisibilityOptions(accountId, { [slug]: 1n }, tokensBySlug);
+
+    expect(options.shouldShowOnlyDefaultTokens).toBe(true);
+    expect(getIsTokenDisabled(slug, 1n, tokensBySlug[slug], options)).toBe(true);
+  });
+
+  it('shows the full list once the wallet has activity', () => {
+    const options = buildTokenVisibilityOptions(accountId, { [slug]: 1n }, tokensBySlug, {}, false, true);
+
+    expect(options.shouldShowOnlyDefaultTokens).toBe(false);
+  });
+
+  it('shows the full list when a balance is worth more than a tiny transfer', () => {
+    const balance = BigInt(Math.round(TINY_TRANSFER_MAX_COST * 1e9)) + 1n;
+    const options = buildTokenVisibilityOptions(accountId, { [slug]: balance }, tokensBySlug);
+
+    expect(options.shouldShowOnlyDefaultTokens).toBe(false);
   });
 });

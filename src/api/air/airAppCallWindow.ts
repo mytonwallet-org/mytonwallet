@@ -20,7 +20,7 @@ export const airAppCallWindow = <T extends keyof WindowMethods>(methodName: T, .
         requestNumber, methodName, arg0: args[0], arg1: args[1],
       });
     } else {
-      airWindow.androidApp.nativeCall(
+      airWindow.androidApp!.nativeCall(
         requestNumber, methodName, args[0], args[1],
       );
     }

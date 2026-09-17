@@ -8,12 +8,14 @@ import Perception
 private final class InAppBrowserMinimizedViewModel {
     var title: String?
     var iconUrl: String?
+    var tabCount: Int
     var titleTapAction: () -> ()
     var closeAction: () -> ()
     
-    init(title: String?, iconUrl: String? = nil, titleTapAction: @escaping () -> Void, closeAction: @escaping () -> Void) {
+    init(title: String?, iconUrl: String? = nil, tabCount: Int = 1, titleTapAction: @escaping () -> Void, closeAction: @escaping () -> Void) {
         self.title = title
         self.iconUrl = iconUrl
+        self.tabCount = tabCount
         self.titleTapAction = titleTapAction
         self.closeAction = closeAction
     }
@@ -23,17 +25,18 @@ final class InAppBrowserMinimizedView: HostingView {
     
     private let viewModel: InAppBrowserMinimizedViewModel
     
-    init(title: String?, iconUrl: String? = nil, titleTapAction: @escaping () -> Void, closeAction: @escaping () -> Void) {
-        let viewModel = InAppBrowserMinimizedViewModel(title: title, iconUrl: iconUrl, titleTapAction: titleTapAction, closeAction: closeAction)
+    init(title: String?, iconUrl: String? = nil, tabCount: Int = 1, titleTapAction: @escaping () -> Void, closeAction: @escaping () -> Void) {
+        let viewModel = InAppBrowserMinimizedViewModel(title: title, iconUrl: iconUrl, tabCount: tabCount, titleTapAction: titleTapAction, closeAction: closeAction)
         self.viewModel = viewModel
         super.init {
             InAppBrowserMinimizedViewContent(viewModel: viewModel)
         }
     }
 
-    func update(title: String?, iconUrl: String?) {
+    func update(title: String?, iconUrl: String?, tabCount: Int) {
         viewModel.title = title
         viewModel.iconUrl = iconUrl
+        viewModel.tabCount = tabCount
     }
 }
 
@@ -78,6 +81,14 @@ private struct InAppBrowserMinimizedViewContent: View {
                 Text(viewModel.title?.nilIfEmpty ?? " ")
                     .textStyle(.bodyStrong)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                if IS_DEBUG_OR_TESTFLIGHT, viewModel.tabCount > 1 {
+                    Text(L10n.iabMoreTabsCount(count: viewModel.tabCount - 1))
+                        .textStyle(.body)
+                        .foregroundStyle(Color.air.secondaryLabel)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
             .foregroundStyle(Color.air.primaryLabel)
             .frame(maxWidth: .infinity)

@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
@@ -18,10 +17,10 @@ object RobinhoodConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_robinhood_light
 
     override val qrIcon = null
-    override val displayColor = "#CCFF00".toColorInt()
+    override val displayColor = "#CCFF00".hexToColorInt()
     override val qrGradientColors = intArrayOf(
-        "#485011".toColorInt(),
-        "#000000".toColorInt()
+        "#485011".hexToColorInt(),
+        "#000000".hexToColorInt()
     )
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS

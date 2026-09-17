@@ -34,6 +34,7 @@ public final class AccountThemeObserver {
         appliedAccountId = accountId
         @Dependency(\.accountSettings) var accountSettings
         let accentColorIndex = accountSettings.for(accountId: accountId).accentColorIndex
+        guard getAccentColorByIndex(accentColorIndex) != AirTintColor else { return }
         let updates = {
             changeThemeColors(to: accentColorIndex)
             UIApplication.shared.sceneWindows.forEach { $0.updateTheme() }

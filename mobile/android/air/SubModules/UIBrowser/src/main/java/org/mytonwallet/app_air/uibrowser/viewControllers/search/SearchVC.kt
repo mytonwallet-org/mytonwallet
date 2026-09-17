@@ -28,7 +28,6 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchColl
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchDappCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchHistoryCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchItemCell
-import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchMatchedCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchRecentChatCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSectionCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSelectorHeaderCell
@@ -67,7 +66,6 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 class SearchVC(
     context: Context,
-    private val enhancedSearchEnabled: Boolean,
     internal val usesGlobalSearchOverlay: Boolean = false,
     private val onDestroyed: (() -> Unit)? = null
 ) : WViewController(context) {
@@ -130,12 +128,7 @@ class SearchVC(
             return window?.isWideLayout == true
         }
 
-    private val searchDataSource: SearchDataSource =
-        if (enhancedSearchEnabled) {
-            EnhancedSearchDataSource(this)
-        } else {
-            LegacySearchDataSource(this)
-        }
+    private val searchDataSource: SearchDataSource = SearchDataSource(this)
 
     internal val rvAdapter =
         WRecyclerViewAdapter(
@@ -246,9 +239,7 @@ class SearchVC(
     override fun onDestroy() {
         pendingBestMatchRequest = null
         super.onDestroy()
-        if (enhancedSearchEnabled) {
-            navigationController?.tabBarController?.clearSearchFocus()
-        }
+        navigationController?.tabBarController?.clearSearchFocus()
         onDestroyed?.invoke()
     }
 
@@ -496,13 +487,7 @@ class SearchVC(
         window.present(nav)
     }
 
-    internal fun createCell(cellType: WCell.Type): WCell = if (enhancedSearchEnabled) {
-        createEnhancedCell(cellType)
-    } else {
-        createLegacyCell(cellType)
-    }
-
-    private fun createEnhancedCell(cellType: WCell.Type): WCell = when (cellType) {
+    internal fun createCell(cellType: WCell.Type): WCell = when (cellType) {
         SEARCH_MATCH_CELL -> SearchBestMatchCell(context, SearchHistoryCell(context))
 
         SEARCH_SECTION_CELL -> SearchSectionCell(context)
@@ -582,20 +567,6 @@ class SearchVC(
         else -> createSharedCell(cellType)
     }
 
-    private fun createLegacyCell(cellType: WCell.Type): WCell = when (cellType) {
-        SEARCH_MATCH_CELL -> SearchMatchedCell(context, onTap = { site ->
-            openInAppBrowser(
-                InAppBrowserConfig(
-                    url = site.url,
-                    injectDappConnect = true,
-                    saveInVisitedHistory = true
-                )
-            )
-        })
-
-        else -> createSharedCell(cellType)
-    }
-
     private fun createSharedCell(cellType: WCell.Type): WCell = when (cellType) {
         GAP_CELL -> GapCell(context)
 
@@ -625,14 +596,9 @@ class SearchVC(
                     setTextColor(WColor.Tint)
                     setPadding(12.dp, 4.dp, 12.dp, 4.dp)
                     setOnClickListener {
-                        if (enhancedSearchEnabled) {
-                            ExploreHistoryStore.clearSearchHistory()
-                            searchResult?.let { result ->
-                                updateSearchResult(result.copy(recentSearches = emptyList()))
-                            }
-                        } else {
-                            ExploreHistoryStore.clearAccountHistory()
-                            navigationController?.pop()
+                        ExploreHistoryStore.clearSearchHistory()
+                        searchResult?.let { result ->
+                            updateSearchResult(result.copy(recentSearches = emptyList()))
                         }
                     }
                     tag = CLEAR_ALL_BUTTON_TAG

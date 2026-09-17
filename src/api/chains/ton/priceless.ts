@@ -41,10 +41,18 @@ export async function updateTokenHashes(
 
     for (const address of Object.keys(states)) {
       if (!tokensByAddress[address]) continue;
-      tokensByAddress[address].codeHash = Buffer.from(states[address].code_hash, 'base64').toString('hex');
+      tokensByAddress[address] = {
+        ...tokensByAddress[address],
+        codeHash: Buffer.from(states[address].code_hash, 'base64').toString('hex'),
+      };
     }
 
-    const updatedTokens = Object.values(tokensByAddress).filter((token) => token.codeHash);
+    const updatedTokens = Object.values(tokensByAddress).filter((token) => token.codeHash).map((token) => ({
+      ...token,
+      // This request fetched only code hashes; its cached prices may be placeholders or outdated by now.
+      priceUsd: undefined,
+      percentChange24h: undefined,
+    }));
     if (updatedTokens.length) {
       await updateTokens(updatedTokens, sendUpdateTokens, [], true);
     }

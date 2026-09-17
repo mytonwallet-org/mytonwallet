@@ -7,8 +7,7 @@ public enum SendNavigation {
     @MainActor
     public static func makeViewController(
         accountContext: AccountContext,
-        prefilledValues: SendPrefilledValues,
-        isAccountSwitchingAllowed: Bool
+        prefilledValues: SendPrefilledValues
     ) throws -> UIViewController {
         let rootViewController: UIViewController
         switch try SendRoute(prefilledValues: prefilledValues) {
@@ -31,9 +30,7 @@ public enum SendNavigation {
         case .tokenCompose(let configuration):
             let model = TokenSendModel(
                 accountContext: accountContext,
-                configuration: configuration,
-                isAccountSwitchingAllowed:
-                    isAccountSwitchingAllowed
+                configuration: configuration
             )
             rootViewController = TokenSendComposeViewController(
                 model: model
@@ -41,9 +38,7 @@ public enum SendNavigation {
         case .tokenReview(let configuration):
             let model = TokenSendModel(
                 accountContext: accountContext,
-                configuration: configuration,
-                isAccountSwitchingAllowed:
-                    isAccountSwitchingAllowed
+                configuration: configuration
             )
             rootViewController = TokenSendReviewViewController(
                 model: model

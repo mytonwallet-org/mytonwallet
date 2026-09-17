@@ -57,7 +57,12 @@ class ActivityHelpers {
 
                 existingActivity is MApiTransaction.Swap &&
                     incomingActivity is MApiTransaction.Swap ->
-                    incomingActivity.copy(status = existingActivity.status)
+                    incomingActivity.copy(
+                        status = existingActivity.status,
+                        cex = incomingActivity.cex?.let { cex ->
+                            existingActivity.cex?.status?.let { cex.copy(status = it) } ?: cex
+                        }
+                    )
 
                 else -> incomingActivity
             }

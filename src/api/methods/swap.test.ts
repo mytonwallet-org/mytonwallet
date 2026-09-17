@@ -10,7 +10,7 @@ import {
   wallet2,
 } from '../../../tests/helpers/swapReconcilerFixtures';
 import { projectSwapActivities } from '../common/activities/swapReconciler';
-import { fetchSwaps, initSwap, swapCexSubmit, swapEstimate } from './swap';
+import { fetchSwaps, initSwap, swapCexCreateTransaction, swapCexSubmit, swapEstimate } from './swap';
 
 jest.mock('../chains', () => ({
   __esModule: true,
@@ -147,6 +147,8 @@ describe('swap estimate hints', () => {
 describe('swapCexSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    initSwap(jest.fn());
+    patchSwapItem.mockReset();
     chains.base.submitGasfullTransfer.mockResolvedValue({ txId: '0xbase-deposit' });
     fetchStoredWallet.mockResolvedValue({ address: 'EQ-ton-history-owner' });
     publishSignedMfaRequest.mockResolvedValue({ mfaRequestHash: 'mfa-request-hash' });
@@ -236,6 +238,48 @@ describe('swapCexSubmit', () => {
       swapId: 'swap-id',
     });
   });
+
+  it.each(['returned error', 'thrown error'])(
+    'replaces the created activity immediately on %s even when the backend patch fails',
+    async (failure) => {
+      const onUpdate = jest.fn();
+      initSwap(onUpdate);
+      const row = fixtures.nearIntentsBackend.swapRowVersions[0];
+      callBackendPost.mockResolvedValue({ route: 'cex', swap: row });
+      const created = await swapCexCreateTransaction('0-mainnet', 'enclave-token', {
+        from: row.from, to: row.to, fromAmount: row.fromAmount, fromAddress: row.fromAddress,
+      });
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        activities: [expect.objectContaining({ id: created.activity.id, status: 'pendingTrusted' })],
+      }));
+      onUpdate.mockClear();
+      patchSwapItem.mockRejectedValue(new Error('backend unavailable'));
+      if (failure === 'returned error') {
+        chains.base.submitGasfullTransfer.mockResolvedValue({ error: 'InsufficientBalance' });
+      } else {
+        chains.base.submitGasfullTransfer.mockRejectedValue(new Error('submit failed'));
+      }
+      const submission = swapCexSubmit('base', {
+        accountId: '0-mainnet', enclaveToken: 'enclave-token', toAddress: '0xdeposit', amount: 1n, fee: 1n,
+      }, row.id);
+      if (failure === 'returned error') {
+        await expect(submission).resolves.toEqual({ error: 'InsufficientBalance' });
+      } else {
+        await expect(submission).rejects.toThrow('submit failed');
+      }
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'newActivities',
+        accountId: '0-mainnet',
+        activities: [expect.objectContaining({
+          id: created.activity.id,
+          status: 'failed',
+          cex: expect.objectContaining({ status: 'failed' }),
+        })],
+      });
+      expect(onUpdate.mock.invocationCallOrder[0]).toBeLessThan(patchSwapItem.mock.invocationCallOrder[0]);
+    },
+  );
 
   it('publishes MFA requests instead of patching CEX history immediately', async () => {
     const mfaRequest = {

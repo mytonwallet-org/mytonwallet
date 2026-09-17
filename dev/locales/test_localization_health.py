@@ -41,17 +41,6 @@ class LocalizationHealthTests(unittest.TestCase):
         self.write("src/i18n/ru.yaml", 'Words:\n  oneValue: "%count% слово"\n  manyValue: "%count% слов"\nDays: "%count% дней"\nPercent: 50% скидка\n')
         self.assertEqual(health.check(self.root, []), [])
 
-    def test_call_site_exclusion_preserves_catalog_and_other_source_checks(self):
-        self.write("src/i18n/en.yaml", "Existing: Existing\n")
-        self.write("src/i18n/ru.yaml", "Existing: Existing\nExtra: Extra\n")
-        excluded = self.write("mobile/ios/Deferred/Screen.swift", 'lang("Deferred key")')
-        included = self.write("mobile/ios/Screen.swift", 'lang("Missing key")')
-        sources = [(excluded, "ios"), (included, "ios")]
-        self.assertEqual(len(health.check(self.root, sources)), 3)
-        issues = health.check(self.root, sources, [Path("mobile/ios/Deferred")])
-        self.assertCountEqual([issue.code for issue in issues], ["extra-key", "unlocalized-call"])
-        self.assertEqual(next(issue.path for issue in issues if issue.code == "unlocalized-call"), included)
-
     def test_duplicate_keys_invalid_types_and_plural_forms_are_actionable(self):
         self.write("src/i18n/en.yaml", '"No": No\nKey: value\nKey: duplicate\nPlural:\n  oneValue: One\n  oneValue: Again\n  wrongValue: Wrong\n')
         issues = health.check(self.root, [])

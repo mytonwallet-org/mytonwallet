@@ -19,6 +19,11 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
 
     private let iconProvider = DappInfoProvider()
     private lazy var navigationBar = makeNavigationBar()
+    private lazy var moreButton = WNavigationBarButton(
+        icon: IOS_26_MODE_ENABLED ? UIImage(systemName: "ellipsis") : UIImage(named: "More22", in: AirBundle, with: nil),
+        tintColor: IOS_26_MODE_ENABLED ? nil : .tintColor,
+        menu: makeMenu()
+    )
     private lazy var tabSwitcherButton = WNavigationBarButton(
         icon: UIImage(systemName: "square.on.square"),
         tintColor: IOS_26_MODE_ENABLED ? nil : .tintColor
@@ -74,8 +79,6 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
             })
         }
 
-        let image = IOS_26_MODE_ENABLED ? UIImage(systemName: "ellipsis") : UIImage(named: "More22", in: AirBundle, with: nil)
-        let moreButton = WNavigationBarButton(icon: image, tintColor: IOS_26_MODE_ENABLED ? nil : .tintColor, menu: makeMenu())
         return WNavigationBar(leadingButton: closeButton, trailingButtons: [tabSwitcherButton, moreButton]) { [weak self] in
             self?.goBack()
         }
@@ -96,7 +99,22 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
     }
     private var displayTitleText: String?
 
+    var tabCount: Int { pages.count }
+
     func openPage(config: InAppBrowserPageConfig) {
+        if IS_DEBUG_OR_TESTFLIGHT {
+            let isKnownDapp = iconProvider.getDappInfo(for: config.url) != nil
+            let matches: (InAppBrowserPageVC) -> Bool = {
+                inAppBrowserTabMatchesUrl($0.state.url, requestedUrl: config.url, isKnownDapp: isKnownDapp)
+            }
+            if let page = currentPage.flatMap({ matches($0) ? $0 : nil }) ?? pages.first(where: matches) {
+                selectPage(page)
+            } else {
+                hideTabSwitcher(animated: false)
+                addPage(config: config, selecting: true)
+            }
+            return
+        }
         if pages.count == 1, currentPage?.state.url == config.url {
             return
         }
@@ -243,6 +261,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
 
     func updateNavigationBar(delayTitleChangeToNil: Bool = true) {
         updateTabSwitcherButton()
+        moreButton.view.menu = makeMenu()
         guard let page = currentPage else {
             delegate?.inAppBrowserTitleChanged(self)
             return
@@ -310,8 +329,13 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                                    image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
             self?.share()
         }
-        let menu = UIMenu(title: "", children: [reloadAction, openInSafariAction, copyAction, shareAction])
-        return menu
+        var actions = [reloadAction, openInSafariAction, copyAction, shareAction]
+        if IS_DEBUG_OR_TESTFLIGHT, pages.count > 1 {
+            actions.append(UIAction(title: lang("Close Tab"), image: UIImage(systemName: "xmark"), attributes: .destructive) { [weak self] _ in
+                self?.closeCurrentTabOrSheet()
+            })
+        }
+        return UIMenu(title: "", children: actions)
     }
 
     private func makeTitleMenu(for url: URL?) -> UIMenu? {

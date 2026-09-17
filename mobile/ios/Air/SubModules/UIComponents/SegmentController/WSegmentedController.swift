@@ -70,6 +70,11 @@ public class WSegmentedController: WTouchPassView {
 
     private var scrollTrackingProxy: _ScrollTrackingProxy?
     private var scrollTrackingGeneration: Int = 0
+    private var additionalPagingGesture: WSegmentedPagingGesture?
+    private var additionalPagingStart: (offset: CGFloat, index: Int)?
+    private var beginForwardTransition: (() -> WInteractivePushTransition?)?
+    private var isForwardNavigationEnabled: () -> Bool = { false }
+    private var contentForwardGesture: WSegmentedPagingGesture?
 
     public private(set) var model: SegmentedControlModel
 
@@ -346,6 +351,7 @@ public class WSegmentedController: WTouchPassView {
             viewportWidth != lastWidthForRecalculation,
             !scrollView.isDragging,
             !scrollView.isDecelerating,
+            additionalPagingStart == nil,
             let selection = model.selection,
             let index = model.getItemIndexById(itemId: selection.effectiveSelectedItemID) else {
             return
@@ -356,6 +362,10 @@ public class WSegmentedController: WTouchPassView {
     }
 
     @objc public func setSelectedIndex(to index: Int, animated: Bool) {
+        setSelectedIndex(to: index, animated: animated, continuingDrag: false)
+    }
+
+    private func setSelectedIndex(to index: Int, animated: Bool, continuingDrag: Bool) {
         guard viewControllers.indices.contains(index) else {
             assertionFailure()
             return
@@ -369,7 +379,9 @@ public class WSegmentedController: WTouchPassView {
         currentPageIndex = index
         let needsMovement = abs(scrollView.contentOffset.x - targetPoint.x) > 0.5
         if animated && needsMovement {
-            delegate?.segmentedControllerDidStartDragging()
+            if !continuingDrag {
+                delegate?.segmentedControllerDidStartDragging()
+            }
             let generation = startScrollTracking()
             UIView.animateAdaptive(duration: animationSpeed.duration) { [self] in
                 scrollView.setContentOffset(targetPoint, animated: false)
@@ -447,6 +459,105 @@ public class WSegmentedController: WTouchPassView {
         if let selectedIndex {
             viewControllers?[selectedIndex].scrollToTop(animated: animated)
         }
+    }
+
+    /// Adds a separate paging pan to a view, or removes it when passed nil.
+    public func setAdditionalPagingGestureView(
+        _ view: UIView?,
+        isEnabled: @escaping () -> Bool = { true }
+    ) {
+        if let additionalPagingGesture {
+            endAdditionalPaging(translation: 0, velocity: 0, cancelled: true)
+            additionalPagingGesture.isEnabled = false
+            additionalPagingGesture.view?.removeGestureRecognizer(additionalPagingGesture)
+        }
+        additionalPagingGesture = nil
+        guard let view else { return }
+        let gesture = WSegmentedPagingGesture(
+            controller: self,
+            isPagingEnabled: isEnabled
+        )
+        view.addGestureRecognizer(gesture)
+        additionalPagingGesture = gesture
+    }
+
+    /// Adds a forward-only content pan to a host that stays in place during navigation.
+    public func setForwardNavigation(
+        in view: UIView,
+        beginTransition: @escaping () -> WInteractivePushTransition?,
+        isEnabled: @escaping () -> Bool
+    ) {
+        beginForwardTransition = beginTransition
+        isForwardNavigationEnabled = isEnabled
+        if let contentForwardGesture {
+            contentForwardGesture.isEnabled = false
+            contentForwardGesture.view?.removeGestureRecognizer(contentForwardGesture)
+        }
+        let gesture = WSegmentedPagingGesture(controller: self, forwardOnly: true, isPagingEnabled: isEnabled)
+        view.addGestureRecognizer(gesture)
+        scrollView.panGestureRecognizer.require(toFail: gesture)
+        contentForwardGesture = gesture
+    }
+
+    func beginForwardNavigation(velocity: CGPoint) -> WInteractivePushTransition? {
+        guard scrollView.isScrollEnabled,
+              abs(velocity.x) > abs(velocity.y),
+              canBeginForwardNavigation(velocity: velocity.x),
+              isForwardNavigationEnabled() else { return nil }
+        return beginForwardTransition?()
+    }
+
+    func canBeginForwardNavigation(velocity: CGFloat) -> Bool {
+        guard selectedIndex == viewControllers.count - 1, scrollTrackingProxy == nil else { return false }
+        let direction: CGFloat = usesRightToLeftPageLayout ? 1 : -1
+        let lastPageOffset = contentOffsetX(forLogicalProgress: maxPageProgress, viewportWidth: scrollView.bounds.width)
+        return velocity * direction > 0 && abs(scrollView.contentOffset.x - lastPageOffset) < 1
+    }
+
+    func beginAdditionalPaging() {
+        interruptScrollAnimation()
+        additionalPagingStart = (scrollView.contentOffset.x, currentPageIndex)
+        delegate?.segmentedControllerDidStartDragging()
+    }
+
+    private func interruptScrollAnimation() {
+        guard scrollTrackingProxy != nil else { return }
+        let offset = (scrollView.layer.presentation() ?? scrollView.layer).bounds.origin
+        stopScrollTracking(generation: scrollTrackingGeneration)
+        scrollTrackingGeneration &+= 1
+        scrollView.layer.removeAllAnimations()
+        scrollView.setContentOffset(offset, animated: false)
+    }
+
+    func updateAdditionalPaging(translation: CGFloat) {
+        guard let start = additionalPagingStart else { return }
+        let width = scrollView.bounds.width
+        guard width > 0 else { return }
+        let offset = start.offset - translation
+        let limit = clamp(offset, min: 0, max: maxPageProgress * width)
+        let overshoot = offset - limit
+        let resistance = 1 + abs(overshoot) * 0.55 / width
+        scrollView.contentOffset.x = limit + overshoot * 0.55 / resistance
+    }
+
+    func endAdditionalPaging(translation: CGFloat, velocity: CGFloat, cancelled: Bool) {
+        guard let start = additionalPagingStart else { return }
+        additionalPagingStart = nil
+        let width = scrollView.bounds.width
+        guard width > 0 else {
+            delegate?.segmentedControllerDidEndScrolling()
+            return
+        }
+        // Project a short distance in the release direction, then settle through
+        // the same selection animation used by the segmented control.
+        let projectedOffset = start.offset - translation - velocity * 0.2
+        let progress = logicalProgress(forContentOffsetX: projectedOffset, viewportWidth: width)
+        let target = cancelled ? start.index : clamp(
+            Int(progress.rounded()),
+            min: max(0, start.index - 1),
+            max: min(viewControllers.count - 1, start.index + 1)
+        )
+        setSelectedIndex(to: target, animated: true, continuingDrag: true)
     }
 
     public var selectedIndex: Int? {
@@ -551,7 +662,7 @@ extension WSegmentedController: UIScrollViewDelegate {
             max(Int(progress.rounded()), 0),
             max(viewControllers.count - 1, 0)
         )
-        if scrollView.isDragging || scrollView.isDecelerating {
+        if scrollView.isDragging || scrollView.isDecelerating || additionalPagingStart != nil {
             updateSegmentedControlProgress(pageProgress: progress)
             delegate?.segmentedController(scrollOffsetChangedTo: progress)
         }
@@ -561,6 +672,10 @@ extension WSegmentedController: UIScrollViewDelegate {
     }
     
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        additionalPagingStart = nil
+        additionalPagingGesture?.isEnabled = false
+        additionalPagingGesture?.isEnabled = true
+        interruptScrollAnimation()
         delegate?.segmentedControllerDidStartDragging()
     }
     

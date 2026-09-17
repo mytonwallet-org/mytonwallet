@@ -1,6 +1,25 @@
 import Foundation
 import WalletContext
 
+public func inAppBrowserTabMatchesUrl(_ currentUrl: URL, requestedUrl: URL, isKnownDapp: Bool) -> Bool {
+    guard var current = URLComponents(url: currentUrl, resolvingAgainstBaseURL: true),
+          var requested = URLComponents(url: requestedUrl, resolvingAgainstBaseURL: true) else {
+        return false
+    }
+    current.fragment = nil
+    requested.fragment = nil
+    if current == requested {
+        return true
+    }
+    guard isKnownDapp, isWebUrl(currentUrl), isWebUrl(requestedUrl),
+          !ExplorerHelper.isExplorerUrl(requestedUrl) else {
+        return false
+    }
+    return current.scheme?.lowercased() == requested.scheme?.lowercased()
+        && current.host?.lowercased() == requested.host?.lowercased()
+        && current.port == requested.port
+}
+
 public enum InAppBrowserUrlRouting: Equatable {
     case allow
     case consume

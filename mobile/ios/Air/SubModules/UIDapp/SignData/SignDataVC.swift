@@ -44,6 +44,7 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         self.onCancel = onCancel
         withAnimation {
             self.$account.accountId = update.accountId
+            self.updateNavigationHeader()
             self.hostingController?.rootView = makeView()
         }
     }
@@ -54,14 +55,7 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
     }
     
     private func setupViews() {
-        navigationItem.title = L10n.confirmActions(count: 1)
-        addCloseNavigationItemIfNeeded()
-        // Route the close "X" through cancellation so the dapp is notified (otherwise it waits forever).
-        if navigationItem.rightBarButtonItem != nil {
-            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
-                self?._onCancel()
-            })
-        }
+        updateNavigationHeader()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
 
@@ -71,6 +65,11 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         (navigationController?.sheetPresentationController ?? sheetPresentationController)?.delegate = self
     }
     
+    private func updateNavigationHeader() {
+        navigationItem.titleView = DappNavigationHeader(accountContext: _account, dapp: update?.dapp)
+        navigationItem.backButtonDisplayMode = .minimal
+    }
+
     private func makeView() -> SignDataViewOrPlaceholder {
         SignDataViewOrPlaceholder(
             update: update,
@@ -100,7 +99,7 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
 
     func _onCancel() {
         // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
-        // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
+        // in which case we still dismiss so Cancel and swipe always close the modal.
         onCancel?()
         onCancel = nil
         navigationController?.presentingViewController?.dismiss(animated: true)
@@ -110,3 +109,14 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         _onCancel()
     }
 }
+
+#if DEBUG
+extension SignDataVC {
+    static func presentationFixture(update: ApiUpdate.DappSignData?, account: MAccount, onCancel: @escaping () -> Void = {}) -> SignDataVC {
+        let viewController = update.map { SignDataVC(update: $0, onCancel: onCancel) }
+            ?? SignDataVC(placeholderAccountId: account.id)
+        viewController._account = AccountContext(source: .constant(account))
+        return viewController
+    }
+}
+#endif

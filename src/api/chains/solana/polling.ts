@@ -396,7 +396,6 @@ async function loadNewActivities(
       type: 'newActivities',
       chain: 'solana',
       activities,
-      pendingActivities: [],
       accountId,
     });
   }

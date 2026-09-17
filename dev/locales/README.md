@@ -9,7 +9,7 @@ The **Localization health** job runs on macOS with Xcode 26 or newer. From the r
 ```sh
 python3 -m pip install -r mobile/ios/Air/scripts/strings/requirements.txt
 python3 -m unittest discover -s dev/locales -p 'test_*.py' -v
-python3 dev/locales/check_localization_health.py --exclude-path mobile/ios/Air/SubModules/UIAgent
+python3 dev/locales/check_localization_health.py
 python3 -m unittest discover -s mobile/ios/Air/scripts/strings -p 'test_*.py' -v
 ```
 
@@ -26,10 +26,6 @@ if anything needs fixing. It checks:
 - Literal keys in Android `LocaleController.getString`, `getStringOrNull`, `getFormattedString`,
   `getStringWithKeyValues`, `getSpannableStringWithKeyValues`, `getPluralOrFormat`, `getPlural`,
   and `getPluralWord`, including unqualified calls and named `key` arguments.
-
-`--exclude-path` skips call sites under a repository-relative file or directory, while retaining
-all catalog checks. The release CI excludes `UIAgent` call sites from this new gate so its existing
-localization behavior remains unchanged; omit the option for a scan of every module.
 
 An unknown call-site key points to the source file, suggests a nearby spelling when available,
 and identifies the catalog that needs it. A key missing only in translations is reported once

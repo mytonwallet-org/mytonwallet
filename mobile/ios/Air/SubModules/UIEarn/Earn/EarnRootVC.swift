@@ -21,7 +21,6 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     public let tokenSlug: String?
     private var initialAction: EarnInitialAction?
     private var isReadyForInitialAction = false
-    private let isAccountSwitchingAllowed: Bool
     private var displayedAccountId: String?
     private var pendingSelection: PendingSelection?
     
@@ -68,10 +67,9 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     }
     
     public init(accountContext: AccountContext, tokenSlug: String?, initialAction: EarnInitialAction? = nil) {
-        self._account = accountContext
+        self._account = AccountContext(accountId: accountContext.account.id)
         self.tokenSlug = StakingConfig.config(forTokenSlug: tokenSlug)?.baseTokenSlug ?? tokenSlug ?? TONCOIN_SLUG
         self.initialAction = initialAction
-        self.isAccountSwitchingAllowed = accountContext.source == .current
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -178,11 +176,6 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
     }
 
     private func updateLeftNavigationItem() {
-        guard isAccountSwitchingAllowed else {
-            navigationItem.setLeftBarButtonItems(nil, animated: true)
-            return
-        }
-
         accountSwitcher.update(selectedAccountId: account.id)
         let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
             ? [accountSwitcher.barButtonItem]
@@ -237,10 +230,6 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
 extension EarnRootVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .accountChanged:
-            if $account.source == .current {
-                updateWithStakingState()
-            }
         case .stakingAccountData(let data):
             if data.accountId == $account.accountId {
                 updateWithStakingState()

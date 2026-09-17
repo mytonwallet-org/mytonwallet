@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import UniversalSearchWalletCore
 import WalletCore
 import WalletContext
 
@@ -27,6 +28,7 @@ public class TokenSelectionVC: WViewController {
         case myAssets
         case popular
         case allAssets
+        case search
 
         var title: String {
             switch self {
@@ -36,6 +38,8 @@ public class TokenSelectionVC: WViewController {
                 lang("Popular")
             case .allAssets:
                 lang("A ~ Z")
+            case .search:
+                ""
             }
         }
     }
@@ -85,6 +89,9 @@ public class TokenSelectionVC: WViewController {
     private var showingWalletTokens = [MTokenBalance]()
     private var showingPopularTokens = [ApiToken]()
     private var showingAllAssets = [ApiToken]()
+    private var showingSearchItems = [Item]()
+    private var tokenSearch = WalletCoreTokenSearch()
+    private var tokenSearchNeedsUpdate = true
     private var keyword = String()
     private var searchController: UISearchController?
 
@@ -169,10 +176,11 @@ public class TokenSelectionVC: WViewController {
     // MARK: - Setup
     
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { _, environment in
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             var listConfig = UICollectionLayoutListConfiguration(appearance: .plain)
             listConfig.showsSeparators = true
-            listConfig.headerMode = .supplementary
+            listConfig.headerMode = self?.dataSource?.sectionIdentifier(for: sectionIndex) == .search
+                ? .none : .supplementary
 
             let separatorInsets = NSDirectionalEdgeInsets(top: 0, leading: 62, bottom: 0, trailing: IOS_26_MODE_ENABLED ? 12 : 0)
             var separatorConfig = UIListSeparatorConfiguration(listAppearance: .plain)
@@ -274,6 +282,7 @@ public class TokenSelectionVC: WViewController {
                 secondaryAmountMode: secondaryAmountMode
             ) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.tokenSlug) else { return }
+                recordSearchSelection(tokenSlug: token.tokenSlug)
                 delegate?.didSelect(token: token)
                 navigationController?.popViewController(animated: true)
             }
@@ -288,6 +297,7 @@ public class TokenSelectionVC: WViewController {
                 secondaryAmountMode: secondaryAmountMode
             ) { [weak self] in
                 guard let self, isTokenAvailable(slug: token.slug) else { return }
+                recordSearchSelection(tokenSlug: token.slug)
                 if shouldSaveSelectedApiToken {
                     AssetsAndActivityDataStore.update(accountId: account.id, update: { settings in
                         settings.saveImportedToken(slug: tokenSlug)
@@ -318,6 +328,7 @@ public class TokenSelectionVC: WViewController {
     }
         
     private func updateWalletTokens() {
+        tokenSearchNeedsUpdate = true
         walletTokens = showMyAssets ? $account.walletTokens ?? [] : []
         guard showMyAssets else { return }
         for slug in extraWalletTokenSlugs where walletTokens.contains(where: { $0.tokenSlug == slug }) == false {
@@ -337,12 +348,48 @@ public class TokenSelectionVC: WViewController {
         
         showingWalletTokens = walletTokens.filter { token in
             guard let apiToken = TokenStore.tokens[token.tokenSlug] else { return false }
-            guard shouldIncludeChain(apiToken.chain) && apiToken.matchesSearch(keyword) else { return false }
+            guard shouldIncludeChain(apiToken.chain) else { return false }
             if myAssetsDisplayMode == .swap, (apiToken.price ?? 0) == 0 {
                 return false
             }
             return true
         }
+
+        let sourceAssets: [ApiToken] = if onlySupportedChains {
+            Array(TokenStore.tokens.values)
+        } else {
+            TokenStore.swapAssets ?? []
+        }
+        let eligibleAssets = sourceAssets.filter { shouldIncludeChain($0.chain) }
+        if !keyword.isEmpty {
+            let balancesBySlug = Dictionary(
+                showingWalletTokens.map { ($0.tokenSlug, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let assetsBySlug = Dictionary(
+                eligibleAssets.map { ($0.slug, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            if tokenSearchNeedsUpdate {
+                let candidates = showingWalletTokens.compactMap { TokenStore.tokens[$0.tokenSlug] } + eligibleAssets
+                tokenSearch.update(
+                    accountID: account.id,
+                    tokens: candidates,
+                    balances: BalanceDataStore.walletTokensData(accountId: account.id)?.allTokenBalances ?? walletTokens,
+                    trackedTokenSlugs: AssetsAndActivityDataStore.data(accountId: account.id)?.importedSlugs ?? []
+                )
+                tokenSearchNeedsUpdate = false
+            }
+            showingSearchItems = tokenSearch.search(keyword).compactMap { slug in
+                if let balance = balancesBySlug[slug] {
+                    return .walletToken(balance)
+                }
+                return assetsBySlug[slug].map { .apiToken($0, .search) }
+            }
+            applySnapshot()
+            return
+        }
+        showingSearchItems = []
         
         if myAssetsDisplayMode == .swap {
             showingWalletTokens.sort { lhs, rhs in
@@ -357,13 +404,7 @@ public class TokenSelectionVC: WViewController {
             }
         }
 
-        let sourceAssets: [ApiToken] = if onlySupportedChains {
-            TokenStore.tokens.values.map { $0 }
-        } else {
-            TokenStore.swapAssets ?? []
-        }
-        let filteredAssets = sourceAssets
-            .filter { shouldIncludeChain($0.chain) && $0.matchesSearch(keyword) }
+        let filteredAssets = eligibleAssets
             .sorted {
                 $0.displayName(strippingLabelWhenShown: false)
                     .localizedCaseInsensitiveCompare($1.displayName(strippingLabelWhenShown: false)) == .orderedAscending
@@ -384,6 +425,13 @@ public class TokenSelectionVC: WViewController {
         }
         
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
+
+        if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            snapshot.appendSections([.search])
+            snapshot.appendItems(showingSearchItems, toSection: .search)
+            dataSource?.apply(snapshot, animatingDifferences: false)
+            return
+        }
         
         if !showingWalletTokens.isEmpty {
             snapshot.appendSections([.myAssets])
@@ -402,6 +450,12 @@ public class TokenSelectionVC: WViewController {
         
         dataSource?.apply(snapshot, animatingDifferences: false)
     }
+
+    private func recordSearchSelection(tokenSlug: String) {
+        guard !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        tokenSearch.recordSelection(tokenSlug: tokenSlug, accountID: account.id)
+        tokenSearchNeedsUpdate = true
+    }
 }
 
 extension TokenSelectionVC: UISearchResultsUpdating {
@@ -414,7 +468,7 @@ extension TokenSelectionVC: UISearchResultsUpdating {
 extension TokenSelectionVC: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .balanceChanged, .tokensChanged, .swapTokensChanged:
+        case .balanceChanged, .tokensChanged, .swapTokensChanged, .accountChanged, .assetsAndActivityDataUpdated:
             updateWalletTokens()
             filterTokens()
         default:

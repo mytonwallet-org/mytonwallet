@@ -108,7 +108,6 @@ object WGlobalStorage {
     private const val IS_GRADIENT_NAVIGATION_BAR_ACTIVE = "settings.gradientNavigationBar"
     private const val IS_BLUR_ENABLED = "settings.blurEnabled"
     private const val IS_LIQUID_GLASS_ENABLED = "settings.liquidGlassEnabled"
-    private const val ARE_TOP_TABS_ENABLED = "settings.topTabs"
     private const val WALLET_CARD_TOP_LINE = "settings.walletCardTopLine"
     private const val HIDE_ACTION_BUTTONS_ROW = "settings.hideActionButtonsRow"
     private const val ARE_SOUNDS_ACTIVE = "settings.canPlaySounds"
@@ -446,17 +445,6 @@ object WGlobalStorage {
 
     fun isRoundedBalanceFontActive(): Boolean =
         globalStorageProvider.getBool(IS_ROUNDED_BALANCE_FONT_ACTIVE) ?: true
-
-    fun areTopTabsEnabled(): Boolean = globalStorageProvider.getBool(ARE_TOP_TABS_ENABLED)
-        ?: true
-
-    fun setAreTopTabsEnabled(enabled: Boolean) {
-        globalStorageProvider.set(
-            ARE_TOP_TABS_ENABLED,
-            enabled,
-            IGlobalStorageProvider.PERSIST_INSTANT
-        )
-    }
 
     fun getWalletCardTopLine(): MWalletCardTopLine =
         MWalletCardTopLine.fromValue(globalStorageProvider.getString(WALLET_CARD_TOP_LINE))

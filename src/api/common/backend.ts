@@ -1,5 +1,5 @@
 import { APP_ENV, APP_NAME, APP_VERSION, BRILLIANT_API_BASE_URL } from '../../config';
-import { bucketKey } from '../../util/circuit-breaker';
+import { bucketKey } from '../../util/circuitBreaker';
 import { fetchJson, fetchWithRetry, fetchWithTimeout, handleFetchErrors } from '../../util/fetch';
 import { getEnvironment } from '../environment';
 import { getClientId } from './other';

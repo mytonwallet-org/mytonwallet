@@ -215,6 +215,7 @@ public struct UniversalSearchItem {
         case collection(UniversalSearchCollectionResult)
         case app(UniversalSearchAppResult)
         case wallet(UniversalSearchWalletResult)
+        case resolvingDomain(String)
         case shortcut(UniversalSearchShortcutResult)
         case askAgent(query: String)
         case recentSearch(UniversalSearchHistoryResult)
@@ -226,6 +227,11 @@ public struct UniversalSearchItem {
 
     public let id: String
     public let content: Content
+
+    var isSelectable: Bool {
+        if case .resolvingDomain = content { return false }
+        return true
+    }
 
     public init(id: String, content: Content) {
         self.id = id

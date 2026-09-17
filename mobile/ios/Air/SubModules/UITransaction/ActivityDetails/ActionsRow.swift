@@ -23,8 +23,8 @@ struct ActionsRow: View {
                 return false
             }
             return account.supportsSend
-        case .swap:
-            return account.supportsSwap
+        case .swap(let swap):
+            return account.supportsSwap && swap.cex?.status.uiStatus != .pending
         }
     }
 
@@ -149,13 +149,31 @@ private final class ActivityDetailsActionsToolbar: ButtonsToolbar {
 private struct ActivityDetailsActionsToolbarRepresentable: UIViewRepresentable {
     var model: ActivityDetailsActionsToolbar.Model
 
-    func makeUIView(context: Context) -> ActivityDetailsActionsToolbar {
-        let toolbar = ActivityDetailsActionsToolbar()
+    func makeCoordinator() -> ActivityDetailsActionsToolbar {
+        ActivityDetailsActionsToolbar()
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let toolbar = context.coordinator
         toolbar.configure(model: model)
+        if #available(iOS 26, *) {
+            let effect = UIGlassContainerEffect()
+            effect.spacing = toolbar.spacing
+            let glassContainerView = UIVisualEffectView(effect: effect)
+            toolbar.translatesAutoresizingMaskIntoConstraints = false
+            glassContainerView.contentView.addSubview(toolbar)
+            NSLayoutConstraint.activate([
+                toolbar.leadingAnchor.constraint(equalTo: glassContainerView.contentView.leadingAnchor),
+                toolbar.trailingAnchor.constraint(equalTo: glassContainerView.contentView.trailingAnchor),
+                toolbar.topAnchor.constraint(equalTo: glassContainerView.contentView.topAnchor),
+                toolbar.bottomAnchor.constraint(equalTo: glassContainerView.contentView.bottomAnchor),
+            ])
+            return glassContainerView
+        }
         return toolbar
     }
 
-    func updateUIView(_ uiView: ActivityDetailsActionsToolbar, context: Context) {
-        uiView.configure(model: model)
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.configure(model: model)
     }
 }

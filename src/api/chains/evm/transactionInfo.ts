@@ -25,7 +25,8 @@ export async function fetchTransactionById(
 
     return [transformEvmTxToUnified(chain, tx, address)];
   } catch (err) {
-    logDebugError('fetchTransactionById', 'solana', err);
+    logDebugError('fetchTransactionById', chain, err);
+
     return [];
   }
 }

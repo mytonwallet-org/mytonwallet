@@ -104,5 +104,5 @@ public final class AccountConfig: Sendable {
 }
 
 private var isMfaEnabledOverrideActive: Bool {
-    IS_DEBUG_OR_TESTFLIGHT_DEFAULT && DebugMfaEnabledOverride.isEnabled
+    IS_DEBUG_OR_TESTFLIGHT && DebugMfaEnabledOverride.isEnabled
 }

@@ -3,20 +3,25 @@ import type { ApiChain, ApiDerivationSpec, ApiNetwork, ApiToken, ApiTokenWithPri
 import {
   ARBITRUM,
   ARBITRUM_USDC_MAINNET,
+  ARC,
   AVALANCHE,
   AVALANCHE_USDT_MAINNET,
   BASE,
   BASE_USDC_MAINNET,
   BASE_USDT_MAINNET,
+  BITCOIN,
+  BITCOINCASH,
   BNB,
   BSC_USDT_MAINNET,
   DEBUG,
+  DOGECOIN,
   ETH,
   ETH_USDC_MAINNET,
   ETH_USDT_MAINNET,
   HYPERLIQUID,
   HYPERLIQUID_USDC_MAINNET,
   IS_GRAM_WALLET,
+  LITECOIN,
   MONAD,
   MYCOIN_MAINNET,
   MYCOIN_TESTNET,
@@ -39,6 +44,7 @@ import { SOLANA_DERIVATION_PATHS } from '../api/chains/solana/constants';
 import { SOLANA_DERIVATION_SPEC, SOLANA_DERIVATION_VERSION } from '../api/chains/solana/derivationConstants';
 import { TON_BIP39_PATH } from '../api/chains/ton/derivationConstants';
 import { TRON_BIP39_PATH } from '../api/chains/tron/constants';
+import { getDefaultUtxoDerivationPath } from '../api/chains/utxo/constants';
 import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
 import withCache from './withCache';
@@ -105,6 +111,11 @@ export interface ChainConfig {
   isSubwalletsSupported: boolean;
   /** The default derivation path for the chain */
   defaultDerivationPath?: string;
+  /**
+   * Funded derivation path variants at the same index become separate accounts on seed import.
+   * Extra format accounts keep that chain's wallet and derive other chains at a reserved index offset.
+   */
+  doesImportAddressFormatsSeparately?: boolean;
   /** Regular expression for wallet and contract addresses in the chain */
   addressRegex: RegExp;
   /** The same regular expression but matching any prefix of a valid address */
@@ -121,12 +132,6 @@ export interface ChainConfig {
   doesSupportPushNotifications: boolean;
   /** A random but valid address for checking transfer fees */
   feeCheckAddress: string;
-  /** A swap configuration used to buy the native token in this chain. If absent, the "Buy with Crypto" UI is hidden. */
-  buySwap?: {
-    tokenInSlug: string;
-    /** Amount as perceived by the user */
-    amountIn: string;
-  };
   /** The slug of the USDT token in this chain, if it has USDT */
   usdtSlug: Record<ApiNetwork, string | undefined>;
   usdcSlug?: Record<ApiNetwork, string | undefined>;
@@ -193,12 +198,18 @@ export const CHAIN_ORDER: ApiChain[] = [
   'avalanche',
   'hyperliquid',
   'robinhood',
+  'arc',
+  'bitcoin',
+  'litecoin',
+  'dogecoin',
+  'bitcoincash',
 ];
 
 // Display order for chains everywhere in the UI. Independent of `CHAIN_ORDER`,
 // which is constrained by address-matching correctness.
 // Must contain the same chains as `CHAIN_ORDER`.
 export const CHAIN_DISPLAY_ORDER: ApiChain[] = [
+  'bitcoin',
   'ethereum',
   'solana',
   'hyperliquid',
@@ -207,10 +218,14 @@ export const CHAIN_DISPLAY_ORDER: ApiChain[] = [
   'bnb',
   'base',
   'robinhood',
+  'arc',
   'monad',
   'arbitrum',
   'polygon',
   'avalanche',
+  'dogecoin',
+  'litecoin',
+  'bitcoincash',
 ];
 
 const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
@@ -238,10 +253,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     shouldShowScamWarningIfNotEnoughGas: false,
     doesSupportPushNotifications: true,
     feeCheckAddress: 'UQBE5NzPPnfb6KAy7Rba2yQiuUnihrfcFw96T-p5JtZjAl_c',
-    buySwap: {
-      tokenInSlug: TRC20_USDT_MAINNET.slug,
-      amountIn: '100',
-    },
     usdtSlug: {
       mainnet: TON_USDT_MAINNET.slug,
       testnet: TON_USDT_TESTNET.slug,
@@ -328,10 +339,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     shouldShowScamWarningIfNotEnoughGas: true,
     doesSupportPushNotifications: false,
     feeCheckAddress: 'TW2LXSebZ7Br1zHaiA2W1zRojDkDwjGmpw',
-    buySwap: {
-      tokenInSlug: TON_USDT_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: TRC20_USDT_MAINNET.slug,
       testnet: TRC20_USDT_TESTNET.slug,
@@ -386,10 +393,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: '35YT7tt9edJbroEKaC3T3XY4cLNWKtVzmyTEfW8LHPEA',
-    buySwap: {
-      tokenInSlug: SOLANA_USDT_MAINNET.slug,
-      amountIn: '100',
-    },
     usdtSlug: {
       mainnet: SOLANA_USDT_MAINNET.slug,
       testnet: undefined,
@@ -466,10 +469,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: TON_USDT_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: ETH_USDT_MAINNET.slug,
       testnet: ETH_USDT_MAINNET.slug,
@@ -536,10 +535,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: TON_USDT_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: BASE_USDT_MAINNET.slug,
       testnet: BASE_USDT_MAINNET.slug,
@@ -660,10 +655,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: POLYGON.slug,
-      amountIn: '100',
-    },
     usdtSlug: {
       mainnet: '',
       testnet: '',
@@ -722,10 +713,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: ARBITRUM_USDC_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: '',
       testnet: '',
@@ -771,8 +758,8 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     chainStandard: 'ethereum',
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
-    isOnRampSupported: true,
-    isOffRampSupported: true,
+    isOnRampSupported: false,
+    isOffRampSupported: false,
     isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
@@ -788,10 +775,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: MONAD.slug,
-      amountIn: '10',
-    },
     usdtSlug: {
       mainnet: '',
       testnet: '',
@@ -850,10 +833,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: AVALANCHE.slug,
-      amountIn: '0.1',
-    },
     usdtSlug: {
       mainnet: AVALANCHE_USDT_MAINNET.slug,
       testnet: AVALANCHE_USDT_MAINNET.slug,
@@ -912,10 +891,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: TON_USDT_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: undefined,
       testnet: undefined,
@@ -962,7 +937,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
     isOnRampSupported: true,
-    isOffRampSupported: true,
+    isOffRampSupported: false,
     isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
@@ -978,10 +953,6 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     canImportTokens: false,
     shouldShowScamWarningIfNotEnoughGas: false,
     feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
-    buySwap: {
-      tokenInSlug: TON_USDT_MAINNET.slug,
-      amountIn: '50',
-    },
     usdtSlug: {
       mainnet: undefined,
       testnet: undefined,
@@ -1017,6 +988,259 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isNetWorthSupported: false,
     doesSupportPushNotifications: false,
     isNftSupported: false,
+  },
+  arc: {
+    title: 'Arc',
+    chainStandard: 'ethereum',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: false,
+    isOffRampSupported: false,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: false,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: EVM_DERIVATION_PATHS.default,
+    addressRegex: /^0x[a-fA-F0-9]{40}$/,
+    addressPrefixRegex: /^0x[a-fA-F0-9]{0,40}$/,
+    nativeToken: ARC,
+    displayColor: '#2775CA',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: EVM_FEE_CHECK_ADDRESS,
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    defaultEnabledSlugs: {
+      mainnet: [ARC.slug],
+      testnet: [ARC.slug],
+    },
+    crosschainSwapSlugs: [ARC.slug],
+    tokenInfo: [ARC],
+    explorers: [{
+      id: 'arcscan',
+      name: 'Arcscan',
+      baseUrl: {
+        mainnet: 'https://arc-scan.org/',
+        testnet: 'https://testnet.arc-scan.org/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}token/{address}',
+      transaction: '{base}tx/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [{
+      id: 'openSea',
+      name: 'OpenSea',
+      baseUrl: {
+        mainnet: 'https://opensea.io/',
+        testnet: '', // No testnet support
+      },
+      nft: '{base}item/{chain}/{address}',
+    }],
+    isNetWorthSupported: false,
+    doesSupportPushNotifications: false,
+    isNftSupported: false,
+  },
+  bitcoin: {
+    title: 'Bitcoin',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: true,
+    isOffRampSupported: true,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: true,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: getDefaultUtxoDerivationPath('bitcoin'),
+    doesImportAddressFormatsSeparately: true,
+    isNftSupported: false,
+    addressRegex: /^(?:bc1|tb1)[a-z0-9]{25,62}$|^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/,
+    addressPrefixRegex: /^(?:bc1|tb1)[a-z0-9]{0,62}$|^[13][a-km-zA-HJ-NP-Z1-9]{0,34}$/,
+    nativeToken: BITCOIN,
+    displayColor: '#F7931A',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    doesSupportPushNotifications: false,
+    defaultEnabledSlugs: {
+      mainnet: [BITCOIN.slug],
+      testnet: [BITCOIN.slug],
+    },
+    crosschainSwapSlugs: [BITCOIN.slug],
+    tokenInfo: [BITCOIN],
+    explorers: [{
+      id: 'mempool',
+      name: 'Mempool',
+      baseUrl: {
+        mainnet: 'https://mempool.space/',
+        testnet: 'https://mempool.space/testnet/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}address/{address}',
+      transaction: '{base}tx/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [],
+    isNetWorthSupported: false,
+  },
+  litecoin: {
+    title: 'Litecoin',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: true,
+    isOffRampSupported: true,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: true,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: getDefaultUtxoDerivationPath('litecoin'),
+    doesImportAddressFormatsSeparately: true,
+    isNftSupported: false,
+    addressRegex: /^(?:ltc1|tltc1)[a-z0-9]{25,62}$|^[LM2lm][a-km-zA-HJ-NP-Z1-9]{26,33}$/,
+    addressPrefixRegex: /^(?:ltc1|tltc1)[a-z0-9]{0,62}$|^[LM2lm][a-km-zA-HJ-NP-Z1-9]{0,33}$/,
+    nativeToken: LITECOIN,
+    displayColor: '#345D9D',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: 'ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9',
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    doesSupportPushNotifications: false,
+    defaultEnabledSlugs: {
+      mainnet: [LITECOIN.slug],
+      testnet: [LITECOIN.slug],
+    },
+    crosschainSwapSlugs: [LITECOIN.slug],
+    tokenInfo: [LITECOIN],
+    explorers: [{
+      id: 'blockchair',
+      name: 'Blockchair',
+      baseUrl: {
+        mainnet: 'https://blockchair.com/litecoin/',
+        testnet: 'https://blockchair.com/litecoin/testnet/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}address/{address}',
+      transaction: '{base}transaction/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [],
+    isNetWorthSupported: false,
+  },
+  bitcoincash: {
+    title: 'Bitcoin Cash',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: true,
+    isOffRampSupported: true,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: true,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: getDefaultUtxoDerivationPath('bitcoincash'),
+    doesImportAddressFormatsSeparately: true,
+    isNftSupported: false,
+    addressRegex: /^(?:bitcoincash:|bchtest:)?[qp][a-z0-9]{41}$|^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/i,
+    addressPrefixRegex: /^(?:bitcoincash:|bchtest:)?[qp][a-z0-9]{0,41}$|^[13][a-km-zA-HJ-NP-Z1-9]{0,34}$/i,
+    nativeToken: BITCOINCASH,
+    displayColor: '#0AC18E',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: 'qrny4xkwvwvsxertkd2nue70wmc5s98kru7m2q7vk6',
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    doesSupportPushNotifications: false,
+    defaultEnabledSlugs: {
+      mainnet: [BITCOINCASH.slug],
+      testnet: [BITCOINCASH.slug],
+    },
+    crosschainSwapSlugs: [BITCOINCASH.slug],
+    tokenInfo: [BITCOINCASH],
+    explorers: [{
+      id: 'blockchair',
+      name: 'Blockchair',
+      baseUrl: {
+        mainnet: 'https://blockchair.com/bitcoin-cash/',
+        testnet: 'https://blockchair.com/bitcoin-cash/testnet/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}address/{address}',
+      transaction: '{base}transaction/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [],
+    isNetWorthSupported: false,
+  },
+  dogecoin: {
+    title: 'Dogecoin',
+    isDnsSupported: false,
+    canBuyWithCardInRussia: false,
+    isOnRampSupported: true,
+    isOffRampSupported: true,
+    isOnchainSwapSupported: false,
+    isTransferPayloadSupported: false,
+    isEncryptedCommentSupported: false,
+    canTransferFullNativeBalance: true,
+    isLedgerSupported: false,
+    isSubwalletsSupported: true,
+    defaultDerivationPath: getDefaultUtxoDerivationPath('dogecoin'),
+    doesImportAddressFormatsSeparately: true,
+    isNftSupported: false,
+    addressRegex: /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$/,
+    addressPrefixRegex: /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{0,32}$/,
+    nativeToken: DOGECOIN,
+    displayColor: '#C2A633',
+    doesBackendSocketSupport: false,
+    canImportTokens: false,
+    shouldShowScamWarningIfNotEnoughGas: false,
+    feeCheckAddress: 'D596YFweJQuHY1BbjazZYmAbt8jJPbKehC',
+    usdtSlug: {
+      mainnet: undefined,
+      testnet: undefined,
+    },
+    doesSupportPushNotifications: false,
+    defaultEnabledSlugs: {
+      mainnet: [DOGECOIN.slug],
+      testnet: [DOGECOIN.slug],
+    },
+    crosschainSwapSlugs: [DOGECOIN.slug],
+    tokenInfo: [DOGECOIN],
+    explorers: [{
+      id: 'blockchair',
+      name: 'Blockchair',
+      baseUrl: {
+        mainnet: 'https://blockchair.com/dogecoin/',
+        testnet: 'https://blockchair.com/dogecoin/testnet/',
+      },
+      address: '{base}address/{address}',
+      token: '{base}address/{address}',
+      transaction: '{base}transaction/{hash}',
+      doConvertHashFromBase64: false,
+    }],
+    marketplaces: [],
+    isNetWorthSupported: false,
   },
 };
 

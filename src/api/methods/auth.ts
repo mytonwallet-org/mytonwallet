@@ -68,6 +68,11 @@ import {
 
 let onUpdate: OnApiUpdate;
 
+/** HD index gap so extra UTXO address-format accounts do not share wallets on other chains. */
+const ADDRESS_FORMAT_IMPORT_INDEX_OFFSET = 1000;
+
+type WalletWithChain = ApiWalletByChain[ApiChain] & { chain: ApiChain };
+
 function getWalletForReplacement<
   T extends ApiChain,
   TWallet extends ApiWalletByChain[T] | Omit<ApiWalletByChain[T], 'index'>,
@@ -241,27 +246,56 @@ async function buildBip39Accounts(
     }];
   }
 
-  const walletsByDerivationIndex = await findBip39WalletGroups(network, mnemonic);
+  const walletGroupsByIndex = await findBip39WalletGroups(network, mnemonic);
 
-  return Array.from(walletsByDerivationIndex, ([index, wallets]) => ({
+  return walletGroupsByIndex.map(({ index, wallets }) => ({
     derivedFromIndex: index,
     type: 'bip39' as const,
     byChain: Object.fromEntries(wallets.map((e) => [e.chain, e])),
   }));
 }
 
-async function findBip39WalletGroups(network: ApiNetwork, mnemonic: string[]) {
-  type WalletWithChain = ApiWalletByChain[ApiChain] & { chain: ApiChain };
-  const chainKeys = Object.keys(chains) as (keyof typeof chains)[];
-  const walletGroups = await Promise.all(chainKeys.map(async (_chain) => {
-    // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
-    // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
-    // some type checking.
-    const chain = _chain as 'ton';
-    const wallets = await chains[chain].getWalletFromBip39Mnemonic(network, mnemonic);
+async function deriveChainWallets(
+  network: ApiNetwork,
+  mnemonic: string[],
+  chain: ApiChain,
+  derivation?: ApiDerivation,
+): Promise<WalletWithChain[]> {
+  // TypeScript emits false notices, because it doesn't see relations between the key and value types in record
+  // mapping. We lock the key type to one of the possible values to resolve the TS notices and have at least
+  // some type checking.
+  const typedChain = chain as 'ton';
+  const wallets = await chains[typedChain].getWalletFromBip39Mnemonic(network, mnemonic, derivation);
 
-    return wallets.map((e) => ({ ...e, chain })) as WalletWithChain[];
-  }));
+  return wallets.map((wallet) => ({ ...wallet, chain } as WalletWithChain));
+}
+
+async function deriveChainWallet(
+  network: ApiNetwork,
+  mnemonic: string[],
+  chain: ApiChain,
+  derivation?: ApiDerivation,
+): Promise<WalletWithChain | undefined> {
+  const [wallet] = await deriveChainWallets(network, mnemonic, chain, derivation);
+
+  return wallet;
+}
+
+function buildDerivationAtIndex(chain: ApiChain, index: number, template?: ApiDerivation): ApiDerivation {
+  const defaultDerivation = chains[chain as 'ton'].getDefaultDerivation();
+
+  return {
+    path: template?.path ?? defaultDerivation.path,
+    index,
+    label: template?.label ?? defaultDerivation.label,
+  };
+}
+
+async function findBip39WalletGroups(network: ApiNetwork, mnemonic: string[]) {
+  const chainKeys = Object.keys(chains) as (keyof typeof chains)[];
+  const walletGroups = await Promise.all(chainKeys.map((chain) => (
+    deriveChainWallets(network, mnemonic, chain)
+  )));
 
   const walletsByDerivationIndex = new Map<number, WalletWithChain[]>();
 
@@ -283,43 +317,94 @@ async function findBip39WalletGroups(network: ApiNetwork, mnemonic: string[]) {
 
     const foundChains = new Set(groupWallets.map((w) => w.chain));
 
-    await Promise.all(allChainKeys.map(async (_chain) => {
-      // TypeScript emits false notices, because it doesn't see relations between the key and value
-      // types in record mapping. We lock the key type to one of the possible values to resolve the
-      // TS notices and have at least some type checking.
-      const chain = _chain as 'ton';
+    await Promise.all(allChainKeys.map(async (chain) => {
       if (foundChains.has(chain)) return;
 
-      // Derive the chain's path from its index-0 wallet
       const chain0Wallet = index0Group.find((w) => w.chain === chain);
-
-      if (!chain0Wallet?.derivation?.path) {
-        const [placeholderWallet] = await chains[chain].getWalletFromBip39Mnemonic(
-          network, mnemonic,
-        );
-        if (placeholderWallet) {
-          groupWallets.push({ ...placeholderWallet, chain });
-        }
-        return;
-      }
-
-      const fillerDerivation: ApiDerivation = {
-        path: chain0Wallet.derivation.path,
-        index: derivationIndex,
-        label: chain0Wallet.derivation.label,
-      };
-
-      const [fillerWallet] = await chains[chain].getWalletFromBip39Mnemonic(
-        network, mnemonic, fillerDerivation,
-      );
+      const fillerWallet = chain0Wallet?.derivation?.path
+        ? await deriveChainWallet(
+          network,
+          mnemonic,
+          chain,
+          buildDerivationAtIndex(chain, derivationIndex, chain0Wallet.derivation),
+        )
+        : await deriveChainWallet(network, mnemonic, chain);
 
       if (fillerWallet) {
-        groupWallets.push({ ...fillerWallet, chain });
+        groupWallets.push(fillerWallet);
       }
     }));
   }
 
-  return walletsByDerivationIndex;
+  const grouped = await Promise.all(
+    [...walletsByDerivationIndex.entries()].map(async ([index, wallets]) => {
+      const splitGroups = await splitWalletGroupByDistinctAddresses(network, mnemonic, wallets);
+
+      return splitGroups.map((group) => ({ index, wallets: group }));
+    }),
+  );
+
+  return grouped.flat();
+}
+
+async function splitWalletGroupByDistinctAddresses(
+  network: ApiNetwork,
+  mnemonic: string[],
+  wallets: WalletWithChain[],
+): Promise<WalletWithChain[][]> {
+  const byChain = new Map<ApiChain, WalletWithChain[]>();
+
+  for (const wallet of wallets) {
+    const list = byChain.get(wallet.chain) ?? [];
+    if (!list.some((item) => item.address === wallet.address)) {
+      list.push(wallet);
+    }
+    byChain.set(wallet.chain, list);
+  }
+
+  const primary = [...byChain.values()].map((list) => {
+    if (!getChainConfig(list[0].chain).doesImportAddressFormatsSeparately) {
+      return list[list.length - 1];
+    }
+
+    const defaultPath = getChainConfig(list[0].chain).defaultDerivationPath;
+    return list.find((wallet) => wallet.derivation?.path === defaultPath) ?? list[0];
+  });
+
+  const extras = [...byChain.values()].flatMap((list) => {
+    if (!getChainConfig(list[0].chain).doesImportAddressFormatsSeparately) {
+      return [];
+    }
+
+    const primaryWallet = primary.find((wallet) => wallet.chain === list[0].chain)!;
+    return list.filter((wallet) => wallet.address !== primaryWallet.address);
+  });
+
+  if (!extras.length) {
+    return [primary];
+  }
+
+  const extraGroups = await Promise.all(extras.map(async (extra, extraIndex) => {
+    const offsetIndex = (extra.derivation?.index ?? 0)
+      + ADDRESS_FORMAT_IMPORT_INDEX_OFFSET * (extraIndex + 1);
+
+    return Promise.all(primary.map(async (wallet) => {
+      if (wallet.chain === extra.chain) {
+        return extra;
+      }
+
+      const derivedWallet = await deriveChainWallet(
+        network,
+        mnemonic,
+        wallet.chain,
+        buildDerivationAtIndex(wallet.chain, offsetIndex, wallet.derivation),
+      );
+
+      return derivedWallet ?? wallet;
+    }));
+  }));
+
+  return [primary, ...extraGroups];
 }
 
 async function getNewMnemonicWallets(network: ApiNetwork, mnemonic: string[]) {
@@ -850,6 +935,37 @@ export async function getWalletVariants(
   return pageGroups;
 }
 
+function getNextSubWalletIndex(
+  account: ApiBip39Account,
+  siblings: ApiAccountAny[],
+  chainKeys: ApiChain[],
+) {
+  const parentIndices = chainKeys
+    .map((chain) => account.byChain[chain]?.derivation?.index)
+    .filter((index): index is number => typeof index === 'number');
+
+  let nextIndex = (parentIndices.length ? Math.max(...parentIndices) : -1) + 1;
+
+  while (siblings.some((sibling) => {
+    if (sibling.type !== 'bip39') return false;
+
+    return chainKeys.some((chain) => {
+      const parentPath = account.byChain[chain]?.derivation?.path;
+      const siblingDerivation = sibling.byChain[chain]?.derivation;
+
+      return Boolean(
+        parentPath
+        && siblingDerivation?.path === parentPath
+        && siblingDerivation.index === nextIndex,
+      );
+    });
+  })) {
+    nextIndex += 1;
+  }
+
+  return nextIndex;
+}
+
 export async function createSubWallet(accountId: string, enclaveToken: string) {
   try {
     const account = await fetchStoredAccount<ApiBip39Account>(accountId);
@@ -877,16 +993,6 @@ export async function createSubWallet(accountId: string, enclaveToken: string) {
       return parseAccountId(id).network === network;
     }).map(([, acc]) => acc);
 
-    let maxIndex = -1;
-
-    for (const sib of siblings) {
-      for (const chain of Object.keys(sib.byChain) as ApiChain[]) {
-        const idx = sib.byChain[chain]?.derivation?.index;
-
-        if (typeof idx === 'number') maxIndex = Math.max(maxIndex, idx);
-      }
-    }
-
     const chainKeys = getOrderedAccountChains(account.byChain);
     const hasParentDerivation = chainKeys.some((c) => account.byChain[c]?.derivation);
 
@@ -894,7 +1000,7 @@ export async function createSubWallet(accountId: string, enclaveToken: string) {
       return { error: ApiCommonError.Unexpected };
     }
 
-    const newIndex = maxIndex + 1;
+    const newIndex = getNextSubWalletIndex(account, siblings, chainKeys);
     const newByChain: ApiBip39Account['byChain'] = {};
 
     for (const chain of chainKeys) {

@@ -722,12 +722,18 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 WGlobalStorage.setIsHistoryEndReached(accountId, null, false)
             }
 
-            // Update idsBySlug for each token (replace, not merge)
+            // Merge idsBySlug for each token: several chains report the same slug (cross-chain swaps list both legs)
             val newestActivitiesBySlug = mutableMapOf<String, JSONObject>()
             for ((slug, activities) in bySlug) {
-                val slugIds = activities.map { it.id }
+                val slugIds = ActivityHelpers.mergeSortedActivityIds(
+                    activities.map { it.id },
+                    getActivityIds(accountId, slug),
+                    accountState.cachedTransactions
+                )
                 accountState.idsBySlug[slug] = slugIds
-                activities.firstOrNull(::isSuitableToGetTimestamp)?.toDictionary()?.let {
+                slugIds.firstNotNullOfOrNull { id ->
+                    accountState.cachedTransactions[id]?.takeIf(::isSuitableToGetTimestamp)
+                }?.toDictionary()?.let {
                     newestActivitiesBySlug[slug] = it
                 }
             }

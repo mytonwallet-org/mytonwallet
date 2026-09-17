@@ -184,7 +184,12 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         case .systemSheetPresented:
             systemSheetDismissBehavior = .closeAndReset
             if let browser, browser.presentingViewController != nil {
-                browser.dismiss(animated: animated)
+                browser.dismiss(animated: animated) { [weak self, weak browser] in
+                    guard let self, let browser, self.browser === browser,
+                          self.state == .systemSheetPresented,
+                          self.systemSheetDismissBehavior == .closeAndReset else { return }
+                    self.finalizeClosedState()
+                }
             } else {
                 finalizeClosedState()
             }
@@ -239,7 +244,6 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     }
 
     private func updateStateFromMinimizableSheetState(_ sheetState: MinimizableSheetState) {
-        guard state != .systemSheetPresented else { return }
         switch sheetState {
         case .expanded:
             if browser != nil {
@@ -261,6 +265,11 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
     }
 
     private func finalizeClosedState() {
+        let browser = self.browser
+        self.browser = nil
+        state = .closed
+        systemSheetDismissBehavior = .minimizeToMinimizableSheet
+
         if let browser, browser.presentingViewController != nil {
             browser.dismiss(animated: false)
         }
@@ -268,8 +277,5 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
             sheetController.close(animated: false)
         }
         sheetViewController?.setBrowser(nil)
-        browser = nil
-        state = .closed
-        systemSheetDismissBehavior = .minimizeToMinimizableSheet
     }
 }

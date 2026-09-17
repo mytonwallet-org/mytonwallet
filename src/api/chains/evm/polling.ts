@@ -507,7 +507,6 @@ async function loadNewActivities(
     type: 'newActivities',
     chain,
     activities,
-    pendingActivities: [],
     accountId,
   });
 

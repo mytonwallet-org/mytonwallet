@@ -26,10 +26,10 @@ import { getActivityTokenSlugs, getIsActivityPending, getIsTxIdLocal } from '../
 import { bigintReviver } from '../util/bigint';
 import { getTokenInfo } from '../util/chain';
 import { sanitizeCurrencyRates } from '../util/currencyRates';
-import { getIsBackendAssetId } from '../util/is-backend-asset-id';
+import { getIsBackendAssetId } from '../util/isBackendAssetId';
 import isEmptyObject from '../util/isEmptyObject';
 import {
-  cloneDeep, extractKey, filterValues, mapValues, omit, pick, pickTruthy, unique,
+  cloneDeep, filterValues, mapValues, omit, pick, pickTruthy, unique,
 } from '../util/iteratees';
 import {
   clearPoisoningCache,
@@ -40,7 +40,7 @@ import { getIsActiveStakingState } from '../util/staking';
 import { IS_ELECTRON } from '../util/windowEnvironment';
 import { addActionHandler, getGlobal } from './index';
 import { INITIAL_STATE, STATE_VERSION } from './initialState';
-import { selectAccountState, selectAccountTokens } from './selectors';
+import { selectAccountSettings, selectAccountState } from './selectors';
 
 const UPDATE_THROTTLE = 5000;
 const ACTIVITIES_LIMIT = 20;
@@ -755,14 +755,38 @@ const getUsedTokenSlugs = (reducedGlobal: GlobalState): string[] => {
 };
 
 function getAccountTokenSlugs(global: GlobalState, accountId: string) {
-  const { currentTokenSlug } = selectAccountState(global, accountId) ?? {};
-  const tokenSlugs = extractKey(selectAccountTokens(global, accountId) ?? [], 'slug')
+  const accountState = selectAccountState(global, accountId);
+  const balancesBySlug = accountState?.balances?.bySlug;
+  const { bySlug: tokenInfoBySlug } = global.tokenInfo;
+  const { deletedSlugs, pinnedSlugs } = selectAccountSettings(global, accountId) ?? {};
+  const pinnedIndexBySlug = new Map((pinnedSlugs ?? []).map((slug, index) => [slug, index] as const));
+
+  // The activity cache holds a limited number of tokens, so it keeps the ones the user is most likely to open:
+  // pinned first, then the most valuable. The value is approximate, in plain numbers - only the order matters here.
+  const candidateSlugs = Object.keys(balancesBySlug ?? {})
+    .filter((slug) => slug in tokenInfoBySlug && !deletedSlugs?.includes(slug));
+
+  const valueBySlug = new Map(candidateSlugs.map((slug) => {
+    const { decimals, priceUsd = 0 } = tokenInfoBySlug[slug];
+    return [slug, (Number(balancesBySlug![slug]) / 10 ** decimals) * priceUsd] as const;
+  }));
+
+  const tokenSlugs = candidateSlugs
+    .sort((slugA, slugB) => {
+      const pinnedA = pinnedIndexBySlug.get(slugA) ?? -1;
+      const pinnedB = pinnedIndexBySlug.get(slugB) ?? -1;
+      if (pinnedA !== -1 && pinnedB !== -1) return pinnedA - pinnedB;
+      if (pinnedA !== -1) return -1;
+      if (pinnedB !== -1) return 1;
+      return valueBySlug.get(slugB)! - valueBySlug.get(slugA)!;
+    })
     .slice(0, ACTIVITY_TOKENS_LIMIT);
 
   if (!tokenSlugs.includes(TONCOIN.slug)) {
     tokenSlugs.push(TONCOIN.slug);
   }
 
+  const { currentTokenSlug } = accountState ?? {};
   if (currentTokenSlug && !tokenSlugs.includes(currentTokenSlug)) {
     tokenSlugs.push(currentTokenSlug);
   }

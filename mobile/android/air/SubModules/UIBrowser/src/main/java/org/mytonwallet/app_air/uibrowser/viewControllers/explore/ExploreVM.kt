@@ -105,7 +105,6 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
     private data class ActiveSearchRequest(
         val keyword: String,
-        val enhancedSearchEnabled: Boolean,
         val onResult: (SearchResult) -> Unit
     )
 
@@ -335,13 +334,13 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val noResultsFound: Boolean = false
     )
 
-    fun search(keyword: String, enhancedSearchEnabled: Boolean, onResult: (SearchResult) -> Unit) {
+    fun search(keyword: String, onResult: (SearchResult) -> Unit) {
         searchRefreshJob?.cancel()
         searchRefreshJob = null
         searchJob?.cancel()
         walletInfoSearchRequest = null
         currentSearchKeyword = keyword
-        activeSearchRequest = ActiveSearchRequest(keyword, enhancedSearchEnabled, onResult)
+        activeSearchRequest = ActiveSearchRequest(keyword, onResult)
 
         val job = searchScope.launch(start = CoroutineStart.LAZY) {
             val currentJob = currentCoroutineContext()[Job]
@@ -352,13 +351,13 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 recentTokenSlugs = history?.recentTokenSlugs().orEmpty()
             )
             val result = withContext(Dispatchers.Default) {
-                buildSearchResult(keyword, enhancedSearchEnabled, historySnapshot)
+                buildSearchResult(keyword, historySnapshot)
             }
             if (searchJob !== currentJob) return@launch
 
             onResult(result)
 
-            if (enhancedSearchEnabled && keyword.isEmpty()) {
+            if (keyword.isEmpty()) {
                 val suggestedChats = AgentSearchSuggestions.suggested()
                 if (searchJob !== currentJob) return@launch
                 if (suggestedChats != result.suggestedChats) {
@@ -387,7 +386,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
      * rebuild instead of restarting the search (and its address lookups) on every event.
      */
     private fun scheduleSearchRefresh() {
-        if (activeSearchRequest?.enhancedSearchEnabled != true) return
+        if (activeSearchRequest == null) return
         if (searchRefreshJob?.isActive == true) return
         searchRefreshJob = searchScope.launch {
             delay(SEARCH_REFRESH_DEBOUNCE_MS.milliseconds)
@@ -398,73 +397,54 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 searchJob?.join()
             }
             val request = activeSearchRequest ?: return@launch
-            if (!request.enhancedSearchEnabled) return@launch
             searchRefreshJob = null
-            search(request.keyword, request.enhancedSearchEnabled, request.onResult)
+            search(request.keyword, request.onResult)
         }
     }
 
     private suspend fun buildSearchResult(
         keyword: String,
-        enhancedSearchEnabled: Boolean,
         historySnapshot: ExploreHistorySnapshot
     ): SearchResult {
         val searchContext = currentCoroutineContext()
-        val recentChats = if (enhancedSearchEnabled && keyword.isEmpty()) {
+        val recentChats = if (keyword.isEmpty()) {
             AgentSearchSuggestions.recent()
         } else {
             emptyList()
         }
         val matchedVisitedSite = exactMatch(keyword, historySnapshot.visitedSites, searchContext)
         val recentSearches = recentSearches(keyword, historySnapshot.searchHistory, searchContext)
-        val sectionItemsLimit = if (enhancedSearchEnabled) SEARCH_SECTION_ITEMS_LIMIT else 5
         val recentVisitedSites = visitedSites(
             keyword,
-            sectionItemsLimit,
+            SEARCH_SECTION_ITEMS_LIMIT,
             historySnapshot.visitedSites,
             searchContext
         )
-        val tokens = if (enhancedSearchEnabled) {
-            filterTokens(keyword, searchContext, includeFuzzyTokens = true)
-        } else {
-            emptyList()
-        }
-        val recentTokens = if (enhancedSearchEnabled && keyword.isEmpty()) {
+        val tokens = filterTokens(keyword, searchContext, includeFuzzyTokens = true)
+        val recentTokens = if (keyword.isEmpty()) {
             recentTokens(historySnapshot.recentTokenSlugs, searchContext)
         } else {
             emptyList()
         }
-        val trendingTokens = if (enhancedSearchEnabled && keyword.isEmpty()) {
+        val trendingTokens = if (keyword.isEmpty()) {
             trendingTokens(searchContext)
         } else {
             emptyList()
         }
-        val collectibles = if (enhancedSearchEnabled) {
-            filterCollectibles(keyword, searchContext)
-        } else {
-            emptyList()
-        }
-        val dapps = filterDapps(keyword, sectionItemsLimit, searchContext)
-        val recentDapps = if (enhancedSearchEnabled && keyword.isEmpty()) {
+        val collectibles = filterCollectibles(keyword, searchContext)
+        val dapps = filterDapps(keyword, SEARCH_SECTION_ITEMS_LIMIT, searchContext)
+        val recentDapps = if (keyword.isEmpty()) {
             recentDapps(historySnapshot.visitedSites, searchContext)
         } else {
             emptyList()
         }
-        val trendingDapps = if (enhancedSearchEnabled && keyword.isEmpty()) {
+        val trendingDapps = if (keyword.isEmpty()) {
             trendingDapps(searchContext)
         } else {
             emptyList()
         }
-        val actions = if (enhancedSearchEnabled) {
-            filterAppEntries(AppSearchEntries.actions, keyword, searchContext)
-        } else {
-            emptyList()
-        }
-        val settings = if (enhancedSearchEnabled) {
-            filterAppEntries(AppSearchEntries.settings, keyword, searchContext)
-        } else {
-            emptyList()
-        }
+        val actions = filterAppEntries(AppSearchEntries.actions, keyword, searchContext)
+        val settings = filterAppEntries(AppSearchEntries.settings, keyword, searchContext)
         val myWallets = matchOwnWallets(keyword, searchContext)
         searchContext.ensureActive()
         val noResultsFound = !keyword.isEmpty() &&

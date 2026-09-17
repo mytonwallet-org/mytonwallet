@@ -100,6 +100,13 @@ async function fetchPastActivities(accountId: string, slug?: string) {
     });
 
     fetchedActivities = mergeSortedActivities(fetchedActivities, activities);
+    const oldestInBatch = activities[activities.length - 1].timestamp;
+
+    if (toTimestamp !== undefined && oldestInBatch >= toTimestamp) {
+      isEndReached = true;
+      break;
+    }
+
     hasMore = apiHasMore
       && (
         filteredResult.length < PAST_ACTIVITY_BATCH

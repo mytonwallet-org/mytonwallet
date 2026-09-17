@@ -46,6 +46,28 @@ public struct UniversalSearchQuery: Hashable, Sendable {
 
     public var isEmpty: Bool { normalizedText.isEmpty }
     public var termCount: Int { normalizedText.terms.count }
+    public var isMultiword: Bool {
+        termCount > 1 && text.split(whereSeparator: \.isWhitespace).count > 1
+    }
+
+    // Keep the complete query for phrase/identifier matching and coverage. Common
+    // question words must not independently retrieve unrelated entities.
+    var matchingTerms: [NormalizedSearchTerm] {
+        normalizedText.terms.filter { !isStopWord($0) }
+    }
+
+    func isStopWord(_ term: NormalizedSearchTerm) -> Bool {
+        isMultiword && Self.stopWords.contains(term.alternatives[0])
+    }
+
+    private static let stopWords = Set([
+        "a", "an", "are", "as", "at", "be", "by", "can", "could", "do", "does",
+        "for", "from", "how", "i", "in", "is", "it", "of", "on", "or", "the",
+        "to", "was", "were", "what", "when", "where", "which", "who", "why", "with",
+        "а", "в", "во", "для", "и", "из", "как", "какие", "какой", "когда",
+        "кто", "ли", "на", "о", "об", "от", "по", "почему", "с", "со",
+        "такое", "у", "что", "это",
+    ].map(SearchTextNormalizer.normalizeIdentifier))
 
     /// Long, unbroken input is much more likely to be an address or another
     /// identifier than human-language text. It may match an exact identifier

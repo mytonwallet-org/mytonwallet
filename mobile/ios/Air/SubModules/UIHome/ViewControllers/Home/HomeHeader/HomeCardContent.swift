@@ -40,7 +40,6 @@ struct HomeCardContent: View {
                     .backportGeometryGroup()
                     .offset(y: -bottomPadding)
                     .id(accountContext.accountId)
-                    .animation(.default, value: accountContext.balance)
 
                 Group {
                     if showsWalletName {
@@ -61,7 +60,7 @@ struct HomeCardContent: View {
                     cardSize: CGSize(width: layout.itemWidth, height: layout.itemHeight)
                 )
             }
-            .opacity(headerViewModel.isCardHidden ? 0 : 1)
+            .opacity(headerViewModel.cardOpacity)
         }
     }
     
@@ -263,17 +262,20 @@ private struct _BalanceChangeContent: View, Equatable {
 
     var body: some View {
         ZStack {
-            if let text {
-                if text.isEmpty {
-                    emptyView()
-                } else {
-                    mainView(text)
-                }
-            } else {
+            if let text, !text.isEmpty {
+                mainView(text)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
+            } else if text == nil {
                 placeholderView()
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 26)
         .backportGeometryGroup()
+        .animation(.easeOut(duration: 0.25), value: text?.isEmpty)
     }
     
     private static func makeText(
@@ -354,15 +356,10 @@ private struct _BalanceChangeContent: View, Equatable {
     }
     
     private func placeholderView() -> some View {
-        Rectangle()
-            .fill(.white.opacity(0.12))
-            .clipShape(.capsule)
-            .frame(idealWidth: 76, maxWidth: 76, minHeight: 26, maxHeight: 26)
-    }
-    
-    private func emptyView() -> some View {
-        Color.clear
+        Capsule()
+            .fill((style == .card ? Color.white : Color(uiColor: .label)).opacity(0.06))
             .frame(width: 76, height: 26)
+            .accessibilityHidden(true)
     }
 }
 

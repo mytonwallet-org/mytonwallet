@@ -406,6 +406,7 @@ Slippage: 下单误差
 $swap_from_to: 兑换 %from% %icon% %to%
 The exchange rate is below market value!: 汇率低于市场价值 %value%！
 Invalid Pair: 无法交换
+Unsupported Pair: 不支持的交易对
 We do not recommend to perform an exchange, try to specify a lower amount.: 我们不建议进行交换，请尝试指定较小的金额。
 $swap_minimum_received_tooltip1: 这是您从此次交换中可能获得的最少新代币数量，考虑了目前市场条件、滑点容忍度和潜在价格影响。
 $swap_minimum_received_tooltip2: 这是预期的最低值，但如果在处理您的交换时条件发生很大变化，最终金额可能会较少。
@@ -673,6 +674,10 @@ $transfer_text_and_bin_exclusive: 不能同时使用文本和二进制数据参�
 $unsupported_deeplink_parameter: 此深度链接包含不支持的参数。
 $unsupported_chain: 不支持的区块链。
 Successfully: 成功地
+Estimated Time: 预计时间
+$utxo_confirmations:
+  otherValue: "%count% / %max% 次确认"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: 解除质押更多
 Are you sure you want to burn this NFT? It will be lost forever.: 您确定要烧毁这个 NFT 吗？ 它将永远失去。
 $multi_burn_nft_warning: |
@@ -977,6 +982,11 @@ $iab_tabs_count:
   zeroValue: "%count% 个标签页"
   oneValue: "%count% 个标签页"
   otherValue: "%count% 个标签页"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% 个标签页"
+  oneValue: "+ %count% 个标签页"
+  otherValue: "+ %count% 个标签页"
+Close Tab: 关闭标签页
 $domains_amount %count%:
   zeroValue: 无域名
   otherValue: "%count%个域名"
@@ -1326,6 +1336,152 @@ $agent_portfolio_insight_chain_split_title: 网络分布
 $agent_portfolio_insight_chain_split_text: 查看现有资产配置的网络敞口；未包含的资产可能改变整体投资组合情况。
 $agent_portfolio_insight_data_quality_title: 数据质量
 $agent_portfolio_insight_data_quality_text: 在解读此分析时，请考虑数据的覆盖范围和时效性。
+$agent_market_analysis_title: 市场分析
+$agent_market_as_of: 截至
+$agent_market_closed_1d: 最新一根已收盘的 1D K 线
+$agent_market_thesis: 技术观点
+$agent_market_fear_greed_sentiment: 基于比特币的市场情绪
+$agent_market_fear_greed_index: 恐惧与贪婪指数（0-100）
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: 市场状态
+$agent_market_fear_greed_risk_on: 风险偏好情绪
+$agent_market_fear_greed_risk_off: 避险情绪
+$agent_market_fear_greed_neutral: 中性情绪
+$agent_market_fear_greed_source: 来源
+$agent_market_timeframes: 市场结构
+$agent_market_structure_bullish: 高点和低点均逐步抬高
+$agent_market_structure_bearish: 高点和低点均逐步降低
+$agent_market_structure_range: 区间震荡
+$agent_market_structure_transition: 过渡阶段
+$agent_market_structure_unavailable: 结构不可用
+$agent_market_event_none: 暂无已确认突破
+$agent_market_event_break_up: 向上突破结构
+$agent_market_event_break_down: 向下跌破结构
+$agent_market_event_retest_up: 看涨回踩确认
+$agent_market_event_retest_down: 看跌反抽确认
+$agent_market_live_approaching_upper: 接近上边界
+$agent_market_live_approaching_lower: 接近下边界
+$agent_market_level_map: 关键价位
+$agent_market_level_primary: 主要价位
+$agent_market_level_secondary: 次要价位
+$agent_market_level_context: 参考价位
+$agent_market_levels_unavailable: 已确认的结构价位不可用。
+$agent_market_profile_poc_full: 成交量中心（POC）
+$agent_market_profile_value_area_full: 价值区域边界（VAL/VAH）
+$agent_market_profile_hvn_full: 高成交量区域（HVN）
+$agent_market_profile_lvn_full: 低成交量通道（LVN）
+$agent_market_profile_current_day: 当日（UTC）
+$agent_market_profile_previous_day: 前一日（UTC）
+$agent_market_profile_previous_week: 前一周（UTC）
+$agent_market_profile_rolling_30d: 最近 30 个 UTC 交易时段
+$agent_market_profile_above: 价格高于价值区域
+$agent_market_profile_inside: 价值区域内的价格
+$agent_market_profile_below: 价格低于价值区域
+$agent_market_factors: 关键因素
+$agent_market_factor_structure: 日线结构：%direction%
+$agent_market_factor_levels: 在此周期内已确认 %supports% 个支撑区和 %resistances% 个阻力区。
+$agent_market_factor_profile: 成交量分布：%position%。
+$agent_market_factor_profile_unavailable: 成交量分布不可用；该情景依赖价格结构。
+$agent_market_factor_timeframe_alignment: 周期结构 — 1D：%daily%；4H：%fourHour%；1H：%hourly%。
+$agent_market_factor_current_scenario: 当前状态：%active%。条件情景：在 %activation% 后为 %conditional%。
+$agent_market_factor_no_active_scenario: 尚无已确认情景。条件情景：在 %activation% 后为 %conditional%。
+$agent_market_primary_scenario: 主要情景
+$agent_market_current_regime: 当前已确认状态
+$agent_market_conditional_scenario: 条件情景
+$agent_market_no_active_scenario: 目前尚无已确认情景。
+$agent_market_calculated_fallback: 计算分析：模型说明暂时不可用。
+$agent_market_other_horizons: 其他指定周期
+$agent_market_horizon_3d: 3 天
+$agent_market_horizon_7d: 7 天
+$agent_market_horizon_30d: 30 天
+$agent_market_scenario_bullish: 看涨突破
+$agent_market_scenario_range: 区间平衡
+$agent_market_scenario_bearish: 看跌破位
+$agent_market_scenario_unavailable: 此周期的结构情景不可用。
+$agent_market_confidence: 可信度
+$agent_market_confidence_low: 低
+$agent_market_confidence_medium: 中
+$agent_market_activation: 触发条件
+$agent_market_path: 路径
+$agent_market_terminal: 目标区域
+$agent_market_invalidation: 失效条件
+$agent_market_expected_range: 情景区间
+$agent_market_rationale: 依据
+$agent_market_condition_above: 收盘高于
+$agent_market_condition_below: 收盘低于
+$agent_market_condition_inside: 收盘于区间内
+$agent_market_condition_outside: 收盘于区间外
+$agent_market_condition_waiting: 等待确认
+$agent_market_condition_approaching: 接近
+$agent_market_condition_triggered: 已确认
+$agent_market_scenario_zone: 情景区域
+$agent_market_expected_move: 波动范围
+$agent_market_volatility_envelope: 整体波动范围
+$agent_market_expected_move_note: 条件性波动，并非概率预测
+$agent_market_risk_caveat: 情景均为条件性分析，不构成交易建议。
+$agent_market_partial_coverage: 部分市场证据缺失；信心有限。
+$agent_market_thesis_bullish: 已确认结构有利于价格继续突破阻力位，失效位仍在最近支撑位下方。
+$agent_market_thesis_bearish: 已确认结构有利于价格继续跌破支撑位，失效位仍在最近阻力位上方。
+$agent_market_thesis_range: 价格在已确认的支撑位和阻力位之间保持平衡。
+$agent_market_thesis_mixed: 周期信号相互冲突，因此结构边界处的确认比方向性指标更重要。
+$agent_market_thesis_insufficient: 现有证据不足以确认方向性结构。
+$agent_market_thesis_unconfirmed: 尚无已确认情景；请等待价格在结构边界外收盘确认后，再采用方向性判断。
+$agent_semantic_asset_search: 资产搜索
+$agent_semantic_web_digest: 网页搜索结果
+$agent_semantic_no_results: 没有结果
+$agent_semantic_wallets: 钱包
+$agent_semantic_wallet: 钱包
+$agent_semantic_balance: 余额
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: 普通
+$agent_semantic_access_view_only: 仅查看
+$agent_semantic_wallets_unpriced: "%amount% 个持仓未计入显示的总额，因为它们没有价格。"
+$agent_semantic_wallets_stale: 部分钱包余额可能已过时。
+$agent_semantic_wallets_unavailable: 部分钱包余额无法查看。
+$agent_semantic_wallets_partial: 部分钱包数据不完整。
+$agent_semantic_status: 状态
+$agent_semantic_quantity: 数量
+$agent_semantic_time: 时间
+$agent_semantic_partial: 部分数据缺失。
+$agent_semantic_pending: 待处理
+$agent_semantic_confirmed: 已确认
+$agent_semantic_completed: 已完成
+$agent_semantic_failed: 失败
+$agent_semantic_expired: 已到期
+$agent_semantic_active: 有效
+$agent_semantic_unstaking: 解除质押中
+$agent_semantic_ready: 就绪
+$agent_semantic_frozen: 已冻结
+$agent_semantic_locked: 已锁定
+$agent_semantic_fungible: 代币
+$agent_semantic_nft: NFT
+$agent_semantic_staking: 质押
+$agent_semantic_vesting: 锁仓释放
+$agent_semantic_vault: 金库
+$agent_semantic_transfer: 转账
+$agent_semantic_swap: 兑换
+$agent_semantic_stake: 质押
+$agent_semantic_unstake: 解除质押
+$agent_semantic_contract: 合约
+$agent_semantic_unknown: 活动
+$agent_semantic_spam_transactions: 垃圾交易
+$agent_semantic_spam_assets: 垃圾资产
+$agent_semantic_hidden_assets: 隐藏资产
+$agent_semantic_hidden_assets_warning: 隐藏资产名称可能具有误导性。名称以纯文本显示，无法作为链接打开。
+$agent_semantic_quarantine_warning: 这些项目已被举报为垃圾内容。请勿信任其名称或链接。
+$agent_semantic_redacted_asset: 名称已隐藏
+$agent_semantic_omitted_spam: 已过滤垃圾内容：%amount%
+$agent_semantic_omitted_spam_minimum: 已过滤垃圾内容：至少 %amount%
+$agent_semantic_omitted_hidden: 已省略隐藏资产：%amount%
+$agent_semantic_omitted_hidden_minimum: 已省略隐藏资产：至少 %amount%
+$agent_semantic_suspicious: 已隐藏不安全名称：%amount%
+$agent_semantic_suspicious_minimum: 已隐藏不安全名称：至少 %amount%
+$agent_semantic_suspicious_shown: 可能不安全的名称：%amount%
+$agent_semantic_suspicious_shown_minimum: 可能不安全的名称：至少 %amount%
+$agent_semantic_omitted_rows: 数据量过大。未包含 %amount% 行数据。请缩小时间段或筛选条件。
+$agent_semantic_omitted_rows_minimum: 数据量过大。至少有 %amount% 行数据未被包含在内。请缩小时间段或筛选条件。
+$agent_semantic_update_required: 更新应用以显示此回复。
 $agent_hint_portfolio_title: 投资组合表现
 $agent_hint_portfolio_prompt: 分析我的投资组合表现。
 $agent_hint_swap_title: 代币兑换如何运作
@@ -1488,152 +1644,6 @@ $agent_error_update_required: 请更新应用以继续。
 $agent_semantic_transactions: 交易
 $agent_semantic_positions: 持仓
 $agent_semantic_market: 市场概览
-$agent_market_analysis_title: 市场分析
-$agent_market_as_of: 截至
-$agent_market_closed_1d: 最新一根已收盘的 1D K 线
-$agent_market_thesis: 技术观点
-$agent_market_fear_greed_sentiment: 基于比特币的市场情绪
-$agent_market_fear_greed_index: 恐惧与贪婪指数（0-100）
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: 市场状态
-$agent_market_fear_greed_risk_on: 风险偏好情绪
-$agent_market_fear_greed_risk_off: 避险情绪
-$agent_market_fear_greed_neutral: 中性情绪
-$agent_market_fear_greed_source: 来源
-$agent_market_timeframes: 市场结构
-$agent_market_structure_bullish: 高点和低点均逐步抬高
-$agent_market_structure_bearish: 高点和低点均逐步降低
-$agent_market_structure_range: 区间震荡
-$agent_market_structure_transition: 过渡阶段
-$agent_market_structure_unavailable: 结构不可用
-$agent_market_event_none: 暂无已确认突破
-$agent_market_event_break_up: 向上突破结构
-$agent_market_event_break_down: 向下跌破结构
-$agent_market_event_retest_up: 看涨回踩确认
-$agent_market_event_retest_down: 看跌反抽确认
-$agent_market_live_approaching_upper: 接近上边界
-$agent_market_live_approaching_lower: 接近下边界
-$agent_market_level_map: 关键价位
-$agent_market_level_primary: 主要价位
-$agent_market_level_secondary: 次要价位
-$agent_market_level_context: 参考价位
-$agent_market_levels_unavailable: 已确认的结构价位不可用。
-$agent_market_profile_poc_full: 成交量中心（POC）
-$agent_market_profile_value_area_full: 价值区域边界（VAL/VAH）
-$agent_market_profile_hvn_full: 高成交量区域（HVN）
-$agent_market_profile_lvn_full: 低成交量通道（LVN）
-$agent_market_profile_current_day: 当日（UTC）
-$agent_market_profile_previous_day: 前一日（UTC）
-$agent_market_profile_previous_week: 前一周（UTC）
-$agent_market_profile_rolling_30d: 最近 30 个 UTC 交易时段
-$agent_market_profile_above: 价格高于价值区域
-$agent_market_profile_inside: 价值区域内的价格
-$agent_market_profile_below: 价格低于价值区域
-$agent_market_factors: 关键因素
-$agent_market_factor_structure: 日线结构：%direction%
-$agent_market_factor_levels: 在此周期内已确认 %supports% 个支撑区和 %resistances% 个阻力区。
-$agent_market_factor_profile: 成交量分布：%position%。
-$agent_market_factor_profile_unavailable: 成交量分布不可用；该情景依赖价格结构。
-$agent_market_factor_timeframe_alignment: 周期结构 — 1D：%daily%；4H：%fourHour%；1H：%hourly%。
-$agent_market_factor_current_scenario: 当前状态：%active%。条件情景：在 %activation% 后为 %conditional%。
-$agent_market_factor_no_active_scenario: 尚无已确认情景。条件情景：在 %activation% 后为 %conditional%。
-$agent_market_primary_scenario: 主要情景
-$agent_market_current_regime: 当前已确认状态
-$agent_market_conditional_scenario: 条件情景
-$agent_market_no_active_scenario: 目前尚无已确认情景。
-$agent_market_calculated_fallback: 计算分析：模型说明暂时不可用。
-$agent_market_other_horizons: 其他指定周期
-$agent_market_horizon_3d: 3 天
-$agent_market_horizon_7d: 7 天
-$agent_market_horizon_30d: 30 天
-$agent_market_scenario_bullish: 看涨突破
-$agent_market_scenario_range: 区间平衡
-$agent_market_scenario_bearish: 看跌破位
-$agent_market_scenario_unavailable: 此周期的结构情景不可用。
-$agent_market_confidence: 可信度
-$agent_market_confidence_low: 低
-$agent_market_confidence_medium: 中
-$agent_market_activation: 触发条件
-$agent_market_path: 路径
-$agent_market_terminal: 目标区域
-$agent_market_invalidation: 失效条件
-$agent_market_expected_range: 情景区间
-$agent_market_rationale: 依据
-$agent_market_condition_above: 收盘高于
-$agent_market_condition_below: 收盘低于
-$agent_market_condition_inside: 收盘于区间内
-$agent_market_condition_outside: 收盘于区间外
-$agent_market_condition_waiting: 等待确认
-$agent_market_condition_approaching: 接近
-$agent_market_condition_triggered: 已确认
-$agent_market_scenario_zone: 情景区域
-$agent_market_expected_move: 波动范围
-$agent_market_volatility_envelope: 整体波动范围
-$agent_market_expected_move_note: 条件性波动，并非概率预测
-$agent_market_risk_caveat: 情景均为条件性分析，不构成交易建议。
-$agent_market_partial_coverage: 部分市场证据缺失；信心有限。
-$agent_market_thesis_bullish: 已确认结构有利于价格继续突破阻力位，失效位仍在最近支撑位下方。
-$agent_market_thesis_bearish: 已确认结构有利于价格继续跌破支撑位，失效位仍在最近阻力位上方。
-$agent_market_thesis_range: 价格在已确认的支撑位和阻力位之间保持平衡。
-$agent_market_thesis_mixed: 周期信号相互冲突，因此结构边界处的确认比方向性指标更重要。
-$agent_market_thesis_insufficient: 现有证据不足以确认方向性结构。
-$agent_market_thesis_unconfirmed: 尚无已确认情景；请等待价格在结构边界外收盘确认后，再采用方向性判断。
-$agent_semantic_asset_search: 资产搜索
-$agent_semantic_web_digest: 网页搜索结果
-$agent_semantic_no_results: 没有结果
-$agent_semantic_wallets: 钱包
-$agent_semantic_wallet: 钱包
-$agent_semantic_balance: 余额
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: 普通
-$agent_semantic_access_view_only: 仅查看
-$agent_semantic_wallets_unpriced: "%amount% 个持仓未计入显示的总额，因为它们没有价格。"
-$agent_semantic_wallets_stale: 部分钱包余额可能已过时。
-$agent_semantic_wallets_unavailable: 部分钱包余额无法查看。
-$agent_semantic_wallets_partial: 部分钱包数据不完整。
-$agent_semantic_status: 状态
-$agent_semantic_quantity: 数量
-$agent_semantic_time: 时间
-$agent_semantic_partial: 部分数据缺失。
-$agent_semantic_pending: 待处理
-$agent_semantic_confirmed: 已确认
-$agent_semantic_completed: 已完成
-$agent_semantic_failed: 失败
-$agent_semantic_expired: 已到期
-$agent_semantic_active: 有效
-$agent_semantic_unstaking: 解除质押中
-$agent_semantic_ready: 就绪
-$agent_semantic_frozen: 已冻结
-$agent_semantic_locked: 已锁定
-$agent_semantic_fungible: 代币
-$agent_semantic_nft: NFT
-$agent_semantic_staking: 质押
-$agent_semantic_vesting: 锁仓释放
-$agent_semantic_vault: 金库
-$agent_semantic_transfer: 转账
-$agent_semantic_swap: 兑换
-$agent_semantic_stake: 质押
-$agent_semantic_unstake: 解除质押
-$agent_semantic_contract: 合约
-$agent_semantic_unknown: 活动
-$agent_semantic_spam_transactions: 垃圾交易
-$agent_semantic_spam_assets: 垃圾资产
-$agent_semantic_hidden_assets: 隐藏资产
-$agent_semantic_hidden_assets_warning: 隐藏资产名称可能具有误导性。名称以纯文本显示，无法作为链接打开。
-$agent_semantic_quarantine_warning: 这些项目已被举报为垃圾内容。请勿信任其名称或链接。
-$agent_semantic_redacted_asset: 名称已隐藏
-$agent_semantic_omitted_spam: 已过滤垃圾内容：%amount%
-$agent_semantic_omitted_spam_minimum: 已过滤垃圾内容：至少 %amount%
-$agent_semantic_omitted_hidden: 已省略隐藏资产：%amount%
-$agent_semantic_omitted_hidden_minimum: 已省略隐藏资产：至少 %amount%
-$agent_semantic_suspicious: 已隐藏不安全名称：%amount%
-$agent_semantic_suspicious_minimum: 已隐藏不安全名称：至少 %amount%
-$agent_semantic_suspicious_shown: 可能不安全的名称：%amount%
-$agent_semantic_suspicious_shown_minimum: 可能不安全的名称：至少 %amount%
-$agent_semantic_omitted_rows: 数据量过大。未包含 %amount% 行数据。请缩小时间段或筛选条件。
-$agent_semantic_omitted_rows_minimum: 数据量过大。至少有 %amount% 行数据未被包含在内。请缩小时间段或筛选条件。
-$agent_semantic_update_required: 更新应用以显示此回复。
 $agent_wallet_page_navigation: 钱包数据页面
 $agent_wallet_page_previous: ← 上一页
 $agent_wallet_page_next: 下一页 →
@@ -1778,6 +1788,7 @@ Add Crypto: 充值加密货币
 Share QR Code: 分享二维码
 $send_only_ton: 仅向此地址发送 Gram (GRAM) 或 TON 网络资产。发送其他代币会导致丢失。
 $send_only_chain: 仅向此地址发送 %chain% (%symbol%) 或 %chain% 网络资产。发送其他代币会导致丢失。
+$send_only_chain_no_tokens: 仅向此地址发送 %chain% (%symbol%)。发送其他代币会导致丢失。
 Buying with card is not supported for this account.: 此账户不支持银行卡购买。
 Swapped at: 兑换时间
 Price per: 单价
@@ -1874,10 +1885,6 @@ second:
   zeroValue: "%count% 秒"
   oneValue: "%count% 秒"
   otherValue: "%count% 秒"
-transfer:
-  zeroValue: "%count% 笔转账"
-  oneValue: "%count% 笔转账"
-  otherValue: "%count% 笔转账"
 Confirm Actions:
   zeroValue: "确认 %count% 个操作"
   oneValue: 确认操作
@@ -2265,10 +2272,13 @@ Tokenized Gold: 代币化黄金
 Index Funds: 指数基金
 Search token or stock: 搜索代币或股票
 "Activity Failed to Load": "活动加载失败"
+"$agent_source_bea_attribution": "本产品使用美国经济分析局（BEA）的数据 API，但未经 BEA 认可或认证。"
 "Address was copied!": "地址已复制！"
 "Allow App Lock": "允许锁定应用"
 "An error occurred": "发生错误"
 "App Fee Details": "应用费用详情"
+"Backend": "后端"
+"Chat options": "聊天选项"
 "Copied": "已复制"
 "Customize the wallet's home screen and color accents the way you like.": "按自己的喜好自定义钱包主屏幕和强调色。"
 "Dangerous": "危险操作"
@@ -2289,3 +2299,6 @@ Search token or stock: 搜索代币或股票
 "Seasonal Theme Override": "覆盖季节主题"
 "Sending to": "正在发送至"
 "confirming actions in Telegram": "于 Telegram 中确认操作"
+
+Unknown Transfer: 未知转账
+$dapp_sign_data_for_prefix: 为

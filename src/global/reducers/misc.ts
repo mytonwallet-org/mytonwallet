@@ -4,6 +4,7 @@ import type {
   ApiCurrencyRates,
   ApiNetwork,
   ApiSwapAsset,
+  ApiTokenUpdateKind,
   ApiTokenWithPrice,
 } from '../../api/types';
 import type {
@@ -13,6 +14,7 @@ import { AuthState } from '../types';
 
 import { POPULAR_WALLET_VERSIONS } from '../../config';
 import { generateAccountTitle } from '../../util/account';
+import { areDeepEqual } from '../../util/areDeepEqual';
 import { getDefaultEnabledSlugs } from '../../util/chain';
 import { getIsDefaultChainDisplayConfiguration } from '../../util/chainDisplay';
 import { sanitizeCurrencyRates } from '../../util/currencyRates';
@@ -256,12 +258,13 @@ export function changeBalance(global: GlobalState, accountId: string, slug: stri
 export function updateTokens(
   global: GlobalState,
   partial: Record<string, ApiTokenWithPrice>,
+  kind: ApiTokenUpdateKind,
+  removedSlugs: string[] = [],
   withDeepCompare = false,
-  shouldPreservePrices = false,
 ): GlobalState {
   const existingTokens = global.tokenInfo?.bySlug;
 
-  if (shouldPreservePrices) {
+  if (kind === 'fromCache') {
     partial = Object.values(partial).reduce((result, token) => {
       const existingToken = existingTokens?.[token.slug];
 
@@ -274,18 +277,28 @@ export function updateTokens(
     }, {} as Record<string, ApiTokenWithPrice>);
   }
 
-  if (withDeepCompare && existingTokens && isPartialDeepEqual(existingTokens, partial)) {
-    return global;
+  if (withDeepCompare && existingTokens) {
+    // A partial update is checked against the tokens it carries only, otherwise the check walks the whole catalog
+    const isUnchanged = kind === 'partial'
+      ? isPartialDeepEqual(existingTokens, partial) && removedSlugs.every((slug) => !(slug in existingTokens))
+      : areDeepEqual(existingTokens, partial);
+
+    if (isUnchanged) {
+      return global;
+    }
   }
+
+  const tokens = kind === 'partial' ? { ...existingTokens } : {};
+  for (const slug of removedSlugs) {
+    delete tokens[slug];
+  }
+  Object.assign(tokens, partial);
 
   return {
     ...global,
     tokenInfo: {
       ...global.tokenInfo,
-      bySlug: {
-        ...existingTokens,
-        ...partial,
-      },
+      bySlug: tokens,
     },
   };
 }
@@ -467,6 +480,12 @@ function doesAccountExist(global: GlobalState, accountId: string) {
 }
 
 export function updateCurrencyRates(global: GlobalState, rates: ApiCurrencyRates): GlobalState {
+  // The rates poll almost always returns the same numbers. A new object with the same values would make every
+  // selector memoized by `currencyRates` recompute for nothing, so the old object is kept when the values match.
+  if (areDeepEqual(global.currencyRates, rates)) {
+    return global;
+  }
+
   return {
     ...global,
     currencyRates: sanitizeCurrencyRates(rates),

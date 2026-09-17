@@ -15,7 +15,7 @@ struct HomeCardBackground: View {
     var body: some View {
         WithPerceptionTracking {
             _StaticBackground(accountContext: accountContext)
-                .opacity(headerViewModel.isCardHidden ? 0 : 1)
+                .opacity(headerViewModel.cardOpacity)
         }
     }
 }

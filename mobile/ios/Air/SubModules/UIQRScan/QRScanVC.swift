@@ -39,8 +39,13 @@ public final class QRScanVC: WViewController {
         super.viewDidLoad()
         title = lang("Scan QR Code")
         addCloseNavigationItemIfNeeded()
-        let textAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
-        navigationController?.navigationBar.titleTextAttributes = textAttributes
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        navigationItem.standardAppearance = appearance
+        navigationItem.scrollEdgeAppearance = appearance
+        navigationItem.compactAppearance = appearance
+        navigationItem.compactScrollEdgeAppearance = appearance
         view.backgroundColor = .black
         Task { [weak self] in
             guard let self else {

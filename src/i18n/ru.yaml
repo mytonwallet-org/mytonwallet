@@ -415,6 +415,7 @@ Slippage: Проскальзывание
 $swap_from_to: Обменять %from% %icon% %to%
 The exchange rate is below market value!: Курс обмена на %value% ниже рыночной стоимости!
 Invalid Pair: Обмен недоступен
+Unsupported Pair: Неподдерживаемая пара
 We do not recommend to perform an exchange, try to specify a lower amount.: Не рекомендуем выполнять обмен, попробуйте указать меньшую сумму.
 $swap_minimum_received_tooltip1: Это наименьшее количество новых токенов, которое вы получите от этого обмена, учитывая текущие условия рынка, допустимое проскальзывание и потенциальное влияние на цену.
 $swap_minimum_received_tooltip2: Это ожидаемое минимальное значение, но, если условия сильно изменятся во время обработки вашего обмена, итоговая сумма может быть меньше.
@@ -682,6 +683,13 @@ $transfer_text_and_bin_exclusive: Нельзя использовать пара
 $unsupported_deeplink_parameter: Эта ссылка содержит неподдерживаемые параметры.
 $unsupported_chain: Неподдерживаемый блокчейн.
 Successfully: Успешно
+Estimated Time: Примерное время
+$utxo_confirmations:
+  oneValue: "%count% из %max% подтверждения"
+  fewValue: "%count% из %max% подтверждений"
+  manyValue: "%count% из %max% подтверждений"
+  otherValue: "%count% из %max% подтверждения"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: Вывести ещё
 Are you sure you want to burn this NFT? It will be lost forever.: Вы уверены, что хотите сжечь этот NFT? Он будет потерян навсегда.
 $multi_burn_nft_warning: |
@@ -997,6 +1005,12 @@ $iab_tabs_count:
   oneValue: "%count% вкладка"
   fewValue: "%count% вкладки"
   manyValue: "%count% вкладок"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% вкладок"
+  oneValue: "+ %count% вкладка"
+  fewValue: "+ %count% вкладки"
+  manyValue: "+ %count% вкладок"
+Close Tab: Закрыть вкладку
 $domains_amount %count%:
   zeroValue: Нет доменов
   oneValue: "%count% домен"
@@ -1353,6 +1367,152 @@ $agent_portfolio_insight_chain_split_title: Распределение по се
 $agent_portfolio_insight_chain_split_text: Оцените распределение по сетям в доступной части портфеля. Пропущенные активы могут изменить общую картину.
 $agent_portfolio_insight_data_quality_title: Качество данных
 $agent_portfolio_insight_data_quality_text: Учитывайте полноту и актуальность данных при интерпретации анализа.
+$agent_market_analysis_title: Анализ рынка
+$agent_market_as_of: Данные на
+$agent_market_closed_1d: Последняя закрытая свеча 1D
+$agent_market_thesis: Технический тезис
+$agent_market_fear_greed_sentiment: Настроение рынка на основе биткоина
+$agent_market_fear_greed_index: Индекс страха и жадности (0–100)
+$agent_market_fear_greed_sma_30: SMA за 30 дней
+$agent_market_fear_greed_sma_365: SMA за 365 дней
+$agent_market_fear_greed_regime: Режим рынка
+$agent_market_fear_greed_risk_on: Настроение risk-on
+$agent_market_fear_greed_risk_off: Настроение risk-off
+$agent_market_fear_greed_neutral: Нейтральное настроение
+$agent_market_fear_greed_source: Источник
+$agent_market_timeframes: Структура рынка
+$agent_market_structure_bullish: Повышающиеся максимумы и минимумы
+$agent_market_structure_bearish: Понижающиеся максимумы и минимумы
+$agent_market_structure_range: Диапазон
+$agent_market_structure_transition: Переходный режим
+$agent_market_structure_unavailable: Структура недоступна
+$agent_market_event_none: Подтверждённого пробоя нет
+$agent_market_event_break_up: Пробой структуры вверх
+$agent_market_event_break_down: Пробой структуры вниз
+$agent_market_event_retest_up: Бычий ретест
+$agent_market_event_retest_down: Медвежий ретест
+$agent_market_live_approaching_upper: Цена приближается к верхней границе
+$agent_market_live_approaching_lower: Цена приближается к нижней границе
+$agent_market_level_map: Ключевые уровни
+$agent_market_level_primary: Основной уровень
+$agent_market_level_secondary: Вторичный уровень
+$agent_market_level_context: Контекстный уровень
+$agent_market_levels_unavailable: Подтверждённые структурные уровни недоступны.
+$agent_market_profile_poc_full: центр объёма (POC)
+$agent_market_profile_value_area_full: границы зоны стоимости (VAL/VAH)
+$agent_market_profile_hvn_full: область высокого объёма (HVN)
+$agent_market_profile_lvn_full: коридор низкого объёма (LVN)
+$agent_market_profile_current_day: Текущий день UTC
+$agent_market_profile_previous_day: Предыдущий день UTC
+$agent_market_profile_previous_week: Предыдущая неделя UTC
+$agent_market_profile_rolling_30d: Последние 30 сессий UTC
+$agent_market_profile_above: Цена выше зоны стоимости
+$agent_market_profile_inside: Цена внутри зоны стоимости
+$agent_market_profile_below: Цена ниже зоны стоимости
+$agent_market_factors: Ключевые факторы
+$agent_market_factor_structure: "Дневная структура: %direction%"
+$agent_market_factor_levels: "Для этого горизонта подтверждено зон поддержки: %supports%, зон сопротивления: %resistances%."
+$agent_market_factor_profile: "Распределение объёма: %position%."
+$agent_market_factor_profile_unavailable: Volume Profile недоступен; сценарий опирается на ценовую структуру.
+$agent_market_factor_timeframe_alignment: "Структура таймфреймов — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "Текущий режим: %active%. Условный сценарий: %conditional% после условия «%activation%»."
+$agent_market_factor_no_active_scenario: "Подтверждённого сценария нет. Условный сценарий: %conditional% после условия «%activation%»."
+$agent_market_primary_scenario: Основной сценарий
+$agent_market_current_regime: Текущий подтверждённый режим
+$agent_market_conditional_scenario: Условный сценарий
+$agent_market_no_active_scenario: Сейчас ни один сценарий не подтверждён.
+$agent_market_calculated_fallback: "Расчётный анализ: текстовое объяснение временно недоступно."
+$agent_market_other_horizons: Другие запрошенные горизонты
+$agent_market_horizon_3d: 3 дня
+$agent_market_horizon_7d: 7 дней
+$agent_market_horizon_30d: 30 дней
+$agent_market_scenario_bullish: Бычий пробой
+$agent_market_scenario_range: Баланс в диапазоне
+$agent_market_scenario_bearish: Медвежий пробой
+$agent_market_scenario_unavailable: Структурный сценарий для этого горизонта недоступен.
+$agent_market_confidence: Уверенность
+$agent_market_confidence_low: Низкая
+$agent_market_confidence_medium: Средняя
+$agent_market_activation: Активация
+$agent_market_path: Развитие
+$agent_market_terminal: Конечная зона
+$agent_market_invalidation: Отмена сценария
+$agent_market_expected_range: Диапазон сценария
+$agent_market_rationale: Обоснование
+$agent_market_condition_above: закрытие выше
+$agent_market_condition_below: закрытие ниже
+$agent_market_condition_inside: закрытие внутри
+$agent_market_condition_outside: закрытие вне
+$agent_market_condition_waiting: Ожидает подтверждения
+$agent_market_condition_approaching: Приближается
+$agent_market_condition_triggered: Подтверждён
+$agent_market_scenario_zone: сценарная зона
+$agent_market_expected_move: Диапазон волатильности
+$agent_market_volatility_envelope: Общий диапазон волатильности
+$agent_market_expected_move_note: Условное движение, а не вероятность
+$agent_market_risk_caveat: Сценарии условны и не являются торговой рекомендацией.
+$agent_market_partial_coverage: Часть рыночных данных недоступна; уверенность ограничена.
+$agent_market_thesis_bullish: Подтверждённая структура поддерживает продолжение выше сопротивления, пока цена удерживает ближайшую поддержку.
+$agent_market_thesis_bearish: Подтверждённая структура поддерживает продолжение ниже поддержки, пока цена остаётся под ближайшим сопротивлением.
+$agent_market_thesis_range: Цена остаётся в равновесии между подтверждёнными поддержкой и сопротивлением.
+$agent_market_thesis_mixed: Таймфреймы конфликтуют, поэтому подтверждение на границе структуры важнее направленных индикаторов.
+$agent_market_thesis_insufficient: Доступных данных недостаточно для подтверждения направленной структуры.
+$agent_market_thesis_unconfirmed: Сценарий пока не подтверждён; направленный вывод требует закрытия за границей структуры.
+$agent_semantic_asset_search: Поиск актива
+$agent_semantic_web_digest: Результаты из интернета
+$agent_semantic_no_results: Результатов нет
+$agent_semantic_wallets: Кошельки
+$agent_semantic_wallet: Кошелёк
+$agent_semantic_balance: Баланс
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: Обычный
+$agent_semantic_access_view_only: Только просмотр
+$agent_semantic_wallets_unpriced: "%amount% позиций не включены в показанные суммы, потому что для них нет цены."
+$agent_semantic_wallets_stale: Некоторые балансы кошельков могут быть устаревшими.
+$agent_semantic_wallets_unavailable: Некоторые балансы кошельков недоступны.
+$agent_semantic_wallets_partial: Часть данных кошельков неполная.
+$agent_semantic_status: Статус
+$agent_semantic_quantity: Количество
+$agent_semantic_time: Время
+$agent_semantic_partial: Часть данных недоступна.
+$agent_semantic_pending: Ожидает
+$agent_semantic_confirmed: Подтверждена
+$agent_semantic_completed: Завершена
+$agent_semantic_failed: Не выполнена
+$agent_semantic_expired: Истекла
+$agent_semantic_active: Активна
+$agent_semantic_unstaking: Вывод из стейкинга
+$agent_semantic_ready: Готово
+$agent_semantic_frozen: Заморожено
+$agent_semantic_locked: Заблокировано
+$agent_semantic_fungible: Токен
+$agent_semantic_nft: NFT
+$agent_semantic_staking: Стейкинг
+$agent_semantic_vesting: Вестинг
+$agent_semantic_vault: Хранилище
+$agent_semantic_transfer: Перевод
+$agent_semantic_swap: Обмен
+$agent_semantic_stake: Внести в стейкинг
+$agent_semantic_unstake: Вывести из стейкинга
+$agent_semantic_contract: Контракт
+$agent_semantic_unknown: Активность
+$agent_semantic_spam_transactions: Спам-транзакции
+$agent_semantic_spam_assets: Спам-активы
+$agent_semantic_hidden_assets: Скрытые активы
+$agent_semantic_hidden_assets_warning: Названия скрытых активов могут вводить в заблуждение. Они показаны как обычный текст и не открываются как ссылки.
+$agent_semantic_quarantine_warning: Эти элементы отмечены как спам. Не доверяйте их названиям и ссылкам.
+$agent_semantic_redacted_asset: Название скрыто
+$agent_semantic_omitted_spam: "Отфильтровано спама: %amount%"
+$agent_semantic_omitted_spam_minimum: "Отфильтровано спама: минимум %amount%"
+$agent_semantic_omitted_hidden: "Скрыто активов: %amount%"
+$agent_semantic_omitted_hidden_minimum: "Скрыто активов: минимум %amount%"
+$agent_semantic_suspicious: "Скрыто небезопасных названий: %amount%"
+$agent_semantic_suspicious_minimum: "Скрыто небезопасных названий: минимум %amount%"
+$agent_semantic_suspicious_shown: "Потенциально небезопасных названий: %amount%"
+$agent_semantic_suspicious_shown_minimum: "Потенциально небезопасных названий: минимум %amount%"
+$agent_semantic_omitted_rows: "Данных слишком много. Ещё %amount% строк не вошли в ответ. Уточните период или фильтры."
+$agent_semantic_omitted_rows_minimum: "Данных слишком много. Минимум %amount% дополнительных строк не вошло в ответ. Уточните период или фильтры."
+$agent_semantic_update_required: Обновите приложение, чтобы отобразить этот ответ.
 $agent_hint_portfolio_title: Динамика портфеля
 $agent_hint_portfolio_prompt: Проанализируй динамику моего портфеля.
 $agent_hint_swap_title: Как работают обмены
@@ -1515,152 +1675,6 @@ $agent_error_update_required: Обновите приложение, чтобы 
 $agent_semantic_transactions: Операции
 $agent_semantic_positions: Позиции
 $agent_semantic_market: Обзор рынка
-$agent_market_analysis_title: Анализ рынка
-$agent_market_as_of: Данные на
-$agent_market_closed_1d: Последняя закрытая свеча 1D
-$agent_market_thesis: Технический тезис
-$agent_market_fear_greed_sentiment: Настроение рынка на основе биткоина
-$agent_market_fear_greed_index: Индекс страха и жадности (0–100)
-$agent_market_fear_greed_sma_30: SMA за 30 дней
-$agent_market_fear_greed_sma_365: SMA за 365 дней
-$agent_market_fear_greed_regime: Режим рынка
-$agent_market_fear_greed_risk_on: Настроение risk-on
-$agent_market_fear_greed_risk_off: Настроение risk-off
-$agent_market_fear_greed_neutral: Нейтральное настроение
-$agent_market_fear_greed_source: Источник
-$agent_market_timeframes: Структура рынка
-$agent_market_structure_bullish: Повышающиеся максимумы и минимумы
-$agent_market_structure_bearish: Понижающиеся максимумы и минимумы
-$agent_market_structure_range: Диапазон
-$agent_market_structure_transition: Переходный режим
-$agent_market_structure_unavailable: Структура недоступна
-$agent_market_event_none: Подтверждённого пробоя нет
-$agent_market_event_break_up: Пробой структуры вверх
-$agent_market_event_break_down: Пробой структуры вниз
-$agent_market_event_retest_up: Бычий ретест
-$agent_market_event_retest_down: Медвежий ретест
-$agent_market_live_approaching_upper: Цена приближается к верхней границе
-$agent_market_live_approaching_lower: Цена приближается к нижней границе
-$agent_market_level_map: Ключевые уровни
-$agent_market_level_primary: Основной уровень
-$agent_market_level_secondary: Вторичный уровень
-$agent_market_level_context: Контекстный уровень
-$agent_market_levels_unavailable: Подтверждённые структурные уровни недоступны.
-$agent_market_profile_poc_full: центр объёма (POC)
-$agent_market_profile_value_area_full: границы зоны стоимости (VAL/VAH)
-$agent_market_profile_hvn_full: область высокого объёма (HVN)
-$agent_market_profile_lvn_full: коридор низкого объёма (LVN)
-$agent_market_profile_current_day: Текущий день UTC
-$agent_market_profile_previous_day: Предыдущий день UTC
-$agent_market_profile_previous_week: Предыдущая неделя UTC
-$agent_market_profile_rolling_30d: Последние 30 сессий UTC
-$agent_market_profile_above: Цена выше зоны стоимости
-$agent_market_profile_inside: Цена внутри зоны стоимости
-$agent_market_profile_below: Цена ниже зоны стоимости
-$agent_market_factors: Ключевые факторы
-$agent_market_factor_structure: "Дневная структура: %direction%"
-$agent_market_factor_levels: "Для этого горизонта подтверждено зон поддержки: %supports%, зон сопротивления: %resistances%."
-$agent_market_factor_profile: "Распределение объёма: %position%."
-$agent_market_factor_profile_unavailable: Volume Profile недоступен; сценарий опирается на ценовую структуру.
-$agent_market_factor_timeframe_alignment: "Структура таймфреймов — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Текущий режим: %active%. Условный сценарий: %conditional% после условия «%activation%»."
-$agent_market_factor_no_active_scenario: "Подтверждённого сценария нет. Условный сценарий: %conditional% после условия «%activation%»."
-$agent_market_primary_scenario: Основной сценарий
-$agent_market_current_regime: Текущий подтверждённый режим
-$agent_market_conditional_scenario: Условный сценарий
-$agent_market_no_active_scenario: Сейчас ни один сценарий не подтверждён.
-$agent_market_calculated_fallback: "Расчётный анализ: текстовое объяснение временно недоступно."
-$agent_market_other_horizons: Другие запрошенные горизонты
-$agent_market_horizon_3d: 3 дня
-$agent_market_horizon_7d: 7 дней
-$agent_market_horizon_30d: 30 дней
-$agent_market_scenario_bullish: Бычий пробой
-$agent_market_scenario_range: Баланс в диапазоне
-$agent_market_scenario_bearish: Медвежий пробой
-$agent_market_scenario_unavailable: Структурный сценарий для этого горизонта недоступен.
-$agent_market_confidence: Уверенность
-$agent_market_confidence_low: Низкая
-$agent_market_confidence_medium: Средняя
-$agent_market_activation: Активация
-$agent_market_path: Развитие
-$agent_market_terminal: Конечная зона
-$agent_market_invalidation: Отмена сценария
-$agent_market_expected_range: Диапазон сценария
-$agent_market_rationale: Обоснование
-$agent_market_condition_above: закрытие выше
-$agent_market_condition_below: закрытие ниже
-$agent_market_condition_inside: закрытие внутри
-$agent_market_condition_outside: закрытие вне
-$agent_market_condition_waiting: Ожидает подтверждения
-$agent_market_condition_approaching: Приближается
-$agent_market_condition_triggered: Подтверждён
-$agent_market_scenario_zone: сценарная зона
-$agent_market_expected_move: Диапазон волатильности
-$agent_market_volatility_envelope: Общий диапазон волатильности
-$agent_market_expected_move_note: Условное движение, а не вероятность
-$agent_market_risk_caveat: Сценарии условны и не являются торговой рекомендацией.
-$agent_market_partial_coverage: Часть рыночных данных недоступна; уверенность ограничена.
-$agent_market_thesis_bullish: Подтверждённая структура поддерживает продолжение выше сопротивления, пока цена удерживает ближайшую поддержку.
-$agent_market_thesis_bearish: Подтверждённая структура поддерживает продолжение ниже поддержки, пока цена остаётся под ближайшим сопротивлением.
-$agent_market_thesis_range: Цена остаётся в равновесии между подтверждёнными поддержкой и сопротивлением.
-$agent_market_thesis_mixed: Таймфреймы конфликтуют, поэтому подтверждение на границе структуры важнее направленных индикаторов.
-$agent_market_thesis_insufficient: Доступных данных недостаточно для подтверждения направленной структуры.
-$agent_market_thesis_unconfirmed: Сценарий пока не подтверждён; направленный вывод требует закрытия за границей структуры.
-$agent_semantic_asset_search: Поиск актива
-$agent_semantic_web_digest: Результаты из интернета
-$agent_semantic_no_results: Результатов нет
-$agent_semantic_wallets: Кошельки
-$agent_semantic_wallet: Кошелёк
-$agent_semantic_balance: Баланс
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Обычный
-$agent_semantic_access_view_only: Только просмотр
-$agent_semantic_wallets_unpriced: "%amount% позиций не включены в показанные суммы, потому что для них нет цены."
-$agent_semantic_wallets_stale: Некоторые балансы кошельков могут быть устаревшими.
-$agent_semantic_wallets_unavailable: Некоторые балансы кошельков недоступны.
-$agent_semantic_wallets_partial: Часть данных кошельков неполная.
-$agent_semantic_status: Статус
-$agent_semantic_quantity: Количество
-$agent_semantic_time: Время
-$agent_semantic_partial: Часть данных недоступна.
-$agent_semantic_pending: Ожидает
-$agent_semantic_confirmed: Подтверждена
-$agent_semantic_completed: Завершена
-$agent_semantic_failed: Не выполнена
-$agent_semantic_expired: Истекла
-$agent_semantic_active: Активна
-$agent_semantic_unstaking: Вывод из стейкинга
-$agent_semantic_ready: Готово
-$agent_semantic_frozen: Заморожено
-$agent_semantic_locked: Заблокировано
-$agent_semantic_fungible: Токен
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Стейкинг
-$agent_semantic_vesting: Вестинг
-$agent_semantic_vault: Хранилище
-$agent_semantic_transfer: Перевод
-$agent_semantic_swap: Обмен
-$agent_semantic_stake: Внести в стейкинг
-$agent_semantic_unstake: Вывести из стейкинга
-$agent_semantic_contract: Контракт
-$agent_semantic_unknown: Активность
-$agent_semantic_spam_transactions: Спам-транзакции
-$agent_semantic_spam_assets: Спам-активы
-$agent_semantic_hidden_assets: Скрытые активы
-$agent_semantic_hidden_assets_warning: Названия скрытых активов могут вводить в заблуждение. Они показаны как обычный текст и не открываются как ссылки.
-$agent_semantic_quarantine_warning: Эти элементы отмечены как спам. Не доверяйте их названиям и ссылкам.
-$agent_semantic_redacted_asset: Название скрыто
-$agent_semantic_omitted_spam: "Отфильтровано спама: %amount%"
-$agent_semantic_omitted_spam_minimum: "Отфильтровано спама: минимум %amount%"
-$agent_semantic_omitted_hidden: "Скрыто активов: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Скрыто активов: минимум %amount%"
-$agent_semantic_suspicious: "Скрыто небезопасных названий: %amount%"
-$agent_semantic_suspicious_minimum: "Скрыто небезопасных названий: минимум %amount%"
-$agent_semantic_suspicious_shown: "Потенциально небезопасных названий: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Потенциально небезопасных названий: минимум %amount%"
-$agent_semantic_omitted_rows: "Данных слишком много. Ещё %amount% строк не вошли в ответ. Уточните период или фильтры."
-$agent_semantic_omitted_rows_minimum: "Данных слишком много. Минимум %amount% дополнительных строк не вошло в ответ. Уточните период или фильтры."
-$agent_semantic_update_required: Обновите приложение, чтобы отобразить этот ответ.
 $agent_wallet_page_navigation: Страницы данных кошелька
 $agent_wallet_page_previous: ← Назад
 $agent_wallet_page_next: Вперёд →
@@ -1812,6 +1826,7 @@ Add Crypto: Пополнить
 Share QR Code: Поделиться QR кодом
 $send_only_ton: Отправляйте только Gram (GRAM) или активы на базе TON на этот адрес. Отправка других токенов приведёт к их потере.
 $send_only_chain: Отправляйте только %chain% (%symbol%) или активы на базе %chain% на этот адрес. Отправка других токенов приведёт к их потере.
+$send_only_chain_no_tokens: Отправляйте только %chain% (%symbol%) на этот адрес. Отправка других токенов приведёт к их потере.
 Buying with card is not supported for this account.: Покупка с карты не поддерживается для этого аккаунта.
 Swapped at: Обмен выполнен в
 Price per: Цена за
@@ -1912,11 +1927,6 @@ second:
   oneValue: "%count% секунда"
   fewValue: "%count% секунды"
   manyValue: "%count% секунд"
-transfer:
-  zeroValue: "%count% переводов"
-  oneValue: "%count% перевод"
-  fewValue: "%count% перевода"
-  manyValue: "%count% переводов"
 Confirm Actions:
   zeroValue: "Подтвердить %count% действий"
   oneValue: Подтвердить действие
@@ -2305,12 +2315,13 @@ Tokenized Gold: Токенизированное золото
 Index Funds: Индексные фонды
 Search token or stock: Поиск токена или акции
 
-
 "Activity Failed to Load": "Не удалось загрузить активность"
 "Address was copied!": "Адрес скопирован!"
 "Allow App Lock": "Разрешить блокировку приложения"
 "An error occurred": "Произошла ошибка"
 "App Fee Details": "Подробности комиссии приложения"
+"Backend": "Сервер"
+"Chat options": "Параметры чата"
 "Copied": "Скопировано"
 "Customize the wallet's home screen and color accents the way you like.": "Настройте главный экран кошелька и цветовые акценты по своему вкусу."
 "Dangerous": "Опасные действия"
@@ -2331,3 +2342,6 @@ Search token or stock: Поиск токена или акции
 "Seasonal Theme Override": "Переопределение сезонной темы"
 "Sending to": "Отправка на"
 "confirming actions in Telegram": "подтверждать действия в Telegram"
+
+Unknown Transfer: Неизвестный перевод
+$dapp_sign_data_for_prefix: для

@@ -64,6 +64,13 @@
     {
       "target" : {
         "containerPath" : "container:..\/Air",
+        "identifier" : "UIPortfolioTests",
+        "name" : "UIPortfolioTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
         "identifier" : "ProtectedActionTests",
         "name" : "ProtectedActionTests"
       }

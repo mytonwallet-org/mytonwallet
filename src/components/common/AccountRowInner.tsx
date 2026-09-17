@@ -2,8 +2,8 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React from '../../lib/teact/teact';
 
 import type { ApiChain, ApiNft } from '../../api/types';
+import type { AccountBalance } from '../../global/selectors';
 import type { Account, AccountType } from '../../global/types';
-import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
 import { getOrderedAccountChains } from '../../util/chain';

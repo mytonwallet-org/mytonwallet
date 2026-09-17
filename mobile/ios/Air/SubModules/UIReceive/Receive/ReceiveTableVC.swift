@@ -181,12 +181,15 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
         let buyingToken = preferredBuyingToken
             .flatMap(TokenStore.getToken(slug:))
             .flatMap { $0.chain == chain ? $0 : nil } ?? chain.nativeToken
+        // Keep the destination account chosen in Receive.
         await AppActions.showSwap(
             accountContext: $account,
             defaultSellingToken: nil,
             defaultBuyingToken: buyingToken.slug,
             defaultSellingAmount: nil,
-            push: true
+            defaultBuyingAmount: nil,
+            push: true,
+            isAccountSwitchingAllowed: false
         )
     }
 

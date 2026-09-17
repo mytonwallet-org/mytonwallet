@@ -37,7 +37,7 @@ public struct MAccount: Equatable, Hashable, Sendable, Codable, Identifiable, Fe
         self.id = id
         self.title = title
         self.type = type
-        self.byChain = byChain
+        self.byChain = Self.normalizeByChain(byChain)
         self.isTemporary = isTemporary
         self.secretState = secretState
     }
@@ -68,7 +68,8 @@ extension MAccount {
     }
 
     public func getAddress(chain: ApiChain?) -> String? {
-        getChainInfo(chain: chain)?.address
+        guard let chain, let address = getChainInfo(chain: chain)?.address else { return nil }
+        return chain.normalizeAddress(address)
     }
     
     public var firstChain: ApiChain {
@@ -235,12 +236,12 @@ extension MAccount {
                 return URLQueryItem(name: ApiChain.viewAccountEvmParam, value: evmAddress)
             }
 
-            return URLQueryItem(name: chain.rawValue, value: info.preferredCopyString)
+            return URLQueryItem(name: chain.rawValue, value: info.preferredCopyString(for: chain))
         }
     }
 
     private var collapsedEvmAddress: String? {
-        let byChain = Dictionary(uniqueKeysWithValues: orderedChains.map { ($0.0, $0.1.preferredCopyString) })
+        let byChain = Dictionary(uniqueKeysWithValues: orderedChains.map { ($0.0, $0.1.preferredCopyString(for: $0.0)) })
         let evmAddresses = ApiChain.evmChains.map { byChain[$0] }
         guard let firstAddress = evmAddresses.first.flatMap({ $0 }),
               evmAddresses.allSatisfy({ $0 == firstAddress }) else {
@@ -261,6 +262,15 @@ extension MAccount {
     
     public var crosschainIdentifyingFromAddress: String? {
         getAddress(chain: .ton)
+    }
+
+    fileprivate static func normalizeByChain(_ byChain: [String: AccountChain]) -> [String: AccountChain] {
+        Dictionary(uniqueKeysWithValues: byChain.map { key, value in
+            guard let chain = ApiChain(rawValue: key) else { return (key, value) }
+            var copy = value
+            copy.address = chain.normalizeAddress(value.address)
+            return (key, copy)
+        })
     }
 }
 

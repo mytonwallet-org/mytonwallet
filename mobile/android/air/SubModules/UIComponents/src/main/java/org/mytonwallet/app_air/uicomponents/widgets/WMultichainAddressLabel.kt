@@ -220,7 +220,12 @@ class WMultichainAddressLabel(context: Context) : WRadialGradientLabel(context) 
             val account = it.second
             val domain = account.domain
             val isDomain = !domain.isNullOrBlank()
-            val original = domain ?: account.address
+            val original = if (isDomain) {
+                domain!!
+            } else {
+                MBlockchain.valueOfOrNull(it.first)?.normalizeAddress(account.address)
+                    ?: account.address
+            }
             DisplayData(
                 chainName = it.first,
                 original = original,

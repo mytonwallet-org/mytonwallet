@@ -65,7 +65,6 @@ final class TokenSendModel: Sendable {
 
     let configuration: TokenSendConfiguration
     let recipient: SendRecipientModel
-    let isAccountSwitchingAllowed: Bool
 
     @PerceptionIgnored
     let flow: TokenSendFlow
@@ -107,7 +106,6 @@ final class TokenSendModel: Sendable {
     init(
         accountContext: AccountContext,
         configuration: TokenSendConfiguration,
-        isAccountSwitchingAllowed: Bool = false,
         flow: TokenSendFlow = TokenSendFlow(),
         recipientResolver: RecipientResolverClient = .live
     ) {
@@ -116,8 +114,6 @@ final class TokenSendModel: Sendable {
 
         self._account = accountContext
         self.configuration = configuration
-        self.isAccountSwitchingAllowed = isAccountSwitchingAllowed
-            && configuration.mode == .send
         self.flow = flow
         self.draftCoordinator = OperationDraftCoordinator(
             debounce: .milliseconds(250),
@@ -137,7 +133,12 @@ final class TokenSendModel: Sendable {
             tokenSelectionSource = .explicit
         } else {
             tokenSlug = Self.bestTokenSlug(
-                accountContext: accountContext
+                accountContext: accountContext,
+                compatibleChains: configuration.initialAddress.map { address in
+                    ApiChain.allCases.filter {
+                        $0.isValidAddressOrDomain(address.trimmingCharacters(in: .whitespacesAndNewlines))
+                    }
+                }
             )
             tokenSelectionSource = .automatic
         }
@@ -185,13 +186,8 @@ final class TokenSendModel: Sendable {
         recipient.onSuggestionChainSelected = { [weak self] chain in
             self?.switchToPreferredToken(chain: chain)
         }
-        recipient.onCompatibleChainDetected = { [weak self] chain in
-            guard let self,
-                  self.tokenSelectionSource == .automatic,
-                  token.chain != chain else {
-                return
-            }
-            switchToPreferredToken(chain: chain)
+        recipient.onCompatibleChainsDetected = { [weak self] chains in
+            self?.switchToCompatibleTokenIfNeeded(chains)
         }
         draftCoordinator.didPublishSnapshot = { [weak self] snapshot in
             guard let self else { return }
@@ -953,8 +949,7 @@ final class TokenSendModel: Sendable {
             guard let parsed = parseTonTransferUrl(url) else { return }
             recipient.textFieldInput = parsed.address
             let newTokenSlug = parsed.token ?? TONCOIN_SLUG
-            if newTokenSlug != token.slug,
-               let newToken = tokenStore.getToken(slug: newTokenSlug) {
+            if let newToken = tokenStore.getToken(slug: newTokenSlug) {
                 selectToken(newToken, source: .explicit)
             }
             if let amount = parsed.amount {
@@ -969,51 +964,39 @@ final class TokenSendModel: Sendable {
                 encryptedMessageInput = false
                 inputDidChange()
             }
-        case .address(let address, let possibleChains):
-            switchToCompatibleNativeTokenIfNeeded(possibleChains)
+        case .address(let address, _):
             recipient.textFieldInput = address
         }
     }
 
-    private func switchToCompatibleNativeTokenIfNeeded(
+    private func switchToCompatibleTokenIfNeeded(
         _ possibleChains: [ApiChain]
     ) {
-        guard !possibleChains.isEmpty,
-              !possibleChains.contains(token.chain),
-              let targetChain = possibleChains.first(where: {
-                  account.supports(chain: $0)
-              }) ?? possibleChains.first else {
+        guard tokenSelectionSource == .automatic,
+              possibleChains.contains(where: { account.supports(chain: $0) }) else {
             return
         }
-        let nativeToken = tokenStore.tokens[targetChain.nativeToken.slug]
-            ?? targetChain.nativeToken
-        selectToken(nativeToken, source: .automatic)
+        let slug = Self.bestTokenSlug(
+            accountContext: $account,
+            compatibleChains: possibleChains
+        )
+        let candidate = tokenStore.getToken(slug: slug)
+            ?? possibleChains.first(where: { account.supports(chain: $0) })?.nativeToken
+        if let candidate {
+            selectToken(candidate, source: .automatic)
+        }
     }
 
     private func switchToPreferredToken(chain: ApiChain) {
         guard account.supports(chain: chain) else { return }
+        let slug = Self.bestTokenSlug(
+            accountContext: $account,
+            compatibleChains: [chain]
+        )
         selectToken(
-            preferredToken(chain: chain),
+            tokenStore.getToken(slug: slug) ?? chain.nativeToken,
             source: .automatic
         )
-    }
-
-    private func preferredToken(chain: ApiChain) -> ApiToken {
-        if let token = $account.walletTokenPresentation.visible
-            .first(where: { !$0.isStaking && $0.token?.chain == chain })?
-            .token {
-            return token
-        }
-        let defaultSlug = ApiToken.defaultSlugs(
-            forNetwork: account.network,
-            account: account
-        ).first { tokenStore.tokens[$0]?.chain == chain }
-        if let defaultSlug,
-           let token = tokenStore.tokens[defaultSlug] {
-            return token
-        }
-        return tokenStore.tokens[chain.nativeToken.slug]
-            ?? chain.nativeToken
     }
 
     private func switchToSupportedTokenAfterAccountChangeIfNeeded() {
@@ -1048,16 +1031,43 @@ final class TokenSendModel: Sendable {
     }
 
     private static func bestTokenSlug(
-        accountContext: AccountContext
+        accountContext: AccountContext,
+        compatibleChains: [ApiChain]? = nil
     ) -> String {
         let account = accountContext.account
-        return accountContext.walletTokenPresentation.visible
-            .first(where: { !$0.isStaking })?
-            .tokenSlug
+        let chains = ApiChain.allCases.filter { chain in
+            guard account.supports(chain: chain) else { return false }
+            guard let compatibleChains, !compatibleChains.isEmpty else { return true }
+            return compatibleChains.contains(chain)
+        }
+        return preferredToken(
+            tokens: accountContext.walletTokenPresentation.visible
+                .filter { !$0.isStaking }
+                .compactMap(\.token),
+            balances: accountContext.balances,
+            compatibleChains: chains
+        )?.slug
             ?? ApiToken.defaultSlugs(
                 forNetwork: account.network,
                 account: account
-            ).first
-            ?? TONCOIN_SLUG
+            ).first { slug in
+                TokenStore.getToken(slug: slug).map { chains.contains($0.chain) } ?? false
+            }
+            ?? chains.first?.nativeToken.slug
+            ?? account.firstChain.nativeToken.slug
+    }
+
+    static func preferredToken(
+        tokens: [ApiToken],
+        balances: [String: BigInt],
+        compatibleChains: [ApiChain]
+    ) -> ApiToken? {
+        tokens.filter { compatibleChains.contains($0.chain) }.max { lhs, rhs in
+            let lhsValue = (balances[lhs.slug] ?? 0)
+                .doubleAbsRepresentation(decimals: lhs.decimals) * (lhs.priceUsd ?? 0)
+            let rhsValue = (balances[rhs.slug] ?? 0)
+                .doubleAbsRepresentation(decimals: rhs.decimals) * (rhs.priceUsd ?? 0)
+            return lhsValue < rhsValue
+        }
     }
 }

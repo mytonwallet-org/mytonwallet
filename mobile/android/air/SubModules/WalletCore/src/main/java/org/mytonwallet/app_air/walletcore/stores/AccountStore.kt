@@ -143,12 +143,13 @@ object AccountStore : IStore {
         var didChange = false
 
         update.address?.let { newAddress ->
+            val normalizedAddress = MAccount.normalizeAddress(chain, newAddress)
             val existing = byChain[chain]
             if (existing == null) {
-                byChain[chain] = AccountChain(address = newAddress)
+                byChain[chain] = AccountChain(address = normalizedAddress)
                 didChange = true
-            } else if (existing.address != newAddress) {
-                byChain[chain] = existing.copy(address = newAddress)
+            } else if (existing.address != normalizedAddress) {
+                byChain[chain] = existing.copy(address = normalizedAddress)
                 didChange = true
             }
         }

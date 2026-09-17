@@ -1,16 +1,14 @@
 import { useMemo } from '../lib/teact/teact';
 
-import type {
-  ApiBaseCurrency, ApiCurrencyRates, ApiStakingState,
-} from '../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiStakingState } from '../api/types';
+import type { MultipleAccountsBalances } from '../global/selectors';
 import type { Account, AccountSettings, GlobalState } from '../global/types';
 
 import {
   selectMultipleAccountsAddressLineChainsSlow,
+  selectMultipleAccountsBalances,
   selectMultipleAccountsStakingStatesSlow,
-  selectMultipleAccountsTokensSlow,
 } from '../global/selectors';
-import { useAccountsBalances } from './useAccountsBalances';
 
 interface OwnProps {
   filteredAccounts: Array<[string, Account]> | undefined;
@@ -24,6 +22,8 @@ interface OwnProps {
   stakingDefault: ApiStakingState | undefined;
 }
 
+const EMPTY_RESULT: MultipleAccountsBalances = { balancesByAccountId: {}, totalBalance: undefined };
+
 export function useMultipleAccountsBalances({
   filteredAccounts,
   sourceAccounts,
@@ -35,56 +35,57 @@ export function useMultipleAccountsBalances({
   currencyRates,
   stakingDefault,
 }: OwnProps) {
-  const allAccountsTokens = useMemo(() => {
-    if (!sourceAccounts || !byAccountId || !tokenInfo || !settingsByAccountId || !baseCurrency || !currencyRates) {
-      return undefined;
+  // Every derivation below is restricted to the accounts that are actually rendered, not to every wallet of
+  // the network - a user may own many more
+  const accounts = useMemo(() => {
+    if (!filteredAccounts || !sourceAccounts) return undefined;
+
+    const result: Record<string, Account> = {};
+    for (const [accountId] of filteredAccounts) {
+      const account = sourceAccounts[accountId];
+      if (account) result[accountId] = account;
     }
 
-    return selectMultipleAccountsTokensSlow(
-      sourceAccounts,
-      byAccountId,
-      tokenInfo,
-      settingsByAccountId,
-      areTokensWithNoCostHidden,
-      baseCurrency,
-      currencyRates,
-    );
-  }, [
-    sourceAccounts,
-    byAccountId,
-    tokenInfo,
-    settingsByAccountId,
-    areTokensWithNoCostHidden,
-    baseCurrency,
-    currencyRates,
-  ]);
+    return result;
+  }, [filteredAccounts, sourceAccounts]);
 
-  const allAccountsStakingStates = useMemo(() => {
-    if (!sourceAccounts || !byAccountId || !stakingDefault) return undefined;
+  const stakingStatesByAccountId = useMemo(() => {
+    if (!accounts || !byAccountId || !stakingDefault) return undefined;
 
-    return selectMultipleAccountsStakingStatesSlow(sourceAccounts, byAccountId, stakingDefault);
-  }, [sourceAccounts, byAccountId, stakingDefault]);
+    return selectMultipleAccountsStakingStatesSlow(accounts, byAccountId, stakingDefault);
+  }, [accounts, byAccountId, stakingDefault]);
 
   const addressLineChainsByAccountId = useMemo(() => {
-    if (!sourceAccounts || !settingsByAccountId || !allAccountsTokens || !allAccountsStakingStates) {
+    if (!accounts || !byAccountId || !tokenInfo || !settingsByAccountId || !stakingStatesByAccountId) {
       return undefined;
     }
 
     return selectMultipleAccountsAddressLineChainsSlow(
-      sourceAccounts,
+      accounts,
+      byAccountId,
+      tokenInfo,
       settingsByAccountId,
-      allAccountsTokens,
-      allAccountsStakingStates,
+      areTokensWithNoCostHidden,
+      stakingStatesByAccountId,
     );
-  }, [sourceAccounts, settingsByAccountId, allAccountsTokens, allAccountsStakingStates]);
+  }, [accounts, byAccountId, tokenInfo, settingsByAccountId, areTokensWithNoCostHidden, stakingStatesByAccountId]);
 
-  const balances = useAccountsBalances(
-    filteredAccounts,
-    allAccountsTokens,
-    allAccountsStakingStates,
-    baseCurrency,
-    currencyRates,
-  );
+  const balances = useMemo(() => {
+    if (!accounts || !byAccountId || !tokenInfo || !settingsByAccountId
+      || !stakingStatesByAccountId || !baseCurrency || !currencyRates) {
+      return EMPTY_RESULT;
+    }
+
+    return selectMultipleAccountsBalances(
+      Object.keys(accounts),
+      byAccountId,
+      tokenInfo,
+      settingsByAccountId,
+      stakingStatesByAccountId,
+      baseCurrency,
+      currencyRates,
+    );
+  }, [accounts, byAccountId, tokenInfo, settingsByAccountId, stakingStatesByAccountId, baseCurrency, currencyRates]);
 
   return { ...balances, addressLineChainsByAccountId };
 }

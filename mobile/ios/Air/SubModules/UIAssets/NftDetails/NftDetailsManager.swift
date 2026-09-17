@@ -2,6 +2,24 @@ import UIKit
 import Kingfisher
 
 @MainActor
+public enum NftDetailsCache {
+    static let processedImages: ImageCache = {
+        let cache = ImageCache(name: "NftDetails.processed")
+        cache.diskStorage.config.expiration = .days(7)
+        cache.diskStorage.config.sizeLimit = 500 * 1024 * 1024
+        cache.diskStorage.config.pathExtension = "png"
+        cache.diskStorage.config.usesHashedFileName = false
+        return cache
+    }()
+    static let colors = NftDetailsColorCache()
+
+    public static func clear() async {
+        await processedImages.clearCache()
+        await colors.clearCache()
+    }
+}
+
+@MainActor
 final class NftDetailsManager {
     
     typealias ItemModel = NftDetailsItemModel
@@ -114,7 +132,7 @@ final class NftDetailsManager {
 
     let coverFlowThumbnailDownloader: ImageDownloader
     let processedImageCache: ImageCache
-    let colorCache = NftDetailsColorCache()
+    let colorCache = NftDetailsCache.colors
     let colorResolver: NftDetailsColorResolver
 
     @MainActor private weak var displayStateProvider: NftDetailsDisplayStateProviding?
@@ -139,11 +157,7 @@ final class NftDetailsManager {
         
         imageProcessor = NftDetailsImageProcessor()
         
-        processedImageCache = ImageCache(name: "NftDetails.processed")
-        processedImageCache.diskStorage.config.expiration = .days(7)
-        processedImageCache.diskStorage.config.sizeLimit = 500 * 1024 * 1024
-        processedImageCache.diskStorage.config.pathExtension = "png"
-        processedImageCache.diskStorage.config.usesHashedFileName = false
+        processedImageCache = NftDetailsCache.processedImages
 
         models = items.enumerated().map { .init(item: $0.1, index: $0.0) }
         models.forEach { $0.delegate = self }

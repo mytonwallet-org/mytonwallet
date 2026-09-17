@@ -88,7 +88,7 @@ data class MarketToken(val token: IApiToken, val asset: MApiMarketAsset) {
 data class MarketSection(
     val section: MApiMarketSection,
     val tokens: List<MarketToken>,
-    val visibleLimit: Int? = section.limit?.takeIf { it > 0 }
+    val visibleLimit: Int? = (section.mobileLimit ?: section.limit)?.takeIf { it > 0 }
 ) {
     val title: String
         get() = section.title

@@ -47,29 +47,9 @@ public extension AccountContext {
     }
 
     var automaticallyVisibleChains: Set<ApiChain> {
-        var hasTokenBalance = false
-        var chainsWithBalance: Set<ApiChain> = []
-
-        for (slug, balance) in balances where balance > 0 {
-            hasTokenBalance = true
-            if let chain = getChainBySlug(slug) ?? TokenStore.tokens[slug]?.chain {
-                chainsWithBalance.insert(chain)
-            }
-        }
-
-        if let stakingStates = stakingData?.stateById.values {
-            for state in stakingStates where getFullStakingBalance(state: state) > 0 {
-                hasTokenBalance = true
-                if let chain = getChainBySlug(state.tokenSlug) ?? TokenStore.tokens[state.tokenSlug]?.chain {
-                    chainsWithBalance.insert(chain)
-                }
-            }
-        }
-
-        return MChainDisplayConfiguration.automaticallyVisibleChains(
+        MChainDisplayConfiguration.automaticallyVisibleChains(
             defaultOrder: account.orderedChains.map(\.0),
-            chainsWithBalance: chainsWithBalance,
-            hasTokenBalance: hasTokenBalance,
+            visibleTokenBalances: walletTokensData?.orderedTokenBalances ?? [],
             isGramWallet: IS_GRAM_WALLET
         )
     }

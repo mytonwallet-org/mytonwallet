@@ -23,6 +23,7 @@ import {
   selectCurrentAccountNftByAddress,
   selectIsCurrentAccountViewMode,
   selectIsHardwareAccount,
+  selectIsOnRampAllowed,
   selectTokenByMinterAddress,
 } from '../../global/selectors';
 import { callApi } from '../../api';
@@ -38,6 +39,7 @@ import { splitAttributionDeeplink } from '../installAttribution';
 import { isValidAddressOrDomain } from '../isValidAddress';
 import { omitUndefined } from '../iteratees';
 import { logDebug, logDebugError } from '../logs';
+import { openMultisend } from '../openMultisend';
 import { isSubproject, openUrl } from '../openUrl';
 import { waitRender } from '../renderPromise';
 import { waitFor } from '../schedulers';
@@ -65,6 +67,7 @@ export const enum DeeplinkCommand {
   Stake = 'stake',
   Transfer = 'transfer',
   Send = 'send',
+  Multisend = 'multisend',
   Explore = 'explore',
   Receive = 'receive',
   View = 'view',
@@ -84,7 +87,7 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Portfolio,
 ]);
 
-const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
+export const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
   appearance: SettingsState.Appearance,
   assets: SettingsState.Assets,
   language: SettingsState.Language,
@@ -701,7 +704,7 @@ async function openSelfDeeplink(
   try {
     deeplink = convertSelfDeeplinkToSelfUrl(deeplink);
 
-    const { pathname, searchParams } = new URL(deeplink);
+    const { pathname, searchParams, hash } = new URL(deeplink);
     const command = pathname.split('/').find(Boolean);
     const actions = getActions();
     const global = getGlobal();
@@ -723,6 +726,15 @@ async function openSelfDeeplink(
     }
 
     switch (command) {
+      case DeeplinkCommand.Multisend: {
+        if (pathname !== `/${DeeplinkCommand.Multisend}` || searchParams.size > 0 || hash) {
+          actions.showError({ error: '$unsupported_deeplink_parameter' });
+          return false;
+        }
+        await openMultisend();
+        return true;
+      }
+
       case DeeplinkCommand.CheckinWithR: {
         const r = pathname.match(/r\/(.*)$/)?.[1];
         const url = `${CHECKIN_URL}${r ? `?r=${r}` : ''}`;
@@ -754,11 +766,18 @@ async function openSelfDeeplink(
             return 'handledWithoutOpening';
           }
 
+          const amountIn = searchParams.get('amount');
+          const amountOut = searchParams.get('amountOut');
+          const validDecimal = (value: string | null): value is string => Boolean(value
+            && /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/u.test(value) && /[1-9]/u.test(value));
           actions.startSwap({
             tokenInSlug,
             tokenOutSlug,
-            amountIn: toNumberOrEmptyString(searchParams.get('amount')) || DEFAULT_SWAP_AMOUNT,
+            amountIn: validDecimal(amountOut) ? undefined : validDecimal(amountIn) ? amountIn : DEFAULT_SWAP_AMOUNT,
           });
+          if (validDecimal(amountOut)) {
+            actions.setSwapAmountOut({ amount: amountOut });
+          }
         }
         return true;
       }
@@ -771,22 +790,35 @@ async function openSelfDeeplink(
           actions.showError({ error: 'Swap is not yet supported by Ledger.' });
           return 'handledWithoutOpening';
         } else {
-          const { nativeToken, buySwap: defaultBuySwap } = getChainConfig('ton');
           actions.startSwap({
-            tokenInSlug: searchParams.get('in') || defaultBuySwap!.tokenInSlug,
-            tokenOutSlug: searchParams.get('out') || nativeToken.slug,
-            amountIn: toNumberOrEmptyString(searchParams.get('amount')) || defaultBuySwap!.amountIn,
+            tokenInSlug: searchParams.get('in') || undefined,
+            tokenOutSlug: searchParams.get('out') || TONCOIN.slug,
+            amountIn: toNumberOrEmptyString(searchParams.get('amount')) || undefined,
           });
         }
         return true;
       }
 
       case DeeplinkCommand.BuyWithCard: {
+        if ([...searchParams.keys()].some((key) => !['chain', 'provider'].includes(key))
+          || searchParams.getAll('chain').length > 1 || searchParams.getAll('provider').length > 1) {
+          return 'handledWithoutOpening';
+        }
+        const requestedChain = searchParams.get('chain');
+        const chain = requestedChain ?? 'ton';
+        const provider = searchParams.get('provider') ?? undefined;
+        if (!getIsSupportedChain(chain)
+          || (provider !== undefined && provider !== 'moonpay' && provider !== 'avanchange')) {
+          return 'handledWithoutOpening';
+        }
         if (isTestnet) {
           actions.showError({ error: 'Buying with card is not supported in Testnet.' });
           return 'handledWithoutOpening';
         } else {
-          actions.openOnRampWidgetModal({ chain: 'ton' });
+          const global = getGlobal();
+          if (!selectIsOnRampAllowed(global, chain, provider)
+            || !selectCurrentAccount(global)?.byChain[chain]?.address) return 'handledWithoutOpening';
+          actions.openOnRampWidgetModal({ chain, ...(provider ? { provider } : {}) });
         }
         return true;
       }

@@ -342,7 +342,7 @@ public class UnlockVC: WViewController {
         )
         if compactLayout {
             view.backgroundColor = .air.sheetBackground
-            passcodeScreenView.layer.cornerRadius = 16
+            passcodeScreenView.layer.cornerRadius = 32
         }
         indicatorView = WActivityIndicator()
 

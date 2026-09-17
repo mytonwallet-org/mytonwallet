@@ -2,11 +2,13 @@ import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiTransactionActivity } from '../../api/types';
 import type { AppTheme } from '../../global/types';
+import type { LangFn } from '../../hooks/useLang';
 
 import { ANIMATED_STICKER_TINY_ICON_PX } from '../../config';
 import { getIsActivityPendingForUser, getTransactionTitle, isScamTransaction } from '../../util/activities';
 import buildClassName from '../../util/buildClassName';
 import { formatFullDay, formatTime } from '../../util/dateFormat';
+import { toNativeDigits } from '../../util/nativeDigits';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useLang from '../../hooks/useLang';
@@ -46,6 +48,7 @@ function TransactionHeader({
   const titleTense = isAnyPending ? 'present' : status === 'failed' ? 'future' : 'past';
   const iconClock = status === 'pendingTrusted' ? 'iconClock' : 'iconClockOrange';
   const isScam = isScamTransaction(transaction);
+  const utxoConfirmationSubtitle = getUtxoConfirmationSubtitle(transaction, lang);
 
   return (
     <div
@@ -92,7 +95,11 @@ function TransactionHeader({
           )}
           {isScam && isIncoming && <img src={scamImg} alt={lang('Scam')} className={styles.scamImage} />}
         </div>
-        {!!timestamp && (
+        {utxoConfirmationSubtitle ? (
+          <div className={styles.headerDate}>
+            {utxoConfirmationSubtitle}
+          </div>
+        ) : !!timestamp && (
           <div className={styles.headerDate}>
             {formatFullDay(lang.code!, timestamp)}, {formatTime(timestamp)}
           </div>
@@ -108,6 +115,19 @@ function TransactionHeader({
       </Button>
     </div>
   );
+}
+
+export function getUtxoConfirmationSubtitle(transaction: ApiTransactionActivity, lang: LangFn) {
+  const { confirmations, maxConfirmations } = transaction;
+
+  if (confirmations === undefined || maxConfirmations === undefined || confirmations >= maxConfirmations) {
+    return undefined;
+  }
+
+  return lang('$utxo_confirmations', {
+    count: toNativeDigits(`${Math.max(0, confirmations)}`),
+    max: toNativeDigits(`${maxConfirmations}`),
+  }, undefined, maxConfirmations);
 }
 
 export default memo(TransactionHeader);

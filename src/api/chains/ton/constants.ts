@@ -27,6 +27,7 @@ export const NETWORK_CONFIG = {
   },
 };
 
+// TODO: reduce amounts
 export const ONE_TON = 1_000_000_000n;
 export const TOKEN_TRANSFER_AMOUNT = 50000000n; // 0.05 TON
 export const TINY_TOKEN_TRANSFER_AMOUNT = 18000000n; // 0.018 TON

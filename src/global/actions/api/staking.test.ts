@@ -4,7 +4,7 @@ import type { ApiStakingState } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import { StakingState } from '../../types';
 
-import { MYCOIN_MAINNET, TONCOIN } from '../../../config';
+import { MYCOIN_MAINNET, TON_USDE, TONCOIN } from '../../../config';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 
 jest.mock('../../index', () => ({
@@ -81,6 +81,18 @@ describe('startStaking action', () => {
 
   it('opens the stake form for an allowed token', () => {
     const result = run(makeGlobal('ton-1'), { tokenSlug: TONCOIN.slug });
+    expect(result.currentStaking.state).toBe(StakingState.StakeInitial);
+  });
+
+  it('opens an available Ethena product with no owned tokens or existing stake', () => {
+    const global = makeGlobal('ton-1');
+    const ethena = {
+      ...TON_STATE, id: 'ethena', type: 'ethena', tokenSlug: TON_USDE.slug,
+      balance: 0n, tokenBalance: 0n, unstakeRequestAmount: 0n,
+    } as ApiStakingState;
+    global.byAccountId.acc.staking!.stateById!.ethena = ethena;
+    const result = run(global, { stakingId: 'ethena', tokenSlug: TON_USDE.slug });
+    expect(result.byAccountId.acc.staking?.stakingId).toBe('ethena');
     expect(result.currentStaking.state).toBe(StakingState.StakeInitial);
   });
 

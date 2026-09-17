@@ -79,7 +79,7 @@ open class NavigationHeader2: UILabel {
     required public init?(coder: NSCoder) { fatalError() }
     
     public var distanceFromNavigationBarBottomToContentCenter: CGFloat {
-        guard let navBar = navigationBar else { return contentHeight / 2 }
+        guard window != nil, let navBar = navigationBar else { return contentHeight / 2 }
         return navBar.bounds.maxY - convert(bounds.center, to: navBar).y
     }
 

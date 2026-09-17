@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import UIComponents
+import UniversalSearchWalletCore
 import WalletCore
 import WalletContext
 
@@ -19,6 +20,8 @@ final class TokenPickerViewController: WViewController {
     private var showingTokenSlugs = [String]()
     private var showingHiddenTokenSlugs = [String]()
     var keyword = String()
+    private var tokenSearch = WalletCoreTokenSearch()
+    private var tokenSearchNeedsUpdate = true
     
     let accountId: String
     let isMultichain: Bool
@@ -141,6 +144,9 @@ final class TokenPickerViewController: WViewController {
             ) { [weak self] in
                 guard let self else { return }
                 if let token = TokenStore.tokens[item.tokenSlug] {
+                    if !keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        tokenSearch.recordSelection(tokenSlug: token.slug, accountID: accountId)
+                    }
                     self.searchController.isActive = false // to prevent ui animation glitch on push
                     self.onSelect(token)
                 }
@@ -190,29 +196,23 @@ final class TokenPickerViewController: WViewController {
             applySnapshot(animated: false)
             return
         }
-        showingTokenSlugs = matchingTokenSlugs(
-            in: selectableWalletTokens(walletTokens),
-            keyword: normalizedKeyword
-        )
-        showingHiddenTokenSlugs = matchingTokenSlugs(
-            in: selectableWalletTokens(hiddenWalletTokens),
-            keyword: normalizedKeyword
-        )
-        applySnapshot(animated: false)
-    }
-
-    private func matchingTokenSlugs(
-        in tokens: [MTokenBalance],
-        keyword: String
-    ) -> [String] {
-        tokens.compactMap { walletToken in
-            if walletToken.tokenSlug.lowercased().contains(keyword)
-                || TokenStore.tokens[walletToken.tokenSlug]?.matchesSearch(keyword) == true {
-                walletToken.tokenSlug
-            } else {
-                nil
-            }
+        let visibleSlugs = Set(selectableWalletTokens(walletTokens).map(\.tokenSlug))
+        let hiddenSlugs = Set(selectableWalletTokens(hiddenWalletTokens).map(\.tokenSlug))
+        if tokenSearchNeedsUpdate {
+            let candidates = visibleSlugs.union(hiddenSlugs).compactMap { TokenStore.tokens[$0] }
+            tokenSearch.update(
+                accountID: accountId,
+                tokens: candidates,
+                balances: BalanceDataStore.walletTokensData(accountId: accountId)?.allTokenBalances
+                    ?? walletTokens + hiddenWalletTokens,
+                trackedTokenSlugs: AssetsAndActivityDataStore.data(accountId: accountId)?.importedSlugs ?? []
+            )
+            tokenSearchNeedsUpdate = false
         }
+        let rankedSlugs = tokenSearch.search(normalizedKeyword)
+        showingTokenSlugs = rankedSlugs.filter { visibleSlugs.contains($0) }
+        showingHiddenTokenSlugs = rankedSlugs.filter { hiddenSlugs.contains($0) && !visibleSlugs.contains($0) }
+        applySnapshot(animated: false)
     }
 
     private func selectableWalletTokens(_ tokens: [MTokenBalance]) -> [MTokenBalance] {
@@ -262,6 +262,7 @@ extension TokenPickerViewController: UISearchBarDelegate, UISearchResultsUpdatin
 
 extension TokenPickerViewController {
     func balanceChanged() {
+        tokenSearchNeedsUpdate = true
         if let presentation = BalanceDataStore.walletTokensData(accountId: accountId)?.presentation {
             updateWalletTokens(with: presentation)
         }
@@ -284,7 +285,7 @@ extension TokenPickerViewController {
 extension TokenPickerViewController: WalletCoreData.EventsObserver {
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .balanceChanged, .tokensChanged:
+        case .balanceChanged, .tokensChanged, .assetsAndActivityDataUpdated:
             balanceChanged()
         default:
             break

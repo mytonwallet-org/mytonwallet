@@ -79,6 +79,12 @@ class WGlassView(context: Context) :
      */
     var captureExpand = 0f
 
+    /**
+     * Freezes the blur part at its last position while the view moves: a moving part re-records
+     * every sibling pill of the root, which blanks them under a live outer capture.
+     */
+    var holdsPart = false
+
     var style = Style.PILL
         set(value) {
             if (field == value) return
@@ -260,7 +266,6 @@ class WGlassView(context: Context) :
         } else {
             newPill
         }
-        drawn?.alpha = (alpha * 255).roundToInt()
         applyBounds()
         invalidate()
     }
@@ -391,12 +396,9 @@ class WGlassView(context: Context) :
         }
     }
 
-    override fun hasOverlappingRendering(): Boolean = false
-
-    override fun onSetAlpha(alpha: Int): Boolean {
-        drawn?.alpha = alpha
-        return true
-    }
+    // Alpha stays a RenderNode property: one composited layer per fade, and no display-list
+    // re-record for an outer root's capture to swallow.
+    override fun hasOverlappingRendering(): Boolean = true
 
     override fun verifyDrawable(who: Drawable): Boolean =
         who === drawn || who === pill || super.verifyDrawable(who)

@@ -1,0 +1,32 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="386dp"
+        android:height="160dp"
+        android:gravity="top|left">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="24dp" android:height="24dp" android:left="32dp" android:top="68dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="36dp" android:top="108dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="36dp" android:top="32dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="0dp" android:top="70dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="40dp" android:top="0dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="40dp" android:top="144dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="4dp" android:top="104dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="12dp" android:height="12dp" android:left="8dp" android:top="134dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="12dp" android:height="12dp" android:left="8dp" android:top="14dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="4dp" android:top="40dp" android:gravity="top|left" />
+
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="24dp" android:height="24dp" android:left="330dp" android:top="68dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="330dp" android:top="108dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="330dp" android:top="32dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="330dp" android:top="0dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="330dp" android:top="144dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="20dp" android:height="20dp" android:left="366dp" android:top="70dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="366dp" android:top="104dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="12dp" android:height="12dp" android:left="366dp" android:top="134dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="12dp" android:height="12dp" android:left="366dp" android:top="14dp" android:gravity="top|left" />
+    <item android:drawable="@drawable/ic_ornament_bitcoin" android:width="16dp" android:height="16dp" android:left="366dp" android:top="40dp" android:gravity="top|left" />
+</layer-list>

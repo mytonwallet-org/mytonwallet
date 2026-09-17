@@ -20,7 +20,7 @@ import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact, pick } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
-import { shouldEmitNftFullLoadFinal } from './util/nft-polling-guards';
+import { shouldEmitNftFullLoadFinal } from './util/nftPollingGuards';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
 import { getConcurrencyLimiter } from '../../common/polling/setupInactiveChainPolling';

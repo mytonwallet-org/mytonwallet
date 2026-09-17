@@ -6,6 +6,7 @@
 //
 
 import WalletContext
+import WalletCoreTypes
 
 public struct AccountChain: Equatable, Hashable, Sendable, Codable {
     public var address: String
@@ -26,6 +27,10 @@ public struct AccountChain: Equatable, Hashable, Sendable, Codable {
 extension AccountChain {
     public var preferredCopyString: String {
         domain ?? address
+    }
+
+    public func preferredCopyString(for chain: ApiChain) -> String {
+        domain ?? chain.normalizeAddress(address)
     }
     
     func matches(_ searchString: Regex<Substring>) -> Bool {

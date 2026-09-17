@@ -104,20 +104,20 @@ repositories {
 
 dependencies {
   implementation fileTree(include: ['*.jar'], dir: 'libs')
-  implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-  implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
-  implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
-  implementation "androidx.webkit:webkit:$androidxWebkitVersion"
-  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
-  testImplementation "junit:junit:$junitVersion"
+  implementation libs.androidx.appcompat
+  implementation libs.androidx.coordinatorlayout
+  implementation libs.androidx.core.splashscreen
+  implementation libs.androidx.webkit
+  implementation libs.kotlinx.coroutines.android
+  testImplementation libs.junit
   testImplementation libs.kotlin.reflect
-  androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-  androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-  implementation "com.google.android.gms:play-services-mlkit-barcode-scanning:$playServicesMlkitBarcodeScanningVersion"
-  implementation "com.google.android.gms:play-services-base:$playServicesBaseVersion"
-  implementation "androidx.camera:camera-camera2:$cameraCamera2Version"
-  implementation platform('com.google.firebase:firebase-bom:33.5.1')
-  implementation 'com.google.firebase:firebase-messaging'
+  androidTestImplementation libs.androidx.junit
+  androidTestImplementation libs.androidx.espresso.core
+  implementation libs.mlkit.barcode.scanning
+  implementation libs.play.services.base
+  implementation libs.camera.camera2
+  implementation platform(libs.firebase.bom)
+  implementation libs.google.firebase.messaging
 
   implementation project("$airSubModulePath:AirAsFramework")
 

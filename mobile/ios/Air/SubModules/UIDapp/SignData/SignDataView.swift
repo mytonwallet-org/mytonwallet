@@ -31,7 +31,7 @@ struct SignDataViewOrPlaceholder: View {
             )
             .transition(.opacity.animation(.default))
         } else {
-            SignDataPlaceholderView(accountContext: accountContext)
+            SignDataPlaceholderView(onCancel: onCancel)
                 .transition(.opacity.animation(.default))
         }
     }
@@ -49,11 +49,6 @@ struct SignDataView: View {
 
     var body: some View {
         InsetList {
-            DappHeaderView(
-                dapp: update.dapp,
-                accountContext: accountContext,
-            )
-            .padding(.bottom, 16)
             switch update.payloadToSign {
             case .text(let text):
                 makeText(payload: text)
@@ -574,15 +569,10 @@ private extension String {
 }
 
 private struct SignDataPlaceholderView: View {
-    var accountContext: AccountContext
+    var onCancel: () -> Void
 
     var body: some View {
         InsetList {
-            DappHeaderView(
-                dapp: ApiDapp.loadingStub,
-                accountContext: accountContext
-            )
-            
             InsetSection {
                 InsetCell {
                     Text(verbatim: "Some signing message")
@@ -598,7 +588,7 @@ private struct SignDataPlaceholderView: View {
         .skeletonContainer()
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 16) {
-                Button(action: {}) {
+                Button(action: onCancel) {
                     Text(lang("Cancel"))
                 }
                 .buttonStyle(.airSecondary)
@@ -606,9 +596,9 @@ private struct SignDataPlaceholderView: View {
                     Text(lang("Sign"))
                 }
                 .buttonStyle(.airPrimary)
+                .disabled(true)
             }
             .padding(16)
-            .disabled(true)
         }
     }
 }
@@ -616,7 +606,7 @@ private struct SignDataPlaceholderView: View {
 #if DEBUG
 @available(iOS 18, *)
 #Preview("Placeholder") {
-    SignDataPlaceholderView(accountContext: AccountContext(source: .current))
+    SignDataPlaceholderView(onCancel: {})
         .background(Color.air.sheetBackground)
 }
 #endif

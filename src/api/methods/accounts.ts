@@ -1,10 +1,11 @@
-import type { ApiActivityTimestamps, OnApiUpdate } from '../types';
+import type { ApiActivityTimestamps, OnApiUpdate, UTXOChain } from '../types';
 
 import { IS_EXTENSION } from '../../config';
 import { getOrderedAccountChains } from '../../util/chain';
 import { logDebugError } from '../../util/logs';
 import { SOLANA_DERIVATION_PATHS } from '../chains/solana/constants';
 import { TRON_BIP39_PATH } from '../chains/tron/constants';
+import { getUtxoImportPathTemplates, UTXO_COIN_TYPES } from '../chains/utxo/constants';
 import {
   fetchMaybeStoredAccount,
   fetchStoredAccount,
@@ -96,8 +97,11 @@ export async function loadAccountsDerivations() {
       const wallet = byChain[chain];
       if (!wallet?.derivation) continue;
 
-      const derivationLabel = Object.entries(SOLANA_DERIVATION_PATHS)
-        .find(([_, path]) => path === wallet.derivation?.path)?.[0];
+      const derivationLabel = chain in UTXO_COIN_TYPES
+        ? getUtxoImportPathTemplates(chain as UTXOChain)
+          .find(({ pathTemplate }) => pathTemplate === wallet.derivation?.path)?.label
+        : Object.entries(SOLANA_DERIVATION_PATHS)
+          .find(([_, path]) => path === wallet.derivation?.path)?.[0];
 
       onUpdate({
         type: 'updateAccount',

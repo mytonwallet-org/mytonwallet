@@ -21,9 +21,11 @@ import {
 } from '../../../../global/selectors';
 import { ACCENT_COLORS } from '../../../../util/accentColor/constants';
 import buildClassName from '../../../../util/buildClassName';
+import { getIsSupportedChain } from '../../../../util/chain';
 import { vibrate } from '../../../../util/haptics';
 import { getIsActiveStakingState, getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
 import { SWIPE_DISABLED_CLASS_NAME } from '../../../../util/swipeController';
+import { getChainBySlug } from '../../../../util/tokens';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 import { STAKING_TAB_TEXT_VARIANTS } from './helpers/stakingLabels';
@@ -61,6 +63,7 @@ interface StateProps {
   isOnRampDisabled?: boolean;
   isOffRampDisabled?: boolean;
   onRampChain?: ApiChain;
+  receiveChain?: ApiChain;
   stakingStatus: StakingStateStatus;
   theme: Theme;
   accentColorIndex?: number;
@@ -73,6 +76,7 @@ function TopActions({
   isOnRampDisabled,
   isOffRampDisabled,
   onRampChain,
+  receiveChain,
   stakingStatus,
   theme,
   accentColorIndex,
@@ -104,7 +108,7 @@ function TopActions({
 
   const handleDepositClick = useLastCallback(() => {
     vibrate();
-    openReceiveModal();
+    openReceiveModal(receiveChain ? { chain: receiveChain } : undefined);
   });
 
   const handleTradeClick = useLastCallback(() => {
@@ -203,6 +207,8 @@ export default memo(
       const accountId = selectCurrentAccountId(global);
       const stakingState = accountId ? selectAccountStakingState(global, accountId) : undefined;
       const currentTokenSlug = selectCurrentAccountState(global)?.currentTokenSlug;
+      const tokenChain = currentTokenSlug ? getChainBySlug(currentTokenSlug) : undefined;
+      const receiveChain = getIsSupportedChain(tokenChain) ? tokenChain : undefined;
       const currentStakingState = accountId && currentTokenSlug !== undefined
         ? selectAccountStakingStateForToken(global, accountId, currentTokenSlug)
         : undefined;
@@ -224,6 +230,7 @@ export default memo(
         isOnRampDisabled: !onRampChain,
         isOffRampDisabled: !selectIsOffRampAllowed(global, selectDefaultOffRampChain(global)),
         onRampChain,
+        receiveChain,
         stakingStatus: stakingState ? getStakingStateStatus(stakingState) : 'inactive',
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,

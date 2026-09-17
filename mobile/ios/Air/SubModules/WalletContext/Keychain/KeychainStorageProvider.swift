@@ -28,6 +28,7 @@ public protocol IKeychainStorageProvider: Sendable {
     func keys() -> [String]
     func load(key: String) throws -> String?
     func store(key: String, value: String) throws
+    func removeOrThrow(key: String) throws
 }
 
 public let KeychainStorageProvider: IKeychainStorageProvider = CapacitorKeychainStorageProvider()
@@ -111,6 +112,13 @@ public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, S
         }
         guard addStatus == errSecSuccess else {
             throw KeychainStorageProviderError.keychain(addStatus)
+        }
+    }
+
+    public func removeOrThrow(key: String) throws {
+        let status = SecItemDelete(query(key: key) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainStorageProviderError.keychain(status)
         }
     }
 

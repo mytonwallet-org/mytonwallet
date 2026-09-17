@@ -84,6 +84,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -93,6 +94,7 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.isUtxoChain
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
@@ -575,6 +577,7 @@ class TransactionVC(
     private var transactionAddressView: WAddressActionView? = null
 
     private var detailsRowViews = ArrayList<KeyValueRowView>()
+    private var estimatedTimeRow: KeyValueRowView? = null
     private val feeRow: KeyValueRowView? by lazy {
         KeyValueRowView(
             context,
@@ -698,6 +701,18 @@ class TransactionVC(
                             }
                         )
                     }
+                }
+                val estimatedTime = formatUtxoEtaForDetails(transaction)
+                KeyValueRowView(
+                    context,
+                    LocaleController.getString("Estimated Time"),
+                    estimatedTime ?: "",
+                    mode = KeyValueRowView.Mode.SECONDARY,
+                    isLast = false
+                ).apply {
+                    visibility = if (estimatedTime == null) View.GONE else View.VISIBLE
+                    estimatedTimeRow = this
+                    detailsRowViews.add(this)
                 }
                 if (transaction.fee > BigInteger.ZERO || transaction.shouldLoadDetails == true) {
                     feeRow?.let { detailsRowViews.add(it) }
@@ -999,11 +1014,7 @@ class TransactionVC(
             title = if (addressToShow?.second == true) addressText else null,
             blockchain = blockchain,
             network = account.network,
-            address = if (transaction.isIncoming) {
-                transaction.fromAddress ?: ""
-            } else {
-                transaction.toAddress ?: ""
-            },
+            address = transaction.peerAddress,
             centerHorizontally = true,
             showTemporaryViewOption = true,
             windowBackgroundStyle = windowBackgroundStyle
@@ -1019,7 +1030,7 @@ class TransactionVC(
         setupNavBar(true)
         navigationBar?.setTitleView(titleView, animated = false)
         navigationBar?.addCloseButton()
-        setNavSubtitle(transaction.dt.formatDateAndTime())
+        setNavSubtitle(transactionNavSubtitle())
         configureTitle(animated = false)
 
         actionsView.setPadding(0, 0, 0, 16.dp)
@@ -1175,6 +1186,61 @@ class TransactionVC(
         topReversedCornerView?.translationZ = navigationBar?.translationZ ?: 0f
     }
 
+    private fun transactionNavSubtitle(): String =
+        utxoConfirmationSubtitle() ?: transaction.dt.formatDateAndTime()
+
+    private fun utxoConfirmationSubtitle(): String? {
+        val tx = transaction as? MApiTransaction.Transaction ?: return null
+        val blockchain = TokenStore.getToken(tx.slug)?.mBlockchain ?: return null
+        val confirmations = tx.confirmations ?: return null
+        val maxConfirmations = tx.maxConfirmations ?: return null
+        if (!isUtxoChain(blockchain) || confirmations >= maxConfirmations) return null
+
+        return LocaleController.getPluralOrFormat(
+            "\$utxo_confirmations",
+            maxConfirmations,
+            value = maxConfirmations.toString(),
+            placeholder = "%max%"
+        )
+            .replace("%count%", confirmations.coerceAtLeast(0).toString())
+            .withLocalizedNumbers
+    }
+
+    private fun updateEstimatedTimeRow(transaction: MApiTransaction = this.transaction) {
+        val tx = transaction as? MApiTransaction.Transaction
+        val eta = tx?.let { formatUtxoEtaForDetails(it) }
+        estimatedTimeRow?.setValue(eta ?: "")
+        estimatedTimeRow?.visibility = if (eta == null) View.GONE else View.VISIBLE
+    }
+
+    private fun formatUtxoEtaForDetails(transaction: MApiTransaction.Transaction): String? {
+        val etaSeconds = transaction.etaSeconds ?: return null
+        if (etaSeconds <= 0 || transaction.status == ApiTransactionStatus.COMPLETED) return null
+
+        return LocaleController.getString("\$utxo_estimated_time")
+            .replace("%duration%", formatUtxoEta(etaSeconds))
+    }
+
+    private fun formatUtxoEta(etaSeconds: Int): String {
+        val seconds = etaSeconds.coerceAtLeast(0)
+        if (seconds < 60) {
+            return LocaleController.getPlural(seconds, "second")
+        }
+
+        val minutes = (seconds + 59) / 60
+        if (minutes < 60) {
+            return LocaleController.getPlural(minutes, "minute")
+        }
+
+        val hours = (minutes + 59) / 60
+        if (hours < 24) {
+            return LocaleController.getPlural(hours, "hour")
+        }
+
+        val days = (hours + 23) / 24
+        return LocaleController.getPlural(days, "day")
+    }
+
     private fun configureTitle(animated: Boolean) {
         updateTitleIfNeeded(animated)
         updateTagIfNeeded(animated)
@@ -1256,7 +1322,8 @@ class TransactionVC(
 
     private fun reloadData() {
         configureTitle(animated = true)
-        setNavSubtitle(transaction.dt.formatDateAndTime())
+        setNavSubtitle(transactionNavSubtitle())
+        updateEstimatedTimeRow()
         ensureCorrectHeaderView()
         reloadCommentView()
         reloadTransactionAddressView()
@@ -1680,6 +1747,7 @@ class TransactionVC(
                 }
                 res?.let { transaction ->
                     ActivityStore.updateCachedTransaction(accountId, transaction)
+                    updateEstimatedTimeRow(transaction)
                     feeRow?.setValue(
                         calcFee(transaction),
                         fadeIn = feeRow?.valueLabel?.contentView?.text.isNullOrEmpty()

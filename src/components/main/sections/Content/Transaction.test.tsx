@@ -3,11 +3,32 @@ import TeactDOM from '../../../../lib/teact/teact-dom';
 
 import type { ApiCurrencyRates, ApiTokenWithPrice } from '../../../../api/types';
 
-import { TRC20_USDT_MAINNET } from '../../../../config';
+import { LITECOIN, TRC20_USDT_MAINNET } from '../../../../config';
 import { pause } from '../../../../util/schedulers';
 import { makeMockTransactionActivity } from '../../../../../tests/mocks';
 
 import Transaction from './Transaction';
+
+jest.mock('../../../../lib/rlottie/RLottie.async', () => {
+  const animation = {
+    changeData: jest.fn(),
+    goToFirstFrame: jest.fn(),
+    isPlaying: jest.fn(() => false),
+    pause: jest.fn(),
+    play: jest.fn(),
+    playSegment: jest.fn(),
+    removeView: jest.fn(),
+    setColor: jest.fn(),
+    setNoLoop: jest.fn(),
+    setSharedCanvasCoords: jest.fn(),
+    setSpeed: jest.fn(),
+  };
+
+  return {
+    ensureRLottie: jest.fn(() => Promise.resolve({ init: jest.fn(() => animation) })),
+    getRLottie: jest.fn(() => ({ init: jest.fn(() => animation) })),
+  };
+});
 
 const MAX_UINT256 = 2n ** 256n - 1n;
 const CURRENCY_RATES: ApiCurrencyRates = {
@@ -72,5 +93,46 @@ describe('Transaction approval display', () => {
     expect(root.textContent).not.toContain(MAX_UINT256.toString());
     expect(root.textContent).not.toContain('$');
     expect(root.textContent).not.toContain('+');
+  });
+
+  it('keeps UTXO confirmation progress out of the transaction row', async () => {
+    const litecoinToken: ApiTokenWithPrice = {
+      ...LITECOIN,
+      priceUsd: 1,
+      percentChange24h: 0,
+    };
+    const transaction = makeMockTransactionActivity({
+      id: 'ltc-tx',
+      amount: 100000n,
+      confirmations: 1,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+      status: 'pending',
+      isIncoming: true,
+      fromAddress: 'ltc1qsender0000000000000000000000000000000',
+      toAddress: 'ltc1qvmw9dmensxtuxu5vw7mxtxqurad2u99m9cqgtp',
+      slug: litecoinToken.slug,
+    });
+
+    TeactDOM.render(
+      <Transaction
+        tokensBySlug={{ [litecoinToken.slug]: litecoinToken }}
+        transaction={transaction}
+        annualYield={undefined}
+        yieldType={undefined}
+        appTheme="light"
+        savedAddresses={undefined}
+        accounts={undefined}
+        currentAccountId="0-mainnet"
+        baseCurrency="USD"
+        currencyRates={CURRENCY_RATES}
+      />,
+      root,
+    );
+    await pause(20);
+
+    expect(root.textContent).not.toContain('1/2');
+    expect(root.textContent).not.toContain('~10m');
+    expect(root.textContent).not.toContain('2/2');
   });
 });

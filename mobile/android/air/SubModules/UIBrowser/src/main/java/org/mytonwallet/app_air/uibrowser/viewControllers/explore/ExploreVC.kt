@@ -41,7 +41,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
@@ -472,9 +471,8 @@ class ExploreVC(context: Context) :
     var isShowingSearch = false
     private var searchNavigationController: WNavigationController? = null
     private var isGlobalSearchSession = false
-    private var enhancedSearchEnabled = false
     val shouldKeepSearchActiveOnKeyboardDismiss: Boolean
-        get() = enhancedSearchEnabled && isShowingSearch && searchVC?.isDisappeared != true
+        get() = isShowingSearch && searchVC?.isDisappeared != true
 
     fun search(
         query: String?,
@@ -484,19 +482,7 @@ class ExploreVC(context: Context) :
     ) {
         val keyword = query ?: ""
         val hasActiveSearchScreen = isShowingSearch && searchVC?.isDisappeared != true
-        val useEnhancedSearch = if (hasActiveSearchScreen) {
-            enhancedSearchEnabled
-        } else {
-            WGlobalStorage.areTopTabsEnabled()
-        }
-        val shouldShowSearchScreen = !query.isNullOrEmpty() ||
-            (
-                isFocused &&
-                    (
-                        useEnhancedSearch ||
-                            !ExploreHistoryStore.exploreHistory?.searchHistory.isNullOrEmpty()
-                        )
-                )
+        val shouldShowSearchScreen = !query.isNullOrEmpty() || isFocused
         if (!shouldShowSearchScreen) {
             dismissSearchScreen()
             return
@@ -510,10 +496,8 @@ class ExploreVC(context: Context) :
         if (!isShowingSearch || searchVC?.isDisappeared == true) {
             val targetNavigationController = targetNavigationController ?: return
             isShowingSearch = true
-            enhancedSearchEnabled = useEnhancedSearch
             val searchVC = SearchVC(
                 context,
-                enhancedSearchEnabled,
                 usesGlobalSearchOverlay = isGlobalSearch,
                 // Covers dismissals that bypass dismissSearchScreen (swipe back, nav pop),
                 // which would otherwise leave the search request refreshing on every poll.
@@ -537,7 +521,7 @@ class ExploreVC(context: Context) :
             }
         }
         searchVC?.updateSearchQuery(keyword)
-        exploreVM.search(keyword, enhancedSearchEnabled) { searchResult ->
+        exploreVM.search(keyword) { searchResult ->
             if (isShowingSearch && searchVC?.isDisappeared != true) {
                 searchVC?.updateSearchResult(searchResult)
                 exploreVM.searchWalletInfo(searchResult) { updated ->

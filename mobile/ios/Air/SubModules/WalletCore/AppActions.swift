@@ -72,6 +72,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showError(error: Error?)
     static func showExplore()
     static func showExploreSite(siteHost: String)
+    static func showExploreSite(siteUrl: String) async -> Bool
     static func showHiddenNfts(accountSource: AccountSource) -> ()
     static func showHome(popToRoot: Bool)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
@@ -87,8 +88,9 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String)
     static func showSettings(section: AppSettingsSection?)
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
+    static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
     static func showToast(_ config: ToastConfig)
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
@@ -144,14 +146,15 @@ public extension AppActionsProtocol {
         )
     }
 
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, push: Bool?) async {
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double? = nil, push: Bool?) async {
         await showSwap(
             accountContext: accountContext,
             defaultSellingToken: defaultSellingToken,
             defaultBuyingToken: defaultBuyingToken,
             defaultSellingAmount: defaultSellingAmount,
-            defaultBuyingAmount: nil,
-            push: push
+            defaultBuyingAmount: defaultBuyingAmount,
+            push: push,
+            isAccountSwitchingAllowed: true
         )
     }
     
@@ -200,6 +203,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showError(error: Error?) { }
     static func showExplore() { }
     static func showExploreSite(siteHost: String) { }
+    static func showExploreSite(siteUrl: String) async -> Bool { false }
     static func showHiddenNfts(accountSource: AccountSource) -> () { }
     static func showHome(popToRoot: Bool) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
@@ -215,8 +219,9 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSaveAddressDialog(accountContext: AccountContext, chain: ApiChain, address: String) { }
     static func showSettings(section: AppSettingsSection?) { }
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
+    static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async { }
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async { }
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
     static func showToast(_ config: ToastConfig) { }
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }

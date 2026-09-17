@@ -2,16 +2,21 @@ package org.mytonwallet.app_air.walletcore.stores
 
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.ARBITRUM_SLUG
+import org.mytonwallet.app_air.walletcore.ARC_SLUG
 import org.mytonwallet.app_air.walletcore.BASE_SLUG
 import org.mytonwallet.app_air.walletcore.BASE_USDC_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.BASE_USDT_MAINNET_SLUG
+import org.mytonwallet.app_air.walletcore.BITCOINCASH_SLUG
+import org.mytonwallet.app_air.walletcore.BITCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.BNB_SLUG
 import org.mytonwallet.app_air.walletcore.BSC_USDT_MAINNET_SLUG
+import org.mytonwallet.app_air.walletcore.DOGECOIN_SLUG
 import org.mytonwallet.app_air.walletcore.ETH_SLUG
 import org.mytonwallet.app_air.walletcore.ETH_USDC_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.ETH_USDT_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.HYPERLIQUID_SLUG
 import org.mytonwallet.app_air.walletcore.HYPERLIQUID_USDC_MAINNET_SLUG
+import org.mytonwallet.app_air.walletcore.LITECOIN_SLUG
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.ROBINHOOD_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_SLUG
@@ -74,6 +79,17 @@ internal object DefaultTokens {
         token(TONCOIN_SLUG, "Gram", "GRAM", 9, "ton", cmcSlug = "toncoin"),
         token(TRON_SLUG, "TRON", "TRX", 6, "tron", cmcSlug = "tron"),
         token(SOLANA_SLUG, "Solana", "SOL", 9, "solana", cmcSlug = "solana"),
+        token(BITCOIN_SLUG, "Bitcoin", "BTC", 8, "bitcoin", cmcSlug = "bitcoin"),
+        token(LITECOIN_SLUG, "Litecoin", "LTC", 8, "litecoin", cmcSlug = "litecoin"),
+        token(
+            BITCOINCASH_SLUG,
+            "Bitcoin Cash",
+            "BCH",
+            8,
+            "bitcoincash",
+            cmcSlug = "bitcoin-cash"
+        ),
+        token(DOGECOIN_SLUG, "Dogecoin", "DOGE", 8, "dogecoin", cmcSlug = "dogecoin"),
         token(MYCOIN_SLUG, "My Wallet Coin", "MY", 9, "ton"),
         token(
             USDE_SLUG,
@@ -204,6 +220,14 @@ internal object DefaultTokens {
             18,
             "robinhood",
             label = "Robinhood"
+        ),
+        token(
+            ARC_SLUG,
+            "Arc",
+            "USDC",
+            18,
+            "arc",
+            label = "Arc"
         ),
         token(
             HYPERLIQUID_USDC_MAINNET_SLUG,

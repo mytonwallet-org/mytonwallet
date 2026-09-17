@@ -4,8 +4,6 @@ import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
-import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 
 object AppTabsManager {
 
@@ -18,6 +16,13 @@ object AppTabsManager {
         val isRequired: Boolean
     )
 
+    const val ID_HOME = 1
+    const val ID_AGENT = 2
+    const val ID_EXPLORE = 3
+    const val ID_SETTINGS = 4
+    const val ID_PORTFOLIO = 5
+    const val ID_MARKET = 6
+
     const val TAB_WALLET = "wallet"
     const val TAB_MARKET = "market"
     const val TAB_AGENT = "agent"
@@ -28,7 +33,7 @@ object AppTabsManager {
     val registeredTabs = listOf(
         AppTab(
             TAB_WALLET,
-            IBottomNavigationView.ID_HOME,
+            ID_HOME,
             R.drawable.ic_home_thin,
             R.drawable.ic_home_filled,
             "Wallet",
@@ -36,7 +41,7 @@ object AppTabsManager {
         ),
         AppTab(
             TAB_MARKET,
-            IBottomNavigationView.ID_MARKET,
+            ID_MARKET,
             R.drawable.ic_market_thin,
             R.drawable.ic_market_filled,
             "Market",
@@ -44,7 +49,7 @@ object AppTabsManager {
         ),
         AppTab(
             TAB_AGENT,
-            IBottomNavigationView.ID_AGENT,
+            ID_AGENT,
             R.drawable.ic_agent_thin,
             R.drawable.ic_agent_filled,
             "Agent",
@@ -52,7 +57,7 @@ object AppTabsManager {
         ),
         AppTab(
             TAB_EXPLORE,
-            IBottomNavigationView.ID_EXPLORE,
+            ID_EXPLORE,
             R.drawable.ic_explore_thin,
             R.drawable.ic_explore_filled,
             "Explore",
@@ -60,7 +65,7 @@ object AppTabsManager {
         ),
         AppTab(
             TAB_SETTINGS,
-            IBottomNavigationView.ID_SETTINGS,
+            ID_SETTINGS,
             R.drawable.ic_settings_thin,
             R.drawable.ic_settings_filled,
             "Settings",
@@ -68,7 +73,7 @@ object AppTabsManager {
         ),
         AppTab(
             TAB_PORTFOLIO,
-            IBottomNavigationView.ID_PORTFOLIO,
+            ID_PORTFOLIO,
             R.drawable.ic_portfolio_thin,
             R.drawable.ic_portfolio_filled,
             "Portfolio",
@@ -86,26 +91,14 @@ object AppTabsManager {
             ?: validatedTabOrder(WGlobalStorage.getAppTabOrder()).also { _orderedTabIds = it }
 
     val orderedTabs: List<AppTab>
-        get() = orderedTabIds.mapNotNull(::tabFor).filter(::isAvailable)
-
-    val selectableTabs: List<AppTab>
-        get() = registeredTabs.filter(::isAvailable)
-
-    val availableTabs: List<AppTab>
-        get() = selectableTabs.filter { it.id !in orderedTabIds }
-
-    val visibleDefaultTabIds: List<String>
-        get() = defaultTabIds.filter { id -> tabFor(id)?.let(::isAvailable) == true }
+        get() = orderedTabIds.mapNotNull(::tabFor)
 
     val isCustomized: Boolean
-        get() = orderedTabs.map { it.id } != visibleDefaultTabIds
+        get() = orderedTabIds != defaultTabIds
 
     fun tabFor(id: String): AppTab? = registeredTabs.firstOrNull { it.id == id }
 
     fun contains(intId: Int): Boolean = orderedTabs.any { it.intId == intId }
-
-    private fun isAvailable(tab: AppTab): Boolean =
-        tab.id != TAB_MARKET || WGlobalStorage.areTopTabsEnabled()
 
     fun setTabIds(ids: List<String>) {
         val validated = validatedTabOrder(ids)

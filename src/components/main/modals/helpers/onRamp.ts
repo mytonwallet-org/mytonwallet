@@ -1,6 +1,6 @@
 import type { ApiBaseCurrency, ApiChain } from '../../../../api/types';
 
-import { getIsRubSupported } from '../../../../util/ramp-currencies';
+import { getIsRubSupported } from '../../../../util/rampCurrencies';
 
 export type OnRampProvider = 'avanchange' | 'moonpay';
 

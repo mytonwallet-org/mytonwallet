@@ -13,11 +13,10 @@ import { DEFAULT_CHAIN, NFT_BATCH_SIZE } from '../../../config';
 import { bigintDivideToNumber } from '../../../util/bigint';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getChainConfig } from '../../../util/chain';
-import { toDecimal } from '../../../util/decimals';
-import { getDieselTokenAmount } from '../../../util/fee/transferFee';
+import { getDieselTokenAmount, isBalanceSufficientForTransfer } from '../../../util/fee/transferFee';
 import { split } from '../../../util/iteratees';
-import { getTranslation } from '../../../util/langProvider';
 import { shouldShowDomainScamWarning, shouldShowSeedPhraseScamWarning } from '../../../util/scamDetection';
+import { getChainBySlug } from '../../../util/tokens';
 import { callApi } from '../../../api';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
@@ -33,8 +32,10 @@ import {
 } from '../../reducers';
 import {
   selectAccountState,
+  selectAccountTokenBySlug,
   selectCurrentAccount,
   selectCurrentAccountId,
+  selectCurrentAccountTokenBalance,
   selectCurrentAccountTokens,
   selectCurrentNetwork,
   selectIsHardwareAccount,
@@ -245,21 +246,25 @@ addActionHandler('fetchNftFee', async (global, actions, payload) => {
   }
   setGlobal(global);
 
-  const nativeToken = getChainConfig(chain).nativeToken;
+  if (result?.error === ApiTransactionDraftError.InsufficientBalance) {
+    const { tokenSlug, nfts: currentNfts, explainedFee, diesel } = global.currentTransfer;
+    const nftNativeTokenSlug = getChainConfig(currentNfts![0].chain).nativeToken.slug;
+    const nativeTokenSlug = getChainConfig(getChainBySlug(tokenSlug)).nativeToken.slug;
+    const isEnoughBalance = isBalanceSufficientForTransfer({
+      tokenBalance: selectAccountTokenBySlug(global, nftNativeTokenSlug)?.amount,
+      nativeTokenBalance: selectCurrentAccountTokenBalance(global, nativeTokenSlug),
+      transferAmount: 0n,
+      fullFee: explainedFee?.fullFee?.terms,
+      canTransferFullBalance: explainedFee?.canTransferFullBalance ?? false,
+    });
+
+    if (isEnoughBalance === false && diesel?.status !== 'not-authorized' && diesel?.status !== 'pending-previous') {
+      return;
+    }
+  }
 
   if (result?.error) {
-    const feeDisplay = result.explainedFee?.fullFee?.nativeSum;
-
-    actions.showError({
-      error: result?.error === ApiTransactionDraftError.InsufficientBalance
-        ? getTranslation('Insufficient %token% for fee.%fee%', {
-          token: nativeToken.slug,
-          fee: feeDisplay !== undefined
-            ? ` (~${toDecimal(feeDisplay, nativeToken.decimals)} ${nativeToken.slug})`
-            : '',
-        })
-        : result.error,
-    });
+    actions.showError({ error: result.error });
   }
 });
 

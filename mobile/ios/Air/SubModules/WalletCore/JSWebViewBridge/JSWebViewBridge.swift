@@ -121,7 +121,9 @@ public class JSWebViewBridge: UIViewController {
     private var isApiReady = false
     private var bridgeReadyWaiters: [CheckedContinuation<Void, Never>] = []
 
-    private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background, attributes: [.concurrent])
+    // Token deltas must reach stores in delivery order, including JSON decoding
+    private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background)
+    private let storage = JSBridgeStorage()
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -210,14 +212,23 @@ public class JSWebViewBridge: UIViewController {
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
     }
     
-    private func _callApiImpl(
+    private nonisolated(nonsending) func _callApiImpl(
         methodName: String,
         args: [AnyEncodable?],
         waitForBridge: Bool = true
     ) async throws -> String? {
-        let jsonData = try! JSONEncoder().encode(args)
-        let argsString = String(data: jsonData, encoding: .utf8)!
-        
+        try Task.checkCancellation()
+        let jsonData = try JSONEncoder().encode(args)
+        let argsString = String(decoding: jsonData, as: UTF8.self)
+        return try await _invokeApi(methodName: methodName, argsString: argsString, waitForBridge: waitForBridge)
+    }
+
+    @MainActor private func _invokeApi(
+        methodName: String,
+        argsString: String,
+        waitForBridge: Bool = true
+    ) async throws -> String? {
+        try Task.checkCancellation()
         if self.webView == nil { // app switched to legacy mode
             throw SdkError.sdkNotReady(methodName: methodName, reason: "Switched to legacy app")
         }
@@ -230,6 +241,7 @@ public class JSWebViewBridge: UIViewController {
         guard self.webView != nil else {
             throw SdkError.sdkNotReady(methodName: methodName, reason: "Switched to legacy app")
         }
+        try Task.checkCancellation()
         
         let webView = self.webView!
         let rawResult: Any?
@@ -348,7 +360,7 @@ public class JSWebViewBridge: UIViewController {
             ))
         }
     }
-    
+
     nonisolated(nonsending) func callApiOptional<each E: Encodable, T: Decodable>(_ methodName: String, _ args: repeat each E, decodingOptional: T.Type) async throws -> T? {
         let responseString = try await _callApiImpl(methodName: methodName, args: asAnyEncodables(repeat each args))
         if let responseString {
@@ -434,6 +446,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
         assert(Thread.isMainThread)
         nonisolated(unsafe) let body = message.body
         let messageName = message.name
+        let storage = storage
         updateQueue.async {
             assert(!Thread.isMainThread)
             nonisolated(unsafe) let data = body as? [String: Any]
@@ -451,15 +464,30 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                       let methodName = data?["methodName"] as? String else {
                     return
                 }
-                Task { @MainActor in
-
-                    func completeNativeCallVoid() async {
-                        do {
-                            _ = try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                        } catch {
-                            log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
+                if let method = JSBridgeStorage.Method(rawValue: methodName) {
+                    let key = data?["arg0"] as? String
+                    storage.enqueue(method, key: key, value: data?["arg1"] as? String) { result in
+                        Task { @MainActor in
+                            do {
+                                switch result {
+                                case .success(.value(let value)):
+                                    try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: value)
+                                case .success(.keys(let keys)):
+                                    try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: keys)
+                                case .success(.void):
+                                    try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
+                                case .failure(let error):
+                                    log.fault("native storage failed method=\(methodName, .public) key=\(key ?? "missing", .public) error=\(error.localizedDescription, .public)")
+                                    try await self.webView?.nativeCallError(requestNumber: requestNumber, error: error.localizedDescription)
+                                }
+                            } catch {
+                                log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
+                            }
                         }
                     }
+                    return
+                }
+                Task { @MainActor in
 
                     func completeNativeCallOk(result: sending Any?) async {
                         do {
@@ -470,34 +498,6 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                     }
 
                     switch methodName {
-                    case "airStorageGetItem":
-                        guard let key = data?["arg0"] as? String
-                        else {
-                            await completeNativeCallVoid()
-                            return
-                        }
-                        let result = KeychainHelper.getStorage(key: key)
-                        await completeNativeCallOk(result: result)
-                        
-                    case "airStorageSetItem":
-                        if let key = data?["arg0"] as? String, let value = data?["arg1"] as? String {
-                            KeychainHelper.saveStorage(key: key, value: value)
-                        }
-                        await completeNativeCallVoid()
-                        
-                    case "airStorageRemoveItem":
-                        if let key = data?["arg0"] as? String {
-                            KeychainHelper.saveStorage(key: key, value: nil)
-                        }
-                        await completeNativeCallVoid()
-
-                    case "airStorageClear":
-                        KeychainHelper.clearStorage()
-                        await completeNativeCallVoid()
-                        
-                    case "airStorageKeys":
-                        await completeNativeCallOk(result: KeychainHelper.keys())
-
                     case "openWalletConnectUrl":
                         guard let value = data?["arg0"] as? String,
                               let url = URL(string: value),

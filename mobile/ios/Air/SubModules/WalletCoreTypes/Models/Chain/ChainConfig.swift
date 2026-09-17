@@ -110,7 +110,7 @@ public struct ChainConfig: Sendable {
     /// A random but valid address for checking transfer fees
     public var feeCheckAddress: String
     /// A swap configuration used to buy the native token in this chain
-    public var buySwap: BuySwap
+    public var buySwap: BuySwap? = nil
     /// The slug of the USDT token in this chain, if it has USDT
     public var usdtSlug: [ApiNetwork: String]
     /// The token slugs of this chain added to new accounts by default.
@@ -147,6 +147,7 @@ public struct ChainConfig: Sendable {
 // MARK: - Built-in chain configs (mirrors `src/util/chain.ts`)
 
 private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
+    .bitcoin,
     .ethereum,
     .solana,
     .hyperliquid,
@@ -155,19 +156,28 @@ private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
     .bnb,
     .base,
     .robinhood,
+    .arc,
     .monad,
     .arbitrum,
     .polygon,
     .avalanche,
+    .dogecoin,
+    .litecoin,
+    .bitcoincash,
 ]
 private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .ton,
     .ethereum,
     .solana,
+    .bitcoin,
+    .litecoin,
+    .bitcoincash,
+    .dogecoin,
     .tron,
     .bnb,
     .hyperliquid,
     .robinhood,
+    .arc,
     .base,
     .arbitrum,
    .monad,
@@ -180,6 +190,10 @@ private var CHAIN_ORDER: [ApiChain] {
 private let TON_DEFAULT_DERIVATION_PATH = "m/44'/607'/{index}'"
 private let TRON_DEFAULT_DERIVATION_PATH = "m/44'/195'/0'/0/{index}"
 private let SOLANA_DEFAULT_DERIVATION_PATH = "m/44'/501'/{index}'/0'"
+private let BITCOIN_DEFAULT_DERIVATION_PATH = "m/86'/0'/0'/0/{index}"
+private let LITECOIN_DEFAULT_DERIVATION_PATH = "m/84'/2'/0'/0/{index}"
+private let BITCOINCASH_DEFAULT_DERIVATION_PATH = "m/44'/145'/0'/0/{index}"
+private let DOGECOIN_DEFAULT_DERIVATION_PATH = "m/44'/3'/0'/0/{index}"
 private let EVM_DEFAULT_DERIVATION_PATH = "m/44'/60'/0'/0/{index}"
 private let EVM_ADDRESS_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{40}$"#)
 private let EVM_ADDRESS_PREFIX_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{0,40}$"#)
@@ -417,6 +431,66 @@ private func makeEvmChainConfig(
     )
 }
 
+private func makeUtxoChainConfig(
+    title: String,
+    defaultDerivationPath: String,
+    addressRegex: ChainConfig.RegexPattern,
+    addressPrefixRegex: ChainConfig.RegexPattern,
+    nativeToken: ApiToken,
+    feeCheckAddress: String,
+    explorerId: String,
+    explorerName: String,
+    explorerMainnetUrl: String,
+    explorerTestnetUrl: String
+) -> ChainConfig {
+    let explorer = ChainConfig.Explorer(
+        id: explorerId,
+        name: explorerName,
+        baseUrl: [
+            .mainnet: .init(url: explorerMainnetUrl),
+            .testnet: .init(url: explorerTestnetUrl),
+        ],
+        address: "{base}address/{address}",
+        token: "{base}address/{address}",
+        transaction: explorerId == "mempool" ? "{base}tx/{hash}" : "{base}transaction/{hash}",
+        doConvertHashFromBase64: false
+    )
+
+    return ChainConfig(
+        title: title,
+        isDnsSupported: false,
+        canBuyWithCardInRussia: false,
+        isOnRampSupported: true,
+        isOffRampSupported: true,
+        isOnchainSwapSupported: false,
+        isTransferPayloadSupported: false,
+        isEncryptedCommentSupported: false,
+        canTransferFullNativeBalance: false,
+        isLedgerSupported: false,
+        multiWalletSupport: .path,
+        defaultDerivationPath: defaultDerivationPath,
+        addressRegex: addressRegex,
+        addressPrefixRegex: addressPrefixRegex,
+        nativeToken: nativeToken,
+        doesBackendSocketSupport: false,
+        canImportTokens: false,
+        shouldShowScamWarningIfNotEnoughGas: false,
+        doesSupportPushNotifications: false,
+        feeCheckAddress: feeCheckAddress,
+        usdtSlug: [:],
+        defaultEnabledSlugs: [
+            .mainnet: [nativeToken.slug],
+            .testnet: [nativeToken.slug],
+        ],
+        crosschainSwapSlugs: [nativeToken.slug],
+        tokenInfo: [nativeToken],
+        explorers: [explorer],
+        explorer: explorer,
+        isNftSupported: false,
+        isNetWorthSupported: false
+    )
+}
+
 private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
     .ton: ChainConfig(
         title: "TON",
@@ -629,6 +703,54 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         nftBatchLimit: 500,
         nftBatchPauseMs: 1000,
         isNetWorthSupported: false
+    ),
+    .bitcoin: makeUtxoChainConfig(
+        title: "Bitcoin",
+        defaultDerivationPath: BITCOIN_DEFAULT_DERIVATION_PATH,
+        addressRegex: .init(pattern: #"^(?:bc1|tb1)[a-z0-9]{25,62}$|^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$"#),
+        addressPrefixRegex: .init(pattern: #"^(?:bc1|tb1)[a-z0-9]{0,62}$|^[13][a-km-zA-HJ-NP-Z1-9]{0,34}$"#),
+        nativeToken: .BITCOIN,
+        feeCheckAddress: "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+        explorerId: "mempool",
+        explorerName: "Mempool",
+        explorerMainnetUrl: "https://mempool.space/",
+        explorerTestnetUrl: "https://mempool.space/testnet/"
+    ),
+    .litecoin: makeUtxoChainConfig(
+        title: "Litecoin",
+        defaultDerivationPath: LITECOIN_DEFAULT_DERIVATION_PATH,
+        addressRegex: .init(pattern: #"^(?:ltc1|tltc1)[a-z0-9]{25,62}$|^[LM2lm][a-km-zA-HJ-NP-Z1-9]{26,33}$"#),
+        addressPrefixRegex: .init(pattern: #"^(?:ltc1|tltc1)[a-z0-9]{0,62}$|^[LM2lm][a-km-zA-HJ-NP-Z1-9]{0,33}$"#),
+        nativeToken: .LITECOIN,
+        feeCheckAddress: "ltc1qw508d6qejxtdg4y5r3zarvary0c5xw7kgmn4n9",
+        explorerId: "blockchair",
+        explorerName: "Blockchair",
+        explorerMainnetUrl: "https://blockchair.com/litecoin/",
+        explorerTestnetUrl: "https://blockchair.com/litecoin/testnet/"
+    ),
+    .bitcoincash: makeUtxoChainConfig(
+        title: "Bitcoin Cash",
+        defaultDerivationPath: BITCOINCASH_DEFAULT_DERIVATION_PATH,
+        addressRegex: .init(pattern: #"^(?:bitcoincash:|bchtest:)?[qp][a-z0-9]{41}$|^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$"#, isCaseInsensitive: true),
+        addressPrefixRegex: .init(pattern: #"^(?:bitcoincash:|bchtest:)?[qp][a-z0-9]{0,41}$|^[13][a-km-zA-HJ-NP-Z1-9]{0,34}$"#, isCaseInsensitive: true),
+        nativeToken: .BITCOINCASH,
+        feeCheckAddress: "qrny4xkwvwvsxertkd2nue70wmc5s98kru7m2q7vk6",
+        explorerId: "blockchair",
+        explorerName: "Blockchair",
+        explorerMainnetUrl: "https://blockchair.com/bitcoin-cash/",
+        explorerTestnetUrl: "https://blockchair.com/bitcoin-cash/testnet/"
+    ),
+    .dogecoin: makeUtxoChainConfig(
+        title: "Dogecoin",
+        defaultDerivationPath: DOGECOIN_DEFAULT_DERIVATION_PATH,
+        addressRegex: .init(pattern: #"^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$"#),
+        addressPrefixRegex: .init(pattern: #"^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{0,32}$"#),
+        nativeToken: .DOGECOIN,
+        feeCheckAddress: "D596YFweJQuHY1BbjazZYmAbt8jJPbKehC",
+        explorerId: "blockchair",
+        explorerName: "Blockchair",
+        explorerMainnetUrl: "https://blockchair.com/dogecoin/",
+        explorerTestnetUrl: "https://blockchair.com/dogecoin/testnet/"
     ),
     .ethereum: ChainConfig(
         title: "Ethereum",
@@ -904,6 +1026,28 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         walletConnectChainIds: [
             .mainnet: 4663,
             .testnet: 46630,
+        ]
+    ),
+    .arc: makeEvmChainConfig(
+        title: "Arc",
+        nativeToken: .ARC,
+        buySwapTokenInSlug: TON_USDT_SLUG,
+        buySwapAmountIn: "50",
+        isOnRampSupported: false,
+        isOffRampSupported: false,
+        defaultEnabledSlugs: [ARC_SLUG],
+        crosschainSwapSlugs: [ARC_SLUG],
+        tokenInfo: [
+            .ARC,
+        ],
+        explorerId: "arcscan",
+        explorerName: "Arcscan",
+        explorerMainnetUrl: "https://arc-scan.org/",
+        explorerTestnetUrl: "https://testnet.arc-scan.org/",
+        isNftSupported: false,
+        walletConnectChainIds: [
+            .mainnet: 5042,
+            .testnet: 5042002,
         ]
     ),
 ]

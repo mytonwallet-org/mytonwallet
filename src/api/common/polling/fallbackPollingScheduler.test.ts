@@ -1,6 +1,6 @@
 import type { FallbackPollingOptions } from './fallbackPollingScheduler';
 
-import { CircuitOpenError } from '../../../util/circuit-breaker';
+import { CircuitOpenError } from '../../../util/circuitBreaker';
 import { logDebugError } from '../../../util/logs';
 import * as randomModule from '../../../util/random';
 import { FallbackPollingScheduler } from './fallbackPollingScheduler';

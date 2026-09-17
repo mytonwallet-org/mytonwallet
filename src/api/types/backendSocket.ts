@@ -1,4 +1,5 @@
-import type { ApiChain } from './misc';
+import type { UtxoTransaction } from '../chains/utxo/types';
+import type { ApiChain, ApiTransaction, UTXOChain } from './misc';
 
 export type ApiSocketEventType = 'activity';
 
@@ -38,6 +39,38 @@ export type ApiNewActivitySocketMessage = {
   addresses: string[];
 };
 
+type ApiUtxoActivityUpdateSocketMessageBase = {
+  type: 'utxoActivityUpdate';
+  chain: UTXOChain;
+  address: string;
+  txId: string;
+  status: Extract<ApiTransaction['status'], 'pending' | 'completed'>;
+  /** Backend-owned confirmation target for this update. */
+  maxConfirmations: number;
+  /** Backend-owned approximate seconds until UTXO finality when available. */
+  etaSeconds?: number;
+  /** Raw Blockbook transaction JSON. Parse relative to the subscribed wallet address. */
+  rawTransaction: UtxoTransaction;
+};
+
+export type ApiUtxoUnconfirmedActivityUpdateSocketMessage = ApiUtxoActivityUpdateSocketMessageBase & {
+  confirmations: 0;
+  status: 'pending';
+  blockHeight?: undefined;
+  blockHash?: undefined;
+};
+
+export type ApiUtxoConfirmedActivityUpdateSocketMessage = ApiUtxoActivityUpdateSocketMessageBase & {
+  /** Positive confirmation count. Confirmed UTXO updates must include block identity. */
+  confirmations: number;
+  blockHeight: number;
+  blockHash: string;
+};
+
+export type ApiUtxoActivityUpdateSocketMessage =
+  | ApiUtxoUnconfirmedActivityUpdateSocketMessage
+  | ApiUtxoConfirmedActivityUpdateSocketMessage;
+
 export type ApiSubscribedSocketMessage = {
   type: 'subscribed';
   /** The id from the request */
@@ -49,4 +82,5 @@ export type ApiServerSocketMessage =
   | ApiOkSocketMessage
   | ApiErrorSocketMessage
   | ApiSubscribedSocketMessage
-  | ApiNewActivitySocketMessage;
+  | ApiNewActivitySocketMessage
+  | ApiUtxoActivityUpdateSocketMessage;

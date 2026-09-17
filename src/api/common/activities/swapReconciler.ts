@@ -30,8 +30,23 @@ export function preserveActivityStatusProgress<T extends ApiActivity>(
   incoming: T,
 ): T {
   if (!existing || existing.kind !== incoming.kind) return incoming;
-  if (STATUS_RANK[existing.status] <= STATUS_RANK[incoming.status]) return incoming;
-  return { ...incoming, status: existing.status };
+
+  let merged = incoming;
+
+  if (
+    existing.kind === 'transaction'
+    && incoming.kind === 'transaction'
+    && incoming.etaSeconds === undefined
+    && existing.etaSeconds !== undefined
+  ) {
+    merged = { ...incoming, etaSeconds: existing.etaSeconds };
+  }
+
+  if (STATUS_RANK[existing.status] <= STATUS_RANK[incoming.status]) return merged;
+  if (existing.kind === 'swap' && merged.kind === 'swap' && existing.cex && merged.cex) {
+    merged = { ...merged, cex: { ...merged.cex, status: existing.cex.status } };
+  }
+  return { ...merged, status: existing.status };
 }
 
 /** EVM hex identifiers are case-insensitive; TON base64 hashes are not, so only hex is lowercased. */
@@ -314,7 +329,7 @@ function getDexStatus(
   swap: ApiSwapActivity,
   sources: readonly ApiActivity[],
   legs: readonly ApiSwapActivity[],
-): ApiActivity['status'] {
+): ApiSwapActivity['status'] {
   if (!sources.length) return swap.status;
   if (sources.some(({ status }) => status === 'pending' || status === 'pendingTrusted')) return 'pendingTrusted';
   if (sources.some(({ status }) => status === 'confirmed')) return 'confirmed';

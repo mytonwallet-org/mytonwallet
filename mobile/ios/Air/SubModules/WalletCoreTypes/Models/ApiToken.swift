@@ -321,6 +321,42 @@ extension ApiToken {
         cmcSlug: "solana"
     )
 
+    public static let BITCOIN = ApiToken(
+        slug: BITCOIN_SLUG,
+        name: "Bitcoin",
+        symbol: "BTC",
+        decimals: 8,
+        chain: .bitcoin,
+        cmcSlug: "bitcoin"
+    )
+
+    public static let LITECOIN = ApiToken(
+        slug: LITECOIN_SLUG,
+        name: "Litecoin",
+        symbol: "LTC",
+        decimals: 8,
+        chain: .litecoin,
+        cmcSlug: "litecoin"
+    )
+
+    public static let BITCOINCASH = ApiToken(
+        slug: BITCOINCASH_SLUG,
+        name: "Bitcoin Cash",
+        symbol: "BCH",
+        decimals: 8,
+        chain: .bitcoincash,
+        cmcSlug: "bitcoin-cash"
+    )
+
+    public static let DOGECOIN = ApiToken(
+        slug: DOGECOIN_SLUG,
+        name: "Dogecoin",
+        symbol: "DOGE",
+        decimals: 8,
+        chain: .dogecoin,
+        cmcSlug: "dogecoin"
+    )
+
     public static let ETH = ApiToken(
         slug: ETH_SLUG,
         name: "Ethereum",
@@ -394,6 +430,15 @@ extension ApiToken {
         decimals: 18,
         chain: .robinhood,
         label: "Robinhood"
+    )
+
+    public static let ARC = ApiToken(
+        slug: ARC_SLUG,
+        name: "Arc",
+        symbol: "USDC",
+        decimals: 18,
+        chain: .arc,
+        label: "Arc"
     )
 
     public static let MYCOIN = ApiToken(
@@ -597,6 +642,11 @@ extension ApiToken {
         TRX_SLUG: .TRX,
         SOLANA_SLUG: .SOLANA,
         ROBINHOOD_SLUG: .ROBINHOOD,
+        ARC_SLUG: .ARC,
+        BITCOIN_SLUG: .BITCOIN,
+        LITECOIN_SLUG: .LITECOIN,
+        BITCOINCASH_SLUG: .BITCOINCASH,
+        DOGECOIN_SLUG: .DOGECOIN,
         MYCOIN_SLUG: .MYCOIN,
         TON_USDE_SLUG: .TON_USDE,
         STAKED_TON_SLUG: .STAKED_TON,

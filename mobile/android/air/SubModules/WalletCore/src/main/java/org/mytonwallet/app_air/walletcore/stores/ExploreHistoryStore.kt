@@ -62,11 +62,6 @@ object ExploreHistoryStore : IStore {
         saveBrowserHistory(accountId, history)
     }
 
-    fun clearAccountHistory() {
-        exploreHistory = MExploreHistory()
-        saveBrowserHistory(accountId, exploreHistory)
-    }
-
     private fun saveBrowserHistory(accountId: String?, browserHistory: MExploreHistory?) {
         if (accountId == null) return
         val historySnapshot = browserHistory?.copy(

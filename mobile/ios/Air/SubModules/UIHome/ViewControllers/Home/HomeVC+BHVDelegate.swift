@@ -32,7 +32,7 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     }
 
     public func walletAssetDidChangeDisplayTabs(animated: Bool) {
-        applySnapshot(makeSnapshot(), animatingDifferences: animated)
+        applySnapshot(makeSnapshot(reconfiguringCustomSections: [assetsCustomSectionID]), animatingDifferences: animated)
         walletAssetDidChangeHeight(animated: animated)
     }
     

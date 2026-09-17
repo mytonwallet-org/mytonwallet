@@ -3,7 +3,7 @@ import type { ApiBackendConfig } from '../api/types';
 import { DEFAULT_RETRIES } from '../config';
 import { setBackendConfigCache } from '../api/common/cache';
 import { pauseWithAbortSignal } from './abortSignal';
-import { CircuitOpenError } from './circuit-breaker';
+import { CircuitOpenError } from './circuitBreaker';
 import {
   classifyFetchFailure,
   computeRetryBackoffMs,

@@ -71,7 +71,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
 
     private let accountContext: AccountContext
     private lazy var tokenActions = WalletTokenActions(accountContext: accountContext, isInModal: false)
-    private var state: State = .placeholders(count: 4)
+    private var state: State = .placeholders(count: 5)
     private var tokenItemsByIdentifier: [String: TokenItem] = [:]
     private var emptyStateAnimationSessionID = 0
 
@@ -297,7 +297,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         tokenItemsByIdentifier.removeAll(keepingCapacity: true)
 
         guard let walletTokensData = accountContext.walletTokensData else {
-            state = .placeholders(count: 4)
+            state = .placeholders(count: 5)
             finishRefresh(previousItemIdentifiers: previousItemIdentifiers, animated: animated, notify: notify)
             return
         }

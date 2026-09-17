@@ -38,7 +38,6 @@ interface WalletContextManagerDelegate {
 
     fun getWalletsTabsVC(viewMode: MWalletSettingsViewMode): Any
 
-    fun getCustomizeTabsVC(): Any
     fun getHiddenNftsVC(accountId: String): Any
     fun getReceiveVC(chain: String, buyingTokenSlug: String?): Any?
 

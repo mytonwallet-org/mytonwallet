@@ -54,6 +54,7 @@ public protocol AuthSupportProtocol {
         extraUsages: Int
     ) async throws -> EnclaveToken?
     static var accountsSupportAppLock: Bool { get }
+    static var hasPendingMultichainUpgrade: Bool { get }
     static var cooldownRemaining: TimeInterval? { get }
 }
 
@@ -107,7 +108,7 @@ public enum AuthSupportBiometricsError: LocalizedError {
 final class AuthSupportImpl: AuthSupportProtocol {
     static var status: AuthStatus {
         let configuredMethods = configuredMethods()
-        let requiresAuthorization = AccountStore.accountsById.values.any { $0.type.isStoredEncrypted }
+        let requiresAuthorization = accountsSupportAppLock
         let biometricsAvailable = isBiometricsAvailable()
 
         var authorizableMethods = Set<AuthMethod>()
@@ -137,7 +138,15 @@ final class AuthSupportImpl: AuthSupportProtocol {
     }
 
     static var accountsSupportAppLock: Bool {
-        status.requiresAuthorization
+        // Account eligibility does not require probing keychain or biometric availability.
+        AccountStore.accountsById.values.any { $0.type.isStoredEncrypted }
+    }
+
+    static var hasPendingMultichainUpgrade: Bool {
+        MultichainAccountUpgradeDetector.needsSDKPreparation(
+            nativeAccountsById: AccountStore.accountsById,
+            storedAccountsJSON: KeychainHelper.getStorage(key: "accounts")
+        )
     }
 
     static var cooldownRemaining: TimeInterval? {
@@ -368,10 +377,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
     }
 
     private static func pendingMultichainUpgradeUsageCount() async -> Int {
-        guard MultichainAccountUpgradeDetector.needsSDKPreparation(
-            nativeAccountsById: AccountStore.accountsById,
-            storedAccountsJSON: KeychainHelper.getStorage(key: "accounts")
-        ) else {
+        guard hasPendingMultichainUpgrade else {
             return 0
         }
 

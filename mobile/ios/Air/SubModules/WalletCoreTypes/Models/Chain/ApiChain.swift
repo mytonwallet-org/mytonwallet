@@ -2,12 +2,24 @@ import Foundation
 import WalletContext
 
 public let FALLBACK_CHAIN: ApiChain = .ton
+public func isUtxoChain(_ chain: ApiChain) -> Bool {
+    switch chain {
+    case .bitcoin, .bitcoincash, .litecoin, .dogecoin:
+        return true
+    default:
+        return false
+    }
+}
 
 @dynamicMemberLookup
 public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case ton
     case tron
     case solana
+    case bitcoin
+    case litecoin
+    case bitcoincash
+    case dogecoin
     case ethereum
     case base
     case bnb
@@ -17,6 +29,7 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case avalanche
     case hyperliquid
     case robinhood
+    case arc
     case other(String)
 
     public init?(rawValue: String) {
@@ -29,6 +42,14 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             self = .tron
         case "solana":
             self = .solana
+        case "bitcoin":
+            self = .bitcoin
+        case "litecoin":
+            self = .litecoin
+        case "bitcoincash":
+            self = .bitcoincash
+        case "dogecoin":
+            self = .dogecoin
         case "ethereum":
             self = .ethereum
         case "base":
@@ -47,6 +68,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             self = .hyperliquid
         case "robinhood":
             self = .robinhood
+        case "arc":
+            self = .arc
         default:
             self = .other(rawValue)
         }
@@ -60,6 +83,14 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             "tron"
         case .solana:
             "solana"
+        case .bitcoin:
+            "bitcoin"
+        case .litecoin:
+            "litecoin"
+        case .bitcoincash:
+            "bitcoincash"
+        case .dogecoin:
+            "dogecoin"
         case .ethereum:
             "ethereum"
         case .base:
@@ -78,6 +109,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             "hyperliquid"
         case .robinhood:
             "robinhood"
+        case .arc:
+            "arc"
         case .other(let rawValue):
             rawValue
         }
@@ -85,6 +118,18 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
 
     public var isSupported: Bool {
         isSupportedChain(self)
+    }
+
+    public func normalizeAddress(_ address: String) -> String {
+        guard self == .bitcoincash else { return address }
+
+        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let separator = trimmed.firstIndex(of: ":") else { return trimmed }
+
+        let prefix = trimmed[..<separator].lowercased()
+        guard prefix == "bitcoincash" || prefix == "bchtest" else { return trimmed }
+
+        return String(trimmed[trimmed.index(after: separator)...])
     }
 
     public static let allCases: [ApiChain] = getSupportedChains()
@@ -163,11 +208,19 @@ public extension ApiChain {
             "TRC-20"
         case .solana:
             "Solana"
+        case .bitcoin:
+            "BTC"
+        case .litecoin:
+            "LTC"
+        case .bitcoincash:
+            "BCH"
+        case .dogecoin:
+            "DOGE"
         case .bnb:
             "BEP-20"
         case .ethereum, .base:
             "ERC-20"
-        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid, .robinhood:
+        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid, .robinhood, .arc:
             "ERC-20"
         case .other(let chain):
             chain.uppercased()

@@ -403,6 +403,7 @@ Slippage: لغزش قیمت
 $swap_from_to: مبادله %from% %icon% %to%
 The exchange rate is below market value!: نرخ مبادله %value% کمتر از ارزش بازار است!
 Invalid Pair: مبادله در دسترس نیست
+Unsupported Pair: جفت پشتیبانی‌نشده
 We do not recommend to perform an exchange, try to specify a lower amount.: انجام این مبادله را توصیه نمی‌کنیم، مبلغ کمتری را امتحان کنید.
 $swap_minimum_received_tooltip1: این کمترین مقدار توکن جدیدی است که از این مبادله دریافت خواهید کرد، با در نظر گرفتن شرایط فعلی بازار، تحمل لغزش قیمت و تأثیر احتمالی قیمت.
 $swap_minimum_received_tooltip2: این یک حداقل مورد انتظار است، اما اگر شرایط در حین پردازش مبادله شما به‌شدت تغییر کند، مبلغ نهایی ممکن است کمتر باشد.
@@ -672,6 +673,10 @@ $transfer_text_and_bin_exclusive: نمی‌توان همزمان از هر دو 
 $unsupported_deeplink_parameter: این دیپ‌لینک شامل پارامترهای پشتیبانی‌نشده است.
 $unsupported_chain: بلاک‌چین پشتیبانی‌نشده.
 Successfully: با موفقیت
+Estimated Time: زمان تخمینی
+$utxo_confirmations:
+  otherValue: "%count% از %max% تأیید"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: برداشت استیک بیشتر
 Are you sure you want to burn this NFT? It will be lost forever.: |
   آیا مطمئن هستید که می‌خواهید این NFT را بسوزانید؟
@@ -984,6 +989,11 @@ $iab_tabs_count:
   zeroValue: "%count% تب"
   oneValue: "%count% تب"
   otherValue: "%count% تب"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% تب"
+  oneValue: "+ %count% تب"
+  otherValue: "+ %count% تب"
+Close Tab: بستن زبانه
 $domains_amount %count%:
   zeroValue: بدون دامنه
   oneValue: "%count% دامنه"
@@ -1328,6 +1338,152 @@ $agent_portfolio_insight_chain_split_title: توزیع شبکه
 $agent_portfolio_insight_chain_split_text: میزان در معرض بودن شبکه را در تخصیص موجود بررسی کنید؛ دارایی‌های حذف شده ممکن است تصویر کل پرتفوی را تغییر دهند.
 $agent_portfolio_insight_data_quality_title: کیفیت داده‌ها
 $agent_portfolio_insight_data_quality_text: هنگام تفسیر این تحلیل، پوشش داده‌ها و تازگی آن را در نظر بگیرید.
+$agent_market_analysis_title: تحلیل بازار
+$agent_market_as_of: تا تاریخ
+$agent_market_closed_1d: آخرین کندل روزانه بسته‌شده
+$agent_market_thesis: فرضیه تکنیکی
+$agent_market_fear_greed_sentiment: احساسات بازار مبتنی بر بیت‌کوین
+$agent_market_fear_greed_index: شاخص ترس و طمع (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: رژیم بازار
+$agent_market_fear_greed_risk_on: احساسات ریسک‌پذیر
+$agent_market_fear_greed_risk_off: احساسات ریسک‌گریز
+$agent_market_fear_greed_neutral: احساسات خنثی
+$agent_market_fear_greed_source: منبع
+$agent_market_timeframes: ساختار بازار
+$agent_market_structure_bullish: اوج‌های بالاتر و کف‌های بالاتر
+$agent_market_structure_bearish: اوج‌های پایین‌تر و کف‌های پایین‌تر
+$agent_market_structure_range: محدوده
+$agent_market_structure_transition: انتقال
+$agent_market_structure_unavailable: ساختار موجود نیست
+$agent_market_event_none: شکست تایید نشده
+$agent_market_event_break_up: شکست بالای ساختار
+$agent_market_event_break_down: شکست پایین ساختار
+$agent_market_event_retest_up: بازآزمایی صعودی
+$agent_market_event_retest_down: بازآزمایی نزولی
+$agent_market_live_approaching_upper: نزدیک شدن به مرز بالایی
+$agent_market_live_approaching_lower: نزدیک شدن به مرز پایین
+$agent_market_level_map: سطوح کلیدی
+$agent_market_level_primary: سطح اولیه
+$agent_market_level_secondary: سطح ثانویه
+$agent_market_level_context: سطح زمینه
+$agent_market_levels_unavailable: سطوح ساختاری تایید شده در دسترس نیستند.
+$agent_market_profile_poc_full: مرکز حجم (POC)
+$agent_market_profile_value_area_full: مرزهای ناحیه ارزش (VAL/VAH)
+$agent_market_profile_hvn_full: ناحیه حجم بالا (HVN)
+$agent_market_profile_lvn_full: راهروی حجم پایین (LVN)
+$agent_market_profile_current_day: روز فعلی UTC
+$agent_market_profile_previous_day: روز گذشته UTC
+$agent_market_profile_previous_week: هفته گذشته UTC
+$agent_market_profile_rolling_30d: 30 جلسه گذشته UTC
+$agent_market_profile_above: قیمت بالاتر از ناحیه ارزش
+$agent_market_profile_inside: قیمت درون ناحیه ارزش
+$agent_market_profile_below: قیمت پایین‌تر از ناحیه ارزش
+$agent_market_factors: عوامل کلیدی
+$agent_market_factor_structure: "ساختار روزانه: %direction%"
+$agent_market_factor_levels: مناطق حمایت %supports% و مقاومت %resistances% برای این افق تأیید شده‌اند.
+$agent_market_factor_profile: "توزیع حجم: %position%."
+$agent_market_factor_profile_unavailable: نمایه حجم در دسترس نیست؛ سناریو بر اساس ساختار قیمت است.
+$agent_market_factor_timeframe_alignment: "ساختار بازه زمانی — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "رژیم فعلی: %active%. سناریوی شرطی: %conditional% پس از %activation%."
+$agent_market_factor_no_active_scenario: "هیچ سناریویی تأیید نشده است. سناریوی شرطی: %conditional% پس از %activation%."
+$agent_market_primary_scenario: سناریوی اصلی
+$agent_market_current_regime: رژیم تأیید شده فعلی
+$agent_market_conditional_scenario: سناریوی شرطی
+$agent_market_no_active_scenario: در حال حاضر هیچ سناریویی تأیید نشده است.
+$agent_market_calculated_fallback: "تحلیل محاسبه شده: توضیح مدل به طور موقت در دسترس نیست."
+$agent_market_other_horizons: افق‌های درخواست شده دیگر
+$agent_market_horizon_3d: 3 روز
+$agent_market_horizon_7d: 7 روز
+$agent_market_horizon_30d: 30 روز
+$agent_market_scenario_bullish: شکست صعودی
+$agent_market_scenario_range: تعادل بازه
+$agent_market_scenario_bearish: شکست نزولی
+$agent_market_scenario_unavailable: سناریوی ساختاری برای این افق در دسترس نیست.
+$agent_market_confidence: اطمینان
+$agent_market_confidence_low: کم
+$agent_market_confidence_medium: متوسط
+$agent_market_activation: فعال‌سازی
+$agent_market_path: مسیر
+$agent_market_terminal: منطقه نهایی
+$agent_market_invalidation: باطل‌سازی
+$agent_market_expected_range: دامنه سناریو
+$agent_market_rationale: دلیل
+$agent_market_condition_above: بسته شدن بالاتر
+$agent_market_condition_below: بسته شدن پایین‌تر
+$agent_market_condition_inside: بسته شدن در داخل
+$agent_market_condition_outside: بسته شدن در خارج
+$agent_market_condition_waiting: در انتظار تأیید
+$agent_market_condition_approaching: در حال نزدیک شدن
+$agent_market_condition_triggered: تأیید شده
+$agent_market_scenario_zone: منطقه سناریو
+$agent_market_expected_move: پوشش نوسان
+$agent_market_volatility_envelope: پوشش نوسان کلی
+$agent_market_expected_move_note: حرکت مشروط، نه یک احتمال
+$agent_market_risk_caveat: سناریوها مشروط هستند و توصیه معاملاتی محسوب نمی‌شوند.
+$agent_market_partial_coverage: بخشی از شواهد بازار در دسترس نیست؛ اعتماد محدود است.
+$agent_market_thesis_bullish: ساختار تأیید شده ادامه حرکت بالای مقاومت را ترجیح می‌دهد در حالی که باطل‌سازی زیر نزدیک‌ترین حمایت باقی می‌ماند.
+$agent_market_thesis_bearish: ساختار تأیید شده ادامه حرکت پایین‌تر از حمایت را ترجیح می‌دهد در حالی که باطل‌سازی بالای نزدیک‌ترین مقاومت باقی می‌ماند.
+$agent_market_thesis_range: قیمت بین حمایت و مقاومت تأیید شده متعادل باقی مانده است.
+$agent_market_thesis_mixed: چارچوب‌های زمانی تناقض دارند، بنابراین تأیید در مرز ساختاری از شاخص‌های جهت‌دار مهم‌تر است.
+$agent_market_thesis_insufficient: شواهد موجود برای تأیید یک ساختار جهت‌دار کافی نیست.
+$agent_market_thesis_unconfirmed: هیچ سناریویی تأیید نشده است؛ قبل از اتخاذ یک موقعیت جهت‌دار منتظر بسته شدن مرز ساختاری باشید.
+$agent_semantic_asset_search: جستجوی دارایی
+$agent_semantic_web_digest: نتایج وب
+$agent_semantic_no_results: هیچ نتیجه‌ای یافت نشد
+$agent_semantic_wallets: کیف پول‌ها
+$agent_semantic_wallet: کیف پول
+$agent_semantic_balance: موجودی
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: معمولی
+$agent_semantic_access_view_only: فقط مشاهده
+$agent_semantic_wallets_unpriced: موقعیت‌های %amount% در مجموع‌های نمایش داده شده لحاظ نشده‌اند زیرا قیمتی ندارند.
+$agent_semantic_wallets_stale: برخی از موجودی‌های کیف پول ممکن است قدیمی باشند.
+$agent_semantic_wallets_unavailable: برخی از موجودی‌های کیف پول در دسترس نیستند.
+$agent_semantic_wallets_partial: برخی از داده‌های کیف پول ناقص هستند.
+$agent_semantic_status: وضعیت
+$agent_semantic_quantity: تعداد
+$agent_semantic_time: زمان
+$agent_semantic_partial: برخی داده‌ها در دسترس نیستند.
+$agent_semantic_pending: در انتظار
+$agent_semantic_confirmed: تأیید شده
+$agent_semantic_completed: تکمیل شده
+$agent_semantic_failed: ناموفق
+$agent_semantic_expired: منقضی شده
+$agent_semantic_active: فعال
+$agent_semantic_unstaking: خارج کردن از استیک
+$agent_semantic_ready: آماده
+$agent_semantic_frozen: منجمد
+$agent_semantic_locked: قفل شده
+$agent_semantic_fungible: توکن
+$agent_semantic_nft: NFT
+$agent_semantic_staking: استیکینگ
+$agent_semantic_vesting: مرحله‌بندی
+$agent_semantic_vault: خزانه
+$agent_semantic_transfer: انتقال
+$agent_semantic_swap: تبادل
+$agent_semantic_stake: استیک
+$agent_semantic_unstake: آن‌استیک
+$agent_semantic_contract: قرارداد
+$agent_semantic_unknown: فعالیت
+$agent_semantic_spam_transactions: تراکنش‌های اسپم
+$agent_semantic_spam_assets: دارایی‌های اسپم
+$agent_semantic_hidden_assets: دارایی‌های مخفی
+$agent_semantic_hidden_assets_warning: نام دارایی‌های مخفی ممکن است گمراه‌کننده باشد. آن‌ها به صورت متن ساده نمایش داده می‌شوند و نمی‌توان به عنوان لینک بازشان کرد.
+$agent_semantic_quarantine_warning: این موارد به عنوان اسپم گزارش شده‌اند. به نام‌ها یا لینک‌هایشان اعتماد نکنید.
+$agent_semantic_redacted_asset: نام مخفی
+$agent_semantic_omitted_spam: "اسپم فیلتر شده: %amount%"
+$agent_semantic_omitted_spam_minimum: "اسپم فیلتر شده: حداقل %amount%"
+$agent_semantic_omitted_hidden: "دارایی‌های مخفی حذف شدند: %amount%"
+$agent_semantic_omitted_hidden_minimum: "دارایی‌های مخفی حذف شدند: حداقل %amount%"
+$agent_semantic_suspicious: "نام‌های ناامن مخفی شدند: %amount%"
+$agent_semantic_suspicious_minimum: "نام‌های ناامن مخفی شدند: حداقل %amount%"
+$agent_semantic_suspicious_shown: "نام‌های احتمالا ناامن: %amount%"
+$agent_semantic_suspicious_shown_minimum: "نام‌های احتمالا ناامن: حداقل %amount%"
+$agent_semantic_omitted_rows: داده‌ها خیلی زیاد است. %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
+$agent_semantic_omitted_rows_minimum: داده‌ها خیلی زیاد است. حداقل %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
+$agent_semantic_update_required: برای نمایش این پاسخ، برنامه را به‌روزرسانی کنید.
 $agent_hint_portfolio_title: عملکرد پرتفوی
 $agent_hint_portfolio_prompt: عملکرد پرتفوی من را تحلیل کنید.
 $agent_hint_swap_title: سواپ‌ها چگونه کار می‌کنند
@@ -1490,152 +1646,6 @@ $agent_error_update_required: برای ادامه برنامه را به‌رو�
 $agent_semantic_transactions: تراکنش‌ها
 $agent_semantic_positions: موقعیت‌ها
 $agent_semantic_market: نمای کلی بازار
-$agent_market_analysis_title: تحلیل بازار
-$agent_market_as_of: تا تاریخ
-$agent_market_closed_1d: آخرین کندل روزانه بسته‌شده
-$agent_market_thesis: فرضیه تکنیکی
-$agent_market_fear_greed_sentiment: احساسات بازار مبتنی بر بیت‌کوین
-$agent_market_fear_greed_index: شاخص ترس و طمع (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: رژیم بازار
-$agent_market_fear_greed_risk_on: احساسات ریسک‌پذیر
-$agent_market_fear_greed_risk_off: احساسات ریسک‌گریز
-$agent_market_fear_greed_neutral: احساسات خنثی
-$agent_market_fear_greed_source: منبع
-$agent_market_timeframes: ساختار بازار
-$agent_market_structure_bullish: اوج‌های بالاتر و کف‌های بالاتر
-$agent_market_structure_bearish: اوج‌های پایین‌تر و کف‌های پایین‌تر
-$agent_market_structure_range: محدوده
-$agent_market_structure_transition: انتقال
-$agent_market_structure_unavailable: ساختار موجود نیست
-$agent_market_event_none: شکست تایید نشده
-$agent_market_event_break_up: شکست بالای ساختار
-$agent_market_event_break_down: شکست پایین ساختار
-$agent_market_event_retest_up: بازآزمایی صعودی
-$agent_market_event_retest_down: بازآزمایی نزولی
-$agent_market_live_approaching_upper: نزدیک شدن به مرز بالایی
-$agent_market_live_approaching_lower: نزدیک شدن به مرز پایین
-$agent_market_level_map: سطوح کلیدی
-$agent_market_level_primary: سطح اولیه
-$agent_market_level_secondary: سطح ثانویه
-$agent_market_level_context: سطح زمینه
-$agent_market_levels_unavailable: سطوح ساختاری تایید شده در دسترس نیستند.
-$agent_market_profile_poc_full: مرکز حجم (POC)
-$agent_market_profile_value_area_full: مرزهای ناحیه ارزش (VAL/VAH)
-$agent_market_profile_hvn_full: ناحیه حجم بالا (HVN)
-$agent_market_profile_lvn_full: راهروی حجم پایین (LVN)
-$agent_market_profile_current_day: روز فعلی UTC
-$agent_market_profile_previous_day: روز گذشته UTC
-$agent_market_profile_previous_week: هفته گذشته UTC
-$agent_market_profile_rolling_30d: 30 جلسه گذشته UTC
-$agent_market_profile_above: قیمت بالاتر از ناحیه ارزش
-$agent_market_profile_inside: قیمت درون ناحیه ارزش
-$agent_market_profile_below: قیمت پایین‌تر از ناحیه ارزش
-$agent_market_factors: عوامل کلیدی
-$agent_market_factor_structure: "ساختار روزانه: %direction%"
-$agent_market_factor_levels: مناطق حمایت %supports% و مقاومت %resistances% برای این افق تأیید شده‌اند.
-$agent_market_factor_profile: "توزیع حجم: %position%."
-$agent_market_factor_profile_unavailable: نمایه حجم در دسترس نیست؛ سناریو بر اساس ساختار قیمت است.
-$agent_market_factor_timeframe_alignment: "ساختار بازه زمانی — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "رژیم فعلی: %active%. سناریوی شرطی: %conditional% پس از %activation%."
-$agent_market_factor_no_active_scenario: "هیچ سناریویی تأیید نشده است. سناریوی شرطی: %conditional% پس از %activation%."
-$agent_market_primary_scenario: سناریوی اصلی
-$agent_market_current_regime: رژیم تأیید شده فعلی
-$agent_market_conditional_scenario: سناریوی شرطی
-$agent_market_no_active_scenario: در حال حاضر هیچ سناریویی تأیید نشده است.
-$agent_market_calculated_fallback: "تحلیل محاسبه شده: توضیح مدل به طور موقت در دسترس نیست."
-$agent_market_other_horizons: افق‌های درخواست شده دیگر
-$agent_market_horizon_3d: 3 روز
-$agent_market_horizon_7d: 7 روز
-$agent_market_horizon_30d: 30 روز
-$agent_market_scenario_bullish: شکست صعودی
-$agent_market_scenario_range: تعادل بازه
-$agent_market_scenario_bearish: شکست نزولی
-$agent_market_scenario_unavailable: سناریوی ساختاری برای این افق در دسترس نیست.
-$agent_market_confidence: اطمینان
-$agent_market_confidence_low: کم
-$agent_market_confidence_medium: متوسط
-$agent_market_activation: فعال‌سازی
-$agent_market_path: مسیر
-$agent_market_terminal: منطقه نهایی
-$agent_market_invalidation: باطل‌سازی
-$agent_market_expected_range: دامنه سناریو
-$agent_market_rationale: دلیل
-$agent_market_condition_above: بسته شدن بالاتر
-$agent_market_condition_below: بسته شدن پایین‌تر
-$agent_market_condition_inside: بسته شدن در داخل
-$agent_market_condition_outside: بسته شدن در خارج
-$agent_market_condition_waiting: در انتظار تأیید
-$agent_market_condition_approaching: در حال نزدیک شدن
-$agent_market_condition_triggered: تأیید شده
-$agent_market_scenario_zone: منطقه سناریو
-$agent_market_expected_move: پوشش نوسان
-$agent_market_volatility_envelope: پوشش نوسان کلی
-$agent_market_expected_move_note: حرکت مشروط، نه یک احتمال
-$agent_market_risk_caveat: سناریوها مشروط هستند و توصیه معاملاتی محسوب نمی‌شوند.
-$agent_market_partial_coverage: بخشی از شواهد بازار در دسترس نیست؛ اعتماد محدود است.
-$agent_market_thesis_bullish: ساختار تأیید شده ادامه حرکت بالای مقاومت را ترجیح می‌دهد در حالی که باطل‌سازی زیر نزدیک‌ترین حمایت باقی می‌ماند.
-$agent_market_thesis_bearish: ساختار تأیید شده ادامه حرکت پایین‌تر از حمایت را ترجیح می‌دهد در حالی که باطل‌سازی بالای نزدیک‌ترین مقاومت باقی می‌ماند.
-$agent_market_thesis_range: قیمت بین حمایت و مقاومت تأیید شده متعادل باقی مانده است.
-$agent_market_thesis_mixed: چارچوب‌های زمانی تناقض دارند، بنابراین تأیید در مرز ساختاری از شاخص‌های جهت‌دار مهم‌تر است.
-$agent_market_thesis_insufficient: شواهد موجود برای تأیید یک ساختار جهت‌دار کافی نیست.
-$agent_market_thesis_unconfirmed: هیچ سناریویی تأیید نشده است؛ قبل از اتخاذ یک موقعیت جهت‌دار منتظر بسته شدن مرز ساختاری باشید.
-$agent_semantic_asset_search: جستجوی دارایی
-$agent_semantic_web_digest: نتایج وب
-$agent_semantic_no_results: هیچ نتیجه‌ای یافت نشد
-$agent_semantic_wallets: کیف پول‌ها
-$agent_semantic_wallet: کیف پول
-$agent_semantic_balance: موجودی
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: معمولی
-$agent_semantic_access_view_only: فقط مشاهده
-$agent_semantic_wallets_unpriced: موقعیت‌های %amount% در مجموع‌های نمایش داده شده لحاظ نشده‌اند زیرا قیمتی ندارند.
-$agent_semantic_wallets_stale: برخی از موجودی‌های کیف پول ممکن است قدیمی باشند.
-$agent_semantic_wallets_unavailable: برخی از موجودی‌های کیف پول در دسترس نیستند.
-$agent_semantic_wallets_partial: برخی از داده‌های کیف پول ناقص هستند.
-$agent_semantic_status: وضعیت
-$agent_semantic_quantity: تعداد
-$agent_semantic_time: زمان
-$agent_semantic_partial: برخی داده‌ها در دسترس نیستند.
-$agent_semantic_pending: در انتظار
-$agent_semantic_confirmed: تأیید شده
-$agent_semantic_completed: تکمیل شده
-$agent_semantic_failed: ناموفق
-$agent_semantic_expired: منقضی شده
-$agent_semantic_active: فعال
-$agent_semantic_unstaking: خارج کردن از استیک
-$agent_semantic_ready: آماده
-$agent_semantic_frozen: منجمد
-$agent_semantic_locked: قفل شده
-$agent_semantic_fungible: توکن
-$agent_semantic_nft: NFT
-$agent_semantic_staking: استیکینگ
-$agent_semantic_vesting: مرحله‌بندی
-$agent_semantic_vault: خزانه
-$agent_semantic_transfer: انتقال
-$agent_semantic_swap: تبادل
-$agent_semantic_stake: استیک
-$agent_semantic_unstake: آن‌استیک
-$agent_semantic_contract: قرارداد
-$agent_semantic_unknown: فعالیت
-$agent_semantic_spam_transactions: تراکنش‌های اسپم
-$agent_semantic_spam_assets: دارایی‌های اسپم
-$agent_semantic_hidden_assets: دارایی‌های مخفی
-$agent_semantic_hidden_assets_warning: نام دارایی‌های مخفی ممکن است گمراه‌کننده باشد. آن‌ها به صورت متن ساده نمایش داده می‌شوند و نمی‌توان به عنوان لینک بازشان کرد.
-$agent_semantic_quarantine_warning: این موارد به عنوان اسپم گزارش شده‌اند. به نام‌ها یا لینک‌هایشان اعتماد نکنید.
-$agent_semantic_redacted_asset: نام مخفی
-$agent_semantic_omitted_spam: "اسپم فیلتر شده: %amount%"
-$agent_semantic_omitted_spam_minimum: "اسپم فیلتر شده: حداقل %amount%"
-$agent_semantic_omitted_hidden: "دارایی‌های مخفی حذف شدند: %amount%"
-$agent_semantic_omitted_hidden_minimum: "دارایی‌های مخفی حذف شدند: حداقل %amount%"
-$agent_semantic_suspicious: "نام‌های ناامن مخفی شدند: %amount%"
-$agent_semantic_suspicious_minimum: "نام‌های ناامن مخفی شدند: حداقل %amount%"
-$agent_semantic_suspicious_shown: "نام‌های احتمالا ناامن: %amount%"
-$agent_semantic_suspicious_shown_minimum: "نام‌های احتمالا ناامن: حداقل %amount%"
-$agent_semantic_omitted_rows: داده‌ها خیلی زیاد است. %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
-$agent_semantic_omitted_rows_minimum: داده‌ها خیلی زیاد است. حداقل %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
-$agent_semantic_update_required: برای نمایش این پاسخ، برنامه را به‌روزرسانی کنید.
 $agent_wallet_page_navigation: صفحات داده کیف پول
 $agent_wallet_page_previous: ← قبلی
 $agent_wallet_page_next: بعدی →
@@ -1773,6 +1783,7 @@ Add Crypto: افزودن کریپتو
 Share QR Code: اشتراک‌گذاری کد QR
 $send_only_ton: تنها Gram (GRAM) یا دارایی‌های مبتنی بر TON را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
 $send_only_chain: تنها %chain% (%symbol%) یا دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_chain_no_tokens: تنها %chain% (%symbol%) را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
 Buying with card is not supported for this account.: خرید با کارت برای این حساب پشتیبانی نمی‌شود.
 Swapped at: مبادله‌شده در
 Price per: قیمت هر واحد
@@ -1869,10 +1880,6 @@ second:
   zeroValue: "%count% ثانیه"
   oneValue: "%count% ثانیه"
   otherValue: "%count% ثانیه"
-transfer:
-  zeroValue: "%count% انتقال"
-  oneValue: "%count% انتقال"
-  otherValue: "%count% انتقال"
 Confirm Actions:
   zeroValue: "تأیید %count% اقدام"
   oneValue: تأیید اقدام
@@ -2262,10 +2269,13 @@ Tokenized Gold: طلای توکن‌شده
 Index Funds: صندوق‌های شاخص
 Search token or stock: جستجوی توکن یا سهام
 "Activity Failed to Load": "بارگیری فعالیت ناموفق بود"
+"$agent_source_bea_attribution": "این محصول از API داده‌های دفتر تحلیل اقتصادی (BEA) استفاده می‌کند، اما مورد تأیید یا گواهی BEA نیست."
 "Address was copied!": "آدرس کپی شد!"
 "Allow App Lock": "اجازهٔ قفل برنامه"
 "An error occurred": "خطایی رخ داد"
 "App Fee Details": "جزئیات کارمزد برنامه"
+"Backend": "سرور"
+"Chat options": "گزینه‌های گفتگو"
 "Copied": "کپی شد"
 "Customize the wallet's home screen and color accents the way you like.": "صفحهٔ اصلی کیف پول و رنگ‌های برجسته را به دلخواه خود شخصی‌سازی کنید."
 "Dangerous": "خطرناک"
@@ -2286,3 +2296,6 @@ Search token or stock: جستجوی توکن یا سهام
 "Seasonal Theme Override": "بازنویسی تم فصلی"
 "Sending to": "در حال ارسال به"
 "confirming actions in Telegram": "تأیید اقدامات در تلگرام"
+
+Unknown Transfer: انتقال ناشناخته
+$dapp_sign_data_for_prefix: برای

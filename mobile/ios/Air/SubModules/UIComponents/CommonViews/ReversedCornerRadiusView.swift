@@ -10,7 +10,7 @@ import WalletContext
 
 public class ReversedCornerRadiusView: UIView {
     
-    public static let defaultRadius = S.homeInsetSectionCornerRadius
+    public static let defaultRadius: CGFloat = 32
     public var radius: CGFloat = defaultRadius {
         didSet {
             if oldValue == radius {

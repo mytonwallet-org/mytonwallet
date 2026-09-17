@@ -29,7 +29,7 @@ public struct AddressViewModel: Sendable {
         saveKey: String? = nil,
     ) {
         self.chain = chain
-        self.apiAddress = apiAddress
+        self.apiAddress = apiAddress.map { chain.normalizeAddress($0) }
         self.apiName = apiName
         self.localName = localName
         self.saveKey = saveKey

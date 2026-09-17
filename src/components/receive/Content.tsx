@@ -2,20 +2,18 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiChain } from '../../api/types';
-import type { ChainDisplay } from '../../global/selectors';
 import type { Account } from '../../global/types';
 import type { TabWithProperties } from '../ui/TabList';
 
 import { DEFAULT_CHAIN } from '../../config';
 import {
   selectCurrentAccount,
-  selectCurrentAccountChainDisplay,
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainTitle, getDisplayOrderedChains } from '../../util/chain';
+import { getChainTitle, getDisplayOrderedChains, getOrderedAccountChains } from '../../util/chain';
 import { swapKeysAndValues } from '../../util/iteratees';
 
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
@@ -28,12 +26,17 @@ import Address from './content/Address';
 
 import styles from './ReceiveModal.module.scss';
 
-const ORDERED_SUPPORTED_CHAINS = getDisplayOrderedChains();
-const EMPTY_CHAINS: ApiChain[] = [];
+const DISPLAY_ORDERED_CHAINS = getDisplayOrderedChains();
+const EMPTY_BY_CHAIN: Account['byChain'] = {};
+
+const tabIdByChain = Object.fromEntries(
+  DISPLAY_ORDERED_CHAINS.map((chain, index) => [chain, index]),
+) as Record<ApiChain, number>;
+
+const chainByTabId = swapKeysAndValues(tabIdByChain);
 
 interface StateProps {
   accountChains?: Account['byChain'];
-  chainDisplay?: ChainDisplay;
   isLedger?: boolean;
   isViewMode: boolean;
   receiveModalChain?: ApiChain;
@@ -44,14 +47,8 @@ type OwnProps = {
   onClose?: NoneToVoidFunction;
 };
 
-const tabIdByChain = Object.fromEntries(
-  ORDERED_SUPPORTED_CHAINS.map((chain, index) => [chain, index]),
-) as Record<ApiChain, number>;
-
-const chainByTabId = swapKeysAndValues(tabIdByChain);
-
 function Content({
-  isOpen, accountChains, chainDisplay, receiveModalChain, isLedger, isViewMode, onClose,
+  isOpen, accountChains, receiveModalChain, isLedger, isViewMode, onClose,
 }: StateProps & OwnProps) {
   const { setReceiveActiveTab } = getActions();
 
@@ -60,15 +57,15 @@ function Content({
   const lang = useLang();
   const { isPortrait } = useDeviceScreen();
 
-  // Every chain of the account is available here, hidden ones included, in the Blockchains screen order
-  const chains = chainDisplay?.orderedChains ?? EMPTY_CHAINS;
+  const byChain = accountChains ?? EMPTY_BY_CHAIN;
+  const chains = useMemo(() => getOrderedAccountChains(byChain), [byChain]);
   const tabs = useMemo(() => getChainTabs(chains), [chains]);
   const defaultChain = chains.includes(DEFAULT_CHAIN) || !chains.length
     ? DEFAULT_CHAIN
     : chains[0];
   const chain = receiveModalChain && chains.includes(receiveModalChain) ? receiveModalChain : defaultChain;
   const activeTab = tabIdByChain[chain];
-  // `TabList` addresses its tabs by position, while `activeTab` is the chain position in the full chain order
+  // TabList uses the visible-tab position; Transition / onSwitchTab use the chain's CHAIN_DISPLAY_ORDER index.
   const activeTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
   const handleSwitchTab = useLastCallback((tabId: number) => {
@@ -80,6 +77,7 @@ function Content({
 
   function renderAddress(isActive: boolean, isFrom: boolean, currentKey: number) {
     const chain = chainByTabId[currentKey];
+    if (!chain) return undefined;
 
     return (
       <Address
@@ -87,7 +85,7 @@ function Content({
         isActive={isOpen && isActive}
         isLedger={isLedger}
         isViewMode={isViewMode}
-        address={accountChains?.[chain]?.address ?? ''}
+        address={byChain[chain]?.address ?? ''}
         onClose={onClose}
       />
     );
@@ -129,7 +127,6 @@ export default memo(
 
     return {
       accountChains: account?.byChain,
-      chainDisplay: selectCurrentAccountChainDisplay(global),
       isLedger: account?.type === 'hardware',
       isViewMode: selectIsCurrentAccountViewMode(global),
       receiveModalChain,

@@ -1,12 +1,12 @@
-import type { ApiChain, ApiStakingState } from '../api/types';
-import type { ChainDisplayConfiguration, UserToken } from '../global/types';
+import type { ApiBalanceBySlug, ApiChain, ApiStakingState, ApiTokenWithPrice } from '../api/types';
+import type { ChainDisplayConfiguration } from '../global/types';
+import type { TokenVisibilityOptions } from './tokens';
 
 import {
+  buildAccountChainSummary,
   DEFAULT_CHAIN_DISPLAY_CONFIGURATION,
   getAddressLineChains,
-  getChainsWithBalance,
   getDefaultVisibleChains,
-  getHasOnlyTonTokens,
   getNormalizedManualOrder,
   getOrderedChainsForDisplay,
   getVisibleChains,
@@ -15,30 +15,81 @@ import {
   setManualChainOrder,
 } from './chainDisplay';
 
-function buildToken(slug: string, chain: ApiChain, amount: bigint, isDisabled?: boolean) {
-  return { slug, chain, amount, isDisabled } as UserToken;
+const CHAINS: ApiChain[] = ['ton', 'tron', 'solana'];
+const ONE_COIN = 1_000_000_000n; // 9 decimals
+const VISIBILITY: TokenVisibilityOptions = {
+  accountSettings: {},
+  areTokensWithNoCostHidden: false,
+  shouldShowOnlyDefaultTokens: false,
+  defaultEnabledSlugs: new Set(),
+};
+
+function buildToken(slug: string, chain: ApiChain, priceUsd = 0) {
+  return { slug, chain, decimals: 9, priceUsd } as ApiTokenWithPrice;
 }
 
 function buildStakingState(tokenSlug: string, balance: bigint) {
   return { type: 'liquid', tokenSlug, balance } as ApiStakingState;
 }
 
-describe('getChainsWithBalance', () => {
-  it('collects the chains of non-empty tokens', () => {
-    const tokens = [
-      buildToken('ton', 'ton', 10n),
-      buildToken('tron', 'tron', 0n),
-      buildToken('solana', 'solana', 5n),
-    ];
+function buildSummary(
+  balances: ApiBalanceBySlug | undefined,
+  tokens: ApiTokenWithPrice[],
+  stakingStates?: ApiStakingState[],
+  visibility = VISIBILITY,
+) {
+  const tokensBySlug = Object.fromEntries(tokens.map((token) => [token.slug, token]));
 
-    expect([...getChainsWithBalance(tokens)]).toEqual(['ton', 'solana']);
+  return buildAccountChainSummary(CHAINS, balances, tokensBySlug, stakingStates, visibility);
+}
+
+describe('buildAccountChainSummary', () => {
+  const tokens = [buildToken('ton', 'ton'), buildToken('tron', 'tron'), buildToken('solana', 'solana')];
+
+  it('collects the chains of non-empty tokens', () => {
+    const summary = buildSummary({ ton: 10n, tron: 0n, solana: 5n }, tokens);
+
+    expect([...summary.chainsWithBalance]).toEqual(['ton', 'solana']);
   });
 
   it('counts staked balances of otherwise empty tokens', () => {
-    const tokens = [buildToken('ton', 'ton', 0n), buildToken('tron', 'tron', 0n)];
-    const stakingStates = [buildStakingState('ton', 100n)];
+    const summary = buildSummary({ ton: 0n, tron: 0n }, tokens, [buildStakingState('ton', 100n)]);
 
-    expect([...getChainsWithBalance(tokens, stakingStates)]).toEqual(['ton']);
+    expect([...summary.chainsWithBalance]).toEqual(['ton']);
+  });
+
+  it('orders the chains by value, staking included, and keeps the default order for ties', () => {
+    const pricedTokens = [buildToken('ton', 'ton', 1), buildToken('tron', 'tron'), buildToken('solana', 'solana', 1)];
+    const balances = { ton: ONE_COIN, tron: 5n, solana: 2n * ONE_COIN };
+
+    expect(buildSummary(balances, pricedTokens).valueOrder).toEqual(['solana', 'ton', 'tron']);
+    expect(buildSummary(balances, pricedTokens, [buildStakingState('ton', 2n * ONE_COIN)]).valueOrder)
+      .toEqual(['ton', 'solana', 'tron']);
+  });
+
+  it('skips deleted and unknown tokens', () => {
+    const visibility = { ...VISIBILITY, accountSettings: { deletedSlugs: ['tron'] } };
+    const summary = buildSummary({ ton: 10n, tron: 10n, solana: 10n }, tokens.slice(0, 2), undefined, visibility);
+
+    expect([...summary.chainsWithBalance]).toEqual(['ton']);
+  });
+
+  it('reports whether every shown token is on TON', () => {
+    expect(buildSummary({ ton: 10n }, tokens).hasOnlyTonTokens).toBe(true);
+    expect(buildSummary({}, tokens).hasOnlyTonTokens).toBe(true);
+    expect(buildSummary({ ton: 10n, tron: 5n }, tokens).hasOnlyTonTokens).toBe(false);
+    expect(buildSummary(undefined, tokens).hasOnlyTonTokens).toBeUndefined();
+  });
+
+  it('ignores hidden foreign tokens', () => {
+    const emptyForeign = buildSummary({ ton: 10n, tron: 0n }, tokens);
+    const hiddenForeign = buildSummary({ ton: 10n, tron: 5n }, tokens, undefined, {
+      ...VISIBILITY,
+      accountSettings: { alwaysHiddenSlugs: ['tron'] },
+    });
+
+    expect(emptyForeign.hasOnlyTonTokens).toBe(true);
+    expect(hiddenForeign.hasOnlyTonTokens).toBe(true);
   });
 });
 
@@ -83,28 +134,6 @@ describe('getAddressLineChains', () => {
 
   it('never collapses outside the Gram Wallet build', () => {
     expect(getAddressLineChains(chains, true, false)).toBe(chains);
-  });
-});
-
-describe('getHasOnlyTonTokens', () => {
-  it('is true while every shown token is on TON', () => {
-    expect(getHasOnlyTonTokens([buildToken('ton', 'ton', 10n)])).toBe(true);
-  });
-
-  it('is true for an empty token list', () => {
-    expect(getHasOnlyTonTokens([])).toBe(true);
-  });
-
-  it('ignores disabled foreign tokens', () => {
-    expect(getHasOnlyTonTokens([buildToken('ton', 'ton', 10n), buildToken('tron', 'tron', 0n, true)])).toBe(true);
-  });
-
-  it('is false once a foreign-chain token is shown', () => {
-    expect(getHasOnlyTonTokens([buildToken('tron', 'tron', 5n)])).toBe(false);
-  });
-
-  it('is undefined while the token list is not known yet', () => {
-    expect(getHasOnlyTonTokens(undefined)).toBeUndefined();
   });
 });
 

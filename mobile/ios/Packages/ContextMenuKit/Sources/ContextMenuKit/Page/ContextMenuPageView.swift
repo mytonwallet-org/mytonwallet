@@ -62,6 +62,11 @@ final class ContextMenuPageView: UIView {
         self.scrollView.alwaysBounceVertical = false
         self.scrollView.delaysContentTouches = true
         self.scrollView.canCancelContentTouches = true
+        // Menu pages lay out their own insets, including underneath a navigation bar.
+        self.scrollView.contentInsetAdjustmentBehavior = .never
+        if #available(iOS 26.0, *) {
+            self.scrollView.topEdgeEffect.isHidden = true
+        }
 
         self.selectionView.alpha = 0.0
         self.selectionView.isUserInteractionEnabled = false

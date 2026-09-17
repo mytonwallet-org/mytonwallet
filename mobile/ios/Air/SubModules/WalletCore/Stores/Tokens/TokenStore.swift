@@ -169,21 +169,22 @@ public final class _TokenStore: Sendable {
         tokens[chain.nativeToken.slug]!
     }
     
-    private func process(newTokens: [String: ApiToken], arePricesFresh: Bool) {
+    private func process(
+        newTokens: [String: ApiToken],
+        kind: ApiUpdate.UpdateTokens.Kind,
+        removedSlugs: [String],
+        isIncomplete: Bool,
+        unpricedSlugs: Set<String>
+    ) {
         assert(!Thread.isMainThread)
-        guard !newTokens.isEmpty else { return }
-        var tokens = self.tokens
-        let removedSlugs =  Set(tokens.keys).subtracting(Set(newTokens.keys).union(Set(Self.defaultTokens.keys)))
-        for removedSlug in removedSlugs {
-            tokens[removedSlug] = nil
-        }
-        for (slug, newToken) in newTokens {
-            tokens[slug] = _merge(
-                cached: self.tokens[slug],
-                incoming: newToken,
-                arePricesFresh: arePricesFresh
-            )
-        }
+        var tokens = _mergingTokenUpdate(
+            currentTokens: self.tokens,
+            newTokens: newTokens,
+            kind: kind,
+            removedSlugs: removedSlugs,
+            isIncomplete: isIncomplete,
+            unpricedSlugs: unpricedSlugs
+        )
         _applyFixups(tokens: &tokens)
         guard self.tokens != tokens else {
             return
@@ -191,11 +192,38 @@ public final class _TokenStore: Sendable {
         self.tokens = tokens
         WalletCoreData.notify(event: .tokensChanged)
         if tokens.count > 0 {
-            DispatchQueue.global(qos: .background).async { [tokens] in
-                AppStorageHelper.save(baseCurrency: self.baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
-            }
+            AppStorageHelper.save(baseCurrency: self.baseCurrency, tokens: tokens, currencyRates: self.currencyRates)
         }
         scheduleSharedCacheUpdate(tokens: tokens, baseCurrency: self.baseCurrency, rates: self.currencyRates)
+    }
+
+    func _mergingTokenUpdate(
+        currentTokens: [String: ApiToken],
+        newTokens: [String: ApiToken],
+        kind: ApiUpdate.UpdateTokens.Kind,
+        removedSlugs: [String],
+        isIncomplete: Bool = false,
+        unpricedSlugs: Set<String> = []
+    ) -> [String: ApiToken] {
+        var tokens = currentTokens
+        let defaultSlugs = Set(Self.defaultTokens.keys)
+
+        if kind.isFull && !isIncomplete {
+            let retainedSlugs = Set(newTokens.keys).union(defaultSlugs)
+            tokens = tokens.filter { retainedSlugs.contains($0.key) }
+        }
+        for slug in removedSlugs where !defaultSlugs.contains(slug) {
+            tokens[slug] = nil
+        }
+        for (slug, newToken) in newTokens {
+            tokens[slug] = _merge(
+                cached: currentTokens[slug],
+                incoming: newToken,
+                arePricesFresh: kind.arePricesFresh && !unpricedSlugs.contains(slug)
+            )
+        }
+
+        return tokens
     }
     
     func _merge(cached: ApiToken?, incoming: ApiToken, arePricesFresh: Bool) -> ApiToken {
@@ -224,9 +252,9 @@ public final class _TokenStore: Sendable {
             codeHash: incoming.codeHash?.nilIfEmpty ?? cached.codeHash,
             label: incoming.label?.nilIfEmpty ?? cached.label,
             isFromBackend: incoming.isFromBackend ?? cached.isFromBackend,
-            priceUsd: arePricesFresh ? incoming.priceUsd : cached.priceUsd ?? incoming.priceUsd,
+            priceUsd: arePricesFresh ? incoming.priceUsd ?? cached.priceUsd : cached.priceUsd ?? incoming.priceUsd,
             percentChange24h: arePricesFresh
-                ? incoming.percentChange24h
+                ? incoming.percentChange24h ?? cached.percentChange24h
                 : cached.percentChange24h ?? incoming.percentChange24h
         )
         return merged
@@ -304,11 +332,38 @@ public final class _TokenStore: Sendable {
         self.swapPairs = [:]
         clearTokenDetailsCache()
     }
+
+    /// Resets downloaded token data to bundled defaults, preserving the selected base currency.
+    public func clearCache() async {
+        // Queue the reset behind pending updates and their disk writes so they cannot restore stale data.
+        let task = updateTokensTask.withLock {
+            let previousTask = $0
+            let task = Task.detached { [self] in
+                await previousTask?.value
+                clean()
+                currencyRates = [:]
+                clearHistoryData()
+                AppStorageHelper.clearTokenCaches()
+                AppStorageHelper.save(baseCurrency: baseCurrency, tokens: tokens, currencyRates: currencyRates)
+                await sharedCache.update(tokens: tokens, baseCurrency: baseCurrency, rates: currencyRates)
+                startTokenDetailsMaintenance()
+                WalletCoreData.notify(event: .tokensChanged)
+                WalletCoreData.notify(event: .swapTokensChanged)
+            }
+            $0 = task
+            return task
+        }
+        await task.value
+    }
     
     internal static let defaultTokens: [String: ApiToken] = [
         TONCOIN_SLUG: .TONCOIN,
         TRX_SLUG: .TRX,
         SOLANA_SLUG: .SOLANA,
+        BITCOIN_SLUG: .BITCOIN,
+        LITECOIN_SLUG: .LITECOIN,
+        BITCOINCASH_SLUG: .BITCOINCASH,
+        DOGECOIN_SLUG: .DOGECOIN,
         MYCOIN_SLUG: .MYCOIN,
         TON_USDE_SLUG: .TON_USDE,
         STAKED_TON_SLUG: .STAKED_TON,
@@ -336,6 +391,7 @@ public final class _TokenStore: Sendable {
         HYPERLIQUID_SLUG: .HYPERLIQUID,
         HYPERLIQUID_USDC_MAINNET_SLUG: .HYPERLIQUID_USDC_MAINNET,
         ROBINHOOD_SLUG: .ROBINHOOD,
+        ARC_SLUG: .ARC,
     ]
 
     // MARK: - Cached history data
@@ -699,23 +755,33 @@ extension _TokenStore: WalletCoreData.EventsObserver {
             scheduleSharedCacheUpdate(rates: update.rates)
 
         case .updateTokens(let dict):
-            guard let arePricesFresh = dict["arePricesFresh"] as? Bool else {
-                log.fault("updateTokens missing arePricesFresh")
+            guard
+                let kindString = dict["kind"] as? String,
+                let kind = ApiUpdate.UpdateTokens.Kind(rawValue: kindString)
+            else {
+                log.fault("updateTokens missing or invalid kind")
                 return
             }
+            let removedSlugs = dict["removedSlugs"] as? [String] ?? []
+            let isIncomplete = dict["isIncomplete"] as? Bool == true
+            let unpricedSlugs = Set(dict["unpricedSlugs"] as? [String] ?? [])
             nonisolated(unsafe) let dict = dict
             self.updateTokensTask.withLock {
-                $0?.cancel()
+                let previousTask = $0
                 $0 = Task.detached(priority: .low) {
+                    await previousTask?.value
                     do {
-                        // debounce
-                        try await Task.sleep(for: .seconds(0.2))
-                        
                         let tokens = try (dict["tokens"] as? [String: Any]).orThrow().mapValues { try ApiToken(any: $0) }
                         await Task.yield()
                         try Task.checkCancellation()
-                        
-                        self.process(newTokens: tokens, arePricesFresh: arePricesFresh)
+
+                        self.process(
+                            newTokens: tokens,
+                            kind: kind,
+                            removedSlugs: removedSlugs,
+                            isIncomplete: isIncomplete,
+                            unpricedSlugs: unpricedSlugs
+                        )
 
                     } catch is CancellationError {
                     } catch {
@@ -734,13 +800,17 @@ extension _TokenStore: WalletCoreData.EventsObserver {
             scheduleTokenDetailsPreload()
 
         case .updateSwapTokens(let update):
-            Task.detached(priority: .background) {
-                let tokens: [ApiToken] = update.tokens.values.sorted {
-                    $0.displayName(strippingLabelWhenShown: false) < $1.displayName(strippingLabelWhenShown: false)
+            updateTokensTask.withLock {
+                let previousTask = $0
+                $0 = Task.detached(priority: .background) {
+                    await previousTask?.value
+                    let tokens: [ApiToken] = update.tokens.values.sorted {
+                        $0.displayName(strippingLabelWhenShown: false) < $1.displayName(strippingLabelWhenShown: false)
+                    }
+                    AppStorageHelper.save(swapAssetsArray: tokens)
+                    self.swapAssets = tokens
+                    WalletCoreData.notify(event: .swapTokensChanged)
                 }
-                AppStorageHelper.save(swapAssetsArray: tokens)
-                TokenStore.swapAssets = tokens
-                WalletCoreData.notify(event: .swapTokensChanged)
             }
 
         case .tokensChanged, .assetsAndActivityDataUpdated:
@@ -859,6 +929,12 @@ extension AppStorageHelper {
     
     // MARK: - SwapAssets dict
     private static let swapAssetsArrayKey = "cache.swapAssets"
+
+    fileprivate static func clearTokenCaches() {
+        for key in [tokensKey, currencyRatesKey, swapAssetsArrayKey] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
     public static func save(swapAssetsArray: [ApiToken]) {
         if let data = try? JSONSerialization.encode(swapAssetsArray) {
             UserDefaults.standard.set(data, forKey: AppStorageHelper.swapAssetsArrayKey)

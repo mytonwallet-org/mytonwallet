@@ -36,7 +36,6 @@ private struct SendDappContentView: View {
     private var operationChain: ApiChain { request.operationChain }
     private var transactionsCount: Int { request.transactions.count }
     private var hasAmount: Bool { request.combinedInfo.nftsCount > 0 || !request.combinedInfo.tokenTotals.isEmpty }
-    private var headerTokenDisplay: ApiUpdate.DappSendTransactions.TokenDisplayInfo { request.tokenToDisplay(accountContext: accountContext) }
     private var sortedTransactions: [ApiDappTransfer] {
         request.transactions.sorted { lhs, rhs in
             transactionSortCost(lhs) > transactionSortCost(rhs)
@@ -48,13 +47,6 @@ private struct SendDappContentView: View {
     var body: some View {
         WithPerceptionTracking {
             InsetList {
-                DappHeaderView(
-                    dapp: request.dapp,
-                    accountContext: accountContext,
-                    customTokenBalance: headerTokenDisplay.balance,
-                    customToken: headerTokenDisplay.token
-                )
-                
                 if request.combinedInfo.isDangerous {
                     SendDappWarningView()
                         .padding(.horizontal, 16)
@@ -204,11 +196,6 @@ private struct SendDappPlaceholderView: View {
 
     var body: some View {
         InsetList {
-            DappHeaderView(
-                dapp: ApiDapp.loadingStub,
-                accountContext: accountContext
-            )
-            
             InsetSection {
                 InsetCell(horizontalPadding: 12) {
                     HStack(spacing: 12) {

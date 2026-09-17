@@ -3,7 +3,7 @@ import contextMenu from 'electron-context-menu';
 import path from 'path';
 
 import { IS_PRODUCTION } from '../config';
-import { setupApplicationMenu } from './app-menu';
+import { setupApplicationMenu } from './appMenu';
 import { initDeeplink } from './deeplink';
 import { setupSecrets } from './secrets';
 import { IS_LINUX, IS_MAC_OS, MTW_GTK_VERSION } from './utils';

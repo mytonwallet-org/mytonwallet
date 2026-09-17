@@ -1,5 +1,5 @@
-import type { ApiChain, ApiStakingState } from '../api/types';
-import type { UserToken } from '../global/types';
+import type { ApiBalanceBySlug, ApiStakingState } from '../api/types';
+import type { GlobalState, UserToken } from '../global/types';
 
 import { STAKED_TOKEN_SLUGS } from '../config';
 import { Big } from '../lib/big.js';
@@ -55,17 +55,46 @@ export function calculateFullBalance(
   };
 }
 
-/** Sorts chains by their full USD balance (staking included) descending, keeping the default order for ties */
-export function sortChainsByBalance(chains: ApiChain[], tokens?: UserToken[], stakingStates?: ApiStakingState[]) {
-  if (chains.length <= 1 || !tokens?.length) {
-    return chains;
+// Gives the same `primaryValue` as `calculateFullBalance`, but straight from the raw balances. Multi-account
+// lists need only the total of a wallet, and building a `UserToken` list for each of them is too expensive.
+// The result must match `calculateFullBalance`: same token set, same staking handling, same
+// `STAKED_TOKEN_SLUGS` exclusion.
+export function calculateTotalBalanceValue(
+  balancesBySlug: ApiBalanceBySlug | undefined,
+  tokenInfo: GlobalState['tokenInfo'],
+  deletedSlugs: string[] | undefined,
+  stakingStates?: ApiStakingState[],
+  baseCurrencyRate: string = '1',
+) {
+  const stakingStateBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
+
+  let primaryValueUsd = Big(0);
+
+  for (const slug in balancesBySlug) {
+    const info = tokenInfo.bySlug[slug];
+    // Cost of staked tokens is already taken into account via the underlying token's staking state
+    if (!info || STAKED_TOKEN_SLUGS.has(slug) || deletedSlugs?.includes(slug)) continue;
+
+    const { decimals, priceUsd } = info;
+    // Tokens without a price and empty balances add zero - skip the `Big.js` work
+    if (!priceUsd) continue;
+
+    for (const stakingState of stakingStateBySlug[slug] ?? []) {
+      const stakingAmount = toBig(getFullStakingBalance(stakingState), decimals);
+      primaryValueUsd = primaryValueUsd.plus(stakingAmount.mul(priceUsd));
+    }
+
+    if (balancesBySlug[slug] > 0n) {
+      primaryValueUsd = primaryValueUsd.plus(toBig(balancesBySlug[slug], decimals).mul(priceUsd));
+    }
   }
 
-  const balanceByChain: Partial<Record<ApiChain, Big>> = {};
-  for (const chain of chains) {
-    const chainTokens = tokens.filter((token) => token.chain === chain);
-    balanceByChain[chain] = Big(calculateFullBalance(chainTokens, stakingStates).primaryValueUsd);
-  }
+  const primaryValue = primaryValueUsd.mul(baseCurrencyRate);
+  const [primaryWholePart, primaryFractionPart] = formatNumber(primaryValue).split('.');
 
-  return chains.slice().sort((a, b) => (balanceByChain[b] ?? Big(0)).cmp(balanceByChain[a] ?? Big(0)));
+  return {
+    primaryValue: primaryValue.toString(),
+    primaryWholePart,
+    primaryFractionPart,
+  };
 }

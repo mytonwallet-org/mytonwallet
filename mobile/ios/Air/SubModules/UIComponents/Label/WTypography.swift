@@ -74,7 +74,7 @@ public enum WTextStyle: Hashable, Sendable {
     case supportingEmphasized
     /// SF Pro 14 pt Semibold. Example: the close symbol in `NftRenewDomainWarningView`.
     case supportingStrong
-    /// SF Pro 14 pt Bold. Example: the URL warning symbol in `DappHeaderView`; use with technical content.
+    /// SF Pro 14 pt Bold. Use with technical content such as warning symbols.
     case supportingBold
     /// SF Pro 13 pt Regular. Example: the collection name in `NftPreviewRow`.
     case footnote

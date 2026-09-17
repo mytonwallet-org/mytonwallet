@@ -37,6 +37,10 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     private init() {}
 
+    init(db: any DatabaseWriter) {
+        self._db = db
+    }
+
     private var _accountsById: UnfairLock<[String: MAccount]> = .init(initialState: [:])
     private let _accountId: UnfairLock<String?> = .init(initialState: nil)
     private let _walletVersionsData: UnfairLock<MWalletVersionsData?> = .init(initialState: nil)
@@ -284,9 +288,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
     @discardableResult
     public func activateAccount(accountId: String, isNew: Bool = false) async throws -> MAccount {
         displayLog("activateAccount \(accountId)")
-        guard let account = accountsById[accountId] else {
-            throw SdkError.unexpected(message: "Account to activate is missing from account store", context: ["accountId": accountId])
-        }
+        let account = try await accountForActivation(accountId: accountId)
 
         interactiveCommitDebouncer.cancel()
         let previousAccountId = self.accountId
@@ -311,6 +313,33 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             WalletCoreData.notifyAccountChanged(to: account, isNew: isNew)
         }
         return account
+    }
+
+    func accountForActivation(accountId: String) async throws -> MAccount {
+        if let account = accountsById[accountId] {
+            return account
+        }
+
+        // A completed import write can precede delivery of the accounts observation.
+        guard let account = try await db.read({ db in
+            try MAccount.fetchOne(db, key: accountId)
+        }) else {
+            throw SdkError.unexpected(message: "Account to activate is missing from account store", context: ["accountId": accountId])
+        }
+
+        let resolvedAccount = withMutation(keyPath: \._accountsById) {
+            _accountsById.withLock { accounts in
+                if let observedAccount = accounts[accountId] {
+                    return observedAccount
+                }
+                accounts[accountId] = account
+                return account
+            }
+        }
+        if !resolvedAccount.isTemporaryView {
+            _appendOrderedAccountIdIfNeeded(accountId)
+        }
+        return resolvedAccount
     }
 
     /// Immediately makes the account current in memory — Perception observers of `currentAccountId`

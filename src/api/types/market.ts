@@ -21,7 +21,10 @@ export type ApiMarketSection = {
   id: string;
   title: string;
   layout: ApiMarketSectionLayout;
+  /** Mutually exclusive with `desktopLimit` / `mobileLimit`. */
   limit?: number;
+  desktopLimit?: number;
+  mobileLimit?: number;
   hasMore: boolean;
   assets: ApiMarketAsset[];
 };

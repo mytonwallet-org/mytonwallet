@@ -5,12 +5,13 @@ import WalletContext
 func crosschainNetworkFeeDraftAmount(
     sellingToken: ApiToken,
     isMaxAmount: Bool,
-    account: SwapAccountSnapshot
+    account: SwapAccountSnapshot,
+    amount: BigInt
 ) -> BigInt? {
-    guard isMaxAmount, sellingToken.isNative, sellingToken.chain.isEvm else {
+    guard sellingToken.isNative else {
         return nil
     }
-    return account.balances[sellingToken.slug]
+    return isMaxAmount ? account.balances[sellingToken.slug] : amount
 }
 
 func crosschainAdjustedNativeMaxAmount(
@@ -108,7 +109,8 @@ func crosschainAdjustedNativeMaxAmount(
                 let feeDraftAmount = crosschainNetworkFeeDraftAmount(
                     sellingToken: selling.token,
                     isMaxAmount: input.isMaxAmount,
-                    account: account
+                    account: account,
+                    amount: selling.amount
                 )
                 if let feeData = try? await fetchNetworkFee(
                     sellingToken: selling.token,
@@ -165,7 +167,12 @@ func crosschainAdjustedNativeMaxAmount(
                     if let feeData = try? await fetchNetworkFee(
                         sellingToken: selling.token,
                         account: account,
-                        amount: nil
+                        amount: crosschainNetworkFeeDraftAmount(
+                            sellingToken: selling.token,
+                            isMaxAmount: input.isMaxAmount,
+                            account: account,
+                            amount: selling.amount
+                        )
                     ) {
                         networkFee = feeData.networkFee
                         realNetworkFee = feeData.realNetworkFee

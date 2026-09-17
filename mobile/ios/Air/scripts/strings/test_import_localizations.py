@@ -47,6 +47,13 @@ def normalize_output(value):
 
 
 class ImportLocalizationsTests(unittest.TestCase):
+    def test_utxo_confirmations_pluralizes_the_target(self):
+        definition = importer.build_entry_definitions(load_locales()["en"])["$utxo_confirmations"]
+        self.assertEqual(
+            [(p.name, p.index, p.kind.swift_type) for p in definition.parameters],
+            [("count", 1, "String"), ("max", 2, "Int")],
+        )
+
     def test_domain_plural_uses_interpolation_order(self):
         definition = importer.build_entry_definitions({"$domains_expire": DOMAIN_EXPIRY_FORMS})["$domains_expire"]
         self.assertEqual(
@@ -141,6 +148,13 @@ class FoundationLocalizationTests(unittest.TestCase):
                 )
                 cases.append({"key": key, "arguments": arguments, "call": f"L10n.{definition.swift_name}({swift_arguments})"})
 
+        for current, target in ((0, 1), (1, 2), (1, 5), (2, 21)):
+            cases.append({
+                "key": "$utxo_confirmations", "arguments": {"count": str(current), "max": target},
+                "call": f'L10n.utxoConfirmations(count: "{current}", max: {target})',
+                "expected_english": f"{current} of {target} confirmation" + ("" if target == 1 else "s"),
+            })
+
         # Real localized inputs matter: short ASCII strings can mask the Russian crash.
         for days in range(15):
             cases.append({
@@ -206,6 +220,8 @@ for index in Int(CommandLine.arguments[2])!..<''' + str(len(cases)) + ''' {
                         expected = self.expected_values(case, translations, locales["en"])
                         with self.subTest(locale=locale, key=case["key"], arguments=case["arguments"], days=case.get("relative_days")):
                             self.assertIn(normalize_output(row["value"]), [normalize_output(value) for value in expected])
+                            if locale == "en" and "expected_english" in case:
+                                self.assertEqual(normalize_output(row["value"]), case["expected_english"])
                     if result.returncode == 0:
                         with self.subTest(locale=locale):
                             self.assertEqual([row["index"] for row in rows], list(range(next_index, len(cases))))

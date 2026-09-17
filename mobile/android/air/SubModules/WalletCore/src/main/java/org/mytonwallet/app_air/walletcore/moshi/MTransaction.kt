@@ -202,7 +202,13 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
         @Json(name = "isApprovalUnlimited") val isApprovalUnlimited: Boolean? = null,
         @Json(name = "metadata") val metadata: ApiTransactionMetadata? = null,
         @Json(name = "nft") val nft: ApiNft? = null,
-        @Json(name = "status") val status: ApiTransactionStatus = ApiTransactionStatus.COMPLETED
+        @Json(name = "status") val status: ApiTransactionStatus = ApiTransactionStatus.COMPLETED,
+        /** UTXO confirmation count when available. */
+        @Json(name = "confirmations") val confirmations: Int? = null,
+        /** Backend-provided UTXO confirmation target when available. */
+        @Json(name = "maxConfirmations") val maxConfirmations: Int? = null,
+        /** Backend-provided approximate seconds until UTXO finality when available. */
+        @Json(name = "etaSeconds") val etaSeconds: Int? = null
     ) : MApiTransaction() {
         val isStaking: Boolean
             get() {
@@ -547,6 +553,9 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 if (comparing !is Transaction) return true
                 return isLocal() != comparing.isLocal() ||
                     status != comparing.status ||
+                    confirmations != comparing.confirmations ||
+                    maxConfirmations != comparing.maxConfirmations ||
+                    etaSeconds != comparing.etaSeconds ||
                     type != comparing.type ||
                     amount != comparing.amount ||
                     isApprovalUnlimited != comparing.isApprovalUnlimited
@@ -601,7 +610,8 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
             return (
                 when (this) {
                     is Transaction -> {
-                        if (isIncoming) fromAddress ?: "" else toAddress ?: ""
+                        val raw = if (isIncoming) fromAddress ?: "" else toAddress ?: ""
+                        TokenStore.getToken(getTxSlug())?.mBlockchain?.normalizeAddress(raw) ?: raw
                     }
 
                     else -> {

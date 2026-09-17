@@ -111,9 +111,12 @@ public var APP_NAME: String { IS_GRAM_WALLET ? "Gram Wallet" : "My Wallet" }
 
 public enum DebugProductionMode {
     public static let userDefaultsKey = "debug_forceProductionMode"
+    private static let cachedValue = CachedUserDefault(key: userDefaultsKey, defaultValue: false) {
+        ($0 as? NSNumber)?.boolValue ?? ($0 as? NSString)?.boolValue ?? false
+    }
 
     public static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: userDefaultsKey)
+        cachedValue.value
     }
 }
 
@@ -130,11 +133,13 @@ public enum DebugTokenInfoMock {
     }
 
     public static let userDefaultsKey = "debug_tokenInfoMockPreset"
+    private static let cachedPreset = CachedUserDefault(key: userDefaultsKey, defaultValue: Preset.disabled) {
+        ($0 as? String).flatMap(Preset.init(rawValue:)) ?? .disabled
+    }
 
     public static var preset: Preset {
-        guard IS_DEBUG_OR_TESTFLIGHT_DEFAULT else { return .disabled }
-        let rawValue = UserDefaults.standard.string(forKey: userDefaultsKey)
-        return rawValue.flatMap(Preset.init(rawValue:)) ?? .disabled
+        guard IS_DEBUG_OR_TESTFLIGHT else { return .disabled }
+        return cachedPreset.value
     }
 
     public static var isEnabled: Bool {
@@ -189,10 +194,12 @@ public enum WalletTokenPercentChangeThreshold {
     }
 
     public static let userDefaultsKey = "experimental_walletTokenPercentChangeThreshold"
+    private static let cachedPreset = CachedUserDefault(key: userDefaultsKey, defaultValue: Preset.twoPercent) {
+        ($0 as? String).flatMap(Preset.init(rawValue:)) ?? .twoPercent
+    }
 
     public static var preset: Preset {
-        let rawValue = UserDefaults.standard.string(forKey: userDefaultsKey)
-        return rawValue.flatMap(Preset.init(rawValue:)) ?? .twoPercent
+        cachedPreset.value
     }
 
     public static var initialPresetRawValue: String {
@@ -206,10 +213,13 @@ public enum WalletTokenPercentChangeThreshold {
 
 public enum WalletTokenChainAccessoryExperiment {
     public static let userDefaultsKey = "experimental_hideUnlabeledWalletTokenChainAccessories"
+    private static let cachedValue = CachedUserDefault(key: userDefaultsKey, defaultValue: true) {
+        guard let value = $0, !(value is NSNull) else { return true }
+        return (value as? NSNumber)?.boolValue ?? (value as? NSString)?.boolValue ?? false
+    }
 
     public static var isEnabled: Bool {
-        guard UserDefaults.standard.object(forKey: userDefaultsKey) != nil else { return true }
-        return UserDefaults.standard.bool(forKey: userDefaultsKey)
+        cachedValue.value
     }
 
     public static func shouldShow(
@@ -260,17 +270,23 @@ public enum WalletCardSettings {
 }
 public let APP_ROOT_URL_DOMAINS = [ "gramwallet.io", "mytonwallet.io", "mywallet.io" ]
 
-public var IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool {
+/// Main flag for debug/TestFlight feature availability throughout the app UI.
+/// Respects the debug menu's "View as production" override.
+public var IS_DEBUG_OR_TESTFLIGHT: Bool {
+    !DebugProductionMode.isEnabled && IS_DEBUG_OR_TESTFLIGHT_DEFAULT
+}
+
+/// Build eligibility without the "View as production" override.
+/// Use only for debug-menu availability, including its entry points, so the user can
+/// always turn "View as production" off. Use `IS_DEBUG_OR_TESTFLIGHT` for app features.
+/// The distribution channel is fixed for this process; receipt lookup can perform IPC.
+public let IS_DEBUG_OR_TESTFLIGHT_DEFAULT: Bool = {
     #if DEBUG
     return true
     #else
     return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
     #endif
-}
-
-public var IS_DEBUG_OR_TESTFLIGHT: Bool {
-    !DebugProductionMode.isEnabled && IS_DEBUG_OR_TESTFLIGHT_DEFAULT
-}
+}()
 
 public var SELF_PROTOCOL_SCHEME: String { IS_GRAM_WALLET ? "gramwallet" : "mtw" }
 public var TONCONNECT_PROTOCOL_SCHEME: String { IS_GRAM_WALLET ? "gramwallet-tc" : "mytonwallet-tc" }

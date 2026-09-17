@@ -70,7 +70,10 @@ enum ContextMenuPresenter {
                     sourceUserInterfaceStyle: sourceUserInterfaceStyle,
                     sourceUserInterfaceLayoutDirection: sourceUserInterfaceLayoutDirection
                 )
-                presentingViewController.present(sheetViewController, animated: true)
+                let sheetHost = configuration.sheetNavigationControllerProvider?(sheetViewController)
+                    ?? sheetViewController
+                sheetViewController.configurePresentation(on: sheetHost, sourceView: transitionSourceView)
+                presentingViewController.present(sheetHost, animated: true)
                 return sheetViewController
             }
 

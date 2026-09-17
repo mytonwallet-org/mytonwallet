@@ -487,7 +487,6 @@ public class ActivityCell: WHighlightCollectionViewCell {
         var timestampDisplayMode: ActivityTimestampDisplayMode
         var address: String = ""
         var addressLabel: AddressLabel = .to
-
         init(
             activity: ApiActivity,
             accountContext: AccountContext,
@@ -499,6 +498,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             self.timestampDisplayMode = timestampDisplayMode
             self.accountChains = accountContext.account.supportedChains
             if  case .transaction(let transaction) = activity {
+                let chain = getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
                 isMultichain = accountContext.account.isMultichain
                 if activity.shouldShowTransactionAnnualYield {
                     stakingState = accountContext.stakingData?.bySlug(activity.slug)
@@ -508,7 +508,6 @@ public class ActivityCell: WHighlightCollectionViewCell {
                     self.addressLabel = .on
                 } else {
                     self.addressLabel = transaction.isIncoming ? .from : .to
-                    let chain = getChainBySlug(transaction.slug) ?? FALLBACK_CHAIN
                     let vm = AddressViewModel.fromTransaction(transaction, chain: chain, addressKind: .peer).withLocalName(account: accountContext)
                     if let name = vm.name {
                         self.address = name

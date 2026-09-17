@@ -317,7 +317,7 @@ private struct MarketMoverCard: View {
 
         case .sparkline(let points, let tint):
             MarketSparkline(points: points, tint: Color(rgb: tint))
-                .frame(width: 160, height: 42)
+                .frame(width: 160, height: 40)
         }
     }
 }
@@ -346,14 +346,17 @@ private struct MarketSparklineShape: Shape {
     func path(in rect: CGRect) -> Path {
         guard points.count >= 2 else { return Path() }
 
+        // Match web: keep the curve in the upper 24 points while the fill reaches the card edge.
+        let curveHeight = min(rect.height, 24)
+        let curvePadding: CGFloat = 2
+        let chartHeight = max(0, curveHeight - curvePadding * 2)
         var path = Path()
         for (index, point) in points.enumerated() {
             let progress = CGFloat(index) / CGFloat(points.count - 1)
             let normalizedPoint = CGFloat(min(max(point, 0), 1))
-            let chartHeight = max(0, rect.height - 4)
             let chartPoint = CGPoint(
                 x: rect.minX + progress * rect.width,
-                y: rect.minY + 2 + normalizedPoint * chartHeight
+                y: rect.minY + curvePadding + normalizedPoint * chartHeight
             )
             if index == 0 {
                 path.move(to: chartPoint)

@@ -40,7 +40,6 @@ enum RootContainerLayout: String {
 final class AdaptiveRootViewController: UIViewController, VisibleContentProviding, WalletCoreData.EventsObserver {
     private var activeContentViewController: UIViewController?
     private weak var activeTopTabsRootViewController: TopTabsRootViewController?
-    private weak var searchOverlayViewController: UIViewController?
     private var activeLayout: RootContainerLayout?
     private var activeShowsActionButtonsRow = WalletActionButtonsSettings.showsActionButtonsRow
 
@@ -113,6 +112,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
             return
         }
 
+        activeTopTabsRootViewController?.discardSearch()
         let navigationState = activeContentViewController.flatMap(AdaptiveRootNavigationState.init)
         let contentViewController = makeContentViewController(for: layout)
         contentViewController.loadViewIfNeeded()
@@ -144,7 +144,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         layout: RootContainerLayout,
         width: CGFloat
     ) {
-        activeTopTabsRootViewController?.detachSearchOverlayHost()
+        activeTopTabsRootViewController?.discardSearch()
         activeTopTabsRootViewController = nil
         if let activeContentViewController {
             activeContentViewController.willMove(toParent: nil)
@@ -166,40 +166,11 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
             of: TopTabsRootViewController.self
         )
         activeTopTabsRootViewController = topTabsRootViewController
-        topTabsRootViewController?.attachSearchOverlayHost(self)
 
         StartupTrace.mark(
             "rootContainer.activeRoot.layout",
             details: "layout=\(layout.rawValue) horizontalSizeClass=\(horizontalSizeClassDescription) width=\(Int(width.rounded()))"
         )
-    }
-
-    func installSearchOverlay(_ viewController: UIViewController, below view: UIView) {
-        precondition(viewController.parent == nil)
-        precondition(view.superview === self.view)
-        precondition(searchOverlayViewController == nil)
-
-        searchOverlayViewController = viewController
-        addChild(viewController)
-        viewController.view.translatesAutoresizingMaskIntoConstraints = false
-        self.view.insertSubview(viewController.view, belowSubview: view)
-        NSLayoutConstraint.activate([
-            viewController.view.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
-            viewController.view.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
-            viewController.view.topAnchor.constraint(equalTo: self.view.topAnchor),
-            viewController.view.bottomAnchor.constraint(equalTo: self.view.bottomAnchor),
-        ])
-        viewController.didMove(toParent: self)
-    }
-
-    func removeSearchOverlay(_ viewController: UIViewController) {
-        guard viewController.parent === self else { return }
-        viewController.willMove(toParent: nil)
-        viewController.view.removeFromSuperview()
-        viewController.removeFromParent()
-        if searchOverlayViewController === viewController {
-            searchOverlayViewController = nil
-        }
     }
 
     @objc private func actionButtonsConfigurationDidChange() {

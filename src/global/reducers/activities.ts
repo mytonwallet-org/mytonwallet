@@ -461,7 +461,7 @@ export function applyActivitiesPatch(
   });
 }
 
-export function updateActivity(global: GlobalState, accountId: string, activity: ApiActivity) {
+export function updateActivity(global: GlobalState, accountId: string, activity: ApiActivity, chain?: ApiChain) {
   const { id } = activity;
 
   const { activities } = selectAccountState(global, accountId) || {};
@@ -473,6 +473,22 @@ export function updateActivity(global: GlobalState, accountId: string, activity:
 
   if (shouldPreserveApproval(byId[id], activity)) return global;
 
+  let pendingActivityIds = activities?.pendingActivityIds;
+  const affectedChains = chain ? [chain] : getActivityChains(activity);
+  for (const affectedChain of affectedChains) {
+    const currentIds = pendingActivityIds?.[affectedChain] ?? [];
+    const nextIds = getIsActivityPending(activity) && !getIsTxIdLocal(activity.id)
+      ? unique([...currentIds, id])
+      : currentIds.filter((pendingId) => pendingId !== id);
+
+    if (nextIds !== currentIds) {
+      pendingActivityIds = {
+        ...pendingActivityIds,
+        [affectedChain]: nextIds,
+      };
+    }
+  }
+
   return updateAccountState(global, accountId, {
     activities: {
       ...activities,
@@ -480,6 +496,7 @@ export function updateActivity(global: GlobalState, accountId: string, activity:
         ...byId,
         [id]: activity,
       },
+      pendingActivityIds,
     },
   });
 }

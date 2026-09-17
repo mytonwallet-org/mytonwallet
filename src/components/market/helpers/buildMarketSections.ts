@@ -29,6 +29,7 @@ export interface MarketSection {
   id: string;
   title: string;
   layout: ApiMarketSectionLayout;
+  visibleLimit?: number;
   hasMore: boolean;
   tokens: MarketToken[];
 }
@@ -49,6 +50,7 @@ export function buildMarketSections(
     id: section.id,
     title: section.title,
     layout: section.layout,
+    visibleLimit: section.desktopLimit ?? section.limit,
     hasMore: section.hasMore,
     tokens: section.assets.map((asset) => buildAssetMarketToken(lang, asset, options)),
   }));

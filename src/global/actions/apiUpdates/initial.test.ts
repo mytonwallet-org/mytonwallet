@@ -4,7 +4,7 @@ import type { ApiBaseCurrency, ApiNft } from '../../../api/types';
 import type { ApiUpdate } from '../../../api/types/updates';
 import type { GlobalState } from '../../types';
 
-import { addActionHandler, setGlobal } from '../../index';
+import { addActionHandler, getGlobal, setGlobal } from '../../index';
 
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(),
@@ -64,6 +64,28 @@ describe('updateNfts api update', () => {
 
   beforeEach(() => {
     (setGlobal as jest.Mock).mockClear();
+    jest.mocked(setGlobal).mockImplementation((global) => {
+      jest.mocked(getGlobal).mockReturnValue(global);
+    });
+  });
+
+  it('confirms full NFT coverage only after a successful stream, including an empty stream', () => {
+    let global = makeGlobal(ACCOUNT_ID);
+    const actions = { checkCardNftOwnership: jest.fn() };
+    const updates: Array<Pick<Extract<ApiUpdate, { type: 'updateNfts' }>, 'isFullLoading' | 'streamedAddresses'>> = [
+      { isFullLoading: true },
+      { isFullLoading: false },
+      { isFullLoading: false, streamedAddresses: [] },
+      { isFullLoading: true },
+    ];
+    const expectedCompleteness = [false, false, true, false];
+    updates.forEach((update, index) => {
+      getApiUpdateHandler()(global, actions, {
+        type: 'updateNfts', accountId: ACCOUNT_ID, chain: 'ton', nfts: [], ...update,
+      });
+      global = (setGlobal as jest.Mock).mock.calls.at(-1)![0] as GlobalState;
+      expect(global.byAccountId[ACCOUNT_ID].nfts?.isFullLoadCompleteByChain?.ton).toBe(expectedCompleteness[index]);
+    });
   });
 
   it('drops a stale unverified flag when the collection has become trusted', () => {

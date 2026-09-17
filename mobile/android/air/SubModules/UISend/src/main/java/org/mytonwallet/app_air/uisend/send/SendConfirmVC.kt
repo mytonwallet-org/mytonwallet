@@ -562,7 +562,7 @@ class SendConfirmVC(
                 PasscodeViewState.CustomHeader(
                     PasscodeHeaderSendView(
                         WeakReference(this),
-                        (view.height * 0.25f).roundToInt()
+                        (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
                     ).apply {
                         configSendingToken(
                             config.request.token,

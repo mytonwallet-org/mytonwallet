@@ -52,9 +52,8 @@ export async function getDapp(
   const byUrl = (
     await getAccountValue(accountId, 'dapps') as StoredDappsByUrl | undefined
   )?.[url];
-  if (!byUrl) return undefined;
-
-  return migrateLegacyConnection(byUrl[uniqueId]);
+  const dapp = byUrl?.[uniqueId];
+  return dapp ? migrateLegacyConnection(dapp) : undefined;
 }
 
 export async function addDapp(accountId: string, dapp: StoredDappConnection, uniqueId: string) {
@@ -102,7 +101,7 @@ export async function deleteDapp(
     await callHook('onDappDisconnected', accountId, dapp);
   }
 
-  await callHook('onDappsChanged', dapp);
+  await callHook('onDappsChanged');
 
   return true;
 }

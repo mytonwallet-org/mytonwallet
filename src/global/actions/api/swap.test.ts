@@ -3,10 +3,20 @@ import type { SwapEstimateResult } from './swap';
 import { SwapErrorType, SwapInputSource, SwapState } from '../../types';
 
 import {
-  BASE, BASE_USDC_MAINNET, MYCOIN_MAINNET, SOLANA, TONCOIN, TRX,
+  BASE,
+  BASE_USDC_MAINNET,
+  BITCOIN,
+  BITCOINCASH,
+  DOGECOIN,
+  LITECOIN,
+  MYCOIN_MAINNET,
+  SOLANA,
+  TON_USDT_MAINNET,
+  TONCOIN,
+  TRX,
 } from '../../../config';
 import { callApi } from '../../../api';
-import { getGlobal, setGlobal } from '../../index';
+import { getActions, getGlobal, setGlobal } from '../../index';
 import { clearCurrentSwap, updateCurrentSwap } from '../../reducers';
 import {
   buildSwapBuildRequest,
@@ -178,6 +188,72 @@ describe('shouldBlockUnsupportedNearIntentsMemo', () => {
   });
 });
 
+describe('startSwap', () => {
+  const ACCOUNT_ID = '0-mainnet';
+
+  beforeEach(() => {
+    const base = clearCurrentSwap(getGlobal());
+    const { bySlug } = base.tokenInfo;
+
+    setGlobal({
+      ...base,
+      currentAccountId: ACCOUNT_ID,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic',
+            title: 'Test',
+            byChain: { ton: { address: 'UQ1' }, solana: { address: 'So1' } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: {
+          balances: { bySlug: { [TONCOIN.slug]: 1_000_000_000n, [TON_USDT_MAINNET.slug]: 50_000_000n } },
+        },
+      },
+      tokenInfo: {
+        bySlug: {
+          ...bySlug,
+          [TONCOIN.slug]: { ...bySlug[TONCOIN.slug], priceUsd: 3 },
+          [TON_USDT_MAINNET.slug]: { ...bySlug[TON_USDT_MAINNET.slug], priceUsd: 1 },
+        },
+      },
+    } as unknown as GlobalState);
+  });
+
+  it('sells a funded token when only the token to buy is given', () => {
+    getActions().startSwap({ tokenOutSlug: SOLANA.slug });
+
+    expect(getGlobal().currentSwap).toMatchObject({
+      tokenInSlug: TON_USDT_MAINNET.slug,
+      tokenOutSlug: SOLANA.slug,
+    });
+  });
+
+  it('pays with the default token when the account has nothing to pair with the token to buy', () => {
+    const global = getGlobal();
+    setGlobal({
+      ...global,
+      accounts: {
+        ...global.accounts!,
+        byId: { [ACCOUNT_ID]: { ...global.accounts!.byId[ACCOUNT_ID], byChain: { bitcoin: { address: 'bc1' } } } },
+      },
+    });
+
+    getActions().startSwap({ tokenOutSlug: BITCOIN.slug });
+
+    expect(getGlobal().currentSwap).toMatchObject({ tokenInSlug: TONCOIN.slug, tokenOutSlug: BITCOIN.slug });
+  });
+
+  it('keeps both tokens when both are given', () => {
+    getActions().startSwap({ tokenInSlug: TONCOIN.slug, tokenOutSlug: SOLANA.slug });
+
+    expect(getGlobal().currentSwap).toMatchObject({ tokenInSlug: TONCOIN.slug, tokenOutSlug: SOLANA.slug });
+  });
+});
+
 describe('buildSwapBuildRequest', () => {
   const ACCOUNT_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ';
 
@@ -293,6 +369,44 @@ describe('estimateSwap', () => {
       inputSource: SwapInputSource.In,
     }));
   });
+
+  it.each([DOGECOIN, BITCOIN, LITECOIN, BITCOINCASH, BASE, TONCOIN, SOLANA, TRX])(
+    'prices native $slug Max against the full balance and ordinary swaps against their amount',
+    async (token) => {
+      const balance = 300n * 10n ** BigInt(token.decimals);
+      const base = getGlobal();
+      setGlobal(updateCurrentSwap({
+        ...base,
+        accounts: {
+          ...base.accounts,
+          byId: {
+            [ACCOUNT_ID]: {
+              type: 'mnemonic', title: 'Test',
+              byChain: { [token.chain]: { address: 'source' }, base: { address: '0x1' } },
+            },
+          },
+        },
+        byAccountId: { [ACCOUNT_ID]: { balances: { bySlug: { [token.slug]: balance } } } },
+        swapTokenInfo: {
+          ...base.swapTokenInfo,
+          bySlug: { [token.slug]: token, [BASE_USDC_MAINNET.slug]: BASE_USDC_MAINNET },
+        },
+      } as unknown as GlobalState, {
+        tokenInSlug: token.slug, tokenOutSlug: BASE_USDC_MAINNET.slug, amountIn: '299', isMaxAmount: true,
+      }));
+      mockApi({ explainedFee: { fullFee: { nativeSum: 488_000n }, realFee: { nativeSum: 488_000n } } });
+      await estimateSwap(getGlobal(), () => false);
+      expect(callApi).toHaveBeenCalledWith('checkTransactionDraft', token.chain, expect.objectContaining({
+        amount: balance,
+      }));
+      (callApi as jest.Mock).mockClear();
+      setGlobal(updateCurrentSwap(getGlobal(), { isMaxAmount: false, amountIn: '10' }));
+      await estimateSwap(getGlobal(), () => false);
+      expect(callApi).toHaveBeenCalledWith('checkTransactionDraft', token.chain, expect.objectContaining({
+        amount: 10n * 10n ** BigInt(token.decimals),
+      }));
+    },
+  );
 
   it('blocks the swap when the source chain cannot price the transfer', async () => {
     mockApi(undefined);

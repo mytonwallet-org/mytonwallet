@@ -17,7 +17,7 @@ import buildClassName from '../../../util/buildClassName';
 import isViewAccount from '../../../util/isViewAccount';
 import {
   getDefaultRampCurrency, getEffectiveRampCurrencies, getOffRampBaselineCurrencies,
-} from '../../../util/ramp-currencies';
+} from '../../../util/rampCurrencies';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { getNativeToken } from '../../../util/tokens';
 

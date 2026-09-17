@@ -182,3 +182,9 @@ sudo bash ./add_udev_rules.sh
 ## Support Us
 
 If you like what we do, feel free to contribute by creating a pull request, or just support us using this TON wallet: `EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S`. We appreciate it a lot!
+
+## License
+
+The published code is intended only for analyzing the code, making sure it matches the published **My Wallet** and **Gram Wallet** applications, and creating pull requests to this repository.
+Do not deploy the application to your server or publish builds derived from it.
+See more details in [LICENSE](LICENSE).

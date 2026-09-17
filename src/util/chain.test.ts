@@ -26,7 +26,7 @@ describe('getIsSupportedChain', () => {
     try {
       expect(getIsSupportedChain('ton')).toBe(true);
       expect(getIsSupportedChain('robinhood')).toBe(true);
-      expect(getIsSupportedChain('bitcoin')).toBe(false);
+      expect(getIsSupportedChain('bitcoin')).toBe(true);
       expect(getIsSupportedChain('constructor')).toBe(false);
     } finally {
       Object.defineProperty(Object, 'hasOwn', descriptor);

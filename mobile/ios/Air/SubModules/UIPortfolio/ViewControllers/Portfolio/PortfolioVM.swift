@@ -4,6 +4,8 @@ import Perception
 import WalletCore
 import WalletContext
 
+private let log = Log("PortfolioVM")
+
 private let portfolioHistoryDiskCacheMaxAge: TimeInterval = 6 * 60 * 60
 
 struct PortfolioHistoryResponses: Codable, Equatable, Sendable {
@@ -209,7 +211,7 @@ final class PortfolioVM: Sendable {
     private(set) var isLoading = false
     private(set) var isRefreshing = false
     private(set) var isShowingStaleRangeData = false
-    private(set) var errorText: String?
+    private(set) var hasError = false
     private(set) var chartDataToken = 0
 
     @PerceptionIgnored
@@ -331,7 +333,7 @@ final class PortfolioVM: Sendable {
             isLoading = false
             isRefreshing = false
             isShowingStaleRangeData = false
-            errorText = lang("Unavailable")
+            hasError = true
             chartDataToken &+= 1
             return
         }
@@ -701,7 +703,7 @@ final class PortfolioVM: Sendable {
 
         if responses == nil {
             isLoading = true
-            errorText = nil
+            hasError = false
         } else {
             isRefreshing = true
         }
@@ -732,7 +734,7 @@ final class PortfolioVM: Sendable {
         isLoading = false
         isRefreshing = false
         isShowingStaleRangeData = false
-        errorText = nil
+        hasError = false
         chartDataToken &+= 1
 
         if resetHistoryRefreshAttempts {
@@ -749,6 +751,8 @@ final class PortfolioVM: Sendable {
         failedRange: PortfolioTimeRange,
         fallbackRangeOnError: PortfolioTimeRange?
     ) {
+        log.error("Portfolio history load failed range=\(failedRange.rawValue, .public): \(error, .public)")
+
         if let fallbackRangeOnError,
            selectedRange == failedRange
         {
@@ -760,7 +764,7 @@ final class PortfolioVM: Sendable {
         isShowingStaleRangeData = false
 
         if responses == nil {
-            errorText = (error as? DisplayError)?.text ?? error.localizedDescription
+            hasError = true
         }
     }
 

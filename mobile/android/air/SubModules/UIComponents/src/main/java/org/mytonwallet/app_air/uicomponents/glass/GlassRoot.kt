@@ -187,17 +187,19 @@ class GlassRoot private constructor(root: ViewGroup) :
 
         var count = 0
         for (consumer in consumers) {
-            if (!consumer.isAttachedToWindow || !consumer.isShown || consumer.alpha <= 0f) continue
+            if (!consumer.isAttachedToWindow || !consumer.isShown) continue
             val pill = consumer.renderNodeDrawable ?: continue
 
-            if (resolveLocalOffset(root, consumer)) {
-                pill.setSourceOffset(localOffset[0], localOffset[1])
-            } else {
-                consumer.getLocationInWindow(viewLocation)
-                pill.setSourceOffset(
-                    (viewLocation[0] - rootLocation[0]).toFloat(),
-                    (viewLocation[1] - rootLocation[1]).toFloat()
-                )
+            if (!consumer.holdsPart) {
+                if (resolveLocalOffset(root, consumer)) {
+                    pill.setSourceOffset(localOffset[0], localOffset[1])
+                } else {
+                    consumer.getLocationInWindow(viewLocation)
+                    pill.setSourceOffset(
+                        (viewLocation[0] - rootLocation[0]).toFloat(),
+                        (viewLocation[1] - rootLocation[1]).toFloat()
+                    )
+                }
             }
 
             val rect = positions.getOrNull(count) ?: RectF().also { positions.add(it) }

@@ -1,3 +1,4 @@
+import SwiftUI
 import UIComponents
 import UIKit
 import WalletContext
@@ -143,6 +144,35 @@ class UniversalSearchBaseCell: WHighlightCollectionViewCell {
             accessibilityTraits.remove(.selected)
         }
         selectionAppearanceDidChange()
+    }
+}
+
+@MainActor
+final class UniversalSearchResolvingDomainCell: UniversalSearchBaseCell {
+    override var usesDefaultSelectedAppearance: Bool { false }
+
+    func configure(domain: String) {
+        highlightView.backgroundColor = .air.universalSearchHighlight
+        contentConfiguration = UIHostingConfiguration {
+            HStack(spacing: 8) {
+                Circle()
+                    .frame(width: 24, height: 24)
+                VStack(alignment: .leading, spacing: 9) {
+                    Capsule()
+                        .frame(width: 80, height: 12)
+                    Capsule()
+                        .frame(width: 128, height: 9)
+                }
+            }
+            .foregroundStyle(Color.air.secondaryLabel.opacity(0.3))
+            .mask { LoadingShineMask(isActive: true) }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .accessibilityHidden(true)
+        }
+        .margins(.all, 0)
+        .background(Color.clear)
+        accessibilityLabel = "\(domain), \(lang("Loading..."))"
+        accessibilityTraits = .updatesFrequently
     }
 }
 

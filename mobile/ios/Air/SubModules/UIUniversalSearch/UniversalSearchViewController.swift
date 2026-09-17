@@ -112,6 +112,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             actionTitle: String?
         )
         case wallet(id: String, title: String, subtitle: String)
+        case resolvingDomain(id: String, domain: String)
         case shortcut(id: String, title: String, subtitle: String?)
         case askAgent(id: String, query: String)
         case recentSearch(id: String, title: String, subtitle: String)
@@ -155,6 +156,8 @@ public final class UniversalSearchViewController: UIViewController, UICollection
                 )
             case .wallet(let result):
                 self = .wallet(id: item.id, title: result.title, subtitle: result.subtitle)
+            case .resolvingDomain(let domain):
+                self = .resolvingDomain(id: item.id, domain: domain)
             case .shortcut(let result):
                 self = .shortcut(id: item.id, title: result.title, subtitle: result.subtitle)
             case .askAgent(let query):
@@ -261,7 +264,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
     @discardableResult
     public func selectPreselectedItem() -> Bool {
         guard let identifier = preselectedIdentifier(),
-              let item = itemsByIdentifier[identifier] else {
+              let item = itemsByIdentifier[identifier], item.isSelectable else {
             return false
         }
         onSelect?(item)
@@ -282,6 +285,14 @@ public final class UniversalSearchViewController: UIViewController, UICollection
         bottomContentInset = max(0, bottomInset)
         guard isViewLoaded else { return }
         applyBottomContentInset()
+    }
+
+    public func collectionView(
+        _ collectionView: UICollectionView,
+        shouldSelectItemAt indexPath: IndexPath
+    ) -> Bool {
+        guard let identifier = dataSource.itemIdentifier(for: indexPath) else { return false }
+        return itemsByIdentifier[identifier]?.isSelectable == true
     }
 
     public func collectionView(
@@ -345,6 +356,15 @@ public final class UniversalSearchViewController: UIViewController, UICollection
     }
 
     private func configureDataSource() {
+        let resolvingDomainRegistration = UICollectionView.CellRegistration<
+            UniversalSearchResolvingDomainCell,
+            ItemIdentifier
+        > { [weak self] cell, _, identifier in
+            guard let item = self?.itemsByIdentifier[identifier],
+                  case .resolvingDomain(let domain) = item.content else { return }
+            cell.configure(domain: domain)
+        }
+
         let textRegistration = UICollectionView.CellRegistration<
             UniversalSearchTextResultCell,
             ItemIdentifier
@@ -460,6 +480,12 @@ public final class UniversalSearchViewController: UIViewController, UICollection
             guard let self, let item = itemsByIdentifier[identifier] else { return nil }
             let cell: UICollectionViewCell
             switch item.content {
+            case .resolvingDomain:
+                cell = collectionView.dequeueConfiguredReusableCell(
+                    using: resolvingDomainRegistration,
+                    for: indexPath,
+                    item: identifier
+                )
             case .chat, .collectible, .collection, .wallet, .recentSearch, .site,
                  .openWebsite, .shortcut:
                 cell = collectionView.dequeueConfiguredReusableCell(
@@ -761,7 +787,8 @@ public final class UniversalSearchViewController: UIViewController, UICollection
         default:
             (0, 0)
         }
-        let preselectedItemInset: CGFloat = preselectedIdentifier()?.sectionID == model.id ? 4 : 0
+        let reservesTopHit = model.items.contains { if case .resolvingDomain = $0.content { true } else { false } }
+        let preselectedItemInset: CGFloat = preselectedIdentifier()?.sectionID == model.id || reservesTopHit ? 4 : 0
         section.contentInsets = NSDirectionalEdgeInsets(
             top: promptInsets.top + preselectedItemInset,
             leading: 32,

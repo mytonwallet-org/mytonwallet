@@ -16,6 +16,7 @@ func makeSearchHit(_ document: SearchDocument) -> UniversalSearchHit {
             matchKind: .exactPhrase,
             matchedTermCount: 1,
             totalTermCount: 1,
+            wordMatchCount: 1,
             fieldPriority: 0,
             hasInteraction: false,
             selectionCount: 0,

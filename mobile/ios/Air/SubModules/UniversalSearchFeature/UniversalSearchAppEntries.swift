@@ -41,7 +41,7 @@ enum UniversalSearchAppEntries {
                 actions: actions,
                 hasConnectedApps: !account.isView && (DappsStore.dappsCount ?? 0) > 0,
                 hasWalletVersions: !account.isHardware && AccountStore.walletVersionsData?.versions.isEmpty == false,
-                hasSecurity: AuthSupport.status.requiresAuthorization,
+                hasSecurity: AuthSupport.accountsSupportAppLock,
                 hasSubwallets: account.type == .mnemonic && account.orderedChains.contains { chain, _ in
                     account.supportsSubwallets(on: chain)
                 }

@@ -53,6 +53,8 @@ enum PortfolioPalette {
             return "#5DCFC3"
         case .robinhood:
             return "#CCFF00"
+        case .arc:
+            return "#2775CA"
         case .ethereum:
             return "#5E5CEE"
         case .base:

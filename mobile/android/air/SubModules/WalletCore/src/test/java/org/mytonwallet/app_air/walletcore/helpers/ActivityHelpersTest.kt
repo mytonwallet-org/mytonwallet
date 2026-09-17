@@ -3,8 +3,11 @@ package org.mytonwallet.app_air.walletcore.helpers
 import java.math.BigInteger
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.mytonwallet.app_air.walletcore.moshi.ApiSwapCexTransaction
+import org.mytonwallet.app_air.walletcore.moshi.ApiSwapStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapCexTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 
 class ActivityHelpersTest {
@@ -71,6 +74,34 @@ class ActivityHelpersTest {
 
         assertEquals("second-chain-id", adjusted.getStableId())
     }
+
+    @Test
+    fun preservesCexStatusAlongsideFailedSwapStatus() {
+        val existing = swap(ApiSwapStatus.FAILED, MApiSwapCexTransactionStatus.FAILED)
+        val incoming = swap(ApiSwapStatus.PENDING, MApiSwapCexTransactionStatus.WAITING)
+
+        val adjusted = ActivityHelpers.preserveStatusProgress(existing, incoming)
+
+        assertEquals(existing, adjusted)
+    }
+
+    private fun swap(status: ApiSwapStatus, cexStatus: MApiSwapCexTransactionStatus) =
+        MApiTransaction.Swap(
+            id = "swap-id",
+            externalMsgHashNorm = null,
+            timestamp = 1,
+            from = "toncoin",
+            fromAmount = 1.0,
+            to = "doge",
+            toAmount = 1.0,
+            status = status,
+            cex = ApiSwapCexTransaction(
+                payinAddress = "payin",
+                payoutAddress = "payout",
+                status = cexStatus,
+                transactionId = "tx"
+            )
+        )
 
     private fun transaction(id: String, status: ApiTransactionStatus) = MApiTransaction.Transaction(
         id = id,

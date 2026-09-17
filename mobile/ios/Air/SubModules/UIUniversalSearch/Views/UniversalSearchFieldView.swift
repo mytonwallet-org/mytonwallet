@@ -68,6 +68,9 @@ public final class UniversalSearchFieldView: UIView {
     public var onToolbarActionTap: ((String) -> Void)?
     public var onCloseTap: (() -> Void)?
 
+    /// Extra space below the root toolbar that accepts toolbar gestures.
+    public var bottomHitAreaExtension: CGFloat = 0
+
     public var configuration: UniversalSearchFieldConfiguration {
         get { storedConfiguration }
         set {
@@ -150,6 +153,25 @@ public final class UniversalSearchFieldView: UIView {
 
     public override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: 48)
+    }
+
+    public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if super.point(inside: point, with: event) { return true }
+        guard presentation == .homeToolbar, bottomHitAreaExtension > 0, let window else {
+            return false
+        }
+        // Keep the lowest 20 points outside the extra hit area for system gestures.
+        let bottomLimit = convert(
+            CGPoint(x: window.bounds.midX, y: window.bounds.maxY - 20),
+            from: window
+        ).y
+        let extensionHeight = max(0, min(bottomHitAreaExtension, bottomLimit - bounds.maxY))
+        return CGRect(
+            x: bounds.minX,
+            y: bounds.maxY,
+            width: bounds.width,
+            height: extensionHeight
+        ).contains(point)
     }
 
     @discardableResult

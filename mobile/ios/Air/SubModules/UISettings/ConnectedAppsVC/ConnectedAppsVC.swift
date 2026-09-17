@@ -189,6 +189,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
                 completion?(true)
             } catch {
                 completion?(false)
+                guard AccountStore.accountId == accountId, !(error is CancellationError) else { return }
                 loadDapps(animated: true)
                 showAlert(error: error)
             }
@@ -298,6 +299,7 @@ public class ConnectedAppsVC: SettingsBaseVC, UICollectionViewDelegate {
                 self.dapps = dapps
                 applySnapshot(animated: true)
             } catch {
+                guard AccountStore.accountId == accountId, !(error is CancellationError) else { return }
                 loadDapps(animated: true)
                 self.showAlert(error: error)
             }

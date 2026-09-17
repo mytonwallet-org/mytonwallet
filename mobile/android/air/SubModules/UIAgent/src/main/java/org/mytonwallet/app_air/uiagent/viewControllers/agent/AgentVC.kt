@@ -1681,10 +1681,6 @@ class AgentVC(
             if (viewsOverlap(bubbleView, moreButton)) {
                 moreButton.fadeOut()
             }
-            val tabBarController = navigationController?.tabBarController
-            if (viewsOverlap(bubbleView, tabBarController?.bottomNavigationView)) {
-                tabBarController?.hideTabBar()
-            }
             if (viewsOverlap(bubbleView, composerView)) {
                 composerView.fadeOut()
             }
@@ -1695,7 +1691,6 @@ class AgentVC(
             topReversedCornerView?.fadeIn()
             navigationBar?.titleLabel?.fadeIn()
             moreButton.fadeIn()
-            navigationController?.tabBarController?.showTabBar()
             composerView.fadeIn()
             if (window?.isWideLayout == true || WGlobalStorage.isGradientNavigationBarActive()) {
                 bottomGradientView.fadeIn()

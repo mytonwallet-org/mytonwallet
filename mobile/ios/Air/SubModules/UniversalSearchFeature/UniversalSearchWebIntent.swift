@@ -39,8 +39,30 @@ public enum UniversalSearchWebIntent: Equatable, Sendable {
         return components?.url
     }
 
+    static func isSameDestination(_ lhs: URL, _ rhs: URL) -> Bool {
+        guard let lhs = normalizedDestination(lhs),
+              let rhs = normalizedDestination(rhs) else { return false }
+        return lhs == rhs
+    }
+
+    private static func normalizedDestination(_ url: URL) -> URLComponents? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let host = components.host else { return nil }
+        components.scheme = components.scheme?.lowercased()
+        components.host = host.lowercased()
+        if (components.scheme == "https" && components.port == 443)
+            || (components.scheme == "http" && components.port == 80) {
+            components.port = nil
+        }
+        if components.percentEncodedPath == "/" {
+            components.percentEncodedPath = ""
+        }
+        // Paths, queries and fragments may select different pages on the same host.
+        return components
+    }
+
     private static func website(from text: String) -> URL? {
-        guard !text.contains(where: \.isWhitespace), !text.contains("@") else { return nil }
+        guard !text.contains(where: \.isWhitespace) else { return nil }
 
         let hasScheme = text.range(
             of: #"^[A-Za-z][A-Za-z0-9+.-]*://"#,
@@ -50,6 +72,7 @@ public enum UniversalSearchWebIntent: Equatable, Sendable {
         guard let components = URLComponents(string: candidate),
               let scheme = components.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
+              components.user == nil, components.password == nil,
               let host = components.host?.trimmingCharacters(in: .whitespacesAndNewlines),
               isWebHost(host),
               let url = components.url else {

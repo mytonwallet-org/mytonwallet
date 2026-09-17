@@ -12,6 +12,10 @@
   height: 0.0625rem;
 
   box-shadow: $inset 0 $position-offset 0 0 var(--color-separator);
+
+  @media (max-resolution: 1dppx) {
+    box-shadow: $inset 0 ($position-offset * 1.5) 0 0 var(--color-separator);
+  }
 }
 
 @mixin separator-list-base($edge, $inline-start-offset: 0) {
@@ -26,26 +30,34 @@
 
   @if $edge == 'top' {
     box-shadow: inset 0 0.03rem 0 0 var(--color-separator);
+
+    @media (max-resolution: 1dppx) {
+      box-shadow: inset 0 0.045rem 0 0 var(--color-separator);
+    }
   }
 
   @if $edge == 'bottom' {
     box-shadow: inset 0 -0.03rem 0 0 var(--color-separator);
+
+    @media (max-resolution: 1dppx) {
+      box-shadow: inset 0 -0.045rem 0 0 var(--color-separator);
+    }
   }
 }
 
 @mixin separator() {
   &:not(:first-child)::before {
-    @include _separator-base(-0.03rem);
-
     top: 0;
+
+    @include _separator-base(-0.03rem);
   }
 }
 
 @mixin separatorBottom() {
   &::after {
-    @include _separator-base(0.03rem, inset);
-
     bottom: 0;
+
+    @include _separator-base(0.03rem, inset);
   }
 }
 
@@ -61,6 +73,10 @@
     height: 0.0625rem;
 
     box-shadow: inset 0 -0.025rem 0 0 var(--color-separator);
+
+    @media (max-resolution: 1dppx) {
+      box-shadow: inset 0 -0.0375rem 0 0 var(--color-separator);
+    }
   }
 }
 

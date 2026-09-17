@@ -15,14 +15,32 @@ public struct UniversalSearchRankingPolicy: Hashable, Sendable {
         self.selectionCountCap = max(1, selectionCountCap)
     }
 
-    public static let initial = Self(version: "3")
+    public static let initial = Self(version: "5")
 }
 
 public enum SearchRelevanceBand: Int, Hashable, Sendable, Comparable, CustomStringConvertible {
     case weak
+    case partial
     case term
     case phrase
+    case exactName
     case exactIdentifier
+
+    init(kind: SearchMatchKind, field: SearchFieldKind) {
+        if kind == .exactIdentifier {
+            self = .exactIdentifier
+        } else if field == .keyword || field == .description {
+            self = .weak
+        } else {
+            self = switch kind {
+            case .exactIdentifier: .exactIdentifier
+            case .exactPhrase: .exactName
+            case .phrasePrefix: .phrase
+            case .exactWord, .wordPrefix: .term
+            case .substring, .fuzzy: .partial
+            }
+        }
+    }
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.rawValue < rhs.rawValue
@@ -31,8 +49,10 @@ public enum SearchRelevanceBand: Int, Hashable, Sendable, Comparable, CustomStri
     public var description: String {
         switch self {
         case .weak: "weak"
+        case .partial: "partial"
         case .term: "term"
         case .phrase: "phrase"
+        case .exactName: "exact-name"
         case .exactIdentifier: "identifier"
         }
     }
@@ -63,6 +83,7 @@ public struct SearchRankKey: Hashable, Sendable, Comparable {
     public let matchKind: SearchMatchKind
     public let matchedTermCount: Int
     public let totalTermCount: Int
+    public let wordMatchCount: Int
     public let fieldPriority: Int
     public let hasInteraction: Bool
     public let selectionCount: Int
@@ -81,10 +102,18 @@ public struct SearchRankKey: Hashable, Sendable, Comparable {
             return lhs.relevanceBand < rhs.relevanceBand
         }
 
+        let lhsWordCoverage = lhs.wordMatchCount * max(1, rhs.totalTermCount)
+        let rhsWordCoverage = rhs.wordMatchCount * max(1, lhs.totalTermCount)
+        if lhsWordCoverage != rhsWordCoverage {
+            return lhsWordCoverage < rhsWordCoverage
+        }
         let lhsCoverage = lhs.matchedTermCount * max(1, rhs.totalTermCount)
         let rhsCoverage = rhs.matchedTermCount * max(1, lhs.totalTermCount)
         if lhsCoverage != rhsCoverage {
             return lhsCoverage < rhsCoverage
+        }
+        if lhs.matchKind != rhs.matchKind {
+            return lhs.matchKind < rhs.matchKind
         }
         if lhs.personalPriority != rhs.personalPriority {
             return lhs.personalPriority < rhs.personalPriority
@@ -103,9 +132,6 @@ public struct SearchRankKey: Hashable, Sendable, Comparable {
         }
         if lhs.trustTier != rhs.trustTier {
             return lhs.trustTier < rhs.trustTier
-        }
-        if lhs.matchKind != rhs.matchKind {
-            return lhs.matchKind < rhs.matchKind
         }
         if lhs.fieldPriority != rhs.fieldPriority {
             return lhs.fieldPriority < rhs.fieldPriority
@@ -183,7 +209,7 @@ public struct UniversalSearchEngine: Sendable {
         // indexed fast path produced no result at all.
         if bestHitByID.isEmpty,
            !query.requiresExactIdentifierMatch,
-           query.normalizedText.terms.contains(where: {
+           query.matchingTerms.contains(where: {
                $0.alternatives.contains(where: { $0.count >= policy.matching.minimumFuzzyLength })
            }) {
             bestHitByID = matches(query, in: index.entries, now: now)
@@ -248,10 +274,11 @@ public struct UniversalSearchEngine: Sendable {
         let popularity = rankedValue(document.signals.popularity, at: now)
         let baseCurrencyValue = finiteNonnegative(document.signals.baseCurrencyValue)
         let rank = SearchRankKey(
-            relevanceBand: relevanceBand(for: match),
+            relevanceBand: SearchRelevanceBand(kind: match.kind, field: match.fieldKind),
             matchKind: match.kind,
             matchedTermCount: match.matchedTermCount,
             totalTermCount: match.totalTermCount,
+            wordMatchCount: match.wordMatchCount,
             fieldPriority: match.fieldKind.rankingPriority,
             hasInteraction: interaction.map { $0.selectionCount > 0 } ?? false,
             selectionCount: min(interaction?.selectionCount ?? 0, policy.selectionCountCap),
@@ -281,25 +308,6 @@ public struct UniversalSearchEngine: Sendable {
         if lhs.rank < rhs.rank { return false }
         if rhs.rank < lhs.rank { return true }
         return lhs.id < rhs.id
-    }
-
-    private func relevanceBand(for match: SearchMatch) -> SearchRelevanceBand {
-        if match.kind == .exactIdentifier {
-            return .exactIdentifier
-        }
-        if [.keyword, .description].contains(match.fieldKind) {
-            return .weak
-        }
-        switch match.kind {
-        case .exactPhrase, .phrasePrefix:
-            return .phrase
-        case .exactWord, .wordPrefix:
-            return .term
-        case .substring, .fuzzy:
-            return .weak
-        case .exactIdentifier:
-            return .exactIdentifier
-        }
     }
 
     private func personalPriority(for document: SearchDocument) -> Int {
@@ -420,6 +428,7 @@ public struct UniversalSearchEngine: Sendable {
             "match=\(match.kind)",
             "field=\(match.fieldKind)",
             "coverage=\(match.matchedTermCount)/\(match.totalTermCount)",
+            "words=\(match.wordMatchCount)/\(match.totalTermCount)",
             "personal=\(rank.personalPriority)",
             "trust=\(rank.trustTier)",
             "category=\(rank.categoryPriority)",

@@ -7,6 +7,7 @@ import * as config from '../../config';
 import {
   DEFAULT_SWAP_AMOUNT,
   DEFAULT_SWAP_SECOND_TOKEN_SLUG,
+  MULTISEND_DAPP_URL,
   TON_USDT_MAINNET,
   TONCOIN,
   TRC20_USDT_MAINNET,
@@ -15,9 +16,11 @@ import {
 } from '../../config';
 import { INITIAL_STATE } from '../../global/initialState';
 import { callApi } from '../../api';
-import { getChainConfig, getEvmChains } from '../chain';
+import { getEvmChains } from '../chain';
 import { openUrl } from '../openUrl';
-import { getDeeplinkFromLocation, parseTonDeeplink, processDeeplink, processSelfDeeplink } from './index';
+import {
+  getDeeplinkFromLocation, parseDeeplinkTransferParams, parseTonDeeplink, processDeeplink, processSelfDeeplink,
+} from './index';
 
 // Mock modules
 jest.mock('../../global', () => ({
@@ -279,6 +282,7 @@ describe('processSelfDeeplink', () => {
     // Setup mock actions
     mockActions = {
       startSwap: jest.fn(),
+      setSwapAmountOut: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
       openOffRampWidgetModal: jest.fn(),
@@ -350,12 +354,36 @@ describe('processSelfDeeplink', () => {
     expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
   });
 
-  it('does not capture attribution for an unsupported Multisend route', async () => {
-    expect(await processSelfDeeplink('https://my.tt/multisend?utm_source=partner')).toBe(false);
-    expect(openUrl).not.toHaveBeenCalled();
-    expect(mockActions.startTransfer).not.toHaveBeenCalled();
-    expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
+  it('captures a marketed Multisend entry after removing only marketing parameters', async () => {
+    expect(await processSelfDeeplink('https://my.tt/multisend?utm_source=partner')).toBe(true);
+    expect(openUrl).toHaveBeenCalledWith(MULTISEND_DAPP_URL, expect.anything());
+    expect(callApi).toHaveBeenCalledWith('captureInstallAttribution', {
+      channel: 'partner', attributionKind: 'utm',
+    });
   });
+
+  it.each(['mtw://multisend', 'https://my.tt/multisend'])(
+    'opens the configured Multisend application from %s without preparing a transfer',
+    async (url) => {
+      expect(await processSelfDeeplink(url)).toBe(true);
+      expect(openUrl).toHaveBeenCalledWith(MULTISEND_DAPP_URL, {
+        title: 'Multisend',
+        subtitle: new URL(MULTISEND_DAPP_URL).hostname,
+      });
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+      expect(callApi).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['mtw://multisend?amount=1', 'mtw://multisend/recipient', 'mtw://multisend#send'])(
+    'rejects unsupported Multisend parameters in %s',
+    async (url) => {
+      expect(await processSelfDeeplink(url)).toBe(false);
+      expect(openUrl).not.toHaveBeenCalled();
+      expect(mockActions.startTransfer).not.toHaveBeenCalled();
+      expect(mockActions.showError).toHaveBeenCalledWith({ error: '$unsupported_deeplink_parameter' });
+    },
+  );
 
   describe('Swap command', () => {
     it('should start swap with default parameters using mtw:// protocol', async () => {
@@ -389,7 +417,22 @@ describe('processSelfDeeplink', () => {
       });
     });
 
-    it('should reject swap when in param is unknown', async () => {
+    it.each(['source', 'destination'])('preserves exact %s amount in a swap link', async (side) => {
+      mockGlobal.swapTokenInfo = { bySlug: {
+        'ton-usdt': { slug: 'ton-usdt' } as any,
+        [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
+      } };
+      const amount = '123456789.123456789';
+      const amountParameter = side === 'source' ? 'amount' : 'amountOut';
+      await processSelfDeeplink(`https://my.tt/swap?in=toncoin&out=ton-usdt&${amountParameter}=${amount}`);
+      expect(mockActions.startSwap).toHaveBeenCalledWith({
+        tokenInSlug: TONCOIN.slug, tokenOutSlug: 'ton-usdt', amountIn: side === 'source' ? amount : undefined,
+      });
+      if (side === 'destination') expect(mockActions.setSwapAmountOut).toHaveBeenCalledWith({ amount });
+      else expect(mockActions.setSwapAmountOut).not.toHaveBeenCalled();
+    });
+
+    it('should show error without substituting tokenInSlug when in param is unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -407,7 +450,7 @@ describe('processSelfDeeplink', () => {
       expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should reject swap when in is unknown and out is toncoin', async () => {
+    it('should show error without substituting tokenInSlug when in is unknown and out is toncoin', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -415,17 +458,16 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin&utm_source=partner');
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-token&out=toncoin');
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
       expect(mockActions.startSwap).not.toHaveBeenCalled();
-      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should reject swap when out param is unknown', async () => {
+    it('should show error without substituting tokenOutSlug when out param is unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -433,17 +475,16 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token&utm_source=partner`);
+      const result = await processSelfDeeplink(`mtw://swap?in=toncoin&out=unknown-token`);
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
       expect(mockActions.startSwap).not.toHaveBeenCalled();
-      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
-    it('should reject swap when both in and out params are unknown', async () => {
+    it('should show error without substituting either token when both in and out params are unknown', async () => {
       mockGlobal.swapTokenInfo = {
         bySlug: {
           [TONCOIN.slug]: { slug: TONCOIN.slug } as any,
@@ -451,14 +492,13 @@ describe('processSelfDeeplink', () => {
         },
       };
 
-      const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out&utm_source=partner');
+      const result = await processSelfDeeplink('mtw://swap?in=unknown-in&out=unknown-out');
 
       expect(result).toBe(true);
       expect(mockActions.showError).toHaveBeenCalledWith({
         error: '$unknown_swap_token',
       });
       expect(mockActions.startSwap).not.toHaveBeenCalled();
-      expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
     });
 
     it('should show error when swap is requested in testnet', async () => {
@@ -487,15 +527,14 @@ describe('processSelfDeeplink', () => {
   });
 
   describe('Buy with crypto command', () => {
-    it('should start swap for buying with default parameters', async () => {
+    it('should start swap for buying Toncoin without a preset sell token and amount', async () => {
       const result = await processSelfDeeplink('mtw://buy-with-crypto');
-      const { nativeToken, buySwap: defaultBuySwap } = getChainConfig('ton');
 
       expect(result).toBe(true);
       expect(mockActions.startSwap).toHaveBeenCalledWith({
-        tokenInSlug: defaultBuySwap!.tokenInSlug,
-        tokenOutSlug: nativeToken.slug,
-        amountIn: defaultBuySwap!.amountIn,
+        tokenInSlug: undefined,
+        tokenOutSlug: TONCOIN.slug,
+        amountIn: undefined,
       });
     });
 
@@ -530,6 +569,27 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.openOnRampWidgetModal).toHaveBeenCalledWith({ chain: 'ton' });
+    });
+
+    it('preserves the requested chain and provider when opening a purchase', async () => {
+      mockGlobal.accounts!.byId['test-account-id'].byChain.solana = { address: 'solana-address' };
+      await processSelfDeeplink('mtw://buy-with-card?chain=solana&provider=moonpay');
+      expect(mockActions.openOnRampWidgetModal).toHaveBeenCalledWith({ chain: 'solana', provider: 'moonpay' });
+    });
+
+    it.each([
+      'chain=unknown&provider=moonpay', 'chain=ton&provider=unknown',
+      'chain=solana&provider=moonpay', 'chain=tron&provider=avanchange',
+      'chain=ton&chain=solana&provider=moonpay', 'chain=ton&provider=moonpay&asset=USDT',
+    ])('declines an unsupported purchase without falling back to TON: %s', async (query) => {
+      await processSelfDeeplink(`mtw://buy-with-card?${query}`);
+      expect(mockActions.openOnRampWidgetModal).not.toHaveBeenCalled();
+    });
+
+    it('rechecks provider availability before opening a saved purchase link', async () => {
+      mockGlobal.restrictions.allowedOnOffRampCurrencies = ['RUB'];
+      await processSelfDeeplink('mtw://buy-with-card?chain=ton&provider=moonpay');
+      expect(mockActions.openOnRampWidgetModal).not.toHaveBeenCalled();
     });
 
     it('should show error when buy-with-card is requested in testnet', async () => {
@@ -903,6 +963,7 @@ describe('processDeeplink TRON deeplinks', () => {
 
     mockActions = {
       startSwap: jest.fn(),
+      setSwapAmountOut: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
       openOffRampWidgetModal: jest.fn(),
@@ -1344,6 +1405,7 @@ describe('View-only mode deeplink blocking', () => {
 
     mockActions = {
       startSwap: jest.fn(),
+      setSwapAmountOut: jest.fn(),
       showError: jest.fn(),
       openOnRampWidgetModal: jest.fn(),
       openOffRampWidgetModal: jest.fn(),
@@ -1386,6 +1448,17 @@ describe('View-only mode deeplink blocking', () => {
     (getGlobal as jest.Mock).mockReturnValue(mockGlobal);
   });
 
+  it('parses Send form inputs in view-only mode without authorizing a transfer', () => {
+    const params = parseDeeplinkTransferParams(
+      `mtw://send/ton:${TEST_TON_ADDRESS}?amount=1250000000&text=Hello`, getGlobal(),
+    );
+    expect(params).toMatchObject({
+      tokenSlug: TONCOIN.slug, toAddress: TEST_TON_ADDRESS, amount: 1250000000n, comment: 'Hello',
+    });
+    expect(params).not.toHaveProperty('error');
+    expect(mockActions.startTransfer).not.toHaveBeenCalled();
+  });
+
   it('does not capture a signing link rejected in view-only mode', async () => {
     expect(await processSelfDeeplink('https://my.tt/send?utm_source=partner')).toBe(false);
     expect(callApi).not.toHaveBeenCalledWith('captureInstallAttribution', expect.anything());
@@ -1398,6 +1471,7 @@ describe('View-only mode deeplink blocking', () => {
       { name: 'BuyWithCard', url: 'mtw://buy-with-card' },
       { name: 'SellOnCard', url: 'mtw://sell-on-card' },
       { name: 'Stake', url: 'mtw://stake' },
+      { name: 'Multisend', url: 'mtw://multisend' },
       { name: 'Transfer', url: `mtw://transfer/${TEST_TON_ADDRESS}?amount=1` },
       { name: 'Offramp', url: 'mtw://offramp?depositWalletAddress=addr&baseCurrencyCode=ton' },
       { name: 'Receive', url: 'mtw://receive' },

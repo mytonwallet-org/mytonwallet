@@ -2,8 +2,8 @@ import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
 import type { ApiChain, ApiNft } from '../../api/types';
+import type { AccountBalance } from '../../global/selectors';
 import type { Account } from '../../global/types';
-import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import {
   selectAccountSettings,

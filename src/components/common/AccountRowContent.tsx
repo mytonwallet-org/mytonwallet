@@ -2,8 +2,8 @@ import type { ElementRef, TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
 import type { ApiChain, ApiNft } from '../../api/types';
+import type { AccountBalance } from '../../global/selectors';
 import type { Account, AccountType } from '../../global/types';
-import type { AccountBalance } from '../../hooks/useAccountsBalances';
 
 import buildClassName from '../../util/buildClassName';
 

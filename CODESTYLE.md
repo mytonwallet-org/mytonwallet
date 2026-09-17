@@ -6,6 +6,27 @@ This project follows the [Airbnb JavaScript Style Guide](https://github.com/airb
 
 ## Naming
 
+### Files
+
+- React/Teact component files use **PascalCase**, matching the component name: `AnswerMessageContent.tsx`.
+- Hooks and utility functions use **camelCase**: `useAgentV2Messages.ts`, `buildMessageIds.ts`. Classes use **PascalCase**, such as `Deferred.ts`.
+- Tests and CSS modules keep the base name of their subject: `AnswerMessageContent.test.tsx`, `AnswerMessageContent.module.scss`.
+- Dot-separated suffixes such as `.test`, `.worker`, and `.module` are allowed. Entrypoints may use `index.ts` or `index.tsx`.
+- Numbered migrations keep their numeric filenames; Sass partials keep their leading underscore, such as `_common.module.scss`.
+- Do not use kebab-case or snake_case for application source filenames. Files in `src/lib/` retain their library conventions; generated and vendored files keep their prescribed names.
+
+ESLint checks application source basenames and CSS module basenames. Component directories require PascalCase for JSX/TSX and CSS modules, except for `hooks/`, `helpers/`, and index entrypoints. Hook directories require camelCase; other source modules allow camelCase or PascalCase to accommodate classes. Middle suffixes and exact correspondence with exports or companion files are not checked automatically.
+
+The local `file-naming/case` ESLint rule and the filename fixer share the same name conversion and effective ESLint configuration:
+
+- `npm run fix:file-names -- --dry-run` previews renames and reference updates without writing files.
+- `npm run fix:file-names` applies them. `npm run check:fix` runs this step before the usual Stylelint and ESLint fixes.
+- `npm run test:file-names` tests the rule and the rename workflow.
+
+The fixer scans tracked and untracked Git files, respecting Git ignores. It updates statically resolvable imports, re-exports, dynamic imports, `require`, Jest/Vitest mocks, CSS imports, and explicit project-relative file paths in non-code scripts, configuration, and documentation. Ordinary strings and dynamically constructed paths are left unchanged. Conflicting destinations and names that cannot be inferred stop the operation before any writes; unexpected write failures trigger restoration of the original files. Git staging is left unchanged.
+
+ESLint's native fix API only edits file contents. File renames are therefore applied by the explicit `fix:file-names` step; running bare `eslint --fix`, lint-staged, or editor linting does not rename files.
+
 ### General Rules
 
 - **Functions and methods** start with an imperative verb: `showMessage()`, `updateUser()`, `runMethod()`. Exception: `callback`.

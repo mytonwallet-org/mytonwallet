@@ -28,7 +28,7 @@ public struct ApiSwapActivity: BaseActivity, Codable, Equatable, Hashable, Senda
     public let hashes: [String]?
     public let transactionIds: ApiSwapTransactionIds
     public let isCanceled: Bool?
-    public let cex: ApiSwapCexTransactionExtras?
+    public var cex: ApiSwapCexTransactionExtras?
 }
 
 public enum ApiSwapStatus: String, Codable, Sendable {
@@ -88,7 +88,7 @@ public struct ApiSwapCexTransactionExtras: Codable, Equatable, Hashable, Sendabl
     public let payinAddress: String
     public let payoutAddress: String
     public let payinExtraId: String?
-    public let status: ApiSwapCexTransactionStatus
+    public var status: ApiSwapCexTransactionStatus
     public let transactionId: String
     public let providerName: String?
     public let supportUrl: String?

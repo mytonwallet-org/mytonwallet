@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.walletcontext.helpers.AddressHelpers
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
+import org.mytonwallet.app_air.walletcore.isUtxoChain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -149,7 +150,7 @@ class QRCodeVC(context: Context, val chain: MBlockchain, private val onQrLoaded:
             LocaleController.getString("\$send_only_ton")
         } else {
             LocaleController.getStringWithKeyValues(
-                "\$send_only_chain",
+                if (isUtxoChain(chain)) "\$send_only_chain_no_tokens" else "\$send_only_chain",
                 listOf(
                     Pair("%chain%", chain.name.replaceFirstChar { it.uppercaseChar() }),
                     Pair(

@@ -7,7 +7,7 @@ interface Hooks {
   onFullLogout: AnyFunction;
   onWindowNeeded: AnyFunction;
   onDappDisconnected: (accountId: string, dapp: StoredDappConnection) => any;
-  onDappsChanged: AnyFunction;
+  onDappsChanged: () => any;
   onSwapCreated: (accountId: string, fromTimestamp: number) => any;
 }
 

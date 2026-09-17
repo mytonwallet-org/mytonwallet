@@ -276,7 +276,9 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
     if (pendingKey && pendingKey !== requestKey && pendingKey !== `session:${topic}`) return;
 
     const shouldReturn = this.pendingReturnRequest?.shouldReturn === true;
+
     const returnUrl = this.walletKit.getActiveSessions()[topic]?.peer.metadata.redirect?.native;
+
     this.pendingReturnRequest = { key: requestKey, shouldReturn, promiseId, returnUrl };
   }
 
@@ -2003,6 +2005,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         const deeplink = parseWalletConnectDeeplink(url);
         if (deeplink) {
           const sessionExists = Boolean(this.walletKit.getActiveSessions()[deeplink.topic]);
+
           const requestKey = getWalletConnectRequestKey(deeplink, sessionExists);
           if (shouldReturnToDapp) {
             this.pendingReturnRequest = {

@@ -36,7 +36,6 @@ struct HomeCardCollapsedContent: View {
                     headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs ? 1 : balanceScale,
                     anchor: .bottom
                 )
-                .animation(.default, value: accountContext.balance)
 
                 if headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs {
                     _BalanceChange(accountContext: accountContext, style: .plainBackground)

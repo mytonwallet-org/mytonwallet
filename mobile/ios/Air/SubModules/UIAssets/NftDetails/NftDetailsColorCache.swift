@@ -89,18 +89,19 @@ final class NftDetailsColorCache: @unchecked Sendable {
     }
 
     /// Removes all entries from memory and deletes the on-disk file.
-    func clearCache() {
-        lock.lock()
-        storage.removeAll()
-        dirty = false
-        diskLoadState = .done   // prevent a stale file from being reloaded
-        lock.unlock()
-
-        ioQueue.async { [weak self] in
-            guard let self else { return }
-            self.pendingSaveWorkItem?.cancel()
-            self.pendingSaveWorkItem = nil
-            try? FileManager.default.removeItem(at: self.fileURL)
+    func clearCache() async {
+        await withCheckedContinuation { continuation in
+            ioQueue.async { [self] in
+                lock.lock()
+                storage.removeAll()
+                dirty = false
+                diskLoadState = .done
+                lock.unlock()
+                pendingSaveWorkItem?.cancel()
+                pendingSaveWorkItem = nil
+                try? FileManager.default.removeItem(at: fileURL)
+                continuation.resume()
+            }
         }
     }
 

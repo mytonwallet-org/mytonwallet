@@ -10,6 +10,7 @@ import UIComponents
 import WalletCore
 import WalletContext
 import Perception
+import SwiftNavigation
 
 public let HISTORY_LIMIT = 100
 private let log = Log("EarnVM")
@@ -55,6 +56,8 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     @PerceptionIgnored
     private var currentAccountId: String = DUMMY_ACCOUNT.id
     @PerceptionIgnored
+    private var accountObservation: ObserveToken?
+    @PerceptionIgnored
     private var isLoadingStakingHistoryPage: Int? = nil
     @PerceptionIgnored
     private var isLoadedAllHistoryItems = false
@@ -97,16 +100,17 @@ public final class EarnVM: WalletCoreData.EventsObserver {
         self._account = accountContext
         self.currentAccountId = accountContext.accountId
         WalletCoreData.add(eventObserver: self)
+        accountObservation = observe { [weak self] in
+            guard let self else { return }
+            let accountId = account.id
+            if accountId != currentAccountId || pendingAccountId != nil {
+                handleAccountChanged(to: accountId)
+            }
+        }
     }
     
     public func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .accountChanged(let accountId, _):
-            guard $account.source == .current else { return }
-            if accountId != self.currentAccountId {
-                handleAccountChanged(to: accountId)
-            }
-        
         case .stakingAccountData(let data):
             if data.accountId == self.currentAccountId {
                 delegate?.stakingStateUpdated()
@@ -152,8 +156,14 @@ public final class EarnVM: WalletCoreData.EventsObserver {
     }
 
     private func handleAccountChanged(to accountId: String) {
-        pendingAccountId = accountId
         pendingAccountResetTask?.cancel()
+        pendingAccountResetTask = nil
+
+        guard accountId != currentAccountId else {
+            pendingAccountId = nil
+            return
+        }
+        pendingAccountId = accountId
 
         if isScreenVisible {
             applyPendingAccountResetIfNeeded()

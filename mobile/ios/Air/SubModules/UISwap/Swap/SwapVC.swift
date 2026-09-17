@@ -45,7 +45,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         defaults: ApiSwapDefaults,
         defaultSellingAmount: Double? = nil,
         defaultBuyingAmount: Double? = nil,
-        isAccountSwitchingAllowed: Bool = false
+        isAccountSwitchingAllowed: Bool = true
     ) {
         self._account = accountContext
         self.isAccountSwitchingAllowed = isAccountSwitchingAllowed

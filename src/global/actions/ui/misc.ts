@@ -31,7 +31,7 @@ import {
   IS_ELECTRON,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
-import { closeAllOverlays, parsePlainAddressQr } from '../../helpers/misc';
+import { closeAllOverlays, parsePlainAddressQr, resolveReplacedActivityId } from '../../helpers/misc';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   clearCurrentSwap,
@@ -64,7 +64,9 @@ import { closeModal } from '../../../components/ui/Modal';
 const APP_VERSION_URL = 'version.txt';
 
 addActionHandler('showActivityInfo', (global, actions, { id }) => {
-  return updateCurrentAccountState(global, { currentActivityId: id });
+  const currentActivityId = resolveReplacedActivityId(selectCurrentAccountState(global)?.activities, id);
+
+  return updateCurrentAccountState(global, { currentActivityId });
 });
 
 addActionHandler('showAnyAccountTx', async (global, actions, { txId, accountId, network, chain }) => {
@@ -565,15 +567,15 @@ addActionHandler('clearIsPinAccepted', (global) => {
   return clearIsPinAccepted(global);
 });
 
-addActionHandler('openOnRampWidgetModal', (global, actions, { chain }) => {
+addActionHandler('openOnRampWidgetModal', (global, actions, { chain, provider }) => {
   // Single choke point for every dispatch site, including deeplinks and menu items with no gate of their own
-  if (!selectIsOnRampAllowed(global, chain)) return;
+  if (!selectIsOnRampAllowed(global, chain, provider)) return;
 
-  setGlobal({ ...global, chainForOnRampWidgetModal: chain });
+  setGlobal({ ...global, chainForOnRampWidgetModal: chain, providerForOnRampWidgetModal: provider });
 });
 
 addActionHandler('closeOnRampWidgetModal', (global) => {
-  setGlobal({ ...global, chainForOnRampWidgetModal: undefined });
+  setGlobal({ ...global, chainForOnRampWidgetModal: undefined, providerForOnRampWidgetModal: undefined });
 });
 
 addActionHandler('openOffRampWidgetModal', (global) => {
