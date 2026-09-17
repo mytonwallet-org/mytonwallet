@@ -108,14 +108,16 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
                 }
 
                 var documentsByChain: [ApiChain: SearchDocument] = [:]
-                for chain in chains where !chain.isValidDomain(input) {
+                for chain in chains {
+                    let isDomain = chain.isValidDomain(input)
                     documentsByChain[chain] = document(
                         input: input,
-                        address: input,
+                        address: isDomain ? nil : input,
                         addressName: nil,
-                        domain: nil,
+                        domain: isDomain ? input : nil,
                         chain: chain,
-                        network: searchInput.network
+                        network: searchInput.network,
+                        isResolvingDomain: isDomain
                     )
                 }
                 var lastDocuments = Self.orderedDocuments(
@@ -202,11 +204,12 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
 
     private func document(
         input: String,
-        address: String,
+        address: String?,
         addressName: String?,
         domain: String?,
         chain: ApiChain,
-        network: ApiNetwork
+        network: ApiNetwork,
+        isResolvingDomain: Bool = false
     ) -> SearchDocument {
         SearchDocument(
             id: SearchEntityID(
@@ -226,6 +229,7 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
                 (WalletCoreSearchAttributeKey.chain, chain.rawValue),
                 (WalletCoreSearchAttributeKey.domain, domain),
                 (WalletCoreSearchAttributeKey.inputAddressOrDomain, input),
+                (WalletCoreSearchAttributeKey.isResolvingDomain, isResolvingDomain ? "true" : nil),
                 (WalletCoreSearchAttributeKey.network, network.rawValue),
             ]),
             signals: SearchSignals(traits: [.external, .viewOnly])

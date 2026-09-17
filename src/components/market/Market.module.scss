@@ -43,6 +43,9 @@
 }
 
 .section {
+  // The grid picks its column count from the section width, since the landscape column is narrower than the viewport
+  container-type: inline-size;
+
   &:not(:last-child) {
     margin-bottom: 1.75rem;
   }
@@ -230,6 +233,7 @@
   stop-opacity: 0;
 }
 
+// Two rows at most. `GRID_MAX_ITEMS` of `Section` fills the widest grid, narrower ones hide the rest
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -240,11 +244,21 @@
 
   @include mixins.adapt-margin-to-scrollbar(1rem);
 
-  @include mixins.respond-above(xs) {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+  @container (width < 30rem) {
+    > :nth-child(n + 9) {
+      display: none;
+    }
   }
 
-  @include mixins.respond-above(md) {
+  @container (30rem <= width < 35.5rem) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+
+    > :nth-child(n + 11) {
+      display: none;
+    }
+  }
+
+  @container (width >= 35.5rem) {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }

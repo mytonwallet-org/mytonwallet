@@ -1,6 +1,6 @@
-import type { ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../api/types';
+import type { ApiBalanceBySlug, ApiChain, ApiSwapAsset, ApiToken, ApiTokenWithPrice } from '../api/types';
 import type { TokenWithId } from '../components/ui/TokenDropdown';
-import type { UserSwapToken, UserToken } from '../global/types';
+import type { AccountSettings, UserSwapToken, UserToken } from '../global/types';
 import type { LangFn } from './langProvider';
 
 import {
@@ -9,9 +9,12 @@ import {
   STAKED_TOKEN_SLUGS,
   STAKED_TON_SLUG,
   STAKING_SLUG_PREFIX,
+  TINY_TRANSFER_MAX_COST,
   TON_USDE,
 } from '../config';
-import { findChainConfig, getChainConfig, getSupportedChains } from './chain';
+import { parseAccountId } from './account';
+import { findChainConfig, getChainConfig, getDefaultEnabledSlugs, getSupportedChains } from './chain';
+import { toBig } from './decimals';
 import { pick } from './iteratees';
 
 const ETHENA_STAKING_SLUG = `${STAKING_SLUG_PREFIX}${TON_USDE.slug}`;
@@ -22,6 +25,17 @@ const SHIFT_NAME_REGEX = /^Shift\s+/;
 const chainByNativeSlug = Object.fromEntries(
   getSupportedChains().map((chain) => [getNativeToken(chain).slug, chain]),
 );
+
+/**
+ * Everything `getIsTokenDisabled` needs that is the same for every token of one account: the settings, the flags
+ * and the default token set. It is built once per account and passed into each call.
+ */
+export interface TokenVisibilityOptions {
+  accountSettings: AccountSettings;
+  areTokensWithNoCostHidden: boolean;
+  shouldShowOnlyDefaultTokens: boolean;
+  defaultEnabledSlugs: ReadonlySet<string>;
+}
 
 export function getIsNativeToken(slug?: string) {
   return slug ? slug in chainByNativeSlug : false;
@@ -91,6 +105,72 @@ export function getIsServiceToken(token?: ApiToken) {
   return type === 'lp_token'
     || STAKED_TOKEN_SLUGS.has(slug)
     || PRICELESS_TOKEN_HASHES.has(codeHash);
+}
+
+export function buildTokenVisibilityOptions(
+  accountId: string,
+  balancesBySlug: ApiBalanceBySlug,
+  tokensBySlug: Record<string, ApiTokenWithPrice>,
+  accountSettings: AccountSettings = {},
+  areTokensWithNoCostHidden = false,
+  hasActivities = false,
+): TokenVisibilityOptions {
+  return {
+    accountSettings,
+    areTokensWithNoCostHidden,
+    // A wallet with no confirmed activity whose balances are all worth almost nothing shows the chain
+    // default tokens instead
+    shouldShowOnlyDefaultTokens: !hasActivities && getAreAllBalancesNearZero(balancesBySlug, tokensBySlug),
+    defaultEnabledSlugs: getDefaultEnabledSlugs(parseAccountId(accountId).network),
+  };
+}
+
+/**
+ * Whether the token is hidden from the account token list.
+ *
+ * A token the user hid always stays hidden, and a token the user pinned as always shown is always shown.
+ * Otherwise a token is shown when it carries a meaningful cost, is a priceless token with a balance
+ * (see `PRICELESS_TOKEN_HASHES`), or holds any balance while zero-cost tokens are not hidden by the settings.
+ * An empty wallet without activity shows the chain default tokens instead.
+ */
+export function getIsTokenDisabled(
+  slug: string,
+  balance: bigint,
+  token: ApiTokenWithPrice,
+  options: TokenVisibilityOptions,
+) {
+  const { accountSettings, areTokensWithNoCostHidden, shouldShowOnlyDefaultTokens, defaultEnabledSlugs } = options;
+
+  if (accountSettings.alwaysHiddenSlugs?.includes(slug)) return true;
+  if (accountSettings.alwaysShownSlugs?.includes(slug)) return false;
+  if (shouldShowOnlyDefaultTokens) return !defaultEnabledSlugs.has(slug);
+
+  // Ordered cheapest first: with the default settings any funded token is shown, which skips the `Big.js`
+  // math in `getHasCost`
+  return !(
+    (!areTokensWithNoCostHidden && balance > 0n)
+    || getIsPricelessWithBalance(balance, token)
+    || getHasCost(balance, token)
+  );
+}
+
+function getIsPricelessWithBalance(balance: bigint, { codeHash }: ApiTokenWithPrice) {
+  return balance > 0n && PRICELESS_TOKEN_HASHES.has(codeHash!);
+}
+
+function getHasCost(balance: bigint, { decimals, priceUsd }: ApiTokenWithPrice) {
+  return Boolean(priceUsd) && balance > 0n && toBig(balance, decimals).mul(priceUsd).gte(TINY_TRANSFER_MAX_COST);
+}
+
+function getAreAllBalancesNearZero(balancesBySlug: ApiBalanceBySlug, tokensBySlug: Record<string, ApiTokenWithPrice>) {
+  return Object.entries(balancesBySlug).every(([slug, balance]) => {
+    const token = tokensBySlug[slug];
+
+    // A token without info or price is zero-value
+    if (!token?.priceUsd) return true;
+
+    return toBig(balance, token.decimals).mul(token.priceUsd).lt(TINY_TRANSFER_MAX_COST);
+  });
 }
 
 /**

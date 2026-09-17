@@ -116,7 +116,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override val displayedAccount =
         DisplayedAccount(account.accountId, AccountStore.isPushedTemporary)
 
-    private val topTabsEnabled = WGlobalStorage.areTopTabsEnabled()
     private val px232 = 232.dp
     private val px116 = 116.dp
 
@@ -323,7 +322,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
         override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
             super.onDrawOver(canvas, parent, state)
-            if (!topTabsEnabled) return
             val cardRowCount = recyclerViewNumberOfItems(parent, TRANSACTION_SECTION) +
                 recyclerViewNumberOfItems(parent, EMPTY_VIEW_SECTION)
             if (cardRowCount == 0) return
@@ -562,9 +560,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     override fun viewDidAppear() {
         super.viewDidAppear()
-        if (topTabsEnabled) {
-            ExploreHistoryStore.saveTokenVisit(account.accountId, token.slug)
-        }
+        ExploreHistoryStore.saveTokenVisit(account.accountId, token.slug)
         heavyAnimationDone()
     }
 
@@ -973,10 +969,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                             isFirstInDay = previousTransaction == null ||
                                 !transaction.dt.isSameDayAs(previousTransaction.dt),
                             isLastInDay = isFirstInDay,
-                            isLast =
-                                !topTabsEnabled &&
-                                    indexPath.row == showingTransactions!!.size - 1 &&
-                                    tokenVM.activityLoader?.loadedAll != false,
+                            isLast = false,
                             isAdded = isApplyingUpdate &&
                                 oldTransactions?.contains(transaction.getStableId()) == false,
                             isAddedAsNewDay =
@@ -984,7 +977,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                                     oldTransactionsFirstDt?.let {
                                         !transaction.dt.isSameDayAs(it)
                                     } != false,
-                            revealsFromZero = topTabsEnabled
+                            revealsFromZero = true
                         )
                     )
                 } else {
@@ -997,25 +990,23 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
             EMPTY_VIEW_SECTION -> {
                 (cellHolder.cell as EmptyCell).let { cell ->
-                    if (topTabsEnabled) {
-                        cell.updateTheme()
-                        cell.setBackgroundColor(
-                            WColor.Background.color,
-                            if ((showingTransactions?.size ?: 0) > 0) {
-                                0f
-                            } else {
-                                ViewConstants.BLOCK_RADIUS.dp
-                            },
-                            ViewConstants.BLOCK_RADIUS.dp,
-                            true
-                        )
-                        if (removingEmptyCell) {
-                            collapseEmptyCell(cell)
-                            return@let
-                        }
-                        emptyCellCollapseAnimation?.cancel()
-                        cell.emptyView.alpha = 1f
+                    cell.updateTheme()
+                    cell.setBackgroundColor(
+                        WColor.Background.color,
+                        if ((showingTransactions?.size ?: 0) > 0) {
+                            0f
+                        } else {
+                            ViewConstants.BLOCK_RADIUS.dp
+                        },
+                        ViewConstants.BLOCK_RADIUS.dp,
+                        true
+                    )
+                    if (removingEmptyCell) {
+                        collapseEmptyCell(cell)
+                        return@let
                     }
+                    emptyCellCollapseAnimation?.cancel()
+                    cell.emptyView.alpha = 1f
                     cell.layoutParams = cell.layoutParams.apply {
                         height = emptyCellHeight()
                     }
@@ -1064,7 +1055,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private var collapseGap = 0
 
     private fun updateCollapseGap() {
-        val gap = if (topTabsEnabled) computeCollapseGap() else 0
+        val gap = computeCollapseGap()
         if (gap == collapseGap) return
         collapseGap = gap
         recyclerView.updatePadding(bottom = baseBottomPadding + collapseGap)
@@ -1241,8 +1232,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override fun dataUpdated(isUpdateEvent: Boolean) {
         showingTransactions = tokenVM.showingTransactions
         updateSkeletonState()
-        if (topTabsEnabled &&
-            isUpdateEvent &&
+        if (isUpdateEvent &&
             oldTransactions?.isEmpty() == true &&
             (showingTransactions?.size ?: 0) > 0
         ) {

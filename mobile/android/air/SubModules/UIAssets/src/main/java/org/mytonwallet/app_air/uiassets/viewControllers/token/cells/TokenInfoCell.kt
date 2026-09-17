@@ -803,7 +803,7 @@ class TokenInfoCell(
         }
     }
 
-    private fun createDetailRow(title: String, hint: String?, value: String): LinearLayout {
+    private fun createDetailRow(title: String, hint: String?, value: String): WView {
         val valueLabel = WLabel(context).apply {
             setStyle(17f)
             setTextColor(WColor.PrimaryText.color)
@@ -814,11 +814,7 @@ class TokenInfoCell(
         return createDetailRow(title, hint, valueLabel)
     }
 
-    private fun createDetailRow(title: String, hint: String?, valueView: View): LinearLayout {
-        val titleGroup = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
+    private fun createDetailRow(title: String, hint: String?, valueView: View): WView {
         val titleLabel = WLabel(context).apply {
             setStyle(17f)
             setTextColor(WColor.SecondaryText.color)
@@ -826,14 +822,9 @@ class TokenInfoCell(
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         }
-        titleGroup.addView(
-            titleLabel,
-            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                weight = 0f
-            }
-        )
-        if (hint != null) {
-            val infoButton = AppCompatImageView(context).apply {
+        val infoButton = hint?.let {
+            AppCompatImageView(context).apply {
+                id = generateViewId()
                 setImageResource(IconsR.drawable.ic_info_24)
                 setColorFilter(WColor.SecondaryText.color, PorterDuff.Mode.SRC_IN)
                 imageAlpha = 128
@@ -841,25 +832,30 @@ class TokenInfoCell(
                 contentDescription = hint
                 setOnClickListener { onShowInfo(title, hint) }
             }
-            titleGroup.addView(
-                infoButton,
-                LinearLayout.LayoutParams(24.dp, 24.dp).apply {
-                    marginStart = 4.dp
-                }
-            )
+        }
+        if (valueView.id == NO_ID) {
+            valueView.id = generateViewId()
         }
 
-        return LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPaddingLocalized(20.dp, 0, 20.dp, 0)
-            addView(titleGroup, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
-            addView(
-                valueView,
-                LinearLayout.LayoutParams(WRAP_CONTENT, MATCH_PARENT).apply {
-                    marginStart = 8.dp
+        return WView(context).apply {
+            addView(titleLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            infoButton?.let { addView(it, LayoutParams(24.dp, 24.dp)) }
+            addView(valueView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            setConstraints {
+                toEnd(valueView, 20f)
+                toCenterY(valueView)
+                toStart(titleLabel, 20f)
+                toCenterY(titleLabel)
+                constrainedWidth(titleLabel.id, true)
+                setHorizontalBias(titleLabel.id, 0f)
+                if (infoButton != null) {
+                    endToStart(titleLabel, valueView, 36f)
+                    startToEnd(infoButton, titleLabel, 4f)
+                    toCenterY(infoButton)
+                } else {
+                    endToStart(titleLabel, valueView, 8f)
                 }
-            )
+            }
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 50.dp)
         }
     }

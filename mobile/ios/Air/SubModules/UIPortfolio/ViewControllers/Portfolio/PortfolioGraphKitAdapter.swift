@@ -170,7 +170,8 @@ enum PortfolioGraphKitAdapter {
 
     static func makePreparedCharts(
         from responses: PortfolioHistoryResponses?,
-        configuration: Configuration = Configuration()
+        configuration: Configuration = Configuration(),
+        now: Date = Date()
     ) -> PreparedCharts {
         guard let responses else {
             return .empty
@@ -180,6 +181,7 @@ enum PortfolioGraphKitAdapter {
         let netWorthChartResponse = makeChartResponse(from: responses.netWorth)
         let totalValuePresentation = try? makeChartPresentation(
             from: netWorthChartResponse,
+            now: now,
             configuration: configuration,
             style: .area,
             percentageBased: false,
@@ -189,6 +191,7 @@ enum PortfolioGraphKitAdapter {
         )
         let totalPnlPresentation = try? makeChartPresentation(
             from: responses.pnlCumulative,
+            now: now,
             configuration: configuration,
             style: .line,
             percentageBased: false,
@@ -198,6 +201,7 @@ enum PortfolioGraphKitAdapter {
         )
         let dailyPnlPresentation = try? makeChartPresentation(
             from: responses.pnl,
+            now: now,
             configuration: configuration,
             style: .bar,
             percentageBased: false,
@@ -207,6 +211,7 @@ enum PortfolioGraphKitAdapter {
         )
         let portfolioSharePresentation = try? makeChartPresentation(
             from: netWorthChartResponse,
+            now: now,
             configuration: configuration,
             style: .area,
             percentageBased: true,
@@ -232,6 +237,7 @@ enum PortfolioGraphKitAdapter {
 
     private static func makeChartPresentation(
         from response: ApiPortfolioHistoryResponse,
+        now: Date,
         configuration: Configuration = Configuration(),
         style: ChartStyle,
         percentageBased: Bool,
@@ -263,7 +269,10 @@ enum PortfolioGraphKitAdapter {
             Set((selectedDatasets + remainingDatasets).flatMap { datasetSummary in
                 datasetSummary.dataset.points.compactMap(timestamp(from:))
             })
-        ).sorted()
+        )
+        // Requests cover whole UTC days, so the backend can pad the remaining day with empty points.
+        .filter { $0 <= now.timeIntervalSince1970 }
+        .sorted()
 
         guard !allTimestamps.isEmpty else {
             throw PortfolioGraphKitAdapterError.noActiveDatasets

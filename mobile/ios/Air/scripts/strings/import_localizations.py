@@ -173,6 +173,10 @@ INTEGER_PARAMETER_NAMES = {
 }
 
 PLACEHOLDER_TYPE_OVERRIDES: dict[str, dict[str, ParameterKind]] = {
+    "$utxo_confirmations": {
+        # The confirmation target, not the current count, determines the plural form.
+        "count": ParameterKind.STRING,
+    },
     "$auth_import_mnemonic_description": {
         "counts": ParameterKind.STRING,
     },

@@ -37,6 +37,8 @@ import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.models.readToken
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiTokenUpdateKind
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
@@ -314,15 +316,20 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
-        private fun readArePricesFresh(updateString: String): Boolean? {
+        private fun readTokenUpdateKind(updateString: String): ApiTokenUpdateKind? {
             val reader = JsonReader.of(Buffer().writeUtf8(updateString))
             return try {
                 if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) return null
                 reader.beginObject()
                 while (reader.hasNext()) {
-                    if (reader.nextName() == "arePricesFresh") {
-                        return if (reader.peek() == JsonReader.Token.BOOLEAN) {
-                            reader.nextBoolean()
+                    if (reader.nextName() == "kind") {
+                        return if (reader.peek() == JsonReader.Token.STRING) {
+                            when (reader.nextString()) {
+                                "fromCache" -> ApiTokenUpdateKind.FROM_CACHE
+                                "full" -> ApiTokenUpdateKind.FULL
+                                "partial" -> ApiTokenUpdateKind.PARTIAL
+                                else -> null
+                            }
                         } else {
                             null
                         }
@@ -341,43 +348,70 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         }
 
         private fun streamUpdateTokens(updateString: String) {
-            val arePricesFresh = readArePricesFresh(updateString)
-            if (arePricesFresh == null) {
+            val kind = readTokenUpdateKind(updateString)
+            if (kind == null) {
                 Logger.e(
                     Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                    "updateTokens: missing arePricesFresh"
+                    "updateTokens: missing or invalid kind"
                 )
                 return
             }
             val reader = JsonReader.of(Buffer().writeUtf8(updateString))
+            val tokens = LinkedHashMap<String, MToken>()
+            val presentSlugs = HashSet<String>()
+            val removedSlugs = ArrayList<String>()
+            var hasTokens = false
             try {
                 reader.beginObject()
                 while (reader.hasNext()) {
-                    if (reader.nextName() != "tokens") {
-                        reader.skipValue()
-                        continue
-                    }
-                    if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
-                        reader.skipValue()
-                        continue
-                    }
-                    reader.beginObject()
-                    while (reader.hasNext()) {
-                        val slug = reader.nextName()
-                        val tokenJsonString = reader.nextSource().readUtf8()
-                        try {
-                            val token = MToken(JSONObject(tokenJsonString))
-                            TokenStore.setToken(slug, token, arePricesFresh)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Logger.w(
-                                Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                                "updateTokens: skipped invalid token slug=$slug error=${e.javaClass.simpleName}"
-                            )
+                    when (reader.nextName()) {
+                        "tokens" -> {
+                            if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
+                                reader.skipValue()
+                                continue
+                            }
+                            hasTokens = true
+                            reader.beginObject()
+                            while (reader.hasNext()) {
+                                val slug = reader.nextName()
+                                presentSlugs.add(slug)
+                                try {
+                                    tokens[slug] = readToken(reader)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    Logger.w(
+                                        Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                                        "updateTokens: skipped invalid token slug=$slug error=${e.javaClass.simpleName}"
+                                    )
+                                }
+                            }
+                            reader.endObject()
                         }
+
+                        "removedSlugs" -> {
+                            if (reader.peek() != JsonReader.Token.BEGIN_ARRAY) {
+                                reader.skipValue()
+                                continue
+                            }
+                            reader.beginArray()
+                            while (reader.hasNext()) {
+                                if (reader.peek() == JsonReader.Token.STRING) {
+                                    removedSlugs.add(reader.nextString())
+                                } else {
+                                    reader.skipValue()
+                                }
+                            }
+                            reader.endArray()
+                        }
+
+                        else -> reader.skipValue()
                     }
-                    reader.endObject()
+                }
+                reader.endObject()
+                if (!hasTokens) {
+                    Logger.e(Logger.LogTag.JS_WEBVIEW_BRIDGE, "updateTokens: missing tokens")
+                    return
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -386,12 +420,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     Logger.LogTag.JS_WEBVIEW_BRIDGE,
                     "updateTokens: failed to parse update error=${e.javaClass.simpleName}"
                 )
+                return
             } finally {
                 try {
                     reader.close()
                 } catch (_: Exception) {
                 }
             }
+            TokenStore.applyTokenUpdate(tokens, presentSlugs, kind, removedSlugs)
             TokenStore.updateTokensCache()
             BalanceStore.resetBalanceInBaseCurrency()
             Handler(Looper.getMainLooper()).post {
@@ -416,9 +452,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     reader.beginObject()
                     while (reader.hasNext()) {
                         reader.nextName()
-                        val tokenJsonString = reader.nextSource().readUtf8()
                         try {
-                            tokens.add(MToken(JSONObject(tokenJsonString)))
+                            tokens.add(readToken(reader))
                         } catch (e: Exception) {
                             Logger.w(
                                 Logger.LogTag.JS_WEBVIEW_BRIDGE,

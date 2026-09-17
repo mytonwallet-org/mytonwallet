@@ -122,25 +122,30 @@ private var appVersion: String {
 
 private func installCrashlyticsReporter() {
     #if canImport(FirebaseCrashlytics)
+    let queue = DispatchQueue(label: "org.mytonwallet.air.crashlytics-reporter", qos: .utility)
     Log.setFaultReporter { event in
-        let source = "\(event.fileID):\(event.line)"
-        let message = String(event.message.prefix(1_024))
-        let crashlytics = Crashlytics.crashlytics()
-        crashlytics.log("[\(event.category)] \(source) \(message)")
-        crashlytics.record(
-            error: NSError(
-                domain: "org.mytonwallet.air.log.fault",
-                code: 1,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "\(event.category) fault at \(source)",
-                    "category": event.category,
-                    "file": event.fileID,
-                    "function": event.function,
-                    "line": event.line,
-                    "message": message,
-                ]
+        // Crashlytics.log can synchronously write to disk. Keep each log/record
+        // pair ordered without blocking the caller's executor.
+        queue.async {
+            let source = "\(event.fileID):\(event.line)"
+            let message = String(event.message.prefix(1_024))
+            let crashlytics = Crashlytics.crashlytics()
+            crashlytics.log("[\(event.category)] \(source) \(message)")
+            crashlytics.record(
+                error: NSError(
+                    domain: "org.mytonwallet.air.log.fault",
+                    code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "\(event.category) fault at \(source)",
+                        "category": event.category,
+                        "file": event.fileID,
+                        "function": event.function,
+                        "line": event.line,
+                        "message": message,
+                    ]
+                )
             )
-        )
+        }
     }
     #endif
 }

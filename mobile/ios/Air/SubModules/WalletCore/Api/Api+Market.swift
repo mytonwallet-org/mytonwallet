@@ -48,6 +48,8 @@ public struct ApiMarketSectionResponse: Codable, Sendable, Hashable {
     public var title: String
     public var layout: ApiMarketSectionLayout
     public var limit: Int?
+    public var desktopLimit: Int?
+    public var mobileLimit: Int?
     public var hasMore: Bool
     public var assets: [ApiMarketAsset]
 }

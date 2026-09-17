@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.stores
 
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.MEnvironmentVariables
@@ -25,11 +24,6 @@ object EnvironmentStore : IStore {
     val isBeta: Boolean
         get() {
             return ApplicationContextHolder.isBetaApp
-        }
-
-    val isTopTabsSettingAvailable: Boolean
-        get() {
-            return DEBUG_MODE || ApplicationContextHolder.isBetaApp
         }
 
     val isTokenPriceInsightEnabled: Boolean

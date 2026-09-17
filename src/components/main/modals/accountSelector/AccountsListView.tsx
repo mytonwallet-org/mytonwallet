@@ -1,8 +1,8 @@
 import React, { memo, useEffect, useRef } from '../../../../lib/teact/teact';
 
 import type { ApiChain } from '../../../../api/types';
+import type { AccountBalance } from '../../../../global/selectors';
 import type { Account, AccountSettings } from '../../../../global/types';
-import type { AccountBalance } from '../../../../hooks/useAccountsBalances';
 import type { SortState } from '../../../../hooks/useSortableList';
 import type { AccountTab } from './constants';
 

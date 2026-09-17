@@ -6,6 +6,7 @@ import WalletContext
 
 final class TokenActionsCell: FirstRowCell {
     private var actionsView: TokenActionsView?
+    private var actionsHostView: UIView?
     private var heightConstraint: NSLayoutConstraint?
     private var actionsHeightConstraint: NSLayoutConstraint?
     private var installedConstraints: [NSLayoutConstraint] = []
@@ -52,7 +53,7 @@ final class TokenActionsCell: FirstRowCell {
         }
 
         NSLayoutConstraint.deactivate(installedConstraints)
-        actionsView?.removeFromSuperview()
+        actionsHostView?.removeFromSuperview()
 
         let actionsView = TokenActionsView(
             accountContext: accountContext,
@@ -60,7 +61,26 @@ final class TokenActionsCell: FirstRowCell {
             usesSplitHomeActionStyle: usesSplitHomeActionStyle
         )
         self.actionsView = actionsView
-        contentView.addSubview(actionsView)
+
+        let actionsHostView: UIView
+        if #available(iOS 26, *) {
+            let effect = UIGlassContainerEffect()
+            effect.spacing = actionsView.glassSpacing
+            let glassContainerView = UIVisualEffectView(effect: effect)
+            glassContainerView.translatesAutoresizingMaskIntoConstraints = false
+            glassContainerView.contentView.addSubview(actionsView)
+            NSLayoutConstraint.activate([
+                actionsView.leadingAnchor.constraint(equalTo: glassContainerView.contentView.leadingAnchor),
+                actionsView.trailingAnchor.constraint(equalTo: glassContainerView.contentView.trailingAnchor),
+                actionsView.topAnchor.constraint(equalTo: glassContainerView.contentView.topAnchor),
+                actionsView.bottomAnchor.constraint(equalTo: glassContainerView.contentView.bottomAnchor),
+            ])
+            actionsHostView = glassContainerView
+        } else {
+            actionsHostView = actionsView
+        }
+        self.actionsHostView = actionsHostView
+        contentView.addSubview(actionsHostView)
 
         let actionsHeightConstraint = actionsView.heightAnchor.constraint(equalToConstant: actionsView.rowHeight)
         self.actionsHeightConstraint = actionsHeightConstraint
@@ -70,17 +90,17 @@ final class TokenActionsCell: FirstRowCell {
         self.heightConstraint = heightConstraint
 
         var constraints: [NSLayoutConstraint] = [
-            actionsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            actionsHostView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             actionsHeightConstraint,
             heightConstraint,
         ]
         if usesSplitHomeActionStyle {
-            constraints.append(actionsView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor))
+            constraints.append(actionsHostView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor))
         } else {
             let horizontalInset = S.insetSectionHorizontalMargin
             constraints.append(contentsOf: [
-                actionsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
-                actionsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
+                actionsHostView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
+                actionsHostView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
             ])
         }
         
@@ -114,7 +134,7 @@ final class TokenActionsCell: FirstRowCell {
     }
 
     private func applyConfiguration() {
-        guard let actionsView else { return }
+        guard let actionsView, let actionsHostView else { return }
         
         actionsView.token = token
         actionsView.fundAvailable = accountContext?.account.supportsReceive == true
@@ -122,14 +142,14 @@ final class TokenActionsCell: FirstRowCell {
         actionsView.earnAvailable = earnAvailable
         
         if actionsView.hasVisibleActions {
-            if actionsView.isHidden {
+            if actionsHostView.isHidden {
                 actionsHeightConstraint?.constant = actionsView.rowHeight
             }
             heightConstraint?.constant = actionsView.rowHeight + topInset
-            actionsView.isHidden = false
+            actionsHostView.isHidden = false
         } else {
             heightConstraint?.constant = 4
-            actionsView.isHidden = true
+            actionsHostView.isHidden = true
         }
     }
 }

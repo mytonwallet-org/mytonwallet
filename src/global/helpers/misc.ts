@@ -1,4 +1,4 @@
-import type { GlobalState } from '../types';
+import type { AccountState, GlobalState } from '../types';
 
 import { getChainFromAddress } from '../../util/isValidAddress';
 import { getChainBySlug, getNativeToken } from '../../util/tokens';
@@ -36,4 +36,22 @@ export function closeAllOverlays() {
 export function replaceActivityId(oldId: string | undefined, replaceMap: Record<string, string>) {
   const newId = oldId && replaceMap[oldId];
   return newId || oldId;
+}
+
+/**
+ * An activity can be replaced by another row with a new id, for example a local swap is replaced by the row from
+ * the chain. An id remembered before that replacement points to a row that no longer exists. This function walks
+ * the chain of replacements and returns the id of the row that is present in `byId` now.
+ */
+export function resolveReplacedActivityId(activities: AccountState['activities'], id: string) {
+  const { byId = {}, activityIdReplacements = {} } = activities ?? {};
+  const visitedIds = new Set<string>();
+  let resolvedId = id;
+
+  while (!byId[resolvedId] && activityIdReplacements[resolvedId] && !visitedIds.has(resolvedId)) {
+    visitedIds.add(resolvedId);
+    resolvedId = activityIdReplacements[resolvedId];
+  }
+
+  return resolvedId;
 }

@@ -331,15 +331,16 @@ private class GradientBorderDrawable(
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
 
-        if (cachedShader == null || cachedCx != cx || cachedCy != cy) {
-            cachedShader = SweepGradient(cx, cy, colors, positions)
-            cachedCx = cx
-            cachedCy = cy
-        }
+        val shader = cachedShader?.takeIf { cachedCx == cx && cachedCy == cy }
+            ?: SweepGradient(cx, cy, colors, positions).also {
+                cachedShader = it
+                cachedCx = cx
+                cachedCy = cy
+            }
 
         shaderMatrix.setRotate(angle, cx, cy)
-        cachedShader!!.setLocalMatrix(shaderMatrix)
-        borderPaint.shader = cachedShader
+        shader.setLocalMatrix(shaderMatrix)
+        borderPaint.shader = shader
 
         val inset = borderWidth / 2f
         rectF.set(

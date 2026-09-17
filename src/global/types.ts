@@ -628,6 +628,7 @@ export interface AccountState {
     wasTelegramGiftsAutoAdded?: boolean;
     isLoadedByAddress?: Record<string, true>;
     isFullLoadingByChain?: Partial<Record<ApiChain, boolean>>;
+    isFullLoadCompleteByChain?: Partial<Record<ApiChain, boolean>>;
     /** Collection address -> last loaded timestamp for cache TTL */
     collectionLoadedTimestamps?: Record<string, number>;
     /** Snapshot of MW card NFT addresses currently owned by this account */
@@ -749,7 +750,7 @@ export interface AddressBookItemData {
   address: string;
   chain: ApiChain | undefined;
   domain?: string;
-  isHardware?: boolean;
+  accountType?: AccountType;
   isSavedAddress?: boolean;
 }
 
@@ -1183,6 +1184,7 @@ export type GlobalState = {
   confettiRequestedAt?: number;
   isPinAccepted?: boolean;
   chainForOnRampWidgetModal?: ApiChain;
+  providerForOnRampWidgetModal?: 'moonpay' | 'avanchange';
   chainForOffRampWidgetModal?: ApiChain;
   isInvoiceModalOpen?: boolean;
   isReceiveModalOpen?: boolean;
@@ -1699,7 +1701,7 @@ export interface ActionPayloads {
   toggleSwapSettingsModal: { isOpen: boolean };
   updatePendingSwaps: { forceProviderRefresh?: boolean; contextActivities?: ApiActivity[] } | undefined;
 
-  openOnRampWidgetModal: { chain: ApiChain };
+  openOnRampWidgetModal: { chain: ApiChain; provider?: 'moonpay' | 'avanchange' };
   closeOnRampWidgetModal: undefined;
 
   openOffRampWidgetModal: undefined;

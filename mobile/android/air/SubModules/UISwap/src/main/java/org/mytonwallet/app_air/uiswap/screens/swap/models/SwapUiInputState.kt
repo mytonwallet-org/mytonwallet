@@ -40,7 +40,7 @@ data class SwapUiInputState(val wallet: SwapWalletState, private val input: Swap
 
     val key =
         tokenToSend?.slug + "_" + tokenToReceive?.slug + "_" + amountInput + "_" +
-            (reverse.toString())
+            reverse + "_" + slippage
 
     internal val tokenToSendBalance: BigInteger =
         tokenToSend?.let { token -> wallet.balances[token.slug] } ?: BigInteger.ZERO

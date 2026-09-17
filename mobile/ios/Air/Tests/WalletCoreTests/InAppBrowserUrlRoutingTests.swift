@@ -5,6 +5,53 @@ import WalletCore
 
 @Suite("In-App Browser URL Routing")
 struct InAppBrowserUrlRoutingTests {
+    @Test(arguments: [
+        ("https://example.com/page", "https://example.com/page", false, true),
+        ("https://example.com/page#one", "https://example.com/page#two", false, true),
+        ("https://example.com/page#one", "https://example.com/page", false, true),
+        ("https://example.com/page?item=1", "https://example.com/page?item=2", false, false),
+        ("https://example.com/one", "https://example.com/two", false, false),
+        ("https://example.com/one", "https://other.com/one", false, false),
+        ("https://app.ston.fi/pools?asset=ton#one", "https://app.ston.fi/swap?asset=usdt#two", true, true),
+        ("https://app.ston.fi/pools", "https://other.ston.fi/swap", true, false),
+        ("https://app.ston.fi/pools", "https://app.ston.fi.evil.com/swap", true, false),
+        ("https://app.ston.fi/pools", "http://app.ston.fi/swap", true, false),
+        ("https://app.ston.fi/pools", "https://app.ston.fi:8443/swap", true, false),
+        ("about:blank", "https://app.ston.fi/swap", true, false),
+        ("https://tonscan.org/tx/one?view=raw", "https://tonscan.org/tx/one?view=details", true, false),
+    ])
+    func `app links reuse only matching tabs`(current: String, requested: String, isKnownDapp: Bool, matches: Bool) throws {
+        let currentUrl = try #require(URL(string: current))
+        let requestedUrl = try #require(URL(string: requested))
+
+        #expect(inAppBrowserTabMatchesUrl(currentUrl, requestedUrl: requestedUrl, isKnownDapp: isKnownDapp) == matches)
+    }
+
+    @Test(arguments: ApiChain.allCases)
+    func `configured explorers keep different pages in separate tabs`(chain: ApiChain) throws {
+        for explorer in getAvailableExplorers(chain: chain) {
+            for base in explorer.baseUrl.values {
+                let baseUrl = try #require(URL(string: base.url))
+                let first = baseUrl.appendingPathComponent("first")
+                let second = baseUrl.appendingPathComponent("second")
+                let fragment = try #require(URL(string: first.absoluteString + "#details"))
+
+                #expect(ExplorerHelper.isExplorerUrl(first))
+                #expect(!inAppBrowserTabMatchesUrl(first, requestedUrl: second, isKnownDapp: true))
+                #expect(inAppBrowserTabMatchesUrl(first, requestedUrl: fragment, isKnownDapp: true))
+            }
+        }
+    }
+
+    @Test(arguments: [
+        ("https://TONSCAN.ORG/tx/one", true),
+        ("https://tonscan.org.evil.com/tx/one", false),
+        ("https://app.ston.fi/pools", false),
+    ])
+    func `explorer classification matches exact hosts ignoring case`(url: String, isExplorer: Bool) throws {
+        #expect(ExplorerHelper.isExplorerUrl(try #require(URL(string: url))) == isExplorer)
+    }
+
     @Test
     func `navigation consumes Offramp before delegate routing`() throws {
         let url = try #require(makeOfframpURL())

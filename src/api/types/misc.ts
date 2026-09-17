@@ -20,8 +20,10 @@ export type EVMChain =
   | 'monad'
   | 'avalanche'
   | 'hyperliquid'
-  | 'robinhood';
-export type ApiChain = 'ton' | 'tron' | 'solana' | EVMChain;
+  | 'robinhood'
+  | 'arc';
+export type UTXOChain = 'bitcoin' | 'litecoin' | 'bitcoincash' | 'dogecoin';
+export type ApiChain = 'ton' | 'tron' | 'solana' | UTXOChain | EVMChain;
 export type ApiNetwork = 'mainnet' | 'testnet';
 export type ApiLedgerDriver = 'HID' | 'USB';
 export type ApiTokenType = 'lp_token' | 'legacy_token' | 'token_2022';
@@ -74,6 +76,8 @@ export interface ApiToken {
   /* Means the token is fetched from the backend by default and already includes price
   and other details (`ApiTokenPriceDetails`), so no separate requests are needed. */
   isFromBackend?: boolean;
+  /** The cached quote comes from GET or POST /assets and takes priority over balance-response prices. */
+  isPriceFromBackend?: boolean;
 }
 
 export type ApiTokenWithPrice = ApiToken & {
@@ -127,6 +131,12 @@ export interface ApiTransaction extends BaseApiTransaction {
    * - 'confirmed' — included in a shardblock but not yet finalized in the masterchain
    */
   status: 'pending' | 'pendingTrusted' | 'confirmed' | 'completed' | 'failed';
+  /** UTXO confirmation count when available. */
+  confirmations?: number;
+  /** Backend-provided UTXO confirmation target; REST/direct parsing uses a documented fallback when needed. */
+  maxConfirmations?: number;
+  /** Backend-provided approximate seconds until UTXO finality when available. */
+  etaSeconds?: number;
 }
 
 export interface BaseApiTransaction {

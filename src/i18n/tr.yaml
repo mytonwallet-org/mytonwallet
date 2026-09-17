@@ -409,6 +409,7 @@ Slippage: Kayma toleransı
 $swap_from_to: "%from% %icon% %to% değiştirin"
 The exchange rate is below market value!: Takas oranı piyasa değerinin %value% altındadır!
 Invalid Pair: Takas kullanılamıyor
+Unsupported Pair: Desteklenmeyen çift
 We do not recommend to perform an exchange, try to specify a lower amount.: Takas yapmanızı tavsiye etmiyoruz, daha düşük bir tutar belirtmeye çalışın.
 $swap_minimum_received_tooltip1: Mevcut piyasa koşulları, kayma toleransı ve potansiyel fiyat etkisi göz önüne alındığında, bu takastan elde edeceğiniz en az yeni token miktarı budur.
 $swap_minimum_received_tooltip2: Bu beklenen minimum tutardır, ancak takasınız işleme konurken koşullar çok değişirse, nihai tutar daha az olabilir.
@@ -677,6 +678,10 @@ $transfer_text_and_bin_exclusive: Metin ve ikili veri parametreleri birlikte kul
 $unsupported_deeplink_parameter: Bu derin bağlantı desteklenmeyen parametreler içeriyor.
 $unsupported_chain: Desteklenmeyen blok zinciri.
 Successfully: Başarıyla
+Estimated Time: Tahmini Süre
+$utxo_confirmations:
+  otherValue: "%max% onaydan %count% tanesi"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: Unstake daha fazla
 Are you sure you want to burn this NFT? It will be lost forever.: Bu NFT'yi yakmak istediğinizden emin misiniz? Sonsuza kadar kaybolacak.
 $multi_burn_nft_warning: |
@@ -982,6 +987,11 @@ $iab_tabs_count:
   zeroValue: "%count% sekme"
   oneValue: "%count% sekme"
   otherValue: "%count% sekme"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% sekme"
+  oneValue: "+ %count% sekme"
+  otherValue: "+ %count% sekme"
+Close Tab: Sekmeyi Kapat
 $domains_amount %count%:
   zeroValue: Alan adı yok
   oneValue: "%count% alan adı"
@@ -1332,6 +1342,152 @@ $agent_portfolio_insight_chain_split_title: Ağ dağıtımı
 $agent_portfolio_insight_chain_split_text: Mevcut tahsisat dahilindeki ağ görünürlüğünü gözden geçirin; atlanan varlıklar, portföyün genel görünümünü değiştirebilir.
 $agent_portfolio_insight_data_quality_title: Veri kalitesi
 $agent_portfolio_insight_data_quality_text: Bu analizi yorumlarken veri kapsamını ve güncelliğini göz önünde bulundurun.
+$agent_market_analysis_title: Piyasa analizi
+$agent_market_as_of: Şu an itibariyle
+$agent_market_closed_1d: Son kapanan 1D mumu
+$agent_market_thesis: Teknik görünüm
+$agent_market_fear_greed_sentiment: Bitcoin tabanlı piyasa duyarlılığı
+$agent_market_fear_greed_index: Korku ve Açgözlülük endeksi (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: Piyasa rejimi
+$agent_market_fear_greed_risk_on: Risk alma eğilimi
+$agent_market_fear_greed_risk_off: Riskten kaçınma eğilimi
+$agent_market_fear_greed_neutral: Nötr duyarlılık
+$agent_market_fear_greed_source: Kaynak
+$agent_market_timeframes: Piyasa yapısı
+$agent_market_structure_bullish: Daha yüksek zirveler ve daha yüksek dipler
+$agent_market_structure_bearish: Daha düşük zirveler ve daha düşük dipler
+$agent_market_structure_range: Yatay bant
+$agent_market_structure_transition: Geçiş
+$agent_market_structure_unavailable: Yapı mevcut değil
+$agent_market_event_none: Onaylanmış kırılım yok
+$agent_market_event_break_up: Yapı üzerinde kırılım
+$agent_market_event_break_down: Yapı altında kırılım
+$agent_market_event_retest_up: Yükseliş yönlü yeniden test
+$agent_market_event_retest_down: Düşüş yönlü yeniden test
+$agent_market_live_approaching_upper: Üst sınıra yaklaşıyor
+$agent_market_live_approaching_lower: Alt sınıra yaklaşıyor
+$agent_market_level_map: Ana seviyeler
+$agent_market_level_primary: Birincil seviye
+$agent_market_level_secondary: İkincil seviye
+$agent_market_level_context: Bağlam düzeyi
+$agent_market_levels_unavailable: Onaylanmış yapısal seviyeler kullanılamıyor.
+$agent_market_profile_poc_full: hacim merkezi (POC)
+$agent_market_profile_value_area_full: değer alanı sınırları (VAL/VAH)
+$agent_market_profile_hvn_full: yüksek hacimli alan (HVN)
+$agent_market_profile_lvn_full: düşük hacimli koridor (LVN)
+$agent_market_profile_current_day: Mevcut UTC günü
+$agent_market_profile_previous_day: Önceki UTC günü
+$agent_market_profile_previous_week: Önceki UTC haftası
+$agent_market_profile_rolling_30d: Son 30 UTC oturumu
+$agent_market_profile_above: Değer alanının üzerindeki fiyat
+$agent_market_profile_inside: Değer alanı içindeki fiyat
+$agent_market_profile_below: Fiyat, değer alanının altında
+$agent_market_factors: Temel faktörler
+$agent_market_factor_structure: "Günlük yapı: %direction%"
+$agent_market_factor_levels: Bu zaman aralığı için %supports% destek ve %resistances% direnç bölgesi onaylandı.
+$agent_market_factor_profile: "Hacim dağılımı: %position%."
+$agent_market_factor_profile_unavailable: Hacim profili mevcut değil; senaryo fiyat yapısına bağlıdır.
+$agent_market_factor_timeframe_alignment: "Zaman dilimi yapısı — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "Mevcut rejim: %active%. Şartlı senaryo: %activation%'den sonra %conditional%."
+$agent_market_factor_no_active_scenario: "Hiçbir senaryo doğrulanmadı. Şartlı senaryo: %activation%'den sonra %conditional%."
+$agent_market_primary_scenario: Birincil senaryo
+$agent_market_current_regime: Mevcut onaylanmış piyasa rejimi
+$agent_market_conditional_scenario: Şartlı senaryo
+$agent_market_no_active_scenario: Şu an için hiçbir senaryo doğrulanmış değil.
+$agent_market_calculated_fallback: "Hesaplamalı analiz: Model açıklaması geçici olarak kullanılamıyor."
+$agent_market_other_horizons: İstenen diğer zaman aralıkları
+$agent_market_horizon_3d: 3 gün
+$agent_market_horizon_7d: 7 gün
+$agent_market_horizon_30d: 30 gün
+$agent_market_scenario_bullish: Yükseliş yönlü kırılma
+$agent_market_scenario_range: Aralık dengesi
+$agent_market_scenario_bearish: Düşüş yönlü kırılma
+$agent_market_scenario_unavailable: Bu zaman dilimi için yapısal senaryo mevcut değil.
+$agent_market_confidence: Güven
+$agent_market_confidence_low: Düşük
+$agent_market_confidence_medium: Orta
+$agent_market_activation: Tetiklenme
+$agent_market_path: Yol
+$agent_market_terminal: Hedef bölge
+$agent_market_invalidation: Geçersizlik seviyesi
+$agent_market_expected_range: Senaryo aralığı
+$agent_market_rationale: Gerekçe
+$agent_market_condition_above: üzerinde kapanış
+$agent_market_condition_below: altında kapanış
+$agent_market_condition_inside: içinde kapanış
+$agent_market_condition_outside: dışında kapanış
+$agent_market_condition_waiting: Onay bekleniyor
+$agent_market_condition_approaching: Yaklaşıyor
+$agent_market_condition_triggered: Onaylandı
+$agent_market_scenario_zone: senaryo bölgesi
+$agent_market_expected_move: Volatilite zarfı
+$agent_market_volatility_envelope: Genel oynaklık aralığı
+$agent_market_expected_move_note: Şartlı hamle, olasılık değil.
+$agent_market_risk_caveat: Senaryolar koşulludur ve alım satım tavsiyesi niteliği taşımaz.
+$agent_market_partial_coverage: Piyasa verilerinin bir kısmı mevcut değil; güven sınırlı.
+$agent_market_thesis_bullish: Doğrulanan yapı, direnç seviyesinin üzerinde devamı desteklerken, en yakın destek seviyesinin altında geçersizlik olasılığı devam etmektedir.
+$agent_market_thesis_bearish: Doğrulanan yapı, destek seviyesinin altında devam etmeyi desteklerken, geçersizleşme en yakın direnç seviyesinin üzerinde kalmaya devam eder.
+$agent_market_thesis_range: Fiyat, teyit edilmiş destek ve direnç seviyeleri arasında dengede kalmaya devam ediyor.
+$agent_market_thesis_mixed: Zaman dilimleri çelişiyor, bu nedenle yapısal sınırda doğrulama, yön göstergelerinden daha önemlidir.
+$agent_market_thesis_insufficient: Mevcut kanıtlar, yönlü bir yapıyı doğrulamak için yeterli değildir.
+$agent_market_thesis_unconfirmed: Henüz hiçbir senaryo doğrulanmadı; yönlü bir durum benimsemeden önce yapısal bir sınırın kapanmasını bekleyin.
+$agent_semantic_asset_search: Varlık araması
+$agent_semantic_web_digest: Web sonuçları
+$agent_semantic_no_results: Sonuç bulunamadı.
+$agent_semantic_wallets: Cüzdanlar
+$agent_semantic_wallet: Cüzdan
+$agent_semantic_balance: Bakiye
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: Normal
+$agent_semantic_access_view_only: Salt okunur
+$agent_semantic_wallets_unpriced: Fiyatı olmadığı için %amount% pozisyon görüntülenen toplamlara dahil edilmedi.
+$agent_semantic_wallets_stale: Bazı cüzdan bakiyeleri güncel olmayabilir.
+$agent_semantic_wallets_unavailable: Bazı cüzdan bakiyelerine erişilemiyor.
+$agent_semantic_wallets_partial: Cüzdan verilerinin bazıları eksik.
+$agent_semantic_status: Durum
+$agent_semantic_quantity: Miktar
+$agent_semantic_time: Zaman
+$agent_semantic_partial: Bazı veriler mevcut değil.
+$agent_semantic_pending: Bekliyor
+$agent_semantic_confirmed: Onaylandı
+$agent_semantic_completed: Tamamlandı
+$agent_semantic_failed: Başarısız
+$agent_semantic_expired: Süresi doldu
+$agent_semantic_active: Aktif
+$agent_semantic_unstaking: Staking'den çıkılıyor
+$agent_semantic_ready: Hazır
+$agent_semantic_frozen: Dondurulmuş
+$agent_semantic_locked: Kilitli
+$agent_semantic_fungible: Token
+$agent_semantic_nft: NFT
+$agent_semantic_staking: Staking
+$agent_semantic_vesting: Hak ediş
+$agent_semantic_vault: Kasa
+$agent_semantic_transfer: Aktarım
+$agent_semantic_swap: Takas
+$agent_semantic_stake: Stake Et
+$agent_semantic_unstake: Staking'den Çık
+$agent_semantic_contract: Sözleşme
+$agent_semantic_unknown: Aktivite
+$agent_semantic_spam_transactions: Spam işlemleri
+$agent_semantic_spam_assets: Spam varlıklar
+$agent_semantic_hidden_assets: Gizli varlıklar
+$agent_semantic_hidden_assets_warning: Gizli varlık adları yanıltıcı olabilir. Bunlar düz metin olarak gösterilir ve bağlantı olarak açılamaz.
+$agent_semantic_quarantine_warning: Bu öğeler spam olarak bildirildi. İsimlerine veya bağlantılarına güvenmeyin.
+$agent_semantic_redacted_asset: İsim gizli
+$agent_semantic_omitted_spam: "Filtrelenmiş spam: %amount%"
+$agent_semantic_omitted_spam_minimum: "Filtrelenmiş spam: en az %amount%"
+$agent_semantic_omitted_hidden: "Gizli varlıklar atlandı: %amount%"
+$agent_semantic_omitted_hidden_minimum: "Gizli varlıklar atlandı: en az %amount%"
+$agent_semantic_suspicious: "Güvenli olmayan isimler gizlendi: %amount%"
+$agent_semantic_suspicious_minimum: "Güvenli olmayan isimler gizlendi: en az %amount%"
+$agent_semantic_suspicious_shown: "Potansiyel olarak güvenli olmayan isimler: %amount%"
+$agent_semantic_suspicious_shown_minimum: "Potansiyel olarak güvenli olmayan isimler: en az %amount%"
+$agent_semantic_omitted_rows: Çok fazla veri var. %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
+$agent_semantic_omitted_rows_minimum: Çok fazla veri var. En az %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
+$agent_semantic_update_required: Bu yanıtın görüntülenmesi için uygulamayı güncelleyin.
 $agent_hint_portfolio_title: Portföy performansı
 $agent_hint_portfolio_prompt: Portföy performansımı analiz et.
 $agent_hint_swap_title: Takaslar nasıl çalışır?
@@ -1494,152 +1650,6 @@ $agent_error_update_required: Devam etmek için uygulamayı güncelleyin.
 $agent_semantic_transactions: İşlemler
 $agent_semantic_positions: Pozisyonlar
 $agent_semantic_market: Piyasa görünümü
-$agent_market_analysis_title: Piyasa analizi
-$agent_market_as_of: Şu an itibariyle
-$agent_market_closed_1d: Son kapanan 1D mumu
-$agent_market_thesis: Teknik görünüm
-$agent_market_fear_greed_sentiment: Bitcoin tabanlı piyasa duyarlılığı
-$agent_market_fear_greed_index: Korku ve Açgözlülük endeksi (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: Piyasa rejimi
-$agent_market_fear_greed_risk_on: Risk alma eğilimi
-$agent_market_fear_greed_risk_off: Riskten kaçınma eğilimi
-$agent_market_fear_greed_neutral: Nötr duyarlılık
-$agent_market_fear_greed_source: Kaynak
-$agent_market_timeframes: Piyasa yapısı
-$agent_market_structure_bullish: Daha yüksek zirveler ve daha yüksek dipler
-$agent_market_structure_bearish: Daha düşük zirveler ve daha düşük dipler
-$agent_market_structure_range: Yatay bant
-$agent_market_structure_transition: Geçiş
-$agent_market_structure_unavailable: Yapı mevcut değil
-$agent_market_event_none: Onaylanmış kırılım yok
-$agent_market_event_break_up: Yapı üzerinde kırılım
-$agent_market_event_break_down: Yapı altında kırılım
-$agent_market_event_retest_up: Yükseliş yönlü yeniden test
-$agent_market_event_retest_down: Düşüş yönlü yeniden test
-$agent_market_live_approaching_upper: Üst sınıra yaklaşıyor
-$agent_market_live_approaching_lower: Alt sınıra yaklaşıyor
-$agent_market_level_map: Ana seviyeler
-$agent_market_level_primary: Birincil seviye
-$agent_market_level_secondary: İkincil seviye
-$agent_market_level_context: Bağlam düzeyi
-$agent_market_levels_unavailable: Onaylanmış yapısal seviyeler kullanılamıyor.
-$agent_market_profile_poc_full: hacim merkezi (POC)
-$agent_market_profile_value_area_full: değer alanı sınırları (VAL/VAH)
-$agent_market_profile_hvn_full: yüksek hacimli alan (HVN)
-$agent_market_profile_lvn_full: düşük hacimli koridor (LVN)
-$agent_market_profile_current_day: Mevcut UTC günü
-$agent_market_profile_previous_day: Önceki UTC günü
-$agent_market_profile_previous_week: Önceki UTC haftası
-$agent_market_profile_rolling_30d: Son 30 UTC oturumu
-$agent_market_profile_above: Değer alanının üzerindeki fiyat
-$agent_market_profile_inside: Değer alanı içindeki fiyat
-$agent_market_profile_below: Fiyat, değer alanının altında
-$agent_market_factors: Temel faktörler
-$agent_market_factor_structure: "Günlük yapı: %direction%"
-$agent_market_factor_levels: Bu zaman aralığı için %supports% destek ve %resistances% direnç bölgesi onaylandı.
-$agent_market_factor_profile: "Hacim dağılımı: %position%."
-$agent_market_factor_profile_unavailable: Hacim profili mevcut değil; senaryo fiyat yapısına bağlıdır.
-$agent_market_factor_timeframe_alignment: "Zaman dilimi yapısı — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Mevcut rejim: %active%. Şartlı senaryo: %activation%'den sonra %conditional%."
-$agent_market_factor_no_active_scenario: "Hiçbir senaryo doğrulanmadı. Şartlı senaryo: %activation%'den sonra %conditional%."
-$agent_market_primary_scenario: Birincil senaryo
-$agent_market_current_regime: Mevcut onaylanmış piyasa rejimi
-$agent_market_conditional_scenario: Şartlı senaryo
-$agent_market_no_active_scenario: Şu an için hiçbir senaryo doğrulanmış değil.
-$agent_market_calculated_fallback: "Hesaplamalı analiz: Model açıklaması geçici olarak kullanılamıyor."
-$agent_market_other_horizons: İstenen diğer zaman aralıkları
-$agent_market_horizon_3d: 3 gün
-$agent_market_horizon_7d: 7 gün
-$agent_market_horizon_30d: 30 gün
-$agent_market_scenario_bullish: Yükseliş yönlü kırılma
-$agent_market_scenario_range: Aralık dengesi
-$agent_market_scenario_bearish: Düşüş yönlü kırılma
-$agent_market_scenario_unavailable: Bu zaman dilimi için yapısal senaryo mevcut değil.
-$agent_market_confidence: Güven
-$agent_market_confidence_low: Düşük
-$agent_market_confidence_medium: Orta
-$agent_market_activation: Tetiklenme
-$agent_market_path: Yol
-$agent_market_terminal: Hedef bölge
-$agent_market_invalidation: Geçersizlik seviyesi
-$agent_market_expected_range: Senaryo aralığı
-$agent_market_rationale: Gerekçe
-$agent_market_condition_above: üzerinde kapanış
-$agent_market_condition_below: altında kapanış
-$agent_market_condition_inside: içinde kapanış
-$agent_market_condition_outside: dışında kapanış
-$agent_market_condition_waiting: Onay bekleniyor
-$agent_market_condition_approaching: Yaklaşıyor
-$agent_market_condition_triggered: Onaylandı
-$agent_market_scenario_zone: senaryo bölgesi
-$agent_market_expected_move: Volatilite zarfı
-$agent_market_volatility_envelope: Genel oynaklık aralığı
-$agent_market_expected_move_note: Şartlı hamle, olasılık değil.
-$agent_market_risk_caveat: Senaryolar koşulludur ve alım satım tavsiyesi niteliği taşımaz.
-$agent_market_partial_coverage: Piyasa verilerinin bir kısmı mevcut değil; güven sınırlı.
-$agent_market_thesis_bullish: Doğrulanan yapı, direnç seviyesinin üzerinde devamı desteklerken, en yakın destek seviyesinin altında geçersizlik olasılığı devam etmektedir.
-$agent_market_thesis_bearish: Doğrulanan yapı, destek seviyesinin altında devam etmeyi desteklerken, geçersizleşme en yakın direnç seviyesinin üzerinde kalmaya devam eder.
-$agent_market_thesis_range: Fiyat, teyit edilmiş destek ve direnç seviyeleri arasında dengede kalmaya devam ediyor.
-$agent_market_thesis_mixed: Zaman dilimleri çelişiyor, bu nedenle yapısal sınırda doğrulama, yön göstergelerinden daha önemlidir.
-$agent_market_thesis_insufficient: Mevcut kanıtlar, yönlü bir yapıyı doğrulamak için yeterli değildir.
-$agent_market_thesis_unconfirmed: Henüz hiçbir senaryo doğrulanmadı; yönlü bir durum benimsemeden önce yapısal bir sınırın kapanmasını bekleyin.
-$agent_semantic_asset_search: Varlık araması
-$agent_semantic_web_digest: Web sonuçları
-$agent_semantic_no_results: Sonuç bulunamadı.
-$agent_semantic_wallets: Cüzdanlar
-$agent_semantic_wallet: Cüzdan
-$agent_semantic_balance: Bakiye
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Normal
-$agent_semantic_access_view_only: Salt okunur
-$agent_semantic_wallets_unpriced: Fiyatı olmadığı için %amount% pozisyon görüntülenen toplamlara dahil edilmedi.
-$agent_semantic_wallets_stale: Bazı cüzdan bakiyeleri güncel olmayabilir.
-$agent_semantic_wallets_unavailable: Bazı cüzdan bakiyelerine erişilemiyor.
-$agent_semantic_wallets_partial: Cüzdan verilerinin bazıları eksik.
-$agent_semantic_status: Durum
-$agent_semantic_quantity: Miktar
-$agent_semantic_time: Zaman
-$agent_semantic_partial: Bazı veriler mevcut değil.
-$agent_semantic_pending: Bekliyor
-$agent_semantic_confirmed: Onaylandı
-$agent_semantic_completed: Tamamlandı
-$agent_semantic_failed: Başarısız
-$agent_semantic_expired: Süresi doldu
-$agent_semantic_active: Aktif
-$agent_semantic_unstaking: Staking'den çıkılıyor
-$agent_semantic_ready: Hazır
-$agent_semantic_frozen: Dondurulmuş
-$agent_semantic_locked: Kilitli
-$agent_semantic_fungible: Token
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Staking
-$agent_semantic_vesting: Hak ediş
-$agent_semantic_vault: Kasa
-$agent_semantic_transfer: Aktarım
-$agent_semantic_swap: Takas
-$agent_semantic_stake: Stake Et
-$agent_semantic_unstake: Staking'den Çık
-$agent_semantic_contract: Sözleşme
-$agent_semantic_unknown: Aktivite
-$agent_semantic_spam_transactions: Spam işlemleri
-$agent_semantic_spam_assets: Spam varlıklar
-$agent_semantic_hidden_assets: Gizli varlıklar
-$agent_semantic_hidden_assets_warning: Gizli varlık adları yanıltıcı olabilir. Bunlar düz metin olarak gösterilir ve bağlantı olarak açılamaz.
-$agent_semantic_quarantine_warning: Bu öğeler spam olarak bildirildi. İsimlerine veya bağlantılarına güvenmeyin.
-$agent_semantic_redacted_asset: İsim gizli
-$agent_semantic_omitted_spam: "Filtrelenmiş spam: %amount%"
-$agent_semantic_omitted_spam_minimum: "Filtrelenmiş spam: en az %amount%"
-$agent_semantic_omitted_hidden: "Gizli varlıklar atlandı: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Gizli varlıklar atlandı: en az %amount%"
-$agent_semantic_suspicious: "Güvenli olmayan isimler gizlendi: %amount%"
-$agent_semantic_suspicious_minimum: "Güvenli olmayan isimler gizlendi: en az %amount%"
-$agent_semantic_suspicious_shown: "Potansiyel olarak güvenli olmayan isimler: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Potansiyel olarak güvenli olmayan isimler: en az %amount%"
-$agent_semantic_omitted_rows: Çok fazla veri var. %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
-$agent_semantic_omitted_rows_minimum: Çok fazla veri var. En az %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
-$agent_semantic_update_required: Bu yanıtın görüntülenmesi için uygulamayı güncelleyin.
 $agent_wallet_page_navigation: Cüzdan veri sayfaları
 $agent_wallet_page_previous: ← Önceki
 $agent_wallet_page_next: Sonraki →
@@ -1785,6 +1795,7 @@ Add Crypto: Kripto ekle
 Share QR Code: QR kodu paylaş
 $send_only_ton: Bu adrese yalnızca Gram (GRAM) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
 $send_only_chain: Bu adrese yalnızca %chain% (%symbol%) veya %chain% tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_chain_no_tokens: Bu adrese yalnızca %chain% (%symbol%) gönderin. Diğer tokenlar kaybolur.
 Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
 Swapped at: Takas zamanı
 Price per: Birim fiyat
@@ -1881,10 +1892,6 @@ second:
   zeroValue: "%count% saniye"
   oneValue: "%count% saniye"
   otherValue: "%count% saniye"
-transfer:
-  zeroValue: "%count% transfer"
-  oneValue: "%count% transfer"
-  otherValue: "%count% transfer"
 Confirm Actions:
   zeroValue: "%count% işlemi onayla"
   oneValue: İşlemi onayla
@@ -2270,10 +2277,13 @@ Tokenized Gold: Tokenize Altın
 Index Funds: Endeks Fonları
 Search token or stock: Token veya hisse ara
 "Activity Failed to Load": "Etkinlik yüklenemedi"
+"$agent_source_bea_attribution": "Bu ürün, Ekonomik Analiz Bürosu (BEA) Veri API’sini kullanır ancak BEA tarafından desteklenmez veya onaylanmaz."
 "Address was copied!": "Adres kopyalandı!"
 "Allow App Lock": "Uygulama kilidine izin ver"
 "An error occurred": "Bir hata oluştu"
 "App Fee Details": "Uygulama ücreti ayrıntıları"
+"Backend": "Sunucu"
+"Chat options": "Sohbet seçenekleri"
 "Copied": "Kopyalandı"
 "Customize the wallet's home screen and color accents the way you like.": "Cüzdanın ana ekranını ve vurgu renklerini istediğiniz gibi özelleştirin."
 "Dangerous": "Tehlikeli"
@@ -2294,3 +2304,6 @@ Search token or stock: Token veya hisse ara
 "Seasonal Theme Override": "Mevsimsel temayı geçersiz kıl"
 "Sending to": "Şuraya gönderiliyor"
 "confirming actions in Telegram": "işlemleri Telegram’da onaylamayı"
+
+Unknown Transfer: Bilinmeyen Transfer
+$dapp_sign_data_for_prefix: için

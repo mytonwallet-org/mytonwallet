@@ -42,6 +42,8 @@ export type ApiSolanaWallet = ApiBaseWallet & {
 
 export type ApiEVMWallet = ApiBaseWallet;
 
+export type ApiUTXOWallet = ApiBaseWallet;
+
 /** A helper type that converts the chain names to the corresponding wallet types */
 export type ApiWalletByChain = {
   ton: ApiTonWallet;
@@ -56,6 +58,11 @@ export type ApiWalletByChain = {
   avalanche: ApiEVMWallet;
   hyperliquid: ApiEVMWallet;
   robinhood: ApiEVMWallet;
+  arc: ApiEVMWallet;
+  bitcoin: ApiUTXOWallet;
+  litecoin: ApiUTXOWallet;
+  bitcoincash: ApiUTXOWallet;
+  dogecoin: ApiUTXOWallet;
 };
 
 type ApiBaseAccount = {

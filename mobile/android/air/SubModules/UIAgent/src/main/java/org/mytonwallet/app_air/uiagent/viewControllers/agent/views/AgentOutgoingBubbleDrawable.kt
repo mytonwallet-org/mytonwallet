@@ -10,7 +10,7 @@ import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.view.View
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.extensions.getLocationOnScreen
+import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -92,7 +92,7 @@ class AgentOutgoingBubbleDrawable : Drawable() {
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
     fun buildCutoutPath(view: View): Path {
-        val location = view.getLocationOnScreen()
+        val location = view.getLocationInWindow()
         val w = view.width.toFloat()
 
         val combined = Path()

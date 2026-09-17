@@ -283,7 +283,7 @@ private enum PortfolioSectionLayout: Equatable {
 
 public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBackSwipeControlling, WSensitiveDataProtocol {
     private struct ChartViewState: Equatable {
-        let errorText: String?
+        let hasError: Bool
         let isLoading: Bool
         let isRefreshing: Bool
         let fadesCurrentData: Bool
@@ -303,7 +303,7 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     private var sectionDescriptors: [PortfolioSectionDescriptor] = []
     private var overview: PortfolioOverviewModel
     private var localInsightCards: [PortfolioInsightCardModel] = []
-    private var chartViewState = ChartViewState(errorText: nil, isLoading: false, isRefreshing: false, fadesCurrentData: false)
+    private var chartViewState = ChartViewState(hasError: false, isLoading: false, isRefreshing: false, fadesCurrentData: false)
     private var preparedCharts = PortfolioGraphKitAdapter.PreparedCharts.empty
     private var preparedChartDataToken = -1
     private var preparingChartDataToken: Int?
@@ -583,14 +583,14 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             let previousChartViewState = self.chartViewState
             self.updateRangeSegmentedControlSelection(self.viewModel.selectedRange)
             self.chartViewState = ChartViewState(
-                errorText: self.viewModel.errorText,
+                hasError: self.viewModel.hasError,
                 isLoading: self.viewModel.isLoading,
                 isRefreshing: self.viewModel.isRefreshing,
                 fadesCurrentData: self.viewModel.isShowingStaleRangeData
             )
             let didChartViewStateChange = self.chartViewState != previousChartViewState
             if !self.hasEverStartedLoading,
-               self.chartViewState.isLoading || self.viewModel.responses != nil || self.viewModel.errorText != nil {
+               self.chartViewState.isLoading || self.viewModel.responses != nil || self.viewModel.hasError {
                 self.hasEverStartedLoading = true
             }
             self.overview = updatedOverview
@@ -937,9 +937,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             return .idle
         }
 
-        if let errorText = chartViewState.errorText,
+        if chartViewState.hasError,
            !preparedCharts.hasChartData {
-            return .error(errorText)
+            return .error
         }
 
         if (chartViewState.isLoading || preparingChartDataToken != nil) && !preparedCharts.hasChartData {

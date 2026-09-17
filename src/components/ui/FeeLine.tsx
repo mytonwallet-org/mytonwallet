@@ -20,6 +20,7 @@ type OwnProps = Partial<Pick<FeeProps, 'terms' | 'token'>> & Pick<FeeProps, 'pre
   className?: string;
   /** Whether the component is rendered on a landscape layout (with a lighter background) */
   isStatic?: boolean;
+  isError?: boolean;
   /** If true, the "Details" button will be shown even when no fee can be displayed. */
   keepDetailsButtonWithoutFee?: boolean;
   /** If undefined, the details button is not shown */
@@ -29,6 +30,7 @@ type OwnProps = Partial<Pick<FeeProps, 'terms' | 'token'>> & Pick<FeeProps, 'pre
 function FeeLine({
   className,
   isStatic,
+  isError,
   terms,
   token,
   precision,
@@ -49,6 +51,7 @@ function FeeLine({
     <FeeLineContainer
       className={className}
       isStatic={isStatic}
+      isError={isError}
       onDetailsClick={content || keepDetailsButtonWithoutFee ? onDetailsClick : undefined}
       transitionKey={content ? 1 : 0}
     >
@@ -59,7 +62,7 @@ function FeeLine({
 
 export default memo(FeeLine);
 
-type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'onDetailsClick'> & {
+type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'isError' | 'onDetailsClick'> & {
   children?: TeactNode;
   transitionKey?: number;
 };
@@ -70,6 +73,7 @@ type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'onDetailsClick'
 export function FeeLineContainer({
   className,
   isStatic,
+  isError,
   onDetailsClick,
   children,
   transitionKey = 0,
@@ -80,7 +84,7 @@ export function FeeLineContainer({
     <Transition
       name="fade"
       activeKey={transitionKey + (onDetailsClick ? 0x10000 : 0)}
-      className={buildClassName(styles.container, className, isStatic && styles.static)}
+      className={buildClassName(styles.container, className, isStatic && styles.static, isError && styles.error)}
     >
       {children}
       {Boolean(children) && onDetailsClick && ' · '}

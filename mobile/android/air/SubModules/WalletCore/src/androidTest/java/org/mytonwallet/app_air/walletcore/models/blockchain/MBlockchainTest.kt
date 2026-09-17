@@ -14,6 +14,7 @@ class MBlockchainTest {
 
         assertEquals(
             listOf(
+                MBlockchain.bitcoin,
                 MBlockchain.ethereum,
                 MBlockchain.solana,
                 MBlockchain.hyperliquid,
@@ -22,10 +23,14 @@ class MBlockchainTest {
                 MBlockchain.bnb,
                 MBlockchain.base,
                 MBlockchain.robinhood,
+                MBlockchain.arc,
                 MBlockchain.monad,
                 MBlockchain.arbitrum,
                 MBlockchain.polygon,
-                MBlockchain.avalanche
+                MBlockchain.avalanche,
+                MBlockchain.dogecoin,
+                MBlockchain.litecoin,
+                MBlockchain.bitcoincash
             ),
             supportedChains
         )

@@ -406,6 +406,7 @@ Slippage: 下單誤差
 $swap_from_to: 兌換 %from% %icon% %to%
 The exchange rate is below market value!: 匯率低於市場價值 %value%！
 Invalid Pair: 無法交換
+Unsupported Pair: 不支援的交易對
 We do not recommend to perform an exchange, try to specify a lower amount.: 我們不建議進行交換，請嘗試指定較小的金額。
 $swap_minimum_received_tooltip1: 這是您從此次交換中可能獲得的最少新代幣數量，考慮了目前市場條件、滑點容忍度和潛在價格影響。
 $swap_minimum_received_tooltip2: 這是預期的最低值，但如果在處理您的交換時條件發生很大變化，最終金額可能會較少。
@@ -673,6 +674,10 @@ $transfer_text_and_bin_exclusive: 不能同時使用文字和二進位資料參�
 $unsupported_deeplink_parameter: 此深度連結包含不支援的參數。
 $unsupported_chain: 不支援的區塊鏈。
 Successfully: 成功地
+Estimated Time: 預計時間
+$utxo_confirmations:
+  otherValue: "%count% / %max% 次確認"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: 解除質押更多
 Are you sure you want to burn this NFT? It will be lost forever.: 您確定要燒掉這個 NFT 嗎？ 它將永遠失去。
 $multi_burn_nft_warning: |
@@ -977,6 +982,11 @@ $iab_tabs_count:
   zeroValue: "%count% 個分頁"
   oneValue: "%count% 個分頁"
   otherValue: "%count% 個分頁"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% 個分頁"
+  oneValue: "+ %count% 個分頁"
+  otherValue: "+ %count% 個分頁"
+Close Tab: 關閉分頁
 $domains_amount %count%:
   zeroValue: 無網域
   otherValue: "%count%個網域"
@@ -1326,6 +1336,152 @@ $agent_portfolio_insight_chain_split_title: 網路分佈
 $agent_portfolio_insight_chain_split_text: 檢視現有資產配置的網路曝險；未納入的資產可能改變整體投資組合情況。
 $agent_portfolio_insight_data_quality_title: 數據品質
 $agent_portfolio_insight_data_quality_text: 在解讀此分析時，請考慮資料的覆蓋範圍和時效性。
+$agent_market_analysis_title: 市場分析
+$agent_market_as_of: 截至
+$agent_market_closed_1d: 最新一根已收盤的 1D K 線
+$agent_market_thesis: 技術觀點
+$agent_market_fear_greed_sentiment: 基於比特幣的市場情緒
+$agent_market_fear_greed_index: 恐懼與貪婪指數（0-100）
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: 市場狀態
+$agent_market_fear_greed_risk_on: 風險偏好情緒
+$agent_market_fear_greed_risk_off: 避險情緒
+$agent_market_fear_greed_neutral: 中立情緒
+$agent_market_fear_greed_source: 來源
+$agent_market_timeframes: 市場結構
+$agent_market_structure_bullish: 高點和低點均逐步抬高
+$agent_market_structure_bearish: 高點和低點均逐步降低
+$agent_market_structure_range: 區間震盪
+$agent_market_structure_transition: 過渡階段
+$agent_market_structure_unavailable: 結構不可用
+$agent_market_event_none: 暫無已確認突破
+$agent_market_event_break_up: 向上突破結構
+$agent_market_event_break_down: 向下跌破結構
+$agent_market_event_retest_up: 看漲回測確認
+$agent_market_event_retest_down: 看跌回測確認
+$agent_market_live_approaching_upper: 接近上邊界
+$agent_market_live_approaching_lower: 接近下邊界
+$agent_market_level_map: 關鍵價位
+$agent_market_level_primary: 主要價位
+$agent_market_level_secondary: 次要價位
+$agent_market_level_context: 參考價位
+$agent_market_levels_unavailable: 已確認的結構價位無法使用。
+$agent_market_profile_poc_full: 成交量中心（POC）
+$agent_market_profile_value_area_full: 價值區域邊界（VAL/VAH）
+$agent_market_profile_hvn_full: 高成交量區域（HVN）
+$agent_market_profile_lvn_full: 低成交量通道（LVN）
+$agent_market_profile_current_day: 當日（UTC）
+$agent_market_profile_previous_day: 前一日（UTC）
+$agent_market_profile_previous_week: 前一週（UTC）
+$agent_market_profile_rolling_30d: 最近 30 個 UTC 交易時段
+$agent_market_profile_above: 價格高於價值區域
+$agent_market_profile_inside: 價值區域內的價格
+$agent_market_profile_below: 價格低於價值區域
+$agent_market_factors: 關鍵因素
+$agent_market_factor_structure: 日線結構：%direction%
+$agent_market_factor_levels: 在此週期內已確認 %supports% 個支撐區和 %resistances% 個阻力區。
+$agent_market_factor_profile: 成交量分佈：%position%。
+$agent_market_factor_profile_unavailable: 成交量分佈無法使用；該情境依賴價格結構。
+$agent_market_factor_timeframe_alignment: 週期結構 — 1D：%daily%；4H：%fourHour%；1H：%hourly%。
+$agent_market_factor_current_scenario: 目前狀態：%active%。條件情境：在 %activation% 後為 %conditional%。
+$agent_market_factor_no_active_scenario: 尚無已確認情境。條件情境：在 %activation% 後為 %conditional%。
+$agent_market_primary_scenario: 主要情境
+$agent_market_current_regime: 目前已確認狀態
+$agent_market_conditional_scenario: 條件情境
+$agent_market_no_active_scenario: 目前尚無已確認情境。
+$agent_market_calculated_fallback: 計算分析：模型說明暫時無法使用。
+$agent_market_other_horizons: 其他指定週期
+$agent_market_horizon_3d: 3 天
+$agent_market_horizon_7d: 7 天
+$agent_market_horizon_30d: 30 天
+$agent_market_scenario_bullish: 看漲突破
+$agent_market_scenario_range: 區間平衡
+$agent_market_scenario_bearish: 看跌破位
+$agent_market_scenario_unavailable: 此週期的結構情境無法使用。
+$agent_market_confidence: 可信度
+$agent_market_confidence_low: 低
+$agent_market_confidence_medium: 中
+$agent_market_activation: 觸發條件
+$agent_market_path: 路徑
+$agent_market_terminal: 目標區域
+$agent_market_invalidation: 失效條件
+$agent_market_expected_range: 情境區間
+$agent_market_rationale: 依據
+$agent_market_condition_above: 收盤高於
+$agent_market_condition_below: 收盤低於
+$agent_market_condition_inside: 收盤於區間內
+$agent_market_condition_outside: 收盤於區間外
+$agent_market_condition_waiting: 等待確認
+$agent_market_condition_approaching: 接近
+$agent_market_condition_triggered: 已確認
+$agent_market_scenario_zone: 情境區域
+$agent_market_expected_move: 波動範圍
+$agent_market_volatility_envelope: 整體波動範圍
+$agent_market_expected_move_note: 條件性波動，並非機率預測
+$agent_market_risk_caveat: 情境均為條件式分析，不構成交易建議。
+$agent_market_partial_coverage: 部分市場證據缺失；信心有限。
+$agent_market_thesis_bullish: 已確認結構有利於價格繼續突破阻力位，失效位仍在最近支撐位下方。
+$agent_market_thesis_bearish: 已確認結構有利於價格繼續跌破支撐位，失效位仍在最近阻力位上方。
+$agent_market_thesis_range: 價格在已確認的支撐位和阻力位之間保持平衡。
+$agent_market_thesis_mixed: 週期訊號相互衝突，因此結構邊界處的確認比方向性指標更重要。
+$agent_market_thesis_insufficient: 現有證據不足以確認方向性結構。
+$agent_market_thesis_unconfirmed: 尚無已確認情境；請等待價格在結構邊界外收盤確認後，再採用方向性判斷。
+$agent_semantic_asset_search: 資產搜尋
+$agent_semantic_web_digest: 網頁搜尋結果
+$agent_semantic_no_results: 沒有結果
+$agent_semantic_wallets: 錢包
+$agent_semantic_wallet: 錢包
+$agent_semantic_balance: 餘額
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: 一般
+$agent_semantic_access_view_only: 僅供檢視
+$agent_semantic_wallets_unpriced: "%amount% 個部位未計入顯示的總額，因為它們沒有價格。"
+$agent_semantic_wallets_stale: 部分錢包餘額可能已過時。
+$agent_semantic_wallets_unavailable: 部分錢包餘額無法查看。
+$agent_semantic_wallets_partial: 部分錢包數據不完整。
+$agent_semantic_status: 狀態
+$agent_semantic_quantity: 數量
+$agent_semantic_time: 時間
+$agent_semantic_partial: 部分資料缺失。
+$agent_semantic_pending: 待處理
+$agent_semantic_confirmed: 已確認
+$agent_semantic_completed: 已完成
+$agent_semantic_failed: 失敗
+$agent_semantic_expired: 已到期
+$agent_semantic_active: 有效
+$agent_semantic_unstaking: 解除質押中
+$agent_semantic_ready: 就緒
+$agent_semantic_frozen: 已凍結
+$agent_semantic_locked: 已鎖定
+$agent_semantic_fungible: 代幣
+$agent_semantic_nft: NFT
+$agent_semantic_staking: 質押
+$agent_semantic_vesting: 鎖倉釋放
+$agent_semantic_vault: 金庫
+$agent_semantic_transfer: 轉帳
+$agent_semantic_swap: 兌換
+$agent_semantic_stake: 質押
+$agent_semantic_unstake: 解除質押
+$agent_semantic_contract: 合約
+$agent_semantic_unknown: 活動
+$agent_semantic_spam_transactions: 垃圾交易
+$agent_semantic_spam_assets: 垃圾資產
+$agent_semantic_hidden_assets: 隱藏資產
+$agent_semantic_hidden_assets_warning: 隱藏資產名稱可能具有誤導性。名稱以純文字顯示，無法作為連結開啟。
+$agent_semantic_quarantine_warning: 這些項目已被舉報為垃圾內容。請勿信任其名稱或連結。
+$agent_semantic_redacted_asset: 名稱已隱藏
+$agent_semantic_omitted_spam: 已過濾垃圾內容：%amount%
+$agent_semantic_omitted_spam_minimum: 已過濾垃圾內容：至少 %amount%
+$agent_semantic_omitted_hidden: 已省略隱藏資產：%amount%
+$agent_semantic_omitted_hidden_minimum: 已省略隱藏資產：至少 %amount%
+$agent_semantic_suspicious: 已隱藏不安全名稱：%amount%
+$agent_semantic_suspicious_minimum: 已隱藏不安全名稱：至少 %amount%
+$agent_semantic_suspicious_shown: 可能不安全的名稱：%amount%
+$agent_semantic_suspicious_shown_minimum: 可能不安全的名稱：至少 %amount%
+$agent_semantic_omitted_rows: 數據量過大。未包含 %amount% 行資料。請縮小時段或篩選條件。
+$agent_semantic_omitted_rows_minimum: 數據量過大。至少有 %amount% 行資料未被包含在內。請縮小時段或篩選條件。
+$agent_semantic_update_required: 更新應用程式以顯示此回應。
 $agent_hint_portfolio_title: 投資組合表現
 $agent_hint_portfolio_prompt: 分析我的投資組合表現。
 $agent_hint_swap_title: 代幣兌換如何運作
@@ -1488,152 +1644,6 @@ $agent_error_update_required: 請更新應用程式以繼續。
 $agent_semantic_transactions: 交易
 $agent_semantic_positions: 部位
 $agent_semantic_market: 市場概覽
-$agent_market_analysis_title: 市場分析
-$agent_market_as_of: 截至
-$agent_market_closed_1d: 最新一根已收盤的 1D K 線
-$agent_market_thesis: 技術觀點
-$agent_market_fear_greed_sentiment: 基於比特幣的市場情緒
-$agent_market_fear_greed_index: 恐懼與貪婪指數（0-100）
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: 市場狀態
-$agent_market_fear_greed_risk_on: 風險偏好情緒
-$agent_market_fear_greed_risk_off: 避險情緒
-$agent_market_fear_greed_neutral: 中立情緒
-$agent_market_fear_greed_source: 來源
-$agent_market_timeframes: 市場結構
-$agent_market_structure_bullish: 高點和低點均逐步抬高
-$agent_market_structure_bearish: 高點和低點均逐步降低
-$agent_market_structure_range: 區間震盪
-$agent_market_structure_transition: 過渡階段
-$agent_market_structure_unavailable: 結構不可用
-$agent_market_event_none: 暫無已確認突破
-$agent_market_event_break_up: 向上突破結構
-$agent_market_event_break_down: 向下跌破結構
-$agent_market_event_retest_up: 看漲回測確認
-$agent_market_event_retest_down: 看跌回測確認
-$agent_market_live_approaching_upper: 接近上邊界
-$agent_market_live_approaching_lower: 接近下邊界
-$agent_market_level_map: 關鍵價位
-$agent_market_level_primary: 主要價位
-$agent_market_level_secondary: 次要價位
-$agent_market_level_context: 參考價位
-$agent_market_levels_unavailable: 已確認的結構價位無法使用。
-$agent_market_profile_poc_full: 成交量中心（POC）
-$agent_market_profile_value_area_full: 價值區域邊界（VAL/VAH）
-$agent_market_profile_hvn_full: 高成交量區域（HVN）
-$agent_market_profile_lvn_full: 低成交量通道（LVN）
-$agent_market_profile_current_day: 當日（UTC）
-$agent_market_profile_previous_day: 前一日（UTC）
-$agent_market_profile_previous_week: 前一週（UTC）
-$agent_market_profile_rolling_30d: 最近 30 個 UTC 交易時段
-$agent_market_profile_above: 價格高於價值區域
-$agent_market_profile_inside: 價值區域內的價格
-$agent_market_profile_below: 價格低於價值區域
-$agent_market_factors: 關鍵因素
-$agent_market_factor_structure: 日線結構：%direction%
-$agent_market_factor_levels: 在此週期內已確認 %supports% 個支撐區和 %resistances% 個阻力區。
-$agent_market_factor_profile: 成交量分佈：%position%。
-$agent_market_factor_profile_unavailable: 成交量分佈無法使用；該情境依賴價格結構。
-$agent_market_factor_timeframe_alignment: 週期結構 — 1D：%daily%；4H：%fourHour%；1H：%hourly%。
-$agent_market_factor_current_scenario: 目前狀態：%active%。條件情境：在 %activation% 後為 %conditional%。
-$agent_market_factor_no_active_scenario: 尚無已確認情境。條件情境：在 %activation% 後為 %conditional%。
-$agent_market_primary_scenario: 主要情境
-$agent_market_current_regime: 目前已確認狀態
-$agent_market_conditional_scenario: 條件情境
-$agent_market_no_active_scenario: 目前尚無已確認情境。
-$agent_market_calculated_fallback: 計算分析：模型說明暫時無法使用。
-$agent_market_other_horizons: 其他指定週期
-$agent_market_horizon_3d: 3 天
-$agent_market_horizon_7d: 7 天
-$agent_market_horizon_30d: 30 天
-$agent_market_scenario_bullish: 看漲突破
-$agent_market_scenario_range: 區間平衡
-$agent_market_scenario_bearish: 看跌破位
-$agent_market_scenario_unavailable: 此週期的結構情境無法使用。
-$agent_market_confidence: 可信度
-$agent_market_confidence_low: 低
-$agent_market_confidence_medium: 中
-$agent_market_activation: 觸發條件
-$agent_market_path: 路徑
-$agent_market_terminal: 目標區域
-$agent_market_invalidation: 失效條件
-$agent_market_expected_range: 情境區間
-$agent_market_rationale: 依據
-$agent_market_condition_above: 收盤高於
-$agent_market_condition_below: 收盤低於
-$agent_market_condition_inside: 收盤於區間內
-$agent_market_condition_outside: 收盤於區間外
-$agent_market_condition_waiting: 等待確認
-$agent_market_condition_approaching: 接近
-$agent_market_condition_triggered: 已確認
-$agent_market_scenario_zone: 情境區域
-$agent_market_expected_move: 波動範圍
-$agent_market_volatility_envelope: 整體波動範圍
-$agent_market_expected_move_note: 條件性波動，並非機率預測
-$agent_market_risk_caveat: 情境均為條件式分析，不構成交易建議。
-$agent_market_partial_coverage: 部分市場證據缺失；信心有限。
-$agent_market_thesis_bullish: 已確認結構有利於價格繼續突破阻力位，失效位仍在最近支撐位下方。
-$agent_market_thesis_bearish: 已確認結構有利於價格繼續跌破支撐位，失效位仍在最近阻力位上方。
-$agent_market_thesis_range: 價格在已確認的支撐位和阻力位之間保持平衡。
-$agent_market_thesis_mixed: 週期訊號相互衝突，因此結構邊界處的確認比方向性指標更重要。
-$agent_market_thesis_insufficient: 現有證據不足以確認方向性結構。
-$agent_market_thesis_unconfirmed: 尚無已確認情境；請等待價格在結構邊界外收盤確認後，再採用方向性判斷。
-$agent_semantic_asset_search: 資產搜尋
-$agent_semantic_web_digest: 網頁搜尋結果
-$agent_semantic_no_results: 沒有結果
-$agent_semantic_wallets: 錢包
-$agent_semantic_wallet: 錢包
-$agent_semantic_balance: 餘額
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: 一般
-$agent_semantic_access_view_only: 僅供檢視
-$agent_semantic_wallets_unpriced: "%amount% 個部位未計入顯示的總額，因為它們沒有價格。"
-$agent_semantic_wallets_stale: 部分錢包餘額可能已過時。
-$agent_semantic_wallets_unavailable: 部分錢包餘額無法查看。
-$agent_semantic_wallets_partial: 部分錢包數據不完整。
-$agent_semantic_status: 狀態
-$agent_semantic_quantity: 數量
-$agent_semantic_time: 時間
-$agent_semantic_partial: 部分資料缺失。
-$agent_semantic_pending: 待處理
-$agent_semantic_confirmed: 已確認
-$agent_semantic_completed: 已完成
-$agent_semantic_failed: 失敗
-$agent_semantic_expired: 已到期
-$agent_semantic_active: 有效
-$agent_semantic_unstaking: 解除質押中
-$agent_semantic_ready: 就緒
-$agent_semantic_frozen: 已凍結
-$agent_semantic_locked: 已鎖定
-$agent_semantic_fungible: 代幣
-$agent_semantic_nft: NFT
-$agent_semantic_staking: 質押
-$agent_semantic_vesting: 鎖倉釋放
-$agent_semantic_vault: 金庫
-$agent_semantic_transfer: 轉帳
-$agent_semantic_swap: 兌換
-$agent_semantic_stake: 質押
-$agent_semantic_unstake: 解除質押
-$agent_semantic_contract: 合約
-$agent_semantic_unknown: 活動
-$agent_semantic_spam_transactions: 垃圾交易
-$agent_semantic_spam_assets: 垃圾資產
-$agent_semantic_hidden_assets: 隱藏資產
-$agent_semantic_hidden_assets_warning: 隱藏資產名稱可能具有誤導性。名稱以純文字顯示，無法作為連結開啟。
-$agent_semantic_quarantine_warning: 這些項目已被舉報為垃圾內容。請勿信任其名稱或連結。
-$agent_semantic_redacted_asset: 名稱已隱藏
-$agent_semantic_omitted_spam: 已過濾垃圾內容：%amount%
-$agent_semantic_omitted_spam_minimum: 已過濾垃圾內容：至少 %amount%
-$agent_semantic_omitted_hidden: 已省略隱藏資產：%amount%
-$agent_semantic_omitted_hidden_minimum: 已省略隱藏資產：至少 %amount%
-$agent_semantic_suspicious: 已隱藏不安全名稱：%amount%
-$agent_semantic_suspicious_minimum: 已隱藏不安全名稱：至少 %amount%
-$agent_semantic_suspicious_shown: 可能不安全的名稱：%amount%
-$agent_semantic_suspicious_shown_minimum: 可能不安全的名稱：至少 %amount%
-$agent_semantic_omitted_rows: 數據量過大。未包含 %amount% 行資料。請縮小時段或篩選條件。
-$agent_semantic_omitted_rows_minimum: 數據量過大。至少有 %amount% 行資料未被包含在內。請縮小時段或篩選條件。
-$agent_semantic_update_required: 更新應用程式以顯示此回應。
 $agent_wallet_page_navigation: 錢包資料頁面
 $agent_wallet_page_previous: ← 上一頁
 $agent_wallet_page_next: 下一頁 →
@@ -1778,6 +1788,7 @@ Add Crypto: 新增加密貨幣
 Share QR Code: 分享 QR Code
 $send_only_ton: 請僅將 Gram (GRAM) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
 $send_only_chain: 請僅將 %chain% (%symbol%) 或 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_chain_no_tokens: 請僅將 %chain% (%symbol%) 傳送到此地址。傳送其他代幣會導致損失。
 Buying with card is not supported for this account.: 此帳戶不支援信用卡購買。
 Swapped at: 兌換時間
 Price per: 單價
@@ -1870,9 +1881,6 @@ minute:
 second:
   zeroValue: "%count% 秒"
   otherValue: "%count% 秒"
-transfer:
-  zeroValue: "%count% 筆轉帳"
-  otherValue: "%count% 筆轉帳"
 Confirm Actions:
   zeroValue: "確認 %count% 個動作"
   otherValue: 確認動作
@@ -2257,10 +2265,13 @@ Tokenized Gold: 代幣化黃金
 Index Funds: 指數基金
 Search token or stock: 搜尋代幣或股票
 "Activity Failed to Load": "活動載入失敗"
+"$agent_source_bea_attribution": "本產品使用美國經濟分析局（BEA）的資料 API，但未經 BEA 認可或認證。"
 "Address was copied!": "地址已複製！"
 "Allow App Lock": "允許鎖定應用程式"
 "An error occurred": "發生錯誤"
 "App Fee Details": "應用程式費用詳情"
+"Backend": "後端"
+"Chat options": "聊天選項"
 "Copied": "已複製"
 "Customize the wallet's home screen and color accents the way you like.": "依照自己的喜好自訂錢包主畫面和強調色。"
 "Dangerous": "危險操作"
@@ -2281,3 +2292,6 @@ Search token or stock: 搜尋代幣或股票
 "Seasonal Theme Override": "覆寫季節主題"
 "Sending to": "正在傳送至"
 "confirming actions in Telegram": "於 Telegram 中確認操作"
+
+Unknown Transfer: 未知轉帳
+$dapp_sign_data_for_prefix: 為

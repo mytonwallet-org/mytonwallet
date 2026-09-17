@@ -88,7 +88,7 @@ class ApiUpdateDecodingTest {
     @Test
     fun configToleratesUnknownAndAbsentFields() {
         val update = decode<ApiUpdate.ApiUpdateConfig>(
-            """{"isLimited":false,"isCopyStorageEnabled":true,"isAppUpdateRequired":false,"seasonalTheme":"newYear","knowledgeBaseVersion":"3","swapVersion":3}"""
+            """{"isLimited":false,"isCopyStorageEnabled":true,"isAppUpdateRequired":false,"seasonalTheme":"newYear","knowledgeBaseVersion":"3","agentProtocolVersion":2,"preferredAgent":"hybrid","swapVersion":3}"""
         )
         assertEquals(3, update?.swapVersion)
         assertEquals("newYear", update?.seasonalTheme)

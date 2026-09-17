@@ -404,6 +404,7 @@ Slippage: الانزلاق
 $swap_from_to: قم بتبديل %from% %icon% %to%
 The exchange rate is below market value!: سعر الصرف %value% أقل من القيمة السوقية!
 Invalid Pair: التبديل غير متاح
+Unsupported Pair: زوج غير مدعوم
 We do not recommend to perform an exchange, try to specify a lower amount.: لا ننصح بإجراء عملية تبادل، حاول تحديد مبلغ أقل.
 $swap_minimum_received_tooltip1: هذا هو أقل قدر من الرموز الجديدة التي ستحصل عليها من هذه المبادلة، مع الأخذ في الاعتبار ظروف السوق الحالية، وتحمل الانزلاق، والتأثير المحتمل على السعر.
 $swap_minimum_received_tooltip2: إنه الحد الأدنى المتوقع، ولكن إذا تغيرت الظروف كثيرًا أثناء معالجة المبادلة الخاصة بك، فقد يكون المبلغ النهائي أقل.
@@ -656,6 +657,15 @@ $transfer_text_and_bin_exclusive: لا يمكن استخدام معلمات ال
 $unsupported_deeplink_parameter: يحتوي هذا الرابط لموضع معين على معلمات غير مدعومة.
 $unsupported_chain: "\u200Fblockchain غير مدعوم."
 Successfully: بنجاح
+Estimated Time: الوقت المقدّر
+$utxo_confirmations:
+  zeroValue: "%count% من %max% تأكيدات"
+  oneValue: "%count% من %max% تأكيد"
+  twoValue: "%count% من %max% تأكيدات"
+  fewValue: "%count% من %max% تأكيدات"
+  manyValue: "%count% من %max% تأكيدًا"
+  otherValue: "%count% من %max% تأكيد"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: إلغاء المزيد
 Are you sure you want to burn this NFT? It will be lost forever.: |-
   هل أنت متأكد أنك تريد حرق NFT؟
@@ -965,6 +975,11 @@ $iab_tabs_count:
   zeroValue: علامات التبويب %count%
   oneValue: علامة التبويب %count%
   otherValue: علامات التبويب %count%
+$iab_more_tabs_count:
+  zeroValue: "+ علامات التبويب %count%"
+  oneValue: "+ علامة التبويب %count%"
+  otherValue: "+ علامات التبويب %count%"
+Close Tab: إغلاق علامة التبويب
 $domains_amount %count%:
   zeroValue: لا المجالات
   oneValue: المجال %count%
@@ -1290,6 +1305,152 @@ $agent_portfolio_insight_chain_split_title: توزيع الشبكة
 $agent_portfolio_insight_chain_split_text: راجع تعرض الشبكة ضمن التوزيع المتاح؛ الأصول التي تم حذفها قد تغير صورة المحفظة الكاملة.
 $agent_portfolio_insight_data_quality_title: جودة البيانات
 $agent_portfolio_insight_data_quality_text: خذ بعين الاعتبار تغطية البيانات وحداثتها عند تفسير هذا التحليل.
+$agent_market_analysis_title: تحليل السوق
+$agent_market_as_of: حتى تاريخ
+$agent_market_closed_1d: آخر شمعة مغلقة ليوم واحد
+$agent_market_thesis: الأطروحة الفنية
+$agent_market_fear_greed_sentiment: معنويات السوق القائمة على البيتكوين
+$agent_market_fear_greed_index: مؤشر الخوف والجشع (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: نظام السوق
+$agent_market_fear_greed_risk_on: معنويات الإقبال على المخاطرة
+$agent_market_fear_greed_risk_off: معنويات العزوف عن المخاطرة
+$agent_market_fear_greed_neutral: معنويات محايدة
+$agent_market_fear_greed_source: المصدر
+$agent_market_timeframes: هيكل السوق
+$agent_market_structure_bullish: مرتفعات أعلى وانخفاضات أعلى
+$agent_market_structure_bearish: مرتفعات أقل وانخفاضات أقل
+$agent_market_structure_range: نطاق
+$agent_market_structure_transition: انتقال
+$agent_market_structure_unavailable: البنية غير متوفرة
+$agent_market_event_none: لا يوجد كسر مؤكّد
+$agent_market_event_break_up: كسر فوق البنية
+$agent_market_event_break_down: كسر تحت البنية
+$agent_market_event_retest_up: إعادة اختبار صعودية
+$agent_market_event_retest_down: إعادة اختبار هبوطية
+$agent_market_live_approaching_upper: الاقتراب من الحد العلوي
+$agent_market_live_approaching_lower: الاقتراب من الحد السفلي
+$agent_market_level_map: المستويات الرئيسية
+$agent_market_level_primary: المستوى الأساسي
+$agent_market_level_secondary: المستوى الثانوي
+$agent_market_level_context: مستوى السياق
+$agent_market_levels_unavailable: المستويات الهيكلية المؤكدة غير متوفرة.
+$agent_market_profile_poc_full: مركز الحجم (POC)
+$agent_market_profile_value_area_full: حدود منطقة القيمة (VAL/VAH)
+$agent_market_profile_hvn_full: منطقة حجم مرتفع (HVN)
+$agent_market_profile_lvn_full: ممر حجم منخفض (LVN)
+$agent_market_profile_current_day: اليوم الحالي بالتوقيت العالمي
+$agent_market_profile_previous_day: اليوم السابق بالتوقيت العالمي
+$agent_market_profile_previous_week: الأسبوع السابق بالتوقيت العالمي
+$agent_market_profile_rolling_30d: آخر 30 جلسة بالتوقيت العالمي
+$agent_market_profile_above: السعر فوق منطقة القيمة
+$agent_market_profile_inside: السعر داخل منطقة القيمة
+$agent_market_profile_below: السعر تحت منطقة القيمة
+$agent_market_factors: العوامل الرئيسية
+$agent_market_factor_structure: "الهيكل اليومي: %direction%"
+$agent_market_factor_levels: تم تأكيد مناطق الدعم %supports% والمقاومة %resistances% لهذا الأفق.
+$agent_market_factor_profile: "توزيع الحجم: %position%."
+$agent_market_factor_profile_unavailable: ملف الحجم غير متاح؛ السيناريو يعتمد على هيكل السعر.
+$agent_market_factor_timeframe_alignment: "هيكل الإطار الزمني — 1D: %daily%؛ 4H: %fourHour%؛ 1H: %hourly%."
+$agent_market_factor_current_scenario: "النظام الحالي: %active%. السيناريو الشرطي: %conditional% بعد %activation%."
+$agent_market_factor_no_active_scenario: "لم يتم تأكيد أي سيناريو. السيناريو الشرطي: %conditional% بعد %activation%."
+$agent_market_primary_scenario: السيناريو الأساسي
+$agent_market_current_regime: النظام المؤكد الحالي
+$agent_market_conditional_scenario: السيناريو الشرطي
+$agent_market_no_active_scenario: لا يوجد سيناريو مؤكد حالياً.
+$agent_market_calculated_fallback: "التحليل المحسوب: شرح النموذج غير متاح مؤقتاً."
+$agent_market_other_horizons: آفاق أخرى مطلوبة
+$agent_market_horizon_3d: 3 أيام
+$agent_market_horizon_7d: 7 أيام
+$agent_market_horizon_30d: 30 يوماً
+$agent_market_scenario_bullish: اختراق صاعد
+$agent_market_scenario_range: توازن النطاق
+$agent_market_scenario_bearish: اختراق هابط
+$agent_market_scenario_unavailable: السيناريو الهيكلي غير متاح لهذا الأفق.
+$agent_market_confidence: الثقة
+$agent_market_confidence_low: منخفضة
+$agent_market_confidence_medium: متوسطة
+$agent_market_activation: التفعيل
+$agent_market_path: المسار
+$agent_market_terminal: المنطقة النهائية
+$agent_market_invalidation: الإبطال
+$agent_market_expected_range: نطاق السيناريو
+$agent_market_rationale: المبرر
+$agent_market_condition_above: إغلاق فوق
+$agent_market_condition_below: إغلاق تحت
+$agent_market_condition_inside: إغلاق داخل
+$agent_market_condition_outside: إغلاق خارج
+$agent_market_condition_waiting: انتظار التأكيد
+$agent_market_condition_approaching: الاقتراب
+$agent_market_condition_triggered: تم التأكيد
+$agent_market_scenario_zone: منطقة السيناريو
+$agent_market_expected_move: غلاف التقلب
+$agent_market_volatility_envelope: غلاف التقلب الكلي
+$agent_market_expected_move_note: تحرك مشروط، ليس احتمالية
+$agent_market_risk_caveat: السيناريوهات مشروطة ولا تشكل توصية تداول.
+$agent_market_partial_coverage: جزء من الأدلة السوقية غير متوفر؛ الثقة محدودة.
+$agent_market_thesis_bullish: البنية المؤكدة تفضل الاستمرار فوق المقاومة بينما يظل الإبطال تحت أقرب دعم.
+$agent_market_thesis_bearish: البنية المؤكدة تفضل الاستمرار تحت الدعم بينما يظل الإبطال فوق أقرب مقاومة.
+$agent_market_thesis_range: يظل السعر متوازنًا بين الدعم والمقاومة المؤكدين.
+$agent_market_thesis_mixed: الأطر الزمنية متضاربة، لذا فإن التأكيد عند الحد الهيكلي أهم من مؤشرات الاتجاه.
+$agent_market_thesis_insufficient: الأدلة المتاحة غير كافية لتأكيد بنية اتجاهية.
+$agent_market_thesis_unconfirmed: لم يتم تأكيد أي سيناريو؛ انتظر إغلاق الحد الهيكلي قبل اعتماد حالة اتجاهية.
+$agent_semantic_asset_search: بحث عن أصل
+$agent_semantic_web_digest: نتائج الويب
+$agent_semantic_no_results: لا توجد نتائج
+$agent_semantic_wallets: المحافظ
+$agent_semantic_wallet: المحفظة
+$agent_semantic_balance: الرصيد
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: عادي
+$agent_semantic_access_view_only: عرض فقط
+$agent_semantic_wallets_unpriced: لا يتم تضمين مراكز %amount% في المجاميع المعروضة لأنها لا تحتوي على سعر.
+$agent_semantic_wallets_stale: قد تكون بعض أرصدة المحافظ قديمة.
+$agent_semantic_wallets_unavailable: بعض أرصدة المحافظ غير متاحة.
+$agent_semantic_wallets_partial: بعض بيانات المحافظ غير مكتملة.
+$agent_semantic_status: الحالة
+$agent_semantic_quantity: الكمية
+$agent_semantic_time: الوقت
+$agent_semantic_partial: بعض البيانات غير متاحة.
+$agent_semantic_pending: قيد الانتظار
+$agent_semantic_confirmed: تم التأكيد
+$agent_semantic_completed: مكتمل
+$agent_semantic_failed: فشل
+$agent_semantic_expired: منتهي الصلاحية
+$agent_semantic_active: نشط
+$agent_semantic_unstaking: جارٍ إلغاء التخزين
+$agent_semantic_ready: جاهز
+$agent_semantic_frozen: مجمد
+$agent_semantic_locked: مقفل
+$agent_semantic_fungible: رمز
+$agent_semantic_nft: NFT
+$agent_semantic_staking: التخزين
+$agent_semantic_vesting: الاستحقاق
+$agent_semantic_vault: الخزنة
+$agent_semantic_transfer: نقل
+$agent_semantic_swap: مبادلة
+$agent_semantic_stake: تخزين
+$agent_semantic_unstake: إلغاء التخزين
+$agent_semantic_contract: العقد
+$agent_semantic_unknown: النشاط
+$agent_semantic_spam_transactions: المعاملات المزعجة
+$agent_semantic_spam_assets: الأصول المزعجة
+$agent_semantic_hidden_assets: الأصول المخفية
+$agent_semantic_hidden_assets_warning: قد تكون أسماء الأصول المخفية مضللة. يتم عرضها كنص عادي ولا يمكن فتحها كرابط.
+$agent_semantic_quarantine_warning: تم الإبلاغ عن هذه العناصر كرسائل مزعجة. لا تثق بأسمائها أو روابطها.
+$agent_semantic_redacted_asset: الاسم مخفي
+$agent_semantic_omitted_spam: "الرسائل المزعجة المفلترة: %amount%"
+$agent_semantic_omitted_spam_minimum: "الرسائل المزعجة المفلترة: على الأقل %amount%"
+$agent_semantic_omitted_hidden: "تم حذف الأصول المخفية: %amount%"
+$agent_semantic_omitted_hidden_minimum: "تم حذف الأصول المخفية: على الأقل %amount%"
+$agent_semantic_suspicious: "تم إخفاء الأسماء غير الآمنة: %amount%"
+$agent_semantic_suspicious_minimum: "تم إخفاء الأسماء غير الآمنة: على الأقل %amount%"
+$agent_semantic_suspicious_shown: "الأسماء المحتملة غير الآمنة: %amount%"
+$agent_semantic_suspicious_shown_minimum: "الأسماء المحتملة غير الآمنة: على الأقل %amount%"
+$agent_semantic_omitted_rows: هناك بيانات كثيرة جدًا. لم يتم تضمين %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
+$agent_semantic_omitted_rows_minimum: هناك بيانات كثيرة جدًا. لم يتم تضمين على الأقل %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
+$agent_semantic_update_required: قم بتحديث التطبيق لعرض هذا الرد.
 $agent_hint_portfolio_title: أداء المحفظة
 $agent_hint_portfolio_prompt: حلل أداء محفظتي.
 $agent_hint_swap_title: كيف تعمل المبادلات
@@ -1452,152 +1613,6 @@ $agent_error_update_required: قم بتحديث التطبيق للمتابعة.
 $agent_semantic_transactions: المعاملات
 $agent_semantic_positions: المراكز
 $agent_semantic_market: نظرة عامة على السوق
-$agent_market_analysis_title: تحليل السوق
-$agent_market_as_of: حتى تاريخ
-$agent_market_closed_1d: آخر شمعة مغلقة ليوم واحد
-$agent_market_thesis: الأطروحة الفنية
-$agent_market_fear_greed_sentiment: معنويات السوق القائمة على البيتكوين
-$agent_market_fear_greed_index: مؤشر الخوف والجشع (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: نظام السوق
-$agent_market_fear_greed_risk_on: معنويات الإقبال على المخاطرة
-$agent_market_fear_greed_risk_off: معنويات العزوف عن المخاطرة
-$agent_market_fear_greed_neutral: معنويات محايدة
-$agent_market_fear_greed_source: المصدر
-$agent_market_timeframes: هيكل السوق
-$agent_market_structure_bullish: مرتفعات أعلى وانخفاضات أعلى
-$agent_market_structure_bearish: مرتفعات أقل وانخفاضات أقل
-$agent_market_structure_range: نطاق
-$agent_market_structure_transition: انتقال
-$agent_market_structure_unavailable: البنية غير متوفرة
-$agent_market_event_none: لا يوجد كسر مؤكّد
-$agent_market_event_break_up: كسر فوق البنية
-$agent_market_event_break_down: كسر تحت البنية
-$agent_market_event_retest_up: إعادة اختبار صعودية
-$agent_market_event_retest_down: إعادة اختبار هبوطية
-$agent_market_live_approaching_upper: الاقتراب من الحد العلوي
-$agent_market_live_approaching_lower: الاقتراب من الحد السفلي
-$agent_market_level_map: المستويات الرئيسية
-$agent_market_level_primary: المستوى الأساسي
-$agent_market_level_secondary: المستوى الثانوي
-$agent_market_level_context: مستوى السياق
-$agent_market_levels_unavailable: المستويات الهيكلية المؤكدة غير متوفرة.
-$agent_market_profile_poc_full: مركز الحجم (POC)
-$agent_market_profile_value_area_full: حدود منطقة القيمة (VAL/VAH)
-$agent_market_profile_hvn_full: منطقة حجم مرتفع (HVN)
-$agent_market_profile_lvn_full: ممر حجم منخفض (LVN)
-$agent_market_profile_current_day: اليوم الحالي بالتوقيت العالمي
-$agent_market_profile_previous_day: اليوم السابق بالتوقيت العالمي
-$agent_market_profile_previous_week: الأسبوع السابق بالتوقيت العالمي
-$agent_market_profile_rolling_30d: آخر 30 جلسة بالتوقيت العالمي
-$agent_market_profile_above: السعر فوق منطقة القيمة
-$agent_market_profile_inside: السعر داخل منطقة القيمة
-$agent_market_profile_below: السعر تحت منطقة القيمة
-$agent_market_factors: العوامل الرئيسية
-$agent_market_factor_structure: "الهيكل اليومي: %direction%"
-$agent_market_factor_levels: تم تأكيد مناطق الدعم %supports% والمقاومة %resistances% لهذا الأفق.
-$agent_market_factor_profile: "توزيع الحجم: %position%."
-$agent_market_factor_profile_unavailable: ملف الحجم غير متاح؛ السيناريو يعتمد على هيكل السعر.
-$agent_market_factor_timeframe_alignment: "هيكل الإطار الزمني — 1D: %daily%؛ 4H: %fourHour%؛ 1H: %hourly%."
-$agent_market_factor_current_scenario: "النظام الحالي: %active%. السيناريو الشرطي: %conditional% بعد %activation%."
-$agent_market_factor_no_active_scenario: "لم يتم تأكيد أي سيناريو. السيناريو الشرطي: %conditional% بعد %activation%."
-$agent_market_primary_scenario: السيناريو الأساسي
-$agent_market_current_regime: النظام المؤكد الحالي
-$agent_market_conditional_scenario: السيناريو الشرطي
-$agent_market_no_active_scenario: لا يوجد سيناريو مؤكد حالياً.
-$agent_market_calculated_fallback: "التحليل المحسوب: شرح النموذج غير متاح مؤقتاً."
-$agent_market_other_horizons: آفاق أخرى مطلوبة
-$agent_market_horizon_3d: 3 أيام
-$agent_market_horizon_7d: 7 أيام
-$agent_market_horizon_30d: 30 يوماً
-$agent_market_scenario_bullish: اختراق صاعد
-$agent_market_scenario_range: توازن النطاق
-$agent_market_scenario_bearish: اختراق هابط
-$agent_market_scenario_unavailable: السيناريو الهيكلي غير متاح لهذا الأفق.
-$agent_market_confidence: الثقة
-$agent_market_confidence_low: منخفضة
-$agent_market_confidence_medium: متوسطة
-$agent_market_activation: التفعيل
-$agent_market_path: المسار
-$agent_market_terminal: المنطقة النهائية
-$agent_market_invalidation: الإبطال
-$agent_market_expected_range: نطاق السيناريو
-$agent_market_rationale: المبرر
-$agent_market_condition_above: إغلاق فوق
-$agent_market_condition_below: إغلاق تحت
-$agent_market_condition_inside: إغلاق داخل
-$agent_market_condition_outside: إغلاق خارج
-$agent_market_condition_waiting: انتظار التأكيد
-$agent_market_condition_approaching: الاقتراب
-$agent_market_condition_triggered: تم التأكيد
-$agent_market_scenario_zone: منطقة السيناريو
-$agent_market_expected_move: غلاف التقلب
-$agent_market_volatility_envelope: غلاف التقلب الكلي
-$agent_market_expected_move_note: تحرك مشروط، ليس احتمالية
-$agent_market_risk_caveat: السيناريوهات مشروطة ولا تشكل توصية تداول.
-$agent_market_partial_coverage: جزء من الأدلة السوقية غير متوفر؛ الثقة محدودة.
-$agent_market_thesis_bullish: البنية المؤكدة تفضل الاستمرار فوق المقاومة بينما يظل الإبطال تحت أقرب دعم.
-$agent_market_thesis_bearish: البنية المؤكدة تفضل الاستمرار تحت الدعم بينما يظل الإبطال فوق أقرب مقاومة.
-$agent_market_thesis_range: يظل السعر متوازنًا بين الدعم والمقاومة المؤكدين.
-$agent_market_thesis_mixed: الأطر الزمنية متضاربة، لذا فإن التأكيد عند الحد الهيكلي أهم من مؤشرات الاتجاه.
-$agent_market_thesis_insufficient: الأدلة المتاحة غير كافية لتأكيد بنية اتجاهية.
-$agent_market_thesis_unconfirmed: لم يتم تأكيد أي سيناريو؛ انتظر إغلاق الحد الهيكلي قبل اعتماد حالة اتجاهية.
-$agent_semantic_asset_search: بحث عن أصل
-$agent_semantic_web_digest: نتائج الويب
-$agent_semantic_no_results: لا توجد نتائج
-$agent_semantic_wallets: المحافظ
-$agent_semantic_wallet: المحفظة
-$agent_semantic_balance: الرصيد
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: عادي
-$agent_semantic_access_view_only: عرض فقط
-$agent_semantic_wallets_unpriced: لا يتم تضمين مراكز %amount% في المجاميع المعروضة لأنها لا تحتوي على سعر.
-$agent_semantic_wallets_stale: قد تكون بعض أرصدة المحافظ قديمة.
-$agent_semantic_wallets_unavailable: بعض أرصدة المحافظ غير متاحة.
-$agent_semantic_wallets_partial: بعض بيانات المحافظ غير مكتملة.
-$agent_semantic_status: الحالة
-$agent_semantic_quantity: الكمية
-$agent_semantic_time: الوقت
-$agent_semantic_partial: بعض البيانات غير متاحة.
-$agent_semantic_pending: قيد الانتظار
-$agent_semantic_confirmed: تم التأكيد
-$agent_semantic_completed: مكتمل
-$agent_semantic_failed: فشل
-$agent_semantic_expired: منتهي الصلاحية
-$agent_semantic_active: نشط
-$agent_semantic_unstaking: جارٍ إلغاء التخزين
-$agent_semantic_ready: جاهز
-$agent_semantic_frozen: مجمد
-$agent_semantic_locked: مقفل
-$agent_semantic_fungible: رمز
-$agent_semantic_nft: NFT
-$agent_semantic_staking: التخزين
-$agent_semantic_vesting: الاستحقاق
-$agent_semantic_vault: الخزنة
-$agent_semantic_transfer: نقل
-$agent_semantic_swap: مبادلة
-$agent_semantic_stake: تخزين
-$agent_semantic_unstake: إلغاء التخزين
-$agent_semantic_contract: العقد
-$agent_semantic_unknown: النشاط
-$agent_semantic_spam_transactions: المعاملات المزعجة
-$agent_semantic_spam_assets: الأصول المزعجة
-$agent_semantic_hidden_assets: الأصول المخفية
-$agent_semantic_hidden_assets_warning: قد تكون أسماء الأصول المخفية مضللة. يتم عرضها كنص عادي ولا يمكن فتحها كرابط.
-$agent_semantic_quarantine_warning: تم الإبلاغ عن هذه العناصر كرسائل مزعجة. لا تثق بأسمائها أو روابطها.
-$agent_semantic_redacted_asset: الاسم مخفي
-$agent_semantic_omitted_spam: "الرسائل المزعجة المفلترة: %amount%"
-$agent_semantic_omitted_spam_minimum: "الرسائل المزعجة المفلترة: على الأقل %amount%"
-$agent_semantic_omitted_hidden: "تم حذف الأصول المخفية: %amount%"
-$agent_semantic_omitted_hidden_minimum: "تم حذف الأصول المخفية: على الأقل %amount%"
-$agent_semantic_suspicious: "تم إخفاء الأسماء غير الآمنة: %amount%"
-$agent_semantic_suspicious_minimum: "تم إخفاء الأسماء غير الآمنة: على الأقل %amount%"
-$agent_semantic_suspicious_shown: "الأسماء المحتملة غير الآمنة: %amount%"
-$agent_semantic_suspicious_shown_minimum: "الأسماء المحتملة غير الآمنة: على الأقل %amount%"
-$agent_semantic_omitted_rows: هناك بيانات كثيرة جدًا. لم يتم تضمين %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
-$agent_semantic_omitted_rows_minimum: هناك بيانات كثيرة جدًا. لم يتم تضمين على الأقل %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
-$agent_semantic_update_required: قم بتحديث التطبيق لعرض هذا الرد.
 $agent_wallet_page_navigation: صفحات بيانات المحفظة
 $agent_wallet_page_previous: ← السابق
 $agent_wallet_page_next: التالي →
@@ -1733,6 +1748,7 @@ Add Crypto: أضف التشفير
 Share QR Code: مشاركة رمز الاستجابة السريعة
 $send_only_ton: أرسل فقط الأصول المستندة إلى Gram (GRAM) أو TON إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
 $send_only_chain: أرسل فقط الأصول المستندة إلى %chain% (%symbol%) أو %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_chain_no_tokens: أرسل فقط %chain% (%symbol%) إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
 Buying with card is not supported for this account.: الشراء باستخدام البطاقة غير مدعوم لهذا الحساب.
 Swapped at: تم المبادلة عند
 Price per: السعر لكل
@@ -1818,17 +1834,13 @@ hour:
   oneValue: ساعة %count%
   otherValue: ساعات %count%
 minute:
-  zeroValue: دقيقة
-  oneValue: دقيقة
+  zeroValue: دقيقة %count%
+  oneValue: دقيقة %count%
   otherValue: دقائق %count%
 second:
   zeroValue: "%count% الثانية"
   oneValue: "%count% الثانية"
   otherValue: "%count% ثانية"
-transfer:
-  zeroValue: نقل %count%
-  oneValue: نقل %count%
-  otherValue: تحويلات %count%
 Confirm Actions:
   zeroValue: قم بتأكيد إجراءات %count%
   oneValue: تأكيد الإجراء
@@ -2269,10 +2281,13 @@ Tokenized Gold: الذهب المرمّز
 Index Funds: صناديق المؤشرات
 Search token or stock: ابحث عن توكن أو سهم
 "Activity Failed to Load": "تعذر تحميل النشاط"
+"$agent_source_bea_attribution": "يستخدم هذا المنتج واجهة بيانات مكتب التحليل الاقتصادي (BEA)، لكنه غير معتمد أو مصدّق عليه من BEA."
 "Address was copied!": "تم نسخ العنوان!"
 "Allow App Lock": "السماح بقفل التطبيق"
 "An error occurred": "حدث خطأ"
 "App Fee Details": "تفاصيل رسوم التطبيق"
+"Backend": "الخادم"
+"Chat options": "خيارات المحادثة"
 "Copied": "تم النسخ"
 "Customize the wallet's home screen and color accents the way you like.": "خصّص الشاشة الرئيسية للمحفظة والألوان المميزة كما تريد."
 "Dangerous": "خطير"
@@ -2293,3 +2308,6 @@ Search token or stock: ابحث عن توكن أو سهم
 "Seasonal Theme Override": "تجاوز السمة الموسمية"
 "Sending to": "جارٍ الإرسال إلى"
 "confirming actions in Telegram": "تأكيد الإجراءات في Telegram"
+
+Unknown Transfer: تحويل غير معروف
+$dapp_sign_data_for_prefix: لـ

@@ -6,6 +6,7 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
+import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -50,6 +51,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
+import org.mytonwallet.app_air.uisend.sendNft.views.NftStackView
 import org.mytonwallet.app_air.uisend.sendNft.views.WNftTagsChipGroup
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -100,6 +102,9 @@ class ConfirmNftVC(
 
     private companion object {
         const val NFT_BATCH_SIZE = 4
+        const val NFT_STACK_VERTICAL_OFFSET_DP = 4
+        const val TRANSFERS_COUNT_SIZE_SP = 28f
+        const val TRANSFERS_WORD_SIZE_SP = 22f
         const val BURN_CHUNK_DURATION_APPROX_SEC = 30
     }
 
@@ -690,59 +695,61 @@ class ConfirmNftVC(
 
     private val headerView: View
         get() {
-            val resolvedAddress = viewModel.resolvedAddress
-            val address = resolvedAddress?.formatStartEndAddress() ?: ""
-            val sendingToString = LocaleController.getString("Sending to")
-            val startOffset = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = WFont.Regular.typeface
-                textSize = adaptiveFontSize().dp
-            }.measureText(sendingToString)
-            val addressAttr =
-                SpannableStringBuilder(sendingToString).apply {
-                    append(" $address")
-                    if (resolvedAddress != null) {
-                        AddressPopupHelpers.configSpannableAddress(
-                            viewController = WeakReference(this@ConfirmNftVC),
-                            title = null,
-                            spannedString = this,
-                            startIndex = length - address.length,
-                            length = address.length,
-                            network = displayedAccount.network,
-                            blockchain = chain,
-                            address = resolvedAddress,
-                            popupXOffset = startOffset.roundToInt(),
-                            centerHorizontally = false,
-                            showTemporaryViewOption = false
-                        )
-                    }
-                    styleDots(sendingToString.length + 1)
-                    setSpan(
-                        WForegroundColorSpan(WColor.SecondaryText),
-                        length - address.length - 1,
-                        length,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-            return PasscodeHeaderSendView(
+            val header = PasscodeHeaderSendView(
                 WeakReference(this@ConfirmNftVC),
                 (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
-            ).apply {
-                config(
+            )
+            val isMultiple = nfts.size > 1
+            val subtitle = header.buildSendToSubtitle(
+                LocaleController.getString("Sending to"),
+                resolvedAddress(),
+                mode.chain,
+                displayedAccount.network
+            )
+            if (isMultiple) {
+                header.config(
+                    NftStackView(context, nfts),
+                    multipleTransfersTitle(),
+                    subtitle,
+                    iconVerticalInset = NftStackView.RING_WIDTH_DP.dp,
+                    iconVerticalOffset = -NFT_STACK_VERTICAL_OFFSET_DP.dp
+                )
+            } else {
+                header.config(
                     Content.ofUrl(firstNft.image ?: ""),
-                    if (nfts.size == 1) {
-                        firstNft.name ?: ""
-                    } else {
-                        LocaleController.getPlural(
-                            nfts.size,
-                            "%amount% NFTs",
-                            placeholder = "%amount%"
-                        )
-                    },
-                    addressAttr,
+                    firstNft.name ?: "",
+                    subtitle,
                     Content.Rounding.Radius(12f.dp)
                 )
             }
+            return header
         }
+
+    private fun multipleTransfersTitle(): CharSequence {
+        val title = LocaleController.getPlural(nfts.size, "\$many_transactions")
+        val wordStart = title.indexOf(' ')
+        if (wordStart < 0) return title
+        return SpannableStringBuilder(title).apply {
+            setSpan(
+                RelativeSizeSpan(TRANSFERS_COUNT_SIZE_SP / PasscodeHeaderSendView.TITLE_SIZE_SP),
+                0,
+                wordStart,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            setSpan(
+                RelativeSizeSpan(TRANSFERS_WORD_SIZE_SP / PasscodeHeaderSendView.TITLE_SIZE_SP),
+                wordStart,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            setSpan(
+                WForegroundColorSpan(WColor.SecondaryText),
+                wordStart,
+                length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
 
     private var sentNftAddresses: MutableSet<String>? = null
     private fun checkReceivedActivity(receivedActivity: MApiTransaction) {

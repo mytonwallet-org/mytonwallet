@@ -79,10 +79,18 @@ export type ApiUpdateNewLocalActivities = {
   activities: ApiActivity[];
 };
 
+export type ApiTokenUpdateKind = 'fromCache' | 'full' | 'partial';
+
 export type ApiUpdateTokens = {
   type: 'updateTokens';
-  arePricesFresh: boolean;
+  kind: ApiTokenUpdateKind;
+  /** Full for `fromCache` and `full`; contains only changed tokens for `partial` */
   tokens: Record<string, ApiTokenWithPrice>;
+  /** Initial discovery may omit separately cached tokens. Omissions are not deletions only when true. */
+  isIncomplete?: boolean;
+  /** Included tokens whose numeric prices are placeholders, not fetched quotes. */
+  unpricedSlugs?: string[];
+  removedSlugs?: string[];
 };
 
 export type ApiUpdateSwapTokens = {

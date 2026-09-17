@@ -201,8 +201,7 @@ class SettingsVC(context: Context) :
     private val isPushedOverMainNavigation: Boolean
         get() {
             val nav = navigationController ?: return false
-            return WGlobalStorage.areTopTabsEnabled() &&
-                !nav.window.isWideLayout &&
+            return !nav.window.isWideLayout &&
                 nav.tabBarController == null &&
                 nav.viewControllers.firstOrNull() !== this
         }

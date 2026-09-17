@@ -18,6 +18,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     private var pendingDismissalAction: (() -> Void)?
     private var initialExternalSelectionPoint: CGPoint?
     private var didMoveFromInitialExternalSelectionPoint = false
+    private var isReplacingContent = false
 
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
@@ -86,6 +87,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        guard !self.isReplacingContent else { return }
 
         let contentFrame = self.navigationContentFrame
         self.navigationView.transform = .identity
@@ -142,6 +144,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     }
 
     func navigationView(_ navigationView: ContextMenuNavigationView, didActivate action: ContextMenuActivation) {
+        guard !self.isDismissingMenu, !self.isReplacingContent else { return }
         if action.dismissesMenu {
             self.dismissMenu(action: action.handler)
         } else {
@@ -185,6 +188,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     }
 
     private func updatePreferredContentSize() {
+        guard !self.isReplacingContent else { return }
         let preferredSize = self.navigationView.preferredPanelSize(
             constrainedTo: self.maximumContentSize()
         )
@@ -192,6 +196,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
             return
         }
         self.preferredContentSize = preferredSize
+        self.navigationController?.preferredContentSize = preferredSize
         self.sheetPresentationController?.invalidateDetents()
         self.viewIfLoaded?.setNeedsLayout()
     }
@@ -202,6 +207,14 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
 
     var navigationContentTransform: CGAffineTransform {
         .identity
+    }
+
+    func finishMenuForContentReplacement() {
+        self.isReplacingContent = true
+        self.navigationView.clearSelections()
+        self.view.isUserInteractionEnabled = false
+        self.view.accessibilityElementsHidden = true
+        self.finishDismissalIfNeeded()
     }
 
     private func maximumContentSize() -> CGSize {

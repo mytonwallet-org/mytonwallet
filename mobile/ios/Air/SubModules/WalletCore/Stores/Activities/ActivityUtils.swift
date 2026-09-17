@@ -121,6 +121,9 @@ func preserveActivityStatusProgress(existingActivity: ApiActivity?, incomingActi
         return .transaction(incomingTransaction)
     case (.swap(let existingSwap), .swap(var incomingSwap)):
         incomingSwap.status = existingSwap.status
+        if let cexStatus = existingSwap.cex?.status {
+            incomingSwap.cex?.status = cexStatus
+        }
         return .swap(incomingSwap)
     default:
         return incomingActivity

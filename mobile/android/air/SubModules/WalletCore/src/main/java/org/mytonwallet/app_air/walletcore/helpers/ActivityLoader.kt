@@ -324,30 +324,36 @@ class ActivityLoader(
     }
 
     /**
-     * Find the oldest activity suitable for pagination cursor.
+     * Find the oldest activity to continue pagination from.
      *
      * Searches from the end (oldest) of both budget and showing lists.
-     * Only returns activities suitable for timestamp-based pagination
-     * (excludes local/pending transactions that lack valid timestamps).
+     * Prefers activities suitable for timestamp-based pagination (excludes local/pending/backend-swap
+     * activities whose timestamps need not match chain order). When none exists, the oldest activity
+     * is used anyway: an approximate cursor can only overlap already-held rows, which are deduplicated,
+     * while a missing cursor would leave the list unloadable.
      */
     private fun findLastPaginationActivity(): MApiTransaction? {
-        // First check budget (contains newer activities that haven't been shown yet)
+        var oldest: MApiTransaction? = null
+
+        // First check budget (contains older activities that haven't been shown yet)
         for (i in budgetIds.indices.reversed()) {
-            val tx = ActivityStore.getTransaction(accountId, budgetIds[i])
-            if (tx != null && isSuitableToGetTimestamp(tx)) {
+            val tx = ActivityStore.getTransaction(accountId, budgetIds[i]) ?: continue
+            if (isSuitableToGetTimestamp(tx)) {
                 return tx
             }
+            oldest = oldest ?: tx
         }
 
         // Then check showing list
         for (i in allTransactionIds.indices.reversed()) {
-            val tx = ActivityStore.getTransaction(accountId, allTransactionIds[i])
-            if (tx != null && isSuitableToGetTimestamp(tx)) {
+            val tx = ActivityStore.getTransaction(accountId, allTransactionIds[i]) ?: continue
+            if (isSuitableToGetTimestamp(tx)) {
                 return tx
             }
+            oldest = oldest ?: tx
         }
 
-        return null
+        return oldest
     }
 
     /**

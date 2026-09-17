@@ -1,20 +1,29 @@
 import type { ApiTokenWithPrice } from '../types';
 
+import { callBackendGet } from './backend';
 import {
-  buildTokenDetailsPayload,
   buildTokenSlug,
   getTokenByAddress,
   getTokensCache,
   pauseTokenUpdates,
+  pickTokensForDetails,
+  resetLastTokens,
   resumeTokenUpdates,
   sendUpdateTokens,
+  tokensPreload,
   updateTokens,
+  updateTokensFromBackend,
 } from './tokens';
 
 jest.mock('../db', () => ({
   tokenRepository: {
     bulkPut: jest.fn().mockResolvedValue(undefined),
   },
+}));
+
+jest.mock('./backend', () => ({
+  callBackendGet: jest.fn().mockResolvedValue([]),
+  callBackendPost: jest.fn().mockResolvedValue([]),
 }));
 
 function makeToken(
@@ -81,31 +90,31 @@ describe('token details payload', () => {
   const allTokens = [held, abandoned, lp, unclassifiedLp, published, native];
 
   it('requests the held tokens only, LP aside', () => {
-    expect(buildTokenDetailsPayload(allTokens, { backendSlugs, heldSlugs, maxCount: 100 }))
-      .toEqual([held.tokenAddress, unclassifiedLp.tokenAddress]);
+    expect(pickTokensForDetails(allTokens, { backendSlugs, heldSlugs, maxCount: 100 }))
+      .toEqual([held, unclassifiedLp]);
   });
 
   it('keeps requesting every non-published token when the held ones are unknown', () => {
-    expect(buildTokenDetailsPayload(allTokens, { backendSlugs, maxCount: 100 }))
-      .toEqual([held.tokenAddress, abandoned.tokenAddress, unclassifiedLp.tokenAddress]);
+    expect(pickTokensForDetails(allTokens, { backendSlugs, maxCount: 100 }))
+      .toEqual([held, abandoned, unclassifiedLp]);
   });
 
   it('requests a token the backend used to publish but stopped', () => {
     const delisted = { ...published, slug: 'ton-delisted', tokenAddress: 'EQDelisted' };
 
-    expect(buildTokenDetailsPayload([delisted], { backendSlugs, maxCount: 100 }))
-      .toEqual([delisted.tokenAddress]);
+    expect(pickTokensForDetails([delisted], { backendSlugs, maxCount: 100 }))
+      .toEqual([delisted]);
   });
 
   it('skips a locally imported token once the backend starts publishing it', () => {
     const adopted = makeToken(published.slug, 'ton', 'EQAdopted');
 
-    expect(buildTokenDetailsPayload([adopted], { backendSlugs, maxCount: 100 })).toEqual([]);
+    expect(pickTokensForDetails([adopted], { backendSlugs, maxCount: 100 })).toEqual([]);
   });
 
   it('never exceeds the cap', () => {
-    expect(buildTokenDetailsPayload(allTokens, { backendSlugs, maxCount: 1 }))
-      .toEqual([held.tokenAddress]);
+    expect(pickTokensForDetails(allTokens, { backendSlugs, maxCount: 1 }))
+      .toEqual([held]);
   });
 });
 
@@ -164,7 +173,7 @@ describe('token updates', () => {
     expect(latestOnUpdate).toHaveBeenCalledTimes(1);
     expect(latestOnUpdate).toHaveBeenCalledWith(expect.objectContaining({
       type: 'updateTokens',
-      arePricesFresh: false,
+      kind: 'fromCache',
     }));
   });
 
@@ -175,5 +184,135 @@ describe('token updates', () => {
     sendUpdateTokens(onUpdate);
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends only the tokens changed since the previous fresh-price update', async () => {
+    const onUpdate = jest.fn();
+    const cache = getTokensCache();
+    const slug = buildTokenSlug('ton', 'delta-token');
+    const lastTokens = () => onUpdate.mock.calls[onUpdate.mock.calls.length - 1][0].tokens;
+
+    tokensPreload.resolve();
+    resumeTokenUpdates();
+    await updateTokens([makeToken(slug, 'ton', 'delta-token', { priceUsd: 1 })]);
+    await updateTokensFromBackend(onUpdate);
+    expect(lastTokens()).toBe(cache.bySlug);
+    expect(onUpdate.mock.calls[0][0].kind).toBe('full');
+
+    onUpdate.mockClear();
+    await updateTokens(
+      [makeToken(slug, 'ton', 'delta-token', { priceUsd: 2 })],
+      () => sendUpdateTokens(onUpdate),
+      [],
+      true,
+    );
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(Object.keys(lastTokens())).toEqual([slug]);
+    expect(onUpdate.mock.calls[0][0].kind).toBe('partial');
+
+    onUpdate.mockClear();
+    sendUpdateTokens(onUpdate);
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    resetLastTokens();
+    sendUpdateTokens(onUpdate);
+    expect(lastTokens()).toBe(cache.bySlug);
+    expect(onUpdate.mock.calls[0][0].kind).toBe('full');
+  });
+
+  it('sends removed token slugs in partial updates', async () => {
+    const onUpdate = jest.fn();
+    const cache = getTokensCache();
+    const slug = buildTokenSlug('ton', 'removed-token');
+    const previousToken = cache.bySlug[slug];
+
+    try {
+      tokensPreload.resolve();
+      resumeTokenUpdates();
+      await updateTokens([makeToken(slug, 'ton', 'removed-token')]);
+      await updateTokensFromBackend(onUpdate);
+      onUpdate.mockClear();
+      delete cache.bySlug[slug];
+
+      sendUpdateTokens(onUpdate);
+
+      expect(onUpdate).toHaveBeenCalledWith({
+        type: 'updateTokens',
+        kind: 'partial',
+        tokens: {},
+        removedSlugs: [slug],
+      });
+    } finally {
+      if (previousToken) {
+        cache.bySlug[slug] = previousToken;
+      } else {
+        delete cache.bySlug[slug];
+      }
+      resetLastTokens();
+    }
+  });
+});
+
+describe('token updates across a UI reconnect', () => {
+  const cache = getTokensCache();
+  const slug = buildTokenSlug('ton', 'reconnect-token');
+  const previousToken = cache.bySlug[slug];
+  const closedOnUpdate = jest.fn();
+  const onUpdate = jest.fn();
+  const respond = (index: number, priceUsd: number) => {
+    resolvers[index]([makeToken(slug, 'ton', 'reconnect-token', { priceUsd })]);
+  };
+  let resolvers: ((tokens: ApiTokenWithPrice[]) => void)[];
+  let closedRequest: Promise<void>;
+  let request: Promise<void>;
+
+  beforeEach(() => {
+    resolvers = [];
+    (callBackendGet as jest.Mock).mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    tokensPreload.resolve();
+    pauseTokenUpdates();
+    closedRequest = updateTokensFromBackend(closedOnUpdate);
+    pauseTokenUpdates();
+    request = updateTokensFromBackend(onUpdate);
+  });
+
+  afterEach(() => {
+    (callBackendGet as jest.Mock).mockResolvedValue([]);
+    closedOnUpdate.mockClear();
+    onUpdate.mockClear();
+    if (previousToken) {
+      cache.bySlug[slug] = previousToken;
+    } else {
+      delete cache.bySlug[slug];
+    }
+    resetLastTokens();
+  });
+
+  it('sends the full list to the new UI when the request of the closed one finishes first', async () => {
+    respond(0, 1);
+    await closedRequest;
+    resumeTokenUpdates();
+    respond(1, 1);
+    await request;
+    resumeTokenUpdates();
+
+    expect(closedOnUpdate).not.toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate.mock.calls[0][0].kind).toBe('full');
+  });
+
+  it('drops the response of the closed UI request when it arrives after the current one', async () => {
+    respond(1, 2);
+    await request;
+    resumeTokenUpdates();
+    respond(0, 1);
+    await closedRequest;
+    resumeTokenUpdates();
+    sendUpdateTokens(onUpdate);
+
+    expect(closedOnUpdate).not.toHaveBeenCalled();
+    expect(cache.bySlug[slug].priceUsd).toBe(2);
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate.mock.calls[0][0].tokens[slug].priceUsd).toBe(2);
   });
 });

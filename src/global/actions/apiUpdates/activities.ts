@@ -1,4 +1,8 @@
-import type { ApiActivity, ApiChain, ApiTransactionActivity } from '../../../api/types';
+import type {
+  ApiActivity,
+  ApiChain,
+  ApiTransactionActivity,
+} from '../../../api/types';
 import type { GlobalState } from '../../types';
 
 import {
@@ -148,7 +152,7 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
           global = replacePendingActivities(global, accountId, chain, reconciledPendingActivities);
         }
         // Fail closed on bridge errors: commit raw rows, but never infer replacements or visibility in app code.
-        global = addNewActivities(global, accountId, reconciledConfirmedActivities);
+        global = addNewActivities(global, accountId, reconciledConfirmedActivities, chain);
         if (reconciliation) {
           global = applyActivitiesPatch(global, accountId, reconciliation.patch);
         }

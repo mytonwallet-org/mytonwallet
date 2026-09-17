@@ -156,6 +156,7 @@ function Card({
   const lang = useLang();
   const amountRef = useRef<HTMLDivElement>();
   const cardRef = useRef<HTMLDivElement>();
+  const fontScaleSignatureRef = useRef<string>();
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
   const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
@@ -239,11 +240,24 @@ function Card({
   const hasChangePercent = !!changePrefix && changePercent !== undefined;
 
   useLayoutEffect(() => {
+    // The balance node is unmounted while the loader shows, so its inline scale is gone on remount
+    if (primaryValue === undefined) {
+      fontScaleSignatureRef.current = undefined;
+      return;
+    }
+
     // Measure only after the balance-update animation (`Transition` fade + `AnimatedCounter`) settles,
     // otherwise the transient DOM yields a wrong scale that then sticks
-    if (primaryValue !== undefined && !isUpdating) {
-      updateFontScale();
-    }
+    if (isUpdating) return;
+
+    // Re-fit the balance font only when something width-affecting changes: the rendered text, the currency
+    // symbol or the available width. Re-renders that touch none of them (e.g. a sub-cent price tick that
+    // leaves the displayed value intact) are skipped
+    const signature = `${primaryWholePart}.${primaryFractionPart ?? ''}|${shortBaseSymbol}|${screenWidthDep}`;
+    if (fontScaleSignatureRef.current === signature) return;
+    fontScaleSignatureRef.current = signature;
+
+    updateFontScale();
   }, [
     primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol,
     updateFontScale, screenWidthDep, isUpdating,

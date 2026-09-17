@@ -2,7 +2,7 @@ import ProtectedAction
 import WalletContext
 import WalletCore
 
-extension ProtectedAction where HeaderView == DappHeaderView, Result == ApiMfaProtectedResult {
+extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result == ApiMfaProtectedResult {
     static func signData(
         account: MAccount,
         accountContext: AccountContext,
@@ -16,11 +16,10 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == ApiMfaPr
             },
             hardware: nil,
             confirmation: .init(
-                title: lang("Sign Data"),
-                header: DappHeaderView(
+                title: lang("Confirm"),
+                header: DappConfirmationHeaderView(
                     dapp: update.dapp,
-                    accountContext: accountContext,
-                    compactAction: lang("Sign Data")
+                    action: .signData
                 )
             ),
             completion: .finish { _ in
@@ -30,7 +29,7 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == ApiMfaPr
     }
 }
 
-extension ProtectedAction where HeaderView == DappHeaderView, Result == DappSendSubmitResult {
+extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result == DappSendSubmitResult {
     static func sendDappTransactions(
         account: MAccount,
         accountContext: AccountContext,
@@ -82,11 +81,10 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == DappSend
                 }
             },
             confirmation: .init(
-                title: lang("Confirm Sending"),
-                header: DappHeaderView(
+                title: lang("Confirm"),
+                header: DappConfirmationHeaderView(
                     dapp: request.dapp,
-                    accountContext: accountContext,
-                    compactAction: compactTransactionSummary(request)
+                    action: .send(request)
                 )
             ),
             completion: .finish { _ in
@@ -94,31 +92,9 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == DappSend
             }
         )
     }
-
-    private static func compactTransactionSummary(
-        _ request: ApiUpdate.DappSendTransactions
-    ) -> String {
-        guard request.shouldHideTransfers != true else {
-            return lang("Send")
-        }
-        guard request.transactions.count == 1, let transaction = request.transactions.first else {
-            return L10n.manyTransactions(count: request.transactions.count)
-        }
-
-        var subjects = transaction.displayedAmounts(
-            chain: request.operationChain,
-            includeNativeFee: false
-        )
-        .map { $0.formatted(.defaultAdaptive) }
-        if transaction.isNftTransferPayload {
-            subjects.insert(L10n.amountNfts(amount: 1), at: 0)
-        }
-        let subject = subjects.joined(separator: " + ").nilIfEmpty ?? lang("Send")
-        return "\(subject) \(lang("to")) \(formatStartEndAddress(transaction.displayedToAddress))"
-    }
 }
 
-extension ProtectedAction where HeaderView == DappHeaderView, Result == DappConnectSubmitResult {
+extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result == DappConnectSubmitResult {
     static func connectDapp(
         account: MAccount,
         accountContext: AccountContext,
@@ -178,11 +154,10 @@ extension ProtectedAction where HeaderView == DappHeaderView, Result == DappConn
                 return await result.resolveConfirmation()
             },
             confirmation: .init(
-                title: lang("Confirm Connect"),
-                header: DappHeaderView(
+                title: lang("Confirm"),
+                header: DappConfirmationHeaderView(
                     dapp: update.dapp,
-                    accountContext: accountContext,
-                    compactAction: lang("Connect")
+                    action: .connect
                 ),
                 presentationStyle: .sheet,
                 biometricPolicy: .beforePresentation

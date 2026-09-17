@@ -114,7 +114,6 @@ import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
 import org.mytonwallet.uihome.tabs.BaseTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
-import org.mytonwallet.uihome.tabs.customize.CustomizeTabsVC
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 
 class SplashVC(context: Context) :
@@ -380,8 +379,6 @@ class SplashVC(context: Context) :
         context,
         viewMode
     )
-
-    override fun getCustomizeTabsVC(): Any = CustomizeTabsVC(context)
 
     override fun getHiddenNftsVC(accountId: String): Any = HiddenNFTsVC(context, accountId)
 

@@ -415,6 +415,7 @@ Slippage: Poślizg
 $swap_from_to: Zamień %from% %icon% %to%
 The exchange rate is below market value!: Kurs wymiany wynosi %value% poniżej wartości rynkowej!
 Invalid Pair: Wymiana niedostępna
+Unsupported Pair: Nieobsługiwana para
 We do not recommend to perform an exchange, try to specify a lower amount.: Nie zalecamy dokonywania wymiany, spróbuj podać niższą kwotę.
 $swap_minimum_received_tooltip1: To jest najmniejsza ilość nowych tokenów, jakie otrzymasz z tej wymiany, biorąc pod uwagę aktualne warunki rynkowe, tolerancję poślizgu i potencjalny wpływ na cenę.
 $swap_minimum_received_tooltip2: To oczekiwane minimum, ale jeśli warunki zmienią się znacznie podczas przetwarzania twojej wymiany, końcowa kwota może być mniejsza.
@@ -685,6 +686,13 @@ $transfer_text_and_bin_exclusive: Nie można używać razem parametrów tekstu i
 $unsupported_deeplink_parameter: Ten deeplink zawiera nieobsługiwane parametry.
 $unsupported_chain: Nieobsługiwany blockchain.
 Successfully: Pomyślnie
+Estimated Time: Szacowany czas
+$utxo_confirmations:
+  oneValue: "%count% z %max% potwierdzenia"
+  fewValue: "%count% z %max% potwierdzeń"
+  manyValue: "%count% z %max% potwierdzeń"
+  otherValue: "%count% z %max% potwierdzeń"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: Cofnij więcej
 Are you sure you want to burn this NFT? It will be lost forever.: |
   Czy na pewno chcesz spalić ten NFT?
@@ -999,6 +1007,13 @@ $iab_tabs_count:
   fewValue: "%count% karty"
   manyValue: "%count% kart"
   otherValue: "%count% karty"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% kart"
+  oneValue: "+ %count% karta"
+  fewValue: "+ %count% karty"
+  manyValue: "+ %count% kart"
+  otherValue: "+ %count% karty"
+Close Tab: Zamknij kartę
 $domains_amount %count%:
   zeroValue: Brak domen
   oneValue: "%count% domena"
@@ -1355,6 +1370,152 @@ $agent_portfolio_insight_chain_split_title: Podział według sieci
 $agent_portfolio_insight_chain_split_text: Przejrzyj ekspozycję według sieci w dostępnej alokacji; pominięte aktywa mogą zmienić obraz całego portfela.
 $agent_portfolio_insight_data_quality_title: Jakość danych
 $agent_portfolio_insight_data_quality_text: Uwzględnij zakres i aktualność danych przy interpretacji tej analizy.
+$agent_market_analysis_title: Analiza rynku
+$agent_market_as_of: Na dzień
+$agent_market_closed_1d: Najnowsza zamknięta świeca 1D
+$agent_market_thesis: Teza techniczna
+$agent_market_fear_greed_sentiment: Nastrój rynku oparty na Bitcoinie
+$agent_market_fear_greed_index: Indeks Strachu i Chciwości (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: Reżim rynku
+$agent_market_fear_greed_risk_on: Nastrój sprzyjający ryzyku
+$agent_market_fear_greed_risk_off: Nastrój unikania ryzyka
+$agent_market_fear_greed_neutral: Nastrój neutralny
+$agent_market_fear_greed_source: Źródło
+$agent_market_timeframes: Struktura rynku
+$agent_market_structure_bullish: Wyższe szczyty i wyższe dołki
+$agent_market_structure_bearish: Niższe szczyty i niższe dołki
+$agent_market_structure_range: Zakres
+$agent_market_structure_transition: Przejście
+$agent_market_structure_unavailable: Struktura niedostępna
+$agent_market_event_none: Brak potwierdzonego przebicia
+$agent_market_event_break_up: Przebicie powyżej struktury
+$agent_market_event_break_down: Przebicie poniżej struktury
+$agent_market_event_retest_up: Byczy retest
+$agent_market_event_retest_down: Niedźwiedzi retest
+$agent_market_live_approaching_upper: Zbliżanie się do górnej granicy
+$agent_market_live_approaching_lower: Zbliżanie się do dolnej granicy
+$agent_market_level_map: Kluczowe poziomy
+$agent_market_level_primary: Poziom podstawowy
+$agent_market_level_secondary: Poziom wtórny
+$agent_market_level_context: Poziom kontekstowy
+$agent_market_levels_unavailable: Potwierdzone poziomy strukturalne są niedostępne.
+$agent_market_profile_poc_full: centrum wolumenu (POC)
+$agent_market_profile_value_area_full: granice obszaru wartości (VAL/VAH)
+$agent_market_profile_hvn_full: obszar o wysokim wolumenie (HVN)
+$agent_market_profile_lvn_full: korytarz o niskim wolumenie (LVN)
+$agent_market_profile_current_day: Bieżący dzień UTC
+$agent_market_profile_previous_day: Poprzedni dzień UTC
+$agent_market_profile_previous_week: Poprzedni tydzień UTC
+$agent_market_profile_rolling_30d: Ostatnie 30 sesji UTC
+$agent_market_profile_above: Cena powyżej obszaru wartości
+$agent_market_profile_inside: Cena wewnątrz obszaru wartości
+$agent_market_profile_below: Cena poniżej obszaru wartości
+$agent_market_factors: Kluczowe czynniki
+$agent_market_factor_structure: "Struktura dzienna: %direction%"
+$agent_market_factor_levels: Potwierdzone są strefy wsparcia %supports% i oporu %resistances% dla tego horyzontu.
+$agent_market_factor_profile: "Rozkład wolumenu: %position%."
+$agent_market_factor_profile_unavailable: Profil wolumenu jest niedostępny; scenariusz opiera się na strukturze cenowej.
+$agent_market_factor_timeframe_alignment: "Struktura ram czasowych — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "Aktualny reżim: %active%. Scenariusz warunkowy: %conditional% po %activation%."
+$agent_market_factor_no_active_scenario: "Żaden scenariusz nie jest potwierdzony. Scenariusz warunkowy: %conditional% po %activation%."
+$agent_market_primary_scenario: Scenariusz podstawowy
+$agent_market_current_regime: Aktualnie potwierdzony reżim
+$agent_market_conditional_scenario: Scenariusz warunkowy
+$agent_market_no_active_scenario: Żaden scenariusz nie jest obecnie potwierdzony.
+$agent_market_calculated_fallback: "Przeprowadzona analiza: wyjaśnienie modelu jest tymczasowo niedostępne."
+$agent_market_other_horizons: Inne żądane horyzonty
+$agent_market_horizon_3d: 3 dni
+$agent_market_horizon_7d: 7 dni
+$agent_market_horizon_30d: 30 dni
+$agent_market_scenario_bullish: Wybicie wzrostowe
+$agent_market_scenario_range: Równowaga w zakresie
+$agent_market_scenario_bearish: Załamanie spadkowe
+$agent_market_scenario_unavailable: Scenariusz strukturalny jest niedostępny dla tego horyzontu.
+$agent_market_confidence: Pewność
+$agent_market_confidence_low: Niska
+$agent_market_confidence_medium: Średnia
+$agent_market_activation: Aktywacja
+$agent_market_path: Ścieżka
+$agent_market_terminal: Strefa końcowa
+$agent_market_invalidation: Unieważnienie
+$agent_market_expected_range: Zakres scenariusza
+$agent_market_rationale: Uzasadnienie
+$agent_market_condition_above: zamknięcie powyżej
+$agent_market_condition_below: zamknięcie poniżej
+$agent_market_condition_inside: zamknięcie wewnątrz
+$agent_market_condition_outside: zamknięcie na zewnątrz
+$agent_market_condition_waiting: Oczekiwanie na potwierdzenie
+$agent_market_condition_approaching: Zbliżanie się
+$agent_market_condition_triggered: Potwierdzone
+$agent_market_scenario_zone: strefa scenariusza
+$agent_market_expected_move: Zakres zmienności
+$agent_market_volatility_envelope: Całkowity zakres zmienności
+$agent_market_expected_move_note: Ruch warunkowy, nie prawdopodobieństwo
+$agent_market_risk_caveat: Scenariusze są warunkowe i nie stanowią rekomendacji handlowej.
+$agent_market_partial_coverage: Część dowodów rynkowych jest niedostępna; pewność jest ograniczona.
+$agent_market_thesis_bullish: Potwierdzona struktura sprzyja kontynuacji powyżej oporu, podczas gdy unieważnienie pozostaje poniżej najbliższego wsparcia.
+$agent_market_thesis_bearish: Potwierdzona struktura sprzyja kontynuacji poniżej wsparcia, podczas gdy unieważnienie pozostaje powyżej najbliższego oporu.
+$agent_market_thesis_range: Cena pozostaje wyważona między potwierdzonym wsparciem a oporem.
+$agent_market_thesis_mixed: Ramki czasowe są sprzeczne, więc potwierdzenie przy granicy strukturalnej ma większe znaczenie niż wskaźniki kierunkowe.
+$agent_market_thesis_insufficient: Dostępne dowody nie są wystarczające do potwierdzenia struktury kierunkowej.
+$agent_market_thesis_unconfirmed: Żaden scenariusz nie jest potwierdzony; poczekaj na zamknięcie przy granicy strukturalnej przed przyjęciem przypadku kierunkowego.
+$agent_semantic_asset_search: Wyszukiwanie aktywów
+$agent_semantic_web_digest: Wyniki w sieci
+$agent_semantic_no_results: Brak wyników
+$agent_semantic_wallets: Portfele
+$agent_semantic_wallet: Portfel
+$agent_semantic_balance: Saldo
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: Zwykły
+$agent_semantic_access_view_only: Tylko do podglądu
+$agent_semantic_wallets_unpriced: Pozycje %amount% nie są uwzględnione w wyświetlanych sumach, ponieważ nie mają ceny.
+$agent_semantic_wallets_stale: Niektóre salda portfeli mogą być nieaktualne.
+$agent_semantic_wallets_unavailable: Niektóre salda portfeli są niedostępne.
+$agent_semantic_wallets_partial: Niektóre dane portfela są niekompletne.
+$agent_semantic_status: Status
+$agent_semantic_quantity: Ilość
+$agent_semantic_time: Czas
+$agent_semantic_partial: Niektóre dane są niedostępne.
+$agent_semantic_pending: Oczekujące
+$agent_semantic_confirmed: Potwierdzone
+$agent_semantic_completed: Zakończone
+$agent_semantic_failed: Nieudane
+$agent_semantic_expired: Wygasłe
+$agent_semantic_active: Aktywne
+$agent_semantic_unstaking: Wycofywanie ze stakingu
+$agent_semantic_ready: Gotowe
+$agent_semantic_frozen: Zamrożone
+$agent_semantic_locked: Zablokowane
+$agent_semantic_fungible: Token
+$agent_semantic_nft: NFT
+$agent_semantic_staking: Stakowanie
+$agent_semantic_vesting: Vesting
+$agent_semantic_vault: Skarbiec
+$agent_semantic_transfer: Przelew
+$agent_semantic_swap: Wymiana
+$agent_semantic_stake: Stakowanie
+$agent_semantic_unstake: Wycofanie stakowania
+$agent_semantic_contract: Kontrakt
+$agent_semantic_unknown: Aktywność
+$agent_semantic_spam_transactions: Spam w transakcjach
+$agent_semantic_spam_assets: Spam w aktywach
+$agent_semantic_hidden_assets: Ukryte aktywa
+$agent_semantic_hidden_assets_warning: Ukryte nazwy aktywów mogą być mylące. Są wyświetlane jako zwykły tekst i nie można ich otworzyć jako linków.
+$agent_semantic_quarantine_warning: Te elementy zostały zgłoszone jako spam. Nie ufaj ich nazwom ani linkom.
+$agent_semantic_redacted_asset: Nazwa ukryta
+$agent_semantic_omitted_spam: "Filtrowany spam: %amount%"
+$agent_semantic_omitted_spam_minimum: "Filtrowany spam: co najmniej %amount%"
+$agent_semantic_omitted_hidden: "Pominięto ukryte aktywa: %amount%"
+$agent_semantic_omitted_hidden_minimum: "Pominięto ukryte aktywa: co najmniej %amount%"
+$agent_semantic_suspicious: "Ukryto niebezpieczne nazwy: %amount%"
+$agent_semantic_suspicious_minimum: "Ukryto niebezpieczne nazwy: co najmniej %amount%"
+$agent_semantic_suspicious_shown: "Potencjalnie niebezpieczne nazwy: %amount%"
+$agent_semantic_suspicious_shown_minimum: "Potencjalnie niebezpieczne nazwy: co najmniej %amount%"
+$agent_semantic_omitted_rows: Jest zbyt dużo danych. %amount% dodatkowych wierszy nie zostało uwzględnionych. Zawęź okres lub filtry.
+$agent_semantic_omitted_rows_minimum: Jest zbyt dużo danych. Co najmniej %amount% dodatkowych wierszy nie zostało uwzględnionych. Zawęź okres lub filtry.
+$agent_semantic_update_required: Zaktualizuj aplikację, aby wyświetlić tę odpowiedź.
 $agent_hint_portfolio_title: Wyniki portfela
 $agent_hint_portfolio_prompt: Przeanalizuj wyniki mojego portfela.
 $agent_hint_swap_title: Jak działają wymiany
@@ -1517,152 +1678,6 @@ $agent_error_update_required: Zaktualizuj aplikację, aby kontynuować.
 $agent_semantic_transactions: Transakcje
 $agent_semantic_positions: Pozycje
 $agent_semantic_market: Przegląd rynku
-$agent_market_analysis_title: Analiza rynku
-$agent_market_as_of: Na dzień
-$agent_market_closed_1d: Najnowsza zamknięta świeca 1D
-$agent_market_thesis: Teza techniczna
-$agent_market_fear_greed_sentiment: Nastrój rynku oparty na Bitcoinie
-$agent_market_fear_greed_index: Indeks Strachu i Chciwości (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: Reżim rynku
-$agent_market_fear_greed_risk_on: Nastrój sprzyjający ryzyku
-$agent_market_fear_greed_risk_off: Nastrój unikania ryzyka
-$agent_market_fear_greed_neutral: Nastrój neutralny
-$agent_market_fear_greed_source: Źródło
-$agent_market_timeframes: Struktura rynku
-$agent_market_structure_bullish: Wyższe szczyty i wyższe dołki
-$agent_market_structure_bearish: Niższe szczyty i niższe dołki
-$agent_market_structure_range: Zakres
-$agent_market_structure_transition: Przejście
-$agent_market_structure_unavailable: Struktura niedostępna
-$agent_market_event_none: Brak potwierdzonego przebicia
-$agent_market_event_break_up: Przebicie powyżej struktury
-$agent_market_event_break_down: Przebicie poniżej struktury
-$agent_market_event_retest_up: Byczy retest
-$agent_market_event_retest_down: Niedźwiedzi retest
-$agent_market_live_approaching_upper: Zbliżanie się do górnej granicy
-$agent_market_live_approaching_lower: Zbliżanie się do dolnej granicy
-$agent_market_level_map: Kluczowe poziomy
-$agent_market_level_primary: Poziom podstawowy
-$agent_market_level_secondary: Poziom wtórny
-$agent_market_level_context: Poziom kontekstowy
-$agent_market_levels_unavailable: Potwierdzone poziomy strukturalne są niedostępne.
-$agent_market_profile_poc_full: centrum wolumenu (POC)
-$agent_market_profile_value_area_full: granice obszaru wartości (VAL/VAH)
-$agent_market_profile_hvn_full: obszar o wysokim wolumenie (HVN)
-$agent_market_profile_lvn_full: korytarz o niskim wolumenie (LVN)
-$agent_market_profile_current_day: Bieżący dzień UTC
-$agent_market_profile_previous_day: Poprzedni dzień UTC
-$agent_market_profile_previous_week: Poprzedni tydzień UTC
-$agent_market_profile_rolling_30d: Ostatnie 30 sesji UTC
-$agent_market_profile_above: Cena powyżej obszaru wartości
-$agent_market_profile_inside: Cena wewnątrz obszaru wartości
-$agent_market_profile_below: Cena poniżej obszaru wartości
-$agent_market_factors: Kluczowe czynniki
-$agent_market_factor_structure: "Struktura dzienna: %direction%"
-$agent_market_factor_levels: Potwierdzone są strefy wsparcia %supports% i oporu %resistances% dla tego horyzontu.
-$agent_market_factor_profile: "Rozkład wolumenu: %position%."
-$agent_market_factor_profile_unavailable: Profil wolumenu jest niedostępny; scenariusz opiera się na strukturze cenowej.
-$agent_market_factor_timeframe_alignment: "Struktura ram czasowych — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Aktualny reżim: %active%. Scenariusz warunkowy: %conditional% po %activation%."
-$agent_market_factor_no_active_scenario: "Żaden scenariusz nie jest potwierdzony. Scenariusz warunkowy: %conditional% po %activation%."
-$agent_market_primary_scenario: Scenariusz podstawowy
-$agent_market_current_regime: Aktualnie potwierdzony reżim
-$agent_market_conditional_scenario: Scenariusz warunkowy
-$agent_market_no_active_scenario: Żaden scenariusz nie jest obecnie potwierdzony.
-$agent_market_calculated_fallback: "Przeprowadzona analiza: wyjaśnienie modelu jest tymczasowo niedostępne."
-$agent_market_other_horizons: Inne żądane horyzonty
-$agent_market_horizon_3d: 3 dni
-$agent_market_horizon_7d: 7 dni
-$agent_market_horizon_30d: 30 dni
-$agent_market_scenario_bullish: Wybicie wzrostowe
-$agent_market_scenario_range: Równowaga w zakresie
-$agent_market_scenario_bearish: Załamanie spadkowe
-$agent_market_scenario_unavailable: Scenariusz strukturalny jest niedostępny dla tego horyzontu.
-$agent_market_confidence: Pewność
-$agent_market_confidence_low: Niska
-$agent_market_confidence_medium: Średnia
-$agent_market_activation: Aktywacja
-$agent_market_path: Ścieżka
-$agent_market_terminal: Strefa końcowa
-$agent_market_invalidation: Unieważnienie
-$agent_market_expected_range: Zakres scenariusza
-$agent_market_rationale: Uzasadnienie
-$agent_market_condition_above: zamknięcie powyżej
-$agent_market_condition_below: zamknięcie poniżej
-$agent_market_condition_inside: zamknięcie wewnątrz
-$agent_market_condition_outside: zamknięcie na zewnątrz
-$agent_market_condition_waiting: Oczekiwanie na potwierdzenie
-$agent_market_condition_approaching: Zbliżanie się
-$agent_market_condition_triggered: Potwierdzone
-$agent_market_scenario_zone: strefa scenariusza
-$agent_market_expected_move: Zakres zmienności
-$agent_market_volatility_envelope: Całkowity zakres zmienności
-$agent_market_expected_move_note: Ruch warunkowy, nie prawdopodobieństwo
-$agent_market_risk_caveat: Scenariusze są warunkowe i nie stanowią rekomendacji handlowej.
-$agent_market_partial_coverage: Część dowodów rynkowych jest niedostępna; pewność jest ograniczona.
-$agent_market_thesis_bullish: Potwierdzona struktura sprzyja kontynuacji powyżej oporu, podczas gdy unieważnienie pozostaje poniżej najbliższego wsparcia.
-$agent_market_thesis_bearish: Potwierdzona struktura sprzyja kontynuacji poniżej wsparcia, podczas gdy unieważnienie pozostaje powyżej najbliższego oporu.
-$agent_market_thesis_range: Cena pozostaje wyważona między potwierdzonym wsparciem a oporem.
-$agent_market_thesis_mixed: Ramki czasowe są sprzeczne, więc potwierdzenie przy granicy strukturalnej ma większe znaczenie niż wskaźniki kierunkowe.
-$agent_market_thesis_insufficient: Dostępne dowody nie są wystarczające do potwierdzenia struktury kierunkowej.
-$agent_market_thesis_unconfirmed: Żaden scenariusz nie jest potwierdzony; poczekaj na zamknięcie przy granicy strukturalnej przed przyjęciem przypadku kierunkowego.
-$agent_semantic_asset_search: Wyszukiwanie aktywów
-$agent_semantic_web_digest: Wyniki w sieci
-$agent_semantic_no_results: Brak wyników
-$agent_semantic_wallets: Portfele
-$agent_semantic_wallet: Portfel
-$agent_semantic_balance: Saldo
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Zwykły
-$agent_semantic_access_view_only: Tylko do podglądu
-$agent_semantic_wallets_unpriced: Pozycje %amount% nie są uwzględnione w wyświetlanych sumach, ponieważ nie mają ceny.
-$agent_semantic_wallets_stale: Niektóre salda portfeli mogą być nieaktualne.
-$agent_semantic_wallets_unavailable: Niektóre salda portfeli są niedostępne.
-$agent_semantic_wallets_partial: Niektóre dane portfela są niekompletne.
-$agent_semantic_status: Status
-$agent_semantic_quantity: Ilość
-$agent_semantic_time: Czas
-$agent_semantic_partial: Niektóre dane są niedostępne.
-$agent_semantic_pending: Oczekujące
-$agent_semantic_confirmed: Potwierdzone
-$agent_semantic_completed: Zakończone
-$agent_semantic_failed: Nieudane
-$agent_semantic_expired: Wygasłe
-$agent_semantic_active: Aktywne
-$agent_semantic_unstaking: Wycofywanie ze stakingu
-$agent_semantic_ready: Gotowe
-$agent_semantic_frozen: Zamrożone
-$agent_semantic_locked: Zablokowane
-$agent_semantic_fungible: Token
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Stakowanie
-$agent_semantic_vesting: Vesting
-$agent_semantic_vault: Skarbiec
-$agent_semantic_transfer: Przelew
-$agent_semantic_swap: Wymiana
-$agent_semantic_stake: Stakowanie
-$agent_semantic_unstake: Wycofanie stakowania
-$agent_semantic_contract: Kontrakt
-$agent_semantic_unknown: Aktywność
-$agent_semantic_spam_transactions: Spam w transakcjach
-$agent_semantic_spam_assets: Spam w aktywach
-$agent_semantic_hidden_assets: Ukryte aktywa
-$agent_semantic_hidden_assets_warning: Ukryte nazwy aktywów mogą być mylące. Są wyświetlane jako zwykły tekst i nie można ich otworzyć jako linków.
-$agent_semantic_quarantine_warning: Te elementy zostały zgłoszone jako spam. Nie ufaj ich nazwom ani linkom.
-$agent_semantic_redacted_asset: Nazwa ukryta
-$agent_semantic_omitted_spam: "Filtrowany spam: %amount%"
-$agent_semantic_omitted_spam_minimum: "Filtrowany spam: co najmniej %amount%"
-$agent_semantic_omitted_hidden: "Pominięto ukryte aktywa: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Pominięto ukryte aktywa: co najmniej %amount%"
-$agent_semantic_suspicious: "Ukryto niebezpieczne nazwy: %amount%"
-$agent_semantic_suspicious_minimum: "Ukryto niebezpieczne nazwy: co najmniej %amount%"
-$agent_semantic_suspicious_shown: "Potencjalnie niebezpieczne nazwy: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Potencjalnie niebezpieczne nazwy: co najmniej %amount%"
-$agent_semantic_omitted_rows: Jest zbyt dużo danych. %amount% dodatkowych wierszy nie zostało uwzględnionych. Zawęź okres lub filtry.
-$agent_semantic_omitted_rows_minimum: Jest zbyt dużo danych. Co najmniej %amount% dodatkowych wierszy nie zostało uwzględnionych. Zawęź okres lub filtry.
-$agent_semantic_update_required: Zaktualizuj aplikację, aby wyświetlić tę odpowiedź.
 $agent_wallet_page_navigation: Strony danych portfela
 $agent_wallet_page_previous: ← Poprzednia
 $agent_wallet_page_next: Następna →
@@ -1814,6 +1829,7 @@ Add Crypto: Dodaj kryptowalutę
 Share QR Code: Udostępnij kod QR
 $send_only_ton: Wysyłaj na ten adres wyłącznie Gram (GRAM) lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
 $send_only_chain: Wysyłaj na ten adres wyłącznie %chain% (%symbol%) lub aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_chain_no_tokens: Wysyłaj na ten adres wyłącznie %chain% (%symbol%). Wysłanie innych tokenów spowoduje ich utratę.
 Buying with card is not supported for this account.: Zakup kartą nie jest obsługiwany dla tego konta.
 Swapped at: Zamieniono o
 Price per: Cena za
@@ -1914,11 +1930,6 @@ second:
   oneValue: "%count% sekunda"
   fewValue: "%count% sekundy"
   manyValue: "%count% sekund"
-transfer:
-  zeroValue: "%count% przelewów"
-  oneValue: "%count% przelew"
-  fewValue: "%count% przelewy"
-  manyValue: "%count% przelewów"
 Confirm Actions:
   zeroValue: "Potwierdź %count% czynności"
   oneValue: Potwierdź czynność
@@ -2309,10 +2320,13 @@ Tokenized Gold: Tokenizowane złoto
 Index Funds: Fundusze indeksowe
 Search token or stock: Wyszukaj token lub akcję
 "Activity Failed to Load": "Nie udało się wczytać aktywności"
+"$agent_source_bea_attribution": "Ten produkt korzysta z API danych Bureau of Economic Analysis (BEA), ale nie jest popierany ani certyfikowany przez BEA."
 "Address was copied!": "Adres został skopiowany!"
 "Allow App Lock": "Zezwól na blokadę aplikacji"
 "An error occurred": "Wystąpił błąd"
 "App Fee Details": "Szczegóły opłaty aplikacji"
+"Backend": "Backend"
+"Chat options": "Opcje czatu"
 "Copied": "Skopiowano"
 "Customize the wallet's home screen and color accents the way you like.": "Dostosuj ekran główny portfela i akcenty kolorystyczne do swoich upodobań."
 "Dangerous": "Niebezpieczne"
@@ -2333,3 +2347,6 @@ Search token or stock: Wyszukaj token lub akcję
 "Seasonal Theme Override": "Nadpisanie motywu sezonowego"
 "Sending to": "Wysyłanie do"
 "confirming actions in Telegram": "potwierdzania działań w Telegramie"
+
+Unknown Transfer: Nieznany transfer
+$dapp_sign_data_for_prefix: dla

@@ -214,7 +214,7 @@ class TransactionHeaderView(
                     length = addressText.length,
                     network = activeAccount.network,
                     blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
-                    address = transaction.fromAddress ?: "",
+                    address = transaction.peerAddress,
                     popupXOffset = 0,
                     centerHorizontally = true,
                     showTemporaryViewOption = true
@@ -236,7 +236,7 @@ class TransactionHeaderView(
                     length = addressText.length,
                     network = activeAccount.network,
                     blockchain = TokenStore.getToken(transaction.slug)?.mBlockchain,
-                    address = transaction.toAddress ?: "",
+                    address = transaction.peerAddress,
                     popupXOffset = 0,
                     centerHorizontally = true,
                     showTemporaryViewOption = true

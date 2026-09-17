@@ -40,6 +40,8 @@ data class MApiMarketSection(
     val title: String,
     val layout: MApiMarketSectionLayout? = null,
     val limit: Int? = null,
+    val desktopLimit: Int? = null,
+    val mobileLimit: Int? = null,
     val hasMore: Boolean = false,
     val assets: List<MApiMarketAsset> = emptyList()
 )

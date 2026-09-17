@@ -5,17 +5,21 @@ public struct ContextMenuConfiguration {
     public var backdrop: ContextMenuBackdropStyle
     public var backdropBlurPolicy: ContextMenuBackdropBlurPolicy
     public var style: ContextMenuStyle
+    /// An optional navigation host for handing the sheet over to another flow.
+    public var sheetNavigationControllerProvider: (@MainActor (UIViewController) -> UINavigationController)?
 
     public init(
         rootPage: ContextMenuPage,
         backdrop: ContextMenuBackdropStyle = .defaultBlurred(),
         backdropBlurPolicy: ContextMenuBackdropBlurPolicy = .enabled,
-        style: ContextMenuStyle = .default
+        style: ContextMenuStyle = .default,
+        sheetNavigationControllerProvider: (@MainActor (UIViewController) -> UINavigationController)? = nil
     ) {
         self.rootPage = rootPage
         self.backdrop = backdrop
         self.backdropBlurPolicy = backdropBlurPolicy
         self.style = style
+        self.sheetNavigationControllerProvider = sheetNavigationControllerProvider
     }
 
     func resolved(for sourceView: UIView) -> ContextMenuConfiguration {

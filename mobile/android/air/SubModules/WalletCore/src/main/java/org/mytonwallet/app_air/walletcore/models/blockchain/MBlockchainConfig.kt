@@ -28,6 +28,7 @@ interface MBlockchainConfig {
     val walletConnectChainIds: Map<MBlockchainNetwork, Int> get() = emptyMap()
 
     fun isValidAddress(address: String): Boolean
+    fun normalizeAddress(address: String): String = address
     fun isValidDNS(address: String): Boolean = false
     fun idToTxHash(id: String?): String? = null
 

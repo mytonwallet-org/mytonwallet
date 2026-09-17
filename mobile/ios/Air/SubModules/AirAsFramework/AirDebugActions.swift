@@ -1,5 +1,6 @@
 import UIKit
 import UIAgent
+import UIAssets
 import UIComponents
 import UICreateWallet
 import UIHome
@@ -9,6 +10,30 @@ import WalletContext
 
 @MainActor
 public enum AirDebugActions {
+    public static func clearCaches() async throws {
+        var cleanupError: Error?
+        do {
+            try await WalletCoreData.clearCaches()
+            await NftDetailsCache.clear()
+        } catch {
+            cleanupError = error
+        }
+        // A partial cleanup still needs a refresh to repopulate the stores already cleared.
+        try await AccountStore.reactivateCurrentAccount()
+        if AccountStore.accountId != nil {
+            Task {
+                do {
+                    try await Api.refreshTokens()
+                } catch {
+                    Log("AirDebugActions").error("Token refresh after cache cleanup failed: \(error, .public)")
+                }
+            }
+        }
+        if let cleanupError {
+            throw cleanupError
+        }
+    }
+
     public static func forceIntro() {
         guard let presenter = topViewController() else { return }
 

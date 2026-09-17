@@ -122,9 +122,9 @@ $footerPaddingBottom: 1rem;
   }
 
   &.withBorder {
-    @include mixins.separator();
-
     background-color: var(--color-background-tab-bar);
+
+    @include mixins.separator();
   }
 }
 

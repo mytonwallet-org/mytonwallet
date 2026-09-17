@@ -13,7 +13,7 @@ import {
   wallet2,
   wallet3,
 } from '../../../../tests/helpers/swapReconcilerFixtures';
-import { projectSwapActivities, reconcileActivityUpdate } from './swapReconciler';
+import { preserveActivityStatusProgress, projectSwapActivities, reconcileActivityUpdate } from './swapReconciler';
 
 const NOW = 1_788_462_500_000;
 
@@ -23,6 +23,95 @@ const hiddenIds = (activities: readonly ApiActivity[]) => ids(activities.filter(
 const findOutgoingTransfer = (activities: readonly ApiActivity[]) => activities.find((activity) => {
   return activity.kind === 'transaction' && !activity.isIncoming && Boolean(activity.externalMsgHashNorm);
 })!;
+
+const transactionActivity = (
+  overrides: Partial<ApiTransactionActivity> = {},
+): ApiTransactionActivity => ({
+  kind: 'transaction',
+  id: 'tx-id',
+  timestamp: NOW,
+  amount: 1n,
+  fee: 0n,
+  slug: 'bitcoin',
+  fromAddress: 'from',
+  toAddress: 'to',
+  isIncoming: true,
+  normalizedAddress: 'to',
+  status: 'pending',
+  ...overrides,
+});
+
+const swapActivity = (overrides: Partial<ApiSwapActivity> = {}): ApiSwapActivity => ({
+  kind: 'swap',
+  id: 'swap-id::backend-swap',
+  timestamp: NOW,
+  status: 'pending',
+  from: 'ton-eqd0vdsane',
+  to: 'ton-eqaj8uwd7e',
+  fromAmount: '1',
+  toAmount: '2',
+  fromTokenSlug: 'toncoin',
+  toTokenSlug: 'usdt',
+  hashes: [],
+  ...overrides,
+} as ApiSwapActivity);
+
+describe('preserveActivityStatusProgress', () => {
+  it('keeps a failed deposit visibly failed when pending provider history arrives later', () => {
+    const cex = {
+      payinAddress: 'deposit', payoutAddress: 'destination', transactionId: 'provider-id',
+      status: 'failed' as const,
+    };
+    const existing = swapActivity({ status: 'failed', cex });
+    const incoming = swapActivity({ status: 'pendingTrusted', cex: { ...cex, status: 'waiting' } });
+    expect(preserveActivityStatusProgress(existing, incoming)).toMatchObject({
+      status: 'failed', cex: { status: 'failed' },
+    });
+  });
+
+  it('preserves existing transaction ETA when incoming REST activity has no ETA and status is not older', () => {
+    const existing = transactionActivity({ etaSeconds: 600, status: 'pending' });
+    const incoming = transactionActivity({ etaSeconds: undefined, status: 'pending' });
+
+    expect(preserveActivityStatusProgress(existing, incoming)).toEqual(expect.objectContaining({
+      etaSeconds: 600,
+      status: 'pending',
+    }));
+  });
+
+  it('uses incoming transaction ETA when it is provided', () => {
+    const existing = transactionActivity({ etaSeconds: 600, status: 'pending' });
+    const incoming = transactionActivity({ etaSeconds: 300, status: 'pending' });
+
+    expect(preserveActivityStatusProgress(existing, incoming)).toEqual(expect.objectContaining({
+      etaSeconds: 300,
+      status: 'pending',
+    }));
+  });
+
+  it('preserves existing ETA and better status when incoming transaction has no ETA and worse status', () => {
+    const existing = transactionActivity({ etaSeconds: 600, status: 'pendingTrusted' });
+    const incoming = transactionActivity({ etaSeconds: undefined, status: 'pending' });
+
+    expect(preserveActivityStatusProgress(existing, incoming)).toEqual(expect.objectContaining({
+      etaSeconds: 600,
+      status: 'pendingTrusted',
+    }));
+  });
+
+  it('does not preserve ETA for non-transaction or different-kind activity updates', () => {
+    const existingTransaction = transactionActivity({ etaSeconds: 600, status: 'pendingTrusted' });
+    const incomingSwap = swapActivity({ status: 'pending' });
+    expect(preserveActivityStatusProgress(existingTransaction, incomingSwap)).toBe(incomingSwap);
+
+    const existingSwap = swapActivity({ status: 'pendingTrusted' });
+    const incomingSwapWithWorseStatus = swapActivity({ status: 'pending' });
+    expect(preserveActivityStatusProgress(existingSwap, incomingSwapWithWorseStatus)).toEqual({
+      ...incomingSwapWithWorseStatus,
+      status: 'pendingTrusted',
+    });
+  });
+});
 
 describe('projectSwapActivities', () => {
   it('shows one completed backend row for a finalized Omniston swap and hides its trace actions', () => {

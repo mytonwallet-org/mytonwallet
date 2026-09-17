@@ -665,6 +665,7 @@ class PortfolioVM :
             "bnb" -> 0xFFFF8E00.toInt()
             "hyperliquid" -> 0xFF5DCFC3.toInt()
             "robinhood" -> 0xFFCCFF00.toInt()
+            "arc" -> 0xFF2775CA.toInt()
             "ethereum" -> 0xFF5E5CEE.toInt()
             "base" -> 0xFF00CAFF.toInt()
             "arbitrum" -> 0xFF00CA48.toInt()

@@ -1,9 +1,13 @@
 import './activities';
 
-import type { ApiActivity, ApiSwapActivity, ApiTransactionActivity } from '../../../api/types';
+import type { UtxoTransaction } from '../../../api/chains/utxo/types';
+import type { ApiBackendActivitiesUpdate } from '../../../api/common/backendSocket';
+import type { ApiActivity, ApiSwapActivity, ApiTransactionActivity, OnApiUpdate } from '../../../api/types';
 import type { GlobalState } from '../../types';
 
 import { callApi } from '../../../api';
+import { setupUtxoBackendActivityTracking } from '../../../api/chains/utxo/polling';
+import { getUtxoBackendSocket } from '../../../api/common/backendSocket';
 import { getActions, getGlobal, setGlobal } from '../../index';
 import { INITIAL_STATE } from '../../initialState';
 
@@ -11,11 +15,45 @@ jest.mock('../../../api', () => ({
   callApi: jest.fn(),
 }));
 
+jest.mock('../../../api/common/backendSocket', () => ({
+  getUtxoBackendSocket: jest.fn(),
+}));
+
 jest.mock('../../../util/notificationSound', () => ({
   playIncomingTransactionSound: jest.fn(),
 }));
 
 const ACCOUNT_ID = 'account-1';
+
+const BTC_ADDRESS = 'bc1qvmw9dmensxtuxu5vw7mxtxqurad2u99pdj9wwa';
+const BTC_SENDER_ADDRESS = '1BoatSLRHtKNngkdXEeobR76b53LETtpyT';
+
+function makeUtxoRawTransaction(txId: string): UtxoTransaction {
+  return {
+    txid: txId,
+    confirmations: 1,
+    blockTime: 1_700_000_000,
+    fees: '100',
+    vin: [{ addresses: [BTC_SENDER_ADDRESS], value: '1000' }],
+    vout: [{ addresses: [BTC_ADDRESS], value: '900', n: 0 }],
+  };
+}
+
+function mockBackendWatcher() {
+  let callback: ((update: ApiBackendActivitiesUpdate) => void) | undefined;
+  const watchWallets = jest.fn((_wallets, options) => {
+    callback = options.onNewActivities;
+    return { destroy: jest.fn() };
+  });
+
+  (getUtxoBackendSocket as jest.Mock).mockReturnValue({ watchWallets });
+
+  return {
+    emit(update: ApiBackendActivitiesUpdate) {
+      callback?.(update);
+    },
+  };
+}
 
 function makePendingCexSwap(overrides: Partial<ApiSwapActivity> = {}): ApiSwapActivity {
   return {
@@ -83,6 +121,263 @@ describe('apiUpdate activity reconciliation bridge', () => {
     jest.useRealTimers();
     jest.clearAllMocks();
     setGlobal(buildGlobal([makePendingCexSwap()]));
+  });
+
+  it('applies UTXO confirmation metadata through generic newActivities', async () => {
+    const bitcoinActivity = makeRawReceive({
+      id: 'btc-tx-id',
+      slug: 'bitcoin',
+      status: 'pending',
+      confirmations: 1,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+    });
+    setGlobal(buildGlobal([]));
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [bitcoinActivity],
+      chain: 'bitcoin',
+    }) as unknown as Promise<void>);
+
+    expect(callApi).toHaveBeenCalledWith(
+      'reconcileActivityUpdate',
+      ACCOUNT_ID,
+      [],
+      [bitcoinActivity],
+      undefined,
+      expect.any(Object),
+    );
+    expect(getAccountActivities().byId[bitcoinActivity.id]).toEqual(expect.objectContaining({
+      confirmations: 1,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+      status: 'pending',
+    }));
+    expect(getAccountActivities().pendingActivityIds?.bitcoin).toEqual([bitcoinActivity.id]);
+  });
+
+  it.each([
+    { etaSeconds: undefined, expectedEtaSeconds: 600 },
+    { etaSeconds: 300, expectedEtaSeconds: 300 },
+    { etaSeconds: 0, expectedEtaSeconds: 0 },
+  ])('merges UTXO ETA when a partial newActivities update provides $etaSeconds', async ({
+    etaSeconds,
+    expectedEtaSeconds,
+  }) => {
+    const bitcoinActivity = makeRawReceive({
+      id: 'btc-tx-id',
+      slug: 'bitcoin',
+      status: 'pending',
+      confirmations: 0,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+    });
+    const updatedActivity = {
+      ...bitcoinActivity,
+      confirmations: 1,
+      etaSeconds,
+    };
+    const global = buildGlobal([bitcoinActivity]);
+    global.byAccountId[ACCOUNT_ID].activities!.pendingActivityIds = { bitcoin: [bitcoinActivity.id] };
+    setGlobal(global);
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [updatedActivity],
+      chain: 'bitcoin',
+    }) as unknown as Promise<void>);
+
+    expect(getAccountActivities().byId[bitcoinActivity.id]).toEqual(expect.objectContaining({
+      confirmations: 1,
+      maxConfirmations: 2,
+      status: 'pending',
+      etaSeconds: expectedEtaSeconds,
+    }));
+  });
+
+  it('tracks pending UTXO activities from generic newActivities when chain is present', async () => {
+    const bitcoinActivity = makeRawReceive({
+      id: 'btc-new-pending-tx-id',
+      slug: 'bitcoin',
+      status: 'pending',
+      confirmations: 1,
+      maxConfirmations: 2,
+    });
+    setGlobal(buildGlobal([]));
+    (callApi as jest.Mock).mockResolvedValue({
+      confirmedActivities: [bitcoinActivity],
+      pendingActivities: [],
+      patch: { accountId: ACCOUNT_ID, upsert: [bitcoinActivity], removeIds: [] },
+    });
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [bitcoinActivity],
+      pendingActivities: [],
+      chain: 'bitcoin',
+    }) as unknown as Promise<void>);
+
+    expect(getAccountActivities().byId[bitcoinActivity.id]).toEqual(expect.objectContaining({
+      confirmations: 1,
+      maxConfirmations: 2,
+      status: 'pending',
+    }));
+    expect(getAccountActivities().pendingActivityIds?.bitcoin).toEqual([bitcoinActivity.id]);
+  });
+
+  it('preserves existing pending UTXO activities when partial updates omit pendingActivities', async () => {
+    const pendingActivity = makeRawReceive({
+      id: 'btc-pending-a',
+      slug: 'bitcoin',
+      status: 'pending',
+      confirmations: 1,
+      maxConfirmations: 2,
+    });
+    const newActivity = makeRawReceive({
+      id: 'btc-new-b',
+      slug: 'bitcoin',
+      status: 'completed',
+      confirmations: 2,
+      maxConfirmations: 2,
+      timestamp: pendingActivity.timestamp + 1,
+    });
+    const global = buildGlobal([pendingActivity]);
+    global.byAccountId[ACCOUNT_ID].activities!.pendingActivityIds = { bitcoin: [pendingActivity.id] };
+    setGlobal(global);
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities',
+      accountId: ACCOUNT_ID,
+      activities: [newActivity],
+      chain: 'bitcoin',
+    }) as unknown as Promise<void>);
+
+    const activities = getAccountActivities();
+    expect(activities.byId[pendingActivity.id]).toEqual(expect.objectContaining({
+      confirmations: 1,
+      maxConfirmations: 2,
+      status: 'pending',
+    }));
+    expect(activities.byId[newActivity.id]).toEqual(expect.objectContaining({
+      confirmations: 2,
+      maxConfirmations: 2,
+      status: 'completed',
+    }));
+    expect(activities.pendingActivityIds?.bitcoin).toEqual([pendingActivity.id]);
+    expect(activities.idsMain).toEqual(expect.arrayContaining([pendingActivity.id, newActivity.id]));
+  });
+
+  it('reconciles a UTXO socket row with an existing local pendingTrusted row', async () => {
+    const accountId = '0-mainnet';
+    const txId = 'btc-network-tx-id';
+    const watcher = mockBackendWatcher();
+    const dispatchedUpdates: Promise<void>[] = [];
+    const onUpdate: OnApiUpdate = (update) => {
+      dispatchedUpdates.push(getActions().apiUpdate(update) as unknown as Promise<void>);
+    };
+    const localActivity = makeRawReceive({
+      id: `${txId}::local`,
+      slug: 'bitcoin',
+      status: 'pendingTrusted',
+      confirmations: 0,
+      maxConfirmations: 2,
+    });
+    const parsedActivity = makeRawReceive({
+      id: txId,
+      slug: 'bitcoin',
+      status: 'pending',
+      confirmations: 1,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+      timestamp: localActivity.timestamp + 1,
+    });
+    const trustedParsedActivity = {
+      ...parsedActivity,
+      status: 'pendingTrusted' as const,
+    };
+    setGlobal({
+      ...buildGlobal([localActivity]),
+      currentAccountId: accountId,
+      accounts: {
+        byId: {
+          [accountId]: {
+            type: 'mnemonic',
+            byChain: { bitcoin: { address: BTC_ADDRESS } },
+          },
+        },
+      },
+      byAccountId: {
+        [accountId]: buildGlobal([localActivity]).byAccountId[ACCOUNT_ID],
+      },
+    } as GlobalState);
+    (callApi as jest.Mock).mockImplementation((method: string) => {
+      if (method === 'reconcileActivityUpdate') {
+        return Promise.resolve({
+          confirmedActivities: [trustedParsedActivity],
+          patch: {
+            accountId,
+            upsert: [trustedParsedActivity],
+            removeIds: [localActivity.id],
+            replacedIds: { [localActivity.id]: parsedActivity.id },
+          },
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    setupUtxoBackendActivityTracking('bitcoin', accountId, BTC_ADDRESS, jest.fn(), onUpdate);
+    watcher.emit({
+      address: BTC_ADDRESS,
+      utxoActivityUpdate: {
+        type: 'utxoActivityUpdate',
+        chain: 'bitcoin',
+        address: BTC_ADDRESS,
+        txId,
+        confirmations: 1,
+        maxConfirmations: 2,
+        etaSeconds: 600,
+        status: 'pending',
+        blockHeight: 966489,
+        blockHash: 'block-1',
+        rawTransaction: makeUtxoRawTransaction(txId),
+      },
+    });
+    await Promise.all(dispatchedUpdates);
+
+    const activities = getGlobal().byAccountId[accountId].activities!;
+    expect(callApi).toHaveBeenCalledTimes(1);
+    expect(callApi).toHaveBeenCalledWith(
+      'reconcileActivityUpdate',
+      accountId,
+      [localActivity],
+      [expect.objectContaining({
+        id: txId,
+        confirmations: 1,
+        maxConfirmations: 2,
+        etaSeconds: 600,
+        status: 'pending',
+      })],
+      undefined,
+      expect.any(Object),
+    );
+    expect(activities.byId[localActivity.id]).toBeUndefined();
+    expect(activities.byId[txId]).toEqual(expect.objectContaining({
+      id: txId,
+      confirmations: 1,
+      maxConfirmations: 2,
+      etaSeconds: 600,
+      status: 'pendingTrusted',
+    }));
+    expect(activities.idsMain).toEqual([txId]);
+    expect(activities.localActivityIds).toEqual([]);
+    expect(activities.pendingActivityIds?.bitcoin).toEqual([txId]);
   });
 
   it('hides incoming raw receive in the same committed state when forced refresh returns matching hash', async () => {

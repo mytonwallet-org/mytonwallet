@@ -28,6 +28,16 @@ if (process.env.NO_SOLANA !== '1') {
   chains.solana = require('./solana').default;
 }
 
+if (process.env.NO_UTXO !== '1') {
+  const UTXOSdk = require('./utxo').default;
+  Object.assign(chains, {
+    bitcoin: new UTXOSdk('bitcoin'),
+    litecoin: new UTXOSdk('litecoin'),
+    bitcoincash: new UTXOSdk('bitcoincash'),
+    dogecoin: new UTXOSdk('dogecoin'),
+  });
+}
+
 if (process.env.NO_EVM !== '1') {
   const EVMSdk = require('./evm').default;
   Object.assign(chains, {
@@ -40,6 +50,7 @@ if (process.env.NO_EVM !== '1') {
     avalanche: new EVMSdk('avalanche'),
     hyperliquid: new EVMSdk('hyperliquid'),
     robinhood: new EVMSdk('robinhood'),
+    arc: new EVMSdk('arc'),
   });
 }
 /* eslint-enable @typescript-eslint/no-require-imports */

@@ -56,12 +56,16 @@ class AddressPopupHelpers {
             popupXOffset: Int,
             centerHorizontally: Boolean,
             color: Int? = null,
-            showTemporaryViewOption: Boolean
+            showTemporaryViewOption: Boolean,
+            showExpandIcon: Boolean = true
         ) {
             val context = viewController.get()?.view?.context ?: return
-            context.getDrawableCompat(
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14
-            )?.let { drawable ->
+            val expandDrawable = if (showExpandIcon) {
+                context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_14)
+            } else {
+                null
+            }
+            expandDrawable?.let { drawable ->
                 drawable.mutate()
                 drawable.setTint(color ?: WColor.SecondaryText.color)
                 val width = 7.dp
@@ -104,7 +108,7 @@ class AddressPopupHelpers {
                     }
                 },
                 startIndex,
-                startIndex + length + 1,
+                startIndex + length + (if (expandDrawable != null) 1 else 0),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }

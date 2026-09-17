@@ -227,6 +227,7 @@ struct ActivityView: View {
                 }
                 cexPaymentAddress
                 swapRate
+                estimatedTime
                 fee
                 swapTransactionIds
                 transactionId
@@ -426,6 +427,26 @@ struct ActivityView: View {
     }
 
     @ViewBuilder
+    var estimatedTime: some View {
+        if case .transaction(let transaction) = activity,
+           transaction.isPendingUtxo,
+           let etaSeconds = transaction.etaSeconds,
+           etaSeconds > 0 {
+            InsetDetailCell {
+                Text(lang("Estimated Time"))
+                    .foregroundStyle(Color.air.secondaryLabel)
+            } value: {
+                Text(L10n.utxoEstimatedTime(duration: formatUtxoEtaSeconds(etaSeconds)))
+                    .textStyle(
+                        .body,
+                        content: .technical,
+                        scaling: .dynamic
+                    )
+            }
+        }
+    }
+
+    @ViewBuilder
     var fee: some View {
         if let token {
             let chain = token.chain
@@ -520,4 +541,18 @@ struct ActivityView: View {
         return URL(string: "https://changelly.com/track/\(encodedId)")
     }
 
+}
+
+private func formatUtxoEtaSeconds(_ etaSeconds: Int) -> String {
+    let seconds = max(0, etaSeconds)
+    if seconds < 60 { return L10n.second(count: seconds) }
+
+    let minutes = seconds / 60 + (seconds % 60 == 0 ? 0 : 1)
+    if minutes < 60 { return L10n.durationMinutes(count: minutes) }
+
+    let hours = (minutes + 59) / 60
+    if hours < 24 { return L10n.hour(count: hours) }
+
+    let days = (hours + 23) / 24
+    return L10n.day(count: days)
 }

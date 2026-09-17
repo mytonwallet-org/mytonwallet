@@ -163,6 +163,51 @@ struct UniversalSearchResultsPresenterTests {
     }
 
     @Test
+    func `resolving domain reserves top hit without exposing a wallet action`() throws {
+        let domain = "wolf.t.me"
+        let pendingWallet = SearchDocument(
+            id: SearchEntityID("wallet:external:mainnet:ton:\(domain)"),
+            kind: .wallet,
+            fields: [SearchField(domain, kind: .domain, matchPolicy: .exact)],
+            attributes: [SearchAttribute(
+                key: WalletCoreSearchAttributeKey.isResolvingDomain,
+                value: "true"
+            )],
+            signals: SearchSignals(traits: [.external, .viewOnly])
+        )
+        let site = SearchDocument(
+            id: SearchEntityID("site:\(domain)"),
+            kind: .site,
+            fields: [SearchField("Telegram: Contact @wolf", kind: .title)],
+            attributes: [
+                SearchAttribute(key: SearchAttributeKey("universal-search.title"), value: "Telegram: Contact @wolf"),
+                SearchAttribute(key: WalletCoreSearchAttributeKey.url, value: "https://\(domain)"),
+            ]
+        )
+        let snapshot = UniversalSearchResultSnapshot(
+            query: UniversalSearchQuery(domain),
+            hits: [makeSearchHit(site), makeSearchHit(pendingWallet)],
+            totalHitCount: 2,
+            corpusRevision: 1,
+            rankingPolicyVersion: "test",
+            generatedAt: Date(timeIntervalSince1970: 1)
+        )
+
+        let presentation = UniversalSearchResultsPresenter().presentation(for: snapshot, context: context)
+        let item = try #require(presentation.sections.first?.items.first)
+        guard case .resolvingDomain(let resolvingDomain) = item.content else {
+            Issue.record("Expected a domain skeleton")
+            return
+        }
+        #expect(resolvingDomain == domain)
+        #expect(presentation.sections.map(\.id) == ["top-hit", "sites", "ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == nil)
+        #expect(presentation.routesByItemID[item.id] == nil)
+        #expect(presentation.routesByItemID[pendingWallet.id.rawValue] == nil)
+        #expect(presentation.routesByItemID[site.id.rawValue] != nil)
+    }
+
+    @Test
     func `resolved external wallet routes through temporary wallet input`() throws {
         let address = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"
         let document = SearchDocument(

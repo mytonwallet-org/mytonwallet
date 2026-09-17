@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
@@ -18,10 +17,10 @@ object EthereumConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_eth_light
 
     override val qrIcon = org.mytonwallet.app_air.icons.R.drawable.ic_blockchain_ethereum_128_qr
-    override val displayColor = "#627EEA".toColorInt()
+    override val displayColor = "#627EEA".hexToColorInt()
     override val qrGradientColors = intArrayOf(
-        "#535B77".toColorInt(),
-        "#534865".toColorInt()
+        "#535B77".hexToColorInt(),
+        "#534865".hexToColorInt()
     )
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS

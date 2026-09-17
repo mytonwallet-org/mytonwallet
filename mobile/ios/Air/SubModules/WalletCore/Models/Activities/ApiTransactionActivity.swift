@@ -41,8 +41,14 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
      * - 'pending' — awaiting confirmation from an external/unauthenticated source, like TonConnect emulation
      */
     public var status: ApiTransactionStatus
+    /** UTXO confirmation count when available. */
+    public var confirmations: Int?
+    /** Backend-provided UTXO confirmation target when available. */
+    public var maxConfirmations: Int?
+    /** Backend-provided approximate seconds until UTXO finality when available. */
+    public var etaSeconds: Int?
     
-    public init(id: String, kind: String, shouldHide: Bool? = nil, externalMsgHashNorm: String?, shouldReload: Bool? = nil, shouldLoadDetails: Bool? = nil, extra: BaseActivityExtra? = nil, timestamp: Int64, amount: BigInt, fromAddress: String, toAddress: String?, comment: String?, encryptedComment: String?, fee: BigInt, slug: String, isIncoming: Bool, normalizedAddress: String?, type: ApiTransactionType?, isApprovalUnlimited: Bool? = nil, metadata: ApiAddressInfo?, nft: ApiNft?, status: ApiTransactionStatus) {
+    public init(id: String, kind: String, shouldHide: Bool? = nil, externalMsgHashNorm: String?, shouldReload: Bool? = nil, shouldLoadDetails: Bool? = nil, extra: BaseActivityExtra? = nil, timestamp: Int64, amount: BigInt, fromAddress: String, toAddress: String?, comment: String?, encryptedComment: String?, fee: BigInt, slug: String, isIncoming: Bool, normalizedAddress: String?, type: ApiTransactionType?, isApprovalUnlimited: Bool? = nil, metadata: ApiAddressInfo?, nft: ApiNft?, status: ApiTransactionStatus, confirmations: Int? = nil, maxConfirmations: Int? = nil, etaSeconds: Int? = nil) {
         self.id = id
         self.kind = kind
         self.shouldHide = shouldHide
@@ -65,8 +71,16 @@ public struct ApiTransactionActivity: BaseActivity, Codable, Equatable, Hashable
         self.metadata = metadata
         self.nft = nft
         self.status = status
+        self.confirmations = confirmations
+        self.maxConfirmations = maxConfirmations
+        self.etaSeconds = etaSeconds
     }
     
+    public var isPendingUtxo: Bool {
+        guard let chain = getChainBySlug(slug), isUtxoChain(chain) else { return false }
+        return status == .pending || status == .pendingTrusted
+    }
+
     public var isStaking: Bool {
         type == .stake ||
         type == .unstake ||

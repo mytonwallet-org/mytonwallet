@@ -68,14 +68,20 @@ const PLURAL_RULES = {
   /* eslint-enable @stylistic/max-len */
 };
 const cache = new Map<string, string>();
+const languageTranslations = new Map<LangCode, Promise<LangFn>>();
+const supportedLanguageCodes = new Set<string>(LANG_LIST.map(({ langCode }) => langCode));
 let langPack: LangPack | undefined;
 let currentLangCode: LangCode | undefined;
 
-function createLangFn() {
+function createLangFn(
+  translationPack = langPack,
+  translationLangCode = currentLangCode,
+  translationCache = cache,
+) {
   return ((key: string, value?: any, format?: 'i', pluralValue?: number) => {
     if (value !== undefined && (typeof value !== 'object' || Array.isArray(value))) {
       const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
-      const cached = cache.get(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`);
+      const cached = translationCache.get(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`);
       if (cached) {
         return cached;
       }
@@ -85,9 +91,17 @@ function createLangFn() {
       return key;
     }
 
-    const langString = (langPack?.[key]) || (defaultLangPack?.[key]) || key;
+    const langString = (translationPack?.[key]) || (defaultLangPack?.[key]) || key;
 
-    return processTranslation(langString, key, value, format, pluralValue);
+    return processTranslation(
+      langString,
+      key,
+      value,
+      format,
+      pluralValue,
+      translationLangCode,
+      translationCache,
+    );
   }) as LangFn;
 }
 
@@ -134,6 +148,7 @@ export async function setLanguage(langCode: LangCode, callback?: NoneToVoidFunct
   getTranslation.isRtl = Boolean(langInfo?.rtl);
   getTranslation.code = langCode.replace('-raw', '') as LangCode;
   getTranslation.langName = langInfo?.nativeName;
+  languageTranslations.set(getTranslation.code, Promise.resolve(getTranslation));
 
   if (callback) {
     callback();
@@ -153,6 +168,42 @@ function applyDocumentLanguage(langCode: LangCode) {
   document.documentElement.dir = langInfo?.rtl ? 'rtl' : 'ltr';
   getTranslation.isRtl = Boolean(langInfo?.rtl);
   setNativeDigitsLang(langCode.replace('-raw', ''));
+}
+
+export function getTranslationForLanguage(langCode: LangCode): Promise<LangFn> {
+  if (getTranslation.code === langCode) return Promise.resolve(getTranslation);
+  const cached = languageTranslations.get(langCode);
+  if (cached) return cached;
+
+  const pending = loadTranslationForLanguage(langCode).catch(() => {
+    if (languageTranslations.get(langCode) === pending) {
+      languageTranslations.delete(langCode);
+    }
+    return createTranslationForLanguage(defaultLangPack, langCode);
+  });
+  languageTranslations.set(langCode, pending);
+  return pending;
+}
+
+export function isSupportedLanguageCode(value: string): value is LangCode {
+  return supportedLanguageCodes.has(value);
+}
+
+async function loadTranslationForLanguage(langCode: LangCode): Promise<LangFn> {
+  const translationPackFromCache = await cacheApi.fetch(LANG_CACHE_NAME, langCode).catch(() => undefined);
+  let translationPack = translationPackFromCache;
+  translationPack ??= await fetchRemote(langCode);
+  if (!translationPack) throw new Error('Language pack is unavailable');
+  return createTranslationForLanguage(translationPack, langCode);
+}
+
+function createTranslationForLanguage(translationPack: LangPack, langCode: LangCode): LangFn {
+  const langInfo = LANG_LIST?.find((item) => item.langCode === langCode);
+  const translation = createLangFn(translationPack, langCode, new Map());
+  translation.isRtl = Boolean(langInfo?.rtl);
+  translation.code = langCode;
+  translation.langName = langInfo?.nativeName;
+  return translation;
 }
 
 function getLangCacheVersion() {
@@ -184,15 +235,14 @@ async function fetchRemote(langCode: string): Promise<LangPack | undefined> {
   const remote = await response.json();
 
   if (remote) {
-    await cacheApi.save(LANG_CACHE_NAME, langCode, remote);
+    await cacheApi.save(LANG_CACHE_NAME, langCode, remote).catch(() => undefined);
     return remote;
   }
 
   return undefined;
 }
 
-function getPluralOption(amount: number) {
-  const langCode = currentLangCode || DEFAULT_LANG_CODE;
+function getPluralOption(amount: number, langCode = currentLangCode || DEFAULT_LANG_CODE) {
   const optionIndex = PLURAL_RULES[langCode as keyof typeof PLURAL_RULES]
     ? PLURAL_RULES[langCode as keyof typeof PLURAL_RULES](amount)
     : 0;
@@ -280,9 +330,11 @@ export function processTemplateJsx(template: string, value: Record<string, Teact
 
 function processTranslation(
   langString: LangString | string | undefined, key: string, value?: any, format?: 'i', pluralValue?: number,
+  translationLangCode = currentLangCode || DEFAULT_LANG_CODE,
+  translationCache = cache,
 ) {
   const preferredPluralOption = typeof value === 'number' || pluralValue !== undefined
-    ? getPluralOption(pluralValue ?? value)
+    ? getPluralOption(pluralValue ?? value, translationLangCode)
     : 'value';
 
   const template = typeof langString === 'string'
@@ -304,7 +356,7 @@ function processTranslation(
     : processTemplate(template, formattedValue, getParameterNames(defaultLangPack[key]));
   if (typeof value !== 'object' && typeof result === 'string') {
     const cacheValue = Array.isArray(value) ? JSON.stringify(value) : value;
-    cache.set(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`, result);
+    translationCache.set(`${key}_${cacheValue}_${format}${pluralValue ? `_${pluralValue}` : ''}`, result);
   }
 
   return result;

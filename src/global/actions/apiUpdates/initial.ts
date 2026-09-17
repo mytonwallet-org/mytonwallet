@@ -14,7 +14,7 @@ import { setBackendAgentProtocolVersion } from '../../../util/agent/agentProtoco
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { buildCollectionByKey, omitUndefined, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
-import { normalizeAllowedOnOffRampCurrencies } from '../../../util/ramp-currencies';
+import { normalizeAllowedOnOffRampCurrencies } from '../../../util/rampCurrencies';
 import { getIsActiveStakingState } from '../../../util/staking';
 import { omitAccounts } from '../../helpers/auth';
 import { pinMwCardsFirst } from '../../helpers/nfts';
@@ -135,8 +135,8 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'updateTokens': {
-      const { tokens, arePricesFresh } = update;
-      global = updateTokens(global, tokens, true, !arePricesFresh);
+      const { tokens, kind, removedSlugs } = update;
+      global = updateTokens(global, tokens, kind, removedSlugs, true);
       setGlobal(global);
       break;
     }
@@ -213,6 +213,10 @@ addActionHandler('apiUpdate', (global, actions, update) => {
             ...currentNfts?.collectionLoadedTimestamps,
             ...(shouldAppend && Boolean(collectionAddress) ? { [collectionAddress]: Date.now() } : {}),
           },
+          isFullLoadCompleteByChain: isFullLoading !== undefined ? {
+            ...currentNfts?.isFullLoadCompleteByChain,
+            [chain]: isFullLoading === false && streamedAddresses !== undefined,
+          } : currentNfts?.isFullLoadCompleteByChain,
           isFullLoadingByChain: isFullLoading !== undefined ? {
             ...currentNfts?.isFullLoadingByChain,
             [chain]: isFullLoading,

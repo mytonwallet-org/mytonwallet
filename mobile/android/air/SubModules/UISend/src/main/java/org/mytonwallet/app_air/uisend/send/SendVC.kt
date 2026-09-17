@@ -1129,8 +1129,9 @@ class SendVC(
             showError(error)
             return
         }
-        previousViewController.showError(error)
-        navigationController.pop(true)
+        navigationController.pop(true, onCompletion = {
+            previousViewController.showError(error)
+        })
     }
 
     override fun updateTheme() {

@@ -249,14 +249,12 @@ def check_catalogs(root, directory, issues):
     return base, len(paths)
 
 
-def check(root, sources=None, excluded_paths=()):
+def check(root, sources=None):
     issues = []
     # MFA and Push replace the shared langProvider's catalog at build time.
     directories = [root / "src/i18n"] + [root / f"src/{app}/i18n" for app in ("mfa", "push") if (root / f"src/{app}").is_dir()]
     catalogs = {directory: check_catalogs(root, directory, issues) for directory in directories}
     for path, platform in source_paths(root) if sources is None else sources:
-        if any(path.relative_to(root).is_relative_to(excluded) for excluded in excluded_paths):
-            continue
         directory = next((directory for directory in directories[1:] if path.is_relative_to(directory.parent)), directories[0])
         base, locale_count = catalogs[directory]
         if base is None:
@@ -277,14 +275,8 @@ def check(root, sources=None, excluded_paths=()):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help="Repository checkout to check")
-    parser.add_argument("--exclude-path", type=Path, action="append", default=[], help="Skip call sites under this repository-relative path; catalogs are still checked")
-    args = parser.parse_args()
-    root = args.root.resolve()
-    if any(path.is_absolute() or ".." in path.parts or path == Path(".") for path in args.exclude_path):
-        parser.error("--exclude-path must name a repository-relative file or directory")
-    if args.exclude_path:
-        print("Call-site exclusions: " + ", ".join(map(str, args.exclude_path)))
-    issues = check(root, excluded_paths=args.exclude_path)
+    root = parser.parse_args().root.resolve()
+    issues = check(root)
     for issue in issues:
         print(issue.render(root))
     print(f"Localization health: {len(issues)} issue(s)." if issues else "Localization health: all YAML catalogs and scanned literal calls pass.")

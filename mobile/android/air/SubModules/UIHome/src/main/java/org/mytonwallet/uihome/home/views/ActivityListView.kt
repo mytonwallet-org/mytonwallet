@@ -621,20 +621,6 @@ class ActivityListView<T>(
             val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
             val computedOffset =
                 if (firstVisibleItem < 2) recyclerView.computeVerticalScrollOffset() else LARGE_INT
-            val isHeaderFullyCollapsed =
-                (
-                    dataSource.phoneHeaderView.mode == HomeHeaderView.Mode.Collapsed &&
-                        (
-                            dataSource.recyclerViewModeValue() ==
-                                HomeHeaderView.Mode.Collapsed ||
-                                computedOffset > dataSource.phoneHeaderView.diffPx + 100.dp
-                            )
-                    )
-            if (isHeaderFullyCollapsed && dy > 3 && computedOffset > 100.dp) {
-                dataSource.navigationController?.tabBarController?.scrollingDown()
-            } else if (dy < -3 || computedOffset < 100.dp) {
-                dataSource.navigationController?.tabBarController?.scrollingUp()
-            }
             delegate?.updateScroll(computedOffset)
             // endSorting()
         }

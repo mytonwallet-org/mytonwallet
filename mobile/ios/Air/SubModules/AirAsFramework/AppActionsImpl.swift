@@ -300,10 +300,9 @@ private class AppActionsImpl: AppActionsProtocol {
                 AppActions.showError(error: DisplayError(text: lang("This QR Code is not supported")))
             }
 
-        case .address(address: let address, possibleChains: let chains):
+        case .address(address: let address, possibleChains: _):
             AppActions.showSend(accountContext: accountContext, prefilledValues: .init(
-                address: address,
-                token: chains.first?.nativeToken.slug
+                address: address
             ))
         }
     }
@@ -577,6 +576,24 @@ private class AppActionsImpl: AppActionsProtocol {
             }
         }
     }
+
+    static func showExploreSite(siteUrl: String) async -> Bool {
+        do {
+            let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
+            guard let site = result.sites.first(where: { $0.url == siteUrl }),
+                  !(ConfigStore.shared.shouldRestrictSites && site.canBeRestricted),
+                  let url = URL(string: site.url) else {
+                return false
+            }
+            if site.shouldOpenExternally {
+                return await UIApplication.shared.open(url)
+            }
+            AppActions.openInBrowser(url, title: site.name, injectDappConnect: true)
+            return true
+        } catch {
+            return false
+        }
+    }
     
     static func showHiddenNfts(accountSource: AccountSource) {
         let hiddenVC = HiddenNftsVC()
@@ -707,17 +724,19 @@ private class AppActionsImpl: AppActionsProtocol {
             AppActions.showError(error: DisplayError(text: lang("Read-only account")))
             return
         }
+        showSendForm(accountContext: accountContext, prefilledValues: prefilledValues)
+    }
+
+    static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues) {
         if prefilledValues.nfts?.contains(where: \.isOnSale) == true {
             AppActions.showToast(message: lang("For sale. Cannot be sent and burned"))
             return
         }
-        let isAccountSwitchingAllowed = accountContext.source == .current
         let sendAccountContext = AccountContext(accountId: accountContext.account.id)
         do {
             let viewController = try SendNavigation.makeViewController(
                 accountContext: sendAccountContext,
-                prefilledValues: prefilledValues,
-                isAccountSwitchingAllowed: isAccountSwitchingAllowed
+                prefilledValues: prefilledValues
             )
             topViewController()?.present(
                 viewController,
@@ -741,7 +760,7 @@ private class AppActionsImpl: AppActionsProtocol {
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
     
-    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?) async {
+    static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async {
         if accountContext.account.supportsSwap != true {
             AppActions.showError(error: DisplayError(text: lang("Swap is not supported on this account.")))
             return
@@ -750,7 +769,6 @@ private class AppActionsImpl: AppActionsProtocol {
         isShowingSwap = true
         defer { isShowingSwap = false }
 
-        let isAccountSwitchingAllowed = accountContext.source == .current
         let swapAccountContext = AccountContext(accountId: accountContext.account.id)
         let request = ApiSwapDefaultsRequest(
             accountContext: swapAccountContext,
@@ -802,15 +820,13 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) {
-        Task {
+        guard let navigationController = topWViewController()?.navigationController,
+              let source = navigationController.topViewController else { return }
+        Task { [weak navigationController, weak source] in
             let tokenVC: TokenVC = await TokenVC(accountSource: accountSource, token: token, isInModal: isInModal)
-            if let navigationController = topWViewController()?.navigationController {
-                navigationController.pushViewController(tokenVC, animated: true)
-            } else {
-                rootContainerRouter.closeSearchIfNeeded {
-                    topWViewController()?.navigationController?.pushViewController(tokenVC, animated: true)
-                }
-            }
+            guard let navigationController, let source,
+                  navigationController.topViewController === source else { return }
+            navigationController.pushViewController(tokenVC, animated: true)
         }
     }
 

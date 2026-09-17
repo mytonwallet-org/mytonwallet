@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
@@ -18,10 +17,10 @@ object BnbConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_bnb_light
 
     override val qrIcon = null
-    override val displayColor = "#F39D08".toColorInt()
+    override val displayColor = "#F39D08".hexToColorInt()
     override val qrGradientColors = intArrayOf(
-        "#6A6218".toColorInt(),
-        "#644C1A".toColorInt()
+        "#6A6218".hexToColorInt(),
+        "#644C1A".hexToColorInt()
     )
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS

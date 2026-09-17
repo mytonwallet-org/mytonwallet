@@ -148,7 +148,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
         }
 
         let snapshot: UIView?
-        if animated, window != nil, bounds.width > 0 {
+        if animated, hasVisibleAreaForReplacement {
             snapshot = snapshotView(afterScreenUpdates: false)
             snapshot?.frame = bounds
             snapshot?.isUserInteractionEnabled = false
@@ -207,6 +207,21 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             segmentedControl.alpha = 1
             onDidEndScrolling?()
         }
+    }
+
+    private var hasVisibleAreaForReplacement: Bool {
+        guard let window, !bounds.isEmpty else { return false }
+        var visibleRect = convert(bounds, to: window).intersection(window.bounds)
+        var ancestor: UIView? = self
+        while let view = ancestor {
+            guard !view.isHidden, view.alpha > 0 else { return false }
+            if view.clipsToBounds {
+                visibleRect = visibleRect.intersection(view.convert(view.bounds, to: window))
+            }
+            guard !visibleRect.isEmpty, !visibleRect.isNull else { return false }
+            ancestor = view.superview
+        }
+        return true
     }
 
     public func handleSegmentChange(to index: Int, animated: Bool) {

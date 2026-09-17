@@ -18,7 +18,7 @@ import buildClassName from '../../../util/buildClassName';
 import { mapValues } from '../../../util/iteratees';
 import {
   getDefaultRampCurrency, getEffectiveRampCurrencies, getOnRampBaselineCurrencies,
-} from '../../../util/ramp-currencies';
+} from '../../../util/rampCurrencies';
 import resolveSlideTransitionName from '../../../util/resolveSlideTransitionName';
 import { callApi } from '../../../api';
 import { getOnRampProvider } from './helpers/onRamp';
@@ -41,6 +41,7 @@ import styles from './OnRampWidgetModal.module.scss';
 
 interface StateProps {
   chain?: ApiChain;
+  provider?: 'moonpay' | 'avanchange';
   byChain?: Partial<Record<ApiChain, { address: string }>>;
   countryCode?: ApiCountryCode;
   allowedCurrencies?: ApiBaseCurrency[];
@@ -55,7 +56,7 @@ const ANIMATION_TIMEOUT = 200;
 
 function OnRampWidgetModal({
   chain, byChain, countryCode, allowedCurrencies, baseCurrency, theme, currentAccountId, accountTitle,
-  hasMultipleAccounts,
+  hasMultipleAccounts, provider: requestedProvider,
 }: StateProps) {
   const {
     closeOnRampWidgetModal,
@@ -70,8 +71,8 @@ function OnRampWidgetModal({
   const [isLoading, setIsLoading] = useState(true);
   const [iframeSrc, setIframeSrc] = useState('');
   const supportedCurrencies = useMemo(
-    () => new Set(getEffectiveRampCurrencies(getOnRampBaselineCurrencies(chain), allowedCurrencies)),
-    [chain, allowedCurrencies],
+    () => new Set(getEffectiveRampCurrencies(getOnRampBaselineCurrencies(chain, requestedProvider), allowedCurrencies)),
+    [chain, requestedProvider, allowedCurrencies],
   );
   const [selectedCurrency, setSelectedCurrency] = useState<ApiBaseCurrency | undefined>(
     getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode),
@@ -342,6 +343,7 @@ export default memo(withGlobal((global): StateProps => {
 
   return {
     chain,
+    provider: global.providerForOnRampWidgetModal,
     byChain,
     countryCode,
     allowedCurrencies: selectAllowedOnOffRampCurrencies(global),

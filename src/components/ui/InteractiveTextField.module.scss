@@ -126,12 +126,17 @@
 }
 
 .chainIcon {
+  margin-right: 0.0625rem;
   color: var(--color-gray-3);
   vertical-align: -0.125rem;
   transition: color 200ms;
 
   :global(html.animation-level-0) & {
     transition: none !important;
+  }
+
+  &:global(.icon-chain-bitcoincash) {
+    vertical-align: -0.1875rem;
   }
 }
 

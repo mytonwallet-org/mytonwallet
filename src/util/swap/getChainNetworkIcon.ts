@@ -1,4 +1,5 @@
 import arbitrumBlockchainIcon from '../../assets/blockchain/chain_arbitrum.svg';
+import arcBlockchainIcon from '../../assets/blockchain/chain_arc.svg';
 import avalancheBlockchainIcon from '../../assets/blockchain/chain_avalanche.svg';
 import baseBlockchainIcon from '../../assets/blockchain/chain_base.svg';
 import bitcoinBlockchainIcon from '../../assets/blockchain/chain_bitcoin.svg';
@@ -7,7 +8,7 @@ import bnbBlockchainIcon from '../../assets/blockchain/chain_bnb.svg';
 import cardanoBlockchainIcon from '../../assets/blockchain/chain_cardano.svg';
 import cosmosBlockchainIcon from '../../assets/blockchain/chain_cosmos.svg';
 import dashBlockchainIcon from '../../assets/blockchain/chain_dash.svg';
-import dogeBlockchainIcon from '../../assets/blockchain/chain_doge.svg';
+import dogeBlockchainIcon from '../../assets/blockchain/chain_dogecoin.svg';
 import eosBlockchainIcon from '../../assets/blockchain/chain_eos.svg';
 import ethereumBlockchainIcon from '../../assets/blockchain/chain_ethereum.svg';
 import ethereumclassicBlockchainIcon from '../../assets/blockchain/chain_ethereumclassic.svg';
@@ -30,13 +31,13 @@ import zcashBlockchainIcon from '../../assets/blockchain/chain_zcash.svg';
 const CHAIN_ICON_MAP: Record<string, string> = {
   avalanche: avalancheBlockchainIcon,
   bitcoin: bitcoinBlockchainIcon,
-  bitcoin_cash: bitcoincashBlockchainIcon,
+  bitcoincash: bitcoincashBlockchainIcon,
   binance_smart_chain: bnbBlockchainIcon,
   binance_dex: bnbBlockchainIcon,
   cardano: cardanoBlockchainIcon,
   cosmos: cosmosBlockchainIcon,
   dash: dashBlockchainIcon,
-  doge: dogeBlockchainIcon,
+  dogecoin: dogeBlockchainIcon,
   eos: eosBlockchainIcon,
   ethereum: ethereumBlockchainIcon,
   ethereum_classic: ethereumclassicBlockchainIcon,
@@ -58,6 +59,7 @@ const CHAIN_ICON_MAP: Record<string, string> = {
   monad: monadBlockchainIcon,
   hyperliquid: hyperliquidBlockchainIcon,
   robinhood: robinhoodBlockchainIcon,
+  arc: arcBlockchainIcon,
 };
 
 export default function getChainNetworkIcon(networkName?: string) {

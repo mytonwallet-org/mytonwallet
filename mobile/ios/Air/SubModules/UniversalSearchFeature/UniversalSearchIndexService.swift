@@ -267,13 +267,15 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
             guard let self else { return }
             if delay > .zero {
                 try? await Task.sleep(for: delay)
-                guard !Task.isCancelled else { return }
             }
             await runRefreshLoop(generation: generation)
         }
     }
 
     private func runRefreshLoop(generation: UInt64) async {
+        // A replaced zero-delay task can still start. It must not reach cleanup
+        // and reschedule pending work, cancelling its own replacement in a loop.
+        guard !Task.isCancelled, generation == refreshLoopGeneration else { return }
         isRefreshLoopRunning = true
         var hasCompletedRefresh = false
         while isStarted,

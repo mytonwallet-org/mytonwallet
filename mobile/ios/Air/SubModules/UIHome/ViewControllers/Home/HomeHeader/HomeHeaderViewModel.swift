@@ -27,12 +27,19 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     
     var height: CGFloat = 0
     var state: HomeHeaderState = .expanded
-    var isCardHidden = false
+    private var cardFadeOpacity: Double = 1
     var _collapseProgress: CGFloat = 0
     var seasonalThemingVersion: Int = 0
     
     var isCollapsed: Bool { state == .collapsed }
+    var cardOpacity: Double { isCollapsed ? cardFadeOpacity : 1 }
+    var isCardHidden: Bool { cardOpacity == 0 }
     var collapseProgress: CGFloat { isCollapsed ? _collapseProgress : 0 }
+    var miniatureCardVerticalOffset: CGFloat {
+        rootNavigationStyle.usesNavigationBarTopTabs
+            ? -126
+            : (IOS_26_MODE_ENABLED ? -124 : -126)
+    }
     var seasonalTheme: ApiUpdate.UpdateConfig.SeasonalTheme? {
         _ = seasonalThemingVersion
         guard !AppStorageHelper.isSeasonalThemingDisabled else {
@@ -70,9 +77,13 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     func scrollOffsetChanged(to y: CGFloat) {
         let p = y / collapsedHeight
         _collapseProgress = clamp(p, to: 0...1)
-        if UIDevice.current.hasDynamicIsland {
-            isCardHidden = y > 62
-        }
+    }
+
+    func updateCardVisibility(bottomOffsetFromSafeArea: CGFloat) {
+        let fadeDistance: CGFloat = 16
+        cardFadeOpacity = UIDevice.current.hasDynamicIsland
+            ? Double(clamp(1 + bottomOffsetFromSafeArea / fadeDistance, to: 0...1))
+            : 1
     }
 
     @MainActor

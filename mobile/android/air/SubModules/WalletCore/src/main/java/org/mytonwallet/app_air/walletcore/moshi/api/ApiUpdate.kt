@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.math.BigInteger
 import org.json.JSONObject
@@ -21,6 +22,24 @@ import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentInfo
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
+
+@JsonClass(generateAdapter = false)
+enum class ApiTokenUpdateKind {
+    @Json(name = "fromCache")
+    FROM_CACHE,
+
+    @Json(name = "full")
+    FULL,
+
+    @Json(name = "partial")
+    PARTIAL;
+
+    val arePricesFresh: Boolean
+        get() = this != FROM_CACHE
+
+    val isFull: Boolean
+        get() = this != PARTIAL
+}
 
 sealed class ApiUpdate {
 
@@ -119,8 +138,9 @@ sealed class ApiUpdate {
 
     @JsonClass(generateAdapter = true)
     data class ApiUpdateTokens(
-        val arePricesFresh: Boolean,
-        val tokens: Map<String, ApiTokenWithPrice>
+        val kind: ApiTokenUpdateKind,
+        val tokens: Map<String, ApiTokenWithPrice>,
+        val removedSlugs: List<String>? = null
     ) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)

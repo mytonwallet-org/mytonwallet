@@ -368,6 +368,11 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
         updateSafeAreaInsets()
+        // The title view can join the bar after the native push has started.
+        UIView.performWithoutAnimation {
+            updateScroll()
+            view.layoutIfNeeded()
+        }
         updateSkeletonViewMask()
     }
 
@@ -432,10 +437,8 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     private func updateScroll() {
         let scrollOffset = scrollOffset(for: collectionView)
 
-        if navigationHeader.window != nil {
-            let navBarShift = navigationHeader.distanceFromNavigationBarBottomToContentCenter
-            expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
-        }
+        let navBarShift = navigationHeader.distanceFromNavigationBarBottomToContentCenter
+        expandableContentView.update(scrollOffset: scrollOffset, navBarShift: navBarShift)
 
         updateNavigationBarChrome(scrollOffset: scrollOffset)
         updateVisibleActivityNftAnimationPlayback()

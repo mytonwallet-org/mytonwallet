@@ -2,12 +2,10 @@ package org.mytonwallet.app_air.uicomponents.base
 
 import android.net.Uri
 import android.view.ViewGroup
-import android.widget.FrameLayout
 
 interface ITabsVC {
     val mainNavigationController: WNavigationController?
     val activeNavigationController: WNavigationController?
-    val bottomNavigationView: FrameLayout?
     val minimizedBlurRootView: ViewGroup? get() = null
     fun getBottomNavigationHeight(): Int
     fun minimize(
@@ -18,8 +16,6 @@ interface ITabsVC {
 
     fun maximize()
     fun dismissMinimized(animated: Boolean = true)
-    fun scrollingUp()
-    fun scrollingDown()
     fun setSearchText(text: String)
     fun clearSearchFocus()
     fun switchToFirstTab(): Boolean

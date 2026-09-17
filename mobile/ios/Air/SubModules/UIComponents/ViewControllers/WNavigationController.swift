@@ -26,8 +26,69 @@ open class WNavigationController: UINavigationController {
     private let log = Log("WNavigationController")
     private let sheetDimmingController = SheetDimmingController()
     public var onWillShowViewController: ((UIViewController) -> Void)?
+    public var onDidShowViewController: ((UIViewController) -> Void)?
     public var pushViewControllerInterceptor: ((UIViewController, Bool) -> Bool)?
     public var popViewControllerInterceptor: ((Bool) -> Bool)?
+    private var interactivePushTransition: WInteractivePushTransition?
+    private var crossfadeTransition: WNavigationCrossfadeTransition?
+
+    public func withCrossfade(
+        duration: TimeInterval,
+        keepingAboveTransition views: [UIView] = [],
+        updates: () -> Void
+    ) {
+        guard transitionCoordinator == nil, delegate === self, view.window != nil else {
+            updates()
+            return
+        }
+        let transition = WNavigationCrossfadeTransition(
+            navigationController: self,
+            duration: duration,
+            foregroundViews: views
+        )
+        crossfadeTransition = transition
+        delegate = transition
+        transition.onCompletion = { [weak self, weak transition] in
+            guard let self, crossfadeTransition === transition else { return }
+            delegate = self
+            crossfadeTransition = nil
+        }
+        updates()
+        if transitionCoordinator == nil {
+            transition.finish()
+        }
+    }
+
+    /// Starts a gesture-driven push using UIKit's navigation animation.
+    public func beginInteractivePush(_ viewController: UIViewController) -> WInteractivePushTransition? {
+        guard interactivePushTransition == nil, transitionCoordinator == nil,
+              presentedViewController == nil, view.window != nil, view.bounds.width > 0,
+              delegate === self, viewController.parent == nil,
+              !viewControllers.contains(viewController),
+              let transition = WInteractivePushTransition(navigationController: self) else { return nil }
+        interactivePushTransition = transition
+        // Expose animation callbacks only during this push, preserving UIKit's native back gesture.
+        delegate = transition
+        pushViewController(viewController, animated: true)
+        guard let coordinator = transitionCoordinator else {
+            delegate = self
+            interactivePushTransition = nil
+            return nil
+        }
+        coordinator.notifyWhenInteractionChanges { [weak self] _ in
+            guard let self else { return }
+            delegate = self
+            interactivePushTransition?.allowNativePop(in: self)
+        }
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            guard let self else { return }
+            if delegate === interactivePushTransition {
+                delegate = self
+            }
+            interactivePushTransition = nil
+        }
+        return transition
+    }
     
     public var isExtraSheetDimmingEnabled: Bool = false {
         didSet {
@@ -109,6 +170,11 @@ extension WNavigationController: UINavigationControllerDelegate {
         setNavigationBarHidden(vc.hideNavigationBar,
                                animated: animated)
     }
+
+    public func navigationController(_ navigationController: UINavigationController,
+                                     didShow viewController: UIViewController, animated: Bool) {
+        onDidShowViewController?(viewController)
+    }
 }
 
 extension WNavigationController: UIGestureRecognizerDelegate {
@@ -127,7 +193,7 @@ extension WNavigationController: UIGestureRecognizerDelegate {
 
         return true
     }
-    
+
     public func fullWidthBackGestureRecognizerRequireToFail(_ otherGestureRecognizer: UIGestureRecognizer) {
         fullWidthBackGestureRecognizer.require(toFail: otherGestureRecognizer)
     }

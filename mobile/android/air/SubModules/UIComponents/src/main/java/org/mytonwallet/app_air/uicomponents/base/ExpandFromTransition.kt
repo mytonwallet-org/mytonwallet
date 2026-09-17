@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.uicomponents.base
 
 import android.animation.ValueAnimator
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
@@ -10,15 +9,16 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
-import androidx.core.view.drawToBitmap
+import androidx.core.view.children
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
-import org.mytonwallet.app_air.uicomponents.helpers.palette.BitmapPaletteExtractHelpers
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -29,16 +29,16 @@ import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
  * Grows a bottom-sheet nav out of an origin view and shrinks it back (see
  * [WWindow.PresentAnimation.ExpandFrom]). The nav is scaled about a pivot inside it, translated
  * so the pivot rides from the origin to the resting frame, and clipped to a round rect that
- * morphs from the origin's shape to the sheet's; a cover in the origin's look hides the sheet's
- * content while the shape is still origin-sized.
+ * morphs from the origin's shape to the sheet's. While the shape is still origin-sized the origin
+ * itself, scaled onto the shape, cross-fades with the nav; a fill then hides the sheet's content
+ * until it has grown.
  */
 internal class ExpandFromTransition private constructor(
     private val nav: WNavigationController,
     origin: Rect,
-    // Hidden from the moment the sheet starts growing until it has collapsed back into it (or
-    // the sheet is gone, see [WWindow.forgetNav]); its snapshot stands in for it inside the sheet.
+    // Faded out as the sheet starts growing and back in as it collapses; hidden in between (or
+    // until the sheet is gone, see [WWindow.forgetNav]).
     private val originView: View?,
-    private val originBitmap: Bitmap?,
     originCornerRadius: Float?,
     fillColor: Int?,
     private val sheetRadius: Float,
@@ -60,8 +60,8 @@ internal class ExpandFromTransition private constructor(
 
     init {
         val fit = min(width / originWidth, height / originHeight)
-        startWidth = originWidth * fit
-        startHeight = originHeight * fit
+        startWidth = min(originWidth * fit, width)
+        startHeight = min(originHeight * fit, height)
         startScale = (1f / fit).coerceIn(0.01f, 1f)
     }
 
@@ -71,56 +71,34 @@ internal class ExpandFromTransition private constructor(
         .coerceIn(startHeight / 2f, height - startHeight / 2f)
     private val offsetX = origin.exactCenterX() - (restingX + pivotX)
     private val offsetY = origin.exactCenterY() - (restingY + pivotY)
+    private val originCenterX = origin.exactCenterX()
+    private val originCenterY = origin.exactCenterY()
+    private var originTranslationX = 0f
+    private var originTranslationY = 0f
+
+    private val originGlass: WGlassView? = originView?.let { origin ->
+        (origin.parent as? ViewGroup)?.children
+            ?.filterIsInstance<WGlassView>()
+            ?.firstOrNull { it.target === origin }
+    }
     private val startRadius =
         (originCornerRadius ?: (min(originWidth, originHeight) / 2f)) / startScale
 
     private val clipRect = RectF()
     private var clipRadius = 0f
 
-    // Covers the sheet with the origin's look while it is still origin-sized: a fill in the
-    // origin's color plus its snapshot, pinned to the pivot at the origin's on-screen size.
-    private var currentScale = startScale
-    private val snapshotPaint = Paint(Paint.FILTER_BITMAP_FLAG)
-    private val snapshotDst = RectF()
-    private val fillPaint = Paint().apply {
-        color = fillColor
-            ?: originBitmap?.let { BitmapPaletteExtractHelpers.extractAccentColorIndex(it) }
-            ?: WColor.Tint.color
-    }
+    // Covers the sheet's content with a fill in the origin's color while the shape is small.
+    private val fillPaint = Paint().apply { color = fillColor ?: WColor.Tint.color }
 
     // Drawn through the nav's ViewOverlay: nav coordinates, above every child, no layout pass.
     private val originCover = object : Drawable() {
-        private var coverAlpha = 255
-
         override fun draw(canvas: Canvas) {
-            if (coverAlpha == 0) return
-            // Fill and snapshot fade as one surface; fading them separately would leave the
-            // snapshot's area more opaque than the fill around it.
-            val layer = canvas.saveLayerAlpha(
-                bounds.left.toFloat(),
-                bounds.top.toFloat(),
-                bounds.right.toFloat(),
-                bounds.bottom.toFloat(),
-                coverAlpha
-            )
+            if (fillPaint.alpha == 0) return
             canvas.drawRect(bounds, fillPaint)
-            originBitmap?.let { bitmap ->
-                // Local size that maps to the origin's on-screen size under the nav's scale.
-                val halfWidth = originWidth / currentScale / 2f
-                val halfHeight = originHeight / currentScale / 2f
-                snapshotDst.set(
-                    pivotX - halfWidth,
-                    pivotY - halfHeight,
-                    pivotX + halfWidth,
-                    pivotY + halfHeight
-                )
-                canvas.drawBitmap(bitmap, null, snapshotDst, snapshotPaint)
-            }
-            canvas.restoreToCount(layer)
         }
 
         override fun setAlpha(alpha: Int) {
-            coverAlpha = alpha
+            fillPaint.alpha = alpha
         }
 
         override fun setColorFilter(colorFilter: ColorFilter?) {}
@@ -130,7 +108,11 @@ internal class ExpandFromTransition private constructor(
     }
 
     fun begin() {
-        originView?.alpha = 0f
+        originView?.let {
+            originTranslationX = it.translationX
+            originTranslationY = it.translationY
+        }
+        originGlass?.holdsPart = true
         nav.pivotX = pivotX
         nav.pivotY = pivotY
         originCover.setBounds(0, 0, width.roundToInt(), height.roundToInt())
@@ -182,17 +164,29 @@ internal class ExpandFromTransition private constructor(
             (pivotY + halfHeight) + (height - (pivotY + halfHeight)) * growth + bottomPush
         )
         nav.invalidateOutline()
-        // The snapshot is gone by 15% of the growth, well before the sheet's content shows
-        // through the fill (45%), so the origin never appears inside the sheet.
+        // The origin is gone by 15% of the growth, well before the sheet's content shows
+        // through the fill (45%), so it never appears inside the sheet.
         originCover.alpha = ((1f - growth / 0.45f).coerceIn(0f, 1f) * 255).roundToInt()
-        snapshotPaint.alpha = ((1f - growth / 0.15f).coerceIn(0f, 1f) * 255).roundToInt()
-        currentScale = scale
         originCover.invalidateSelf()
+        val reveal = (growth / 0.15f).coerceIn(0f, 1f)
+        nav.alpha = reveal
+        originView?.let { origin ->
+            val left = nav.x + pivotX + (clipRect.left - pivotX) * scale
+            val top = y + pivotY + (clipRect.top - pivotY) * scale
+            val right = nav.x + pivotX + (clipRect.right - pivotX) * scale
+            val bottom = y + pivotY + (clipRect.bottom - pivotY) * scale
+            origin.translationX = originTranslationX + (left + right) / 2f - originCenterX
+            origin.translationY = originTranslationY + (top + bottom) / 2f - originCenterY
+            origin.scaleX = (right - left) / originWidth
+            origin.scaleY = (bottom - top) / originHeight
+            origin.alpha = 1f - reveal
+        }
     }
 
     // [showOrigin] brings the origin view back; only a transition that ended collapsed does so,
     // a presented sheet keeps it hidden.
     fun end(showOrigin: Boolean) {
+        nav.alpha = 1f
         nav.scaleX = 1f
         nav.scaleY = 1f
         nav.x = restingX
@@ -202,7 +196,14 @@ internal class ExpandFromTransition private constructor(
         nav.clipToOutline = false
         nav.outlineProvider = ViewOutlineProvider.BACKGROUND
         nav.overlay.remove(originCover)
-        if (showOrigin) originView?.alpha = 1f
+        originView?.let {
+            it.translationX = originTranslationX
+            it.translationY = originTranslationY
+            it.scaleX = 1f
+            it.scaleY = 1f
+            it.alpha = if (showOrigin) 1f else 0f
+        }
+        originGlass?.holdsPart = false
     }
 
     // Runs the transition from [from] to [to] on two springs sharing one clock: the shape on a
@@ -305,7 +306,6 @@ internal class ExpandFromTransition private constructor(
                 nav,
                 origin,
                 originView,
-                snapshotOf(originView),
                 animation.cornerRadius,
                 animation.fillColor,
                 sheetCornerRadius(),
@@ -316,13 +316,6 @@ internal class ExpandFromTransition private constructor(
 
         private fun sheetCornerRadius(): Float =
             if (ViewConstants.BLOCK_RADIUS == 0f) 24f.dp else ViewConstants.BLOCK_RADIUS.dp
-
-        private fun snapshotOf(view: View): Bitmap? =
-            if (view.isLaidOut && view.width > 0 && view.height > 0) {
-                runCatching { view.drawToBitmap() }.getOrNull()
-            } else {
-                null
-            }
 
         // [view]'s frame in the window view's coordinates, translations included.
         private fun originRectOf(window: WWindow, view: View): Rect? {

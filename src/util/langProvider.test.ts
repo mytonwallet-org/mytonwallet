@@ -1,7 +1,69 @@
 import type { LangCode } from '../global/types';
 import type { LangFn } from './langProvider';
 
-import { formatEnumeration, processTemplateJsx } from './langProvider';
+import * as cacheApi from './cacheApi';
+import {
+  formatEnumeration,
+  getTranslationForLanguage,
+  isSupportedLanguageCode,
+  processTemplateJsx,
+} from './langProvider';
+
+describe('isSupportedLanguageCode', () => {
+  it('uses the frontend localization registry as the source of truth', () => {
+    expect(isSupportedLanguageCode('ru')).toBe(true);
+    expect(isSupportedLanguageCode('it')).toBe(false);
+  });
+});
+
+describe('getTranslationForLanguage', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    if (originalFetch) globalThis.fetch = originalFetch;
+    else Reflect.deleteProperty(globalThis, 'fetch');
+  });
+
+  it('deduplicates an in-flight load but retries after that load falls back', async () => {
+    jest.spyOn(cacheApi, 'fetch').mockResolvedValue(undefined);
+    jest.spyOn(cacheApi, 'save').mockResolvedValue(undefined);
+    const remoteFetch = jest.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ retry_key: 'Перевод загружен' }),
+      });
+    globalThis.fetch = remoteFetch as unknown as typeof fetch;
+
+    const first = getTranslationForLanguage('ru');
+    const concurrent = getTranslationForLanguage('ru');
+
+    expect(concurrent).toBe(first);
+    const fallback = await first;
+    expect(fallback.code).toBe('ru');
+    expect(remoteFetch).toHaveBeenCalledTimes(1);
+
+    const recovered = await getTranslationForLanguage('ru');
+    expect(remoteFetch).toHaveBeenCalledTimes(2);
+    expect(recovered('retry_key')).toBe('Перевод загружен');
+  });
+
+  it('uses a downloaded translation when the persistent language cache is unavailable', async () => {
+    jest.spyOn(cacheApi, 'fetch').mockRejectedValue(new Error('cache read failed'));
+    jest.spyOn(cacheApi, 'save').mockRejectedValue(new Error('cache write failed'));
+    const remoteFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ remote_key: 'Remote translation' }),
+    });
+    globalThis.fetch = remoteFetch as unknown as typeof fetch;
+
+    const translation = await getTranslationForLanguage('de');
+
+    expect(remoteFetch).toHaveBeenCalledTimes(1);
+    expect(translation('remote_key')).toBe('Remote translation');
+  });
+});
 
 // Create a mock React element for testing
 const createMockElement = (type: string, props: any = {}, children?: any) => ({

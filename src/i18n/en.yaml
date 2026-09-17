@@ -307,8 +307,8 @@ You may need to reconnect your wallet from the dapp if this keeps happening.: Yo
 Payload: Payload
 $many_transactions:
   zeroValue: No Transfers
-  oneValue: "%count% Transfer"
-  otherValue: "%count% Transfers"
+  oneValue: "%count% transfer"
+  otherValue: "%count% transfers"
 Total Amount: Total Amount
 $unstaking_short: Unstaking
 Handle ton:// links: Handle ton:// links
@@ -403,6 +403,7 @@ Slippage: Slippage
 $swap_from_to: Swap %from% %icon% %to%
 The exchange rate is below market value!: The exchange rate is %value% below market value!
 Invalid Pair: Swap Unavailable
+Unsupported Pair: Unsupported Pair
 We do not recommend to perform an exchange, try to specify a lower amount.: We do not recommend to perform an exchange, try to specify a lower amount.
 $swap_minimum_received_tooltip1: This is the least amount of new tokens you'll get from this swap, considering current market conditions, slippage tolerance, and potential price impact.
 $swap_minimum_received_tooltip2: It's an expected minimum, but if the conditions change a lot while your swap is being processed, the final amount could be less.
@@ -673,6 +674,12 @@ $transfer_text_and_bin_exclusive: Cannot use both text and bin parameters togeth
 $unsupported_deeplink_parameter: This deeplink contains unsupported parameters.
 $unsupported_chain: Unsupported blockchain.
 Successfully: Successfully
+Estimated Time: Estimated Time
+$utxo_confirmations:
+  zeroValue: "%count% of %max% confirmations"
+  oneValue: "%count% of %max% confirmation"
+  otherValue: "%count% of %max% confirmations"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: Unstake More
 Are you sure you want to burn this NFT? It will be lost forever.: |
   Are you sure you want to burn this NFT?
@@ -985,6 +992,11 @@ $iab_tabs_count:
   zeroValue: "%count% tabs"
   oneValue: "%count% tab"
   otherValue: "%count% tabs"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% tabs"
+  oneValue: "+ %count% tab"
+  otherValue: "+ %count% tabs"
+Close Tab: Close Tab
 $domains_amount %count%:
   zeroValue: No domains
   oneValue: "%count% domain"
@@ -1365,6 +1377,152 @@ $agent_portfolio_insight_chain_split_title: Network distribution
 $agent_portfolio_insight_chain_split_text: Review network exposure within the available allocation; omitted assets may change the full-portfolio picture.
 $agent_portfolio_insight_data_quality_title: Data quality
 $agent_portfolio_insight_data_quality_text: Consider data coverage and freshness when interpreting this analysis.
+$agent_market_analysis_title: Market analysis
+$agent_market_as_of: As of
+$agent_market_closed_1d: Latest closed 1D candle
+$agent_market_thesis: Technical thesis
+$agent_market_fear_greed_sentiment: Bitcoin-based market sentiment
+$agent_market_fear_greed_index: Fear & Greed index (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: Market regime
+$agent_market_fear_greed_risk_on: Risk-on sentiment
+$agent_market_fear_greed_risk_off: Risk-off sentiment
+$agent_market_fear_greed_neutral: Neutral sentiment
+$agent_market_fear_greed_source: Source
+$agent_market_timeframes: Market structure
+$agent_market_structure_bullish: Higher highs and higher lows
+$agent_market_structure_bearish: Lower highs and lower lows
+$agent_market_structure_range: Range
+$agent_market_structure_transition: Transition
+$agent_market_structure_unavailable: Structure unavailable
+$agent_market_event_none: No confirmed break
+$agent_market_event_break_up: Break above structure
+$agent_market_event_break_down: Break below structure
+$agent_market_event_retest_up: Bullish retest
+$agent_market_event_retest_down: Bearish retest
+$agent_market_live_approaching_upper: Approaching the upper boundary
+$agent_market_live_approaching_lower: Approaching the lower boundary
+$agent_market_level_map: Key levels
+$agent_market_level_primary: Primary level
+$agent_market_level_secondary: Secondary level
+$agent_market_level_context: Context level
+$agent_market_levels_unavailable: Confirmed structural levels are unavailable.
+$agent_market_profile_poc_full: volume center (POC)
+$agent_market_profile_value_area_full: value-area boundaries (VAL/VAH)
+$agent_market_profile_hvn_full: high-volume area (HVN)
+$agent_market_profile_lvn_full: low-volume corridor (LVN)
+$agent_market_profile_current_day: Current UTC day
+$agent_market_profile_previous_day: Previous UTC day
+$agent_market_profile_previous_week: Previous UTC week
+$agent_market_profile_rolling_30d: Last 30 UTC sessions
+$agent_market_profile_above: Price above the value area
+$agent_market_profile_inside: Price inside the value area
+$agent_market_profile_below: Price below the value area
+$agent_market_factors: Key factors
+$agent_market_factor_structure: "Daily structure: %direction%"
+$agent_market_factor_levels: "%supports% support and %resistances% resistance zones are confirmed for this horizon."
+$agent_market_factor_profile: "Volume distribution: %position%."
+$agent_market_factor_profile_unavailable: Volume Profile is unavailable; the scenario relies on price structure.
+$agent_market_factor_timeframe_alignment: "Timeframe structure — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "Current regime: %active%. Conditional scenario: %conditional% after %activation%."
+$agent_market_factor_no_active_scenario: "No scenario is confirmed. Conditional scenario: %conditional% after %activation%."
+$agent_market_primary_scenario: Primary scenario
+$agent_market_current_regime: Current confirmed regime
+$agent_market_conditional_scenario: Conditional scenario
+$agent_market_no_active_scenario: No scenario is currently confirmed.
+$agent_market_calculated_fallback: "Calculated analysis: the model explanation is temporarily unavailable."
+$agent_market_other_horizons: Other requested horizons
+$agent_market_horizon_3d: 3 days
+$agent_market_horizon_7d: 7 days
+$agent_market_horizon_30d: 30 days
+$agent_market_scenario_bullish: Bullish breakout
+$agent_market_scenario_range: Range balance
+$agent_market_scenario_bearish: Bearish breakdown
+$agent_market_scenario_unavailable: Structural scenario is unavailable for this horizon.
+$agent_market_confidence: Confidence
+$agent_market_confidence_low: Low
+$agent_market_confidence_medium: Medium
+$agent_market_activation: Activation
+$agent_market_path: Path
+$agent_market_terminal: Terminal zone
+$agent_market_invalidation: Invalidation
+$agent_market_expected_range: Scenario range
+$agent_market_rationale: Rationale
+$agent_market_condition_above: close above
+$agent_market_condition_below: close below
+$agent_market_condition_inside: close inside
+$agent_market_condition_outside: close outside
+$agent_market_condition_waiting: Waiting for confirmation
+$agent_market_condition_approaching: Approaching
+$agent_market_condition_triggered: Confirmed
+$agent_market_scenario_zone: scenario zone
+$agent_market_expected_move: Volatility envelope
+$agent_market_volatility_envelope: Overall volatility envelope
+$agent_market_expected_move_note: Conditional move, not a probability
+$agent_market_risk_caveat: Scenarios are conditional and do not constitute a trading recommendation.
+$agent_market_partial_coverage: Part of the market evidence is unavailable; confidence is limited.
+$agent_market_thesis_bullish: Confirmed structure favors continuation above resistance while invalidation remains below the nearest support.
+$agent_market_thesis_bearish: Confirmed structure favors continuation below support while invalidation remains above the nearest resistance.
+$agent_market_thesis_range: Price remains balanced between confirmed support and resistance.
+$agent_market_thesis_mixed: Timeframes conflict, so confirmation at the structural boundary matters more than directional indicators.
+$agent_market_thesis_insufficient: Available evidence is not sufficient to confirm a directional structure.
+$agent_market_thesis_unconfirmed: No scenario is confirmed; wait for a structural boundary close before adopting a directional case.
+$agent_semantic_asset_search: Asset search
+$agent_semantic_web_digest: Web results
+$agent_semantic_no_results: No results
+$agent_semantic_wallets: Wallets
+$agent_semantic_wallet: Wallet
+$agent_semantic_balance: Balance
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: Regular
+$agent_semantic_access_view_only: View only
+$agent_semantic_wallets_unpriced: "%amount% positions are not included in the displayed totals because they have no price."
+$agent_semantic_wallets_stale: Some wallet balances may be outdated.
+$agent_semantic_wallets_unavailable: Some wallet balances are unavailable.
+$agent_semantic_wallets_partial: Some wallet data is incomplete.
+$agent_semantic_status: Status
+$agent_semantic_quantity: Quantity
+$agent_semantic_time: Time
+$agent_semantic_partial: Some data is unavailable.
+$agent_semantic_pending: Pending
+$agent_semantic_confirmed: Confirmed
+$agent_semantic_completed: Completed
+$agent_semantic_failed: Failed
+$agent_semantic_expired: Expired
+$agent_semantic_active: Active
+$agent_semantic_unstaking: Unstaking
+$agent_semantic_ready: Ready
+$agent_semantic_frozen: Frozen
+$agent_semantic_locked: Locked
+$agent_semantic_fungible: Token
+$agent_semantic_nft: NFT
+$agent_semantic_staking: Staking
+$agent_semantic_vesting: Vesting
+$agent_semantic_vault: Vault
+$agent_semantic_transfer: Transfer
+$agent_semantic_swap: Swap
+$agent_semantic_stake: Stake
+$agent_semantic_unstake: Unstake
+$agent_semantic_contract: Contract
+$agent_semantic_unknown: Activity
+$agent_semantic_spam_transactions: Spam transactions
+$agent_semantic_spam_assets: Spam assets
+$agent_semantic_hidden_assets: Hidden assets
+$agent_semantic_hidden_assets_warning: Hidden asset names may be misleading. They are shown as plain text and cannot be opened as links.
+$agent_semantic_quarantine_warning: These items were reported as spam. Do not trust their names or links.
+$agent_semantic_redacted_asset: Name hidden
+$agent_semantic_omitted_spam: "Filtered spam: %amount%"
+$agent_semantic_omitted_spam_minimum: "Filtered spam: at least %amount%"
+$agent_semantic_omitted_hidden: "Hidden assets omitted: %amount%"
+$agent_semantic_omitted_hidden_minimum: "Hidden assets omitted: at least %amount%"
+$agent_semantic_suspicious: "Unsafe names hidden: %amount%"
+$agent_semantic_suspicious_minimum: "Unsafe names hidden: at least %amount%"
+$agent_semantic_suspicious_shown: "Potentially unsafe names: %amount%"
+$agent_semantic_suspicious_shown_minimum: "Potentially unsafe names: at least %amount%"
+$agent_semantic_omitted_rows: "There is too much data. %amount% additional rows were not included. Narrow the period or filters."
+$agent_semantic_omitted_rows_minimum: "There is too much data. At least %amount% additional rows were not included. Narrow the period or filters."
+$agent_semantic_update_required: Update the app to display this response.
 $agent_hint_portfolio_title: Portfolio performance
 $agent_hint_portfolio_prompt: Analyze my portfolio performance.
 $agent_hint_swap_title: How swaps work
@@ -1527,152 +1685,6 @@ $agent_error_update_required: Update the app to continue.
 $agent_semantic_transactions: Transactions
 $agent_semantic_positions: Positions
 $agent_semantic_market: Market overview
-$agent_market_analysis_title: Market analysis
-$agent_market_as_of: As of
-$agent_market_closed_1d: Latest closed 1D candle
-$agent_market_thesis: Technical thesis
-$agent_market_fear_greed_sentiment: Bitcoin-based market sentiment
-$agent_market_fear_greed_index: Fear & Greed index (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: Market regime
-$agent_market_fear_greed_risk_on: Risk-on sentiment
-$agent_market_fear_greed_risk_off: Risk-off sentiment
-$agent_market_fear_greed_neutral: Neutral sentiment
-$agent_market_fear_greed_source: Source
-$agent_market_timeframes: Market structure
-$agent_market_structure_bullish: Higher highs and higher lows
-$agent_market_structure_bearish: Lower highs and lower lows
-$agent_market_structure_range: Range
-$agent_market_structure_transition: Transition
-$agent_market_structure_unavailable: Structure unavailable
-$agent_market_event_none: No confirmed break
-$agent_market_event_break_up: Break above structure
-$agent_market_event_break_down: Break below structure
-$agent_market_event_retest_up: Bullish retest
-$agent_market_event_retest_down: Bearish retest
-$agent_market_live_approaching_upper: Approaching the upper boundary
-$agent_market_live_approaching_lower: Approaching the lower boundary
-$agent_market_level_map: Key levels
-$agent_market_level_primary: Primary level
-$agent_market_level_secondary: Secondary level
-$agent_market_level_context: Context level
-$agent_market_levels_unavailable: Confirmed structural levels are unavailable.
-$agent_market_profile_poc_full: volume center (POC)
-$agent_market_profile_value_area_full: value-area boundaries (VAL/VAH)
-$agent_market_profile_hvn_full: high-volume area (HVN)
-$agent_market_profile_lvn_full: low-volume corridor (LVN)
-$agent_market_profile_current_day: Current UTC day
-$agent_market_profile_previous_day: Previous UTC day
-$agent_market_profile_previous_week: Previous UTC week
-$agent_market_profile_rolling_30d: Last 30 UTC sessions
-$agent_market_profile_above: Price above the value area
-$agent_market_profile_inside: Price inside the value area
-$agent_market_profile_below: Price below the value area
-$agent_market_factors: Key factors
-$agent_market_factor_structure: "Daily structure: %direction%"
-$agent_market_factor_levels: "%supports% support and %resistances% resistance zones are confirmed for this horizon."
-$agent_market_factor_profile: "Volume distribution: %position%."
-$agent_market_factor_profile_unavailable: Volume Profile is unavailable; the scenario relies on price structure.
-$agent_market_factor_timeframe_alignment: "Timeframe structure — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Current regime: %active%. Conditional scenario: %conditional% after %activation%."
-$agent_market_factor_no_active_scenario: "No scenario is confirmed. Conditional scenario: %conditional% after %activation%."
-$agent_market_primary_scenario: Primary scenario
-$agent_market_current_regime: Current confirmed regime
-$agent_market_conditional_scenario: Conditional scenario
-$agent_market_no_active_scenario: No scenario is currently confirmed.
-$agent_market_calculated_fallback: "Calculated analysis: the model explanation is temporarily unavailable."
-$agent_market_other_horizons: Other requested horizons
-$agent_market_horizon_3d: 3 days
-$agent_market_horizon_7d: 7 days
-$agent_market_horizon_30d: 30 days
-$agent_market_scenario_bullish: Bullish breakout
-$agent_market_scenario_range: Range balance
-$agent_market_scenario_bearish: Bearish breakdown
-$agent_market_scenario_unavailable: Structural scenario is unavailable for this horizon.
-$agent_market_confidence: Confidence
-$agent_market_confidence_low: Low
-$agent_market_confidence_medium: Medium
-$agent_market_activation: Activation
-$agent_market_path: Path
-$agent_market_terminal: Terminal zone
-$agent_market_invalidation: Invalidation
-$agent_market_expected_range: Scenario range
-$agent_market_rationale: Rationale
-$agent_market_condition_above: close above
-$agent_market_condition_below: close below
-$agent_market_condition_inside: close inside
-$agent_market_condition_outside: close outside
-$agent_market_condition_waiting: Waiting for confirmation
-$agent_market_condition_approaching: Approaching
-$agent_market_condition_triggered: Confirmed
-$agent_market_scenario_zone: scenario zone
-$agent_market_expected_move: Volatility envelope
-$agent_market_volatility_envelope: Overall volatility envelope
-$agent_market_expected_move_note: Conditional move, not a probability
-$agent_market_risk_caveat: Scenarios are conditional and do not constitute a trading recommendation.
-$agent_market_partial_coverage: Part of the market evidence is unavailable; confidence is limited.
-$agent_market_thesis_bullish: Confirmed structure favors continuation above resistance while invalidation remains below the nearest support.
-$agent_market_thesis_bearish: Confirmed structure favors continuation below support while invalidation remains above the nearest resistance.
-$agent_market_thesis_range: Price remains balanced between confirmed support and resistance.
-$agent_market_thesis_mixed: Timeframes conflict, so confirmation at the structural boundary matters more than directional indicators.
-$agent_market_thesis_insufficient: Available evidence is not sufficient to confirm a directional structure.
-$agent_market_thesis_unconfirmed: No scenario is confirmed; wait for a structural boundary close before adopting a directional case.
-$agent_semantic_asset_search: Asset search
-$agent_semantic_web_digest: Web results
-$agent_semantic_no_results: No results
-$agent_semantic_wallets: Wallets
-$agent_semantic_wallet: Wallet
-$agent_semantic_balance: Balance
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Regular
-$agent_semantic_access_view_only: View only
-$agent_semantic_wallets_unpriced: "%amount% positions are not included in the displayed totals because they have no price."
-$agent_semantic_wallets_stale: Some wallet balances may be outdated.
-$agent_semantic_wallets_unavailable: Some wallet balances are unavailable.
-$agent_semantic_wallets_partial: Some wallet data is incomplete.
-$agent_semantic_status: Status
-$agent_semantic_quantity: Quantity
-$agent_semantic_time: Time
-$agent_semantic_partial: Some data is unavailable.
-$agent_semantic_pending: Pending
-$agent_semantic_confirmed: Confirmed
-$agent_semantic_completed: Completed
-$agent_semantic_failed: Failed
-$agent_semantic_expired: Expired
-$agent_semantic_active: Active
-$agent_semantic_unstaking: Unstaking
-$agent_semantic_ready: Ready
-$agent_semantic_frozen: Frozen
-$agent_semantic_locked: Locked
-$agent_semantic_fungible: Token
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Staking
-$agent_semantic_vesting: Vesting
-$agent_semantic_vault: Vault
-$agent_semantic_transfer: Transfer
-$agent_semantic_swap: Swap
-$agent_semantic_stake: Stake
-$agent_semantic_unstake: Unstake
-$agent_semantic_contract: Contract
-$agent_semantic_unknown: Activity
-$agent_semantic_spam_transactions: Spam transactions
-$agent_semantic_spam_assets: Spam assets
-$agent_semantic_hidden_assets: Hidden assets
-$agent_semantic_hidden_assets_warning: Hidden asset names may be misleading. They are shown as plain text and cannot be opened as links.
-$agent_semantic_quarantine_warning: These items were reported as spam. Do not trust their names or links.
-$agent_semantic_redacted_asset: Name hidden
-$agent_semantic_omitted_spam: "Filtered spam: %amount%"
-$agent_semantic_omitted_spam_minimum: "Filtered spam: at least %amount%"
-$agent_semantic_omitted_hidden: "Hidden assets omitted: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Hidden assets omitted: at least %amount%"
-$agent_semantic_suspicious: "Unsafe names hidden: %amount%"
-$agent_semantic_suspicious_minimum: "Unsafe names hidden: at least %amount%"
-$agent_semantic_suspicious_shown: "Potentially unsafe names: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Potentially unsafe names: at least %amount%"
-$agent_semantic_omitted_rows: "There is too much data. %amount% additional rows were not included. Narrow the period or filters."
-$agent_semantic_omitted_rows_minimum: "There is too much data. At least %amount% additional rows were not included. Narrow the period or filters."
-$agent_semantic_update_required: Update the app to display this response.
 $agent_wallet_page_navigation: Wallet data pages
 $agent_wallet_page_previous: ← Previous
 $agent_wallet_page_next: Next →
@@ -1819,6 +1831,7 @@ Add Crypto: Add Crypto
 Share QR Code: Share QR Code
 $send_only_ton: Send only Gram (GRAM) or TON-based assets to this address. Sending other tokens will result in loss.
 $send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this address. Sending other tokens will result in loss.
+$send_only_chain_no_tokens: Send only %chain% (%symbol%) to this address. Sending other tokens will result in loss.
 Buying with card is not supported for this account.: Buying with card is not supported for this account.
 Swapped at: Swapped at
 Price per: Price per
@@ -1908,17 +1921,13 @@ hour:
   oneValue: "%count% hour"
   otherValue: "%count% hours"
 minute:
-  zeroValue: minute
-  oneValue: minute
+  zeroValue: "%count% minute"
+  oneValue: "%count% minute"
   otherValue: "%count% minutes"
 second:
   zeroValue: "%count% second"
   oneValue: "%count% second"
   otherValue: "%count% seconds"
-transfer:
-  zeroValue: "%count% Transfer"
-  oneValue: "%count% Transfer"
-  otherValue: "%count% Transfers"
 Confirm Actions:
   zeroValue: "Confirm %count% Actions"
   oneValue: Confirm Action
@@ -2269,11 +2278,12 @@ Tokenized Gold: Tokenized Gold
 Index Funds: Index Funds
 Search token or stock: Search token or stock
 
-
 "Address was copied!": "Address was copied!"
 "Allow App Lock": "Allow App Lock"
 "An error occurred": "An error occurred"
 "App Fee Details": "App Fee Details"
+"Backend": "Backend"
+"Chat options": "Chat options"
 "Copied": "Copied"
 "Customize the wallet's home screen and color accents the way you like.": "Customize the wallet's home screen and color accents the way you like."
 "Dangerous": "Dangerous"
@@ -2294,3 +2304,7 @@ Search token or stock: Search token or stock
 "Seasonal Theme Override": "Seasonal Theme Override"
 "Sending to": "Sending to"
 "confirming actions in Telegram": "confirming actions in Telegram"
+
+Unknown Transfer: Unknown Transfer
+# Prefix before the requesting Dapp name on the Sign Data confirmation screen.
+$dapp_sign_data_for_prefix: for

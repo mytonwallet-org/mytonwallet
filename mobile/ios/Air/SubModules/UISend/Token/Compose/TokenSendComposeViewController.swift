@@ -285,11 +285,8 @@ final class TokenSendComposeViewController:
             return
         }
 
-        guard model.isAccountSwitchingAllowed else {
-            navigationItem.setLeftBarButtonItems(
-                nil,
-                animated: true
-            )
+        guard model.configuration.mode == .send else {
+            navigationItem.setLeftBarButtonItems(nil, animated: true)
             return
         }
 

@@ -59,70 +59,10 @@ public struct WalletCoreTokenSearchSource: UniversalSearchSource {
     public static func documents(input: WalletCoreTokenSearchInput) -> [SearchDocument] {
         guard let account = input.account else { return [] }
 
-        var balanceBySlug: [String: (isHeld: Bool, baseCurrencyValue: Double)] = [:]
-        for balance in input.balances {
-            var aggregate = balanceBySlug[balance.tokenSlug] ?? (false, 0)
-            aggregate.isHeld = aggregate.isHeld || balance.balance > 0
-            if let value = balance.toBaseCurrency, value.isFinite {
-                aggregate.baseCurrencyValue += max(0, value)
-            }
-            balanceBySlug[balance.tokenSlug] = aggregate
-        }
-
-        return input.tokens
-            .filter { account.supports(chain: $0.chain) }
-            .map { token in
-                let balance = balanceBySlug[token.slug]
-                var traits: SearchTraits = []
-                if balance?.isHeld == true {
-                    traits.insert(.held)
-                }
-                if input.trackedTokenSlugs.contains(token.slug) {
-                    traits.insert(.tracked)
-                }
-                if token.isPopular == true {
-                    traits.insert(.popular)
-                }
-                if let price = token.priceUsd, price.isFinite, price > 0 {
-                    traits.insert(.hasMarketData)
-                }
-
-                return document(
-                    token: token,
-                    signals: SearchSignals(
-                        traits: traits,
-                        baseCurrencyValue: balance?.baseCurrencyValue
-                    )
-                )
-            }
-            .sorted { $0.id < $1.id }
-    }
-
-    static func document(
-        token: ApiToken,
-        signals: SearchSignals = .init()
-    ) -> SearchDocument {
-        var fieldCandidates: [(String?, SearchFieldKind, SearchFieldMatchPolicy)] = [
-            (token.displayName(strippingLabelWhenShown: true), .title, .text),
-            (token.name, .alias, .text),
-            (token.localizedName, .alias, .text),
-            (token.symbol, .symbol, .text),
-            (token.slug, .identifier, .exact),
-            (token.tokenAddress, .address, .exact),
-            (token.label, .alias, .text),
-        ]
-        fieldCandidates.append(contentsOf: (token.keywords ?? []).map {
-            (Optional($0), .keyword, .text)
-        })
-        return SearchDocument(
-            id: SearchEntityID("token:\(token.slug)"),
-            kind: token.isRwaStock ? .stock : .token,
-            fields: makeSearchFields(fieldCandidates),
-            attributes: makeSearchAttributes([
-                (WalletCoreSearchAttributeKey.tokenSlug, token.slug),
-                (WalletCoreSearchAttributeKey.iconURL, token.image),
-            ]),
-            signals: signals
+        return WalletCoreTokenSearchDocuments.documents(
+            tokens: input.tokens.filter { account.supports(chain: $0.chain) },
+            balances: input.balances,
+            trackedTokenSlugs: input.trackedTokenSlugs
         )
     }
 

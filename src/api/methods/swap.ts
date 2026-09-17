@@ -47,6 +47,10 @@ export { resolveSwapDefaults } from '../common/swapDefaults';
 
 let onUpdate: OnApiUpdate;
 
+// Keep recent creations available for an immediate failure update even if the backend is unreachable.
+const createdCexSwaps = new Map<string, ApiSwapHistoryItem>();
+const MAX_CREATED_CEX_SWAPS = 100;
+
 export function initSwap(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
 }
@@ -346,6 +350,10 @@ export async function swapCexCreateTransaction(
   }
 
   const swap = convertSwapItemToTrusted(buildResponse.swap);
+  createdCexSwaps.set(`${accountId}:${swap.id}`, swap);
+  if (createdCexSwaps.size > MAX_CREATED_CEX_SWAPS) {
+    createdCexSwaps.delete(createdCexSwaps.keys().next().value!);
+  }
 
   // TODO: use actual chain!!!
   const activity = swapItemToActivity(swap, 'ton');
@@ -375,6 +383,8 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitG
     await patchSwapSubmitError(transferOptions, swapId, result.error);
     return result;
   }
+
+  createdCexSwaps.delete(`${transferOptions.accountId}:${swapId}`);
 
   if (result.mfaRequest) {
     const { accountId } = transferOptions;
@@ -428,16 +438,37 @@ async function patchSwapSubmitError(
   error: string | undefined,
 ) {
   const { accountId, enclaveToken } = transferOptions;
+  const key = `${accountId}:${swapId}`;
+  const createdSwap = createdCexSwaps.get(key);
+  createdCexSwaps.delete(key);
+  if (createdSwap) {
+    publishFailedCexSwap(accountId, createdSwap);
+  }
   // We already know why the transfer failed - if the backend call also fails, keep the real reason
   try {
     // CEX swap history rows are owned by the TON history address even when the
     // actual deposit transfer is submitted from another source chain.
     const { address: historyAddress } = await fetchStoredWallet(accountId, 'ton');
     const authToken = await getBackendAuthToken(accountId, enclaveToken ?? '');
-    await patchSwapItem({ address: historyAddress, authToken, error: error || 'Unknown', swapId });
+    const swap = await patchSwapItem({ address: historyAddress, authToken, error: error || 'Unknown', swapId });
+    if (!createdSwap && swap) {
+      publishFailedCexSwap(accountId, swap);
+    }
   } catch (err) {
     logDebugError('patchSwapSubmitError: failed to patch swap item', err);
   }
+}
+
+function publishFailedCexSwap(accountId: string, swap: ApiSwapHistoryItem) {
+  onUpdate({
+    type: 'newActivities',
+    accountId,
+    activities: [swapItemToActivity({
+      ...swap,
+      status: 'failed',
+      ...(swap.cex && { cex: { ...swap.cex, status: 'failed' } }),
+    })],
+  });
 }
 
 function errorToString(err: unknown) {

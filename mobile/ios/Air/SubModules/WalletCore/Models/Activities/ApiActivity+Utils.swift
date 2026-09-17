@@ -114,7 +114,9 @@ public extension ApiActivity {
             switch swap.displayStatus(accountChains: accountChains) {
             case .failed, .expired, .refunded, .hold, .waitingForPayment:
                 resolved = displayTitle.future
-            case .pending, .completed:
+            case .pending:
+                resolved = swap.cex != nil ? displayTitle.inProgress : displayTitle.complete
+            case .completed:
                 resolved = displayTitle.complete
             }
         } else if transaction?.status == .failed {

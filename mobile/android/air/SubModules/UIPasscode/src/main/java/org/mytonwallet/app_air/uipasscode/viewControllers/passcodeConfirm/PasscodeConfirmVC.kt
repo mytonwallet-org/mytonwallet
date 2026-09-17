@@ -108,7 +108,8 @@ class PasscodeConfirmVC(
 
     private val passcodeScreenViewTopInset: Int
         get() = (navigationController?.getSystemBars()?.top ?: 0) +
-            (if (reservesNavbarHeight) WNavigationBar.DEFAULT_HEIGHT.dp else 32.dp)
+            (if (reservesNavbarHeight) WNavigationBar.DEFAULT_HEIGHT.dp else 32.dp) +
+            (if (passcodeViewState is PasscodeViewState.CustomHeader) 5.dp else 0)
 
     override fun setupViews() {
         super.setupViews()

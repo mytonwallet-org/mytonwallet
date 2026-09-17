@@ -1621,9 +1621,9 @@ $externalRadius: $internalRadius + $borderWidth;
   }
 
   &.createSubwalletWithBorder {
-    @include mixins.separator();
-
     background-color: var(--color-background-tab-bar);
+
+    @include mixins.separator();
   }
 }
 

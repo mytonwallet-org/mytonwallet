@@ -14,7 +14,7 @@ import {
   bucketKey as defaultBucketKey,
   CircuitBreaker,
   CircuitOpenError,
-} from './circuit-breaker';
+} from './circuitBreaker';
 import { logDebug } from './logs';
 import { NegativeVerdictCache } from './negativeVerdictCache';
 

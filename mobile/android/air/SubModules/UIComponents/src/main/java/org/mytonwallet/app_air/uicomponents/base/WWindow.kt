@@ -963,10 +963,12 @@ abstract class WWindow :
             activeAnimator = null
             navAnimation = NavAnimation.NONE
             onCompletion?.invoke()
+            val nextNavigationController =
+                navigationControllers.lastOrNull()?.takeIf { !it.isDismissed }
             if (navigationController?.overFullScreen == true) {
-                navigationControllers.lastOrNull()?.viewDidAppear()
+                nextNavigationController?.viewDidAppear()
             } else {
-                navigationControllers.lastOrNull()?.viewDidEnterForeground()
+                nextNavigationController?.viewDidEnterForeground()
             }
         }
 

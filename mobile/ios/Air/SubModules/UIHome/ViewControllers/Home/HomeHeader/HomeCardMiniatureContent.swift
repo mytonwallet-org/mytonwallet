@@ -26,7 +26,7 @@ struct HomeCardMiniatureContent: View {
                         .padding(.bottom, 18)
                         .scaleEffect(layout.itemWidth/34)
                 }
-                .opacity(headerViewModel.isCardHidden ? 0 : 1)
+                .opacity(headerViewModel.cardOpacity)
         }
     }
     

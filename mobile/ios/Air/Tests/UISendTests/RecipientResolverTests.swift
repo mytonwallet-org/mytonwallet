@@ -56,6 +56,81 @@ struct RecipientResolverTests {
         #expect(model.draftAddressOrDomain == "manually edited")
     }
 
+    @MainActor
+    @Test
+    func `pasted EVM address reports every supported compatible chain`() async throws {
+        let address = "0x1111111111111111111111111111111111111111"
+        let sender = MAccount(
+            id: "sender-mainnet", title: "Sender", type: .view,
+            byChain: [
+                .ton: AccountChain(address: "sender-ton-address"),
+                .ethereum: AccountChain(address: address),
+                .bnb: AccountChain(address: address),
+            ]
+        )
+        let model = SendRecipientModel(
+            account: AccountContext(source: .constant(sender)),
+            chain: .ton,
+            resolver: RecipientResolverClient { _ in [:] }
+        )
+        var detected: [ApiChain] = []
+        model.onCompatibleChainsDetected = { detected = $0 }
+        model.textFieldInput = address
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(Set(detected) == Set([ApiChain.ethereum, .bnb]))
+    }
+
+    @MainActor
+    @Test(arguments: [false, true], [ApiChain.ton, .ethereum])
+    func `recipient suggestions preserve their chain until the address is edited`(
+        isSavedAddress: Bool,
+        initialChain: ApiChain
+    ) async throws {
+        let address = "0x1111111111111111111111111111111111111111"
+        let sender = MAccount(
+            id: "sender-mainnet", title: "Sender", type: .view,
+            byChain: [
+                .ton: AccountChain(address: "sender-ton-address"),
+                .ethereum: AccountChain(address: address),
+                .bnb: AccountChain(address: address),
+            ]
+        )
+        let model = SendRecipientModel(
+            account: AccountContext(source: .constant(sender)),
+            chain: initialChain,
+            resolver: RecipientResolverClient { _ in [:] }
+        )
+        var detected: [ApiChain] = []
+        model.onCompatibleChainsDetected = {
+            detected = $0
+            // Simulate the send model preferring a larger BNB balance.
+            model.updateChain(.bnb)
+        }
+        model.onSuggestionChainSelected = { model.updateChain($0) }
+        defer {
+            model.onCompatibleChainsDetected = { _ in }
+            model.onSuggestionChainSelected = { _ in }
+        }
+        let recipient = makeAccount(ethereumAddress: address)
+        if isSavedAddress {
+            model.selectSavedAccount(recipient, saveKey: address, fallbackChain: .ethereum)
+        } else {
+            model.selectAccount(recipient, fallbackChain: .ethereum)
+        }
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(model.chain == .ethereum)
+        #expect(model.draftAddressOrDomain == address)
+        #expect(detected.isEmpty)
+
+        model.textFieldInput = "0x2222222222222222222222222222222222222222"
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(Set(detected) == Set([ApiChain.ethereum, .bnb]))
+        #expect(model.chain == .bnb)
+    }
+
 }
 
 private func makeAccount(

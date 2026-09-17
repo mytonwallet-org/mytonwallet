@@ -583,7 +583,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
                 suggestion: domain,
                 actionTitle: result.title
             )
-        case .google, .prompt:
+        case .google, .prompt, .resolvingDomain:
             return nil
         }
     }

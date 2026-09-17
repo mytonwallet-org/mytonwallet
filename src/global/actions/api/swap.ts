@@ -25,16 +25,17 @@ import { DEFAULT_SWAP_FIRST_TOKEN_SLUG, DEFAULT_SWAP_SECOND_TOKEN_SLUG, TONCOIN 
 import { Big } from '../../../lib/big.js';
 import { parseTxId } from '../../../util/activities';
 import { getDoesUsePinPad } from '../../../util/biometrics';
-import { getChainConfig, getEvmChains, getIsSupportedChain } from '../../../util/chain';
-import { fromDecimal, roundDecimal, toDecimal } from '../../../util/decimals';
+import { getChainConfig, getIsSupportedChain } from '../../../util/chain';
+import { fromDecimal, roundDecimal, toBig, toDecimal } from '../../../util/decimals';
 import { canAffordSwapEstimateVariant, shouldSwapBeGasless } from '../../../util/fee/swapFee';
 import generateUniqueId from '../../../util/generateUniqueId';
-import { pick } from '../../../util/iteratees';
+import { mapValues, pick } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause, waitFor } from '../../../util/schedulers';
 import { isSwapPairValid } from '../../../util/swap/isSwapPairValid';
 import { findNativeToken, getChainBySlug, getIsNativeToken, getNativeToken } from '../../../util/tokens';
 import { callApi } from '../../../api';
+import { resolveSwapDefaults } from '../../../api/common/swapDefaults';
 import { addActionHandler, getGlobal, setGlobal } from '../..';
 import { resolveSwapAssetId } from '../../helpers';
 import { runActivityUpdateInOrder } from '../../helpers/activityUpdateQueue';
@@ -65,12 +66,16 @@ import {
   selectAccount,
   selectAccountState,
   selectCurrentAccount,
+  selectCurrentAccountChainDisplay,
   selectCurrentAccountId,
+  selectCurrentAccountState,
   selectCurrentAccountTokenBalance,
+  selectCurrentNetwork,
   selectCurrentSwapTokenIn,
   selectCurrentSwapTokenOut,
   selectCurrentToncoinBalance,
   selectSwapType,
+  selectToken,
 } from '../../selectors';
 import { switchAccount } from './auth';
 
@@ -193,6 +198,7 @@ addActionHandler('startSwap', (global, actions, payload) => {
 
   global = updateCurrentSwap(global, {
     ...rest,
+    ...fillMissingSwapToken(global, rest.tokenInSlug, rest.tokenOutSlug),
     amountIn: normalizedAmountIn,
     state: requiredState,
     swapId: generateUniqueId(),
@@ -817,15 +823,15 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       }
 
       const tokenInBalance = selectCurrentAccountTokenBalance(global, tokenIn.slug);
-      const isEvmMaxNativeSwap = global.currentSwap.isMaxAmount
-        && getIsNativeToken(tokenIn.slug)
-        && getEvmChains().includes(tokenIn.chain);
+      const draftAmount = getIsNativeToken(tokenIn.slug)
+        ? global.currentSwap.isMaxAmount ? tokenInBalance : fromDecimal(fromAmount, tokenIn.decimals)
+        : undefined;
 
       const txDraft = await callApi('checkTransactionDraft', tokenIn.chain, {
         accountId: selectCurrentAccountId(global)!,
         toAddress: getChainConfig(tokenIn.chain).feeCheckAddress,
         tokenAddress: tokenIn.tokenAddress,
-        ...(isEvmMaxNativeSwap && tokenInBalance !== undefined ? { amount: tokenInBalance } : {}),
+        amount: draftAmount,
       });
 
       if (txDraft) {
@@ -1091,4 +1097,42 @@ function chooseSwapEstimate(
 
   return availableEstimates.find(({ dexLabel }) => dexLabel === proposedBestDexLabel)
     ?? availableEstimates[0];
+}
+
+/**
+ * When a swap is opened with only one token, the other one is picked from the account balances by
+ * `resolveSwapDefaults`, the same logic the native apps use to prefill their swap screen.
+ *
+ * The missing token falls back to the default swap pair when there is nothing to pick. This happens when
+ * `tokenInfo` lacks the given token, or when the account has a single chain without a stablecoin, such as
+ * a Bitcoin private key import. The swap form must not open with one token unset: it would display
+ * the default token in the empty slot, but `isSwapFormFilled` would stay false and the swap would never
+ * be estimated.
+ */
+function fillMissingSwapToken(global: GlobalState, tokenInSlug?: string, tokenOutSlug?: string) {
+  if (!tokenInSlug === !tokenOutSlug) {
+    return undefined;
+  }
+
+  const givenSlug = (tokenInSlug || tokenOutSlug)!;
+  const givenToken = selectToken(global, givenSlug);
+  const balancesBySlug = selectCurrentAccountState(global)?.balances?.bySlug ?? {};
+  const defaults = givenToken ? resolveSwapDefaults({
+    tokenIn: tokenInSlug ? givenToken : undefined,
+    tokenOut: tokenOutSlug ? givenToken : undefined,
+    accountChains: selectCurrentAccountChainDisplay(global)?.orderedChains ?? [],
+    network: selectCurrentNetwork(global),
+    balancesUsdBySlug: mapValues(balancesBySlug, (balance, slug) => {
+      const token = selectToken(global, slug);
+      return token ? toBig(balance, token.decimals).mul(token.priceUsd).toNumber() : 0;
+    }),
+  }) : undefined;
+  const fallbackSlug = givenSlug === DEFAULT_SWAP_FIRST_TOKEN_SLUG
+    ? DEFAULT_SWAP_SECOND_TOKEN_SLUG
+    : DEFAULT_SWAP_FIRST_TOKEN_SLUG;
+
+  return {
+    tokenInSlug: tokenInSlug || defaults?.tokenIn?.slug || fallbackSlug,
+    tokenOutSlug: tokenOutSlug || defaults?.tokenOut?.slug || fallbackSlug,
+  };
 }

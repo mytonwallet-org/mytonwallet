@@ -6,7 +6,14 @@ import { parseAccountId } from '../../util/account';
 import { SECOND } from '../../util/dateFormat';
 import { logDebugError } from '../../util/logs';
 import chains from '../chains';
-import { fetchBackendTokenDetails, getTokenBySlug, sendUpdateTokens, tokensPreload } from '../common/tokens';
+import {
+  fetchBackendTokenDetails,
+  getTokenBySlug,
+  resetLastTokens,
+  sendUpdateTokens,
+  tokensPreload,
+  updateTokensFromBackend,
+} from '../common/tokens';
 import { storage } from '../storages';
 
 export { buildTokenSlug } from '../common/tokens';
@@ -51,6 +58,21 @@ let onUpdate: OnApiUpdate | undefined;
 
 export function initTokens(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
+  resetLastTokens();
+}
+
+/** Refreshes a UI whose local token cache was cleared, without clearing SDK storage. */
+export async function refreshTokens() {
+  if (!onUpdate) return;
+  resetLastTokens();
+  const langCode = await storage.getItem('langCode');
+  try {
+    await updateTokensFromBackend(onUpdate, { langCode, shouldNarrowToHeldTokens: true });
+  } finally {
+    // Concurrent polling may have sent a diff while the request was in flight.
+    resetLastTokens();
+    sendUpdateTokens(onUpdate);
+  }
 }
 
 export async function importToken(accountId: string, chain: ApiChain, tokenAddress: string) {

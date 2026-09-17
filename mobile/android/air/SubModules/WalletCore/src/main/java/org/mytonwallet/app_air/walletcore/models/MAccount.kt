@@ -92,6 +92,7 @@ class MAccount(
         if (name.isEmpty()) {
             name = WGlobalStorage.getAccountName(accountId) ?: ""
         }
+        byChain = normalizeByChain(byChain)
     }
 
     constructor(accountId: String, globalJSON: JSONObject) : this(
@@ -109,7 +110,7 @@ class MAccount(
             byChainJson?.keys()?.forEach { chain ->
                 val chainData = byChainJson.getJSONObject(chain)
                 result[chain] = AccountChain(
-                    address = chainData.getString("address"),
+                    address = normalizeAddress(chain, chainData.getString("address")),
                     domain = chainData.optString("domain").takeIf { it.isNotEmpty() },
                     isMultisig = chainData.optBoolean("isMultisig")
                         .takeIf { chainData.has("isMultisig") },
@@ -121,6 +122,19 @@ class MAccount(
             }
             return result
         }
+
+        fun normalizeAddress(chain: String, address: String): String =
+            MBlockchain.valueOfOrNull(chain)?.normalizeAddress(address) ?: address
+
+        fun normalizeByChain(byChain: Map<String, AccountChain>): Map<String, AccountChain> =
+            byChain.mapValues { (chain, accountChain) ->
+                val address = normalizeAddress(chain, accountChain.address)
+                if (address == accountChain.address) {
+                    accountChain
+                } else {
+                    accountChain.copy(address = address)
+                }
+            }
 
         fun byChainToJson(byChain: Map<String, AccountChain>): JSONObject {
             val json = JSONObject()
@@ -189,7 +203,9 @@ class MAccount(
         }
 
     val addressByChain: Map<String, String>
-        get() = byChain.mapValues { it.value.address }
+        get() = byChain.mapValues { (chain, accountChain) ->
+            normalizeAddress(chain, accountChain.address)
+        }
 
     val supportsReceiveScreen: Boolean
         get() {

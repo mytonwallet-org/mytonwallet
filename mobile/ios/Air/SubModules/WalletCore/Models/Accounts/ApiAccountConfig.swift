@@ -1,4 +1,5 @@
 import Foundation
+import WalletContext
 
 public struct ApiCardInfo: Equatable, Hashable, Codable, Sendable {
     public var all: Int
@@ -114,12 +115,15 @@ public enum DebugPromotionPreset {
         airPromotionIsEnabled || cardMintingPromotionIsEnabled
     }
 
+    private static let cachedAirPromotion = CachedUserDefault<Bool>(key: userDefaultsKey)
+    private static let cachedCardMintingPromotion = CachedUserDefault<Bool>(key: cardMintingUserDefaultsKey)
+
     public static var airPromotionIsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: userDefaultsKey)
+        cachedAirPromotion.value
     }
 
     public static var cardMintingPromotionIsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: cardMintingUserDefaultsKey)
+        cachedCardMintingPromotion.value
     }
 
     public static var activePromotion: ApiPromotion? {
@@ -197,8 +201,9 @@ public enum DebugPromotionPreset {
 
 public enum DebugMfaEnabledOverride {
     public static let userDefaultsKey = "debug_forceMfaEnabled"
+    private static let cachedValue = CachedUserDefault<Bool>(key: userDefaultsKey)
 
     public static var isEnabled: Bool {
-        UserDefaults.standard.bool(forKey: userDefaultsKey)
+        cachedValue.value
     }
 }

@@ -59,7 +59,7 @@ struct WalletCoreWalletAddressQuerySourceTests {
     }
 
     @Test
-    func `DNS result appears only after successful resolution`() async throws {
+    func `DNS placeholder is replaced by the resolved wallet`() async throws {
         let resolvedAddress = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"
         let recorder = WalletResolutionRecorder(result: .success(.init(
             addressName: "My Wallet",
@@ -71,9 +71,14 @@ struct WalletCoreWalletAddressQuerySourceTests {
             for: UniversalSearchQuery("mwme.ton"),
             context: context
         ))
-        let document = try #require(snapshots.first?.documents.first)
+        let placeholder = try #require(snapshots.first?.documents.first)
+        let document = try #require(snapshots.last?.documents.first)
 
-        #expect(snapshots.count == 1)
+        #expect(snapshots.count == 2)
+        #expect(placeholder.id == document.id)
+        #expect(placeholder.attributeValue(for: WalletCoreSearchAttributeKey.isResolvingDomain) == "true")
+        #expect(placeholder.attributeValue(for: WalletCoreSearchAttributeKey.address) == nil)
+        #expect(document.attributeValue(for: WalletCoreSearchAttributeKey.isResolvingDomain) == nil)
         #expect(document.fields.first { $0.kind == .domain }?.value == "mwme.ton")
         #expect(document.attributeValue(for: WalletCoreSearchAttributeKey.address) == resolvedAddress)
         #expect(document.attributeValue(
@@ -81,11 +86,11 @@ struct WalletCoreWalletAddressQuerySourceTests {
         ) == "mwme.ton")
     }
 
-    @Test
-    func `unresolved DNS name does not become a wallet result`() async throws {
-        let recorder = WalletResolutionRecorder(result: .success(.init(
-            error: "UnresolvedDomain"
-        )))
+    @Test(arguments: [false, true])
+    func `failed DNS resolution removes the placeholder`(throwsError: Bool) async throws {
+        let recorder = WalletResolutionRecorder(result: throwsError
+            ? .failure(WalletResolutionTestError.failed)
+            : .success(.init(error: "UnresolvedDomain")))
         let source = makeSource(recorder: recorder)
 
         let snapshots = try await collectWalletSnapshots(source.snapshots(
@@ -93,21 +98,25 @@ struct WalletCoreWalletAddressQuerySourceTests {
             context: context
         ))
 
-        #expect(snapshots.isEmpty)
+        #expect(snapshots.count == 2)
+        #expect(snapshots.first?.documents.first?.attributeValue(
+            for: WalletCoreSearchAttributeKey.isResolvingDomain
+        ) == "true")
+        #expect(snapshots.last?.documents.isEmpty == true)
     }
 
-    @Test
-    func `known wallet identifier is left to the local wallet source`() async throws {
+    @Test(arguments: ["mwme.ton", "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"])
+    func `known wallet identifier is left to the local wallet source`(identifier: String) async throws {
         let recorder = WalletResolutionRecorder(result: .success(.init(
             resolvedAddress: address
         )))
         let source = makeSource(
             recorder: recorder,
-            knownWalletIdentifiers: [address.lowercased()]
+            knownWalletIdentifiers: [identifier.lowercased()]
         )
 
         let snapshots = try await collectWalletSnapshots(source.snapshots(
-            for: UniversalSearchQuery(address),
+            for: UniversalSearchQuery(identifier),
             context: context
         ))
 

@@ -25,8 +25,8 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         case deferredForRun
     }
 
-    private static let supportedChains: [ApiChain] = [.ton, .ethereum, .tron, .solana]
-    private static let maxCatalogAssets = 10_000
+    nonisolated private static let supportedChains: [ApiChain] = [.ton, .ethereum, .tron, .solana]
+    nonisolated private static let maxCatalogAssets = 10_000
     private static let maxDynamicAuthorityUpdateAttempts = 3
 
     private let client: AgentV2Client
@@ -71,7 +71,15 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         let generation = updateGeneration
         while true {
             lifecycleState = .publishingInitial(needsRepublish: false)
-            let snapshot = makeSnapshot()
+            let snapshot = await makeSnapshot()
+            guard lifecycleState.isStarted, updateGeneration == generation else { return false }
+            guard !Task.isCancelled else {
+                resetFailedStart()
+                return false
+            }
+            if lifecycleState == .publishingInitial(needsRepublish: true) {
+                continue
+            }
             let initialUpdateTask = Task { [client] in
                 do {
                     try await client.updateHostContext(snapshot)
@@ -84,9 +92,6 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
             self.initialUpdateTask = initialUpdateTask
             let didPublishContext = await initialUpdateTask.value
             guard lifecycleState.isStarted, updateGeneration == generation else {
-                if lifecycleState.isStarted {
-                    resetFailedStart()
-                }
                 return false
             }
             guard didPublishContext else {
@@ -180,7 +185,9 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 self.scheduledUpdate = .deferredForRun
                 return
             }
-            let snapshot = self.makeSnapshot()
+            let snapshot = await self.makeSnapshot()
+            guard !Task.isCancelled, self.lifecycleState.isStarted,
+                  self.updateGeneration == generation else { return }
             do {
                 try await self.client.updateHostContext(snapshot)
             } catch {
@@ -238,55 +245,87 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         WalletCoreData.remove(observer: self)
     }
 
-    private func makeSnapshot() -> ApiAgentV2HostContext {
+    struct AccountSnapshot: Sendable {
+        let account: MAccount
+        let balances: [MTokenBalance]?
+        let assetPreferences: MAssetsAndActivityData
+        let nfts: [DisplayNft]?
+        let stakingData: MStakingData?
+        let savedAddresses: [SavedAddress]
+    }
+
+    struct SnapshotInput: Sendable {
+        let activeAccount: MAccount?
+        let accounts: [AccountSnapshot]
+        let savedAddresses: [SavedAddress]
+        let tokens: [String: ApiToken]
+        let swapAssets: [ApiToken]?
+        let areUnverifiedNftsHidden: Bool
+        let lang: String
+        let baseCurrency: String
+        let currencyRate: Double?
+        let timeZone: String
+        let appVersion: String?
+        let theme: String
+    }
+
+    private func makeSnapshot() async -> ApiAgentV2HostContext {
+        // Capture actor-owned state together before suspending. Formatting must not read live stores.
         let activeAccount = AccountStore.account
         let accounts = AccountStore.orderedAccounts.map { account in
-            makeAccount(account, includesPortfolioWalletKeys: true)
-        }
-        let activeNetwork = activeAccount.flatMap { account in
-            Self.supportedChains.first(where: account.supports(chain:))
-        }
-        let savedAddresses: [ApiAgentV2HostSavedAddress] = activeAccount.map { account in
             let context = AccountContext(accountId: account.id)
-            return Self.makeSavedAddresses(context.savedAddresses.values)
-        } ?? []
-
-        let interfaceStyle = UIApplication.shared.sceneKeyWindow?.traitCollection.userInterfaceStyle
-        let theme = interfaceStyle == .dark ? "dark" : "light"
+            return AccountSnapshot(
+                account: account,
+                balances: context.walletTokensData?.orderedTokenBalances,
+                assetPreferences: AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty,
+                nfts: NftStore.getAccountNfts(accountId: account.id).map { Array($0.values) },
+                stakingData: context.stakingData,
+                savedAddresses: context.savedAddresses.values
+            )
+        }
         let baseCurrency = TokenStore.baseCurrency
-        let rawCurrencyRate = baseCurrency == .USD
-            ? 1
-            : TokenStore.currencyRates[baseCurrency.rawValue]?.value
-        let currencyRate = rawCurrencyRate.flatMap { $0 > 0 ? Self.decimalString($0) : nil }
-        let assetCatalog = Array(TokenStore.tokens.values)
-            .filter { Self.supportedChains.contains($0.chain) }
-            .prefix(Self.maxCatalogAssets)
-            .map { token in
-                ApiAgentV2HostAsset(
-                    slug: token.slug,
-                    chain: token.chain.rawValue,
-                    symbol: Self.bounded(token.symbol, limit: 32),
-                    name: Self.bounded(token.name, limit: 80),
-                    tokenAddress: token.tokenAddress,
-                    decimals: token.decimals,
-                    priceUsd: token.priceUsd.flatMap { $0 >= 0 ? Self.decimalString($0) : nil },
-                    percentChange24h: token.percentChange24h.flatMap(Self.decimalString)
-                )
-            }
-        let stakingOffers = activeAccount.map { account in
-            Self.makeStakingOffers(account: account, assetCatalog: assetCatalog)
-        } ?? []
-        let swapAssetCatalog = Self.makeSwapAssetCatalog(
-            tokens: TokenStore.swapAssets
-        )
-
-        return ApiAgentV2HostContext(
+        let input = SnapshotInput(
+            activeAccount: activeAccount,
+            accounts: accounts,
+            savedAddresses: activeAccount.map { AccountContext(accountId: $0.id).savedAddresses.values } ?? [],
+            tokens: TokenStore.tokens,
+            swapAssets: TokenStore.swapAssets,
+            areUnverifiedNftsHidden: AppStorageHelper.hideUnverifiedNfts,
             lang: LocalizationSupport.shared.langCode,
             baseCurrency: baseCurrency.rawValue,
-            currencyRate: currencyRate,
+            currencyRate: baseCurrency == .USD ? 1 : TokenStore.currencyRates[baseCurrency.rawValue]?.value,
             timeZone: TimeZone.autoupdatingCurrent.identifier,
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            theme: theme,
+            theme: UIApplication.shared.sceneKeyWindow?.traitCollection.userInterfaceStyle == .dark ? "dark" : "light"
+        )
+        return await Self.makeSnapshot(input: input)
+    }
+
+    @concurrent static func makeSnapshot(input: SnapshotInput) async -> ApiAgentV2HostContext {
+        assert(!Thread.isMainThread)
+        let (assetCatalog, swapAssetCatalog) = makeCatalogs(tokens: input.tokens, swapAssets: input.swapAssets)
+        let activeAccount = input.activeAccount
+        let accounts = input.accounts.map {
+            makeAccount($0, tokens: input.tokens, swapAssets: input.swapAssets, areUnverifiedNftsHidden: input.areUnverifiedNftsHidden)
+        }
+        let activeNetwork = activeAccount.flatMap { account in
+            supportedChains.first(where: account.supports(chain:))
+        }
+        let savedAddresses = makeSavedAddresses(input.savedAddresses)
+        let currencyRate = input.currencyRate.flatMap { $0 > 0 ? decimalString($0) : nil }
+        let stakingOffers = activeAccount.flatMap { account in
+            input.accounts.first(where: { $0.account.id == account.id })?.stakingData.map { stakingData in
+                makeStakingOffers(account: account, stakingData: stakingData, assetCatalog: assetCatalog)
+            }
+        } ?? []
+
+        return ApiAgentV2HostContext(
+            lang: input.lang,
+            baseCurrency: input.baseCurrency,
+            currencyRate: currencyRate,
+            timeZone: input.timeZone,
+            appVersion: input.appVersion,
+            theme: input.theme,
             activeAccountId: activeAccount?.id,
             activeNetwork: activeNetwork?.rawValue,
             isTestnet: activeAccount.map { $0.network == .testnet },
@@ -298,11 +337,34 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         )
     }
 
-    static func makeSwapAssetCatalog(
+    nonisolated private static func makeCatalogs(
+        tokens: [String: ApiToken],
+        swapAssets: [ApiToken]?
+    ) -> ([ApiAgentV2HostAsset], [ApiAgentV2HostAsset]?) {
+        let assetCatalog = tokens.values
+            .lazy
+            .filter { supportedChains.contains($0.chain) }
+            .prefix(maxCatalogAssets)
+            .map { token in
+                ApiAgentV2HostAsset(
+                    slug: token.slug,
+                    chain: token.chain.rawValue,
+                    symbol: bounded(token.symbol, limit: 32),
+                    name: bounded(token.name, limit: 80),
+                    tokenAddress: token.tokenAddress,
+                    decimals: token.decimals,
+                    priceUsd: token.priceUsd.flatMap { $0 >= 0 ? decimalString($0) : nil },
+                    percentChange24h: token.percentChange24h.flatMap(decimalString)
+                )
+            }
+        return (Array(assetCatalog), makeSwapAssetCatalog(tokens: swapAssets))
+    }
+
+    nonisolated static func makeSwapAssetCatalog(
         tokens: [ApiToken]?
     ) -> [ApiAgentV2HostAsset]? {
         guard let tokens else { return nil }
-        return tokens.filter { token in
+        return Array(tokens.lazy.filter { token in
             supportedChains.contains(token.chain)
         }.prefix(Self.maxCatalogAssets).map { token in
             ApiAgentV2HostAsset(
@@ -315,14 +377,14 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 priceUsd: token.priceUsd.flatMap { $0 > 0 ? Self.decimalString($0) : nil },
                 percentChange24h: nil
             )
-        }
+        })
     }
 
-    private static func makeStakingOffers(
+    nonisolated private static func makeStakingOffers(
         account: MAccount,
+        stakingData: MStakingData,
         assetCatalog: [ApiAgentV2HostAsset]
     ) -> [ApiAgentV2HostStakingOffer] {
-        guard let stakingData = StakingStore.stakingData(accountId: account.id) else { return [] }
         let states = selectStakingOfferStates(
             Array(stakingData.stateById.values),
             shouldUseNominators: stakingData.shouldUseNominators
@@ -358,7 +420,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         }.prefix(8).map { $0 }
     }
 
-    static func selectStakingOfferStates(
+    nonisolated static func selectStakingOfferStates(
         _ states: [ApiStakingState],
         shouldUseNominators: Bool?
     ) -> [ApiStakingState] {
@@ -368,19 +430,25 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         }
     }
 
-    private static func isSafeStakingProductId(_ value: String) -> Bool {
+    nonisolated private static func isSafeStakingProductId(_ value: String) -> Bool {
         value.range(
             of: #"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"#,
             options: .regularExpression
         ) != nil
     }
 
-    private func makeAccount(_ account: MAccount, includesPortfolioWalletKeys: Bool) -> ApiAgentV2HostAccount {
+    nonisolated private static func makeAccount(
+        _ snapshot: AccountSnapshot,
+        tokens: [String: ApiToken],
+        swapAssets: [ApiToken]?,
+        areUnverifiedNftsHidden: Bool
+    ) -> ApiAgentV2HostAccount {
+        let account = snapshot.account
         let chains = Self.supportedChains.filter(account.supports(chain:))
         let addresses = Dictionary(uniqueKeysWithValues: chains.compactMap { chain in
             account.getAddress(chain: chain).map { (chain.rawValue, $0) }
         })
-        let portfolioWalletKeys: [String] = includesPortfolioWalletKeys && account.network == .mainnet
+        let portfolioWalletKeys: [String] = account.network == .mainnet
             ? ApiChain.allCases.compactMap { chain in
                 guard account.supports(chain: chain),
                       let address = account.getAddress(chain: chain),
@@ -388,12 +456,11 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 return "\(chain.rawValue):\(address)"
             }
             : []
-        let context = AccountContext(accountId: account.id)
-        let savedAddresses = Self.makeSavedAddresses(context.savedAddresses.values)
-        let balances: [MTokenBalance] = context.walletTokensData?.orderedTokenBalances ?? []
-        let assetPreferences = AssetsAndActivityDataStore.data(accountId: account.id) ?? .empty
+        let savedAddresses = makeSavedAddresses(snapshot.savedAddresses)
+        let balances = snapshot.balances ?? []
+        let assetPreferences = snapshot.assetPreferences
         let holdings: [ApiAgentV2HostHolding] = balances.compactMap { balance -> ApiAgentV2HostHolding? in
-            guard let token = balance.token, Self.supportedChains.contains(token.chain) else { return nil }
+            guard let token = tokens[balance.tokenSlug], Self.supportedChains.contains(token.chain) else { return nil }
             return Self.makeHolding(
                 tokenBalance: balance,
                 token: token,
@@ -403,8 +470,10 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
                 ) ? "hidden" : "visible"
             )
         }
-        let nftPositions = NftStore.getAccountNfts(accountId: account.id)?.values.compactMap(Self.makeNftPosition) ?? []
-        let stakingPositions = context.stakingData.map(Self.makeStakingPositions) ?? []
+        let nftPositions = snapshot.nfts?.compactMap {
+            makeNftPosition($0, areUnverifiedNftsHidden: areUnverifiedNftsHidden)
+        } ?? []
+        let stakingPositions = snapshot.stakingData.map { makeStakingPositions($0, tokens: tokens, swapAssets: swapAssets) } ?? []
         let positions = (nftPositions + stakingPositions).sorted { $0.id < $1.id }
 
         return ApiAgentV2HostAccount(
@@ -422,7 +491,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
             domainStates: [
                 "accounts": ApiAgentV2HostDomainState(state: "fresh"),
                 "positions": ApiAgentV2HostDomainState(
-                    state: context.walletTokensData == nil ? "notLoaded" : "fresh"
+                    state: snapshot.balances == nil ? "notLoaded" : "fresh"
                 ),
                 "transactions": ApiAgentV2HostDomainState(state: "stale"),
                 "value_series": ApiAgentV2HostDomainState(
@@ -433,7 +502,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         )
     }
 
-    static func makeSavedAddresses(_ values: [SavedAddress]) -> [ApiAgentV2HostSavedAddress] {
+    nonisolated static func makeSavedAddresses(_ values: [SavedAddress]) -> [ApiAgentV2HostSavedAddress] {
         values.compactMap { saved in
             guard Self.supportedChains.contains(saved.chain) else { return nil }
             return ApiAgentV2HostSavedAddress(
@@ -445,7 +514,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         }
     }
 
-    static func makeHolding(
+    nonisolated static func makeHolding(
         tokenBalance: MTokenBalance,
         token: ApiToken,
         visibility: String = "visible"
@@ -473,7 +542,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         )
     }
 
-    static func makeNftPosition(_ displayNft: DisplayNft) -> ApiAgentV2HostPosition? {
+    nonisolated static func makeNftPosition(_ displayNft: DisplayNft, areUnverifiedNftsHidden: Bool) -> ApiAgentV2HostPosition? {
         let nft = displayNft.nft
         guard supportedChains.contains(nft.chain) else { return nil }
         return ApiAgentV2HostPosition(
@@ -484,16 +553,16 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
             valuationStatus: "not_applicable",
             collection: nft.collectionName.map { bounded($0, limit: 80) },
             isOnSale: nft.isOnSale,
-            visibility: displayNft.shouldHide ? "hidden" : "visible",
+            visibility: displayNft.shouldHide(areUnverifiedNftsHidden: areUnverifiedNftsHidden) ? "hidden" : "visible",
             riskVerdict: nft.isScam == true ? "spam" : nil
         )
     }
 
-    static func makeStakingPositions(_ stakingData: MStakingData) -> [ApiAgentV2HostPosition] {
+    nonisolated static func makeStakingPositions(_ stakingData: MStakingData, tokens: [String: ApiToken], swapAssets: [ApiToken]?) -> [ApiAgentV2HostPosition] {
         stakingData.stateById.values.compactMap { state in
             guard state.type != .unknown,
                   state.balance > 0,
-                  let token = TokenStore.getToken(slug: state.tokenSlug),
+                  let token = tokens[state.tokenSlug] ?? swapAssets?.first(where: { $0.slug == state.tokenSlug }),
                   supportedChains.contains(token.chain) else { return nil }
             return ApiAgentV2HostPosition(
                 id: "staking-\(state.id)",
@@ -520,7 +589,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         }
     }
 
-    private static func decimalString(_ value: BigInt, decimals: Int) -> String {
+    nonisolated private static func decimalString(_ value: BigInt, decimals: Int) -> String {
         let raw = String(value)
         let isNegative = raw.first == "-"
         let digits = isNegative ? String(raw.dropFirst()) : raw
@@ -539,7 +608,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
             : "\(sign)\(integerPart).\(fractionalPart)"
     }
 
-    private static func decimalString(_ value: Double) -> String? {
+    nonisolated private static func decimalString(_ value: Double) -> String? {
         guard value.isFinite,
               let decimal = Decimal(string: String(value), locale: Locale(identifier: "en_US_POSIX")) else {
             return nil
@@ -547,7 +616,7 @@ final class AgentV2HostContextProvider: WalletCoreData.EventsObserver, @unchecke
         return NSDecimalNumber(decimal: decimal).stringValue
     }
 
-    private static func bounded(_ value: String, limit: Int) -> String {
+    nonisolated private static func bounded(_ value: String, limit: Int) -> String {
         let normalized = value.precomposedStringWithCanonicalMapping
             .components(separatedBy: .controlCharacters)
             .joined()

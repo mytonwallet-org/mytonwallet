@@ -18,6 +18,7 @@ import SwiftUI
 
 private let homeCollectionViewBottomExtension: CGFloat = 200
 private let homeContentBottomSpacing: CGFloat = 32
+private let isInitialHomeFadeInEnabled = false
 
 @MainActor
 public protocol HomeRootLayoutMigrating: AnyObject {
@@ -103,10 +104,12 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     var isExpandingProgrammatically: Bool = false
 
     private var appearedOneTime = false
+    private var hasAppliedInitialSnapshot = false
+    private var hasStartedInitialFadeIn = false
     private var hasCompletedInitialTopTabsAppearance = false
     private let multisigWalletWarningCustomSectionID = "multisig-wallet-warning"
     private let tokensCustomSectionID = "tokens"
-    private let assetsCustomSectionID = "assets"
+    let assetsCustomSectionID = "assets"
     private let activityCustomSectionID = "activity"
     private var multisigWalletWarningCustomSectionDescriptor: CustomSectionDescriptor?
     private var assetsCustomSectionDescriptor: CustomSectionDescriptor?
@@ -261,6 +264,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
 
         super.setupCollectionView(collectionViewBottomConstraint: homeCollectionViewBottomExtension)
+        collectionView.alpha = isInitialHomeFadeInEnabled ? 0 : 1
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             collectionView.topEdgeEffect.isHidden = true
         }
@@ -278,7 +282,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         ])
 
         // balance header view
-        balanceHeaderView.alpha = 0
+        balanceHeaderView.alpha = isInitialHomeFadeInEnabled ? 0 : 1
         headerContainerView.addSubview(balanceHeaderView)
         NSLayoutConstraint.activate([
             balanceHeaderView.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor),
@@ -421,9 +425,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         Task {
             await changeAccountTo(accountId: homeVM.account.id, isNew: false)
         }
+    }
 
-        balanceHeaderView.alpha = 0
-        collectionView.alpha = 0
+    private func fadeInInitialContentIfNeeded() {
+        // Include the first snapshot's rows and loading placeholders in the shared fade.
+        guard isInitialHomeFadeInEnabled, appearedOneTime, hasAppliedInitialSnapshot, !hasStartedInitialFadeIn,
+              view.window != nil else { return }
+        hasStartedInitialFadeIn = true
+        collectionView.layoutIfNeeded()
         UIView.animate(withDuration: 0.3) {
             self.balanceHeaderView.alpha = 1
             self.collectionView.alpha = 1
@@ -431,12 +440,10 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     public override func scrollToTop(animated: Bool) {
-        if animated {
-            collectionView.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
-        } else {
-            collectionView.layer.removeAllAnimations()
-            collectionView.contentOffset.y = -collectionView.adjustedContentInset.top
-        }
+        collectionView.setContentOffset(
+            CGPoint(x: 0, y: -collectionView.adjustedContentInset.top),
+            animated: animated
+        )
         scrollViewDidScroll(collectionView)
     }
 
@@ -458,6 +465,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             walletAssetDidChangeHeight(animated: false)
             view.layoutIfNeeded()
         }
+        fadeInInitialContentIfNeeded()
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -480,6 +488,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateScrollingHeaderZOrder()
         updateHeaderCardLayout()
         updateCollectionViewBottomInset()
+        updateCardVisibility()
     }
 
     public override func viewSafeAreaInsetsDidChange() {
@@ -590,6 +599,15 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         balanceHeaderView.updateHeight(scrollOffset: collectionView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
         updateHeaderBlur()
         headerViewModel.scrollOffsetChanged(to: collectionView.contentOffset.y + (collectionView.adjustedContentInset.top - collectionView.contentInset.top))
+        updateCardVisibility()
+    }
+
+    private func updateCardVisibility() {
+        guard let window = view.window else { return }
+        // The miniature transform pins its bottom at this offset from the full card's bottom.
+        let cardBottom = headerContainer.convert(headerContainer.bounds, to: window).maxY
+            + headerViewModel.miniatureCardVerticalOffset
+        headerViewModel.updateCardVisibility(bottomOffsetFromSafeArea: cardBottom - window.safeAreaInsets.top)
     }
 
     private func updateHeaderBlur() {
@@ -646,6 +664,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         return dataProviders
     }
     public override var displaysActivitySections: Bool { false }
+    public override var usesBackgroundSnapshotDiffing: Bool { false }
     public override var activityAccountContext: AccountContext? {
         activityPreviewViewModel?.accountContext
     }
@@ -713,7 +732,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private func tokensSectionDidChange(hasStructuralChanges: Bool, animated: Bool) {
         guard isViewLoaded else { return }
         if hasStructuralChanges {
-            applySnapshot(makeSnapshot(), animatingDifferences: animated)
+            applySnapshot(makeSnapshot(reconfiguringCustomSections: [tokensCustomSectionID]), animatingDifferences: animated)
         } else {
             reconfigureCustomSection(id: tokensCustomSectionID)
         }
@@ -774,6 +793,13 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             StartupTrace.endInterval("startup.toHomeReady", details: "layout=tab")
         }
         super.applySnapshot(snapshot, animatingDifferences: animatingDifferences)
+    }
+
+    public override func didApplySnapshot() {
+        super.didApplySnapshot()
+        StartupTrace.markOnce("home.firstSnapshot.applied", details: "layout=tab")
+        hasAppliedInitialSnapshot = true
+        fadeInInitialContentIfNeeded()
     }
 
     @objc private func scanPressed() {
@@ -999,7 +1025,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     public override func transactionsUpdated(accountChanged: Bool, isUpdateEvent: Bool) {
         activitySectionDataProvider.update(viewModel: activityPreviewViewModel)
-        super.transactionsUpdated(accountChanged: accountChanged, isUpdateEvent: isUpdateEvent)
+        applySnapshot(makeSnapshot(reconfiguringCustomSections: [activityCustomSectionID]), animatingDifferences: true)
+        updateSkeletonState()
     }
 }
 

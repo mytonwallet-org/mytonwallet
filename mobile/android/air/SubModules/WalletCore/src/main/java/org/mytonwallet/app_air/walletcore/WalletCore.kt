@@ -85,6 +85,20 @@ const val TRON_USDT_TESTNET_SLUG = "tron-tg3xxyexbk"
 const val SOLANA_SLUG = "sol"
 const val SOLANA_USDT_SLUG = "solana-es9vmfrzac"
 const val SOLANA_USDC_SLUG = "solana-epjfwdd5au"
+const val BITCOIN_SLUG = "btc"
+
+fun isUtxoChain(chain: MBlockchain): Boolean = when (chain) {
+    MBlockchain.bitcoin,
+    MBlockchain.bitcoincash,
+    MBlockchain.litecoin,
+    MBlockchain.dogecoin -> true
+
+    else -> false
+}
+
+const val LITECOIN_SLUG = "ltc"
+const val BITCOINCASH_SLUG = "bch"
+const val DOGECOIN_SLUG = "doge"
 const val ETH_SLUG = "eth"
 const val ETH_USDT_MAINNET_SLUG = "ethereum-0xdac17f95"
 const val ETH_USDC_MAINNET_SLUG = "ethereum-0xa0b86991"
@@ -101,6 +115,7 @@ const val AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
 const val HYPERLIQUID_SLUG = "hyperliquid"
 const val HYPERLIQUID_USDC_MAINNET_SLUG = "hyperliquid-0xb88339cb"
 const val ROBINHOOD_SLUG = "robinhood"
+const val ARC_SLUG = "arc"
 const val VIRTUAL_STAKING_SLUG_PREFIX = "staking-"
 const val TON_DNS_COLLECTION = "EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz"
 const val TELEGRAM_USERNAMES_COLLECTION = "EQCA14o1-VWhS2efqoh_9M1b_A9DtKTuoqfmkn83AbJzwnPi"
@@ -737,7 +752,8 @@ object WalletCore {
             is ApiUpdate.ApiUpdateTokens -> {
                 TokenStore.setFlowValue(
                     TokenStore.Tokens(update.tokens),
-                    update.arePricesFresh
+                    update.kind,
+                    update.removedSlugs.orEmpty()
                 )
             }
 

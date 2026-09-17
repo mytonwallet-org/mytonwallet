@@ -4,15 +4,12 @@ import { getActions, withGlobal } from '../../global';
 import type { DropdownItem } from '../ui/Dropdown';
 import type { TabWithProperties } from '../ui/TabList';
 
-import { MULTISEND_DAPP_URL } from '../../config';
 import { selectIsOffRampAllowed } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { vibrate } from '../../util/haptics';
 import { compact } from '../../util/iteratees';
-import { getTranslation } from '../../util/langProvider';
-import { openUrl } from '../../util/openUrl';
+import { openMultisend } from '../../util/openMultisend';
 import { getChainBySlug } from '../../util/tokens';
-import { getHostnameFromUrl } from '../../util/url';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -40,10 +37,7 @@ function SentTabs({ className, isOffRampAllowed }: OwnProps & StateProps) {
 
   const handleMultisendOpen = useLastCallback(() => {
     vibrate();
-    void openUrl(MULTISEND_DAPP_URL, {
-      title: getTranslation('Multisend'),
-      subtitle: getHostnameFromUrl(MULTISEND_DAPP_URL),
-    });
+    void openMultisend();
   });
 
   const handleSwitchTab = useLastCallback((index: TabContent) => {

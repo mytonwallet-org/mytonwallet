@@ -5,22 +5,14 @@ import type {
   ApiCurrencyRates,
   ApiTokenWithPrice,
 } from '../../api/types';
-import type { Account, AccountSettings, AccountState, GlobalState, UserToken } from '../types';
+import type { AccountSettings, AccountState, GlobalState, UserToken } from '../types';
 
-import {
-  MYCOIN_MAINNET,
-  MYCOIN_TESTNET,
-  PRICELESS_TOKEN_HASHES,
-  TINY_TRANSFER_MAX_COST,
-  TONCOIN,
-} from '../../config';
-import { parseAccountId } from '../../util/account';
+import { MYCOIN_MAINNET, MYCOIN_TESTNET, TONCOIN } from '../../config';
 import { calculateTokenPrice } from '../../util/calculatePrice';
-import { getDefaultEnabledSlugs } from '../../util/chain';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
 import { round } from '../../util/round';
-import { sortTokens } from '../../util/tokens';
+import { buildTokenVisibilityOptions, getIsTokenDisabled, sortTokens } from '../../util/tokens';
 import withCache from '../../util/withCache';
 import {
   selectAccountSettings,
@@ -31,24 +23,39 @@ import {
 
 const EMPTY_BALANCES: ApiBalanceBySlug = {};
 
-function getHasConfirmedActivities(activities: AccountState['activities']) {
+// The order `selectSortedTokenInfo` produced last. It depends on names and symbols alone, and every price tick
+// replaces the whole `tokenInfo`, so re-sorting thousands of tokens with `localeCompare` costs far more than
+// checking that none was added, removed or renamed.
+let lastSortedTokenInfo: ApiTokenWithPrice[] | undefined;
+
+export function getHasConfirmedActivities(activities: AccountState['activities']) {
   const confirmedCount = (activities?.idsMain?.length ?? 0)
     - (activities?.localActivityIds?.length ?? 0)
     - Object.values(activities?.pendingActivityIds ?? {}).reduce<number>((sum, ids) => sum + (ids?.length ?? 0), 0);
   return confirmedCount > 0;
 }
 
-function getAreAllBalancesNearZero(balancesBySlug: ApiBalanceBySlug, tokenInfo: GlobalState['tokenInfo']) {
-  return Object.entries(balancesBySlug).every(([slug, balance]) => {
-    const info = tokenInfo.bySlug[slug];
+// A price tick replaces the whole `tokenInfo`, even when no token of this account changed. Only the entries of the
+// tokens the account holds are compared here, and when they are the same, the previous `tokenInfo` is returned.
+// The account selectors then get the same argument and reuse their cached result.
+export const selectAccountTokenInfoMemoizedFor = withCache((_accountId: string) => {
+  let lastBalancesBySlug: ApiBalanceBySlug | undefined;
+  let lastTokenInfo: GlobalState['tokenInfo'] | undefined;
 
-    // If token info is missing, treat it as zero-value
-    if (!info) return true;
+  return (balancesBySlug: ApiBalanceBySlug | undefined, tokenInfo: GlobalState['tokenInfo']) => {
+    if (
+      lastTokenInfo
+      && lastBalancesBySlug === balancesBySlug
+      && getIsTokenInfoSliceSame(balancesBySlug, lastTokenInfo, tokenInfo)
+    ) {
+      return lastTokenInfo;
+    }
 
-    const balanceBig = toBig(balance, info.decimals);
-    return balanceBig.mul(info.priceUsd ?? 0).lt(TINY_TRANSFER_MAX_COST);
-  });
-}
+    lastBalancesBySlug = balancesBySlug;
+    lastTokenInfo = tokenInfo;
+    return tokenInfo;
+  };
+});
 
 export const selectAccountTokensMemoizedFor = withCache((accountId: string) => memoize((
   balancesBySlug: ApiBalanceBySlug,
@@ -59,31 +66,27 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
   currencyRates: ApiCurrencyRates,
   hasActivities: boolean = false,
 ) => {
-  const { network } = parseAccountId(accountId);
-  const shouldShowOnlyDefaultTokens = !hasActivities && getAreAllBalancesNearZero(balancesBySlug, tokenInfo);
+  const tokensBySlug = tokenInfo.bySlug;
+  const visibility = buildTokenVisibilityOptions(
+    accountId, balancesBySlug, tokensBySlug, accountSettings, areTokensWithNoCostHidden, hasActivities,
+  );
   const pinnedSlugs = accountSettings.pinnedSlugs ?? [];
 
   const tokens = Object
     .entries(balancesBySlug)
-    .filter(([slug]) => (slug in tokenInfo.bySlug && !accountSettings.deletedSlugs?.includes(slug)))
+    .filter(([slug]) => (slug in tokensBySlug && !accountSettings.deletedSlugs?.includes(slug)))
     .map(([slug, balance]): UserToken => {
+      const token = tokensBySlug[slug];
       const {
         symbol, name, localizedName, image, decimals, cmcSlug, color, chain, tokenAddress, codeHash,
         type, label, keywords, percentChange24h = 0, priceUsd,
-      } = tokenInfo.bySlug[slug];
+      } = token;
 
-      const price = calculateTokenPrice(priceUsd ?? 0, baseCurrency, currencyRates);
-      const balanceBig = toBig(balance, decimals);
-      const totalValue = balanceBig.mul(price).round(decimals).toString();
-      const hasCost = balanceBig.mul(priceUsd ?? 0).gte(TINY_TRANSFER_MAX_COST);
-      const isPricelessTokenWithBalance = PRICELESS_TOKEN_HASHES.has(codeHash!) && balance > 0n;
-
-      const isEnabled = accountSettings.alwaysShownSlugs?.includes(slug)
-        || (shouldShowOnlyDefaultTokens
-          ? getDefaultEnabledSlugs(network).has(slug)
-          : (hasCost || isPricelessTokenWithBalance || (!areTokensWithNoCostHidden && balance > 0n)));
-
-      const isDisabled = !isEnabled || accountSettings.alwaysHiddenSlugs?.includes(slug);
+      // Most tokens carry no price, and `Big.js` on them would only yield zeros
+      const price = priceUsd ? calculateTokenPrice(priceUsd, baseCurrency, currencyRates) : 0;
+      const totalValue = priceUsd && balance > 0n
+        ? toBig(balance, decimals).mul(price).round(decimals).toString()
+        : '0';
 
       return {
         chain,
@@ -97,7 +100,7 @@ export const selectAccountTokensMemoizedFor = withCache((accountId: string) => m
         priceUsd,
         decimals,
         change24h: round(percentChange24h / 100, 4),
-        isDisabled,
+        isDisabled: getIsTokenDisabled(slug, balance, token, visibility),
         cmcSlug,
         totalValue,
         color,
@@ -136,7 +139,7 @@ export function selectAccountTokens(global: GlobalState, accountId: string) {
   const { areTokensWithNoCostHidden, baseCurrency } = global.settings;
   return selectAccountTokensMemoizedFor(accountId)(
     balancesBySlug,
-    global.tokenInfo,
+    selectAccountTokenInfoMemoizedFor(accountId)(balancesBySlug, global.tokenInfo),
     accountSettings,
     areTokensWithNoCostHidden,
     baseCurrency,
@@ -178,15 +181,40 @@ const selectTokenInfoUserTokensMemoized = memoize((
   baseCurrency: ApiBaseCurrency,
   currencyRates: ApiCurrencyRates,
 ): UserToken[] => {
-  return Object.values(tokensBySlug)
+  return selectSortedTokenInfo(tokensBySlug)
     .map((token) => buildUserTokenFromTokenInfo(
       token,
       balancesBySlug[token.slug] ?? 0n,
       baseCurrency,
       currencyRates,
-    ))
-    .sort(compareTokenInfoUserTokens);
+    ));
 });
+
+function selectSortedTokenInfo(tokensBySlug: GlobalState['tokenInfo']['bySlug']) {
+  const reused = lastSortedTokenInfo && reuseTokenInfoOrder(lastSortedTokenInfo, tokensBySlug);
+  lastSortedTokenInfo = reused ?? Object.values(tokensBySlug).sort(compareTokenInfo);
+
+  return lastSortedTokenInfo;
+}
+
+/** The previous order filled with the current token objects, or undefined once a token is added, removed or renamed */
+function reuseTokenInfoOrder(sorted: ApiTokenWithPrice[], tokensBySlug: GlobalState['tokenInfo']['bySlug']) {
+  if (sorted.length !== Object.keys(tokensBySlug).length) return undefined;
+
+  const result: ApiTokenWithPrice[] = new Array(sorted.length);
+
+  for (let i = 0; i < sorted.length; i++) {
+    const previous = sorted[i];
+    const current = tokensBySlug[previous.slug];
+    if (!current || (current !== previous && (current.name !== previous.name || current.symbol !== previous.symbol))) {
+      return undefined;
+    }
+
+    result[i] = current;
+  }
+
+  return result;
+}
 
 export function selectTokenInfoUserTokens(global: GlobalState) {
   const accountId = selectCurrentAccountId(global);
@@ -243,7 +271,7 @@ function buildUserTokenFromTokenInfo(
   currencyRates: ApiCurrencyRates,
 ): UserToken {
   const priceUsd = token.priceUsd ?? 0;
-  const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
+  const price = priceUsd ? calculateTokenPrice(priceUsd, baseCurrency, currencyRates) : 0;
 
   return {
     ...token,
@@ -251,46 +279,25 @@ function buildUserTokenFromTokenInfo(
     price,
     priceUsd,
     change24h: round((token.percentChange24h ?? 0) / 100, 4),
-    totalValue: toBig(amount, token.decimals).mul(price).toString(),
+    totalValue: amount > 0n && price ? toBig(amount, token.decimals).mul(price).toString() : '0',
   };
 }
 
-function compareTokenInfoUserTokens(a: UserToken, b: UserToken) {
+function compareTokenInfo(a: ApiTokenWithPrice, b: ApiTokenWithPrice) {
   return a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
     || a.symbol.trim().toLowerCase().localeCompare(b.symbol.trim().toLowerCase());
 }
 
-export function selectMultipleAccountsTokensSlow(
-  networkAccounts: Record<string, Account> | undefined,
-  byAccountId: GlobalState['byAccountId'],
+function getIsTokenInfoSliceSame(
+  balancesBySlug: ApiBalanceBySlug | undefined,
   tokenInfo: GlobalState['tokenInfo'],
-  settingsByAccountId: Record<string, AccountSettings>,
-  areTokensWithNoCostHidden: boolean | undefined,
-  baseCurrency: ApiBaseCurrency,
-  currencyRates: ApiCurrencyRates,
+  otherTokenInfo: GlobalState['tokenInfo'],
 ) {
-  const result: Record<string, UserToken[] | undefined> = {};
-  if (!networkAccounts || !tokenInfo) return result;
+  if (tokenInfo === otherTokenInfo) return true;
 
-  for (const accountId in networkAccounts) {
-    const accountState = byAccountId[accountId];
-    const balancesBySlug = accountState?.balances?.bySlug;
-    if (!balancesBySlug) {
-      result[accountId] = undefined;
-      continue;
-    }
-
-    const accountSettings = settingsByAccountId[accountId];
-    result[accountId] = selectAccountTokensMemoizedFor(accountId)(
-      balancesBySlug,
-      tokenInfo,
-      accountSettings,
-      areTokensWithNoCostHidden,
-      baseCurrency,
-      currencyRates,
-      getHasConfirmedActivities(accountState?.activities),
-    );
+  for (const slug in balancesBySlug) {
+    if (tokenInfo.bySlug[slug] !== otherTokenInfo.bySlug[slug]) return false;
   }
 
-  return result;
+  return true;
 }

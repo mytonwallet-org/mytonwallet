@@ -25,6 +25,26 @@ struct MarketSectionBuilderTests {
     }
 
     @Test
+    func `prefers mobileLimit over desktopLimit for the showcase`() throws {
+        let response = try makeResponse(
+            title: "Popular Tokens",
+            limit: nil,
+            mobileLimit: 8,
+            desktopLimit: 12,
+            hasMore: false,
+            assetCount: 12
+        )
+
+        let section = try #require(
+            MarketSectionBuilder.build(from: response, storeTokens: [:]).first
+        )
+
+        #expect(section.tokens.count == 12)
+        #expect(section.visibleTokens.count == 8)
+        #expect(section.showsSeeAll)
+    }
+
+    @Test
     func `builds normalized backend sparklines`() throws {
         let response = try makeResponse(
             title: "Today's Movers",
@@ -77,6 +97,8 @@ struct MarketSectionBuilderTests {
     private func makeResponse(
         title: String,
         limit: Int?,
+        mobileLimit: Int? = nil,
+        desktopLimit: Int? = nil,
         hasMore: Bool,
         assetCount: Int,
         sparkline: [Double]? = nil,
@@ -106,6 +128,8 @@ struct MarketSectionBuilderTests {
             "assets": assets,
         ]
         section["limit"] = limit
+        section["mobileLimit"] = mobileLimit
+        section["desktopLimit"] = desktopLimit
         let data = try JSONSerialization.data(withJSONObject: ["sections": [section]])
         return try JSONDecoder().decode(ApiMarketAssetsResponse.self, from: data)
     }

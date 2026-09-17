@@ -20,7 +20,9 @@ public final class WWindow: UIWindow, WSensitiveDataProtocol {
     
     @MainActor
     public func updateTheme() {
-        tintColor = AirTintColor
+        if tintColor != AirTintColor {
+            tintColor = AirTintColor
+        }
         NotificationCenter.default.post(name: .updateTheme, object: self)
     }
 

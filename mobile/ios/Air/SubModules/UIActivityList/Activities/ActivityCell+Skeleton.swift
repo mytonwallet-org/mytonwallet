@@ -61,7 +61,6 @@ public final class ActivitySkeletonCollectionCell: UICollectionViewCell {
     private func setupViews() {
         contentView.backgroundColor = .clear
         skeletonView.translatesAutoresizingMaskIntoConstraints = false
-        skeletonView.layer.cornerRadius = 16
         contentView.addSubview(skeletonView)
         NSLayoutConstraint.activate([
             contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight),

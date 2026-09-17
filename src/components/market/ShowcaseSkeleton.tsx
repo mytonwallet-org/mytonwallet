@@ -2,9 +2,8 @@ import React, { memo } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
 
-import useGridLimit from './hooks/useGridLimit';
-
 import Skeleton from '../ui/Skeleton';
+import { GRID_MAX_ITEMS } from './Section';
 
 import styles from './Market.module.scss';
 
@@ -12,8 +11,6 @@ const MOVER_CARDS_COUNT = 5;
 const GRID_SECTIONS_COUNT = 2;
 
 function ShowcaseSkeleton() {
-  const gridLimit = useGridLimit();
-
   return (
     <>
       <div className={styles.section}>
@@ -28,7 +25,7 @@ function ShowcaseSkeleton() {
         <div key={sectionIndex} className={styles.section}>
           {renderTitle()}
           <div className={buildClassName(styles.card, styles.grid)}>
-            {Array.from({ length: gridLimit }, (_, index) => (
+            {Array.from({ length: GRID_MAX_ITEMS }, (_, index) => (
               <div key={index} className={styles.gridItem}>
                 <Skeleton className={styles.gridIconSkeleton} />
                 <Skeleton className={styles.gridTextSkeleton} />

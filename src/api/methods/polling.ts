@@ -16,6 +16,7 @@ import { NO_EXTRA_FEATURES } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { parseAgentProtocolVersion } from '../../util/agent/agentOverride';
 import { areDeepEqual } from '../../util/areDeepEqual';
+import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { omit } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { OrGate } from '../../util/orGate';
@@ -37,7 +38,7 @@ import {
   forgetNetworkHeldTokens,
   forgetOtherNetworksHeldTokens,
   recordHeldTokens,
-} from '../common/held-tokens';
+} from '../common/heldTokens';
 import { pollingLoop } from '../common/polling/utils';
 import {
   fetchNonBackendTokenDetails,
@@ -293,6 +294,19 @@ export async function setActivePollingAccount(
 
   if (accountId) {
     const account = await fetchStoredAccount(accountId);
+    const accountChains = getOrderedAccountChains(account.byChain);
+
+    // These accounts have no NFT polling to finish the initial loading state.
+    if (!accountChains.some((chain) => getChainConfig(chain).isNftSupported)) {
+      for (const chain of accountChains) {
+        onUpdate({
+          type: 'updateNfts',
+          accountId,
+          chain,
+          nfts: [],
+        });
+      }
+    }
 
     const stopPollingFns = [
       canPollAccountConfig(account) ? setupAccountConfigPolling(accountId, account).stop : undefined,

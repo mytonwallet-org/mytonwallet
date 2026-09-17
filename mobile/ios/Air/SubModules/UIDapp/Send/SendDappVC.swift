@@ -57,10 +57,9 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         cancelNotResponding()
         self.request = request
         self.onCancel = onCancel
-        navigationItem.title = makeNavigationTitle()
+        updateNavigationHeader()
         withAnimation {
             self.hostingController?.rootView = makeView()
-            self.bottomPanel.isHidden = false
         }
         updateSendButtonState(animated: true)
     }
@@ -164,14 +163,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }()
     
     private func setupViews() {
-        navigationItem.title = makeNavigationTitle()
-        addCloseNavigationItemIfNeeded()
-        // Route the close "X" through cancellation so the dapp is notified (otherwise it waits forever).
-        if navigationItem.rightBarButtonItem != nil {
-            navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
-                self?._onCancel()
-            })
-        }
+        updateNavigationHeader()
 
         hostingController = addHostingController(makeView(), constraints: .fill)
 
@@ -182,7 +174,6 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
             bottomPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
-        bottomPanel.isHidden = request == nil
 
         updateTheme()
         updateSendButtonState()
@@ -253,20 +244,9 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         view.backgroundColor = .air.sheetBackground
     }
 
-    private func makeNavigationTitle() -> String {
-        guard let request else {
-            return lang("Confirm Action")
-        }
-
-        if request.transactions.count == 1, request.transactions.first?.isNftTransferPayload == true {
-            return lang("Send NFT")
-        }
-
-        if request.transactions.count > 1 {
-            return lang("$classic_confirm_actions")
-        }
-
-        return lang("Confirm Action")
+    private func updateNavigationHeader() {
+        navigationItem.titleView = DappNavigationHeader(accountContext: _account, dapp: request?.dapp, request: request)
+        navigationItem.backButtonDisplayMode = .minimal
     }
     
     @objc func onSend() {
@@ -304,7 +284,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     
     @objc func _onCancel() {
         // `onCancel` rejects the dapp request; it's nil for the wake placeholder (no request yet),
-        // in which case we still dismiss so the Cancel button / swipe / X always close the modal.
+        // in which case we still dismiss so Cancel and swipe always close the modal.
         onCancel?()
         onCancel = nil
         dismiss(animated: true)
@@ -317,6 +297,15 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 
 
 #if DEBUG
+
+extension SendDappVC {
+    static func presentationFixture(request: ApiUpdate.DappSendTransactions?, account: MAccount, onCancel: @escaping () -> Void = {}) -> SendDappVC {
+        let viewController = request.map { SendDappVC(request: $0, onCancel: onCancel) }
+            ?? SendDappVC(placeholderAccountId: account.id)
+        viewController._account = AccountContext(source: .constant(account))
+        return viewController
+    }
+}
 
 @available(iOS 18, *)
 private enum SendDappPreview {

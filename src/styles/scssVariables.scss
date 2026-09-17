@@ -42,6 +42,22 @@ $byChain: (
     tabColor: var(--color-chain-solana),
     tabBackground: var(--color-chain-solana-bg),
   ),
+  bitcoin: (
+    tabColor: var(--color-chain-bitcoin),
+    tabBackground: var(--color-chain-bitcoin-bg),
+  ),
+  litecoin: (
+    tabColor: var(--color-chain-litecoin),
+    tabBackground: var(--color-chain-litecoin-bg),
+  ),
+  bitcoincash: (
+    tabColor: var(--color-chain-bitcoincash),
+    tabBackground: var(--color-chain-bitcoincash-bg),
+  ),
+  dogecoin: (
+    tabColor: var(--color-chain-dogecoin),
+    tabBackground: var(--color-chain-dogecoin-bg),
+  ),
   ethereum: (
     tabColor: var(--color-chain-ethereum),
     tabBackground: var(--color-chain-ethereum-bg),
@@ -77,5 +93,9 @@ $byChain: (
   robinhood: (
     tabColor: var(--color-chain-robinhood),
     tabBackground: var(--color-chain-robinhood-bg),
+  ),
+  arc: (
+    tabColor: var(--color-chain-arc),
+    tabBackground: var(--color-chain-arc-bg),
   ),
 );

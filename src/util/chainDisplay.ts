@@ -1,12 +1,26 @@
-import type { ApiChain, ApiStakingState } from '../api/types';
-import type { ChainDisplayConfiguration, UserToken } from '../global/types';
+import type { ApiBalanceBySlug, ApiChain, ApiStakingState, ApiTokenWithPrice } from '../api/types';
+import type { ChainDisplayConfiguration } from '../global/types';
+import type { TokenVisibilityOptions } from './tokens';
 
-import { IS_GRAM_WALLET, TONCOIN } from '../config';
+import { IS_GRAM_WALLET, STAKED_TOKEN_SLUGS, TONCOIN } from '../config';
+import { Big } from '../lib/big.js';
 import { getAllSupportedVisibleChains } from './chain';
-import { unique } from './iteratees';
+import { toBig } from './decimals';
+import { buildArrayCollectionByKey, unique } from './iteratees';
 import { getFullStakingBalance } from './staking';
+import { getIsTokenDisabled } from './tokens';
 
 export const DEFAULT_CHAIN_DISPLAY_CONFIGURATION: ChainDisplayConfiguration = { displayMode: 'value' };
+const EMPTY_CHAIN_SET: ReadonlySet<ApiChain> = new Set();
+
+export interface AccountChainSummary {
+  /** The account chains sorted by their full USD balance (staking included) descending; ties keep the default order */
+  valueOrder: ApiChain[];
+  /** Chains holding a non-zero amount of any token, staked balances included */
+  chainsWithBalance: ReadonlySet<ApiChain>;
+  /** Whether every shown token belongs to the TON chain; undefined while the balances are not known yet */
+  hasOnlyTonTokens?: boolean;
+}
 
 /**
  * The chains the app shows automatically, until the user changes the list themselves.
@@ -31,27 +45,55 @@ export function getDefaultVisibleChains(accountChains: ApiChain[], chainsWithBal
   return new Set(fundedChains.length ? fundedChains : availableChains.slice(0, 1));
 }
 
-/** Chains holding a non-zero amount of any token, staked balances included */
-export function getChainsWithBalance(tokens?: UserToken[], stakingStates?: ApiStakingState[]) {
-  const result = new Set<ApiChain>();
-  if (!tokens?.length) return result;
-
-  const chainBySlug = new Map(tokens.map((token) => [token.slug, token.chain]));
-
-  for (const token of tokens) {
-    if (token.amount > 0n) {
-      result.add(token.chain);
-    }
+/**
+ * Sums up what the chain display needs straight from the raw balances, without building the account token list.
+ *
+ * The token set mirrors the token list: unknown and deleted tokens are skipped. `STAKED_TOKEN_SLUGS` still count as
+ * funding but are not valued, because the staking state of the underlying token already carries their value.
+ */
+export function buildAccountChainSummary(
+  defaultOrder: ApiChain[],
+  balancesBySlug: ApiBalanceBySlug | undefined,
+  tokensBySlug: Record<string, ApiTokenWithPrice>,
+  stakingStates: ApiStakingState[] | undefined,
+  visibility: TokenVisibilityOptions,
+): AccountChainSummary {
+  if (!balancesBySlug) {
+    return { valueOrder: defaultOrder, chainsWithBalance: EMPTY_CHAIN_SET, hasOnlyTonTokens: undefined };
   }
 
-  for (const stakingState of stakingStates ?? []) {
-    const chain = chainBySlug.get(stakingState.tokenSlug);
-    if (chain && getFullStakingBalance(stakingState) > 0n) {
-      result.add(chain);
+  const { deletedSlugs } = visibility.accountSettings;
+  const stakingStatesBySlug = buildArrayCollectionByKey(stakingStates ?? [], 'tokenSlug');
+  const valueByChain: Partial<Record<ApiChain, Big>> = {};
+  const chainsWithBalance = new Set<ApiChain>();
+  let hasOnlyTonTokens = true;
+
+  for (const slug in balancesBySlug) {
+    const token = tokensBySlug[slug];
+    if (!token || deletedSlugs?.includes(slug)) continue;
+
+    const balance = balancesBySlug[slug];
+    const { chain, decimals, priceUsd } = token;
+    let stakedBalance = 0n;
+    for (const stakingState of stakingStatesBySlug[slug] ?? []) {
+      stakedBalance += getFullStakingBalance(stakingState);
     }
+
+    if (balance > 0n || stakedBalance > 0n) {
+      chainsWithBalance.add(chain);
+    }
+    if (hasOnlyTonTokens && chain !== TONCOIN.chain && !getIsTokenDisabled(slug, balance, token, visibility)) {
+      hasOnlyTonTokens = false;
+    }
+    if (!priceUsd || STAKED_TOKEN_SLUGS.has(slug)) continue;
+
+    const value = toBig(balance + stakedBalance, decimals).mul(priceUsd);
+    valueByChain[chain] = (valueByChain[chain] ?? Big(0)).plus(value);
   }
 
-  return result;
+  const valueOrder = defaultOrder.slice().sort((a, b) => (valueByChain[b] ?? Big(0)).cmp(valueByChain[a] ?? Big(0)));
+
+  return { valueOrder, chainsWithBalance, hasOnlyTonTokens };
 }
 
 /**
@@ -71,13 +113,6 @@ export function getAddressLineChains(
   }
 
   return [TONCOIN.chain];
-}
-
-/** Whether every shown token belongs to the TON chain; undefined while the token list is not known yet */
-export function getHasOnlyTonTokens(tokens?: UserToken[]) {
-  if (!tokens) return undefined;
-
-  return !tokens.some(({ isDisabled, chain }) => !isDisabled && chain !== TONCOIN.chain);
 }
 
 export function getIsChainVisible(

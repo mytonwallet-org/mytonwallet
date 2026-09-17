@@ -15,181 +15,41 @@ private let log = Log("DebugView")
 }
 
 
+/// Keep settings in three contiguous groups, in this order:
+/// - `publicSections`: settings available in every build, including the App Store.
+/// - `testFlightSections`: settings available in TestFlight and debug builds.
+/// - `debugOnlySections`: developer tools compiled only under `#if DEBUG`.
+/// Add new settings to the matching builder below, rather than directly to `body`.
+/// Gate debug-menu access with `IS_DEBUG_OR_TESTFLIGHT_DEFAULT` so "View as production"
+/// can always be turned off. Use `IS_DEBUG_OR_TESTFLIGHT` for feature availability elsewhere.
 struct DebugView: View {
 
-    @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
 #if DEBUG
+    @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
     @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
     @AppStorage(DebugPromotionPreset.cardMintingUserDefaultsKey) private var showCardMintingPromotionPreset = false
 #endif
 
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showsClearCachesConfirmation = false
+    @State private var isClearingCaches = false
+    @State private var showsClearCachesError = false
     
     var body: some View {
         NavigationStack {
             List {
+                publicSections
 
                 if IS_DEBUG_OR_TESTFLIGHT_DEFAULT {
-                    testFlightOnlySections
+                    testFlightSections
                 }
-                
-                Section {
-                    Button("Share logs") {
-                        log.info("Share logs requested")
-                        Task { await onLogExport() }
-                    }
-                } header: {
-                    Text("Logs")
-                }
-                
-                Section {
-                    Button("Add Testnet account") {
-                        dismiss()
-                        AppActions.showAddWallet(network: .testnet)
-                    }
-                } header: {
-                    Text("Testnet")
-                }
-
-                Section {
-                    Button("Clear activities cache") {
-                        log.info("Clear activities cache")
-                        Task {
-                            await ActivityStore.debugOnly_clean()
-                            do {
-                                if let accountId = AccountStore.accountId {
-                                    _ = try await AccountStore.activateAccount(accountId: accountId)
-                                }
-                            } catch {
-                                log.error("\(error, .public)")
-                            }
-                            dismiss()
-                        }
-                    }
-                }
-
-                Section {
-                    NavigationLink {
-                        AirDebugPermissionsView()
-                    } label: {
-                        Text(lang("Permissions"))
-                    }
-                } footer: {
-                    Text(lang("Token approvals and wallet permissions"))
-                }
-                
-                Section {
-                    Button("Download database") {
-                        do {
-                            log.info("Download database requested")
-                            let exportUrl = URL.temporaryDirectory.appending(component: "db-export-\(Int(Date().timeIntervalSince1970)).sqlite")
-                            try db.orThrow("database not ready").backup(to: DatabaseQueue(path: exportUrl.path(percentEncoded: false)))
-                            DispatchQueue.main.async {
-                                let vc = UIActivityViewController(activityItems: [exportUrl], applicationActivities: nil)
-                                topViewController()?.presentActivityViewController(vc)
-                            }
-                        } catch {
-                            log.info("export failed: \(error, .public)")
-                        }
-                    }
-                } footer: {
-                    Text("Database file contains account addresses, settings, transaction history and other cached data but does not contain secrets such as the secret phrase or password.")
-                }
-                
-                // MARK: - Debug only
 
 #if DEBUG
-                Text("Debug Only")
-                    .header(.red)
-
-                Section {
-                    Toggle("Display log overlay", isOn: $displayLogOverlayEnabled)
-                }
-                .onChange(of: displayLogOverlayEnabled) { isEnabled in
-                    setDisplayLogOverlayEnabled(isEnabled)
-                }
-
-                Section {
-                    Toggle("Bypass lockscreen", isOn: $bypassLockscreen)
-                } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Debug builds only. Persists via `\(DebugBypassLockscreen.userDefaultsKey)`.")
-                        Text("You can also enable it at launch with `\(DebugBypassLockscreen.environmentVariable)=1`.")
-                        if DebugBypassLockscreen.isEnabledFromEnvironment {
-                            Text("The current launch environment is already bypassing the lockscreen.")
-                        }
-                    }
-                }
-
-                Section {
-                    Toggle("Show Air promotion preset", isOn: $showAirPromotionPreset)
-                } footer: {
-                    Text("Overrides the current account promotion config with the built-in 2026 Air campaign sample.")
-                }
-                .onChange(of: showAirPromotionPreset) { _ in
-                    if showAirPromotionPreset {
-                        showCardMintingPromotionPreset = false
-                    }
-                    Task { @MainActor in
-                        AccountConfigStore.liveValue.refreshDebugOverrides()
-                    }
-                }
-
-                Section {
-                    Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
-                } footer: {
-                    Text("Overrides the current account promotion and card inventory with a mint-card sample.")
-                }
-                .onChange(of: showCardMintingPromotionPreset) { _ in
-                    if showCardMintingPromotionPreset {
-                        showAirPromotionPreset = false
-                    }
-                    Task { @MainActor in
-                        AccountConfigStore.liveValue.refreshDebugOverrides()
-                    }
-                }
-
-                Section {
-                    Button("Reactivate current account") {
-                        Task {
-                            log.info("Reactivate current account")
-                            try! await AccountStore.reactivateCurrentAccount()
-                        }
-                    }
-                }
-
-                #if targetEnvironment(simulator)
-                WalletsExportSection()
-                #endif
-
-                Section {
-                    NavigationLink("Accounts in DB & Keychain") {
-                        DebugAccountsView()
-                    }
-                } footer: {
-                    Text("Shows sanitized account records from the native database and SDK keychain storage.")
-                }
-
-                Section {
-                    Button("Delete credentials & exit", role: .destructive) {
-                        WalletContext.KeychainWrapper.wipeKeychain()
-                        exit(0)
-                    }
-                    
-                    Button("Delete globalStorage & exit", role: .destructive) {
-                        Task {
-                            do {
-                                try await GlobalStorage().deleteAll()
-                                exit(0)
-                            } catch {
-                                log.error("\(error, .public)")
-                            }
-                        }
-                    }
-                }
-#endif                
+                debugOnlySections
+#endif
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 Color.clear.frame(height: 16)
@@ -198,18 +58,106 @@ struct DebugView: View {
             .navigationTitle(Text("Debug menu"))
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(trailing: Button("", systemImage: "xmark", action: { dismiss() }))
+            .disabled(isClearingCaches)
+        }
+        .interactiveDismissDisabled(isClearingCaches)
+    }
+
+    // MARK: - Public
+
+    @ViewBuilder
+    private var publicSections: some View {
+        Section {
+            Button("Share logs") {
+                log.info("Share logs requested")
+                Task { await onLogExport() }
+            }
+        } header: {
+            Text("Logs")
+        }
+
+        Section {
+            Button("Add Testnet account") {
+                dismiss()
+                AppActions.showAddWallet(network: .testnet)
+            }
+        } header: {
+            Text("Testnet")
+        }
+
+        Section {
+            Button {
+                showsClearCachesConfirmation = true
+            } label: {
+                HStack {
+                    Text(isClearingCaches ? "Clearing caches…" : "Clear caches")
+                    Spacer()
+                    if isClearingCaches {
+                        ProgressView()
+                    }
+                }
+            }
+        }
+        .confirmationDialog("Clear caches?", isPresented: $showsClearCachesConfirmation, titleVisibility: .visible) {
+            Button("Clear caches", role: .destructive) {
+                clearCaches()
+            }
+            Button(lang("Cancel"), role: .cancel) {}
+        } message: {
+            Text("Cached images, activities, token data and NFTs will be removed. The current wallet will reload its data.")
+        }
+        .alert("Unable to clear caches", isPresented: $showsClearCachesError) {
+            Button(lang("OK"), role: .cancel) {}
+        } message: {
+            Text("Some cached data could not be cleared. Please try again.")
+        }
+
+        Section {
+            NavigationLink {
+                AirDebugPermissionsView()
+            } label: {
+                Text(lang("Permissions"))
+            }
+        } footer: {
+            Text(lang("Token approvals and wallet permissions"))
+        }
+
+        Section {
+            Button("Download database") {
+                do {
+                    log.info("Download database requested")
+                    let exportUrl = URL.temporaryDirectory.appending(component: "db-export-\(Int(Date().timeIntervalSince1970)).sqlite")
+                    try db.orThrow("database not ready").backup(to: DatabaseQueue(path: exportUrl.path(percentEncoded: false)))
+                    DispatchQueue.main.async {
+                        let vc = UIActivityViewController(activityItems: [exportUrl], applicationActivities: nil)
+                        topViewController()?.presentActivityViewController(vc)
+                    }
+                } catch {
+                    log.info("export failed: \(error, .public)")
+                }
+            }
+        } footer: {
+            Text("Database file contains account addresses, settings, transaction history and other cached data but does not contain secrets such as the secret phrase or password.")
         }
     }
 
+    // MARK: - TestFlight
+
     @ViewBuilder
-    private var testFlightOnlySections: some View {
-        Text("TestFlight Only")
+    private var testFlightSections: some View {
+        Text("TestFlight")
             .header(.purple)
 
         Section {
             Toggle("View as production", isOn: $forceProductionMode)
         } footer: {
             Text("Makes `IS_DEBUG_OR_TESTFLIGHT` return false. Restart the app to apply it to startup-only behavior.")
+        }
+        .onChange(of: forceProductionMode) { _ in
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
+                WalletCoreData.notify(event: .configChanged)
+            }
         }
 
         Section {
@@ -238,6 +186,118 @@ struct DebugView: View {
         TestFlightConfigDebugSection()
     }
     
+    // MARK: - Debug only
+
+#if DEBUG
+    @ViewBuilder
+    private var debugOnlySections: some View {
+        Text("Debug Only")
+            .header(.red)
+
+        Section {
+            Toggle("Display log overlay", isOn: $displayLogOverlayEnabled)
+        }
+        .onChange(of: displayLogOverlayEnabled) { isEnabled in
+            setDisplayLogOverlayEnabled(isEnabled)
+        }
+
+        Section {
+            Toggle("Bypass lockscreen", isOn: $bypassLockscreen)
+        } footer: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Debug builds only. Persists via `\(DebugBypassLockscreen.userDefaultsKey)`.")
+                Text("You can also enable it at launch with `\(DebugBypassLockscreen.environmentVariable)=1`.")
+                if DebugBypassLockscreen.isEnabledFromEnvironment {
+                    Text("The current launch environment is already bypassing the lockscreen.")
+                }
+            }
+        }
+
+        Section {
+            Toggle("Show Air promotion preset", isOn: $showAirPromotionPreset)
+        } footer: {
+            Text("Overrides the current account promotion config with the built-in 2026 Air campaign sample.")
+        }
+        .onChange(of: showAirPromotionPreset) { _ in
+            if showAirPromotionPreset {
+                showCardMintingPromotionPreset = false
+            }
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
+            }
+        }
+
+        Section {
+            Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
+        } footer: {
+            Text("Overrides the current account promotion and card inventory with a mint-card sample.")
+        }
+        .onChange(of: showCardMintingPromotionPreset) { _ in
+            if showCardMintingPromotionPreset {
+                showAirPromotionPreset = false
+            }
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
+            }
+        }
+
+        Section {
+            Button("Reactivate current account") {
+                Task {
+                    log.info("Reactivate current account")
+                    try! await AccountStore.reactivateCurrentAccount()
+                }
+            }
+        }
+
+        #if targetEnvironment(simulator)
+        WalletsExportSection()
+        #endif
+
+        Section {
+            NavigationLink("Accounts in DB & Keychain") {
+                DebugAccountsView()
+            }
+        } footer: {
+            Text("Shows sanitized account records from the native database and SDK keychain storage.")
+        }
+
+        Section {
+            Button("Delete credentials & exit", role: .destructive) {
+                WalletContext.KeychainWrapper.wipeKeychain()
+                exit(0)
+            }
+
+            Button("Delete globalStorage & exit", role: .destructive) {
+                Task {
+                    do {
+                        try await GlobalStorage().deleteAll()
+                        exit(0)
+                    } catch {
+                        log.error("\(error, .public)")
+                    }
+                }
+            }
+        }
+    }
+#endif
+
+    private func clearCaches() {
+        guard !isClearingCaches else { return }
+        isClearingCaches = true
+        log.info("Clear caches requested")
+        Task { @MainActor in
+            defer { isClearingCaches = false }
+            do {
+                try await AirDebugActions.clearCaches()
+                dismiss()
+            } catch {
+                log.error("Clear caches failed: \(error, .public)")
+                showsClearCachesError = true
+            }
+        }
+    }
+
     func onLogExport() async {
         do {
             let logs = try await SupportDiagnostics.prepareLogsExportFile()

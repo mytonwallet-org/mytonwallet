@@ -411,7 +411,7 @@ private func copyAddress(row: AddressesMenuContentRow) {
     } else {
         L10n.chainAddressCopied(chain: row.chain.title)
     }
-    copyValue(row.accountChain.preferredCopyString, toastMessage: message)
+    copyValue(row.accountChain.preferredCopyString(for: row.chain), toastMessage: message)
 }
 
 @MainActor

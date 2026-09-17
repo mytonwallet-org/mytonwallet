@@ -32,8 +32,23 @@
 }
 
 .copyButtonWrapper,
-.feeField {
+.feeField,
+.estimatedTime {
   margin-bottom: 1.25rem;
+}
+
+.estimatedTime {
+  min-height: 3rem;
+  padding: calc(1rem - 1px) calc(0.75rem - 1px);
+  border-radius: var(--border-radius-default);
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+  color: var(--color-black);
+  text-align: start;
+
+  background: var(--color-background-first);
 }
 
 .comment {

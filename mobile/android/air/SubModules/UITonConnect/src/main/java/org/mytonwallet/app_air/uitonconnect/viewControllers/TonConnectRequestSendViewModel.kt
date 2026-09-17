@@ -93,11 +93,7 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
                         ),
                         topRounding = HeaderCell.TopRounding.NORMAL
                     ),
-                    Item.CopyableText(
-                        payload.bytes,
-                        "Binary Data",
-                        LocaleController.getString("Data Copied")
-                    )
+                    Item.ExpandableText(payload.bytes)
                 )
             )
         }
@@ -912,7 +908,7 @@ class TonConnectRequestSendViewModel private constructor(
             val uiItems = mutableListOf<BaseListItem>()
             uiItems.add(
                 Item.ListTitle(
-                    LocaleController.getPlural(update.transactions.size, "transfer"),
+                    LocaleController.getPlural(update.transactions.size, "\$many_transactions"),
                     topRounding = HeaderCell.TopRounding.NORMAL
                 )
             )

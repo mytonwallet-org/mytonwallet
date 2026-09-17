@@ -77,27 +77,53 @@ public struct UniversalSearchResultsPresenter {
     ) -> UniversalSearchPresentation {
         guard !snapshot.query.isEmpty else { return .empty }
 
-        let resolvedHits: [ResolvedHit] = snapshot.hits.compactMap { hit -> ResolvedHit? in
-            guard hit.document.kind != .agentAction else { return nil }
+        let resolvingHit = snapshot.hits.first {
+            $0.document.kind == .wallet
+                && $0.document.attributeValue(for: WalletCoreSearchAttributeKey.isResolvingDomain) == "true"
+        }
+        var resolvedHits: [ResolvedHit] = snapshot.hits.compactMap { hit -> ResolvedHit? in
+            guard hit.document.kind != .agentAction,
+                  hit.document.attributeValue(for: WalletCoreSearchAttributeKey.isResolvingDomain) != "true" else { return nil }
             return resolver(hit.document, context).map { ResolvedHit(hit: hit, result: $0) }
         }
-        if case .some(.openWebsite) = UniversalSearchWebIntent(snapshot.query.text),
-           let topKind = resolvedHits.first?.hit.document.kind,
-           topKind != .site,
-           topKind != .application {
-            return fallbackPresentation(for: snapshot.query)
+        if resolvingHit == nil,
+           case .some(.openWebsite(let requestedURL, _)) = UniversalSearchWebIntent(snapshot.query.text) {
+            resolvedHits = resolvedHits.filter { hit in
+                let destination: URL
+                switch hit.result.route {
+                case .application(let url, _, _), .website(let url, _):
+                    destination = url
+                default:
+                    return false
+                }
+                return UniversalSearchWebIntent.isSameDestination(requestedURL, destination)
+            }
         }
-        guard let topHit = resolvedHits.first else {
+        let topHit = resolvingHit == nil ? resolvedHits.first : nil
+        guard resolvingHit != nil || topHit != nil else {
             return fallbackPresentation(for: snapshot.query)
         }
 
-        let remainingHits = resolvedHits.dropFirst()
-        var sections = [UniversalSearchSection(
-            id: "top-hit",
-            title: topHitTitle(for: topHit.hit.document),
-            showsLeadingSeparator: false,
-            items: [topHit.result.item]
-        )]
+        let remainingHits = resolvedHits.dropFirst(topHit == nil ? 0 : 1)
+        var sections: [UniversalSearchSection] = []
+        if let resolvingHit {
+            sections.append(UniversalSearchSection(
+                id: "top-hit",
+                title: lang("View Wallet"),
+                showsLeadingSeparator: false,
+                items: [UniversalSearchItem(
+                    id: "\(resolvingHit.id.rawValue):resolving",
+                    content: .resolvingDomain(snapshot.query.text)
+                )]
+            ))
+        } else if let topHit {
+            sections.append(UniversalSearchSection(
+                id: "top-hit",
+                title: topHitTitle(for: topHit.hit.document),
+                showsLeadingSeparator: false,
+                items: [topHit.result.item]
+            ))
+        }
 
         let groups: [(id: String, title: String, kinds: Set<SearchEntityKind>)] = [
             ("tokens", lang("Tokens and Stocks"), [.token, .stock]),
@@ -144,7 +170,7 @@ public struct UniversalSearchResultsPresenter {
 
         return UniversalSearchPresentation(
             sections: sections,
-            preselectedItemID: topHit.result.item.id,
+            preselectedItemID: topHit?.result.item.id,
             routesByItemID: routesByItemID
         )
     }
@@ -361,7 +387,8 @@ public struct UniversalSearchResultsPresenter {
         sections.append(UniversalSearchSection(
             id: "ask-agent",
             title: lang("Ask Agent"),
-            showsLeadingSeparator: sections.isEmpty,
+            // A lone top hit (or Open Website) stays joined to the remaining results.
+            showsLeadingSeparator: sections.count > 1,
             items: [UniversalSearchItem(id: agentID, content: .askAgent(query: query))]
         ))
         routesByItemID[agentID] = .agent(query: query)
@@ -731,7 +758,7 @@ public struct UniversalSearchResultsPresenter {
                 network: account.network,
                 addressOrDomainByChain: Dictionary(
                     uniqueKeysWithValues: account.orderedChains.map { chain, info in
-                        (chain.rawValue, info.preferredCopyString)
+                        (chain.rawValue, info.preferredCopyString(for: chain))
                     }
                 )
             )

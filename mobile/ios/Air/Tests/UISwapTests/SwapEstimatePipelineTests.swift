@@ -471,10 +471,26 @@ struct SwapEstimatePipelineTests {
         let draftAmount = crosschainNetworkFeeDraftAmount(
             sellingToken: eth,
             isMaxAmount: true,
-            account: account
+            account: account,
+            amount: 1
         )
 
         #expect(draftAmount == balance)
+    }
+
+    @Test(arguments: [ApiChain.dogecoin, .bitcoin, .litecoin, .bitcoincash, .ethereum, .ton, .solana, .tron])
+    func `native fee draft uses full balance for max and requested amount otherwise`(chain: ApiChain) {
+        let native = chain.nativeToken
+        let account = SwapAccountSnapshot(
+            account: MAccount(id: "test-mainnet", title: nil, type: .mnemonic, byChain: [:]),
+            balances: [native.slug: 300_000_000]
+        )
+        #expect(crosschainNetworkFeeDraftAmount(
+            sellingToken: native, isMaxAmount: true, account: account, amount: 299_774_000
+        ) == 300_000_000)
+        #expect(crosschainNetworkFeeDraftAmount(
+            sellingToken: native, isMaxAmount: false, account: account, amount: 100_000_000
+        ) == 100_000_000)
     }
 
     @Test

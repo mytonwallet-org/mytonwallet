@@ -10,7 +10,11 @@ import type {
 import { DEBUG } from '../../config';
 import { throwIfAborted } from '../../util/abortSignal';
 import { getActivityChains, getIsActivityPendingForUser, parseTxId } from '../../util/activities';
-import { areActivitiesSortedAndUnique, mergeSortedActivitiesToMaxTime } from '../../util/activities/order';
+import {
+  areActivitiesSortedAndUnique,
+  mergeSortedActivities,
+  mergeSortedActivitiesToMaxTime,
+} from '../../util/activities/order';
 import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { unique } from '../../util/iteratees';
 import { logDebug, logDebugError } from '../../util/logs';
@@ -291,7 +295,12 @@ async function fetchAllActivitySlice(
     throw firstRejection;
   }
 
-  const rawActivities = mergeSortedActivitiesToMaxTime(...results.map((r) => r.activities));
+  const activityLists = results.map((r) => r.activities);
+  // Initial fetch aligns chains to the newest shared floor.
+  // Past pagination keeps every chain's older slice.
+  const rawActivities = toTimestamp !== undefined
+    ? mergeSortedActivities(...activityLists)
+    : mergeSortedActivitiesToMaxTime(...activityLists);
   const activities = await swapReplaceActivities(accountId, rawActivities, undefined, undefined, signal);
   const hasMore = results.some((r) => r.hasMore);
 

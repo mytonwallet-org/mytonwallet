@@ -19,11 +19,21 @@ public class ThinGlassView: UIView {
         didSet { if oldValue != edgeColor { setNeedsDisplay() } }
     }
 
-    private static let gradientStops: [(CGFloat, CGFloat)] = [
-        (0.0, 0.4), (0.125, 0.15), (0.25, 0.5),
-        (0.375, 0.95), (0.5, 0.5), (0.625, 0.15),
-        (0.75, 0.5), (0.875, 0.95), (1.0, 0.4),
-    ]
+    private static let gradientStops: [(CGFloat, CGFloat)] = {
+        if #available(iOS 27.0, *) {
+            // The perimeter starts at the top center; keep the highlight symmetric around it.
+            return [
+                (0.0, 0.95), (0.125, 0.5), (0.25, 0.15),
+                (0.375, 0.5), (0.5, 0.95), (0.625, 0.5),
+                (0.75, 0.15), (0.875, 0.5), (1.0, 0.95),
+            ]
+        }
+        return [
+            (0.0, 0.4), (0.125, 0.15), (0.25, 0.5),
+            (0.375, 0.95), (0.5, 0.5), (0.625, 0.15),
+            (0.75, 0.5), (0.875, 0.95), (1.0, 0.4),
+        ]
+    }()
 
     private struct GeometryCache {
         let bounds: CGRect

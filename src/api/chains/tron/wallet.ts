@@ -75,7 +75,7 @@ export async function callContract(
     return result && result.result ? result.constant_result : [];
   } catch (err: any) {
     logDebugError('callContract', err);
-    return [];
+    throw err;
   }
 }
 

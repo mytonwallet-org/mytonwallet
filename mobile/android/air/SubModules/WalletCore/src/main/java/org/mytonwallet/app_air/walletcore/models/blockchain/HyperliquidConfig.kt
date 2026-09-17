@@ -1,6 +1,5 @@
 package org.mytonwallet.app_air.walletcore.models.blockchain
 
-import androidx.core.graphics.toColorInt
 import java.math.BigDecimal
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 
@@ -18,10 +17,10 @@ object HyperliquidConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_hyperliquid_light
 
     override val qrIcon = null
-    override val displayColor = "#00AF98".toColorInt()
+    override val displayColor = "#00AF98".hexToColorInt()
     override val qrGradientColors = intArrayOf(
-        "#4B6563".toColorInt(),
-        "#24534B".toColorInt()
+        "#4B6563".hexToColorInt(),
+        "#24534B".hexToColorInt()
     )
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS

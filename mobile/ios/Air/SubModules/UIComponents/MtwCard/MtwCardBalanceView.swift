@@ -1,4 +1,5 @@
 import UIKit
+import CoreText
 import SwiftUI
 import WalletContext
 import WalletCore
@@ -148,12 +149,17 @@ public struct MtwCardBalanceView: View, Equatable {
             if let balance {
                 mainView(balance)
                     .animation(.default, value: balance)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
             } else {
                 placeholderView()
-                    .animation(.smooth(duration: 0.21), value: isPlaceholder)
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity)
             }
         }
+        .frame(height: style.integerFont.lineHeight)
         .backportGeometryGroup()
+        .animation(.easeOut(duration: 0.25), value: isPlaceholder)
     }
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -181,6 +187,7 @@ public struct MtwCardBalanceView: View, Equatable {
     private func mainView(_ balance: BaseCurrencyAmount) -> some View {
         balanceContent(balance)
             .contentTransition(isNumericTranstionEnabled ? .numericText() : .identity)
+            .environment(\.contentTransitionAddsDrawingGroup, true)
             .lineLimit(1)
             .environment(\.layoutDirection, .leftToRight)
             .backportGeometryGroup()
@@ -219,9 +226,23 @@ public struct MtwCardBalanceView: View, Equatable {
     }
 
     private func placeholderView() -> some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(.white.opacity(0.12))
-            .frame(idealWidth: 120, maxWidth: 120, minHeight: 60, maxHeight: 60)
+        let font = style.integerFont as CTFont
+        var character: UniChar = 0x30 // "0"
+        var glyph = CGGlyph()
+        CTFontGetGlyphsForCharacters(font, &character, &glyph, 1)
+        let bounds = CTFontGetBoundingRectsForGlyphs(font, .horizontal, &glyph, nil, 1)
+
+        // Match the zero's ink bounds while preserving the balance's baseline and line height.
+        return Text("0")
+            .font(Font(style.integerFont))
+            .hidden()
+            .overlay(alignment: Alignment(horizontal: .center, vertical: .firstTextBaseline)) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(uiColor: style.integerColor ?? .white).opacity(0.06))
+                    .frame(width: 120, height: bounds.height)
+                    .alignmentGuide(.firstTextBaseline) { _ in bounds.maxY }
+            }
+            .accessibilityHidden(true)
     }
 }
 

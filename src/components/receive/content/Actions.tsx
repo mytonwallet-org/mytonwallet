@@ -48,11 +48,11 @@ function Actions({
 
   const lang = useLang();
 
-  const { canBuyWithCardInRussia, formatTransferUrl, buySwap } = getChainConfig(chain);
+  const { canBuyWithCardInRussia, formatTransferUrl } = getChainConfig(chain);
   // Whether the chain supports the ramp at all is answered by `isOnRampDisabled`, which reads the same
   // chain config; asking it a second time here is how the two answers used to drift apart
   const canBuyWithCard = canBuyWithCardInRussia || countryCode !== 'RU';
-  const isSwapAllowed = !isViewMode && !isTestnet && !isLedger && !isSwapDisabled && !!buySwap;
+  const isSwapAllowed = !isViewMode && !isTestnet && !isLedger && !isSwapDisabled;
   const isOnRampAllowed = !isViewMode && !isTestnet && !isOnRampDisabled && canBuyWithCard;
   const isDepositLinkSupported = !!formatTransferUrl;
   const shouldRender = Boolean(isSwapAllowed || isOnRampAllowed || isDepositLinkSupported);
@@ -63,11 +63,7 @@ function Actions({
   });
 
   const handleSwapClick = useLastCallback(() => {
-    startSwap({
-      tokenInSlug: buySwap!.tokenInSlug,
-      tokenOutSlug: getNativeToken(chain).slug,
-      amountIn: buySwap!.amountIn,
-    });
+    startSwap({ tokenOutSlug: getNativeToken(chain).slug });
     onClose?.();
   });
 

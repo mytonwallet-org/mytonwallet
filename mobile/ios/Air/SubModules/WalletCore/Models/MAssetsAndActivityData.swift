@@ -151,6 +151,25 @@ public struct MChainDisplayConfiguration: Equatable, Hashable, Codable, Sendable
         return fallbackChain.map { [$0] } ?? []
     }
 
+    static func automaticallyVisibleChains(
+        defaultOrder: [ApiChain],
+        visibleTokenBalances: [MTokenBalance],
+        isGramWallet: Bool
+    ) -> Set<ApiChain> {
+        let tokensBySlug = TokenStore.tokens
+        let chainsWithBalance = visibleTokenBalances.reduce(into: Set<ApiChain>()) { chains, token in
+            guard token.balance > 0, let chain = tokensBySlug[token.tokenSlug]?.chain else { return }
+            chains.insert(chain)
+        }.intersection(defaultOrder)
+
+        return automaticallyVisibleChains(
+            defaultOrder: defaultOrder,
+            chainsWithBalance: chainsWithBalance,
+            hasTokenBalance: !chainsWithBalance.isEmpty,
+            isGramWallet: isGramWallet
+        )
+    }
+
     public static func automaticallyVisibleChains(
         defaultOrder: [ApiChain],
         chainsWithBalance: Set<ApiChain>,

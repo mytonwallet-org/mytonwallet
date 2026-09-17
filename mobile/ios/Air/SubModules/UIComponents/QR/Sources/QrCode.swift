@@ -3,6 +3,8 @@ import UIKit
 import CoreImage
 import CoreGraphics
 
+@MainActor private let qrCodeContext = CIContext(options: [.useSoftwareRenderer: true])
+
 public enum QrCodeIcon {
     case none
     case cutout
@@ -52,19 +54,20 @@ public enum QrCodeIcon {
     let size = Int(output.extent.width)
     let bytesPerRow = (4 * Int(size) + 15) & (~15)
     let length = bytesPerRow * size
-    let bitmapInfo = CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.noneSkipFirst.rawValue)
     
     guard let bytes = malloc(length)?.assumingMemoryBound(to: UInt8.self) else {
         return nil
     }
     let dataBuffer = Data(bytesNoCopy: bytes, count: length, deallocator: .free)
     
-    guard let context = CGContext(data: bytes, width: size, height: size, bitsPerComponent: 8, bytesPerRow: bytesPerRow, space: deviceColorSpace, bitmapInfo: bitmapInfo.rawValue) else {
-        return nil
-    }
-    
-    let ciContext = CIContext(cgContext: context, options: nil)
-    ciContext.draw(output, in: CGRect(x: 0, y: 0, width: size, height: size), from: output.extent)
+    qrCodeContext.render(
+        output,
+        toBitmap: bytes,
+        rowBytes: bytesPerRow,
+        bounds: output.extent,
+        format: .BGRA8,
+        colorSpace: deviceColorSpace
+    )
     
     let drawingGenerator: (TransformImageArguments) -> DrawingContext? = { arguments in
         let context = DrawingContext(size: arguments.drawingSize, scale: arguments.scale ?? 0.0, clear: true)

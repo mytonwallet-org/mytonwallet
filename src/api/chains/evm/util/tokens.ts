@@ -22,6 +22,7 @@ export function isZerionNativeFungible(
 
   return (!!implementation && !implementation.address)
     || (chain === 'polygon' && implementation?.address === '0x0000000000000000000000000000000000001010') // polygon native token
+    || (chain === 'arc' && implementation?.address === '0x3600000000000000000000000000000000000000') // arc native token
     || fungibleId === nativeToken.slug
     || (nativeToken.symbol === 'ETH' && fungibleId === 'eth');
 }

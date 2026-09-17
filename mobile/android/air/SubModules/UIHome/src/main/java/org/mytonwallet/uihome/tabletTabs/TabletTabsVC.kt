@@ -52,7 +52,6 @@ import org.mytonwallet.uihome.tabletTabs.views.TabletSidePanelView
 import org.mytonwallet.uihome.tabs.AppTabsManager
 import org.mytonwallet.uihome.tabs.BaseTabsVC
 import org.mytonwallet.uihome.tabs.views.ExploreSearchBar
-import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 import org.mytonwallet.uihome.walletsTabs.WalletsTabsVC
 
 @SuppressLint("ViewConstructor")
@@ -80,7 +79,7 @@ class TabletTabsVC(context: Context) :
         }
     }
 
-    override var currentTabId: Int = IBottomNavigationView.ID_HOME
+    override var currentTabId: Int = AppTabsManager.ID_HOME
 
     // The content panel hosts a single navigation controller (the tablet main nav). Its root is a
     // host VC that shows the active per-tab stack; full-screen pushes stack above it.
@@ -318,7 +317,7 @@ class TabletTabsVC(context: Context) :
     }
 
     private fun homeVCInRightPanel(): HomeVC? = (
-        navForOrNull(IBottomNavigationView.ID_HOME)
+        navForOrNull(AppTabsManager.ID_HOME)
             ?.viewControllers?.firstOrNull() as? HomeVC
         )
         ?.also { it.panelHeaderView = sidePanel.headerView }
@@ -390,7 +389,7 @@ class TabletTabsVC(context: Context) :
     }
 
     private val isExploreTab: Boolean
-        get() = currentTabId == IBottomNavigationView.ID_EXPLORE
+        get() = currentTabId == AppTabsManager.ID_EXPLORE
 
     private fun updateSearchVisibility() {
         val visible = isExploreTab
@@ -562,8 +561,8 @@ class TabletTabsVC(context: Context) :
         when (walletEvent) {
             is WalletEvent.AccountChanged -> {
                 if (!AccountStore.isPushedTemporary && !walletEvent.isSavingTemporaryAccount) {
-                    activeNavigationController?.popToRoot(false)
-                    mainNavigationController?.popToRoot(false)
+                    activeNavigationController?.popToRootUnlessDisplaying(walletEvent.accountId)
+                    mainNavigationController?.popToRootUnlessDisplaying(walletEvent.accountId)
                 }
                 refreshHeader(animated = false)
                 sidePanel.refreshAccountSelection()
@@ -575,16 +574,19 @@ class TabletTabsVC(context: Context) :
             }
 
             is WalletEvent.AccountChangedInApp -> {
-                activeNavigationController?.popToRoot(false)
-                if (!AccountStore.isPushedTemporary) mainNavigationController?.popToRoot(false)
+                val activeAccountId = AccountStore.activeAccountId
+                activeNavigationController?.popToRootUnlessDisplaying(activeAccountId)
+                if (!AccountStore.isPushedTemporary) {
+                    mainNavigationController?.popToRootUnlessDisplaying(activeAccountId)
+                }
                 sidePanel.setAccounts(WalletCore.getAllAccounts())
                 sidePanel.refreshAccountSelection()
                 refreshHeader(animated = false)
             }
 
             WalletEvent.AddNewWalletCompletion -> {
-                if (currentTabId != IBottomNavigationView.ID_HOME) {
-                    selectTab(IBottomNavigationView.ID_HOME)
+                if (currentTabId != AppTabsManager.ID_HOME) {
+                    selectTab(AppTabsManager.ID_HOME)
                 }
                 sidePanel.setAccounts(WalletCore.getAllAccounts())
                 refreshHeader(animated = false)
@@ -619,7 +621,7 @@ class TabletTabsVC(context: Context) :
             }
 
             WalletEvent.AppTabsChanged -> {
-                if (!AppTabsManager.contains(currentTabId)) selectTab(IBottomNavigationView.ID_HOME)
+                if (!AppTabsManager.contains(currentTabId)) selectTab(AppTabsManager.ID_HOME)
                 sidePanel.updateTabs(buildTabDefs())
             }
 
@@ -652,8 +654,6 @@ class TabletTabsVC(context: Context) :
     override val activeNavigationController: WNavigationController?
         get() = navForOrNull(currentTabId)
 
-    override val bottomNavigationView: FrameLayout? = null
-
     override fun getBottomNavigationHeight(): Int {
         val systemBottom = window?.systemBars?.bottom ?: 0
         val keyboard = window?.imeInsets?.bottom ?: 0
@@ -676,10 +676,8 @@ class TabletTabsVC(context: Context) :
 
     override fun maximize() {}
     override fun dismissMinimized(animated: Boolean) {}
-    override fun scrollingUp() {}
-    override fun scrollingDown() {}
     override fun setSearchText(text: String) {
-        selectTab(IBottomNavigationView.ID_EXPLORE)
+        selectTab(AppTabsManager.ID_EXPLORE)
         searchBar.setSearchText(text)
     }
 
@@ -688,8 +686,8 @@ class TabletTabsVC(context: Context) :
     }
 
     override fun switchToFirstTab(): Boolean {
-        if (currentTabId != IBottomNavigationView.ID_HOME) {
-            selectTab(IBottomNavigationView.ID_HOME)
+        if (currentTabId != AppTabsManager.ID_HOME) {
+            selectTab(AppTabsManager.ID_HOME)
             return true
         }
         return false
@@ -697,32 +695,32 @@ class TabletTabsVC(context: Context) :
 
     // Tab-container navigation surface ////////////////////////////////////////////////////////////
     override val isOnHomeScreen: Boolean
-        get() = currentTabId == IBottomNavigationView.ID_HOME &&
+        get() = currentTabId == AppTabsManager.ID_HOME &&
             window?.topViewController == this &&
             (activeNavigationController?.viewControllers?.size ?: 0) == 1
 
     override fun switchToExplore(targetUri: Uri?) {
-        if (!AppTabsManager.contains(IBottomNavigationView.ID_EXPLORE)) return
-        selectTab(IBottomNavigationView.ID_EXPLORE)
+        if (!AppTabsManager.contains(AppTabsManager.ID_EXPLORE)) return
+        selectTab(AppTabsManager.ID_EXPLORE)
         window?.dismissToRoot()
         targetUri?.let { cachedExploreVC?.findSiteAndOpenTargetUri(it) }
     }
 
     override fun switchToMarket() {
-        if (!AppTabsManager.contains(IBottomNavigationView.ID_MARKET)) {
+        if (!AppTabsManager.contains(AppTabsManager.ID_MARKET)) {
             // Market is an optional tab the user may have hidden, and a deeplink must still land
             // on the screen, so push it onto the current stack instead of selecting a missing tab.
             window?.dismissToRoot()
             activeNavigationController?.push(MarketVC(context))
             return
         }
-        selectTab(IBottomNavigationView.ID_MARKET)
+        selectTab(AppTabsManager.ID_MARKET)
         window?.dismissToRoot()
     }
 
     override fun switchToAgent(prompt: String?, pinnedMessageId: String?): Boolean {
-        if (!AppTabsManager.contains(IBottomNavigationView.ID_AGENT)) return false
-        selectTab(IBottomNavigationView.ID_AGENT)
+        if (!AppTabsManager.contains(AppTabsManager.ID_AGENT)) return false
+        selectTab(AppTabsManager.ID_AGENT)
         window?.dismissToRoot()
         if (!pinnedMessageId.isNullOrBlank()) {
             showAgentMessage(pinnedMessageId)
@@ -733,7 +731,7 @@ class TabletTabsVC(context: Context) :
     }
 
     override fun switchToSettings(pushVC: WViewController?) {
-        selectTab(IBottomNavigationView.ID_SETTINGS)
+        selectTab(AppTabsManager.ID_SETTINGS)
         window?.dismissToRoot()
         pushVC?.let { activeNavigationController?.push(it) }
     }

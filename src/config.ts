@@ -187,6 +187,9 @@ export const SOLANA_GASLESS_PAYER_ADDRESS = process.env.SOLANA_GASLESS_PAYER_ADD
 export const EVM_MAINNET_RPC_URL = process.env.EVM_MAINNET_RPC_URL || 'https://evmapi.mytonwallet.org';
 export const EVM_TESTNET_RPC_URL = process.env.EVM_TESTNET_RPC_URL || 'https://evmapi-testnet.mytonwallet.org';
 
+export const UTXO_MAINNET_RPC_URL = process.env.UTXO_MAINNET_RPC_URL || 'https://utxoapi.mytonwallet.org';
+export const UTXO_TESTNET_RPC_URL = process.env.UTXO_TESTNET_RPC_URL || 'https://utxoapi-testnet.mytonwallet.org';
+
 export const FRACTION_DIGITS = 9;
 export const SHORT_FRACTION_DIGITS = 2;
 
@@ -255,7 +258,8 @@ export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
-export const LANG_CACHE_NAME = 'mtw-lang-356';
+
+export const LANG_CACHE_NAME = 'mtw-lang-359';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -326,6 +330,12 @@ export const NO_TON = process.env.NO_TON === '1';
 export const NO_TRON = process.env.NO_TRON === '1';
 export const NO_SOLANA = process.env.NO_SOLANA === '1';
 export const NO_EVM = process.env.NO_EVM === '1';
+export const NO_UTXO = process.env.NO_UTXO === '1';
+export const NO_WALLETCONNECT = process.env.NO_WALLETCONNECT === '1';
+export const NO_SWAP = process.env.NO_SWAP === '1';
+export const NO_STAKING = process.env.NO_STAKING === '1';
+export const NO_PORTFOLIO = process.env.NO_PORTFOLIO === '1';
+export const NO_MFA = process.env.NO_MFA === '1';
 /**
  * Standalone SDK builds, embedded by third-party apps that ship their own UI, so nothing in the UI layer
  * reads this flag.
@@ -418,6 +428,42 @@ export const SOLANA = {
   cmcSlug: 'solana',
 } as const;
 
+export const BITCOIN = {
+  name: 'Bitcoin',
+  symbol: 'BTC',
+  slug: 'btc',
+  decimals: 8,
+  chain: 'bitcoin',
+  cmcSlug: 'bitcoin',
+} as const;
+
+export const LITECOIN = {
+  name: 'Litecoin',
+  symbol: 'LTC',
+  slug: 'ltc',
+  decimals: 8,
+  chain: 'litecoin',
+  cmcSlug: 'litecoin',
+} as const;
+
+export const BITCOINCASH = {
+  name: 'Bitcoin Cash',
+  symbol: 'BCH',
+  slug: 'bch',
+  decimals: 8,
+  chain: 'bitcoincash',
+  cmcSlug: 'bitcoin-cash',
+} as const;
+
+export const DOGECOIN = {
+  name: 'Dogecoin',
+  symbol: 'DOGE',
+  slug: 'doge',
+  decimals: 8,
+  chain: 'dogecoin',
+  cmcSlug: 'dogecoin',
+} as const;
+
 export const ETH = {
   name: 'Ethereum',
   symbol: 'ETH',
@@ -491,6 +537,16 @@ export const ROBINHOOD = {
   decimals: 18,
   chain: 'robinhood',
   label: 'Robinhood',
+} as const;
+
+/** Arc settles gas in USDC, and its native balance is denominated with 18 decimals like any other EVM native token */
+export const ARC = {
+  name: 'Arc',
+  symbol: 'USDC',
+  slug: 'arc',
+  decimals: 18,
+  chain: 'arc',
+  label: 'Arc',
 } as const;
 
 export const MYCOIN_MAINNET = {
@@ -719,6 +775,19 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
     fontIcon: 'icon-chain-solana',
     cardColor: 'purple',
   },
+  [BITCOIN.slug]: {
+    fontIcon: 'icon-chain-bitcoin',
+    cardColor: 'orange',
+  },
+  [LITECOIN.slug]: {
+    cardColor: 'silver',
+  },
+  [BITCOINCASH.slug]: {
+    cardColor: 'green',
+  },
+  [DOGECOIN.slug]: {
+    cardColor: 'gold',
+  },
   [ETH.slug]: {
     fontIcon: 'icon-chain-ethereum',
     cardColor: 'purple',
@@ -730,6 +799,10 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
   [ROBINHOOD.slug]: {
     fontIcon: 'icon-chain-robinhood',
     cardColor: 'green',
+  },
+  [ARC.slug]: {
+    fontIcon: 'icon-chain-arc',
+    cardColor: 'blue',
   },
   [STAKED_TON_SLUG]: {
     cardColor: 'green',
@@ -746,6 +819,7 @@ export const ALL_STAKING_POOLS = [
 
 // Native tokens in the UI display order (see CHAIN_DISPLAY_ORDER). Drives the empty-wallet token order.
 export const PRIORITY_TOKENS = [
+  BITCOIN,
   ETH,
   SOLANA,
   HYPERLIQUID,
@@ -754,10 +828,14 @@ export const PRIORITY_TOKENS = [
   BNB,
   BASE,
   ROBINHOOD,
+  ARC,
   MONAD,
   ARBITRUM,
   POLYGON,
   AVALANCHE,
+  DOGECOIN,
+  LITECOIN,
+  BITCOINCASH,
 ] as ApiToken[];
 
 export const INIT_SWAP_ASSETS: Record<'in' | 'out', ApiSwapAsset> = {

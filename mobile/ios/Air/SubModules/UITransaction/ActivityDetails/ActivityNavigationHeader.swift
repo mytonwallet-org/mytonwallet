@@ -24,7 +24,7 @@ struct ActivityNavigationHeader: View {
                         ActivityStatusBadge(status: status)
                     }
                 } subtitle: {
-                    Text(viewModel.activity.timestamp.dateTimeString)
+                    Text(confirmationSubtitle ?? viewModel.activity.timestamp.dateTimeString)
                         .textStyle(.footnote, content: .technical)
                 }
 
@@ -38,6 +38,22 @@ struct ActivityNavigationHeader: View {
         }
     }
     
+    var confirmationSubtitle: String? {
+        guard case .transaction(let tx) = viewModel.activity,
+              tx.isPendingUtxo,
+              let confirmations = tx.confirmations,
+              let maxConfirmations = tx.maxConfirmations,
+              maxConfirmations > 0,
+              confirmations < maxConfirmations else {
+            return nil
+        }
+
+        return L10n.utxoConfirmations(
+            count: localizedIntegerString(max(0, confirmations)),
+            max: maxConfirmations
+        )
+    }
+
     var status: DisplayStatus? {
         switch viewModel.activity {
         case .transaction(let tx):

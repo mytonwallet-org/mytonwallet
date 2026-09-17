@@ -443,7 +443,6 @@ class SwapVC(
             continueButton.isLoading = it.button.status.isLoading
             if (!it.button.status.isLoading) {
                 continueButton.isEnabled = it.button.status.isEnabled
-                continueButton.isError = it.button.status.isError
                 continueButton.text = it.button.title
             }
 
@@ -454,6 +453,7 @@ class SwapVC(
             sendAmount.amountEditText.isLoading.animatedValue = it.tokenToSend.isLoading &&
                 (sendAmount.amountEditText.text?.isNotEmpty() == true)
             sendAmount.amountEditText.isError.animatedValue = it.tokenToSend.isError
+            sendAmount.setBalanceError(it.tokenToSend.isError)
         }
 
         collectFlow(swapViewModel.hintFlow) { hint ->

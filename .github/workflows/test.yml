@@ -38,7 +38,7 @@ jobs:
         if: ${{ !cancelled() && steps.localization-dependencies.outcome == 'success' }}
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python dev/locales/check_localization_health.py --exclude-path mobile/ios/Air/SubModules/UIAgent
+        run: python dev/locales/check_localization_health.py
 
       - name: Test iOS localization generation and Foundation formatting
         if: ${{ !cancelled() && steps.localization-dependencies.outcome == 'success' }}
@@ -67,6 +67,9 @@ jobs:
 
       - name: Check types and lint
         run: npm run check
+
+      - name: Test filename lint and autofix
+        run: npm run test:file-names
 
       - name: Test
         run: npm test

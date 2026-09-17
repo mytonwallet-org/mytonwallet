@@ -69,16 +69,17 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var searchToolbarTrailingConstraint: NSLayoutConstraint?
     private var bottomBarBottomConstraint: NSLayoutConstraint?
     private var searchToolbarHostConstraints: [NSLayoutConstraint] = []
-    private weak var searchOverlayHost: AdaptiveRootViewController?
     private var accountSwitcherMenuInteraction: ContextMenuInteraction?
     private var actionsMenuInteraction: ContextMenuInteraction?
-    private var universalSearchViewController: UniversalSearchScreenViewController?
-    private var universalSearchSession: UniversalSearchFeatureSession?
-    private var searchTransitionAnimator: UIViewPropertyAnimator?
-    private var searchOriginPresentation: UniversalSearchFieldPresentation = .homeToolbar
+    private var universalSearchViewController: TopTabsSearchViewController?
+    private var searchSheetObservation: MinimizableSheetObservation?
+
+    private var isSearchVisible: Bool {
+        guard let universalSearchViewController else { return false }
+        return sharedMainNavigationController?.topViewController === universalSearchViewController
+    }
     private weak var activeSharedBottomToolbarProvider: (any SharedBottomToolbarContentProviding)?
     private var isClosingSearch = false
-    private var searchCloseCompletions: [() -> Void] = []
     private var baseAdditionalSafeAreaInsets: [ObjectIdentifier: UIEdgeInsets] = [:]
     private var accountObservation: ObserveToken?
     private var sharedNavigationPaths: [Page: [UIViewController]] = [:]
@@ -105,9 +106,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     var visibleContentProviderViewController: UIViewController {
-        if let universalSearchViewController {
-            return universalSearchViewController
-        }
         if let visibleViewController = sharedMainNavigationController?.visibleViewController,
            visibleViewController !== self {
             return visibleViewController
@@ -193,31 +191,25 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        if universalSearchViewController == nil {
+        if !isSearchVisible {
             bottomBarBottomConstraint?.constant = homeToolbarBottomInset
         }
     }
 
-    func attachSearchOverlayHost(_ host: AdaptiveRootViewController) {
-        searchOverlayHost = host
-    }
-
-    func detachSearchOverlayHost() {
-        universalSearchSession?.stop()
-        universalSearchSession = nil
-        searchTransitionAnimator?.stopAnimation(true)
-        searchTransitionAnimator = nil
-        if let searchViewController = universalSearchViewController {
-            searchOverlayHost?.removeSearchOverlay(searchViewController)
-            universalSearchViewController = nil
+    func discardSearch() {
+        guard let search = universalSearchViewController else { return }
+        search.stop()
+        universalSearchViewController = nil
+        clearSharedSearchField()
+        searchSheetObservation?.invalidate()
+        searchSheetObservation = nil
+        if let navigationController = sharedMainNavigationController {
+            navigationController.setViewControllers(
+                navigationController.viewControllers.filter { $0 !== search },
+                animated: false
+            )
         }
-        if searchToolbar.superview === searchOverlayHost?.view {
-            NSLayoutConstraint.deactivate(searchToolbarHostConstraints)
-            searchToolbarHostConstraints = []
-            searchToolbar.removeFromSuperview()
-        }
-        searchOverlayHost = nil
-        searchCloseCompletions.removeAll()
+        isClosingSearch = false
     }
 
     func applyTabConfiguration(_ orderedIds: [AppTabId]) {
@@ -296,6 +288,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         default: return false
         }
         if page != activePage {
+            discardSearch()
             captureSharedNavigationPath(for: activePage)
             sharedMainNavigationController?.setViewControllers([self], animated: false)
         }
@@ -322,11 +315,19 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     func switchToSettings(path: [UIViewController]) {
+        if let destination = path.last, pushFromSearch(destination) { return }
         _ = showStandardSettings(
             path: path,
             popToRoot: false,
             animated: true
         )
+    }
+
+    @discardableResult
+    func pushFromSearch(_ viewController: UIViewController) -> Bool {
+        guard isSearchVisible, let navigationController = sharedMainNavigationController else { return false }
+        navigationController.pushViewController(viewController, animated: true)
+        return true
     }
 
     @discardableResult
@@ -476,11 +477,15 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private func configureNavigationControllers() {
         sharedMainNavigationController?.onWillShowViewController = { [weak self] viewController in
             guard let self, let sharedMainNavigationController else { return }
+            searchNavigationWillShow(viewController, in: sharedMainNavigationController)
             applyChromeInsets(to: viewController)
             updateRootChromeVisibility(
                 for: sharedMainNavigationController,
                 showing: viewController
             )
+        }
+        sharedMainNavigationController?.onDidShowViewController = { [weak self] viewController in
+            self?.searchNavigationDidShow(viewController)
         }
     }
 
@@ -492,15 +497,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return
         }
         let isShowingRoot = navigationController.viewControllers.first === viewController
-        guard universalSearchViewController == nil else { return }
         if isShowingRoot, installHomeNftSelectionToolbarIfNeeded(in: navigationController) {
             return
         }
         let provider = viewController as? any SharedBottomToolbarContentProviding
-        let targetPresentation = sharedBottomToolbarPresentation(
-            isShowingRoot: isShowingRoot,
-            provider: provider
-        )
+        let targetPresentation: UniversalSearchFieldPresentation = viewController is TopTabsSearchViewController
+            ? .search
+            : sharedBottomToolbarPresentation(isShowingRoot: isShowingRoot, provider: provider)
         searchToolbar.isHidden = false
         updateSharedBottomToolbar(
             provider: provider,
@@ -531,6 +534,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
 
         guard searchToolbar.presentation != targetPresentation else {
+            updateSearchToolbarGeometry(for: targetPresentation)
             finishBottomChromeVisibility(at: targetPresentation)
             if targetPresentation != .compactToolbar {
                 finishSharedBottomToolbarPresentation(
@@ -546,6 +550,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
         prepareBottomChromeVisibilityForTransition()
         navigationController.view.layoutIfNeeded()
+        updateSearchToolbarGeometry(for: targetPresentation)
 
         guard let coordinator else {
             searchToolbar.setPresentation(targetPresentation, animated: false)
@@ -563,18 +568,22 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         let accepted = coordinator.animate { [weak self, weak navigationController] _ in
             guard let self, let navigationController else { return }
             searchToolbar.applyPreparedPresentationTransition()
+            if targetPresentation == .search, !coordinator.isInteractive,
+               universalSearchViewController?.restoresKeyboard == true {
+                _ = searchToolbar.focus()
+            }
             bottomGradientView.alpha = targetPresentation == .empty ? 0 : 1
             navigationController.view.layoutIfNeeded()
         } completion: { [weak self, weak navigationController] context in
             guard let self else { return }
             let finalPresentation = context.isCancelled ? sourcePresentation : targetPresentation
+            updateSearchToolbarGeometry(for: finalPresentation)
             searchToolbar.setPresentation(
                 finalPresentation,
                 animated: false
             )
             finishBottomChromeVisibility(at: finalPresentation)
             guard let navigationController,
-                  universalSearchViewController == nil,
                   let topViewController = navigationController.topViewController else {
                 return
             }
@@ -604,15 +613,15 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return
         }
         let provider = viewController as? any SharedBottomToolbarContentProviding
-        let targetPresentation = sharedBottomToolbarPresentation(
-            isShowingRoot: isShowingRoot,
-            provider: provider
-        )
+        let targetPresentation: UniversalSearchFieldPresentation = viewController is TopTabsSearchViewController
+            ? .search
+            : sharedBottomToolbarPresentation(isShowingRoot: isShowingRoot, provider: provider)
         searchToolbar.isHidden = false
         if let provider {
             bindSharedBottomToolbarProvider(provider)
             searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
         }
+        updateSearchToolbarGeometry(for: targetPresentation)
         searchToolbar.setPresentation(targetPresentation, animated: false)
         navigationController.view.layoutIfNeeded()
         finishBottomChromeVisibility(at: targetPresentation)
@@ -620,6 +629,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             provider: provider,
             presentation: targetPresentation
         )
+    }
+
+    private func updateSearchToolbarGeometry(for presentation: UniversalSearchFieldPresentation) {
+        let isSearch = presentation == .search
+        searchToolbarLeadingConstraint?.constant = isSearch ? 8 : 28
+        searchToolbarTrailingConstraint?.constant = isSearch ? -8 : -28
+        bottomBarBottomConstraint?.constant = isSearch ? -10 : homeToolbarBottomInset
     }
 
     private func sharedBottomToolbarPresentation(
@@ -659,7 +675,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     private func homeWalletAssetsEditingStateDidChange() {
         updateHomeWalletAssetsNavigationChrome()
-        guard universalSearchViewController == nil,
+        guard !isSearchVisible,
               selectedPage == .wallet,
               let navigationController = sharedMainNavigationController,
               navigationController.visibleViewController === self else {
@@ -708,7 +724,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         provider.onSharedBottomToolbarActionsChange = { [weak self, weak provider] in
             guard let self, let provider,
                   (activeSharedBottomToolbarProvider as AnyObject?) === (provider as AnyObject),
-                  universalSearchViewController == nil,
                   searchToolbar.presentation == .compactToolbar else {
                 return
             }
@@ -784,6 +799,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private func configureBottomBar() {
+        searchToolbar.bottomHitAreaExtension = 12
         searchToolbar.actionsAccessibilityLabel = lang("Actions")
         searchToolbar.closeAccessibilityLabel = lang("Close")
         searchToolbar.setPresentation(.homeToolbar, animated: false)
@@ -794,11 +810,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             self?.closeSearch()
         }
         searchToolbar.onTextChange = { [weak self] text in
-            self?.universalSearchSession?.updateQuery(text)
+            guard let self, isSearchVisible, let search = universalSearchViewController else { return }
+            search.fieldConfiguration.text = text
+            search.session.updateQuery(text)
         }
         searchToolbar.onReturn = { [weak self] _ in
             guard let self else { return }
-            if universalSearchViewController?.selectPreselectedItem() != true {
+            if universalSearchViewController?.screen.selectPreselectedItem() != true {
                 searchToolbar.endEditing()
             }
         }
@@ -807,6 +825,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
 
         bottomGradientView.translatesAutoresizingMaskIntoConstraints = false
+        bottomGradientView.toolbarView = searchToolbar
         let toolbarHostView = searchToolbarHostView
         toolbarHostView.addSubview(bottomGradientView)
         installSearchToolbar(
@@ -837,6 +856,24 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
         interaction.attach(to: searchToolbar.trailingButtonView)
         actionsMenuInteraction = interaction
+        let isPagingEnabled: () -> Bool = { [weak self] in
+            guard let self,
+                  let navigationController = sharedMainNavigationController else { return false }
+            return navigationController.topViewController === self
+                && navigationController.presentedViewController == nil
+                && navigationController.transitionCoordinator == nil
+                && !isSearchVisible
+                && !isClosingSearch
+                && !searchToolbar.isHidden
+        }
+        segmentedController.setAdditionalPagingGestureView(searchToolbar, isEnabled: isPagingEnabled)
+        segmentedController.setForwardNavigation(in: toolbarHostView, beginTransition: { [weak self] in
+            guard let self, let navigationController = sharedMainNavigationController else { return nil }
+            let settings = standardSettingsRootViewController ?? SettingsVC()
+            standardSettingsRootViewController = settings
+            applyChromeInsets(to: settings)
+            return navigationController.beginInteractivePush(settings)
+        }, isEnabled: isPagingEnabled)
     }
 
     private func installSearchToolbar(
@@ -911,7 +948,14 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 verticalPlacementBehavior: .screenBottom,
                 panelCornerRadius: 54,
                 screenInsets: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-            )
+            ),
+            sheetNavigationControllerProvider: { menu in
+                menu.navigationItem.hidesBackButton = true
+                if #available(iOS 26.0, *) {
+                    return ActionMenuNavigationController(rootViewController: menu)
+                }
+                return UINavigationController(rootViewController: menu)
+            }
         )
     }
 
@@ -919,11 +963,22 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         _ item: SplitHomeActionItem,
         accountContext: AccountContext
     ) -> ContextMenuItem {
-        .custom(
+        let handsOffSheet: Bool
+        if #available(iOS 26.0, *), traitCollection.horizontalSizeClass == .compact {
+            handsOffSheet = true
+        } else {
+            handsOffSheet = false
+        }
+        return .custom(
             .swiftUI(
                 sizing: .fixed(height: topTabsActionMenuItemHeight),
-                interaction: .selectable {
-                    item.perform(accountContext: accountContext)
+                interaction: .selectable(dismissesMenu: !handsOffSheet) {
+                    if #available(iOS 26.0, *), handsOffSheet,
+                       let host = topViewController() as? ActionMenuNavigationController {
+                        host.perform(item, accountContext: accountContext)
+                    } else {
+                        item.perform(accountContext: accountContext)
+                    }
                 }
             ) { _ in
                 ActionMenuItem(item: item)
@@ -932,284 +987,268 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     @objc private func openSearch() {
-        guard universalSearchViewController == nil,
+        guard !isSearchVisible,
               presentedViewController == nil,
               let navigationController = sharedMainNavigationController,
-              let searchOverlayHost
-        else { return }
-
-        let searchViewController = UniversalSearchScreenViewController()
-        let searchSession = UniversalSearchFeatureSession(screen: searchViewController)
-        searchViewController.onClose = { [weak self] in
-            self?.closeSearch()
-        }
-        searchSession.onSelectRoute = { [weak self] route in
+              navigationController.transitionCoordinator == nil else { return }
+        discardSearch()
+        var configuration = searchToolbar.configuration
+        configuration.text = ""
+        configuration.autocomplete = nil
+        let search = TopTabsSearchViewController(configuration: configuration)
+        search.screen.onClose = { [weak self] in self?.closeSearch() }
+        search.session.onSelectRoute = { [weak self] route in
             self?.handleUniversalSearchRoute(route)
         }
-        searchSession.onAutocompleteChange = { [weak self] autocomplete in
-            guard let self else { return }
-            var configuration = searchToolbar.configuration
-            configuration.autocomplete = autocomplete
-            searchToolbar.configuration = configuration
+        search.session.onAutocompleteChange = { [weak self, weak search] autocomplete in
+            guard let self, let search else { return }
+            search.fieldConfiguration.autocomplete = autocomplete
+            if isSearchVisible, searchToolbar.presentation == .search {
+                searchToolbar.configuration = search.fieldConfiguration
+            }
         }
-        searchOriginPresentation = searchToolbar.presentation
+        search.onAppear = { [weak self, weak search] in
+            guard let self, let search, universalSearchViewController === search else { return }
+            searchDidReturn(search)
+        }
+        universalSearchViewController = search
         actionsMenuInteraction?.detach()
-
-        navigationController.view.layoutIfNeeded()
-        searchOverlayHost.view.layoutIfNeeded()
-        installSearchToolbar(
-            in: searchOverlayHost.view,
-            leading: 28,
-            trailing: -28,
-            bottom: homeToolbarBottomInset(in: searchOverlayHost.view)
-        )
-        searchOverlayHost.view.layoutIfNeeded()
-
-        universalSearchViewController = searchViewController
-        universalSearchSession = searchSession
-        searchViewController.view.alpha = 0
-        searchOverlayHost.installSearchOverlay(searchViewController, below: searchToolbar)
-        searchOverlayHost.view.layoutIfNeeded()
-        tabControlContainer.isUserInteractionEnabled = false
-        tabControlContainer.accessibilityElementsHidden = true
-        segmentedController.accessibilityElementsHidden = true
-        searchSession.start(initialQuery: searchToolbar.text)
-        beginSearchTransition(for: searchViewController)
-    }
-
-    private func beginSearchTransition(
-        for searchViewController: UniversalSearchScreenViewController
-    ) {
-        guard universalSearchViewController === searchViewController,
-              searchTransitionAnimator == nil,
-              let searchOverlayHost,
-              let leadingConstraint = searchToolbarLeadingConstraint,
-              let trailingConstraint = searchToolbarTrailingConstraint,
-              let bottomConstraint = bottomBarBottomConstraint else {
-            return
-        }
-
-        let animator = UIViewPropertyAnimator(
+        search.session.start()
+        navigationController.withCrossfade(
             duration: topTabsSearchAnimationDuration,
-            curve: .easeInOut
-        )
-        searchToolbar.setPresentation(
-            .search,
-            animator: animator,
-            duration: topTabsSearchAnimationDuration
-        )
-        leadingConstraint.constant = 8
-        trailingConstraint.constant = -8
-        bottomConstraint.constant = -10
-        animator.addAnimations {
-            searchViewController.view.alpha = 1
-            self.tabControlContainer.alpha = 0
-            searchOverlayHost.view.layoutIfNeeded()
+            keepingAboveTransition: [bottomGradientView, searchToolbar]
+        ) {
+            navigationController.pushViewController(search, animated: true)
         }
-        animator.isInterruptible = true
-        searchTransitionAnimator = animator
-        animator.addCompletion { [weak self, weak animator] _ in
-            guard let self, searchTransitionAnimator === animator else { return }
-            searchTransitionAnimator = nil
-        }
-        animator.startAnimation()
-        _ = searchToolbar.focus()
     }
 
-    func closeSearch(completion: (() -> Void)? = nil) {
-        if let completion {
-            searchCloseCompletions.append(completion)
-        }
-        guard let searchViewController = universalSearchViewController else {
-            completePendingSearchCloseActions()
-            return
-        }
+    func closeSearch() {
+        guard let search = universalSearchViewController,
+              let navigationController = sharedMainNavigationController else { return }
         guard !isClosingSearch else { return }
-        isClosingSearch = true
-
-        universalSearchSession?.stop()
-        universalSearchSession = nil
-        searchTransitionAnimator?.stopAnimation(true)
-        searchTransitionAnimator = nil
-        var searchConfiguration = searchToolbar.configuration
-        searchConfiguration.text = ""
-        searchConfiguration.autocomplete = nil
-        searchToolbar.configuration = searchConfiguration
-
-        guard let searchOverlayHost,
-              let leadingConstraint = searchToolbarLeadingConstraint,
-              let trailingConstraint = searchToolbarTrailingConstraint,
-              let bottomConstraint = bottomBarBottomConstraint else {
-            finishClosingSearch(searchViewController)
+        if let coordinator = navigationController.transitionCoordinator {
+            isClosingSearch = true
+            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.isClosingSearch = false
+                    self?.closeSearch()
+                }
+            }
             return
         }
-        searchOverlayHost.view.layoutIfNeeded()
-        searchOverlayHost.view.endEditing(true)
-        if searchOriginPresentation == .compactToolbar,
-           let activeSharedBottomToolbarProvider {
-            searchToolbar.setCompactActions(
-                activeSharedBottomToolbarProvider.sharedBottomToolbarActions
-            )
+        guard navigationController.topViewController === search else {
+            discardSearch()
+            return
         }
-
-        let animator = UIViewPropertyAnimator(
+        isClosingSearch = true
+        search.stop()
+        searchToolbar.endEditing()
+        navigationController.withCrossfade(
             duration: topTabsSearchAnimationDuration,
-            curve: .easeInOut
-        )
-        searchToolbar.setPresentation(
-            searchOriginPresentation,
-            animator: animator,
-            duration: topTabsSearchAnimationDuration
-        )
-        leadingConstraint.constant = 28
-        trailingConstraint.constant = -28
-        bottomConstraint.constant = homeToolbarBottomInset(in: searchOverlayHost.view)
-        animator.addAnimations {
-            searchViewController.view.alpha = 0
-            self.tabControlContainer.alpha = 1
-            searchOverlayHost.view.layoutIfNeeded()
+            keepingAboveTransition: [bottomGradientView, searchToolbar]
+        ) {
+            _ = navigationController.popViewController(animated: true)
         }
-        animator.isInterruptible = true
-        searchTransitionAnimator = animator
-        animator.addCompletion { [weak self, weak searchViewController] _ in
-            guard let self, let searchViewController else { return }
-            finishClosingSearch(searchViewController)
-        }
-        animator.startAnimation()
     }
 
-    private func finishClosingSearch(
-        _ searchViewController: UniversalSearchScreenViewController
-    ) {
-        if universalSearchViewController === searchViewController {
-            searchOverlayHost?.removeSearchOverlay(searchViewController)
+    private func searchNavigationWillShow(_ viewController: UIViewController, in navigationController: WNavigationController) {
+        guard let search = universalSearchViewController else { return }
+        if viewController === search {
+            searchToolbar.configuration = search.fieldConfiguration
+        } else if navigationController.transitionCoordinator?.viewController(forKey: .from) === search {
+            if searchToolbar.isEditing { search.restoresKeyboard = true }
+            searchToolbar.endEditing()
+        }
+    }
+
+    private func searchNavigationDidShow(_ viewController: UIViewController) {
+        guard let search = universalSearchViewController,
+              let navigationController = sharedMainNavigationController else { return }
+        if viewController !== search { clearSharedSearchField() }
+        if !navigationController.viewControllers.contains(where: { $0 === search }) {
+            search.stop()
             universalSearchViewController = nil
-        }
-        if let navigationController = sharedMainNavigationController {
-            installSearchToolbar(
-                in: navigationController.view,
-                leading: 28,
-                trailing: -28,
-                bottom: homeToolbarBottomInset(in: navigationController.view)
-            )
-            navigationController.view.layoutIfNeeded()
-        }
-        searchTransitionAnimator = nil
-        isClosingSearch = false
-        tabControlContainer.alpha = 1
-        tabControlContainer.isUserInteractionEnabled = true
-        tabControlContainer.accessibilityElementsHidden = false
-        segmentedController.accessibilityElementsHidden = false
-        if let navigationController = sharedMainNavigationController,
-           let topViewController = navigationController.topViewController {
-            synchronizeSharedBottomToolbar(
-                for: topViewController,
-                in: navigationController
-            )
+            searchSheetObservation?.invalidate()
+            searchSheetObservation = nil
+            isClosingSearch = false
+        } else if viewController === search {
+            searchDidReturn(search)
+        } else if search.returnDeadline == nil {
+            retainSearchForReturn(search)
         } else {
-            actionsMenuInteraction?.attach(to: searchToolbar.trailingButtonView)
+            expireSearchIfNeeded(search)
         }
-        completePendingSearchCloseActions()
     }
 
-    private func completePendingSearchCloseActions() {
-        let completions = searchCloseCompletions
-        searchCloseCompletions.removeAll()
-        completions.forEach { $0() }
+    private func clearSharedSearchField() {
+        var configuration = searchToolbar.configuration
+        configuration.text = ""
+        configuration.autocomplete = nil
+        searchToolbar.configuration = configuration
+    }
+
+    private func searchDidReturn(_ search: TopTabsSearchViewController) {
+        guard isSearchVisible, !isClosingSearch else { return }
+        search.expirationTask?.cancel()
+        search.expirationTask = nil
+        search.returnDeadline = nil
+        searchToolbar.configuration = search.fieldConfiguration
+        if search.restoresKeyboard { _ = searchToolbar.focus() }
+    }
+
+    private func retainSearchForReturn(_ search: TopTabsSearchViewController) {
+        guard universalSearchViewController === search, search.returnDeadline == nil else { return }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        search.returnDeadline = deadline
+        search.expirationTask = Task { [weak self, weak search] in
+            do { try await ContinuousClock().sleep(until: deadline) } catch { return }
+            guard let self, let search else { return }
+            expireSearchIfNeeded(search)
+        }
+    }
+
+    private var isSearchCoveredByPresentation: Bool {
+        let root = sharedMainNavigationController?.view.window?.rootViewController
+        return root?.presentedViewController != nil
+            || root?.descendantViewController(of: MinimizableSheetContainerViewController.self)?.sheetController.state == .expanded
+    }
+
+    private func expireSearchIfNeeded(_ search: TopTabsSearchViewController) {
+        guard universalSearchViewController === search,
+              let deadline = search.returnDeadline, ContinuousClock.now >= deadline,
+              let navigationController = sharedMainNavigationController else { return }
+        if let coordinator = navigationController.transitionCoordinator {
+            coordinator.animate(alongsideTransition: nil) { [weak self, weak search] _ in
+                Task { @MainActor [weak self, weak search] in
+                    guard let self, let search else { return }
+                    expireSearchIfNeeded(search)
+                }
+            }
+            return
+        }
+        guard !isSearchVisible || isSearchCoveredByPresentation else { return }
+        discardSearch()
+    }
+
+    private func trackSearchPresentation(_ search: TopTabsSearchViewController) {
+        if isSearchCoveredByPresentation { retainSearchForReturn(search) }
+        if let controller = sharedMainNavigationController?.view.window?.rootViewController?
+            .descendantViewController(of: MinimizableSheetContainerViewController.self)?.sheetController {
+            searchSheetObservation?.invalidate()
+            searchSheetObservation = controller.addObserver(options: .stateChanges) { [weak self, weak search] event in
+                guard let self, let search, universalSearchViewController === search,
+                      case let .stateDidChange(change) = event else { return }
+                if change.toState == .expanded {
+                    retainSearchForReturn(search)
+                } else if isSearchVisible {
+                    searchDidReturn(search)
+                }
+            }
+        }
     }
 
     private func handleUniversalSearchRoute(_ route: UniversalSearchFeatureRoute) {
-        closeSearch {
-            switch route {
-            case .walletAction(let action):
-                let context = AccountContext(source: .current)
-                switch action {
-                case .fund: AppActions.showReceive(accountContext: context, chain: nil)
-                case .send: AppActions.showSend(accountContext: context, prefilledValues: .init())
-                case .earn: AppActions.showEarn(accountContext: context, tokenSlug: nil)
-                case .buyWithCard: AppActions.showBuyWithCard(accountContext: context, chain: nil, push: nil)
-                case .sell: AppActions.showSell(accountContext: context, tokenSlug: nil)
-                case .scan: AppActions.scanAndHandleQR(accountContext: context)
-                case .swap:
-                    Task {
-                        await AppActions.showSwap(accountContext: context, defaultSellingToken: nil,
-                                                  defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
-                    }
-                }
-
-            case .settings(let section):
-                AppActions.showSettings(section: section)
-
-            case .token(let accountID, let token):
-                AppActions.showToken(
-                    accountSource: .accountId(accountID),
-                    token: token,
-                    isInModal: false
-                )
-
-            case .collectible(let accountID, let nft):
-                AppActions.showNft(
-                    accountContext: AccountContext(accountId: accountID),
-                    nft: nft,
-                    isExpanded: true
-                )
-
-            case .collection(let accountID, let collection):
-                let filter = NftCollectionFilter.collection(collection)
-                AppActions.showAssets(
-                    accountSource: .accountId(accountID),
-                    selectedTab: .nftCollectionFilter(filter),
-                    collectionsFilter: filter
-                )
-
-            case .application(let url, let title, let opensExternally):
-                if opensExternally {
-                    UIApplication.shared.open(url)
-                } else {
-                    AppActions.openInBrowser(
-                        url,
-                        title: title,
-                        injectDappConnect: true
-                    )
-                }
-
-            case .wallet(let account):
+        guard isSearchVisible, !isClosingSearch,
+              sharedMainNavigationController?.transitionCoordinator == nil,
+              let search = universalSearchViewController else { return }
+        search.expirationTask?.cancel()
+        search.returnDeadline = nil
+        search.restoresKeyboard = searchToolbar.isEditing
+        searchToolbar.endEditing()
+        switch route {
+        case .walletAction(let action):
+            let context = AccountContext(source: .current)
+            switch action {
+            case .fund: AppActions.showReceive(accountContext: context, chain: nil)
+            case .send: AppActions.showSend(accountContext: context, prefilledValues: .init())
+            case .earn: AppActions.showEarn(accountContext: context, tokenSlug: nil)
+            case .buyWithCard: AppActions.showBuyWithCard(accountContext: context, chain: nil, push: nil)
+            case .sell: AppActions.showSell(accountContext: context, tokenSlug: nil)
+            case .scan: AppActions.scanAndHandleQR(accountContext: context)
+            case .swap:
                 Task {
-                    do {
-                        _ = try await AccountStore.activateAccount(accountId: account.id)
-                        AppActions.showHome(popToRoot: true)
-                    } catch {
-                        AppActions.showError(error: error)
+                    await AppActions.showSwap(accountContext: context, defaultSellingToken: nil,
+                                              defaultBuyingToken: nil, defaultSellingAmount: nil, push: nil)
+                    if self.universalSearchViewController === search {
+                        self.trackSearchPresentation(search)
                     }
                 }
+            }
 
-            case .externalWallet(let network, let addressOrDomainByChain):
-                AppActions.showTemporaryViewAccount(
-                    network: network,
-                    addressOrDomainByChain: addressOrDomainByChain
-                )
+        case .settings(let section):
+            AppActions.showSettings(section: section)
 
-            case .agent(let query):
-                AppActions.showAgent(query: query)
+        case .token(let accountID, let token):
+            AppActions.showToken(
+                accountSource: .accountId(accountID),
+                token: token,
+                isInModal: false
+            )
 
-            case .website(let url, let title):
+        case .collectible(let accountID, let nft):
+            AppActions.showNft(
+                accountContext: AccountContext(accountId: accountID),
+                nft: nft,
+                isExpanded: true
+            )
+
+        case .collection(let accountID, let collection):
+            let filter = NftCollectionFilter.collection(collection)
+            AppActions.showAssets(
+                accountSource: .accountId(accountID),
+                selectedTab: .nftCollectionFilter(filter),
+                collectionsFilter: filter
+            )
+
+        case .application(let url, let title, let opensExternally):
+            if opensExternally {
+                UIApplication.shared.open(url)
+            } else {
                 AppActions.openInBrowser(
                     url,
                     title: title,
-                    injectDappConnect: true,
-                    historyTag: "explore"
-                )
-
-            case .google(let query):
-                guard let url = UniversalSearchWebIntent.googleSearchURL(for: query) else { return }
-                AppActions.openInBrowser(
-                    url,
-                    title: nil,
-                    injectDappConnect: false,
-                    historyTag: "explore"
+                    injectDappConnect: true
                 )
             }
+
+        case .wallet(let account):
+            Task {
+                do {
+                    _ = try await AccountStore.activateAccount(accountId: account.id)
+                    self.discardSearch()
+                    AppActions.showHome(popToRoot: true)
+                } catch {
+                    AppActions.showError(error: error)
+                }
+            }
+
+        case .externalWallet(let network, let addressOrDomainByChain):
+            AppActions.showTemporaryViewAccount(
+                network: network,
+                addressOrDomainByChain: addressOrDomainByChain
+            )
+
+        case .agent(let query):
+            AppActions.showAgent(query: query)
+
+        case .website(let url, let title):
+            AppActions.openInBrowser(
+                url,
+                title: title,
+                injectDappConnect: true,
+                historyTag: "explore"
+            )
+
+        case .google(let query):
+            guard let url = UniversalSearchWebIntent.googleSearchURL(for: query) else { return }
+            AppActions.openInBrowser(
+                url,
+                title: nil,
+                injectDappConnect: false,
+                historyTag: "explore"
+            )
         }
+        trackSearchPresentation(search)
     }
 
     @objc private func openSettings() {
@@ -1325,7 +1364,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     private func captureSharedNavigationPath(for page: Page) {
         guard let sharedMainNavigationController else { return }
-        sharedNavigationPaths[page] = Array(sharedMainNavigationController.viewControllers.dropFirst())
+        let path = Array(sharedMainNavigationController.viewControllers.dropFirst())
+        // Settings is shared across tabs and must not reopen when returning to the source tab.
+        let endIndex = standardSettingsIndex(in: path) ?? path.endIndex
+        sharedNavigationPaths[page] = Array(path[..<endIndex])
     }
 
     private func installSharedNavigationPath(for page: Page) {
@@ -1607,11 +1649,11 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
 
 @MainActor
 private final class TopTabsBottomGradientView: UIView {
+    weak var toolbarView: UIView?
     private let gradientLayer = CAGradientLayer()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        isUserInteractionEnabled = false
         layer.addSublayer(gradientLayer)
         updateColors()
     }
@@ -1619,6 +1661,17 @@ private final class TopTabsBottomGradientView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard let toolbarView,
+              toolbarView.superview === superview,
+              !toolbarView.isHidden,
+              toolbarView.alpha > 0.01,
+              toolbarView.isUserInteractionEnabled else { return false }
+        // Absorb touches beside and below the toolbar, keeping content above it interactive.
+        return super.point(inside: point, with: event)
+            && convert(point, to: toolbarView).y >= toolbarView.bounds.minY
     }
 
     override func layoutSubviews() {

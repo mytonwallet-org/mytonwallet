@@ -151,7 +151,8 @@ public final class AccountContext: Sendable {
     }
     public func getMyAccountName(chain: ApiChain, address: String) -> String? {
         let matchingAccount = accountStore.orderedAccounts.first { account in
-            if let info = account.getChainInfo(chain: chain), info.address == address || info.domain == address {
+            if let info = account.getChainInfo(chain: chain),
+               chain.normalizeAddress(info.address) == chain.normalizeAddress(address) || info.domain == address {
                 return true
             }
             return false

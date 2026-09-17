@@ -8,13 +8,15 @@ import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
 import useDragScroll from '../../hooks/useDragScroll';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
-import useGridLimit from './hooks/useGridLimit';
 
 import GridItem from './GridItem';
 import MoverCard from './MoverCard';
 import TokenRow from './TokenRow';
 
 import styles from './Market.module.scss';
+
+// Two rows of the widest grid. `.grid` hides the items that do not fit two rows of a narrower one
+export const GRID_MAX_ITEMS = 6 * 2;
 
 interface OwnProps {
   section: MarketSection;
@@ -23,10 +25,9 @@ interface OwnProps {
 }
 
 function Section({ section, onTokenClick, onShowAllClick }: OwnProps) {
-  const { id, title, layout, hasMore, tokens } = section;
+  const { id, title, layout, visibleLimit, hasMore, tokens } = section;
 
   const lang = useLang();
-  const gridLimit = useGridLimit();
   const moversRef = useRef<HTMLDivElement>();
 
   useDragScroll({
@@ -34,7 +35,9 @@ function Section({ section, onTokenClick, onShowAllClick }: OwnProps) {
     isDisabled: IS_TOUCH_ENV || layout !== 'largeHorizontal',
   });
 
-  const visibleTokens = layout === 'grid' ? tokens.slice(0, gridLimit) : tokens;
+  const visibleTokens = layout === 'grid'
+    ? tokens.slice(0, visibleLimit ?? GRID_MAX_ITEMS)
+    : tokens;
 
   const handleShowAllClick = useLastCallback(() => {
     onShowAllClick(id);

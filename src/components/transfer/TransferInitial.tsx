@@ -350,6 +350,8 @@ function TransferInitial({
     && amount > balance;
   const hasInsufficientFeeError = isEnoughBalance === false && !isAmountGreaterThanBalance
     && diesel?.status !== 'not-authorized' && diesel?.status !== 'pending-previous';
+  // NFT transfers have no amount input to show the error under, so the fee line and the button show it instead
+  const hasInsufficientNftFeeError = isNftTransfer && hasInsufficientFeeError;
   const hasAmountError = !isNftTransfer && amount !== undefined && (
     (maxAmount !== undefined && amount > maxAmount)
     || hasInsufficientFeeError // Ideally, the insufficient fee error message should be displayed somewhere else
@@ -449,6 +451,9 @@ function TransferInitial({
     if (diesel?.status === 'pending-previous') {
       return lang('Awaiting Previous Fee');
     }
+    if (hasInsufficientNftFeeError) {
+      return lang('Insufficient Fee');
+    }
     return lang('$send_token_symbol', isNftTransfer ? 'NFT' : symbol || UNKNOWN_TOKEN.symbol);
   }
 
@@ -468,6 +473,7 @@ function TransferInitial({
         terms={terms}
         token={transferToken}
         precision={precision}
+        isError={hasInsufficientNftFeeError}
         onDetailsClick={openFeeModal}
       />
     );
@@ -476,6 +482,9 @@ function TransferInitial({
   return (
     <>
       <form
+        data-transfer-form
+        data-transfer-token-slug={tokenSlug}
+        data-transfer-network={chain}
         className={modalStyles.transitionContent}
         onSubmit={handleSubmit}
         onPaste={handlePaste}

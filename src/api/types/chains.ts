@@ -136,7 +136,8 @@ export interface ChainSdk<T extends ApiChain> {
   //
 
   /**
-   * Converts an address to the normalized form (to fill the `normalizedAddress` field of `ApiTransactionActivity`).
+   * Converts an address to the normalized form. It fills the `normalizedAddress` field of `ApiTransactionActivity`
+   * and is the form the chain shows to the user, so the SDK returns it in the addresses it reports to the app.
    */
   normalizeAddress(address: string, network?: ApiNetwork): string;
 

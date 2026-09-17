@@ -1,7 +1,7 @@
 import type { createTaskQueue } from '../../../util/schedulers';
 import type { FallbackPollingOptions } from '../../common/polling/fallbackPollingScheduler';
 import type { ApiBalanceBySlug, ApiChain, ApiNetwork, StampedBalances } from '../../types';
-import type { AbstractWebsocketClient, BalanceUpdate, WalletWatcher } from './abstractWsClient';
+import type { AbstractWebsocketClient, BalanceUpdate, NewActivitiesCallback, WalletWatcher } from './abstractWsClient';
 
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { createCallbackManager } from '../../../util/callbacks';
@@ -56,6 +56,7 @@ type BalanceStreamOptions = {
   ) => Promise<void>;
   loadingConcurrencyLimiter?: ReturnType<typeof createTaskQueue>;
   ensureIsPollingNeeded?: () => Promise<boolean>;
+  onNewActivities?: NewActivitiesCallback;
 };
 
 /**
@@ -136,6 +137,7 @@ export class BalanceStream {
     importUnknownTokens,
     loadingConcurrencyLimiter,
     ensureIsPollingNeeded,
+    onNewActivities,
   }: BalanceStreamOptions) {
     this.#chain = chain;
     this.#network = network;
@@ -154,6 +156,7 @@ export class BalanceStream {
         onDisconnect: this.#handleSocketDisconnect,
         onBalanceUpdate: throttleSocketBalanceUpdates(this.#handleSocketBalanceUpdate),
         onTraceInvalidated: this.#handleTraceInvalidated,
+        onNewActivities,
       },
     );
 

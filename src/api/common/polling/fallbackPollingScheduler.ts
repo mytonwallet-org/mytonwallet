@@ -1,6 +1,6 @@
 import type { Period } from './utils';
 
-import { CircuitOpenError } from '../../../util/circuit-breaker';
+import { CircuitOpenError } from '../../../util/circuitBreaker';
 import { focusAwareDelay, onFocusAwareDelay } from '../../../util/focusAwareDelay';
 import { logDebugError } from '../../../util/logs';
 import { random } from '../../../util/random';

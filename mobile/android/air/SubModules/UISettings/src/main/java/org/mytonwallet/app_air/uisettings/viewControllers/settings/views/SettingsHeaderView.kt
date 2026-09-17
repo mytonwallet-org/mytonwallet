@@ -159,9 +159,7 @@ class SettingsHeaderView(private val viewController: SettingsVC, private var top
                 "***"
             } else {
                 val accountId = account?.accountId
-                if (accountId != null &&
-                    BalanceStore.getBalances(accountId)?.get("toncoin") != null
-                ) {
+                if (accountId != null) {
                     BalanceStore.totalBalanceInBaseCurrency(accountId)?.toString(
                         WalletCore.baseCurrency.decimalsCount,
                         WalletCore.baseCurrency.sign,

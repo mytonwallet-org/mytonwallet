@@ -297,7 +297,7 @@ public struct TokenAmountEntry: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .opacity(isValueStale ? 0.55 : 1)
             .mask {
-                AmountLoadingMask(isActive: isValueStale)
+                LoadingShineMask(isActive: isValueStale)
             }
             .contentShape(.rect)
             .onTapGesture {
@@ -358,40 +358,5 @@ public struct TokenAmountEntry: View {
         )
         .offset(x: style == .large ? 0 : 8)
         .padding(.vertical, style == .large ? 0 : -1)
-    }
-}
-
-private struct AmountLoadingMask: View {
-    var isActive: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var animationStart = Date.now
-
-    var body: some View {
-        WithPerceptionTracking {
-            if isActive && AppStorageHelper.animations && !reduceMotion {
-                TimelineView(.animation) { timeline in
-                    // Match the skeleton's one-second sweep followed by a one-second pause.
-                    let elapsed = max(0, timeline.date.timeIntervalSince(animationStart)).truncatingRemainder(dividingBy: 2)
-                    let sweep = min(elapsed, 1) * 1.6
-                    LinearGradient(
-                        stops: [
-                            .init(color: .white, location: -0.6 + sweep),
-                            .init(color: .white.opacity(0.35), location: -0.3 + sweep),
-                            .init(color: .white, location: sweep),
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                }
-            } else {
-                Rectangle().fill(.white)
-            }
-        }
-        .onChange(of: isActive) { isActive in
-            if isActive {
-                animationStart = .now
-            }
-        }
     }
 }

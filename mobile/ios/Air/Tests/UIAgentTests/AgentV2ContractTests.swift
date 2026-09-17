@@ -1131,38 +1131,6 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(inputMessageId, "message-1")
     }
 
-    @MainActor
-    func testCoordinatorSubmitsSelectedWalletScopeContinuation() async throws {
-        let client = FakeAgentV2Client(defaultThreadId: "thread-1", shouldCompleteRun: true)
-        let coordinator = AgentV2Coordinator(client: client)
-        await coordinator.loadDefaultThread()
-        let started = try JSONDecoder().decode(
-            ApiAgentV2ClientUpdateEnvelope.self,
-            from: Data(#"""
-            {"type":"agentV2","update":{"kind":"messageStarted","clientRunId":"client-1","runId":"run-1","threadId":"thread-1","messageId":"message-1","contentKind":"semantic"}}
-            """#.utf8)
-        )
-        let completed = try JSONDecoder().decode(
-            ApiAgentV2ClientUpdateEnvelope.self,
-            from: Data(#"""
-            {"type":"agentV2","update":{"kind":"messageCompleted","clientRunId":"client-1","runId":"run-1","threadId":"thread-1","messageId":"message-1","finishReason":"complete","walletControls":{"scopeChoices":[{"choiceId":"choice_0000000000000000000000","label":"Savings"}],"expiresAt":"2099-07-31T12:15:00.000Z"}}}
-            """#.utf8)
-        )
-        coordinator.walletCore(event: .agentV2(started.update))
-        coordinator.walletCore(event: .agentV2(completed.update))
-
-        coordinator.selectWalletScopeChoice(
-            messageId: "message-1",
-            choiceId: "choice_0000000000000000000000"
-        )
-        try await Task.sleep(for: .milliseconds(50))
-
-        let command = try XCTUnwrap(client.startedCommands.first)
-        XCTAssertEqual(command.input, .append(text: "Savings"))
-        XCTAssertEqual(command.walletScopeSelectionOf?.sourceAssistantMessageId, "message-1")
-        XCTAssertEqual(command.walletScopeSelectionOf?.choiceId, "choice_0000000000000000000000")
-    }
-
     func testDecodesHideSpamResolution() throws {
         let resolved = try JSONDecoder().decode(
             ApiAgentV2ResolvedAction.self,

@@ -47,6 +47,7 @@ public final class MinimizableSheetContentViewController: WViewController {
         contentView = InAppBrowserMinimizedView(
             title: browser?.displayTitle,
             iconUrl: nil,
+            tabCount: browser?.tabCount ?? 0,
             titleTapAction: { [weak self] in
                 self?.expandTouchTargetPressed()
             },
@@ -104,7 +105,7 @@ public final class MinimizableSheetContentViewController: WViewController {
             browser.didMove(toParent: self)
             inAppBrowserTitleChanged(browser)
         } else {
-            contentView.update(title: nil, iconUrl: nil)
+            contentView.update(title: nil, iconUrl: nil, tabCount: 0)
         }
         applyState(minimizableSheetController?.state ?? .hidden)
     }
@@ -185,6 +186,6 @@ public final class MinimizableSheetContentViewController: WViewController {
 extension MinimizableSheetContentViewController: InAppBrowserDelegate {
     func inAppBrowserTitleChanged(_ browserContainer: InAppBrowserVC) {
         let dappInfo = browserContainer.dappInfo
-        contentView.update(title: dappInfo?.shortTitle ?? browserContainer.displayTitle, iconUrl: dappInfo?.iconUrl)
+        contentView.update(title: dappInfo?.shortTitle ?? browserContainer.displayTitle, iconUrl: dappInfo?.iconUrl, tabCount: browserContainer.tabCount)
     }
 }

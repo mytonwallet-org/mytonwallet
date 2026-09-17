@@ -521,6 +521,8 @@ private let walletConnectPayCaip2Chains: [String: ApiChain] = [
     "eip155:998": .hyperliquid,
     "eip155:4663": .robinhood,
     "eip155:46630": .robinhood,
+    "eip155:5042": .arc,
+    "eip155:5042002": .arc,
 ]
 
 private func walletConnectPayToken(for option: WcPayPaymentOption) -> ApiToken? {

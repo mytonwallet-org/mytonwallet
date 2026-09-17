@@ -206,7 +206,7 @@ struct UniversalSearchRankingTests {
     }
 
     @Test
-    func `trust can beat finer text precision inside a strong relevance band`() {
+    func `an exact symbol beats a trusted name prefix`() {
         let app = document(
             id: "app:fragment",
             kind: .application,
@@ -224,9 +224,35 @@ struct UniversalSearchRankingTests {
 
         let results = engine.search("frag", in: [exactTicker, app], now: now)
 
-        #expect(results.first?.id == app.id)
-        #expect(results.first?.rank.relevanceBand == .phrase)
-        #expect(results.first?.rank.trustTier == .curated)
+        #expect(results.first?.id == exactTicker.id)
+        #expect(results.first?.rank.relevanceBand == .exactName)
+    }
+
+    @Test
+    func `exact names beat held and frequently selected name prefixes`() {
+        let exact = document(id: "token:exact", title: "Ethereum")
+        let prefix = document(
+            id: "token:prefix", title: "Ethereum Classic", traits: [.held],
+            baseCurrencyValue: 1_000_000,
+            interaction: .init(lastSelectedAt: now, selectionCount: 100)
+        )
+
+        #expect(engine.search("ethereum", in: [prefix, exact], now: now).first?.id == exact.id)
+    }
+
+    @Test(arguments: ["My ETH", "WrappedETH", "Ethena"])
+    func `name matches outrank chain metadata regardless of balance`(title: String) {
+        let namedToken = document(id: "token:name", title: title)
+        let chainOnly = SearchDocument(
+            id: SearchEntityID("token:chain-only"), kind: .token,
+            fields: [.init("USD Coin", kind: .title), .init("Ethereum", kind: .keyword)],
+            signals: .init(traits: [.held, .popular], baseCurrencyValue: 1_000_000)
+        )
+
+        let hits = engine.search("eth", in: [chainOnly, namedToken])
+
+        #expect(hits.map(\.id) == [namedToken.id, chainOnly.id])
+        #expect(hits.last?.rank.relevanceBand == .weak)
     }
 
     @Test

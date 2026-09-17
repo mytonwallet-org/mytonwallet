@@ -20,6 +20,14 @@ enum class MBlockchain(
     val isSupported: Boolean = false
 ) {
 
+    bitcoin(
+        R.drawable.ic_blockchain_bitcoin_40,
+        "btc",
+        "Bitcoin",
+        BitcoinConfig,
+        isSupported = true
+    ),
+
     ethereum(
         R.drawable.ic_blockchain_ethereum_128,
         "eth",
@@ -84,6 +92,14 @@ enum class MBlockchain(
         isSupported = true
     ),
 
+    arc(
+        R.drawable.ic_blockchain_arc_128,
+        "arc",
+        "Arc",
+        ArcConfig,
+        isSupported = true
+    ),
+
     monad(
         R.drawable.ic_blockchain_monad_128,
         "mon",
@@ -116,21 +132,41 @@ enum class MBlockchain(
         isSupported = true
     ),
 
+    dogecoin(
+        R.drawable.ic_blockchain_doge_128,
+        "doge",
+        "Dogecoin",
+        DogecoinConfig,
+        isSupported = true
+    ),
+
+    litecoin(
+        R.drawable.ic_blockchain_litecoin_128,
+        "ltc",
+        "Litecoin",
+        LitecoinConfig,
+        isSupported = true
+    ),
+
+    bitcoincash(
+        R.drawable.ic_blockchain_bitcoin_cash_128,
+        "bch",
+        "Bitcoin Cash",
+        BitcoinCashConfig,
+        isSupported = true
+    ),
+
     // unsupported examples (data only, no config yet)
     polkadot(R.drawable.ic_blockchain_polkadot_128, "dot", "Polkadot"),
     zcash(R.drawable.ic_blockchain_zcash_128, "zec", "Zcash"),
     internet_computer(R.drawable.ic_blockchain_internet_computer_40, "icp", "Internet Computer"),
-    litecoin(R.drawable.ic_blockchain_litecoin_128, "ltc", "Litecoin"),
     cosmos(R.drawable.ic_blockchain_cosmos_128, "atom", "Cosmos"),
     ripple(R.drawable.ic_blockchain_ripple_128, "xrp", "Ripple"),
     ethereum_classic(R.drawable.ic_blockchain_ethereum_classic_128, "etc", "Ethereum Classic"),
     dash(R.drawable.ic_blockchain_dash_128, "dash", "Dash"),
     monero(R.drawable.ic_blockchain_monero_128, "xmr", "Monero"),
     cardano(R.drawable.ic_blockchain_cardano_128, "ada", "Cardano"),
-    bitcoin(R.drawable.ic_blockchain_bitcoin_40, "btc", "Bitcoin"),
     eos(R.drawable.ic_blockchain_eos_128, "eos", "EOS"),
-    bitcoin_cash(R.drawable.ic_blockchain_bitcoin_cash_128, "bch", "Bitcoin Cash"),
-    doge(R.drawable.ic_blockchain_doge_128, "doge", "DOGE"),
     stellar(R.drawable.ic_blockchain_stellar_128, "xlm", "Stellar"),
     binance_dex(R.drawable.ic_blockchain_bnb_128, "bnb", "Binance Dex");
 
@@ -154,6 +190,8 @@ enum class MBlockchain(
     val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) = config?.isValidAddress(address) ?: false
+
+    fun normalizeAddress(address: String) = config?.normalizeAddress(address) ?: address
 
     fun isValidDNS(address: String) = config?.isValidDNS(address) ?: false
 
@@ -190,8 +228,8 @@ enum class MBlockchain(
         const val VIEW_ACCOUNT_EVM_PARAM = "evm"
 
         private val GRAM_CHAIN_ORDER = listOf(
-            ton, ethereum, solana, hyperliquid, tron, bnb, base, robinhood, monad,
-            arbitrum, polygon, avalanche
+            ton, bitcoin, ethereum, solana, hyperliquid, tron, bnb, base, robinhood, arc,
+            monad, arbitrum, polygon, avalanche, dogecoin, litecoin, bitcoincash
         )
 
         val supportedChains: List<MBlockchain> by lazy {

@@ -85,6 +85,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     open var activeTrailingCustomRowIDs: [String] { trailingCustomRows.map(\.id) }
     public var customSectionIDs: [String] { activeCustomSectionIDs }
     open var displaysActivitySections: Bool { true }
+    open var usesBackgroundSnapshotDiffing: Bool { true }
     open var activityAccountContext: AccountContext? { activityViewModel?.accountContext }
     open var isActivityDataAvailableForSkeleton: Bool { activityViewModel?.idsByDate != nil }
     open var isActivityHistoryEndReachedForSkeleton: Bool { activityViewModel?.isEndReached == true }
@@ -98,6 +99,11 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
 
     private let queue = DispatchQueue(label: "ActivitiesTableView", qos: .userInteractive)
+    private var pendingMainThreadSnapshot: (
+        snapshot: NSDiffableDataSourceSnapshot<Section, Row>,
+        animatingDifferences: Bool,
+        notifiesDidApply: Bool
+    )?
 
     // MARK: - Misc
 
@@ -434,7 +440,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
     }
 
-    public func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
+    public func makeSnapshot(
+        reconfiguringCustomSections: Set<String>? = nil
+    ) -> NSDiffableDataSourceSnapshot<Section, Row> {
         if !displaysActivitySections {
             var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
             snapshot.appendSections([.headerPlaceholder])
@@ -448,7 +456,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 snapshot.appendSections([section])
                 let rows = customRows(for: dataProvider)
                 snapshot.appendItems(rows, toSection: section)
-                reconfigurePreviouslyDisplayedRows(rows, in: &snapshot)
+                if reconfiguringCustomSections?.contains(customSectionID) != false {
+                    reconfigurePreviouslyDisplayedRows(rows, in: &snapshot)
+                }
             }
             return snapshot
         }
@@ -489,7 +499,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     snapshot.deleteItems(currentRows)
                     snapshot.appendItems(desiredRows, toSection: section)
                 }
-                reconfigurePreviouslyDisplayedRows(desiredRows, in: &snapshot)
+                if reconfiguringCustomSections?.contains(id) != false {
+                    reconfigurePreviouslyDisplayedRows(desiredRows, in: &snapshot)
+                }
             }
             if let lastTransactionsSection = snapshot.sectionIdentifiers.last(where: { section in
                 if case .transactions = section {
@@ -517,7 +529,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     snapshot.appendSections([section])
                     let rows = customRows(for: dataProvider)
                     snapshot.appendItems(rows, toSection: section)
-                    reconfigurePreviouslyDisplayedRows(rows, in: &snapshot)
+                    if reconfiguringCustomSections?.contains(customSectionID) != false {
+                        reconfigurePreviouslyDisplayedRows(rows, in: &snapshot)
+                    }
                 }
             }
             snapshot.appendSections([.placeholderTransactionsSection])
@@ -537,12 +551,50 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
         guard let dataSource else { return }
+        if !usesBackgroundSnapshotDiffing {
+            enqueueMainThreadSnapshot(snapshot, animatingDifferences: animatingDifferences, notifiesDidApply: true)
+            return
+        }
         queue.async {
             // @MainActor annotation conflicts with the docs which allow calling consistently on the background thread
             dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                     self.updateVisibleActivityNftAnimationPlayback()
+                    self.didApplySnapshot()
+                }
+            }
+        }
+    }
+
+    private func enqueueMainThreadSnapshot(
+        _ snapshot: NSDiffableDataSourceSnapshot<Section, Row>,
+        animatingDifferences: Bool,
+        notifiesDidApply: Bool
+    ) {
+        var snapshot = snapshot
+        let pending = pendingMainThreadSnapshot
+        if let pending {
+            // Keep content changes from earlier requests, but only for rows in the latest structure.
+            let previousReconfigurations = Set(pending.snapshot.reconfiguredItemIdentifiers)
+                .subtracting(snapshot.reconfiguredItemIdentifiers)
+            snapshot.reconfigureItems(snapshot.itemIdentifiers.filter(previousReconfigurations.contains))
+        }
+        pendingMainThreadSnapshot = (
+            snapshot,
+            animatingDifferences || pending?.animatingDifferences == true,
+            notifiesDidApply || pending?.notifiesDidApply == true
+        )
+        guard pending == nil else { return }
+        // Home's bounded sections often change together during one account switch.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let pending = self.pendingMainThreadSnapshot else { return }
+            self.pendingMainThreadSnapshot = nil
+            self.dataSource?.apply(pending.snapshot, animatingDifferences: pending.animatingDifferences) { [weak self] in
+                guard let self else { return }
+                self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
+                self.updateVisibleActivityNftAnimationPlayback()
+                if pending.notifiesDidApply {
                     self.didApplySnapshot()
                 }
             }
@@ -588,9 +640,15 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
     public func reconfigureCustomSection(id: String) {
         guard let dataSource, let dataProvider = customSectionDataProvider(id: id) else { return }
-        let currentSnapshot = dataSource.snapshot()
+        let currentSnapshot = pendingMainThreadSnapshot?.snapshot ?? dataSource.snapshot()
         let rows = customRows(for: dataProvider).filter(currentSnapshot.itemIdentifiers.contains)
         guard !rows.isEmpty else { return }
+        if !usesBackgroundSnapshotDiffing {
+            var snapshot = currentSnapshot
+            snapshot.reconfigureItems(rows)
+            enqueueMainThreadSnapshot(snapshot, animatingDifferences: true, notifiesDidApply: false)
+            return
+        }
         queue.async {
             var snapshot = currentSnapshot
             snapshot.reconfigureItems(rows)
@@ -711,7 +769,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             return
         }
 
-        collectionView.layoutIfNeeded()
+        // Use the displayed geometry. viewDidLayoutSubviews refreshes eligibility after pending layout.
         var nextEligibleIDs = Set<String>()
         let visibleItems = collectionView.indexPathsForVisibleItems
             .sorted { lhs, rhs in

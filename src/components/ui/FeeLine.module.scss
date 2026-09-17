@@ -16,6 +16,10 @@
   &.static {
     color: var(--color-gray-3-desktop);
   }
+
+  &.error {
+    color: var(--color-red);
+  }
 }
 
 .details {

@@ -7,6 +7,17 @@ import WalletCoreTypes
 public final class ExplorerHelper {
     
     private init() {}
+
+    public static func isExplorerUrl(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return explorerHosts.contains(host)
+    }
+
+    private static let explorerHosts: Set<String> = Set(ApiChain.allCases.flatMap { chain in
+        getAvailableExplorers(chain: chain).flatMap { explorer in
+            explorer.baseUrl.values.compactMap { URL(string: $0.url)?.host?.lowercased() }
+        }
+    })
     
     public static func viewTransactionUrl(network: ApiNetwork, chain: ApiChain, txHash: String) -> URL {
         var url = URL(string: SHORT_UNIVERSAL_URL)!.appending(components: "tx", chain.rawValue, txHash)

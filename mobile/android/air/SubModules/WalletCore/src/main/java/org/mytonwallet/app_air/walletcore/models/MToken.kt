@@ -29,9 +29,11 @@ val DIESEL_TOKENS = arrayOf(
     "EQAJ8uWd7EBqsmpSWaRdf_I-8R8-XHwh3gsNKhy-UrdrPcUo" // HAMSTER
 )
 
-class MToken(json: JSONObject) :
+class MToken internal constructor(json: TokenFields) :
     IApiToken,
     WEquatable<MToken> {
+
+    constructor(json: JSONObject) : this(JsonObjectTokenFields(json))
 
     companion object {
         private val EARN_AVAILABLE_SLUGS = setOf(TONCOIN_SLUG, USDE_SLUG)
@@ -68,9 +70,7 @@ class MToken(json: JSONObject) :
     var priceUsd: Double = json.optDouble("priceUsd")
     val isFromBackend: Boolean = json.optBoolean("isFromBackend")
     val type: String = json.optString("type")
-    override val keywords: List<String>? = json.optJSONArray("keywords")?.let {
-        List(it.length()) { i -> it.optString(i) }
-    }
+    override val keywords: List<String>? = json.optStrings("keywords")
     val cmcSlug: String? = json.optString("cmcSlug").ifBlank { null }
     var color: String? = json.optString("color").ifBlank { null }
     val isGaslessEnabled: Boolean = json.optBoolean("isGaslessEnabled")

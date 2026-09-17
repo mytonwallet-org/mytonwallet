@@ -226,7 +226,7 @@ enum MarketSectionBuilder {
             case .grid: .grid
             case .rows: .rows
             }
-            let visibleLimit = section.limit.flatMap { $0 > 0 ? $0 : nil }
+            let visibleLimit = (section.mobileLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil }
 
             return MarketSection(
                 id: section.id,

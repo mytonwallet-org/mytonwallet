@@ -229,8 +229,8 @@ public extension MAccount {
                 textToCopy = domain
             } else {
                 isDomain = false
-                text = info.address
-                textToCopy = info.address
+                text = chain.normalizeAddress(info.address)
+                textToCopy = chain.normalizeAddress(info.address)
             }
             items += AddressLine.Item(
                 chain: chain,

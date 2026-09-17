@@ -15,6 +15,15 @@ public let ActivityStore = _ActivityStore.shared
 
 public actor _ActivityStore: WalletCoreData.EventsObserver {
 
+    static func pendingActivityIdsToReplaceForNewActivities(
+        currentPendingActivityIds: [String: [String]]?,
+        chain: ApiChain?,
+        pendingActivities: [ApiActivity]?
+    ) -> [String] {
+        guard let chain, pendingActivities != nil else { return [] }
+        return currentPendingActivityIds?[chain.rawValue] ?? []
+    }
+
     struct InitialMainHistoryProgress: Equatable, Sendable {
         private(set) var hasMoreByChain: [ApiChain: Bool] = [:]
 
@@ -63,6 +72,18 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var isInitialLoadedByChain: [String: Bool]?
 
         static let databaseTableName: String = "account_activities"
+
+        mutating func updatePendingActivityIds(_ activities: [ApiActivity], chain: ApiChain) {
+            let updatedIds = Set(activities.map(\.id))
+            var chainIds = pendingActivityIds?[chain.rawValue] ?? []
+            chainIds.removeAll { updatedIds.contains($0) }
+            chainIds.append(contentsOf: activities.filter {
+                getIsActivityPending($0) && !getIsIdLocal($0.id) && $0.shouldHide != true
+            }.map(\.id))
+            var pendingIds = pendingActivityIds ?? [:]
+            pendingIds[chain.rawValue] = unique(chainIds)
+            pendingActivityIds = pendingIds
+        }
 
         func persistenceSnapshot() -> Self {
             var snapshot = self
@@ -271,19 +292,33 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         var updatedIds: [String]
         if let patch = reconciliation?.patch {
             updatedIds = []
-            if let chain = update.chain, let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
-                removeActivities(accountId: accountId, deleteIds: oldIds)
-                updatedIds.append(contentsOf: oldIds)
+            let oldPendingIds = Self.pendingActivityIdsToReplaceForNewActivities(
+                currentPendingActivityIds: getAccountState(accountId).pendingActivityIds,
+                chain: update.chain,
+                pendingActivities: pendingActivities
+            )
+            if !oldPendingIds.isEmpty {
+                removeActivities(accountId: accountId, deleteIds: oldPendingIds)
+                updatedIds.append(contentsOf: oldPendingIds)
             }
-            updatedIds.append(contentsOf: applyActivitiesPatch(accountId: accountId, patch: patch, visibleChain: update.chain))
+            updatedIds.append(contentsOf: applyActivitiesPatch(
+                accountId: accountId,
+                patch: patch,
+                visibleChain: update.chain
+            ))
         } else {
-            if let chain = update.chain,  let pendingActivities = adjustedPendingActivities {
-                if let oldIds = getAccountState(accountId).pendingActivityIds?[chain.rawValue] {
-                    removeActivities(accountId: accountId, deleteIds: oldIds)
+            if let chain = update.chain, pendingActivities != nil, let adjustedPendingActivities {
+                let oldPendingIds = Self.pendingActivityIdsToReplaceForNewActivities(
+                    currentPendingActivityIds: getAccountState(accountId).pendingActivityIds,
+                    chain: chain,
+                    pendingActivities: pendingActivities
+                )
+                if !oldPendingIds.isEmpty {
+                    removeActivities(accountId: accountId, deleteIds: oldPendingIds)
                 }
-                addNewActivities(accountId: accountId, newActivities: pendingActivities, chain: chain)
+                addNewActivities(accountId: accountId, newActivities: adjustedPendingActivities, chain: chain)
             }
-            addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: nil)
+            addNewActivities(accountId: accountId, newActivities: newConfirmedActivities, chain: update.chain)
             updatedIds = unique((adjustedPendingActivities ?? []).map(\.id) + newConfirmedActivities.map(\.id))
         }
 
@@ -666,17 +701,29 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
     }
     
-    public func debugOnly_clean() {
-        clean()
+    /// Clears downloaded history while keeping the store connected to the account database.
+    public func clearCache() throws {
+        _ = try db.write { db in
+            try AccountState.deleteAll(db)
+        }
+        let accountIds = Array(byAccountId.keys)
+        pendingCexSwapRefreshTask?.cancel()
+        pendingCexSwapRefreshTask = nil
+        byAccountId = [:]
+        initialMainHistoryProgressByAccountId = [:]
+        poisoningCacheById = [:]
+        for accountId in accountIds {
+            WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [], replacedIds: [:]))
+        }
     }
     
     // MARK: - Impl
     
     /**
      Used for the initial activities insertion into `global`.
-     Token activity IDs will just be replaced.
+     Token activity IDs are merged because different chains can report the same cross-chain swap token.
      */
-    private func addInitialActivities(accountId: String, mainActivities: [ApiActivity], bySlug: [String: [ApiActivity]]) {
+    func addInitialActivities(accountId: String, mainActivities: [ApiActivity], bySlug: [String: [ApiActivity]]) {
         
         let currentState = getAccountState(accountId)
         
@@ -698,7 +745,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             activities.compactMap { byId[$0.id] == nil ? nil : $0.id }
         }
         for (slug, ids) in newIdsBySlug {
-            idsBySlug[slug] = ids
+            idsBySlug[slug] = mergeSortedActivityIds(ids, idsBySlug[slug] ?? [], byId: byId)
         }
         
         let newestActivitiesBySlug = _getNewestActivitiesBySlug(byId: byId, idsBySlug: idsBySlug, newestActivitiesBySlug: currentState.newestActivitiesBySlug, tokenSlugs: newIdsBySlug.keys)
@@ -772,19 +819,12 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         let newLocalIds = activities.filter { getIsIdLocal($0.id) }.map(\.id)
         let localActivityIds = Array(Set(oldLocalIds + newLocalIds))
 
-        var pendingIds: [String: [String]] = state.pendingActivityIds ?? [:]
-        if let chain {
-            let oldPendingIds = state.pendingActivityIds?[chain.rawValue] ?? []
-            let newPendingIds = activities.filter { getIsActivityPending($0) && !getIsIdLocal($0.id) }.map(\.id)
-            pendingIds[chain.rawValue] = Array(Set(oldPendingIds + newPendingIds))
-        }
-
         state.idsMain = idsMain
         state.idsBySlug = idsBySlug
         state.newestActivitiesBySlug = newestActivitiesBySlug
         state.localActivityIds = localActivityIds
-        if chain != nil {
-            state.pendingActivityIds = pendingIds
+        if let chain {
+            state.updatePendingActivityIds(activities, chain: chain)
         }
     }
     

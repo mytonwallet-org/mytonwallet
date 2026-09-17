@@ -120,7 +120,7 @@ function handleMfaApiUpdate(update: ApiUpdate) {
 
   switch (update.type) {
     case 'updateTokens':
-      global = updateTokens(global, update.tokens, true, !update.arePricesFresh);
+      global = updateTokens(global, update.tokens, update.kind, update.removedSlugs, true);
       break;
 
     case 'updateSwapTokens':

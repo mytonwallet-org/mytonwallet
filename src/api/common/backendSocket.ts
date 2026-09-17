@@ -7,6 +7,7 @@ import type {
   ApiServerSocketMessage,
   ApiSocketEventType,
   ApiSubscribedSocketMessage,
+  ApiUtxoActivityUpdateSocketMessage,
 } from '../types';
 import type { DefaultNftUpdateArgument } from './websocket/abstractWsClient';
 
@@ -22,6 +23,11 @@ interface ExtendedWatchedWallet {
   address: string;
 }
 
+export type ApiBackendActivitiesUpdate = {
+  address: string;
+  utxoActivityUpdate?: ApiUtxoActivityUpdateSocketMessage;
+};
+
 /**
  * Connects to the MW backend to passively listen to updates
  */
@@ -29,7 +35,7 @@ class BackendSocket extends AbstractWebsocketClient<
   ApiClientSocketMessage,
   ApiServerSocketMessage,
   ExtendedWatchedWallet,
-  { address: string },
+  ApiBackendActivitiesUpdate,
   DefaultNftUpdateArgument
 > {
   constructor(network: ApiNetwork) {
@@ -43,6 +49,9 @@ class BackendSocket extends AbstractWebsocketClient<
         break;
       case 'newActivity':
         this.#handleNewActivity(message);
+        break;
+      case 'utxoActivityUpdate':
+        this.#handleUtxoActivityUpdate(message);
         break;
     }
   };
@@ -99,6 +108,26 @@ class BackendSocket extends AbstractWebsocketClient<
     }
   }
 
+  #handleUtxoActivityUpdate(message: ApiUtxoActivityUpdateSocketMessage) {
+    for (const { wallets, isConnected, onNewActivities } of this.walletWatchers) {
+      if (!isConnected || !onNewActivities) {
+        continue;
+      }
+
+      for (const wallet of wallets) {
+        const doesWalletMatch = (
+          wallet.chain === message.chain
+          && wallet.address === message.address
+          && wallet.events.includes('activity')
+        );
+
+        if (doesWalletMatch) {
+          safeExec(() => onNewActivities({ address: wallet.address, utxoActivityUpdate: message }));
+        }
+      }
+    }
+  }
+
   protected sendWatchedWalletsToSocket = () => {
     // It's necessary to collect the watched addresses synchronously with locking the request id.
     // It makes sure that all the watchers with ids < the response id will be subscribed.
@@ -149,6 +178,11 @@ function getSocketUrl(network: ApiNetwork) {
 
 /** Returns a singleton (one constant instance per a network) */
 export const getBackendSocket = withCache((network: ApiNetwork) => {
+  return new BackendSocket(network);
+});
+
+/** UTXO confirmation tracking uses the same protocol but a separate connection, because each subscribe replaces all watched addresses. */
+export const getUtxoBackendSocket = withCache((network: ApiNetwork) => {
   return new BackendSocket(network);
 });
 

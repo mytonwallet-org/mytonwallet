@@ -10,7 +10,7 @@ import {
   getOffRampBaselineCurrencies,
   getOnRampBaselineCurrencies,
   hasEffectiveRampCurrency,
-} from '../../util/ramp-currencies';
+} from '../../util/rampCurrencies';
 import { getChainBySlug, getIsNativeToken } from '../../util/tokens';
 import { selectCurrentAccount } from './accounts';
 import {
@@ -118,13 +118,15 @@ export function selectAllowedOnOffRampCurrencies(global: GlobalState) {
  * still opens one, and a union answer is how a button ends up offered on an account whose click then declines.
  * Chainless callers ask `selectDefaultOnRampChain` first, which is that question asked about the actual account.
  */
-export function selectIsOnRampAllowed(global: GlobalState, chain: ApiChain) {
+export function selectIsOnRampAllowed(
+  global: GlobalState, chain: ApiChain, provider?: 'moonpay' | 'avanchange',
+) {
   const { settings: { isTestnet }, restrictions: { isOnRampDisabled, allowedOnOffRampCurrencies } } = global;
 
   if (isTestnet || isOnRampDisabled) return false;
   if (!getChainConfig(chain).isOnRampSupported) return false;
 
-  return hasEffectiveRampCurrency(getOnRampBaselineCurrencies(chain), allowedOnOffRampCurrencies);
+  return hasEffectiveRampCurrency(getOnRampBaselineCurrencies(chain, provider), allowedOnOffRampCurrencies);
 }
 
 export function selectIsOffRampAllowed(global: GlobalState, chain: ApiChain) {

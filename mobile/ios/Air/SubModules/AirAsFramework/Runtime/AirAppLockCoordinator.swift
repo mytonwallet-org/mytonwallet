@@ -54,7 +54,8 @@ final class AirAppLockCoordinator: NSObject {
             return
         }
 
-        guard AuthSupport.accountsSupportAppLock else {
+        guard AuthSupport.accountsSupportAppLock,
+              AppStorageHelper.autolockOption != .never || AuthSupport.hasPendingMultichainUpgrade else {
             resolveUnlockPresentationDecision(mark: "splash.afterUnlock.skipLock", result: "lockDisabled")
             isAppUnlocked = true
             rootStateCoordinator.hideUnlockState()

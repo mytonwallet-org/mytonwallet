@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "26.9.5",
+  "version": "26.9.6",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -52,7 +52,9 @@
     "mobile:build:production": "npm run mobile:build",
     "build:icons": "fantasticon",
     "check": "tsc && stylelint \"**/*.{css,scss}\" && eslint .",
-    "check:fix": "stylelint \"**/*.{css,scss}\" --fix && eslint . --fix",
+    "check:fix": "npm run fix:file-names && stylelint \"**/*.{css,scss}\" --fix && eslint . --fix",
+    "fix:file-names": "node dev/fixFileNames.mjs",
+    "test:file-names": "node --test dev/fileNamingConfigTests.mjs dev/fixFileNamesTests.mjs",
     "test": "cross-env APP_ENV=test jest --verbose",
     "contract:agent:v2:check": "node dev/checkAgentV2Contract.mjs && tsc -p dev/agentV2/tsconfig.json && cross-env APP_ENV=test jest src/api/agentV2/protocol/transportContracts.test.ts --runInBand",
     "test:agent:v2": "cross-env APP_ENV=test jest src/api/agentV2 src/api/environment.agentV2.test.ts src/api/methods/agentV2Lifecycle.test.ts src/api/methods/registry.test.ts src/components/agentV2 src/components/agent src/config.agentV2.test.ts src/util/agent/agentProtocolVersion.test.ts src/util/renderMarkdown.test.ts",
@@ -97,11 +99,12 @@
     }
   },
   "lint-staged": {
+    "*.module.scss": "eslint",
     "*.{ts,tsx,js}": "eslint --fix",
     "*.{css,scss}": "stylelint --fix"
   },
   "author": "MyTonWallet",
-  "license": "GPL-3.0-or-later",
+  "license": "SEE LICENSE IN LICENSE",
   "protocols": [
     {
       "name": "Ton",
@@ -206,6 +209,8 @@
     "@ledgerhq/hw-transport-webhid": "6.30.0",
     "@ledgerhq/hw-transport-webusb": "6.29.4",
     "@reown/walletkit": "1.5.5",
+    "@scure/bip32": "^1.5.0",
+    "@scure/btc-signer": "^1.5.0",
     "@solana/kit": "5.1.0",
     "@ton-community/tlb-runtime": "1.0.0-alpha.3",
     "@ton-community/ton-ledger": "7.4.0-pre.0",

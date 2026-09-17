@@ -36,13 +36,12 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.promotion.PromotionVC
-import org.mytonwallet.uihome.tabs.views.IBottomNavigationView
 
 /**
  * Shared base for the two tab containers (phone [TabsVC] and tablet TabletTabsVC). Owns the
  * per-tab navigation stacks and the shared [WalletEvent] routing, and
  * supports transferring the live stacks between containers on a layout swap so each tab's back stack
- * survives. Container-specific chrome (bottom bar, minimize, blur, search, mounting) is left to the
+ * survives. Container-specific chrome (top tabs, minimize, blur, search, mounting) is left to the
  * subclasses via the [ITabsVC] members they implement.
  */
 abstract class BaseTabsVC(context: Context) :
@@ -81,20 +80,20 @@ abstract class BaseTabsVC(context: Context) :
         configureNavigationStack(id, nav)
         nav.setRoot(
             when (id) {
-                IBottomNavigationView.ID_HOME -> HomeVC(context, MScreenMode.Default)
+                AppTabsManager.ID_HOME -> HomeVC(context, MScreenMode.Default)
 
-                IBottomNavigationView.ID_MARKET -> MarketVC(context)
+                AppTabsManager.ID_MARKET -> MarketVC(context)
 
-                IBottomNavigationView.ID_AGENT -> AgentVC(context)
+                AppTabsManager.ID_AGENT -> AgentVC(context)
 
-                IBottomNavigationView.ID_EXPLORE -> ExploreVC(context).also {
+                AppTabsManager.ID_EXPLORE -> ExploreVC(context).also {
                     cachedExploreVC = it
                     onExploreCreated(it)
                 }
 
-                IBottomNavigationView.ID_SETTINGS -> SettingsVC(context)
+                AppTabsManager.ID_SETTINGS -> SettingsVC(context)
 
-                IBottomNavigationView.ID_PORTFOLIO -> PortfolioVC(context)
+                AppTabsManager.ID_PORTFOLIO -> PortfolioVC(context)
 
                 else -> throw Error()
             }
@@ -104,6 +103,13 @@ abstract class BaseTabsVC(context: Context) :
     }
 
     protected fun navForOrNull(id: Int): WNavigationController? = stackNavigationControllers[id]
+
+    protected fun WNavigationController.popToRootUnlessDisplaying(accountId: String?) {
+        val displayedAccountIds = viewControllers.map { it.displayedAccount?.accountId }
+        val isDisplaying = accountId != null && displayedAccountIds.lastOrNull() == accountId &&
+            displayedAccountIds.all { it == null || it == accountId }
+        if (!isDisplaying) popToRoot(false)
+    }
 
     protected fun detachNavigationStack(id: Int): List<WViewController> {
         val nav = stackNavigationControllers.remove(id) ?: return emptyList()
@@ -135,7 +141,7 @@ abstract class BaseTabsVC(context: Context) :
 
     protected fun submitAgentPrompt(prompt: String?) {
         if (prompt.isNullOrBlank()) return
-        val agentVC = getNavigationStack(IBottomNavigationView.ID_AGENT)
+        val agentVC = getNavigationStack(AppTabsManager.ID_AGENT)
             .viewControllers
             .firstOrNull() as? AgentVC ?: return
         agentVC.submitPrompt(prompt)
@@ -143,7 +149,7 @@ abstract class BaseTabsVC(context: Context) :
 
     protected fun showAgentMessage(messageId: String?) {
         if (messageId.isNullOrBlank()) return
-        val agentVC = getNavigationStack(IBottomNavigationView.ID_AGENT)
+        val agentVC = getNavigationStack(AppTabsManager.ID_AGENT)
             .viewControllers
             .firstOrNull() as? AgentVC ?: return
         agentVC.showMessage(messageId)
@@ -378,7 +384,7 @@ abstract class BaseTabsVC(context: Context) :
                 )
                 (
                     window.navigationControllers.lastOrNull()
-                        ?: getNavigationStack(IBottomNavigationView.ID_HOME)
+                        ?: getNavigationStack(AppTabsManager.ID_HOME)
                     ).push(assetsVC)
                 return true
             }

@@ -409,6 +409,7 @@ Slippage: ค่าความคลาดเคลื่อน
 $swap_from_to: แลก %from% %icon% %to%
 The exchange rate is below market value!: อัตราการแลกเปลี่ยนที่ %value% ต่ำกว่ามูลค่าตลาด!
 Invalid Pair: ไม่สามารถสับเปลี่ยนได้
+Unsupported Pair: คู่ที่ไม่รองรับ
 We do not recommend to perform an exchange, try to specify a lower amount.: เราไม่แนะนำให้ทำการแลกเปลี่ยน, โปรดระบุจำนวนที่ต่ำกว่านี้.
 $swap_minimum_received_tooltip1: นี่คือจำนวนโทเค็นใหม่ที่ตำ่สุดที่คุณจะได้รับจากการแลกเปลี่ยนนี้ โดยพิจารณาจากสภาวะตลาดในปัจจุบัน การยอมรับความคลาดเคลื่อนของราคา และผลกระทบด้านราคาที่อาจเกิดขึ้น.
 $swap_minimum_received_tooltip2: ซึ่งเป็นจำนวนขั้นต่ำที่คาดไว้, แต่อาจจะเงื่อนไขเปลี่ยนแปลงไปในขณะที่กำลังประมวลผลระหว่างสับเปลี่ยน จำนวนมูลค่าที่ได้รับอาจจะลดลง.
@@ -676,6 +677,10 @@ $transfer_text_and_bin_exclusive: ไม่สามารถใช้พาร�
 $unsupported_deeplink_parameter: ลิงก์นี้มีพารามิเตอร์ที่ไม่รองรับ.
 $unsupported_chain: บล็อกเชนที่ไม่รองรับ.
 Successfully: สำเร็จแล้ว
+Estimated Time: เวลาโดยประมาณ
+$utxo_confirmations:
+  otherValue: "ยืนยันแล้ว %count% จาก %max% ครั้ง"
+$utxo_estimated_time: "~ %duration%"
 Unstake More: ถอนการสเต็กเพิ่ม
 Are you sure you want to burn this NFT? It will be lost forever.: |
   คุณแน่ใจหรือไม่ว่าต้องการเบิร์น NFT นี้?
@@ -982,6 +987,11 @@ $iab_tabs_count:
   zeroValue: "%count% แท็บ"
   oneValue: "%count% แท็บ"
   otherValue: "%count% แท็บ"
+$iab_more_tabs_count:
+  zeroValue: "+ %count% แท็บ"
+  oneValue: "+ %count% แท็บ"
+  otherValue: "+ %count% แท็บ"
+Close Tab: ปิดแท็บ
 $domains_amount %count%:
   zeroValue: ไม่มีโดเมน
   otherValue: "%count% โดเมน"
@@ -1326,6 +1336,152 @@ $agent_portfolio_insight_chain_split_title: การกระจายเคร
 $agent_portfolio_insight_chain_split_text: ตรวจสอบสัดส่วนในแต่ละเครือข่ายของการจัดสรรที่แสดงอยู่ สินทรัพย์ที่ไม่ได้แสดงอาจทำให้ภาพรวมของพอร์ตโฟลิโอทั้งหมดเปลี่ยนไป
 $agent_portfolio_insight_data_quality_title: คุณภาพข้อมูล
 $agent_portfolio_insight_data_quality_text: โปรดพิจารณาความครอบคลุมและความทันสมัยของข้อมูลเมื่อตีความการวิเคราะห์นี้
+$agent_market_analysis_title: การวิเคราะห์ตลาด
+$agent_market_as_of: ข้อมูล ณ เวลา
+$agent_market_closed_1d: แท่งเทียน 1D ที่ปิดล่าสุด
+$agent_market_thesis: มุมมองทางเทคนิค
+$agent_market_fear_greed_sentiment: ความเชื่อมั่นตลาดที่อิง Bitcoin
+$agent_market_fear_greed_index: ดัชนีความกลัวและความโลภ (0–100)
+$agent_market_fear_greed_sma_30: SMA 30
+$agent_market_fear_greed_sma_365: SMA 365
+$agent_market_fear_greed_regime: ภาวะตลาด
+$agent_market_fear_greed_risk_on: ภาวะรับความเสี่ยง
+$agent_market_fear_greed_risk_off: ภาวะหลีกเลี่ยงความเสี่ยง
+$agent_market_fear_greed_neutral: ความเชื่อมั่นเป็นกลาง
+$agent_market_fear_greed_source: แหล่งที่มา
+$agent_market_timeframes: โครงสร้างตลาด
+$agent_market_structure_bullish: จุดสูงสุดและจุดต่ำสุดยกตัวสูงขึ้น
+$agent_market_structure_bearish: จุดสูงสุดและจุดต่ำสุดลดตัวลง
+$agent_market_structure_range: เคลื่อนไหวในกรอบ
+$agent_market_structure_transition: ช่วงเปลี่ยนผ่าน
+$agent_market_structure_unavailable: ไม่มีข้อมูลโครงสร้าง
+$agent_market_event_none: ยังไม่มีการเบรกที่ยืนยัน
+$agent_market_event_break_up: เบรกเหนือโครงสร้าง
+$agent_market_event_break_down: เบรกใต้โครงสร้าง
+$agent_market_event_retest_up: ทดสอบแนวขาขึ้นอีกครั้ง
+$agent_market_event_retest_down: ทดสอบแนวขาลงอีกครั้ง
+$agent_market_live_approaching_upper: กำลังเข้าใกล้ขอบบน
+$agent_market_live_approaching_lower: กำลังเข้าใกล้ขอบล่าง
+$agent_market_level_map: ระดับสำคัญ
+$agent_market_level_primary: ระดับหลัก
+$agent_market_level_secondary: ระดับรอง
+$agent_market_level_context: ระดับประกอบ
+$agent_market_levels_unavailable: ไม่มีระดับโครงสร้างที่ยืนยัน
+$agent_market_profile_poc_full: ศูนย์กลางปริมาณซื้อขาย (POC)
+$agent_market_profile_value_area_full: ขอบเขตพื้นที่มูลค่า (VAL/VAH)
+$agent_market_profile_hvn_full: พื้นที่ปริมาณซื้อขายสูง (HVN)
+$agent_market_profile_lvn_full: ช่องปริมาณซื้อขายต่ำ (LVN)
+$agent_market_profile_current_day: วัน UTC ปัจจุบัน
+$agent_market_profile_previous_day: วัน UTC ก่อนหน้า
+$agent_market_profile_previous_week: สัปดาห์ UTC ก่อนหน้า
+$agent_market_profile_rolling_30d: 30 เซสชัน UTC ล่าสุด
+$agent_market_profile_above: ราคาอยู่เหนือพื้นที่มูลค่า
+$agent_market_profile_inside: ราคาอยู่ภายในพื้นที่มูลค่า
+$agent_market_profile_below: ราคาอยู่ใต้พื้นที่มูลค่า
+$agent_market_factors: ปัจจัยสำคัญ
+$agent_market_factor_structure: "โครงสร้างรายวัน: %direction%"
+$agent_market_factor_levels: ยืนยันโซนแนวรับ %supports% และแนวต้าน %resistances% สำหรับช่วงเวลานี้แล้ว
+$agent_market_factor_profile: "การกระจายปริมาณซื้อขาย: %position%"
+$agent_market_factor_profile_unavailable: ไม่มีข้อมูล Volume Profile สถานการณ์นี้จึงอิงโครงสร้างราคา
+$agent_market_factor_timeframe_alignment: "โครงสร้างกรอบเวลา — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%"
+$agent_market_factor_current_scenario: "ภาวะปัจจุบัน: %active% สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
+$agent_market_factor_no_active_scenario: "ยังไม่มีสถานการณ์ที่ยืนยัน สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
+$agent_market_primary_scenario: สถานการณ์หลัก
+$agent_market_current_regime: ภาวะปัจจุบันที่ยืนยันแล้ว
+$agent_market_conditional_scenario: สถานการณ์แบบมีเงื่อนไข
+$agent_market_no_active_scenario: ขณะนี้ยังไม่มีสถานการณ์ที่ยืนยัน
+$agent_market_calculated_fallback: "การวิเคราะห์ที่คำนวณแล้ว: คำอธิบายจากโมเดลไม่พร้อมใช้งานชั่วคราว"
+$agent_market_other_horizons: ช่วงเวลาอื่นที่ขอ
+$agent_market_horizon_3d: 3 วัน
+$agent_market_horizon_7d: 7 วัน
+$agent_market_horizon_30d: 30 วัน
+$agent_market_scenario_bullish: เบรกเอาต์ขาขึ้น
+$agent_market_scenario_range: สมดุลในกรอบ
+$agent_market_scenario_bearish: เบรกดาวน์ขาลง
+$agent_market_scenario_unavailable: ไม่มีสถานการณ์เชิงโครงสร้างสำหรับช่วงเวลานี้
+$agent_market_confidence: ความมั่นใจ
+$agent_market_confidence_low: ต่ำ
+$agent_market_confidence_medium: ปานกลาง
+$agent_market_activation: เงื่อนไขเปิดใช้งาน
+$agent_market_path: เส้นทาง
+$agent_market_terminal: โซนปลายทาง
+$agent_market_invalidation: จุดยกเลิกสมมติฐาน
+$agent_market_expected_range: กรอบของสถานการณ์
+$agent_market_rationale: เหตุผล
+$agent_market_condition_above: ปิดเหนือ
+$agent_market_condition_below: ปิดต่ำกว่า
+$agent_market_condition_inside: ปิดภายใน
+$agent_market_condition_outside: ปิดภายนอก
+$agent_market_condition_waiting: รอการยืนยัน
+$agent_market_condition_approaching: กำลังเข้าใกล้
+$agent_market_condition_triggered: ยืนยันแล้ว
+$agent_market_scenario_zone: โซนสถานการณ์
+$agent_market_expected_move: กรอบความผันผวน
+$agent_market_volatility_envelope: กรอบความผันผวนโดยรวม
+$agent_market_expected_move_note: การเคลื่อนไหวแบบมีเงื่อนไข ไม่ใช่ความน่าจะเป็น
+$agent_market_risk_caveat: สถานการณ์ต่าง ๆ เป็นเพียงเงื่อนไขและไม่ถือเป็นคำแนะนำในการซื้อขาย
+$agent_market_partial_coverage: หลักฐานตลาดบางส่วนไม่พร้อมใช้งาน ระดับความมั่นใจจึงมีจำกัด
+$agent_market_thesis_bullish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อเหนือแนวต้าน โดยจุดยกเลิกสมมติฐานยังอยู่ใต้แนวรับที่ใกล้ที่สุด
+$agent_market_thesis_bearish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อต่ำกว่าแนวรับ โดยจุดยกเลิกสมมติฐานยังอยู่เหนือแนวต้านที่ใกล้ที่สุด
+$agent_market_thesis_range: ราคายังคงสมดุลระหว่างแนวรับและแนวต้านที่ยืนยัน
+$agent_market_thesis_mixed: กรอบเวลาขัดแย้งกัน การยืนยันที่ขอบเขตโครงสร้างจึงสำคัญกว่าตัวชี้วัดทิศทาง
+$agent_market_thesis_insufficient: หลักฐานที่มีอยู่ไม่เพียงพอที่จะยืนยันโครงสร้างเชิงทิศทาง
+$agent_market_thesis_unconfirmed: ยังไม่มีสถานการณ์ที่ยืนยัน โปรดรอให้ราคาปิดผ่านขอบเขตโครงสร้างก่อนเลือกมุมมองทิศทาง
+$agent_semantic_asset_search: การค้นหาสินทรัพย์
+$agent_semantic_web_digest: ผลการค้นหาจากเว็บ
+$agent_semantic_no_results: ไม่มีผลลัพธ์
+$agent_semantic_wallets: กระเป๋าเงิน
+$agent_semantic_wallet: กระเป๋าเงิน
+$agent_semantic_balance: ยอดคงเหลือ
+$agent_semantic_balance_unavailable: —
+$agent_semantic_access_regular: ปกติ
+$agent_semantic_access_view_only: ดูอย่างเดียว
+$agent_semantic_wallets_unpriced: "%amount% รายการไม่ได้รวมอยู่ในยอดรวมที่แสดงเนื่องจากไม่มีราคา"
+$agent_semantic_wallets_stale: ยอดคงเหลือในกระเป๋าเงินบางรายการอาจไม่เป็นปัจจุบัน
+$agent_semantic_wallets_unavailable: ยอดคงเหลือในกระเป๋าเงินบางส่วนอาจไม่สามารถดูได้
+$agent_semantic_wallets_partial: ข้อมูลกระเป๋าเงินบางส่วนไม่สมบูรณ์
+$agent_semantic_status: สถานะ
+$agent_semantic_quantity: จำนวน
+$agent_semantic_time: เวลา
+$agent_semantic_partial: ข้อมูลบางส่วนไม่สามารถใช้งานได้
+$agent_semantic_pending: กำลังดำเนินการ
+$agent_semantic_confirmed: ยืนยันแล้ว
+$agent_semantic_completed: เสร็จสมบูรณ์
+$agent_semantic_failed: ล้มเหลว
+$agent_semantic_expired: หมดอายุแล้ว
+$agent_semantic_active: ใช้งานอยู่
+$agent_semantic_unstaking: กำลังถอนสเตก
+$agent_semantic_ready: พร้อม
+$agent_semantic_frozen: ตรึงไว้
+$agent_semantic_locked: ล็อกไว้
+$agent_semantic_fungible: โทเค็น
+$agent_semantic_nft: NFT
+$agent_semantic_staking: การสเตก
+$agent_semantic_vesting: การทยอยปลดล็อก
+$agent_semantic_vault: ห้องนิรภัย
+$agent_semantic_transfer: การโอน
+$agent_semantic_swap: แลกเปลี่ยน
+$agent_semantic_stake: สเตก
+$agent_semantic_unstake: ถอนสเตก
+$agent_semantic_contract: สัญญา
+$agent_semantic_unknown: กิจกรรม
+$agent_semantic_spam_transactions: ธุรกรรมสแปม
+$agent_semantic_spam_assets: สินทรัพย์สแปม
+$agent_semantic_hidden_assets: สินทรัพย์ที่ซ่อนอยู่
+$agent_semantic_hidden_assets_warning: ชื่อสินทรัพย์ที่ซ่อนอยู่อาจทำให้เข้าใจผิด ชื่อจะแสดงเป็นข้อความธรรมดาและไม่สามารถเปิดเป็นลิงก์ได้
+$agent_semantic_quarantine_warning: รายการเหล่านี้ถูกรายงานว่าเป็นสแปม อย่าเชื่อถือชื่อหรือลิงก์ของรายการเหล่านี้
+$agent_semantic_redacted_asset: ชื่อถูกซ่อนไว้
+$agent_semantic_omitted_spam: "สแปมที่ถูกกรอง: %amount%"
+$agent_semantic_omitted_spam_minimum: "สแปมที่ถูกกรอง: อย่างน้อย %amount%"
+$agent_semantic_omitted_hidden: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: %amount%"
+$agent_semantic_omitted_hidden_minimum: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: อย่างน้อย %amount%"
+$agent_semantic_suspicious: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: %amount%"
+$agent_semantic_suspicious_minimum: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: อย่างน้อย %amount%"
+$agent_semantic_suspicious_shown: "ชื่อที่อาจไม่ปลอดภัย: %amount%"
+$agent_semantic_suspicious_shown_minimum: "ชื่อที่อาจไม่ปลอดภัย: อย่างน้อย %amount%"
+$agent_semantic_omitted_rows: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติม %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
+$agent_semantic_omitted_rows_minimum: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติมอย่างน้อย %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
+$agent_semantic_update_required: อัปเดตแอปเพื่อแสดงผลลัพธ์นี้
 $agent_hint_portfolio_title: ประสิทธิภาพของพอร์ตโฟลิโอ
 $agent_hint_portfolio_prompt: วิเคราะห์ผลการดำเนินงานของพอร์ตโฟลิโอของฉัน
 $agent_hint_swap_title: สวอปทำงานอย่างไร
@@ -1488,152 +1644,6 @@ $agent_error_update_required: อัปเดตแอปเพื่อดำ�
 $agent_semantic_transactions: ธุรกรรม
 $agent_semantic_positions: สถานะการถือครอง
 $agent_semantic_market: ภาพรวมตลาด
-$agent_market_analysis_title: การวิเคราะห์ตลาด
-$agent_market_as_of: ข้อมูล ณ เวลา
-$agent_market_closed_1d: แท่งเทียน 1D ที่ปิดล่าสุด
-$agent_market_thesis: มุมมองทางเทคนิค
-$agent_market_fear_greed_sentiment: ความเชื่อมั่นตลาดที่อิง Bitcoin
-$agent_market_fear_greed_index: ดัชนีความกลัวและความโลภ (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: ภาวะตลาด
-$agent_market_fear_greed_risk_on: ภาวะรับความเสี่ยง
-$agent_market_fear_greed_risk_off: ภาวะหลีกเลี่ยงความเสี่ยง
-$agent_market_fear_greed_neutral: ความเชื่อมั่นเป็นกลาง
-$agent_market_fear_greed_source: แหล่งที่มา
-$agent_market_timeframes: โครงสร้างตลาด
-$agent_market_structure_bullish: จุดสูงสุดและจุดต่ำสุดยกตัวสูงขึ้น
-$agent_market_structure_bearish: จุดสูงสุดและจุดต่ำสุดลดตัวลง
-$agent_market_structure_range: เคลื่อนไหวในกรอบ
-$agent_market_structure_transition: ช่วงเปลี่ยนผ่าน
-$agent_market_structure_unavailable: ไม่มีข้อมูลโครงสร้าง
-$agent_market_event_none: ยังไม่มีการเบรกที่ยืนยัน
-$agent_market_event_break_up: เบรกเหนือโครงสร้าง
-$agent_market_event_break_down: เบรกใต้โครงสร้าง
-$agent_market_event_retest_up: ทดสอบแนวขาขึ้นอีกครั้ง
-$agent_market_event_retest_down: ทดสอบแนวขาลงอีกครั้ง
-$agent_market_live_approaching_upper: กำลังเข้าใกล้ขอบบน
-$agent_market_live_approaching_lower: กำลังเข้าใกล้ขอบล่าง
-$agent_market_level_map: ระดับสำคัญ
-$agent_market_level_primary: ระดับหลัก
-$agent_market_level_secondary: ระดับรอง
-$agent_market_level_context: ระดับประกอบ
-$agent_market_levels_unavailable: ไม่มีระดับโครงสร้างที่ยืนยัน
-$agent_market_profile_poc_full: ศูนย์กลางปริมาณซื้อขาย (POC)
-$agent_market_profile_value_area_full: ขอบเขตพื้นที่มูลค่า (VAL/VAH)
-$agent_market_profile_hvn_full: พื้นที่ปริมาณซื้อขายสูง (HVN)
-$agent_market_profile_lvn_full: ช่องปริมาณซื้อขายต่ำ (LVN)
-$agent_market_profile_current_day: วัน UTC ปัจจุบัน
-$agent_market_profile_previous_day: วัน UTC ก่อนหน้า
-$agent_market_profile_previous_week: สัปดาห์ UTC ก่อนหน้า
-$agent_market_profile_rolling_30d: 30 เซสชัน UTC ล่าสุด
-$agent_market_profile_above: ราคาอยู่เหนือพื้นที่มูลค่า
-$agent_market_profile_inside: ราคาอยู่ภายในพื้นที่มูลค่า
-$agent_market_profile_below: ราคาอยู่ใต้พื้นที่มูลค่า
-$agent_market_factors: ปัจจัยสำคัญ
-$agent_market_factor_structure: "โครงสร้างรายวัน: %direction%"
-$agent_market_factor_levels: ยืนยันโซนแนวรับ %supports% และแนวต้าน %resistances% สำหรับช่วงเวลานี้แล้ว
-$agent_market_factor_profile: "การกระจายปริมาณซื้อขาย: %position%"
-$agent_market_factor_profile_unavailable: ไม่มีข้อมูล Volume Profile สถานการณ์นี้จึงอิงโครงสร้างราคา
-$agent_market_factor_timeframe_alignment: "โครงสร้างกรอบเวลา — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%"
-$agent_market_factor_current_scenario: "ภาวะปัจจุบัน: %active% สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
-$agent_market_factor_no_active_scenario: "ยังไม่มีสถานการณ์ที่ยืนยัน สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
-$agent_market_primary_scenario: สถานการณ์หลัก
-$agent_market_current_regime: ภาวะปัจจุบันที่ยืนยันแล้ว
-$agent_market_conditional_scenario: สถานการณ์แบบมีเงื่อนไข
-$agent_market_no_active_scenario: ขณะนี้ยังไม่มีสถานการณ์ที่ยืนยัน
-$agent_market_calculated_fallback: "การวิเคราะห์ที่คำนวณแล้ว: คำอธิบายจากโมเดลไม่พร้อมใช้งานชั่วคราว"
-$agent_market_other_horizons: ช่วงเวลาอื่นที่ขอ
-$agent_market_horizon_3d: 3 วัน
-$agent_market_horizon_7d: 7 วัน
-$agent_market_horizon_30d: 30 วัน
-$agent_market_scenario_bullish: เบรกเอาต์ขาขึ้น
-$agent_market_scenario_range: สมดุลในกรอบ
-$agent_market_scenario_bearish: เบรกดาวน์ขาลง
-$agent_market_scenario_unavailable: ไม่มีสถานการณ์เชิงโครงสร้างสำหรับช่วงเวลานี้
-$agent_market_confidence: ความมั่นใจ
-$agent_market_confidence_low: ต่ำ
-$agent_market_confidence_medium: ปานกลาง
-$agent_market_activation: เงื่อนไขเปิดใช้งาน
-$agent_market_path: เส้นทาง
-$agent_market_terminal: โซนปลายทาง
-$agent_market_invalidation: จุดยกเลิกสมมติฐาน
-$agent_market_expected_range: กรอบของสถานการณ์
-$agent_market_rationale: เหตุผล
-$agent_market_condition_above: ปิดเหนือ
-$agent_market_condition_below: ปิดต่ำกว่า
-$agent_market_condition_inside: ปิดภายใน
-$agent_market_condition_outside: ปิดภายนอก
-$agent_market_condition_waiting: รอการยืนยัน
-$agent_market_condition_approaching: กำลังเข้าใกล้
-$agent_market_condition_triggered: ยืนยันแล้ว
-$agent_market_scenario_zone: โซนสถานการณ์
-$agent_market_expected_move: กรอบความผันผวน
-$agent_market_volatility_envelope: กรอบความผันผวนโดยรวม
-$agent_market_expected_move_note: การเคลื่อนไหวแบบมีเงื่อนไข ไม่ใช่ความน่าจะเป็น
-$agent_market_risk_caveat: สถานการณ์ต่าง ๆ เป็นเพียงเงื่อนไขและไม่ถือเป็นคำแนะนำในการซื้อขาย
-$agent_market_partial_coverage: หลักฐานตลาดบางส่วนไม่พร้อมใช้งาน ระดับความมั่นใจจึงมีจำกัด
-$agent_market_thesis_bullish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อเหนือแนวต้าน โดยจุดยกเลิกสมมติฐานยังอยู่ใต้แนวรับที่ใกล้ที่สุด
-$agent_market_thesis_bearish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อต่ำกว่าแนวรับ โดยจุดยกเลิกสมมติฐานยังอยู่เหนือแนวต้านที่ใกล้ที่สุด
-$agent_market_thesis_range: ราคายังคงสมดุลระหว่างแนวรับและแนวต้านที่ยืนยัน
-$agent_market_thesis_mixed: กรอบเวลาขัดแย้งกัน การยืนยันที่ขอบเขตโครงสร้างจึงสำคัญกว่าตัวชี้วัดทิศทาง
-$agent_market_thesis_insufficient: หลักฐานที่มีอยู่ไม่เพียงพอที่จะยืนยันโครงสร้างเชิงทิศทาง
-$agent_market_thesis_unconfirmed: ยังไม่มีสถานการณ์ที่ยืนยัน โปรดรอให้ราคาปิดผ่านขอบเขตโครงสร้างก่อนเลือกมุมมองทิศทาง
-$agent_semantic_asset_search: การค้นหาสินทรัพย์
-$agent_semantic_web_digest: ผลการค้นหาจากเว็บ
-$agent_semantic_no_results: ไม่มีผลลัพธ์
-$agent_semantic_wallets: กระเป๋าเงิน
-$agent_semantic_wallet: กระเป๋าเงิน
-$agent_semantic_balance: ยอดคงเหลือ
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: ปกติ
-$agent_semantic_access_view_only: ดูอย่างเดียว
-$agent_semantic_wallets_unpriced: "%amount% รายการไม่ได้รวมอยู่ในยอดรวมที่แสดงเนื่องจากไม่มีราคา"
-$agent_semantic_wallets_stale: ยอดคงเหลือในกระเป๋าเงินบางรายการอาจไม่เป็นปัจจุบัน
-$agent_semantic_wallets_unavailable: ยอดคงเหลือในกระเป๋าเงินบางส่วนอาจไม่สามารถดูได้
-$agent_semantic_wallets_partial: ข้อมูลกระเป๋าเงินบางส่วนไม่สมบูรณ์
-$agent_semantic_status: สถานะ
-$agent_semantic_quantity: จำนวน
-$agent_semantic_time: เวลา
-$agent_semantic_partial: ข้อมูลบางส่วนไม่สามารถใช้งานได้
-$agent_semantic_pending: กำลังดำเนินการ
-$agent_semantic_confirmed: ยืนยันแล้ว
-$agent_semantic_completed: เสร็จสมบูรณ์
-$agent_semantic_failed: ล้มเหลว
-$agent_semantic_expired: หมดอายุแล้ว
-$agent_semantic_active: ใช้งานอยู่
-$agent_semantic_unstaking: กำลังถอนสเตก
-$agent_semantic_ready: พร้อม
-$agent_semantic_frozen: ตรึงไว้
-$agent_semantic_locked: ล็อกไว้
-$agent_semantic_fungible: โทเค็น
-$agent_semantic_nft: NFT
-$agent_semantic_staking: การสเตก
-$agent_semantic_vesting: การทยอยปลดล็อก
-$agent_semantic_vault: ห้องนิรภัย
-$agent_semantic_transfer: การโอน
-$agent_semantic_swap: แลกเปลี่ยน
-$agent_semantic_stake: สเตก
-$agent_semantic_unstake: ถอนสเตก
-$agent_semantic_contract: สัญญา
-$agent_semantic_unknown: กิจกรรม
-$agent_semantic_spam_transactions: ธุรกรรมสแปม
-$agent_semantic_spam_assets: สินทรัพย์สแปม
-$agent_semantic_hidden_assets: สินทรัพย์ที่ซ่อนอยู่
-$agent_semantic_hidden_assets_warning: ชื่อสินทรัพย์ที่ซ่อนอยู่อาจทำให้เข้าใจผิด ชื่อจะแสดงเป็นข้อความธรรมดาและไม่สามารถเปิดเป็นลิงก์ได้
-$agent_semantic_quarantine_warning: รายการเหล่านี้ถูกรายงานว่าเป็นสแปม อย่าเชื่อถือชื่อหรือลิงก์ของรายการเหล่านี้
-$agent_semantic_redacted_asset: ชื่อถูกซ่อนไว้
-$agent_semantic_omitted_spam: "สแปมที่ถูกกรอง: %amount%"
-$agent_semantic_omitted_spam_minimum: "สแปมที่ถูกกรอง: อย่างน้อย %amount%"
-$agent_semantic_omitted_hidden: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: %amount%"
-$agent_semantic_omitted_hidden_minimum: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: อย่างน้อย %amount%"
-$agent_semantic_suspicious: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: %amount%"
-$agent_semantic_suspicious_minimum: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: อย่างน้อย %amount%"
-$agent_semantic_suspicious_shown: "ชื่อที่อาจไม่ปลอดภัย: %amount%"
-$agent_semantic_suspicious_shown_minimum: "ชื่อที่อาจไม่ปลอดภัย: อย่างน้อย %amount%"
-$agent_semantic_omitted_rows: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติม %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
-$agent_semantic_omitted_rows_minimum: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติมอย่างน้อย %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
-$agent_semantic_update_required: อัปเดตแอปเพื่อแสดงผลลัพธ์นี้
 $agent_wallet_page_navigation: หน้าข้อมูลกระเป๋าเงิน
 $agent_wallet_page_previous: ← ก่อนหน้า
 $agent_wallet_page_next: ถัดไป →
@@ -1778,6 +1788,7 @@ Add Crypto: เพิ่มคริปโต
 Share QR Code: แชร์ QR โค้ด
 $send_only_ton: ส่ง Gram (GRAM) หรือสินทรัพย์บน TON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
 $send_only_chain: ส่ง %chain% (%symbol%) หรือสินทรัพย์บน %chain% เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_chain_no_tokens: ส่ง %chain% (%symbol%) เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
 Buying with card is not supported for this account.: บัญชีนี้ไม่รองรับการซื้อด้วยบัตร
 Swapped at: แลกเปลี่ยนเมื่อ
 Price per: ราคาต่อ
@@ -1874,10 +1885,6 @@ second:
   zeroValue: "%count% วินาที"
   oneValue: "%count% วินาที"
   otherValue: "%count% วินาที"
-transfer:
-  zeroValue: "%count% การโอน"
-  oneValue: "%count% การโอน"
-  otherValue: "%count% การโอน"
 Confirm Actions:
   zeroValue: "ยืนยัน %count% การทำรายการ"
   oneValue: ยืนยันการทำรายการ
@@ -2264,10 +2271,13 @@ Tokenized Gold: ทองโทเคนไนซ์
 Index Funds: กองทุนดัชนี
 Search token or stock: ค้นหาโทเค็นหรือหุ้น
 "Activity Failed to Load": "โหลดกิจกรรมไม่สำเร็จ"
+"$agent_source_bea_attribution": "ผลิตภัณฑ์นี้ใช้ API ข้อมูลของสำนักวิเคราะห์เศรษฐกิจ (BEA) แต่ไม่ได้รับการรับรองหรือการรับประกันจาก BEA"
 "Address was copied!": "คัดลอกที่อยู่แล้ว!"
 "Allow App Lock": "อนุญาตให้ล็อกแอป"
 "An error occurred": "เกิดข้อผิดพลาด"
 "App Fee Details": "รายละเอียดค่าธรรมเนียมแอป"
+"Backend": "เซิร์ฟเวอร์"
+"Chat options": "ตัวเลือกแชต"
 "Copied": "คัดลอกแล้ว"
 "Customize the wallet's home screen and color accents the way you like.": "ปรับแต่งหน้าหลักของกระเป๋าเงินและสีเน้นได้ตามต้องการ"
 "Dangerous": "อันตราย"
@@ -2288,3 +2298,6 @@ Search token or stock: ค้นหาโทเค็นหรือหุ้น
 "Seasonal Theme Override": "แทนที่ธีมตามฤดูกาล"
 "Sending to": "กำลังส่งไปยัง"
 "confirming actions in Telegram": "ยืนยันการดำเนินการใน Telegram"
+
+Unknown Transfer: การโอนที่ไม่รู้จัก
+$dapp_sign_data_for_prefix: สำหรับ

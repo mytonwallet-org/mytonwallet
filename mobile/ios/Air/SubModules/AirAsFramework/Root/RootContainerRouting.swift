@@ -10,7 +10,6 @@ import UICreateWallet
 
 @MainActor
 protocol RootContainerRouting {
-    func closeSearchIfNeeded(completion: @escaping () -> Void)
     func isHomeRootSelected() -> Bool
     func pushOnHome(_ viewController: UIViewController) -> Bool
     func showAddWallet(network: ApiNetwork)
@@ -24,10 +23,6 @@ protocol RootContainerRouting {
 }
 
 extension RootContainerRouting {
-    func closeSearchIfNeeded(completion: @escaping () -> Void) {
-        completion()
-    }
-
     @MainActor
     func showTab(_ id: AppTabId, popToRoot: Bool = false) {
         if let topTabsVC = findActiveViewController(of: TopTabsRootViewController.self),
@@ -59,14 +54,6 @@ extension RootContainerRouting {
 struct TopTabsRootContainerRouter: RootContainerRouting {
     private var topTabsVC: TopTabsRootViewController? {
         findActiveViewController()
-    }
-
-    func closeSearchIfNeeded(completion: @escaping () -> Void) {
-        guard let topTabsVC else {
-            completion()
-            return
-        }
-        topTabsVC.closeSearch(completion: completion)
     }
 
     func isHomeRootSelected() -> Bool {
@@ -120,16 +107,18 @@ struct TopTabsRootContainerRouter: RootContainerRouting {
     }
 
     func showTemporaryViewAccount(accountId: String) {
+        let viewController = HomeVC(
+            accountSource: .accountId(accountId),
+            rootNavigationStyle: .topTabsNavigationBar,
+            showsActionsRow: WalletActionButtonsSettings.showsActionButtonsRow
+        )
+        if topTabsVC?.pushFromSearch(viewController) == true { return }
         if let rootVC = topTabsVC?.view.window?.rootViewController, rootVC.presentedViewController != nil {
             rootVC.dismiss(animated: true)
         }
         showTab(.wallet)
         topTabsVC?.homeVC.navigationController?.pushViewController(
-            HomeVC(
-                accountSource: .accountId(accountId),
-                rootNavigationStyle: .topTabsNavigationBar,
-                showsActionsRow: WalletActionButtonsSettings.showsActionButtonsRow
-            ),
+            viewController,
             animated: true
         )
     }

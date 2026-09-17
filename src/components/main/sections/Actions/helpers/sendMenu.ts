@@ -2,11 +2,8 @@ import { getActions } from '../../../../../global';
 
 import type { DropdownItem } from '../../../../ui/Dropdown';
 
-import { MULTISEND_DAPP_URL } from '../../../../../config';
 import { vibrate } from '../../../../../util/haptics';
-import { getTranslation } from '../../../../../util/langProvider';
-import { openUrl } from '../../../../../util/openUrl';
-import { getHostnameFromUrl } from '../../../../../util/url';
+import { openMultisend } from '../../../../../util/openMultisend';
 
 export type MenuHandler = 'send' | 'sell' | 'multisend';
 
@@ -36,10 +33,7 @@ export function handleSendMenuItemClick(value: MenuHandler) {
 
     case 'multisend':
       vibrate();
-      void openUrl(MULTISEND_DAPP_URL, {
-        title: getTranslation('Multisend'),
-        subtitle: getHostnameFromUrl(MULTISEND_DAPP_URL),
-      });
+      void openMultisend();
       break;
 
     case 'sell':

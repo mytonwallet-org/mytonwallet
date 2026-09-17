@@ -147,6 +147,10 @@ class SwapAssetInputView(context: Context) :
         rightTopButton.setAmount(subtitle)
     }
 
+    fun setBalanceError(isError: Boolean) {
+        rightTopButton.isError = isError
+    }
+
     fun setOnMaxBalanceClickListener(onClickListener: OnClickListener?) {
         rightTopButton.setOnClickListener(onClickListener)
     }

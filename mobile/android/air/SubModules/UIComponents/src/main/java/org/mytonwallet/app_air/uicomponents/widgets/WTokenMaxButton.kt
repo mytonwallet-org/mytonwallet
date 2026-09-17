@@ -130,10 +130,18 @@ class WTokenMaxButton(context: Context) :
         )
     }
 
+    var isError = false
+        set(value) {
+            if (field == value) return
+            field = value
+            updateTheme()
+            invalidate()
+        }
+
     override val isTinted = true
     override fun updateTheme() {
-        textPaintSecondary.color = WColor.SecondaryText.color
-        textPaintTint.color = WColor.Tint.color
+        textPaintSecondary.color = if (isError) WColor.Error.color else WColor.SecondaryText.color
+        textPaintTint.color = if (isError) WColor.Error.color else WColor.Tint.color
 
         background = ViewHelpers.roundedRippleDrawable(
             null,

@@ -6,8 +6,9 @@ import {
   ETH_USDT_MAINNET,
   TONCOIN,
 } from '../../config';
+import { mapValues } from '../../util/iteratees';
 import { INITIAL_STATE } from '../initialState';
-import { selectTokenInfoUserTokens } from './tokens';
+import { selectAccountTokens, selectTokenInfoUserTokens } from './tokens';
 
 const ACCOUNT_ID = 'mainnet-0';
 
@@ -80,5 +81,53 @@ describe('selectTokenInfoUserTokens', () => {
       ...global,
       isBackupWalletModalOpen: true,
     })).toBe(selectTokenInfoUserTokens(global));
+  });
+
+  it('keeps the order and picks up the new prices on a price tick', () => {
+    const global = buildGlobal();
+    const before = selectTokenInfoUserTokens(global)!;
+    const tickedGlobal = {
+      ...global,
+      tokenInfo: {
+        bySlug: mapValues(global.tokenInfo.bySlug, (token) => ({ ...token, priceUsd: token.priceUsd + 1 })),
+      },
+    } as GlobalState;
+    const after = selectTokenInfoUserTokens(tickedGlobal)!;
+
+    expect(after.map((token) => token.slug)).toEqual(before.map((token) => token.slug));
+    expect(after.find((token) => token.slug === ETH.slug)!.price).toBe(3001);
+  });
+
+  it('re-sorts once a token is added', () => {
+    const global = buildGlobal();
+    selectTokenInfoUserTokens(global);
+    const newToken = { ...TONCOIN, slug: 'ton-aaa', name: 'AAA', symbol: 'AAA', priceUsd: 1, percentChange24h: 0 };
+    const extendedGlobal = {
+      ...global,
+      tokenInfo: { bySlug: { ...global.tokenInfo.bySlug, [newToken.slug]: newToken } },
+    } as GlobalState;
+
+    expect(selectTokenInfoUserTokens(extendedGlobal)![0].slug).toBe(newToken.slug);
+  });
+});
+
+describe('selectAccountTokens', () => {
+  function tick(global: GlobalState, slug: string, priceUsd: number) {
+    return {
+      ...global,
+      tokenInfo: { bySlug: { ...global.tokenInfo.bySlug, [slug]: { ...global.tokenInfo.bySlug[slug], priceUsd } } },
+    } as GlobalState;
+  }
+
+  it('keeps the list when a price tick leaves the account tokens untouched', () => {
+    const global = buildGlobal();
+    const first = selectAccountTokens(global, ACCOUNT_ID)!;
+
+    // BASE is not held by the account, so its new price must not rebuild the list
+    expect(selectAccountTokens(tick(global, BASE.slug, 1), ACCOUNT_ID)).toBe(first);
+
+    const second = selectAccountTokens(tick(global, ETH.slug, 1), ACCOUNT_ID)!;
+    expect(second).not.toBe(first);
+    expect(second.find((token) => token.slug === ETH.slug)!.priceUsd).toBe(1);
   });
 });

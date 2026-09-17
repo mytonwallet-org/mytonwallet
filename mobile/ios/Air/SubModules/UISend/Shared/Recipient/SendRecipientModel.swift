@@ -64,7 +64,7 @@ final class SendRecipientModel {
 
     var onScanResult: (ScanResult) -> () = { _ in }
     var onSuggestionChainSelected: (ApiChain) -> () = { _ in }
-    var onCompatibleChainDetected: (ApiChain) -> () = { _ in }
+    var onCompatibleChainsDetected: ([ApiChain]) -> () = { _ in }
 
     @PerceptionIgnored
     @AccountContext var account: MAccount
@@ -83,8 +83,6 @@ final class SendRecipientModel {
 
     private var addressCandidates: [ApiChain: RecipientCandidate]?
 
-    private var inputObserver: ObserveToken?
-
     private var normalizedTextFieldInput: String {
         textFieldInput.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -100,15 +98,6 @@ final class SendRecipientModel {
         self.chain = chain
         self.recipientPolicy = recipientPolicy
         self.resolver = resolver
-        inputObserver = observe { [weak self] in
-            guard let self else { return }
-            let input = textFieldInput
-            guard input != synchronizedSelectionInput else {
-                return
-            }
-            synchronizedSelectionInput = nil
-            self.selection = .raw(input)
-        }
         resolveObserver = observe { [weak self] in
             guard let self else { return }
             _ = (self.account.id, self.textFieldInput)
@@ -121,6 +110,10 @@ final class SendRecipientModel {
     }
 
     private func resolveAddress() {
+        if textFieldInput != synchronizedSelectionInput {
+            synchronizedSelectionInput = nil
+            selection = .raw(textFieldInput)
+        }
         let input = normalizedTextFieldInput
         guard !input.isEmpty else {
             resetResolution()
@@ -150,9 +143,8 @@ final class SendRecipientModel {
         loadingResolutionRequest = request
         addressCandidates = nil
         resolveAddressTask?.cancel()
-        if request.chains.count == 1,
-           let chain = request.chains.first {
-            onCompatibleChainDetected(chain)
+        if case .raw = selection {
+            onCompatibleChainsDetected(request.chains)
         }
         let resolver = self.resolver
         resolveAddressTask = Task { [weak self] in

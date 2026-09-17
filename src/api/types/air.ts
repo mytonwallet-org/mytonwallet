@@ -15,4 +15,12 @@ interface AirBridge {
   nativeCallCallbacks: Record<number, (response: NativeCallbackResponse) => void>;
 }
 
-export type AirWindow = Window & typeof globalThis & { airBridge: AirBridge; webkit?: any; androidApp?: any };
+interface AndroidAppBridge {
+  nativeCall(requestNumber: number, methodName: string, arg0?: unknown, arg1?: unknown): void;
+}
+
+export type AirWindow = Window & typeof globalThis & {
+  airBridge: AirBridge;
+  webkit?: any;
+  androidApp?: AndroidAppBridge;
+};

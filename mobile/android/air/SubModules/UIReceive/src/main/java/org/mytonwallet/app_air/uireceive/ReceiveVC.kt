@@ -103,19 +103,13 @@ class ReceiveVC private constructor(
     }
 
     val availableChains: List<MBlockchain> =
-        AccountStore.activeAccount?.chainDisplaySnapshot()?.let { chainDisplay ->
-            val visibleChainNames = chainDisplay.visibleChains.map { it.key }.toSet()
-            val allChains = chainDisplay.visibleChains + chainDisplay.orderedChains.filterNot {
-                it.key in visibleChainNames
-            }
-            allChains.mapNotNull { entry ->
-                MBlockchain.supportedChains.find { it.name == entry.key }
-            }
+        AccountStore.activeAccount?.let { account ->
+            MBlockchain.supportedChains.filter { account.byChain.containsKey(it.name) }
         } ?: emptyList()
 
     private val isViewOnlyAccount = AccountStore.activeAccount?.isViewOnly == true
 
-    private val defaultChainIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
+    private val defaultChainIndex = indexOfAvailableChain(defaultChain)
 
     private val onQrLoaded = {
         if (isViewOnlyAccount) viewOnlyWarningView.fadeIn() else optionsContainerView.fadeIn()
@@ -144,7 +138,7 @@ class ReceiveVC private constructor(
     private var gradientBackgroundHeight = 0
 
     private val qrSegmentView: WSegmentedController by lazy {
-        val defaultIndex = availableChains.indexOf(defaultChain).coerceAtLeast(0)
+        val defaultIndex = defaultChainIndex
         val segmentedController = WSegmentedController(
             navigationController!!,
             availableChains.mapTo(ArrayList()) { chain ->
@@ -729,6 +723,13 @@ class ReceiveVC private constructor(
     override fun viewWillDisappear() {
         super.viewWillDisappear()
         window?.forceStatusBarLight = null
+    }
+
+    private fun indexOfAvailableChain(chain: MBlockchain?): Int {
+        if (chain == null || availableChains.isEmpty()) return 0
+        val index = availableChains.indexOf(chain).takeIf { it >= 0 }
+            ?: availableChains.indexOfFirst { it.name == chain.name }
+        return index.coerceAtLeast(0)
     }
 
     private val activeVC: QRCodeVC

@@ -230,7 +230,8 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         let balances = balancesStore.getAccountBalances(accountId: accountId)
         let stakingData = stakingStore.stakingData(accountId: accountId)
         let account = accountStore.get(accountId: accountId)
-        let walletTokens: [MTokenBalance] = balances.map { slug, amount in
+        // Keep summation order stable so identical snapshots produce identical floating-point totals.
+        let walletTokens: [MTokenBalance] = balances.sorted { $0.key < $1.key }.map { slug, amount in
             MTokenBalance(tokenSlug: slug, balance: amount, isStaking: false)
         }
 
@@ -266,7 +267,7 @@ public actor _BalanceDataStore: WalletCoreData.EventsObserver {
         let prefs = assetsAndActivityDataStore.data(accountId: accountId) ?? MAssetsAndActivityData.empty
 
         var stakingSlugsToAutoPin: [String] = []
-        let walletStaked: [MTokenBalance] = stakingData?.stateById.values.compactMap { stakingState in
+        let walletStaked: [MTokenBalance] = stakingData?.stateById.sorted { $0.key < $1.key }.compactMap { _, stakingState in
             let fullBalance = getFullStakingBalance(state: stakingState)
             guard fullBalance > 0 else {
                 return nil

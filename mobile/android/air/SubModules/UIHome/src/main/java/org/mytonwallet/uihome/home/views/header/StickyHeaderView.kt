@@ -41,7 +41,6 @@ import org.mytonwallet.app_air.walletcore.models.MScreenMode
 class StickyHeaderView(
     context: Context,
     private val screenMode: MScreenMode,
-    private val experimentalTopTabsEnabled: Boolean,
     private val onActionClick: (HeaderActionsView.Identifier) -> Unit
 ) : WFrameLayout(context),
     WThemedView,
@@ -313,7 +312,7 @@ class StickyHeaderView(
     }
 
     private fun shouldHideDefaultItems(isWideScreen: Boolean): Boolean =
-        experimentalTopTabsEnabled && !isWideScreen
+        screenMode is MScreenMode.Default && !isWideScreen
 
     private fun updateButtonPositions() {
         val isWideScreen = appliedWideScreen == true
