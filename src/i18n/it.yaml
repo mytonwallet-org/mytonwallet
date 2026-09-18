@@ -436,7 +436,7 @@ $ledger_not_ready: Ledger non è collegato o l'app %chain% non è aperta.
 Verify now: Verifica ora
 Invalid address format. Only URL Safe Base64 format is allowed.: Formato dell'indirizzo non valido. È consentito solo il formato Base64 URL-safe.
 Swap Placed: Scambio inoltrato
-Swapping: Scambio in corso...
+Swapping: Scambio in corso
 Swapped: Scambiato
 Swap Again: Scambia di nuovo
 Terms of Use: Termini di utilizzo
@@ -444,7 +444,7 @@ Privacy Policy: Informativa sulla privacy
 Insufficient liquidity: Liquidità insufficiente
 This address is new and never received transfers before.: Questo indirizzo è nuovo e non ha mai ricevuto trasferimenti prima d'ora.
 Create Backup: Crea backup
-Sending: Invio in corso...
+Sending: Invio in corso
 $send_action: Invia
 Failed: Non riuscito
 Refunded: Rimborsato
