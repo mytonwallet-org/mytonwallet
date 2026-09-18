@@ -6,8 +6,8 @@ Import From %count% Secret Words: Importa da %count% parole segrete
 More about %app_name%: Maggiori informazioni su %app_name%
 Creating Wallet...: Creazione del wallet...
 On the count of three...: Al mio tre...
-$back_up_auth: Esegui il backup
-$back_up_security: Esegui il backup
+$back_up_auth: Backup
+$back_up_security: Backup
 Confirm with: Conferma con
 Add an extra layer of security for your wallet in TON network.: Aggiungi un ulteriore livello di sicurezza per il tuo wallet sulla rete TON.
 Sign transfers and important actions with your passcode, then confirm them in Telegram.: Firma i trasferimenti e le azioni importanti con il tuo passcode, quindi confermali su Telegram.
@@ -74,7 +74,7 @@ Search...: Cerca...
 Main menu: Menu principale
 TON Proxy: TON Proxy
 Toggle TON Proxy: Attiva/disattiva TON Proxy
-Back Up Secret Words: Esegui il backup delle parole segrete
+Back Up Secret Words: Backup parole segrete
 Settings: Impostazioni
 About %app_name%: Informazioni su %app_name%
 Exit: Esci
@@ -636,7 +636,7 @@ To use this feature, first enable Face ID in your phone settings.: Per utilizzar
 To use this feature, first enable biometrics in your phone settings.: Per utilizzare questa funzionalità, attiva prima la biometria nelle impostazioni del telefono.
 Open Settings: Apri impostazioni
 No Price: Nessun prezzo
-$dapp_transfer_tokens_burn: Burn di %amount%
+$dapp_transfer_tokens_burn: Bruciatura di %amount%
 $dapp_dns_set_wallet_payload: Modifica del wallet collegato del dominio %domain% in %address%
 $dapp_dns_delete_wallet_payload: Eliminazione del wallet collegato del dominio %domain%
 $dapp_dns_change_record_payload: Modifica del record "%category%" del dominio %domain% in %value%
