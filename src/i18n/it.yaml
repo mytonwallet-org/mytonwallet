@@ -12,7 +12,7 @@ Confirm with: Conferma con
 Add an extra layer of security for your wallet in TON network.: Aggiungi un ulteriore livello di sicurezza per il tuo wallet sulla rete TON.
 Sign transfers and important actions with your passcode, then confirm them in Telegram.: Firma i trasferimenti e le azioni importanti con il tuo passcode, quindi confermali su Telegram.
 This helps protect your funds even if your recovery phrase or keys are compromised.: Questo aiuta a proteggere i tuoi fondi anche se la tua frase di recupero o le tue chiavi sono compromesse.
-'Connection Fee:': 'Commissione di connessione:'
+"Connection Fee:": "Commissione di connessione:"
 Connect Telegram: Collega Telegram
 Add in Gram Wallet: Aggiungi a Gram Wallet
 Telegram will be used to confirm transfers and important actions.: Telegram verrà utilizzato per confermare i trasferimenti e le azioni importanti.
@@ -35,13 +35,13 @@ $auth_password_rule_one_special_char: e un carattere speciale
 Create a password to protect it.: Crea una password per proteggerlo.
 Enter your password: Inserisci la tua password
 Enter your password...: Inserisci la tua password...
-'...and repeat it': '...e ripetila'
+...and repeat it: ...e ripetila
 Cancel: Annulla
 Insecure Password: Password non sicura
 Your have entered an insecure password, which can be easily guessed by scammers.: Hai inserito una password non sicura, che può essere facilmente indovinata dai truffatori.
 Continue or change password to something more secure?: Vuoi continuare o modificare la password con una più sicura?
 Change: Modifica
-'%count% Secret Words': '%count% parole segrete'
+"%count% Secret Words": "%count% parole segrete"
 Secret Words: Parole segrete
 $auth_import_mnemonic_description: |
   Puoi ripristinare l’accesso al tuo wallet inserendo le **%counts% parole segrete** che hai annotato durante la creazione del wallet.
@@ -89,13 +89,13 @@ What is TON Proxy?: Cos’è TON Proxy?
 $about_extension_description1: TON Proxy apre la strada a un **internet decentralizzato** consentendo l’accesso anonimo ai siti TON.
 More info and demo.: Maggiori informazioni e demo.
 $about_proxy_magic_description: Per goderti un **internet decentralizzato** e accedere ai **siti TON**, installa l’%extension_link%.
-$about_extension_link_text: '**estensione %app_name%**'
+$about_extension_link_text: "**estensione %app_name%**"
 Is it open source?: È open source?
 $about_wallet_github: Sì, lo è. Esplora pure la nostra %github_link%.
-$about_github_link_text: '**repository GitHub**'
+$about_github_link_text: "**repository GitHub**"
 Is there a community?: C’è una community?
 $about_wallet_community: Certamente, ti diamo il benvenuto nel nostro %community_link%.
-$about_community_link_text: '**canale Telegram**'
+$about_community_link_text: "**canale Telegram**"
 Currency History: Cronologia valuta
 Net Worth: Patrimonio netto
 Price: Prezzo
@@ -166,7 +166,7 @@ Recipient: Destinatario
 Spender: Spender
 Token Approval: Approvazione token
 Allowance: Importo autorizzato
-'%chain% Address Copied': Indirizzo %chain% copiato
+"%chain% Address Copied": "Indirizzo %chain% copiato"
 Repeat: Ripeti
 Switch Account: Cambia account
 Copy wallet address: Copia indirizzo del wallet
@@ -190,7 +190,7 @@ Wallet is not backed up: Il backup del wallet non è stato eseguito
 Testnet Version: Versione Testnet
 Error reading clipboard: Errore durante la lettura degli appunti
 $fee_value: Commissione %fee%
-$fee_value_with_colon: 'Commissione: %fee%'
+$fee_value_with_colon: "Commissione: %fee%"
 Pay fee with %stars_symbol%: Paga la commissione con %stars_symbol%
 Loading...: Caricamento...
 No price data: Nessun dato sul prezzo
@@ -202,12 +202,7 @@ Incorrect address.: Indirizzo non valido.
 Paste: Incolla
 Insufficient balance: Saldo insufficiente
 Insufficient Balance: Saldo insufficiente
-$seed_phrase_scam_warning: |
-  Questo wallet non ha fondi sufficienti per coprire le commissioni per il prelievo dei token.
-
-  Sembra trattarsi di una tipica **TRUFFA** in cui vieni incoraggiato a depositare i tuoi fondi per coprire le commissioni.
-
-  **Non depositare** i tuoi fondi, potresti perderli! Scopri di più su questa e altre truffe nel nostro %help_center_link%.
+$seed_phrase_scam_warning: "Questo wallet non ha fondi sufficienti per coprire le commissioni per il prelievo dei token.\n\nSembra trattarsi di una tipica **TRUFFA** in cui vieni incoraggiato a depositare i tuoi fondi per coprire le commissioni.\n\n**Non depositare** i tuoi fondi, potresti perderli! Scopri di più su questa e altre truffe nel nostro %help_center_link%.\n"
 $help_center_prepositional: Centro assistenza
 Optional: Opzionale
 $send_token_symbol: Invia %symbol%
@@ -231,7 +226,7 @@ No suggestions, you're on your own!: Nessun suggerimento, sei da solo!
 Play Sounds: Riproduci suoni
 Focus on asset value rather than current balance: Concentrati sul valore degli asset piuttosto che sul saldo attuale
 $logout_confirm: Rimuovi **tutti** i wallet
-$tiny_transfers_help: 'Nascondi i trasferimenti in entrata di valore inferiore a $%value%. Ricorda: i piccoli importi vengono spesso inviati da spammer e truffatori.'
+$tiny_transfers_help: "Nascondi i trasferimenti in entrata di valore inferiore a $%value%. Ricorda: i piccoli importi vengono spesso inviati da spammer e truffatori."
 Today: Oggi
 Total: Totale
 Zoom Out: Tutto
@@ -259,14 +254,14 @@ $min_value: Min %value%
 Est. balance in a year: Saldo stimato tra un anno
 Confirm Staking: Conferma staking
 View: Visualizza
-Stake More: Metti in staking altri
+Stake More: Aumenta lo staking
 Staking: Staking
 Currently Staked: Attualmente in staking
 Total Staked: Totale in staking
 Total Stakers: Staker totali
 Unstake: Rimuovi dallo staking
 Earning History: Cronologia guadagni
-$total: 'Totale: %value%'
+$total: "Totale: %value%"
 $unstake_asset: Rimuovi %symbol% dallo staking
 Amount to unstake: Importo da rimuovere dallo staking
 Confirm Unstaking: Conferma rimozione dallo staking
@@ -275,7 +270,7 @@ $unstaking_when_receive_with_amount: Riceverai i tuoi %amount% rimossi dallo sta
 $unstaking_when_receive_with_amount_ethena: Potrai ricevere i tuoi %amount% rimossi dallo staking in %time%.
 $unstake_insufficient_balance: Devi avere %balance% sul tuo saldo principale per procedere con la rimozione dallo staking.
 at %annual_yield%: al %annual_yield%
-Est. %annual_yield%: '%annual_yield% stimato'
+Est. %annual_yield%: "%annual_yield% stimato"
 Staked: In staking
 $stake_action: Metti in staking
 Unstaked: Rimosso dallo staking
@@ -285,9 +280,9 @@ $unstake_action: Rimuovi dallo staking
 The network fee has slightly changed, try sending again.: La commissione di rete è leggermente cambiata, prova a inviare di nuovo.
 Transfer was unsuccessful. Try again later.: Il trasferimento non è andato a buon fine. Riprova più tardi.
 Action Partially Completed: Azione parzialmente completata
-$action_partially_completed_description: Completate %completed% di %total% operazioni. Le restanti operazioni non sono state completate. Controlla la tua attività prima di riprovare.
+$action_partially_completed_description: "Completate %completed% di %total% operazioni. Le restanti operazioni non sono state completate. Controlla la tua attività prima di riprovare."
 Action Status Unknown: Stato dell’azione sconosciuto
-$action_status_unknown_description: Non è stato possibile verificare lo stato di completamento. Controlla la tua attività e il saldo prima di riprovare; riprovare adesso potrebbe inviare l’azione due volte.
+$action_status_unknown_description: "Non è stato possibile verificare lo stato di completamento. Controlla la tua attività e il saldo prima di riprovare; riprovare adesso potrebbe inviare l’azione due volte."
 $action_will_continue_in_background: L’azione continuerà in background.
 Invalid amount: Importo non valido
 Invalid address: Indirizzo non valido
@@ -312,8 +307,8 @@ You may need to reconnect your wallet from the dapp if this keeps happening.: Po
 Payload: Payload
 $many_transactions:
   zeroValue: Nessun trasferimento
-  oneValue: '%count% trasferimento'
-  otherValue: '%count% trasferimenti'
+  oneValue: "%count% trasferimento"
+  otherValue: "%count% trasferimenti"
 Total Amount: Importo totale
 $unstaking_short: Rimozione dallo staking
 Handle ton:// links: Gestisci link ton://
@@ -355,7 +350,7 @@ Asset Mix: Composizione asset
 No asset balances: Nessun saldo di asset
 No staked assets: Nessun asset in staking
 Entire Period: Intero periodo
-Asset %asset%: Asset %asset%
+"Asset %asset%": "Asset %asset%"
 Assets & Activity: Asset e attività
 Token Settings: Impostazioni token
 Add Token: Aggiungi token
@@ -370,14 +365,14 @@ Connecting to your Ledger...: Connessione al tuo Ledger in corso...
 Failed to connect: Connessione non riuscita
 Ledger Connected!: Ledger collegato!
 Select Ledger Wallets: Seleziona i wallet Ledger
-'%count% Selected': '%count% selezionati'
+"%count% Selected": "%count% selezionati"
 Add: Aggiungi
 Try Again: Riprova
 Driver: Driver
 Unlock it and open the %chain% App: Sbloccalo e apri l'app %chain%
 Maybe you need to check the password or change the driver.: Forse devi verificare la password o cambiare il driver.
 Confirm via Ledger: Conferma tramite Ledger
-$ledger_confirm_progress: Conferma %current% di %total%
+$ledger_confirm_progress: "Conferma %current% di %total%"
 Declined: Rifiutato
 Switch to the newly opened tab to connect Ledger.: Passa alla nuova scheda aperta per collegare Ledger.
 Once connected, switch back to this window to proceed.: Una volta collegato, torna a questa finestra per procedere.
@@ -418,7 +413,7 @@ $swap_slippage_tooltip1: Imposta di quanto può variare il prezzo prima che lo s
 $swap_slippage_tooltip2: Se durante l'elaborazione dello scambio il prezzo varia più di questo valore, l'ordine verrà annullato.
 Slippage not specified: Slippage non specificato
 Slippage too high: Slippage troppo elevato
-Not Enough %symbol%: '%symbol% insufficiente'
+Not Enough %symbol%: "%symbol% insufficiente"
 Use Responsibly: Usa responsabilmente
 $auth_responsibly_description1: |
   %app_name% è un wallet **non-custodial**, il che significa che **solo tu** hai il pieno controllo e, soprattutto, la **piena responsabilità** dei tuoi fondi.
@@ -467,11 +462,11 @@ Cross-chain exchange provided by %provider%: Scambio cross-chain fornito da %pro
 $swap_cex_terms_of_use: termini di utilizzo
 $swap_cex_privacy_policy: informativa sulla privacy
 $swap_cex_aml_kyc_policy: AML/KYC
-$swap_cex_legal_message: Continuando, accetti i %terms% e l'%policy%.
+$swap_cex_legal_message: "Continuando, accetti i %terms% e l'%policy%."
 $swap_cex_legal_message_with_aml: Continuando, accetti i %terms% e l'%policy% e comprendi che la transazione potrebbe richiedere una verifica in conformità con %aml%.
 Password must contain %length% digits.: La password deve contenere %length% cifre.
 Deposit Link: Link di deposito
-$swap_cex_from_wallet_description: 'I token verranno inviati a breve al tuo indirizzo sulla blockchain %blockchain%:'
+$swap_cex_from_wallet_description: "I token verranno inviati a breve al tuo indirizzo sulla blockchain %blockchain%:"
 Please note that it may take up to a few hours for tokens to appear in your wallet.: Tieni presente che potrebbero essere necessarie fino ad alcune ore prima che i token appaiano nel tuo wallet.
 Minimum amount: Minimo %value%
 Maximum amount: Massimo %value%
@@ -503,36 +498,36 @@ A request is already pending: C'è già una richiesta in sospeso
 Please confirm action using biometrics: Conferma l'azione usando la biometria
 Scan QR Code: Scansiona codice QR
 Open the QR scanner.: Apri lo scanner QR.
-Open scanner in ${applicationName}: Apri lo scanner in ${applicationName}
-Scan a code with ${applicationName}: Scansiona un codice con ${applicationName}
+"Open scanner in ${applicationName}": Apri lo scanner in ${applicationName}
+"Scan a code with ${applicationName}": Scansiona un codice con ${applicationName}
 Scan QR: Scansiona QR
-Scan QR with ${applicationName}: Scansiona QR con ${applicationName}
+"Scan QR with ${applicationName}": Scansiona QR con ${applicationName}
 Account: Account
 Accounts: Account
 Networks: Reti
 Blockchains: Blockchain
 All Chains: Tutte le blockchain
-You will still be able to receive and send tokens in hidden chains.: Potrai comunque ricevere e inviare token nelle blockchain nascoste.
-Sort by Value: Ordina per valore
-Automatically sort and hide chains based on your portfolio.: Ordina e nascondi automaticamente le blockchain in base al tuo portafoglio.
-Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.: Le blockchain nascoste saranno comunque disponibili per ricevere e inviare token, ma non appariranno nell'elenco principale.
-Move Up: Sposta su
-Move Down: Sposta giù
+"You will still be able to receive and send tokens in hidden chains.": "Potrai comunque ricevere e inviare token nelle blockchain nascoste."
+"Sort by Value": "Ordina per valore"
+"Automatically sort and hide chains based on your portfolio.": "Ordina e nascondi automaticamente le blockchain in base al tuo portafoglio."
+"Hidden chains will still be available to receive and send tokens, but won’t appear in the main list.": "Le blockchain nascoste saranno comunque disponibili per ricevere e inviare token, ma non appariranno nell'elenco principale."
+"Move Up": "Sposta su"
+"Move Down": "Sposta giù"
 Tokens: Token
 Receive Funds: Ricevi fondi
 Open the receive screen.: Apri la schermata di ricezione.
-Receive with ${applicationName}: Ricevi con ${applicationName}
-Add crypto with ${applicationName}: Aggiungi cripto con ${applicationName}
-Open receive in ${applicationName}: Apri Ricevi in ${applicationName}
+"Receive with ${applicationName}": Ricevi con ${applicationName}
+"Add crypto with ${applicationName}": Aggiungi cripto con ${applicationName}
+"Open receive in ${applicationName}": Apri Ricevi in ${applicationName}
 Send Token: Invia token
 Open Token: Apri token
-Open ${target} in ${applicationName}: Apri ${target} in ${applicationName}
-Show ${target} in ${applicationName}: Mostra ${target} in ${applicationName}
+"Open ${target} in ${applicationName}": Apri ${target} in ${applicationName}
+"Show ${target} in ${applicationName}": Mostra ${target} in ${applicationName}
 Open the token screen.: Apri la schermata del token.
 Open the send screen.: Apri la schermata di invio.
-Send token with ${applicationName}: Invia token con ${applicationName}
-Send crypto with ${applicationName}: Invia cripto con ${applicationName}
-Open send in ${applicationName}: Apri Invia in ${applicationName}
+"Send token with ${applicationName}": Invia token con ${applicationName}
+"Send crypto with ${applicationName}": Invia cripto con ${applicationName}
+"Open send in ${applicationName}": Apri Invia in ${applicationName}
 Permission denied. Please grant camera permission to use the QR code scanner.: Permesso negato. Concedi l'accesso alla fotocamera per utilizzare lo scanner di codici QR.
 This QR Code is not supported: Questo codice QR non è supportato
 An error on the server side. Please try again.: Si è verificato un errore lato server. Riprova.
@@ -542,8 +537,8 @@ Euro: Euro
 Russian Ruble: Rublo russo
 Chinese Yuan: Yuan cinese
 Bitcoin: Bitcoin
-$max_balance: 'Max: %balance%'
-$available_balance: 'Disponibile: %balance%'
+$max_balance: "Max: %balance%"
+$available_balance: "Disponibile: %balance%"
 $send_recipient_invalid: Non valido
 $send_recipient_not_compatible: Non compatibile
 $unstake_information_instantly: Riceverai il tuo deposito all'istante
@@ -579,15 +574,15 @@ Confirm Action: Conferma operazione
 $classic_confirm_actions: Conferma operazioni
 Confirm Swap: Conferma scambio
 Confirm Rewards Claim: Conferma riscatto ricompense
-'%amount% to %address%': '%amount% a %address%'
-'%amount_from% to %amount_to%': Da %amount_from% a %amount_to%
+"%amount% to %address%": "%amount% a %address%"
+"%amount_from% to %amount_to%": "Da %amount_from% a %amount_to%"
 Failed to enable biometrics.: Impossibile attivare la biometria.
 Please try to confirm your biometrics again: Prova a confermare nuovamente la biometria
 Unknown error: Errore sconosciuto
 Are you sure you want to disable Face ID?: Sei sicuro di voler disattivare Face ID?
 Are you sure you want to disable Touch ID?: Sei sicuro di voler disattivare Touch ID?
 Are you sure you want to disable biometrics?: Sei sicuro di voler disattivare la biometria?
-'Yes': Sì
+"Yes": "Sì"
 Biometric confirmation failed: Conferma biometrica non riuscita
 No Activity: Nessuna attività
 Activity Failed to Load: Impossibile caricare le attività
@@ -608,13 +603,13 @@ Cannot load widget: Impossibile caricare il widget
 Error: Errore
 Explore: Esplora
 $lockdown_mode_enabled_title: Modalità di isolamento abilitata
-$lockdown_mode_walletconnect_unavailable: WalletConnect non è disponibile in Modalità di isolamento. Per utilizzarlo, disattiva la Modalità di isolamento per %app_name% in Impostazioni > Privacy e sicurezza > Modalità di isolamento > Configura navigazione web.
+$lockdown_mode_walletconnect_unavailable: "WalletConnect non è disponibile in Modalità di isolamento. Per utilizzarlo, disattiva la Modalità di isolamento per %app_name% in Impostazioni > Privacy e sicurezza > Modalità di isolamento > Configura navigazione web."
 No partners yet: Ancora nessun partner
 Clear: Cancella
 Unavailable: Non disponibile
 $unstake_up_to_information: All'istante – fino a %value%
-$all_balance: 'Tutto: %balance%'
-$unstaking_not_enough_balance: Devi avere %value% sul tuo saldo principale per procedere con l'unstaking.
+$all_balance: "Tutto: %balance%"
+$unstaking_not_enough_balance: Devi avere %value% sul tuo saldo principale per procedere con la rimozione dallo staking.
 $ledger_verify_address_on_device: Verifica l'indirizzo sul tuo Ledger.
 Wallet Versions: Versioni del wallet
 $read_more_about_wallet_version: Scopri di più sui tipi di contratti wallet su %link%.
@@ -624,13 +619,13 @@ $wallet_switch_version_1: Puoi anche %action%.
 $wallet_switch_version_2: passare a un'altra versione del wallet
 or import from: o importa da
 Insufficient fee: Commissione insufficiente
-$insufficient_fee: 'Commissione insufficiente: %fee%'
-$dapp_insufficient_network_fee_warning: '%token% insufficiente per coprire la commissione di rete'
+$insufficient_fee: "Commissione insufficiente: %fee%"
+$dapp_insufficient_network_fee_warning: "%token% insufficiente per coprire la commissione di rete"
 Required: Obbligatorio
 Comment is too long.: Il commento è troppo lungo.
 Memo: Memo
 Memo Copied: Memo copiato
-$hide_tokens_no_cost_help: Nascondi i token con un valore inferiore a $%value%. Tieni presente che i token privi di valore vengono spesso inviati da spammer e truffatori. Nella stessa schermata qui sotto puoi nascondere singoli token.
+$hide_tokens_no_cost_help: "Nascondi i token con un valore inferiore a $%value%. Tieni presente che i token privi di valore vengono spesso inviati da spammer e truffatori. Nella stessa schermata qui sotto puoi nascondere singoli token."
 No internet connection. Please check your connection and try again.: Nessuna connessione internet. Controlla la tua connessione e riprova.
 To use this feature, first enable Face ID in your phone settings.: Per utilizzare questa funzionalità, attiva prima Face ID nelle impostazioni del telefono.
 To use this feature, first enable biometrics in your phone settings.: Per utilizzare questa funzionalità, attiva prima la biometria nelle impostazioni del telefono.
@@ -656,14 +651,14 @@ Open NFT Collection: Apri collezione NFT
 Previous: Precedente
 Next: Successivo
 Updating: Aggiornamento in corso
-Insufficient %token% for fee.%fee%: '%token% insufficienti per la commissione.%fee%'
+Insufficient %token% for fee.%fee%: "%token% insufficienti per la commissione.%fee%"
 Send NFT: Invia NFT
 Send Collectible: Invia collezionabile
 Send Collectibles: Invia collezionabili
 $nfts_burned:
-  zeroValue: Bruciati %count% NFT
-  oneValue: Bruciato %count% NFT
-  otherValue: Bruciati %count% NFT
+  zeroValue: "Bruciati %count% NFT"
+  oneValue: "Bruciato %count% NFT"
+  otherValue: "Bruciati %count% NFT"
 No NFT selected: Nessun NFT selezionato
 Cannot be sent: Non può essere inviato
 NFT is for sale: L'NFT è in vendita
@@ -681,37 +676,37 @@ $unsupported_chain: Blockchain non supportata.
 Successfully: Operazione riuscita
 Estimated Time: Tempo stimato
 $utxo_confirmations:
-  zeroValue: '%count% di %max% conferme'
-  oneValue: '%count% di %max% conferma'
-  otherValue: '%count% di %max% conferme'
-$utxo_estimated_time: ~ %duration%
-Unstake More: Rimuovi altri dallo staking
+  zeroValue: "%count% di %max% conferme"
+  oneValue: "%count% di %max% conferma"
+  otherValue: "%count% di %max% conferme"
+$utxo_estimated_time: "~ %duration%"
+Unstake More: Riduci lo staking
 Are you sure you want to burn this NFT? It will be lost forever.: |
   Sei sicuro di voler bruciare questo NFT?
   Verrà perso per sempre.
 $multi_burn_nft_warning: |
   Stai per bruciare %amount% NFT. Il processo potrebbe richiedere ~%duration%. Non chiudere l'app e non cambiare wallet fino al completamento.
-
+  
   Questi NFT andranno persi per sempre.
 $duration_minutes:
-  zeroValue: '%count% minuti'
-  oneValue: '%count% minuto'
-  otherValue: '%count% minuti'
+  zeroValue: "%count% minuti"
+  oneValue: "%count% minuto"
+  otherValue: "%count% minuti"
 $multi_send_nft_warning: Il processo potrebbe richiedere ~%duration% minuto/i. Non chiudere l'app e non cambiare account fino al completamento.
 Burn NFT: Brucia NFT
 Burn Collectibles: Brucia collezionabili
 Burn: Brucia
 Private Key: Chiave privata
-'%amount% NFTs':
+"%amount% NFTs":
   zeroValue: Nessun NFT
-  oneValue: '%amount% NFT'
-  otherValue: '%amount% NFT'
+  oneValue: "%amount% NFT"
+  otherValue: "%amount% NFT"
 1 NFT: 1 NFT
 1 NFT Selected: 1 NFT selezionato
-'%amount% NFTs Selected':
+"%amount% NFTs Selected":
   zeroValue: Nessun NFT selezionato
-  oneValue: '%amount% NFT selezionato'
-  otherValue: '%amount% NFT selezionati'
+  oneValue: "%amount% NFT selezionato"
+  otherValue: "%amount% NFT selezionati"
 For sale. Cannot be sent and burned: In vendita. Non può essere inviato né bruciato
 Select: Seleziona
 Send All: Invia tutti
@@ -721,34 +716,34 @@ Collection: Collezione
 Unnamed Collection: Collezione senza nome
 Transaction ID Copied: ID transazione copiato
 External Exchange ID Copied: ID exchange esterno copiato
-$swap_cex_support: 'Se qualcosa è andato storto, contatta %support% e fornisci questo **ID exchange esterno**:'
-$swap_cex_hold_support: 'Contatta %support% e fornisci questo **ID exchange esterno** per superare la verifica del provider:'
-$swap_cex_provider_support: Assistenza %provider%
+$swap_cex_support: "Se qualcosa è andato storto, contatta %support% e fornisci questo **ID exchange esterno**:"
+$swap_cex_hold_support: "Contatta %support% e fornisci questo **ID exchange esterno** per superare la verifica del provider:"
+$swap_cex_provider_support: "Assistenza %provider%"
 Email: Email
 Your %blockchain% Address: Il tuo indirizzo %blockchain%
 My %blockchain% Address: Il mio indirizzo %blockchain%
-'%blockchain% Address': Indirizzo %blockchain%
+"%blockchain% Address": "Indirizzo %blockchain%"
 $view_only_wallet_receive_warning: |
   **Modalità solo visualizzazione: questo NON è il tuo wallet**
   Verifica attentamente prima di inviare fondi.
 Vesting: Vesting
 Vesting Balance: Saldo di vesting
-Ready to Unfreeze: Pronto per lo sblocco
-You will receive your unfrozen coins in a few minutes.: Riceverai le tue monete sbloccate entro pochi minuti.
+Ready to Unfreeze: Pronto per lo scongelamento
+You will receive your unfrozen coins in a few minutes.: Riceverai le tue monete scongelate entro pochi minuti.
 Vesting Schedule: Piano di vesting
 Loyal User Airdrop: Airdrop utenti fedeli
-Unfrozen: Sbloccato
+Unfrozen: Scongelato
 Missed: Mancato
-Frozen: Bloccato
+Frozen: Congelato
 until %date%: fino al %date%
 $until_date_capitalized: Fino al %date%
-'%volume% in %amount% parts': '%volume% in %amount% parti'
-Unfreeze: Sblocca
+"%volume% in %amount% parts": "%volume% in %amount% parti"
+Unfreeze: Scongela
 Claim: Riscatta
-Confirm Unfreezing: Conferma sblocco
+Confirm Unfreezing: Conferma scongelamento
 Insufficient Balance for Fee: Saldo insufficiente per la commissione
-$fee_value_bold: '**Commissione:** %fee%'
-'%app_name% Features': Funzionalità di %app_name%
+$fee_value_bold: "**Commissione:** %fee%"
+"%app_name% Features": "Funzionalità di %app_name%"
 Security: Sicurezza
 To avoid entering the passcode every time, you can use biometrics.: Per evitare di inserire il passcode ogni volta, puoi usare i dati biometrici.
 To avoid entering the password every time, you can use biometrics.: Per evitare di inserire la password ogni volta, puoi usare i dati biometrici.
@@ -806,7 +801,7 @@ Untitled: Senza titolo
 Multichain: Multichain
 $swap_too_small_amount: Importo troppo basso
 $swap_slippage_violation: Emulazione dello swap non riuscita a causa del superamento dello slippage. Riprova.
-$not_enough_symbol_lowercase: '%symbol% insufficienti'
+$not_enough_symbol_lowercase: "%symbol% insufficienti"
 Enter Secret Words: Inserisci parole segrete
 Turn this off so you can manually download updates and verify signatures.: Disattiva questa opzione per scaricare manualmente gli aggiornamenti e verificare le firme.
 InvalidMnemonic: Le tue parole mnemoniche non sono valide
@@ -814,7 +809,7 @@ NFT Menu: Menu NFT
 Connection Type: Tipo di connessione
 Ledger is not supported on this device: Ledger non è supportato su questo dispositivo
 Connect your Ledger: Collega il tuo Ledger
-$app_lock_description: Quando il blocco app è attivo, appare un'icona a forma di lucchetto sulla scheda nella pagina principale. Usala per bloccare %app_name%.
+$app_lock_description: Quando il blocco app è abilitato, appare un'icona del lucchetto sulla carta nella pagina principale. Usala per bloccare %app_name%.
 App Lock: Blocco app
 Auto-Lock: Blocco automatico
 Disabled: Disattivato
@@ -848,7 +843,7 @@ Final Fee: Commissione finale
 Excess: Eccedenza
 $fee_details: |
   %full_fee% devono essere addebitati immediatamente dal tuo wallet per pagare la commissione. Una parte ti verrà restituita **in **%excess_symbol% come eccedenza entro pochi minuti.
-
+  
   Questo è il funzionamento della blockchain %chain_name%.
 Got It: Ho capito
 Wallet: Wallet
@@ -859,13 +854,13 @@ Transaction ID: ID transazione
 Outgoing Transaction ID: ID transazione in uscita
 Incoming Transaction ID: ID transazione in entrata
 Help Center: Centro assistenza
-'%app_name% Tips': Consigli su %app_name%
+"%app_name% Tips": "Consigli su %app_name%"
 Open %nft_marketplace%: Apri %nft_marketplace%
 Link Copied: Link copiato
 Share Link: Condividi link
 $dapp_return_details: |
   %fee_amount% verranno addebitati immediatamente dal tuo wallet per pagare la commissione.
-
+  
   %received_amount% ti verranno restituiti entro pochi minuti.
 $dapp_return_disclaimer: L'importo restituito visualizzato non è garantito e potrebbe essere manipolato da dapp dannose. Annulla l'operazione se non sei sicuro dell'affidabilità di questo servizio.
 Additional Amount Sent: Importo aggiuntivo inviato
@@ -940,13 +935,13 @@ Easily send your upgraded card to any of your friends.: Invia facilmente la tua 
 Tradable: Scambiabile
 Sell or auction your card on third-party NFT marketplaces.: Vendi o metti all'asta la tua carta sui marketplace NFT di terze parti.
 Upgrade for %amount% %currency%: Aggiorna per %amount% %currency%
-'%amount% left': '%amount% rimanenti'
-'%amount% sold': '%amount% venduti'
+"%amount% left": "%amount% rimanenti"
+"%amount% sold": "%amount% venduti"
 This card has been sold out: Questa carta è esaurita
 Import Existing Wallet: Importa wallet esistente
 View Any Address: Visualizza qualsiasi indirizzo
 View Mode: Modalità visualizzazione
-'%counts% Secret Words': '%counts% parole segrete'
+"%counts% Secret Words": "%counts% parole segrete"
 Address or Domain: Indirizzo o dominio
 $import_view_account_note: Aggiungi **qualsiasi** indirizzo per **monitorare** la sua attività.
 $view_mode: Visualizza
@@ -985,8 +980,8 @@ Renew: Rinnova
 Renew Domain: Rinnova dominio
 Renew Domains: Rinnova domini
 Some domains are about to expire: Alcuni domini stanno per scadere
-$domain_expire: '**%domain%** scade %days%'
-'%token% Staking': Staking di %token%
+$domain_expire: "**%domain%** scade %days%"
+"%token% Staking": "Staking di %token%"
 Add Tab: Aggiungi scheda
 Customize Tabs: Personalizza schede
 Remove Tab: Rimuovi scheda
@@ -994,18 +989,18 @@ Reset: Ripristina
 Tabs: Schede
 Tap or drag to add tabs.: Tocca o trascina per aggiungere schede.
 $iab_tabs_count:
-  zeroValue: '%count% schede'
-  oneValue: '%count% scheda'
-  otherValue: '%count% schede'
+  zeroValue: "%count% schede"
+  oneValue: "%count% scheda"
+  otherValue: "%count% schede"
 $iab_more_tabs_count:
-  zeroValue: + %count% schede
-  oneValue: + %count% scheda
-  otherValue: + %count% schede
+  zeroValue: "+ %count% schede"
+  oneValue: "+ %count% scheda"
+  otherValue: "+ %count% schede"
 Close Tab: Chiudi scheda
 $domains_amount %count%:
   zeroValue: Nessun dominio
-  oneValue: '%count% dominio'
-  otherValue: '%count% domini'
+  oneValue: "%count% dominio"
+  otherValue: "%count% domini"
 Stake: Metti in staking
 Manage Tokens: Gestisci token
 Claim Rewards: Riscatta ricompense
@@ -1022,17 +1017,17 @@ Confirm Renewing: Conferma rinnovo
 Confirm Linking: Conferma collegamento
 $domains_expire:
   zeroValue: Nessun dominio scade %days%
-  oneValue: '**%domain% dominio** scade %days%'
-  otherValue: '**%domain% domini** scadono %days%'
+  oneValue: "**%domain% dominio** scade %days%"
+  otherValue: "**%domain% domini** scadono %days%"
 $in_days:
   zeroValue: tra %count% giorni
   oneValue: tra %count% giorno
   otherValue: tra %count% giorni
-$domain_was_expired: '**%domain%** è scaduto'
+$domain_was_expired: "**%domain%** è scaduto"
 $domains_was_expired:
   zeroValue: Nessun dominio è scaduto
-  oneValue: '**%domain% dominio** è scaduto'
-  otherValue: '**%domain% domini** sono scaduti'
+  oneValue: "**%domain% dominio** è scaduto"
+  otherValue: "**%domain% domini** sono scaduti"
 Reload: Ricarica
 Copy Link: Copia link
 Check eligibility for max APY: Verifica l'idoneità per l'APY massimo
@@ -1066,14 +1061,14 @@ Attributes: Attributi
 Show All: Mostra tutti
 Description: Descrizione
 No additional data.: Nessun dato aggiuntivo.
-'%chain% Domain Copied': Dominio %chain% copiato
+"%chain% Domain Copied": "Dominio %chain% copiato"
 $in_currency: in %currency%
 Rename Wallet: Rinomina wallet
 You can rename this wallet for easier identification.: Puoi rinominare questo wallet per identificarlo più facilmente.
 $enclave_migration_damaged_title: Dati del wallet danneggiati
 $enclave_migration_damaged_message: |
   Non si tratta di un problema di password. I dati memorizzati di uno dei tuoi wallet non possono essere letti, quindi l'aggiornamento è stato interrotto e gli altri tuoi wallet sono rimasti nel formato precedente.
-
+  
   Non reinstallare l'app e non cancellarne i dati: questo eliminerebbe i wallet ancora intatti. Contatta %support_link% e ti aiuteremo a recuperarli.
 $enclave_recovery_required_tooltip: I dati salvati di questo wallet non possono essere letti. Non rimuovere questo wallet e non cancellare i dati dell'app, e contatta l'assistenza per recuperarlo.
 $logout_recovery_required_warning: I dati salvati di questo wallet non possono essere letti, quindi non è possibile visualizzare le sue parole segrete. Rimuovendo il wallet si distrugge l'unica copia rimasta su questo dispositivo, e non potrà essere ripristinato senza le parole segrete.
@@ -1081,22 +1076,22 @@ $logout_recovery_required_accounts_warning: I dati salvati di %links% non posson
 $enclave_migration_interrupted_title: L'aggiornamento è stato interrotto
 $enclave_migration_interrupted_message: |
   Un precedente tentativo di aggiornare i dati del tuo wallet si è interrotto a metà e non può essere ripreso da questa schermata. Riprovare qui non sarà d'aiuto.
-
+  
   Non reinstallare l'app e non cancellarne i dati: i tuoi wallet sono ancora memorizzati su questo dispositivo. Contatta %support_link% e ti aiuteremo a completare l'aggiornamento.
 $enclave_migration_unexpected_title: Impossibile completare l'aggiornamento
 $enclave_migration_unexpected_message: |
   L'aggiornamento dei dati del tuo wallet si è interrotto a causa di un errore imprevisto e l'app non è in grado di determinare la causa. Non è stato eliminato nulla: ogni wallet è ancora memorizzato su questo dispositivo.
-
+  
   Chiudi questo messaggio e riprova: un altro tentativo non danneggerà i tuoi wallet. Se continua a interrompersi, non reinstallare l'app, non cancellarne i dati e invia questo codice a %support_link%: %error_code%
 $enclave_migration_retry_title: L'aggiornamento non è terminato
 $enclave_migration_retry_message: |
   L'aggiornamento dei dati del tuo wallet si è interrotto prima di terminare. Non è stato eliminato nulla: ogni wallet è ancora memorizzato su questo dispositivo.
-
+  
   Chiudi questo messaggio e riprova: un altro tentativo non danneggerà i tuoi wallet. Se continua a interrompersi, non reinstallare l'app, non cancellarne i dati e invia questo codice a %support_link%: %error_code%
 $enclave_migration_storage_full_title: Spazio insufficiente
 $enclave_migration_storage_full_message: |
   L'aggiornamento dei dati del tuo wallet richiede più spazio libero di quello disponibile su questo dispositivo, quindi è stato interrotto. Non è stato eliminato nulla: ogni wallet è ancora memorizzato su questo dispositivo.
-
+  
   Libera dello spazio e riapri l'app. Non reinstallare l'app e non cancellarne i dati: questo eliminerebbe i wallet ancora intatti.
 Telegram Gifts: Regali di Telegram
 Collectibles: Collezionabili
@@ -1106,9 +1101,9 @@ Canceled by the user: Annullato dall'utente
 The proof for signing provided by the app is too large: La prova per la firma fornita dall'app è troppo grande
 $domain_like_scam_warning: |
   L'indirizzo inserito è probabilmente una **TRUFFA**. Questo **NON** è l'indirizzo di alcun exchange né del tuo wallet di token.
-
+  
   Si tratta di un lungo **dominio** che i **truffatori** usano per convincere le persone che stanno inviando token a un indirizzo noto.
-
+  
   **Annulla** questo trasferimento e **non fidarti mai** degli sconosciuti. Scopri di più su questa e altre truffe nel nostro %help_center_link%.
 Allow Suspicious Actions: Consenti azioni sospette
 $allow_suspicious_actions_description: Consenti l'invio a indirizzi sospetti e l'interazione con contratti potenzialmente non sicuri.
@@ -1116,11 +1111,11 @@ Multisig Wallet Detected: Rilevato wallet multisig
 $multisig_warning_text: Questo wallet richiede più firme per effettuare trasferimenti. **Non puoi prelevare** fondi qui utilizzando %app_name%. Assicurati che sia tuo, altrimenti potrebbe far parte di una truffa. %multisig_warning_link%
 $multisig_warning_link: Tocca per saperne di più
 Multisig sending disabled: Invio multisig disabilitato
-$try_new_air_version: 'Prova l''esperienza dell''app nativa: più leggera, più veloce e creata su misura per il tuo dispositivo. Puoi tornare indietro in qualsiasi momento.'
+$try_new_air_version: "Prova l'esperienza dell'app nativa: più leggera, più veloce e creata su misura per il tuo dispositivo. Puoi tornare indietro in qualsiasi momento."
 $accept_terms_with_link: Accetto %link%
 use the wallet responsibly: usare il wallet in modo responsabile
-'%app_name% Resources': Risorse di %app_name%
-Resources: Risorse
+"%app_name% Resources": "Risorse di %app_name%"
+"Resources": Risorse
 Watch Video about Features: Guarda il video sulle funzionalità
 Enjoy Monthly Updates in Blog: Scopri gli aggiornamenti mensili nel blog
 Learn New Things in Help Center: Impara cose nuove nel Centro assistenza
@@ -1129,7 +1124,7 @@ Paste from Clipboard: Incolla dagli appunti
 Use biometric authentication or create a password to protect it.: Usa l'autenticazione biometrica o crea una password per proteggerlo.
 Go to Words: Vai alle parole
 Copy to Clipboard: Copia negli appunti
-$mnemonic_check_words_list: 'Scegli le parole corrette %word_numbers%:'
+$mnemonic_check_words_list: "Scegli le parole corrette %word_numbers%:"
 $mnemonic_check_error: Le parole non corrispondono, riprova.
 Open Wallet: Apri wallet
 All Set!: Tutto pronto!
@@ -1161,9 +1156,9 @@ Popular Apps: App popolari
 Popular Sites: Siti popolari
 $wallets_amount:
   zeroValue: Nessun wallet
-  oneValue: '%count% wallet'
-  otherValue: '%count% wallet'
-$total_balance: '%balance% totale'
+  oneValue: "%count% wallet"
+  otherValue: "%count% wallet"
+$total_balance: "%balance% totale"
 No wallets: Nessun wallet
 View as List: Visualizza come elenco
 View as Cards: Visualizza come card
@@ -1185,7 +1180,7 @@ No view wallets yet: Nessun wallet di sola visualizzazione al momento
 View wallets can receive assets, but you cannot use them to send or sign transactions.: I wallet di sola visualizzazione possono ricevere asset, ma non puoi usarli per inviare o firmare transazioni.
 Add the first one to track balances and activity for any address.: Aggiungi il primo per monitorare saldi e attività di qualsiasi indirizzo.
 Customize Wallet: Personalizza wallet
-'Select the card stored in this wallet:': 'Seleziona la card memorizzata in questo wallet:'
+"Select the card stored in this wallet:": "Seleziona la card memorizzata in questo wallet:"
 This card will be installed for this wallet and will be displayed on the home screen and in the wallets list.: Questa card verrà installata per questo wallet e sarà visualizzata nella schermata iniziale e nell'elenco dei wallet.
 Get More Cards: Ottieni altre card
 Browse My Wallet Cards available for purchase.: Sfoglia le card My Wallet disponibili per l'acquisto.
@@ -1196,9 +1191,9 @@ Palette and Card: Palette e card
 Customize the wallet’s card appearance and color accents the way you like.: Personalizza l'aspetto della card del wallet e i dettagli di colore come preferisci.
 Address doesn't exist: L'indirizzo non esiste
 The address is not a token minter address: L'indirizzo non è un indirizzo minter del token
-$joining_comma: ', '
-$joining_and: ' e '
-$joining_or: ' o '
+$joining_comma: ", "
+$joining_and: " e "
+$joining_or: " o "
 View in App: Visualizza nell'app
 Save Account: Salva account
 $invalid_address_format: Formato dell'indirizzo non valido
@@ -1228,7 +1223,7 @@ Connect Anyway: Connetti comunque
 Insufficient Fee: Commissione insufficiente
 Waiting for a View deeplink to display a wallet address.: In attesa di un deeplink View per visualizzare l'indirizzo di un wallet.
 Adding wallets is not available in explorer mode: L'aggiunta di wallet non è disponibile nella modalità esploratore
-$explorer_mode_warning: 'Modalità esploratore: in attesa di un deeplink View per aprire un indirizzo'
+$explorer_mode_warning: "Modalità esploratore: in attesa di un deeplink View per aprire un indirizzo"
 This command is not supported in explorer mode: Questo comando non è supportato nella modalità esploratore
 $saved_addresses_header: Salvati
 confirm an action in My Wallet: conferma un'azione in My Wallet
@@ -1239,7 +1234,7 @@ Failed to retrieve password from biometrics: Impossibile recuperare la password 
 Migration failed. Please try again.: Migrazione non riuscita. Riprova.
 Timed out waiting for account to be ready: Tempo scaduto in attesa che l'account sia pronto
 $connected_apps:
-  otherValue: '%count% connesse'
+  otherValue: "%count% connesse"
 Night Mode, Palette, Card: Modalità notte, palette, card
 Back Up, Passcode, Auto-Lock: Backup, passcode, blocco automatico
 Back Up, Password, Auto-Lock: Backup, password, blocco automatico
@@ -1292,7 +1287,7 @@ $dapps-description: Puoi accedere alle app che supportano %app_name%. Possono vi
 Please verify the action.: Verifica l'azione.
 $service_token_transfer_warning: Stai per trasferire un token di servizio importante necessario per prelevare il tuo deposito o completare azioni di servizio. Assicurati che sia questa l'azione che intendi eseguire.
 $ledger_outdated: Questa azione non è supportata dalla tua versione dell'app %chain% per Ledger. Aggiornala usando Ledger Live.
-$hardware_payload_warning: '**Un servizio di terze parti sta richiedendo l''accesso al tuo wallet.** Questo potrebbe causare la perdita di fondi. Annulla l''azione se non sei sicuro dell''affidabilità di questo servizio.'
+$hardware_payload_warning: "**Un servizio di terze parti sta richiedendo l'accesso al tuo wallet.** Questo potrebbe causare la perdita di fondi. Annulla l'azione se non sei sicuro dell'affidabilità di questo servizio."
 Pin: Fissa
 Unpin: Rimuovi dai fissati
 My Assets: I miei asset
@@ -1314,7 +1309,7 @@ $agent_consent_debug_reset_button: Reimposta stato del consenso di Agent
 $agent_consent_debug_reset_footer: Mostra nuovamente la schermata di consenso di Agent quando si apre la scheda Agent.
 $settings_token_change_threshold: Soglia variazione %
 $settings_token_change_threshold_description: Nasconde le variazioni percentuali nelle 24 ore inferiori alla soglia selezionata.
-$settings_token_change_threshold_off: Disattivata
+$settings_token_change_threshold_off: "Disattivata"
 Blockchain Badges: Badge blockchain
 $settings_blockchain_badges_description: Mostra i badge della blockchain per tutti i token. Per impostazione predefinita, vengono mostrati solo per stablecoin e azioni tokenizzate disponibili su più blockchain.
 Show on Card: Mostra sulla card
@@ -1342,7 +1337,7 @@ $agent_activity_planning_completed: Piano della risposta pronto
 $agent_activity_web_searching: Ricerca sul web…
 $agent_activity_web_searching_completed: Fonti pertinenti trovate
 $agent_activity_web_reading_sources: Analisi delle fonti…
-$agent_activity_web_reading_sources_completed: 'Fonti esaminate: %count%'
+$agent_activity_web_reading_sources_completed: "Fonti esaminate: %count%"
 $agent_activity_web_reading_sources_completed_generic: Fonti esaminate
 $agent_activity_market_data: Verifica dei dati di mercato…
 $agent_activity_market_data_completed: Dati di mercato verificati
@@ -1425,18 +1420,18 @@ $agent_market_profile_above: Prezzo sopra la value area
 $agent_market_profile_inside: Prezzo all'interno della value area
 $agent_market_profile_below: Prezzo sotto la value area
 $agent_market_factors: Fattori chiave
-$agent_market_factor_structure: 'Struttura giornaliera: %direction%'
-$agent_market_factor_levels: '%supports% zone di supporto e %resistances% di resistenza sono confermate per questo orizzonte.'
-$agent_market_factor_profile: 'Distribuzione dei volumi: %position%.'
+$agent_market_factor_structure: "Struttura giornaliera: %direction%"
+$agent_market_factor_levels: "%supports% zone di supporto e %resistances% di resistenza sono confermate per questo orizzonte."
+$agent_market_factor_profile: "Distribuzione dei volumi: %position%."
 $agent_market_factor_profile_unavailable: Il Volume Profile non è disponibile; lo scenario si basa sulla struttura del prezzo.
-$agent_market_factor_timeframe_alignment: 'Struttura dei timeframe — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%.'
-$agent_market_factor_current_scenario: 'Regime attuale: %active%. Scenario condizionale: %conditional% dopo %activation%.'
-$agent_market_factor_no_active_scenario: 'Nessuno scenario confermato. Scenario condizionale: %conditional% dopo %activation%.'
+$agent_market_factor_timeframe_alignment: "Struttura dei timeframe — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
+$agent_market_factor_current_scenario: "Regime attuale: %active%. Scenario condizionale: %conditional% dopo %activation%."
+$agent_market_factor_no_active_scenario: "Nessuno scenario confermato. Scenario condizionale: %conditional% dopo %activation%."
 $agent_market_primary_scenario: Scenario primario
 $agent_market_current_regime: Regime attuale confermato
 $agent_market_conditional_scenario: Scenario condizionale
 $agent_market_no_active_scenario: Al momento non è confermato alcuno scenario.
-$agent_market_calculated_fallback: 'Analisi calcolata: la spiegazione del modello è temporaneamente non disponibile.'
+$agent_market_calculated_fallback: "Analisi calcolata: la spiegazione del modello è temporaneamente non disponibile."
 $agent_market_other_horizons: Altri orizzonti richiesti
 $agent_market_horizon_3d: 3 giorni
 $agent_market_horizon_7d: 7 giorni
@@ -1482,7 +1477,7 @@ $agent_semantic_balance: Saldo
 $agent_semantic_balance_unavailable: —
 $agent_semantic_access_regular: Standard
 $agent_semantic_access_view_only: Sola lettura
-$agent_semantic_wallets_unpriced: '%amount% posizioni non sono incluse nei totali mostrati perché prive di prezzo.'
+$agent_semantic_wallets_unpriced: "%amount% posizioni non sono incluse nei totali mostrati perché prive di prezzo."
 $agent_semantic_wallets_stale: Alcuni saldi del wallet potrebbero non essere aggiornati.
 $agent_semantic_wallets_unavailable: Alcuni saldi del wallet non sono disponibili.
 $agent_semantic_wallets_partial: Alcuni dati del wallet sono incompleti.
@@ -1517,16 +1512,16 @@ $agent_semantic_hidden_assets: Asset nascosti
 $agent_semantic_hidden_assets_warning: I nomi degli asset nascosti potrebbero essere ingannevoli. Vengono mostrati come testo normale e non possono essere aperti come link.
 $agent_semantic_quarantine_warning: Questi elementi sono stati segnalati come spam. Non fidarti dei loro nomi o dei loro link.
 $agent_semantic_redacted_asset: Nome nascosto
-$agent_semantic_omitted_spam: 'Spam filtrato: %amount%'
-$agent_semantic_omitted_spam_minimum: 'Spam filtrato: almeno %amount%'
-$agent_semantic_omitted_hidden: 'Asset nascosti esclusi: %amount%'
-$agent_semantic_omitted_hidden_minimum: 'Asset nascosti esclusi: almeno %amount%'
-$agent_semantic_suspicious: 'Nomi non sicuri nascosti: %amount%'
-$agent_semantic_suspicious_minimum: 'Nomi non sicuri nascosti: almeno %amount%'
-$agent_semantic_suspicious_shown: 'Nomi potenzialmente non sicuri: %amount%'
-$agent_semantic_suspicious_shown_minimum: 'Nomi potenzialmente non sicuri: almeno %amount%'
-$agent_semantic_omitted_rows: Ci sono troppi dati. %amount% righe aggiuntive non sono state incluse. Riduci il periodo o applica dei filtri.
-$agent_semantic_omitted_rows_minimum: Ci sono troppi dati. Almeno %amount% righe aggiuntive non sono state incluse. Riduci il periodo o applica dei filtri.
+$agent_semantic_omitted_spam: "Spam filtrato: %amount%"
+$agent_semantic_omitted_spam_minimum: "Spam filtrato: almeno %amount%"
+$agent_semantic_omitted_hidden: "Asset nascosti esclusi: %amount%"
+$agent_semantic_omitted_hidden_minimum: "Asset nascosti esclusi: almeno %amount%"
+$agent_semantic_suspicious: "Nomi non sicuri nascosti: %amount%"
+$agent_semantic_suspicious_minimum: "Nomi non sicuri nascosti: almeno %amount%"
+$agent_semantic_suspicious_shown: "Nomi potenzialmente non sicuri: %amount%"
+$agent_semantic_suspicious_shown_minimum: "Nomi potenzialmente non sicuri: almeno %amount%"
+$agent_semantic_omitted_rows: "Ci sono troppi dati. %amount% righe aggiuntive non sono state incluse. Riduci il periodo o applica dei filtri."
+$agent_semantic_omitted_rows_minimum: "Ci sono troppi dati. Almeno %amount% righe aggiuntive non sono state incluse. Riduci il periodo o applica dei filtri."
 $agent_semantic_update_required: Aggiorna l'app per visualizzare questa risposta.
 $agent_hint_portfolio_title: Rendimento del portafoglio
 $agent_hint_portfolio_prompt: Analizza il rendimento del mio portafoglio.
@@ -1583,9 +1578,9 @@ $agent_notice_market_unavailable: I dati di mercato non sono al momento disponib
 $agent_notice_market_analysis_unavailable: Impossibile preparare l'analisi di mercato. Riprova.
 $agent_notice_market_analysis_asset_unsupported: L'analisi per questa moneta non è al momento supportata.
 $agent_notice_market_analysis_timeframe_unsupported: L'analisi per questo periodo non è al momento supportata.
-$agent_notice_market_quote_resolved: '%asset% vale attualmente %price% %currency%. Variazione nelle 24 ore: %change%%.'
+$agent_notice_market_quote_resolved: "%asset% vale attualmente %price% %currency%. Variazione nelle 24 ore: %change%%."
 $agent_notice_market_quote_price_unavailable: Nessun prezzo attuale disponibile per %asset%.
-$agent_notice_market_quote_ambiguous: 'Corrispondono diversi token: %assets%. Specifica la rete o l''indirizzo del contratto.'
+$agent_notice_market_quote_ambiguous: "Corrispondono diversi token: %assets%. Specifica la rete o l'indirizzo del contratto."
 $agent_notice_market_quote_not_found: Nessun token corrispondente trovato per questa richiesta di prezzo.
 $agent_notice_market_quote_planning_unavailable: Impossibile interpretare la richiesta di prezzo.
 $agent_notice_market_quote_capability_unavailable: La ricerca del prezzo non è disponibile in questa app.
@@ -1602,7 +1597,7 @@ $agent_notice_receive_details_required: Specifica il cripto asset e la rete per 
 $agent_notice_receive_asset_required: Specifica il cripto asset per il deposito.
 $agent_notice_receive_network_required: Specifica la rete per il deposito.
 $agent_notice_receive_ready: La schermata di ricezione è pronta per essere aperta.
-$agent_notice_receive_memo_not_required: 'Il memo non è richiesto quando ricarichi il tuo indirizzo My Wallet: lascia il campo vuoto.'
+$agent_notice_receive_memo_not_required: "Il memo non è richiesto quando ricarichi il tuo indirizzo My Wallet: lascia il campo vuoto."
 $agent_notice_receive_unavailable: La ricezione non è disponibile per questo wallet.
 $agent_notice_receive_planning_unavailable: Impossibile interpretare la richiesta di ricezione. Riformulala o apri Ricevi.
 $agent_notice_receive_active_account_unavailable: Il wallet attivo non è disponibile. Cambia wallet e riprova.
@@ -1613,7 +1608,7 @@ $agent_notice_retry_required: Riprova a inviare la richiesta.
 $agent_notice_send_details_required: Aggiungi i dettagli mancanti del trasferimento per continuare.
 $agent_notice_send_form_amount_required: Apri Invia, quindi inserisci l'importo nel modulo di trasferimento.
 $agent_notice_send_ready: Certamente — il trasferimento è pronto. Controlla i dettagli prima di inviare.
-$agent_notice_send_ready_inferred_asset: Sembra che tu intenda %symbol%. Ho preparato il trasferimento — controlla i dettagli prima di inviare.
+$agent_notice_send_ready_inferred_asset: "Sembra che tu intenda %symbol%. Ho preparato il trasferimento — controlla i dettagli prima di inviare."
 $agent_notice_send_missing_amount: Quanto vorresti inviare?
 $agent_notice_send_missing_asset: Quale valuta vorresti inviare?
 $agent_notice_send_missing_recipient: A chi vorresti inviarlo?
@@ -1628,13 +1623,13 @@ $agent_notice_staking_client_unavailable: Lo staking tramite Agent non è dispon
 $agent_notice_staking_asset_unavailable: Lo staking per questo asset non è disponibile nel wallet attivo. Scegli un altro asset disponibile per lo staking.
 $agent_notice_staking_amount_invalid: L'importo di staking richiesto non può essere utilizzato. Inserisci un altro importo in Staking.
 $agent_notice_staking_wallet_context_changed: Le opzioni di staking del wallet attivo sono cambiate. Chiedi ad Agent di preparare nuovamente lo staking.
-$agent_notice_swap_ready_indicative: 'Stima indicativa: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. La quotazione eseguibile, le commissioni, lo slippage e l''impatto sul prezzo verranno caricati in Swap.'
-$agent_notice_swap_ready_price_unavailable: Il prezzo indicativo locale per %from_symbol% → %to_symbol% non è disponibile. Apri Swap per caricare la quotazione eseguibile, le commissioni e lo slippage.
+$agent_notice_swap_ready_indicative: "Stima indicativa: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. La quotazione eseguibile, le commissioni, lo slippage e l'impatto sul prezzo verranno caricati in Swap."
+$agent_notice_swap_ready_price_unavailable: "Il prezzo indicativo locale per %from_symbol% → %to_symbol% non è disponibile. Apri Swap per caricare la quotazione eseguibile, le commissioni e lo slippage."
 $agent_notice_swap_details_source_asset: Specifica il cripto asset da scambiare.
 $agent_notice_swap_details_destination_asset: Specifica il cripto asset da ricevere.
 $agent_notice_swap_details_amount: Specifica un importo cripto positivo.
 $agent_notice_swap_details_direction: Specifica l'asset di origine, l'asset di destinazione e l'importo per continuare.
-$agent_notice_swap_details_candidates: '%prompt% Corrispondenze: %candidates%.'
+$agent_notice_swap_details_candidates: "%prompt% Corrispondenze: %candidates%."
 $agent_notice_swap_unavailable: La preparazione dello swap tramite Agent non è al momento disponibile. Apri invece Swap dal wallet.
 $agent_notice_swap_planning_unavailable: Impossibile interpretare la richiesta di swap. Specifica entrambi i cripto asset e un importo.
 $agent_notice_swap_active_account_unavailable: Il wallet attivo non è disponibile. Cambia wallet e riprova.
@@ -1693,11 +1688,11 @@ $agent_semantic_market: Panoramica di mercato
 $agent_wallet_page_navigation: Pagine dati del wallet
 $agent_wallet_page_previous: ← Precedente
 $agent_wallet_page_next: Successivo →
-$agent_wallet_page_indicator: '%current% di %total%'
+$agent_wallet_page_indicator: "%current% di %total%"
 $agent_portfolio_unpriced: Non incluso
 $agent_portfolio_unpriced_value: non incluso
-$agent_portfolio_more_positions: +%count% altri
-$agent_portfolio_history_on: Cronologia su %network%
+$agent_portfolio_more_positions: "+%count% altri"
+$agent_portfolio_history_on: "Cronologia su %network%"
 $agent_portfolio_no_activity: Nessuna attività recente.
 Clear Chat: Cancella chat
 Unsupported link: Link non supportato
@@ -1743,8 +1738,8 @@ Manage Assets: Gestisci asset
 Pulse: Pulse
 Edit Message: Modifica messaggio
 Toggle Hints: Mostra/Nascondi suggerimenti
-AgentErrorResponseFailed: 'Errore: impossibile ricevere una risposta'
-AgentErrorConnectionFailed: 'Errore: connessione non riuscita'
+AgentErrorResponseFailed: "Errore: impossibile ricevere una risposta"
+AgentErrorConnectionFailed: "Errore: connessione non riuscita"
 Scroll To Bottom: Scorri fino in fondo
 $agent_clear_chat_confirm: Sei sicuro di voler cancellare la cronologia della chat?
 $unknown_swap_token: Token sconosciuto nel link di swap. Sono stati usati i token predefiniti.
@@ -1768,12 +1763,12 @@ Show Assets: Mostra asset
 Top %amount%: Top %amount%
 No subwallets yet.: Ancora nessun subwallet.
 $subwallets_found:
-  oneValue: 'Trovato: %count%'
-  otherValue: 'Trovati: %count%'
+  oneValue: "Trovato: %count%"
+  otherValue: "Trovati: %count%"
 $subwallet_scan_no_native_balances: Nessun saldo nativo
 $subwallet_scan_other_tokens_suffix:
-  oneValue: ' + %count% altro token'
-  otherValue: ' + %count% altri token'
+  oneValue: " + %count% altro token"
+  otherValue: " + %count% altri token"
 Send, receive, and trade tokens and collectibles.: Invia, ricevi e scambia token e collezionabili.
 $overview_cell_size_small: Piccola
 $overview_cell_size_medium: Media
@@ -1830,7 +1825,7 @@ My Wallet: My Wallet
 $no_activity_history: |
   Non c'è ancora nessuna cronologia delle attività in questo wallet.
 Standalone: Standalone
-'Enter wallet name:': 'Inserisci il nome del wallet:'
+"Enter wallet name:": "Inserisci il nome del wallet:"
 All Telegram Gifts: Tutti i Regali Telegram
 Add Crypto: Aggiungi cripto
 Share QR Code: Condividi codice QR
@@ -1853,19 +1848,19 @@ Add a message, if needed: Aggiungi un messaggio, se necessario
 Collapse: Comprimi
 Expand: Espandi
 Standalone NFT: NFT standalone
-$nft_select: Seleziona
+$nft_select: "Seleziona"
 $nft_batch_on_sale: I collezionabili selezionati sono in vendita.
 $nft_batch_different_chains: I collezionabili selezionati si trovano su blockchain diverse.
-$nft_expired: Scaduto
+$nft_expired: "Scaduto"
 Linked Address: Indirizzo collegato
 Enter Address: Inserisci indirizzo
 D: G
 W: S
 M: M
 3M: 3M
-Y: A
-$amount_K: '%amount%K'
-$amount_M: '%amount%M'
+Y: "A"
+$amount_K: "%amount%K"
+$amount_M: "%amount%M"
 Happening Now: In corso ora
 No Dapps Found!: Nessuna dApp trovata!
 Edit Wallet Name: Modifica nome del wallet
@@ -1881,12 +1876,12 @@ Show Secret Words: Mostra parole segrete
 Passcode: Passcode
 Lock the app after: Blocca l'app dopo
 Never: Mai
-'%count% seconds': '%count% secondi'
-'%count% minutes': '%count% minuti'
+"%count% seconds": "%count% secondi"
+"%count% minutes": "%count% minuti"
 Unstake Request: Richiesta di rimozione dallo staking
 History: Cronologia
 Earn up to %apy% per year from your tokens: Guadagna fino al %apy% all'anno dai tuoi token
-Insufficient %symbol% Balance: Saldo %symbol% insufficiente
+Insufficient %symbol% Balance: "Saldo %symbol% insufficiente"
 Instant Withdrawal: Prelievo istantaneo
 Instantly: Istantaneamente
 Up to %amount%: Fino a %amount%
@@ -1895,17 +1890,17 @@ Current APR: APR attuale
 in: in
 Network Error: Errore di rete
 Enter Amount: Inserisci importo
-Swap %from% to %to%: Scambia %from% in %to%
-'%from% to %to%': Da %from% a %to%
-Max %amount%: Max %amount%
-Authorize %token% fee: Autorizza commissione in %token%
+"Swap %from% to %to%": "Scambia %from% in %to%"
+"%from% to %to%": "Da %from% a %to%"
+"Max %amount%": "Max %amount%"
+"Authorize %token% fee": "Autorizza commissione in %token%"
 Pending previous fee: Commissione precedente in sospeso
 AML/KYC: AML/KYC
 Receive to: Ricevi su
 Enter %token% address: Inserisci indirizzo %token%
-'Send %token% this address:': 'Invia %token% a questo indirizzo:'
+"Send %token% this address:": "Invia %token% a questo indirizzo:"
 Swap is not supported on this account.: Lo swap non è supportato su questo account.
-'%amount% will be returned': '%amount% verrà restituito'
+"%amount% will be returned": "%amount% verrà restituito"
 Connecting your wallet: Connessione del wallet in corso
 Action is not possible on a view-only wallet.: L'azione non è possibile su un wallet di sola visualizzazione.
 No matching chains: Nessuna rete compatibile
@@ -1918,74 +1913,73 @@ Switch to Legacy Version: Passa alla versione classica
 Received from: Ricevuto da
 Your Secret Words: Le tue parole segrete
 day:
-  zeroValue: '%count% giorni'
-  oneValue: '%count% giorno'
-  otherValue: '%count% giorni'
+  zeroValue: "%count% giorni"
+  oneValue: "%count% giorno"
+  otherValue: "%count% giorni"
 hour:
-  zeroValue: '%count% ore'
-  oneValue: '%count% ora'
-  otherValue: '%count% ore'
+  zeroValue: "%count% ore"
+  oneValue: "%count% ora"
+  otherValue: "%count% ore"
 minute:
-  zeroValue: '%count% minuti'
-  oneValue: '%count% minuto'
-  otherValue: '%count% minuti'
+  zeroValue: "%count% minuti"
+  oneValue: "%count% minuto"
+  otherValue: "%count% minuti"
 second:
-  zeroValue: '%count% secondi'
-  oneValue: '%count% secondo'
-  otherValue: '%count% secondi'
+  zeroValue: "%count% secondi"
+  oneValue: "%count% secondo"
+  otherValue: "%count% secondi"
 Confirm Actions:
-  zeroValue: Conferma %count% azioni
+  zeroValue: "Conferma %count% azioni"
   oneValue: Conferma azione
   otherValue: Conferma azioni
-A ~ Z: A ~ Z
-Biometric authentication not available.: Autenticazione biometrica non disponibile.
+"A ~ Z": "A ~ Z"
+"Biometric authentication not available.": "Autenticazione biometrica non disponibile."
 Payment Address: Indirizzo di pagamento
-Wallet to use on: Wallet da usare su
-Clipboard empty: Appunti vuoti
-Confirm Connect: Conferma connessione
-Connected apps can only see your wallet address and will not be able to move your assets without permission.: Le app connesse possono vedere solo l'indirizzo del tuo wallet e non potranno spostare i tuoi asset senza autorizzazione.
-Connect to %name%?: Connettersi a %name%?
-? Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.
-: Non mostrare sul tuo account i token con valore inferiore a $0.01. Puoi anche abilitare e disabilitare selettivamente determinati token usando l'elenco sottostante.
-Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.: Non mostrare transazioni inferiori a $0.01. Tali transazioni minime vengono spesso utilizzate per spam e truffe.
-Enter your Wallet Passcode: Inserisci il passcode del tuo wallet
-Import failed: Importazione non riuscita
-Install Palette: Installa Palette
+"Wallet to use on": "Wallet da usare su"
+"Clipboard empty": "Appunti vuoti"
+"Confirm Connect": "Conferma connessione"
+"Connected apps can only see your wallet address and will not be able to move your assets without permission.": "Le app connesse possono vedere solo l'indirizzo del tuo wallet e non potranno spostare i tuoi asset senza autorizzazione."
+"Connect to %name%?": "Connettersi a %name%?"
+"Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "Non mostrare sul tuo account i token con valore inferiore a $0.01. Puoi anche abilitare e disabilitare selettivamente determinati token usando l'elenco sottostante."
+"Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "Non mostrare transazioni inferiori a $0.01. Tali transazioni minime vengono spesso utilizzate per spam e truffe."
+"Enter your Wallet Passcode": "Inserisci il passcode del tuo wallet"
+"Import failed": "Importazione non riuscita"
+"Install Palette": "Installa Palette"
 Ledger: Ledger
-Moving to staking balance: Trasferimento al saldo di staking
+"Moving to staking balance": "Trasferimento al saldo di staking"
 My Wallet uses biometric authentication to unlock and authorize transactions: My Wallet utilizza l'autenticazione biometrica per sbloccare e autorizzare le transazioni
-Network error: Errore di rete
-No Camera Access: Nessun accesso alla fotocamera
-Not all transactions were sent successfully.: Non tutte le transazioni sono state inviate con successo.
+"Network error": "Errore di rete"
+"No Camera Access": "Nessun accesso alla fotocamera"
+"Not all transactions were sent successfully.": "Non tutte le transazioni sono state inviate con successo."
 OK: OK
-Open in Explorer: Apri su Explorer
-Open in...: Apri in...
-Passcode changed: Passcode modificato
-Please make sure your internet connection is working and try again.: Assicurati che la connessione Internet sia attiva e riprova.
-Please set a passcode on your device, and then try to use biometric authentication.: Imposta un passcode sul tuo dispositivo e poi prova a utilizzare l'autenticazione biometrica.
+"Open in Explorer": "Apri su Explorer"
+"Open in...": "Apri in..."
+"Passcode changed": "Passcode modificato"
+"Please make sure your internet connection is working and try again.": "Assicurati che la connessione Internet sia attiva e riprova."
+"Please set a passcode on your device, and then try to use biometric authentication.": "Imposta un passcode sul tuo dispositivo e poi prova a utilizzare l'autenticazione biometrica."
 Please try again: Riprova
-Please wait...: Attendere...
-Preview is currently unavailable.: L'anteprima non è attualmente disponibile.
+"Please wait...": "Attendere..."
+"Preview is currently unavailable.": "L'anteprima non è attualmente disponibile."
 Read-only account: Account di sola lettura
-Request for unstaking: Richiesta di rimozione dallo staking
+"Request for unstaking": "Richiesta di rimozione dallo staking"
 Set a passcode: Imposta un passcode
-Show All %name%: Mostra tutti i %name%
-TON Wallet Versions: Versioni del wallet TON
-Tap to reveal: Tocca per rivelare
-The current version of Ledger only supports English-language comments without special characters.: La versione attuale di Ledger supporta solo commenti in lingua inglese senza caratteri speciali.
-There is no activity history for this wallet yet.: Non c'è ancora nessuna cronologia delle attività per questo wallet.
-This type of transaction is not yet supported by Ledger.: Questo tipo di transazione non è ancora supportato da Ledger.
-Transaction to this smart contract is not yet supported by Ledger.: Le transazioni verso questo smart contract non sono ancora supportate da Ledger.
-Transferring NFT is not yet supported by Ledger.: Il trasferimento di NFT non è ancora supportato da Ledger.
+"Show All %name%": "Mostra tutti i %name%"
+"TON Wallet Versions": "Versioni del wallet TON"
+"Tap to reveal": "Tocca per rivelare"
+"The current version of Ledger only supports English-language comments without special characters.": "La versione attuale di Ledger supporta solo commenti in lingua inglese senza caratteri speciali."
+"There is no activity history for this wallet yet.": "Non c'è ancora nessuna cronologia delle attività per questo wallet."
+"This type of transaction is not yet supported by Ledger.": "Questo tipo di transazione non è ancora supportato da Ledger."
+"Transaction to this smart contract is not yet supported by Ledger.": "Le transazioni verso questo smart contract non sono ancora supportate da Ledger."
+"Transferring NFT is not yet supported by Ledger.": "Il trasferimento di NFT non è ancora supportato da Ledger."
 Connect your Ledger via Bluetooth: Collega il tuo Ledger tramite Bluetooth
 Discovering wallets: Ricerca dei wallet in corso
 Bluetooth Access Denied: Accesso Bluetooth negato
 Bluetooth access is needed to connect Ledger.: L'accesso al Bluetooth è necessario per connettere Ledger.
 Address not resolved: Indirizzo non risolto
 Sending more than one NFT isn't supported by Ledger: L'invio di più di un NFT non è supportato da Ledger
-Updating…: Aggiornamento in corso…
+"Updating…": "Aggiornamento in corso…"
 This is how the TON Blockchain works.: Ecco come funziona la blockchain TON.
-Waiting for network…: In attesa della rete…
+"Waiting for network…": "In attesa della rete…"
 Wallet is Locked: Il wallet è bloccato
 Warning: Attenzione
 Wear: Indossa
@@ -1994,12 +1988,12 @@ Secret phrase was copied to clipboard: La frase segreta è stata copiata negli a
 Copy Anyway: Copia comunque
 12 Words: 12 parole
 24 Words: 24 parole
-Words don’t match, please try again.: Le parole non coincidono, riprova.
+"Words don’t match, please try again.": Le parole non coincidono, riprova.
 Load 5 More Wallets: Carica altri 5 wallet
 $n_wallets_selected:
-  zeroValue: '%count% selezionati'
-  oneValue: '%count% selezionato'
-  otherValue: '%count% selezionati'
+  zeroValue: "%count% selezionati"
+  oneValue: "%count% selezionato"
+  otherValue: "%count% selezionati"
 Are you sure you want to unpin %tab%?: Sei sicuro di voler rimuovere %tab% dai fissati?
 add: aggiungi
 send: invia
@@ -2039,7 +2033,7 @@ Action: Azione
 Tokens and Stocks: Token e azioni
 View Wallet: Visualizza wallet
 Connected Dapp: DApp connessa
-$ago: '%time% fa'
+$ago: "%time% fa"
 $visited_ago: Visitato %time% fa
 Notifications are disabled: Le notifiche sono disattivate
 Enable in Settings: Abilita nelle Impostazioni
@@ -2062,12 +2056,12 @@ $universal_search_dictate: Detta
 $universal_search_clear_text: Cancella testo
 $universal_search_switch_section_contents: Cambia contenuto della sezione
 $remove_wallets:
-  zeroValue: Rimuovi wallet
-  oneValue: Rimuovi wallet
-  otherValue: Rimuovi %count% wallet
+  zeroValue: "Rimuovi wallet"
+  oneValue: "Rimuovi wallet"
+  otherValue: "Rimuovi %count% wallet"
 Encryption is not possible. The recipient is not a wallet or has no outgoing transactions.: La crittografia non è possibile. Il destinatario non è un wallet o non ha transazioni in uscita.
 just now: proprio ora
-'No': 'No'
+"No": "No"
 Search: Cerca
 State init supplied without message body: State init fornito senza corpo del messaggio
 Swap Failed: Swap non riuscito
@@ -2082,19 +2076,24 @@ Lock: Blocca
 My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Le My Wallet Cards possono essere installate per i wallet e mostrate nella schermata iniziale e nell'elenco dei wallet.
 Receive: Ricevi
 Scan: Scansiona
+
+
+
 $web_permission_prompt: Consentire a %origin% di usare %permissions%?
 $web_permission_allow: Consenti
-$web_permission_deny: Non consentire
+$web_permission_deny: "Non consentire"
 $web_permission_camera: fotocamera
 $web_permission_microphone: microfono
 $web_permission_location: posizione
 $web_permission_device_features: funzionalità del dispositivo
 $web_permission_this_site: questo sito
+
 $enclave_use_biometrics: Usa dati biometrici
 $enclave_enter_passcode_or_use_biometrics: Inserisci il passcode o usa l'impronta digitale
 $enclave_use_pin: Usa PIN
 $enclave_cancel: Annulla
-push_title_wallet: '%wallet_title%'
+
+push_title_wallet: "%wallet_title%"
 push_activity_token_sent: Inviati %amount% %symbol%
 push_activity_token_received: Ricevuti %amount% %symbol%
 push_activity_contract_called: Smart contract chiamato
@@ -2102,11 +2101,11 @@ push_activity_contract_deployed: Smart contract distribuito
 push_activity_token_minted: Coniati %amount% %symbol%
 push_activity_token_burned: Bruciati %amount% %symbol%
 push_activity_nft_sent: NFT inviato
-push_activity_nft_sent_named: 'NFT inviato: %name%'
+push_activity_nft_sent_named: "NFT inviato: %name%"
 push_activity_nft_received: NFT ricevuto
-push_activity_nft_received_named: 'NFT ricevuto: %name%'
+push_activity_nft_received_named: "NFT ricevuto: %name%"
 push_activity_nft_minted: NFT coniato
-push_activity_nft_minted_named: 'NFT coniato: %name%'
+push_activity_nft_minted_named: "NFT coniato: %name%"
 push_activity_liquidity_deposited: Liquidità fornita
 push_activity_liquidity_withdrawn: Liquidità ritirata
 push_activity_stake_deposit: Messi in staking %amount% %symbol%
@@ -2141,8 +2140,8 @@ push_domain_expires_in_days_number:
   otherValue: Il tuo dominio %domain% scadrà tra %days% giorni. Rinnovalo per evitare di perderne l'accesso
 $more_nfts:
   zeroValue: Nessun NFT
-  oneValue: +1 NFT
-  otherValue: +%count% NFT
+  oneValue: "+1 NFT"
+  otherValue: "+%count% NFT"
 $subwallets_hint: Usa i subwallet per ottenere indirizzi aggiuntivi senza creare un nuovo set di parole segrete.
 $subwallets_created_wallets: Se hai precedentemente creato dei subwallet, appariranno nell'elenco sottostante.
 $subwallets_none: Ancora nessun subwallet.
@@ -2181,7 +2180,7 @@ Deprecated Website: Sito web obsoleto
 This version is deprecated. Re-import your wallets on %new_domain% or %download_app%.: Questa versione è obsoleta. Importa nuovamente i tuoi wallet su %new_domain% o %download_app%.
 download the app: scarica l'app
 Open %new_domain%: Apri %new_domain%
-Why is %tokenName% %direction% %timeframe%?: Perché %tokenName% è %direction% %timeframe%?
+"Why is %tokenName% %direction% %timeframe%?": "Perché %tokenName% è %direction% %timeframe%?"
 up: in rialzo
 down: in ribasso
 today: oggi
@@ -2219,7 +2218,7 @@ $token_info_collapse_hint: Comprime le informazioni sul token.
 $token_info_open_in_browser_hint: Apre nel browser.
 $token_info_fallback_description: Nessuna informazione pubblica disponibile
 $token_info_no_description: Nessuna descrizione disponibile
-$swap_cex_aml_kyc_policy_with_provider: '%provider% AML/KYC'
+$swap_cex_aml_kyc_policy_with_provider: "%provider% AML/KYC"
 Hide Unverified NFTs: Nascondi NFT non verificati
 Unverified: Non verificato
 $agent_capacity_limit_title: Agent è temporaneamente non disponibile
@@ -2231,13 +2230,13 @@ $agent_response_interrupted_title: Risposta interrotta
 $agent_retry_request: Riprova richiesta
 $agent_rate_limit_title: Troppe richieste ad Agent
 $agent_rate_limit_body: Riprova tra %duration%.
-$agent_user_quota_meter: 'Quota Agent: %remaining% di %limit% unità rimanenti'
+$agent_user_quota_meter: "Quota Agent: %remaining% di %limit% unità rimanenti"
 $agent_user_quota_reset: La quota giornaliera si azzera tra %duration%.
 $agent_user_quota_exhausted_title: Quota Agent insufficiente
 $agent_user_quota_exhausted_body: Quota insufficiente per questa richiesta. Il limite giornaliero è di %limit% unità e si azzera tra %duration%.
-$agent_time_hours: '%value% h'
-$agent_time_minutes: '%value% min'
-$agent_time_seconds: '%value% sec'
+$agent_time_hours: "%value% h"
+$agent_time_minutes: "%value% min"
+$agent_time_seconds: "%value% sec"
 Switched to %account%: Passato a %account%
 See All: Vedi tutti
 Add an **extra layer of security** for your wallet in TON network.: Aggiungi un **ulteriore livello di sicurezza** per il tuo wallet sulla rete TON.
@@ -2276,32 +2275,34 @@ Tokenized Stocks: Azioni tokenizzate
 Tokenized Gold: Oro tokenizzato
 Index Funds: Fondi indicizzati
 Search token or stock: Cerca token o azione
-Address was copied!: Indirizzo copiato!
-Allow App Lock: Consenti blocco dell'app
-An error occurred: Si è verificato un errore
-App Fee Details: Dettagli commissione dell'app
-Backend: Backend
-Chat options: Opzioni chat
-Copied: Copiato
-Customize the wallet's home screen and color accents the way you like.: Personalizza la schermata principale del wallet e gli accenti di colore come preferisci.
-Dangerous: Pericoloso
-Failed to Load: Caricamento non riuscito
-HardwareOutdated: L'app sul tuo Ledger non è aggiornata. Aggiornala utilizzando Ledger Live.
-Icon: Icona
-Loading more: Caricamento di altri elementi
-Menu: Menu
-My Accounts: I miei account
-My Wallets: I miei wallet
-Name and collection are not available. Please check back later.: Nome e collezione non sono disponibili. Ricontrolla più tardi.
-Nothing to revoke on this chain: Nulla da revocare su questa rete
-Open Menu: Apri menu
-Overrides: Override
-Please try again later: Riprova più tardi
-Saved Addresses: Indirizzi salvati
-Saved Wallets: Wallet salvati
-Seasonal Theme Override: Override tema stagionale
-Sending to: Invio a
-confirming actions in Telegram: conferma delle azioni su Telegram
+
+"Address was copied!": "Indirizzo copiato!"
+"Allow App Lock": "Consenti blocco dell'app"
+"An error occurred": "Si è verificato un errore"
+"App Fee Details": "Dettagli commissione dell'app"
+"Backend": "Backend"
+"Chat options": "Opzioni chat"
+"Copied": "Copiato"
+"Customize the wallet's home screen and color accents the way you like.": "Personalizza la schermata principale del wallet e gli accenti di colore come preferisci."
+"Dangerous": "Pericoloso"
+"Failed to Load": "Caricamento non riuscito"
+"HardwareOutdated": "L'app sul tuo Ledger non è aggiornata. Aggiornala utilizzando Ledger Live."
+"Icon": "Icona"
+"Loading more": "Caricamento di altri elementi"
+"Menu": "Menu"
+"My Accounts": "I miei account"
+"My Wallets": "I miei wallet"
+"Name and collection are not available. Please check back later.": "Nome e collezione non sono disponibili. Ricontrolla più tardi."
+"Nothing to revoke on this chain": "Nulla da revocare su questa rete"
+"Open Menu": "Apri menu"
+"Overrides": "Override"
+"Please try again later": "Riprova più tardi"
+"Saved Addresses": "Indirizzi salvati"
+"Saved Wallets": "Wallet salvati"
+"Seasonal Theme Override": "Override tema stagionale"
+"Sending to": "Invio a"
+"confirming actions in Telegram": "conferma delle azioni su Telegram"
+
 Unknown Transfer: Trasferimento sconosciuto
 # Prefix before the requesting Dapp name on the Sign Data confirmation screen.
 $dapp_sign_data_for_prefix: per
