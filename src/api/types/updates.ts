@@ -234,11 +234,13 @@ export type ApiUpdateDapps = {
 
 export type ApiUpdateDappTransferComplete = {
   type: 'dappTransferComplete';
+  promiseId: string;
   accountId: string;
 };
 
 export type ApiUpdateDappSignDataComplete = {
   type: 'dappSignDataComplete';
+  promiseId: string;
   accountId: string;
 };
 
@@ -403,7 +405,8 @@ export type ApiUpdateConfig = {
 export type ApiUpdateWalletVersions = {
   type: 'updateWalletVersions';
   accountId: string;
-  currentVersion: ApiTonWalletVersion;
+  /** Missing when the account's contract is not a wallet version this app knows */
+  currentVersion?: ApiTonWalletVersion;
   versions: ApiWalletWithVersionInfo[];
 };
 

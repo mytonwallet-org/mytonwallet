@@ -74,6 +74,7 @@ export const enum DeeplinkCommand {
   Token = 'token',
   Transaction = 'tx',
   Nft = 'nft',
+  NftCard = 'nft-card',
   Portfolio = 'portfolio',
   Market = 'market',
   Agent = 'agent',
@@ -583,6 +584,7 @@ function isTonConnectDeeplink(url: string) {
 function isWalletConnectDeeplink(url: string) {
   return url.startsWith(WALLETCONNECT_PROTOCOL)
     || url.startsWith(WALLETCONNECT_DEEPLINK)
+    || url.startsWith(`${SELF_PROTOCOL}wc?`)
     || url.startsWith('https://walletconnect.com/wc')
     || WALLETCONNECT_UNIVERSAL_URLS.some((prefix) => url.startsWith(prefix));
 }
@@ -1179,6 +1181,11 @@ async function openSelfDeeplink(
         }
 
         actions.openNftAttributesModal({ nft, withOwner: true });
+        return true;
+      }
+
+      case DeeplinkCommand.NftCard: {
+        actions.openMintCardModal();
         return true;
       }
     }

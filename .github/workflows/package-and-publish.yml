@@ -563,7 +563,7 @@ jobs:
     if: needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-only != 'true'
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -583,6 +583,12 @@ jobs:
             npm run extension-chrome:package:production
             npm run extension-firefox:package:production
           fi
+
+      - name: Validate the Firefox package
+        # AMO runs this same validator on submit and refuses to sign a package it reports an error
+        # for, so without this step a rejected build is only discovered by the publish job, after
+        # the release has been cut and every other store already has it.
+        run: npx --yes addons-linter@10 "${{ env.ARTIFACT_NAME_BASE }}-firefox.zip"
 
       - name: Upload Chrome extension artifact
         uses: actions/upload-artifact@v4
@@ -891,7 +897,7 @@ jobs:
   ios-release:
     name: Release iOS app (${{ matrix.app_variant }})
     needs: detect-changes
-    runs-on: macos-26
+    runs-on: xcode-27
     environment: production
     # The mytonwallet variant takes 30+ minutes on slow runners; v26.7.1 needed 3 attempts against a 30-minute cap
     timeout-minutes: 45
@@ -1079,6 +1085,9 @@ jobs:
           xcodebuild -showsdks
           xcodebuild -downloadPlatform iOS || true
           sudo xcodebuild -runFirstLaunch || true
+          # Metal shaders require the separately installed Metal toolchain.
+          xcodebuild -downloadComponent MetalToolchain
+          xcrun --sdk iphoneos metal --version
           xcodebuild -showsdks | grep iphoneos
 
           cd mobile/ios/App

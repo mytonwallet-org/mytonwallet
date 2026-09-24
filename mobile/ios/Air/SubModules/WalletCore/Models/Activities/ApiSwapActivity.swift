@@ -134,6 +134,25 @@ public enum ApiSwapCexTransactionStatus: String, Codable, Sendable {
 }
 
 public extension ApiSwapActivity {
+    var displayTransactionIds: ApiSwapTransactionIds {
+        if transactionIds.outgoing != nil || transactionIds.incoming != nil {
+            return transactionIds
+        }
+        guard let chain = getChainBySlug(from) else { return .init() }
+
+        let hash: String?
+        if cex == nil {
+            let activity = ApiActivity.swap(self)
+            // Match the web fallback: summary IDs identify swap records, not onchain transactions.
+            let isSummary = activity.isBackendSwapId || activity.isLocal
+            hash = externalMsgHashNorm ?? hashes?.first ?? (isSummary ? nil : activity.parsedTxId.hash)
+        } else {
+            hash = hashes?.first
+        }
+        guard let hash = hash?.nilIfEmpty else { return .init() }
+        return .init(outgoing: .init(hash: hash, chain: chain))
+    }
+
     func displayStatus(accountChains: Set<ApiChain>? = nil) -> SwapDisplayStatus {
         if let cexStatus = cex?.status {
             switch cexStatus {

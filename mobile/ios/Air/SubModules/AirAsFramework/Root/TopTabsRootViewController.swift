@@ -61,6 +61,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var navigationBarTitleWidthConstraint: NSLayoutConstraint?
     private let accountSwitcherButton = TopTabsAccountButton()
     private let bottomGradientView = TopTabsBottomGradientView()
+    private let searchToolbarContainerView = WTouchPassView()
     private let searchToolbar = UniversalSearchFieldView(configuration: .init(
         placeholder: lang("Search or Ask"),
         showsMicrophone: false
@@ -68,7 +69,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var searchToolbarLeadingConstraint: NSLayoutConstraint?
     private var searchToolbarTrailingConstraint: NSLayoutConstraint?
     private var bottomBarBottomConstraint: NSLayoutConstraint?
-    private var searchToolbarHostConstraints: [NSLayoutConstraint] = []
+    private var searchToolbarKeyboardConstraint: NSLayoutConstraint?
+    private var searchToolbarKeyboardAnimationID: UUID?
     private var accountSwitcherMenuInteraction: ContextMenuInteraction?
     private var actionsMenuInteraction: ContextMenuInteraction?
     private var universalSearchViewController: TopTabsSearchViewController?
@@ -84,6 +86,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var accountObservation: ObserveToken?
     private var sharedNavigationPaths: [Page: [UIViewController]] = [:]
     private var activePage: Page = .wallet
+    private var isPaging = false
     private var standardSettingsRootViewController: SettingsVC?
     private var pendingStandardSettingsStack: [UIViewController]?
     private var detachedStandardSettingsStackForMigration: [UIViewController]?
@@ -94,7 +97,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private var searchToolbarHostView: UIView {
-        searchToolbar.superview ?? sharedMainNavigationController?.view ?? view
+        searchToolbarContainerView.superview ?? sharedMainNavigationController?.view ?? view
     }
 
     private var homeToolbarBottomInset: CGFloat {
@@ -151,8 +154,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
         self.homeVC = homeVC
         self.walletPage = TopTabsPageViewController(contentViewController: homeVC)
-        self.marketPage = TopTabsPageViewController(contentViewController: marketViewController)
-        self.explorePage = TopTabsPageViewController(contentViewController: exploreViewController)
+        self.marketPage = TopTabsPageViewController(contentViewController: marketViewController, isContentMounted: false)
+        self.explorePage = TopTabsPageViewController(contentViewController: exploreViewController, isContentMounted: false)
 
         super.init(nibName: nil, bundle: nil)
     }
@@ -529,16 +532,16 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         coordinator: (any UIViewControllerTransitionCoordinator)?
     ) {
         if let provider {
-            bindSharedBottomToolbarProvider(provider)
-            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
+            bindSharedBottomToolbarProvider(provider, coordinator: coordinator)
         }
+        let targetActions = provider?.sharedBottomToolbarActions ?? searchToolbar.compactActions
 
-        guard searchToolbar.presentation != targetPresentation else {
+        guard searchToolbar.presentation != targetPresentation || searchToolbar.compactActions != targetActions else {
             updateSearchToolbarGeometry(for: targetPresentation)
             finishBottomChromeVisibility(at: targetPresentation)
             if targetPresentation != .compactToolbar {
                 finishSharedBottomToolbarPresentation(
-                    provider: nil,
+                    provider: provider,
                     presentation: targetPresentation
                 )
             }
@@ -553,6 +556,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         updateSearchToolbarGeometry(for: targetPresentation)
 
         guard let coordinator else {
+            searchToolbar.setCompactActions(targetActions)
             searchToolbar.setPresentation(targetPresentation, animated: false)
             navigationController.view.layoutIfNeeded()
             finishBottomChromeVisibility(at: targetPresentation)
@@ -564,10 +568,17 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
 
         let sourcePresentation = searchToolbar.presentation
-        searchToolbar.preparePresentationTransition(to: targetPresentation)
-        let accepted = coordinator.animate { [weak self, weak navigationController] _ in
+        let isPop = coordinator.viewController(forKey: .from).map {
+            !navigationController.viewControllers.contains($0)
+        } ?? false
+        guard let transitionID = searchToolbar.preparePresentationTransition(
+            to: targetPresentation,
+            compactActions: targetActions,
+            navigationOperation: isPop ? .pop : .push
+        ) else { return }
+        let accepted = coordinator.animateAlongsideTransition(in: searchToolbarHostView) { [weak self, weak navigationController] _ in
             guard let self, let navigationController else { return }
-            searchToolbar.applyPreparedPresentationTransition()
+            guard searchToolbar.applyPreparedPresentationTransition(transitionID) else { return }
             if targetPresentation == .search, !coordinator.isInteractive,
                universalSearchViewController?.restoresKeyboard == true {
                 _ = searchToolbar.focus()
@@ -575,13 +586,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             bottomGradientView.alpha = targetPresentation == .empty ? 0 : 1
             navigationController.view.layoutIfNeeded()
         } completion: { [weak self, weak navigationController] context in
-            guard let self else { return }
+            guard let self,
+                  searchToolbar.finishPreparedPresentationTransition(transitionID, isCancelled: context.isCancelled) else { return }
             let finalPresentation = context.isCancelled ? sourcePresentation : targetPresentation
             updateSearchToolbarGeometry(for: finalPresentation)
-            searchToolbar.setPresentation(
-                finalPresentation,
-                animated: false
-            )
             finishBottomChromeVisibility(at: finalPresentation)
             guard let navigationController,
                   let topViewController = navigationController.topViewController else {
@@ -593,8 +601,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             )
         }
 
-        if !accepted {
-            searchToolbar.setPresentation(targetPresentation, animated: false)
+        if !accepted, searchToolbar.finishPreparedPresentationTransition(transitionID, isCancelled: false) {
             navigationController.view.layoutIfNeeded()
             finishBottomChromeVisibility(at: targetPresentation)
             finishSharedBottomToolbarPresentation(
@@ -644,7 +651,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     ) -> UniversalSearchFieldPresentation {
         if isShowingRoot {
             .homeToolbar
-        } else if provider != nil {
+        } else if provider?.isSharedBottomToolbarEnabled == true {
             .compactToolbar
         } else {
             .empty
@@ -712,22 +719,38 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     }
 
     private func bindSharedBottomToolbarProvider(
-        _ provider: any SharedBottomToolbarContentProviding
+        _ provider: any SharedBottomToolbarContentProviding,
+        coordinator: (any UIViewControllerTransitionCoordinator)? = nil
     ) {
-        if let activeSharedBottomToolbarProvider,
-           (activeSharedBottomToolbarProvider as AnyObject) !== (provider as AnyObject) {
-            activeSharedBottomToolbarProvider.onSharedBottomToolbarActionsChange = nil
-            activeSharedBottomToolbarProvider.setSharedBottomToolbarHosted(false)
+        if let previousProvider = activeSharedBottomToolbarProvider,
+           (previousProvider as AnyObject) !== (provider as AnyObject) {
+            previousProvider.onSharedBottomToolbarActionsChange = nil
+            // The outgoing screen must not show its local controls while the
+            // shared controls are still following an interactive transition.
+            let deferred = coordinator?.animate(alongsideTransition: nil) { [weak self, weak previousProvider] context in
+                guard !context.isCancelled,
+                      let previousProvider,
+                      (self?.activeSharedBottomToolbarProvider as AnyObject?) !== (previousProvider as AnyObject) else {
+                    return
+                }
+                previousProvider.setSharedBottomToolbarHosted(false)
+            } ?? false
+            if !deferred {
+                previousProvider.setSharedBottomToolbarHosted(false)
+            }
         }
         activeSharedBottomToolbarProvider = provider
         provider.setSharedBottomToolbarHosted(true)
         provider.onSharedBottomToolbarActionsChange = { [weak self, weak provider] in
             guard let self, let provider,
                   (activeSharedBottomToolbarProvider as AnyObject?) === (provider as AnyObject),
-                  searchToolbar.presentation == .compactToolbar else {
+                  let navigationController = navigationController(for: selectedPage),
+                  let viewController = navigationController.topViewController,
+                  viewController === (provider as AnyObject) else {
                 return
             }
-            searchToolbar.setCompactActions(provider.sharedBottomToolbarActions)
+            applyChromeInsets(to: viewController)
+            updateRootChromeVisibility(for: navigationController, showing: viewController)
         }
     }
 
@@ -772,7 +795,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         let isRootViewController = [walletPage, marketPage, explorePage].contains {
             $0.contentViewController === viewController
         }
-        let usesSharedBottomToolbar = viewController is any SharedBottomToolbarContentProviding
+        let usesSharedBottomToolbar = (viewController as? any SharedBottomToolbarContentProviding)?
+            .isSharedBottomToolbarEnabled == true
         viewController.additionalSafeAreaInsets = UIEdgeInsets(
             top: baseInsets.top,
             left: baseInsets.left,
@@ -828,13 +852,38 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         bottomGradientView.toolbarView = searchToolbar
         let toolbarHostView = searchToolbarHostView
         toolbarHostView.addSubview(bottomGradientView)
+        // Keep keyboard movement separate from the field's navigation morph.
+        searchToolbarContainerView.translatesAutoresizingMaskIntoConstraints = false
+        searchToolbarContainerView.shouldAcceptTouchesOutside = true
+        toolbarHostView.addSubview(searchToolbarContainerView)
         installSearchToolbar(
-            in: toolbarHostView,
+            in: searchToolbarContainerView,
             leading: 28,
             trailing: -28,
             bottom: homeToolbarBottomInset
         )
+        let keyboardConstraint = searchToolbarContainerView.bottomAnchor.constraint(
+            equalTo: toolbarHostView.safeAreaLayoutGuide.bottomAnchor
+        )
+        searchToolbarKeyboardConstraint = keyboardConstraint
+        let keyboardGuideConstraint = searchToolbarContainerView.bottomAnchor.constraint(
+            equalTo: toolbarHostView.keyboardLayoutGuide.topAnchor
+        )
+        // Notifications override the live guide only for the duration of an animation.
+        keyboardGuideConstraint.priority = UILayoutPriority(999)
+        for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification] {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(updateToolbarKeyboard(_:)),
+                name: name,
+                object: nil
+            )
+        }
         NSLayoutConstraint.activate([
+            searchToolbarContainerView.leadingAnchor.constraint(equalTo: toolbarHostView.leadingAnchor),
+            searchToolbarContainerView.trailingAnchor.constraint(equalTo: toolbarHostView.trailingAnchor),
+            keyboardGuideConstraint,
+            searchToolbarContainerView.heightAnchor.constraint(equalToConstant: 48),
             bottomGradientView.leadingAnchor.constraint(equalTo: toolbarHostView.leadingAnchor),
             bottomGradientView.trailingAnchor.constraint(equalTo: toolbarHostView.trailingAnchor),
             bottomGradientView.bottomAnchor.constraint(equalTo: toolbarHostView.bottomAnchor),
@@ -867,7 +916,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 && !searchToolbar.isHidden
         }
         segmentedController.setAdditionalPagingGestureView(searchToolbar, isEnabled: isPagingEnabled)
-        segmentedController.setForwardNavigation(in: toolbarHostView, beginTransition: { [weak self] in
+        segmentedController.setForwardNavigation(in: toolbarHostView, allowsEdgeNavigation: true, beginTransition: { [weak self] in
             guard let self, let navigationController = sharedMainNavigationController else { return nil }
             let settings = standardSettingsRootViewController ?? SettingsVC()
             standardSettingsRootViewController = settings
@@ -876,14 +925,58 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }, isEnabled: isPagingEnabled)
     }
 
+    @objc private func updateToolbarKeyboard(_ notification: Notification) {
+        let hostView = searchToolbarHostView
+        guard let constraint = searchToolbarKeyboardConstraint else { return }
+        let overlap: CGFloat
+        if notification.name == UIResponder.keyboardWillHideNotification {
+            overlap = 0
+        } else {
+            guard let window = hostView.window,
+                  let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            let frame = hostView.convert(keyboardFrame, from: window.screen.coordinateSpace)
+            let isDocked = frame.maxY >= hostView.bounds.maxY && frame.intersects(hostView.bounds)
+            overlap = isDocked
+                ? max(0, hostView.bounds.maxY - frame.minY - hostView.safeAreaInsets.bottom)
+                : 0
+        }
+        let animationID = UUID()
+        searchToolbarKeyboardAnimationID = animationID
+        // The keyboard guide jumps to its destination during the navigation
+        // crossfade. Freeze the current position before laying out its new frame.
+        constraint.constant = (searchToolbarContainerView.layer.presentation()?.frame.maxY
+            ?? searchToolbarContainerView.frame.maxY) - hostView.safeAreaLayoutGuide.layoutFrame.maxY
+        constraint.isActive = true
+        hostView.layoutIfNeeded()
+        constraint.constant = -overlap
+        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey]
+            as? TimeInterval ?? 0.25
+        let curve = notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey]
+            as? UInt ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
+        let options = UIView.AnimationOptions(rawValue: curve << 16)
+        UIView.animate(
+            withDuration: duration,
+            delay: 0,
+            options: [options, .beginFromCurrentState, .allowUserInteraction, .overrideInheritedDuration, .overrideInheritedCurve]
+        ) {
+            hostView.layoutIfNeeded()
+        } completion: { [weak self] _ in
+            guard let self, searchToolbarKeyboardAnimationID == animationID else { return }
+            searchToolbarKeyboardAnimationID = nil
+            // A missed hide notification must not leave a cached keyboard offset.
+            UIView.performWithoutAnimation {
+                constraint.isActive = false
+                hostView.layoutIfNeeded()
+            }
+        }
+    }
+
     private func installSearchToolbar(
         in hostView: UIView,
         leading: CGFloat,
         trailing: CGFloat,
         bottom: CGFloat
     ) {
-        NSLayoutConstraint.deactivate(searchToolbarHostConstraints)
-        searchToolbar.removeFromSuperview()
         searchToolbar.translatesAutoresizingMaskIntoConstraints = false
         hostView.addSubview(searchToolbar)
 
@@ -896,7 +989,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             constant: trailing
         )
         let bottomConstraint = searchToolbar.bottomAnchor.constraint(
-            equalTo: hostView.keyboardLayoutGuide.topAnchor,
+            equalTo: hostView.bottomAnchor,
             constant: bottom
         )
         let constraints = [
@@ -906,7 +999,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             searchToolbar.heightAnchor.constraint(equalToConstant: 48),
         ]
         NSLayoutConstraint.activate(constraints)
-        searchToolbarHostConstraints = constraints
         searchToolbarLeadingConstraint = leadingConstraint
         searchToolbarTrailingConstraint = trailingConstraint
         bottomBarBottomConstraint = bottomConstraint
@@ -1016,7 +1108,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         search.session.start()
         navigationController.withCrossfade(
             duration: topTabsSearchAnimationDuration,
-            keepingAboveTransition: [bottomGradientView, searchToolbar]
+            keepingAboveTransition: [bottomGradientView, searchToolbarContainerView]
         ) {
             navigationController.pushViewController(search, animated: true)
         }
@@ -1045,7 +1137,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         searchToolbar.endEditing()
         navigationController.withCrossfade(
             duration: topTabsSearchAnimationDuration,
-            keepingAboveTransition: [bottomGradientView, searchToolbar]
+            keepingAboveTransition: [bottomGradientView, searchToolbarContainerView]
         ) {
             _ = navigationController.popViewController(animated: true)
         }
@@ -1412,11 +1504,25 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 }
 
 extension TopTabsRootViewController: WSegmentedController.Delegate {
-    func segmentedController(scrollOffsetChangedTo progress: CGFloat) {}
+    func segmentedController(scrollOffsetChangedTo progress: CGFloat) {
+        guard !isPaging, let page = Page(rawValue: Int(progress.rounded())) else { return }
+        updateMountedPages(selected: page)
+    }
 
-    func segmentedControllerDidStartDragging() {}
+    func segmentedControllerDidStartDragging() {
+        isPaging = true
+        // Prepare all pages before movement, including direct Wallet-to-Explore transitions.
+        [walletPage, marketPage, explorePage].forEach { $0.setContentMounted(true) }
+    }
+
+    private func updateMountedPages(selected: Page) {
+        for page in [Page.wallet, .market, .explore] {
+            self.page(for: page).setContentMounted(page == selected)
+        }
+    }
 
     func segmentedControllerDidEndScrolling() {
+        isPaging = false
         let page = selectedPage
         if page != activePage {
             captureSharedNavigationPath(for: activePage)
@@ -1426,6 +1532,7 @@ extension TopTabsRootViewController: WSegmentedController.Delegate {
         navigationController(for: page)?.viewControllers.forEach(applyChromeInsets)
         updateHomeWalletAssetsNavigationChrome()
         updateRootChromeVisibilityForSelectedPage()
+        updateMountedPages(selected: page)
     }
 }
 
@@ -1591,9 +1698,11 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
     var scrollingView: UIScrollView? { nil }
 
     private(set) var contentViewController: UIViewController
+    private var isContentMounted: Bool
 
-    init(contentViewController: UIViewController) {
+    init(contentViewController: UIViewController, isContentMounted: Bool = true) {
         self.contentViewController = contentViewController
+        self.isContentMounted = isContentMounted
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -1605,20 +1714,37 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
     override func viewDidLoad() {
         super.viewDidLoad()
         view.clipsToBounds = true
-        installContentViewController()
+        if isContentMounted { installContentViewController() }
+    }
+
+    func setContentMounted(_ mounted: Bool) {
+        guard isContentMounted != mounted else { return }
+        isContentMounted = mounted
+        guard isViewLoaded else { return }
+        if mounted {
+            installContentViewController()
+            view.layoutIfNeeded()
+        } else {
+            // Retain the controller and its state without keeping an unseen SwiftUI tree
+            // in the window's tint propagation and Core Animation layout passes.
+            uninstallContentViewController()
+        }
     }
 
     func setContentViewController(_ viewController: UIViewController) {
         guard contentViewController !== viewController else { return }
-        if isViewLoaded {
-            contentViewController.willMove(toParent: nil)
-            contentViewController.view.removeFromSuperview()
-            contentViewController.removeFromParent()
-        }
+        uninstallContentViewController()
         contentViewController = viewController
-        if isViewLoaded {
+        if isViewLoaded, isContentMounted {
             installContentViewController()
         }
+    }
+
+    private func uninstallContentViewController() {
+        guard contentViewController.parent === self else { return }
+        contentViewController.willMove(toParent: nil)
+        contentViewController.view.removeFromSuperview()
+        contentViewController.removeFromParent()
     }
 
     private func installContentViewController() {
@@ -1665,7 +1791,8 @@ private final class TopTabsBottomGradientView: UIView {
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         guard let toolbarView,
-              toolbarView.superview === superview,
+              let hostView = superview,
+              toolbarView.isDescendant(of: hostView),
               !toolbarView.isHidden,
               toolbarView.alpha > 0.01,
               toolbarView.isUserInteractionEnabled else { return false }

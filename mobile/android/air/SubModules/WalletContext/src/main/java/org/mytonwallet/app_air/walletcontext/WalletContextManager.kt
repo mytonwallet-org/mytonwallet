@@ -13,7 +13,8 @@ enum class DeeplinkOpenSource {
     IN_APP_BROWSER,
     INTERNAL_UI,
     QR_SCAN,
-    AGENT;
+    AGENT,
+    SEARCH;
 
     val requiresFreshAuth: Boolean
         get() = this != INTERNAL_UI
@@ -49,6 +50,7 @@ interface WalletContextManagerDelegate {
         deeplink: String,
         source: DeeplinkOpenSource = DeeplinkOpenSource.OS_EXTERNAL
     ): Boolean
+
     fun openASingleWallet(
         network: MBlockchainNetwork,
         addressByChainString: Map<String, String>,

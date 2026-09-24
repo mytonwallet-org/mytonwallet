@@ -295,6 +295,7 @@ describe('processSelfDeeplink', () => {
       openTemporaryViewAccount: jest.fn(),
       switchToPortfolio: jest.fn(),
       switchToMarket: jest.fn(),
+      openMintCardModal: jest.fn(),
       addSavedAddress: jest.fn(),
     };
 
@@ -702,6 +703,22 @@ describe('processSelfDeeplink', () => {
     });
   });
 
+  describe('NFT card command', () => {
+    it('should open the mint card modal', async () => {
+      const result = await processSelfDeeplink('mtw://nft-card');
+
+      expect(result).toBe(true);
+      expect(mockActions.openMintCardModal).toHaveBeenCalled();
+    });
+
+    it('should open the mint card modal from the universal link', async () => {
+      const result = await processSelfDeeplink('https://my.tt/nft-card');
+
+      expect(result).toBe(true);
+      expect(mockActions.openMintCardModal).toHaveBeenCalled();
+    });
+  });
+
   describe('Checkin command', () => {
     it('should open checkin URL without referral code', async () => {
       const result = await processSelfDeeplink('mtw://r/');
@@ -950,6 +967,13 @@ describe('processSelfDeeplink', () => {
 
       expect(result).toBe(true);
       expect(mockActions.startStaking).toHaveBeenCalled();
+    });
+
+    it('should pass mtw://wc pairing uri to WalletConnect', async () => {
+      const result = await processDeeplink('mtw://wc?uri=wc%3Asome-session-request');
+
+      expect(result).toBe(true);
+      expect(callApi).toHaveBeenCalledWith('walletConnect_handleDeepLink', 'wc:some-session-request', false);
     });
   });
 });

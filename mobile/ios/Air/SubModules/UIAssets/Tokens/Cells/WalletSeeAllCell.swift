@@ -18,6 +18,8 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     private static let menuButtonConfig = UIImage.SymbolConfiguration(
         font: WTypography.uiFont(.supporting, content: .technical)
     )
+    private static let leadingImage = UIImage(systemName: "circle.grid.2x2", withConfiguration: leadingIconConfig)
+    private static let menuImage = UIImage(systemName: "ellipsis", withConfiguration: menuButtonConfig)
     private static let leadingIconToTextSpacing = CGFloat(18)
     private static let verticalOffset = CGFloat(-2)
     private static let menuButtonSideLength = CGFloat(36)
@@ -31,9 +33,8 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     @available(*, unavailable)
     required init?(coder _: NSCoder) { nil }
 
-    private let leadingIconView = configured(object: UIImageView(
-        image: UIImage(systemName: "circle.grid.2x2", withConfiguration: WalletSeeAllCell.leadingIconConfig)
-    )) {
+    private let leadingIconView = configured(object: UIImageView()) {
+        $0.image = WalletSeeAllCell.leadingImage
         $0.translatesAutoresizingMaskIntoConstraints = false
         $0.contentMode = .scaleAspectFit
     }
@@ -59,10 +60,16 @@ public final class WalletSeeAllCell: WHighlightCollectionViewCell {
     private let menuButton = configured(object: UIButton(type: .system)) {
         $0.translatesAutoresizingMaskIntoConstraints = false
         $0.accessibilityLabel = lang("More")
-        $0.setImage(UIImage(systemName: "ellipsis", withConfiguration: WalletSeeAllCell.menuButtonConfig), for: .normal)
+        $0.setImage(WalletSeeAllCell.menuImage, for: .normal)
         $0.isHidden = true
     }
     
+    public override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        let attributes = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
+        attributes.size.height = Self.defaultHeight
+        return attributes
+    }
+
     private func setupViews() {
         contentView.backgroundColor = .clear
         let heightConstraint = contentView.heightAnchor.constraint(equalToConstant: Self.defaultHeight)

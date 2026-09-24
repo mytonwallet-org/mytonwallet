@@ -13,7 +13,6 @@ private let DURATION = [
     RANGE / (0.0001 * 60),
     RANGE / (0.0025 * 60),
 ]
-private let CHANGE_SPEED_INTERVAL = 3.0
 
 private let LIGHT_COLOR = UIColor.airBundle("ShyColorLight")
 private let DARK_COLOR = UIColor.airBundle("ShyColorDark")
@@ -35,7 +34,6 @@ public final class ShyMask: UIView {
     public var theme: Theme = .adaptive
 
     private var cellLayers: [CALayer] = []
-    private var updateTimer: Timer?
     private var widthConstraint: NSLayoutConstraint?
     private var currentColor: CGColor {
         theme.color.resolvedColor(with: .current).cgColor
@@ -57,17 +55,10 @@ public final class ShyMask: UIView {
         
         setupLayers()
         updateTheme()
-        startUpdates()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    deinit {
-        MainActor.assumeIsolated {
-            updateTimer?.invalidate()
-        }
     }
     
     private func setupLayers() {
@@ -113,71 +104,15 @@ public final class ShyMask: UIView {
         }
     }
     
-    public func startUpdates() {
-        if updateTimer == nil || updateTimer?.isValid == false {
-            updateTimer = Timer.scheduledTimer(withTimeInterval: CHANGE_SPEED_INTERVAL, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    self?.updateAllAnimations()
-                }
-            }
-            updateTimer?.tolerance = 1.0
-        }
-    }
-    
-    public func pauseUpdates() {
-        updateTimer?.invalidate()
-        updateTimer = nil
-    }
-    
-    private func updateAllAnimations() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        
-        for layer in cellLayers {
-            updateAnimation(for: layer)
-        }
-        
-        CATransaction.commit()
-    }
-    
-    private func updateAnimation(for layer: CALayer) {
-        guard let existingAnimation = layer.animation(forKey: "opacityAnimation") as? CAKeyframeAnimation,
-              let presentationLayer = layer.presentation() else {
-            startAnimation(for: layer)
-            return
-        }
-        
-        let currentOpacity = presentationLayer.opacity
-        
-        let elapsedTime = CACurrentMediaTime() - existingAnimation.beginTime
-        let normalizedTime = Float(elapsedTime.truncatingRemainder(dividingBy: existingAnimation.duration)) / Float(existingAnimation.duration)
-        
-        // Determine which keyframe segment we're in
-        guard let keyTimes = existingAnimation.keyTimes, keyTimes.count == 4, let values = existingAnimation.values as? [Float], values.count == 4 else {
-            assertionFailure("Invalid animation structure")
-            return
-        }
-        let isIncreasing: Bool
-        if normalizedTime < keyTimes[1].floatValue {
-            isIncreasing = values[1] > currentOpacity
-        } else if normalizedTime < keyTimes[2].floatValue {
-            isIncreasing = values[2] > currentOpacity
-        } else {
-            isIncreasing = values[3] > currentOpacity
-        }
-        
-        // Set the layer's model value to the current opacity and start a new animation
-        layer.opacity = currentOpacity
-        startAnimation(for: layer, isIncreasing: isIncreasing, duration: DURATION.randomElement()!)
-    }
-    
-    private func startAnimation(for layer: CALayer, isIncreasing: Bool? = nil, duration: Float? = nil) {
+    // Random phases and speeds remain on Core Animation; account swipes need no
+    // timer-driven sampling of presentation layers or animation replacement.
+    private func startAnimation(for layer: CALayer) {
         
         layer.removeAnimation(forKey: "opacityAnimation")
         
         let currentOpacity = layer.opacity
-        let animDuration = duration ?? DURATION.randomElement()!
-        let animIsIncreasing = isIncreasing ?? Bool.random()
+        let animDuration = DURATION.randomElement()!
+        let animIsIncreasing = Bool.random()
         
         let currentNormalized = (currentOpacity - FROM) / RANGE
         

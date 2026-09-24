@@ -541,6 +541,7 @@ $max_balance: "حداکثر: %balance%"
 $available_balance: "موجود: %balance%"
 $send_recipient_invalid: نامعتبر
 $send_recipient_not_compatible: ناسازگار
+$send_recipient_self_transfer: نمی‌توانید به خودتان ارسال کنید
 $unstake_information_instantly: سپرده خود را بلافاصله دریافت خواهید کرد
 Select Token: انتخاب توکن
 $token_picker_hidden: پنهان‌شده
@@ -935,6 +936,9 @@ Upgrade for %amount% %currency%: ارتقا با %amount% %currency%
 "%amount% left": "%amount% باقی‌مانده"
 "%amount% sold": "%amount% فروخته‌شده"
 This card has been sold out: این کارت به‌طور کامل فروخته شده است
+"Mint starts in %time%": "ضرب تا %time% دیگر آغاز می‌شود"
+"%amount% unique cards total":
+  otherValue: "در مجموع %amount% کارت منحصربه‌فرد"
 Import Existing Wallet: افزودن کیف پول موجود
 View Any Address: مشاهده هر آدرس
 View Mode: حالت مشاهده
@@ -948,6 +952,9 @@ Remember Passcode: به‌خاطر سپردن رمز عبور
 Remember Password: به‌خاطر سپردن رمز عبور
 Not available with biometrics.: با بیومتریک در دسترس نیست.
 App will not ask for signature for %minutes% minutes after last entry.: اپلیکیشن تا %minutes% دقیقه پس از آخرین ورود، درخواست امضا نخواهد کرد.
+Auto-Exit: خروج خودکار
+Log out of all wallets after failed attempts.: خروج از همه کیف‌پول‌ها پس از تلاش‌های ناموفق.
+"%count% attempts": "%count% تلاش"
 Remember for %minutes% minutes: به‌خاطر سپردن برای %minutes% دقیقه
 Preview: پیش‌نمایش
 $preview_not_guaranteed: نتیجه پیش‌نمایش **تضمین‌شده نیست** و **می‌تواند توسط سرویس جعل شود**.
@@ -1781,9 +1788,10 @@ Standalone: مستقل
 All Telegram Gifts: همه هدایای تلگرام
 Add Crypto: افزودن کریپتو
 Share QR Code: اشتراک‌گذاری کد QR
-$send_only_ton: تنها Gram (GRAM) یا دارایی‌های مبتنی بر TON را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
-$send_only_chain: تنها %chain% (%symbol%) یا دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
-$send_only_chain_no_tokens: تنها %chain% (%symbol%) را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_ton: تنها GRAM یا دارایی‌های مبتنی بر TON را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_chain: تنها %symbol% یا دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_token_chain: تنها %tokenSymbol% یا سایر دارایی‌های مبتنی بر %chain% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
+$send_only_chain_no_tokens: تنها %symbol% را به این آدرس ارسال کنید. ارسال توکن‌های دیگر منجر به از دست رفتن آن‌ها خواهد شد.
 Buying with card is not supported for this account.: خرید با کارت برای این حساب پشتیبانی نمی‌شود.
 Swapped at: مبادله‌شده در
 Price per: قیمت هر واحد
@@ -2269,7 +2277,6 @@ Tokenized Gold: طلای توکن‌شده
 Index Funds: صندوق‌های شاخص
 Search token or stock: جستجوی توکن یا سهام
 "Activity Failed to Load": "بارگیری فعالیت ناموفق بود"
-"$agent_source_bea_attribution": "این محصول از API داده‌های دفتر تحلیل اقتصادی (BEA) استفاده می‌کند، اما مورد تأیید یا گواهی BEA نیست."
 "Address was copied!": "آدرس کپی شد!"
 "Allow App Lock": "اجازهٔ قفل برنامه"
 "An error occurred": "خطایی رخ داد"
@@ -2299,3 +2306,7 @@ Search token or stock: جستجوی توکن یا سهام
 
 Unknown Transfer: انتقال ناشناخته
 $dapp_sign_data_for_prefix: برای
+Successfully Sent: با موفقیت ارسال شد
+Successfully Signed: با موفقیت امضا شد
+3D Card: کارت سه‌بعدی
+Coming soon: به‌زودی

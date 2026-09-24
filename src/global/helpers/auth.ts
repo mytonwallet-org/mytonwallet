@@ -1,5 +1,4 @@
 import type { ApiAuthImportViewAccountResult, ApiChain, ApiNetwork } from '../../api/types';
-import type { getActions } from '../index';
 import type { GlobalState } from '../types';
 import { AppState } from '../types';
 
@@ -7,9 +6,35 @@ import { TEMPORARY_ACCOUNT_NAME } from '../../config';
 import { omit } from '../../util/iteratees';
 import { getTranslation } from '../../util/langProvider';
 import { callApi } from '../../api';
-import { getGlobal, setGlobal } from '../index';
+import { getActions, getGlobal, setGlobal } from '../index';
 import { createAccount, updateAccounts } from '../reducers';
 import { selectNetworkAccounts } from '../selectors';
+import { dropEnclaveSessionHold, holdEnclaveSession } from './enclave';
+
+/**
+ * Adding a wallet stores the secret only at the end of the flow, after the user enters the phrase. The
+ * multichain upgrade that the same password entry may start releases the session as soon as it finishes.
+ * So the flow holds the session from the password entry until the secret is stored or the flow is reset.
+ */
+let accountCreationToken: string | undefined;
+
+export function holdAccountCreationSession(token: string) {
+  if (accountCreationToken === token) return;
+
+  dropAccountCreationSession();
+  accountCreationToken = token;
+  holdEnclaveSession(token);
+}
+
+export function dropAccountCreationSession() {
+  const token = accountCreationToken;
+  if (!token) return;
+
+  accountCreationToken = undefined;
+  if (dropEnclaveSessionHold(token)) {
+    getActions().releaseEnclaveSession({ enclaveToken: token });
+  }
+}
 
 export async function removeTemporaryAccount(accountId: string) {
   const { currentAccountId } = getGlobal();

@@ -27,9 +27,22 @@ public final class WWindow: UIWindow, WSensitiveDataProtocol {
     }
 
     public func updateSensitiveData() {
+        if let rootViewController {
+            Self.updateSensitiveData(in: rootViewController)
+        }
+        resetSensitiveDataReveals()
+    }
+
+    public func resetSensitiveDataReveals() {
+        NotificationCenter.default.post(name: .updateSensitiveData, object: self)
+    }
+
+    static func updateSensitiveData(in rootViewController: UIViewController) {
         var visited: Set<ObjectIdentifier> = []
 
         func _updateView(_ view: UIView) {
+            // Container controllers and their children can reach the same view subtree.
+            guard visited.insert(ObjectIdentifier(view)).inserted else { return }
             if let view = view as? WSensitiveDataProtocol {
                 view.updateSensitiveData()
             }
@@ -64,11 +77,7 @@ public final class WWindow: UIWindow, WSensitiveDataProtocol {
             }
         }
         
-        if let rootViewController {
-            _updateViewController(rootViewController)
-        }
-        
-        NotificationCenter.default.post(name: .updateSensitiveData, object: self)
+        _updateViewController(rootViewController)
     }
 }
 

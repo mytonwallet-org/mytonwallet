@@ -22,6 +22,7 @@ final class ClaimRewardsModel {
     var token: ApiToken = .TONCOIN
     var amount: TokenAmount = TokenAmount(0, .TONCOIN)
     var isConfirming: Bool = false
+    var isSubmitting = false
     @PerceptionIgnored
     var onClaim: () -> () = { }
     @PerceptionIgnored

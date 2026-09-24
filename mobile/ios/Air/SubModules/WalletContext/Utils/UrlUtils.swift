@@ -8,6 +8,11 @@
 import Foundation
 
 extension URL {
+    public var displayHost: String? {
+        // URL.host(percentEncoded:) can trap for hostless URLs on iOS 16 (rdar://103345338).
+        URLComponents(url: self, resolvingAgainstBaseURL: true)?.host?.nilIfEmpty
+    }
+
     public static func sanitizedHttpUrl(from rawValue: String?) -> URL? {
         guard let rawValue else {
             return nil

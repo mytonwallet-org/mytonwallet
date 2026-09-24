@@ -77,6 +77,7 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
     }
 
     var onCardChanged: ((accountId: String, nft: ApiNft?) -> Unit)? = null
+    var onEmptyViewTap: (() -> Unit)? = null
     var tintColor = 0
 
     private val topDrawable = context.getDrawableCompat(
@@ -150,6 +151,8 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
             alpha = 0f
         }
         WView(context).apply {
+            setOnClickListener { onEmptyViewTap?.invoke() }
+            isClickable = false
             addView(animationView, LayoutParams(110.dp, 110.dp))
             animationView.apply {
                 animationView.play(R.raw.animation_empty, true, onStart = {
@@ -282,6 +285,7 @@ open class WalletCustomizationAvailableCardsView(context: Context) :
         recyclerView.animate().cancel()
         emptyView.animate().cancel()
         progressView.animate().cancel()
+        emptyView.isClickable = cards?.isEmpty() == true
         cards?.let {
             val rows = ceil(cards.size / calculateNoOfColumns().toFloat())
             val cellHeight = cellWidth() / WalletCustomizationAvailableCardCell.RATIO + 4.dp

@@ -616,10 +616,10 @@ fun View.showKeyboard() {
     imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
 }
 
-fun View.hideKeyboard() {
+fun View.hideKeyboard(clearFocus: Boolean = true) {
     val imm = context.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
     imm.hideSoftInputFromWindow(windowToken, 0)
-    clearFocus()
+    if (clearFocus) clearFocus()
 }
 
 fun View.shakeView(duration: Long = AnimationConstants.SUPER_QUICK_ANIMATION) {

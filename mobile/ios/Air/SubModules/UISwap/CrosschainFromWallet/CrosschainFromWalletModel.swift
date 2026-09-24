@@ -25,6 +25,7 @@ final class CrosschainFromWalletModel {
     var isAddressFocused = false
     var hasAddressError = false
     var canContinue = false
+    var isSubmitting = false
 
     @PerceptionIgnored
     private var validateAddressTask: Task<Void, Never>?

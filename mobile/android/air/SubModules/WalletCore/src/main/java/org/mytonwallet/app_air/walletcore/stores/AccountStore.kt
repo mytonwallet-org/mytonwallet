@@ -44,8 +44,28 @@ object AccountStore : IStore {
 
     // Account related data ////////////////////////////////////////////////////////////////////////
     var activeAccount: MAccount? = null
-    var updatingActivities: Boolean = false
-    var updatingBalance: Boolean = false
+    private val updatingActivitiesAccountIds = mutableSetOf<String>()
+    private val updatingBalanceAccountIds = mutableSetOf<String>()
+    val updatingActivities: Boolean
+        get() = activeAccountId?.let { it in updatingActivitiesAccountIds } == true
+    val updatingBalance: Boolean
+        get() = activeAccountId?.let { it in updatingBalanceAccountIds } == true
+
+    fun setUpdatingActivities(accountId: String, isUpdating: Boolean) {
+        if (isUpdating) {
+            updatingActivitiesAccountIds.add(accountId)
+        } else {
+            updatingActivitiesAccountIds.remove(accountId)
+        }
+    }
+
+    fun setUpdatingBalance(accountId: String, isUpdating: Boolean) {
+        if (isUpdating) {
+            updatingBalanceAccountIds.add(accountId)
+        } else {
+            updatingBalanceAccountIds.remove(accountId)
+        }
+    }
 
     // Indicates if the active account is pushed temporarily.
     //  It's set to false whenever switching to default wallet mode.
@@ -241,6 +261,8 @@ object AccountStore : IStore {
             ActivityStore.removeAccount(removingAccountId)
             PoisoningCacheHelper.removeAccount(removingAccountId)
             DappsStore.removeAccount(removingAccountId)
+            setUpdatingActivities(removingAccountId, false)
+            setUpdatingBalance(removingAccountId, false)
             NftStore.setNfts(
                 chain = null,
                 nfts = null,
@@ -366,6 +388,8 @@ object AccountStore : IStore {
 
     override fun clearCache() {
         updateActiveAccount(null)
+        updatingActivitiesAccountIds.clear()
+        updatingBalanceAccountIds.clear()
         updateAssetsAndActivityData(MAssetsAndActivityData(), notify = false, saveToStorage = false)
         walletVersionsData = null
     }

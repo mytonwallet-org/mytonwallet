@@ -283,11 +283,13 @@ async function fetchAccountAssetsUncoalesced(
       }
 
       const slug = buildTokenSlug(assetChain, assetImplementation.address);
+      // An explicit zero clears quotes cached before the token was marked as trash.
+      const priceUsd = e.attributes.flags.is_trash ? 0 : e.attributes.price;
 
       slugPairs[slug] = BigInt(e.attributes.quantity.int ?? 0);
 
       tokenEntities.push({
-        priceUsd: typeof e.attributes.price === 'number' ? e.attributes.price : undefined,
+        priceUsd: typeof priceUsd === 'number' ? priceUsd : undefined,
         percentChange24h: undefined,
         name: e.attributes.fungible_info.name,
         symbol: e.attributes.fungible_info.symbol,

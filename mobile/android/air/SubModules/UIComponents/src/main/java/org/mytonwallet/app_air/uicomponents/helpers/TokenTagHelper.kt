@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
+import org.mytonwallet.app_air.walletcore.ETH_BNB_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
@@ -65,6 +66,11 @@ class TokenTagHelper(context: Context) {
 
             SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> {
                 configureStaticTag("Solana")
+                true
+            }
+
+            ETH_BNB_MAINNET_SLUG -> {
+                configureStaticTag("ERC-20")
                 true
             }
 

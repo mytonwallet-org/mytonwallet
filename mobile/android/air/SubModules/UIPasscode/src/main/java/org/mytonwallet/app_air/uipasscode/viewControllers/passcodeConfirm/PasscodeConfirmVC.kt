@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.constraintlayout.widget.ConstraintLayout
-import kotlinx.coroutines.launch
 import me.vkryl.core.random
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewController
@@ -15,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.drawable.MotionBackgroundDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.TabletEdgeFadeDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -28,7 +28,6 @@ import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.resetAccounts
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.AuthCooldownError
 import org.mytonwallet.app_air.walletcore.stores.AuthStore
 
@@ -45,7 +44,10 @@ class PasscodeConfirmVC(
 
     override val extraAuthUsages: Int = 0,
 
-    private val onCancel: (() -> Unit)? = null
+    private val onCancel: (() -> Unit)? = null,
+
+    allowsAutoConfirm: Boolean = false,
+    private val forceLongSession: Boolean = false
 ) : WViewController(context),
     PasscodeScreenView.Delegate,
     WalletCore.EventObserver {
@@ -55,6 +57,13 @@ class PasscodeConfirmVC(
     override val protectFromScreenRecord = true
 
     private var isDoingTask = false
+
+    private var withAutoConfirm =
+        allowsAutoConfirm &&
+            passcodeViewState is PasscodeViewState.CustomHeader &&
+            AuthStore.getAutoConfirmToken() != null
+
+    private val autoConfirmExpiry = Runnable { exitAutoConfirm() }
 
     override val isLockedScreen: Boolean
         get() = !allowedToCancel
@@ -77,7 +86,12 @@ class PasscodeConfirmVC(
     }
 
     private val passcodeScreenView: PasscodeScreenView by lazy {
-        val v = PasscodeScreenView(this, passcodeViewState, ignoreBiometry)
+        val v = PasscodeScreenView(
+            this,
+            passcodeViewState,
+            ignoreBiometry,
+            withAutoConfirm = withAutoConfirm
+        )
         v.id = View.generateViewId()
         if (passcodeViewState is PasscodeViewState.CustomHeader) {
             v.topLinearLayout.addView(
@@ -179,7 +193,7 @@ class PasscodeConfirmVC(
                 startPadding,
                 0,
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-                48.dp
+                if (withAutoConfirm) 0 else 48.dp
             )
         }
         passcodeScreenView.insetsUpdated()
@@ -187,6 +201,8 @@ class PasscodeConfirmVC(
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+
+        scheduleAutoConfirmExpiry()
 
         val startWithBiometrics =
             (passcodeViewState as? PasscodeViewState.Default)?.startWithBiometrics
@@ -209,6 +225,7 @@ class PasscodeConfirmVC(
 
     override fun onDestroy() {
         super.onDestroy()
+        view.removeCallbacks(autoConfirmExpiry)
         passcodeScreenView.clearCooldown()
         if (!isDoingTask) onCancel?.invoke()
     }
@@ -239,18 +256,7 @@ class PasscodeConfirmVC(
         // Re-sync MFA state with the server before running protected actions
         // so a stale local copy doesn't bypass Telegram approval. Best-effort: don't block the task.
         if (passcodeViewState is PasscodeViewState.CustomHeader) {
-            AccountStore.activeAccountId?.let { accountId ->
-                WalletCore.scope.launch {
-                    try {
-                        AccountStore.refreshMfa(accountId)
-                    } catch (t: Throwable) {
-                        Logger.e(
-                            Logger.LogTag.PASSCODE_CONFIRM,
-                            "refreshStoredMfa before protected action failed: $t"
-                        )
-                    }
-                }
-            }
+            ProtectedActionAuth.refreshMfa()
         }
     }
 
@@ -280,7 +286,8 @@ class PasscodeConfirmVC(
                     AuthStore.authorize(
                         window,
                         passcode,
-                        extraAuthUsages
+                        extraAuthUsages,
+                        forceLongSession
                     ) { success, enclaveToken, cooldownDate, error ->
                         callback(success, cooldownDate)
                         if (success && enclaveToken != null) {
@@ -309,6 +316,40 @@ class PasscodeConfirmVC(
             refreshMfaBeforeProtectedAction()
             onAuthSuccess(enclaveToken)
         }
+    }
+
+    override fun onAutoConfirm() {
+        if (isDoingTask) return
+        if (!WalletCore.isBridgeReady) passcodeScreenView.showIndicator()
+        WalletCore.doOnBridgeReady {
+            if (isDoingTask) return@doOnBridgeReady
+            val token = AuthStore.getAutoConfirmToken()
+            if (token == null) {
+                passcodeScreenView.clearPasscode()
+                exitAutoConfirm()
+                return@doOnBridgeReady
+            }
+            refreshMfaBeforeProtectedAction()
+            onAuthSuccess(token)
+        }
+    }
+
+    private fun scheduleAutoConfirmExpiry() {
+        view.removeCallbacks(autoConfirmExpiry)
+        if (!withAutoConfirm) return
+        val validUntil = AuthStore.getAutoConfirmValidUntil()
+        if (validUntil == null) {
+            exitAutoConfirm()
+            return
+        }
+        view.postDelayed(autoConfirmExpiry, validUntil - System.currentTimeMillis())
+    }
+
+    private fun exitAutoConfirm() {
+        if (!withAutoConfirm || isDoingTask) return
+        withAutoConfirm = false
+        view.removeCallbacks(autoConfirmExpiry)
+        passcodeScreenView.exitAutoConfirm { insetsUpdated() }
     }
 
     override fun signOutPressed() {

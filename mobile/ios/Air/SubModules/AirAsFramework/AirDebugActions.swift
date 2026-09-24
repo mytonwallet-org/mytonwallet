@@ -58,6 +58,35 @@ public enum AirDebugActions {
         resetAgentRoot()
     }
 
+    public static func createTonOnlyWallet() {
+        guard let presenter = topViewController() else { return }
+        let network = AccountStore.account?.network ?? .mainnet
+
+        UnlockVC.presentAuth(
+            on: presenter,
+            tryBiometricsBeforePresentation: true,
+            onDone: { enclaveToken in
+                Task { @MainActor in
+                    do {
+                        let words = try await Api.generateMnemonic(isBip39: false)
+                        let introModel = IntroModel(
+                            network: network,
+                            authMode: IntroAuthMode(enclaveToken: enclaveToken),
+                            words: words
+                        )
+                        let wordDisplay = WordDisplayVC(introModel: introModel, wordList: words)
+                        let navigationController = WNavigationController(rootViewController: wordDisplay)
+                        navigationController.modalPresentationStyle = .formSheet
+                        topViewController()?.present(navigationController, animated: true)
+                    } catch {
+                        AppActions.showError(error: error)
+                    }
+                }
+            },
+            cancellable: true
+        )
+    }
+
     #if DEBUG && targetEnvironment(simulator)
 
     public enum AppWalletsExportOutcome: Sendable {

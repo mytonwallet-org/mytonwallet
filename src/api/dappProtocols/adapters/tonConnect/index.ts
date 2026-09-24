@@ -701,6 +701,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       // Notify that dapp transfer is complete after successful blockchain submission
       this.onUpdate({
         type: 'dappTransferComplete',
+        promiseId,
         accountId,
       });
 
@@ -792,6 +793,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       this.onUpdate({
         type: 'dappSignDataComplete',
+        promiseId,
         accountId,
       });
 
@@ -1370,7 +1372,13 @@ async function ensureRequestParams(
 
 function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): ConnectItemReply {
   const { network } = parseAccountId(accountId);
-  const { publicKey, address } = wallet;
+  const { publicKey, address, version } = wallet;
+
+  // The reply must carry the public key and the wallet state init, and the state init can only be built from a
+  // contract this app implements. A wallet missing either is one the app cannot answer a connection request for.
+  if (!publicKey || !version) {
+    throw new BadRequestError('This wallet contract is not supported');
+  }
 
   const stateInit = getWalletStateInit(wallet);
 
@@ -1378,7 +1386,7 @@ function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): Conn
     name: 'ton_addr',
     address: toRawAddress(address),
     network: network === 'mainnet' ? CHAIN.MAINNET : CHAIN.TESTNET,
-    publicKey: publicKey!,
+    publicKey,
     walletStateInit: stateInit
       .toBoc({ idx: true, crc32: true })
       .toString('base64'),

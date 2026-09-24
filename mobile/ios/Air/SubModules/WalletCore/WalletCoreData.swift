@@ -166,13 +166,27 @@ public struct WalletCoreData {
     }
 
     public static func notify(event: WalletCoreData.Event) {
+        let traceID = HomeTrace.isEnabled
+            ? event.homeTraceDescription.flatMap { HomeTrace.record("core.enqueue", $0) }
+            : nil
+        let queuedAt = HomeTrace.isEnabled ? HomeTrace.now : 0
+        let cause = traceID ?? HomeTrace.cause
         DispatchQueue.main.async {
-            WalletCoreData.eventObservers = WalletCoreData.eventObservers.compactMap { observer in
-                if let observerInstance = observer.value {
-                    observerInstance.walletCore(event: event)
-                    return observer
+            HomeTrace.$cause.withValue(cause) {
+                let startedAt = HomeTrace.isEnabled ? HomeTrace.now : 0
+                if traceID != nil {
+                    HomeTrace.record("core.deliver", "queue_ms=\(HomeTrace.milliseconds(since: queuedAt)) \(event.homeTraceDescription ?? "")")
                 }
-                return nil
+                WalletCoreData.eventObservers = WalletCoreData.eventObservers.compactMap { observer in
+                    if let observerInstance = observer.value {
+                        observerInstance.walletCore(event: event)
+                        return observer
+                    }
+                    return nil
+                }
+                if traceID != nil {
+                    HomeTrace.record("core.delivered", "observers_ms=\(HomeTrace.milliseconds(since: startedAt))")
+                }
             }
         }
     }
@@ -187,7 +201,9 @@ public struct WalletCoreData {
         Task { @MainActor in
             AccountStore.walletVersionsData = nil
             DappsStore.updateDappCount()
-            UIApplication.shared.sceneKeyWindow?.updateSensitiveData()
+            // Account selection does not change the global privacy setting. Only
+            // temporary reveals need resetting; loaded screens observe account data separately.
+            UIApplication.shared.sceneKeyWindow?.resetSensitiveDataReveals()
             for observer in WalletCoreData.eventObservers {
                 observer.value?.walletCore(event: .accountChanged(accountId: account.id, isNew: isNew))
             }

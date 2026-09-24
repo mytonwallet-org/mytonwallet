@@ -1,4 +1,6 @@
-import React, { memo, useEffect, useLayoutEffect, useState } from '../../lib/teact/teact';
+import React, {
+  memo, useEffect, useLayoutEffect, useRef, useState, useUnmountCleanup,
+} from '../../lib/teact/teact';
 import { getActions, getGlobal, withGlobal } from '../../global';
 
 import type { AutolockValueType, GlobalState } from '../../global/types';
@@ -9,6 +11,7 @@ import {
   DEFAULT_AUTOLOCK_OPTION,
   IS_GRAM_WALLET,
 } from '../../config';
+import { dropEnclaveSessionHold, holdEnclaveSession } from '../../global/helpers/enclave';
 import {
   selectAccount,
   selectCurrentAccount,
@@ -120,6 +123,7 @@ function SettingsSecurity({
     setAppLockValue,
     setIsAutoConfirmEnabled,
     setIsAllowSuspiciousActions,
+    releaseEnclaveSession,
   } = getActions();
 
   const lang = useLang();
@@ -143,7 +147,30 @@ function SettingsSecurity({
   const [changePasscodeSlide, setChangePasscodeSlide] = useState(ChangePasscodeSlide.NewPassword);
   const [biometricsSlide, setBiometricsSlide] = useState<BiometricsSlide | undefined>(undefined);
 
+  /**
+   * After a password entry the screen uses the session later, not right away: on the backup slide,
+   * when the passcode changes, or when biometrics are turned on. The multichain upgrade that the same
+   * entry may start releases the session as soon as it finishes. So the screen holds the session until
+   * the user is back on the main slide.
+   */
+  const heldTokenRef = useRef<string>();
+
+  const dropHeldToken = useLastCallback(() => {
+    const token = heldTokenRef.current;
+    if (!token) return;
+
+    heldTokenRef.current = undefined;
+    if (dropEnclaveSessionHold(token)) {
+      releaseEnclaveSession({ enclaveToken: token });
+    }
+  });
+
+  // The screen can unmount without becoming inactive first. A hold that is never dropped would leave
+  // a read of the secret that never expires.
+  useUnmountCleanup(dropHeldToken);
+
   const cleanup = useLastCallback(() => {
+    dropHeldToken();
     setPinPadTitle(undefined);
     setPasswordError(undefined);
     setPendingProceedCb(undefined);
@@ -229,11 +256,19 @@ function SettingsSecurity({
     }
   }, [biometricsState]);
 
-  const handleAuthorize = useLastCallback(async () => {
+  const handleAuthorize = useLastCallback(async (enclaveToken: string) => {
+    // Taken before the first await, otherwise the upgrade may finish and release the session meanwhile
+    dropHeldToken();
+    heldTokenRef.current = enclaveToken;
+    holdEnclaveSession(enclaveToken);
+
     if (getDoesUsePinPad()) {
       setIsPinAccepted();
       await vibrateOnSuccess(true);
     }
+
+    // If the screen closed during the pause above, its hold is already gone and there is nothing to open
+    if (heldTokenRef.current !== enclaveToken) return;
 
     const proceed = pendingProceedCb;
     const purpose = passwordPurpose;

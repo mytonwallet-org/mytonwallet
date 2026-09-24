@@ -63,7 +63,9 @@ class ReceiveVC private constructor(
     context: Context,
     private val defaultChain: MBlockchain? = null,
     private var openBuyWithCardInstantly: Boolean = false,
-    private val preferredBuyingTokenSlug: String? = null
+    private val preferredBuyingTokenSlug: String? = null,
+    private val singleChain: Boolean = false,
+    private val tokenSymbol: String? = null
 ) : WViewControllerWithModelStore(context) {
     @Suppress("PropertyName")
     override val TAG = "Receive"
@@ -84,12 +86,16 @@ class ReceiveVC private constructor(
             context: Context,
             defaultChain: MBlockchain? = null,
             openBuyWithCardInstantly: Boolean = false,
-            preferredBuyingTokenSlug: String? = null
+            preferredBuyingTokenSlug: String? = null,
+            singleChain: Boolean = false,
+            tokenSymbol: String? = null
         ): ReceiveVC? {
             val addressByChain = AccountStore.activeAccount?.addressByChain ?: return null
-            if (MBlockchain.supportedChains.none {
-                    addressByChain.containsKey(it.name)
-                }
+            val supportedChains = MBlockchain.supportedChains.filter {
+                addressByChain.containsKey(it.name)
+            }
+            if (supportedChains.isEmpty() ||
+                (singleChain && (defaultChain == null || defaultChain !in supportedChains))
             ) {
                 return null
             }
@@ -97,14 +103,18 @@ class ReceiveVC private constructor(
                 context,
                 defaultChain,
                 openBuyWithCardInstantly,
-                preferredBuyingTokenSlug
+                preferredBuyingTokenSlug,
+                singleChain,
+                tokenSymbol
             )
         }
     }
 
     val availableChains: List<MBlockchain> =
         AccountStore.activeAccount?.let { account ->
-            MBlockchain.supportedChains.filter { account.byChain.containsKey(it.name) }
+            MBlockchain.supportedChains.filter {
+                account.byChain.containsKey(it.name) && (!singleChain || it == defaultChain)
+            }
         } ?: emptyList()
 
     private val isViewOnlyAccount = AccountStore.activeAccount?.isViewOnly == true
@@ -120,7 +130,8 @@ class ReceiveVC private constructor(
             blockchain to QRCodeVC(
                 context,
                 blockchain,
-                if (index == defaultChainIndex) onQrLoaded else null
+                if (index == defaultChainIndex) onQrLoaded else null,
+                if (singleChain) tokenSymbol else null
             )
         }.toMap()
 
@@ -190,6 +201,7 @@ class ReceiveVC private constructor(
             applyPagerSideInsets = false
         )
         segmentedController.addCloseButton()
+        if (singleChain) segmentedController.lockTab()
         segmentedController
     }
 
@@ -608,7 +620,9 @@ class ReceiveVC private constructor(
 
     private fun switchableAccounts(): List<MAccount> =
         WalletCore.getAllAccounts().filter { account ->
-            MBlockchain.supportedChains.any { account.byChain.containsKey(it.name) }
+            MBlockchain.supportedChains.any {
+                account.byChain.containsKey(it.name) && (!singleChain || it == defaultChain)
+            }
         }
 
     private fun isAccountSwitchingAllowed(): Boolean = !AccountStore.isPushedTemporary &&
@@ -631,7 +645,12 @@ class ReceiveVC private constructor(
         displayedAccount = DisplayedAccount(account.accountId, isPushedTemporary = false)
         accountSelectorView.setLoading(false)
         accountSelectorView.config(account)
-        val receiveVC = createIfAvailable(context) ?: return
+        val receiveVC = createIfAvailable(
+            context,
+            defaultChain = if (singleChain) defaultChain else null,
+            singleChain = singleChain,
+            tokenSymbol = tokenSymbol
+        ) ?: return
         val nav = navigationController ?: return
         updateWithCrossFade(
             duration = AnimationConstants.SUPER_QUICK_ANIMATION,

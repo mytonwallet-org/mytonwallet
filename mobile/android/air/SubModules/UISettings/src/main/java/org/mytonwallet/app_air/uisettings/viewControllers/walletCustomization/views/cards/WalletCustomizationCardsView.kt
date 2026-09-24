@@ -77,6 +77,12 @@ open class WalletCustomizationCardsView(
             val fromIndex = first
             val toIndex = (first + 1).coerceAtMost(accounts.lastIndex)
             onItemChangeListener?.onItemOffsetChanged(fromIndex, toIndex, offsetPercent)
+            val selectedIndex = if (offsetPercent < 0.5f) fromIndex else toIndex
+            selectedAccountId = accounts[selectedIndex].accountId
+            for (i in 0 until rv.childCount) {
+                val child = rv.getChildAt(i) as? WalletCustomizationCardCell ?: continue
+                child.setEffectsActive(rv.getChildAdapterPosition(child) == selectedIndex)
+            }
         }
     }
 
@@ -134,7 +140,10 @@ open class WalletCustomizationCardsView(
         if (index < 0) return
 
         val itemView = findViewHolderForAdapterPosition(index)?.itemView
-        (itemView as? WalletCustomizationCardCell)?.configure(accounts[index])
+        (itemView as? WalletCustomizationCardCell)?.configure(
+            accounts[index],
+            accountId == selectedAccountId
+        )
     }
 
     fun reload() {
@@ -161,7 +170,10 @@ open class WalletCustomizationCardsView(
     ) {
         (cellHolder.cell as WalletCustomizationCardCell).apply {
             updateCellWidth(this@WalletCustomizationCardsView.cellWidth)
-            configure(accounts[indexPath.row])
+            configure(
+                accounts[indexPath.row],
+                accounts[indexPath.row].accountId == selectedAccountId
+            )
         }
     }
 }

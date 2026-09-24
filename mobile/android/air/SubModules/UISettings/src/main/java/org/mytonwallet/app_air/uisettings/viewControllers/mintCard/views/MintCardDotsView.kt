@@ -12,8 +12,9 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 @SuppressLint("ViewConstructor")
 class MintCardDotsView(context: Context, private val count: Int) : View(context) {
 
-    private val dotRadius = 3f.dp
-    private val spacing = 12f.dp
+    private val activeRadius = 5f.dp
+    private val inactiveRadius = 4f.dp
+    private val spacing = 16f.dp
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
 
     private var position = 0f
@@ -25,8 +26,8 @@ class MintCardDotsView(context: Context, private val count: Int) : View(context)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = ((count - 1) * spacing + 2 * dotRadius).toInt()
-        val height = (2 * dotRadius).toInt()
+        val width = ((count - 1) * spacing + 2 * activeRadius).toInt()
+        val height = (2 * activeRadius).toInt()
         setMeasuredDimension(
             resolveSize(width, widthMeasureSpec),
             resolveSize(height, heightMeasureSpec)
@@ -38,9 +39,17 @@ class MintCardDotsView(context: Context, private val count: Int) : View(context)
         val startX = (width - totalWidth) / 2f
         val cy = height / 2f
         for (i in 0 until count) {
-            val distance = abs(i - position).coerceIn(0f, 1f)
+            val directDistance = abs(i - position)
+            val distance = minOf(directDistance, count - directDistance).coerceIn(0f, 1f)
             paint.alpha = ((1f - distance) * (255 - 102) + 102).toInt() // 0.4..1.0 alpha
-            canvas.drawCircle(startX + i * spacing, cy, dotRadius, paint)
+            val radius = activeRadius - distance * (activeRadius - inactiveRadius)
+            val visualIndex = if (layoutDirection == LAYOUT_DIRECTION_RTL) count - 1 - i else i
+            canvas.drawCircle(startX + visualIndex * spacing, cy, radius, paint)
         }
+    }
+
+    override fun onRtlPropertiesChanged(layoutDirection: Int) {
+        super.onRtlPropertiesChanged(layoutDirection)
+        invalidate()
     }
 }

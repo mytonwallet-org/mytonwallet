@@ -96,6 +96,7 @@ interface StateProps {
   hasLegacyBiometrics?: boolean;
   legacyAuthConfig?: LegacyAuthConfig;
   authUsageCountRequest?: number;
+  multichainUpgradeAccountIds?: string[];
 }
 
 const STICKER_SIZE = 180;
@@ -161,6 +162,7 @@ function PasswordForm({
   hasLegacyBiometrics,
   legacyAuthConfig,
   authUsageCountRequest,
+  multichainUpgradeAccountIds,
   extraAuthUsages,
   onUpdate,
   onCancel,
@@ -240,9 +242,12 @@ function PasswordForm({
   const extraUsages = (authUsageCountRequest ?? 0) + (extraAuthUsages ?? 0);
   const usageCount = extraUsages ? 1 + extraUsages : undefined;
 
-  const handleAuthorized = useLastCallback((enclaveToken: string) => {
-    // The handler is a no-op when there is nothing to upgrade
-    upgradeMultichainAccounts({ enclaveToken });
+  // `upgradeAccountIds` are the accounts `usageCount` budgeted for. The global list may change while the passcode
+  // is checked, and an upgrade run on accounts outside the budget spends the reads the operation itself needs.
+  const handleAuthorized = useLastCallback((enclaveToken: string, upgradeAccountIds?: string[]) => {
+    if (upgradeAccountIds?.length) {
+      upgradeMultichainAccounts({ enclaveToken, accountIds: upgradeAccountIds });
+    }
     onAuthorize(enclaveToken);
   });
 
@@ -261,7 +266,7 @@ function PasswordForm({
     isAuthorizingRef.current = true;
 
     if (withAutoConfirm) {
-      handleAuthorized(selectEnclaveToken(getGlobal())!);
+      handleAuthorized(selectEnclaveToken(getGlobal())!, multichainUpgradeAccountIds);
       return;
     }
 
@@ -300,7 +305,7 @@ function PasswordForm({
     }
 
     setEnclaveSession(enclaveSession);
-    handleAuthorized(enclaveSession.token);
+    handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
   });
 
   const handleBiometrics = useLastCallback(async () => {
@@ -321,7 +326,7 @@ function PasswordForm({
       }
 
       setEnclaveSession(enclaveSession);
-      handleAuthorized(enclaveSession.token);
+      handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
     } catch (err: any) {
       isAuthorizingRef.current = false;
       const errorMessage = err.message || lang('Something went wrong.');
@@ -705,5 +710,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     hasLegacyBiometrics,
     legacyAuthConfig,
     authUsageCountRequest: selectAuthUsageCountRequest(global),
+    multichainUpgradeAccountIds: global.multichainUpgradeAccountIds,
   };
 })(PasswordForm));

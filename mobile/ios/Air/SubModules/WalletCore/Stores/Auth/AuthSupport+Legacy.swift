@@ -57,6 +57,7 @@ enum AuthSupportLegacy {
             authType: .passcode,
             sessionKind: sessionKind,
             usageCount: usageCount,
+            remember: AuthSupportImpl.shouldRememberAuthentication,
             passcode: passcode
         )
     }
@@ -95,7 +96,8 @@ enum AuthSupportLegacy {
             biometricToken = try await addBiometrics(
                 currentToken: currentToken,
                 sessionKind: sessionKind,
-                usageCount: usageCount
+                usageCount: usageCount,
+                remember: AuthSupportImpl.shouldRememberAuthentication
             ).token
         } catch EnclaveError.biometricAuthenticationCanceled {
             // nil is reserved for authorization failures; a canceled prompt must stay distinguishable
@@ -158,12 +160,14 @@ enum AuthSupportLegacy {
         authType: AuthType,
         sessionKind: AuthSessionKind,
         usageCount: Int,
+        remember: Bool = false,
         passcode: String?
     ) async throws -> EnclaveToken? {
         let session = try await EnclaveManager.shared.authorize(
             authType: authType,
             isLong: sessionKind.isLong,
             usageCount: usageCount,
+            remember: remember,
             passcode: passcode
         )
         return session?.token
@@ -172,7 +176,8 @@ enum AuthSupportLegacy {
     private static func addBiometrics(
         currentToken: EnclaveToken,
         sessionKind: AuthSessionKind = .oneShot,
-        usageCount: Int = 1
+        usageCount: Int = 1,
+        remember: Bool = false
     ) async throws -> SessionResult {
         try await EnclaveManager.shared.migrateAuth(
             currentToken: currentToken,
@@ -180,7 +185,8 @@ enum AuthSupportLegacy {
             passcode: nil,
             shouldReplace: false,
             isLong: sessionKind.isLong,
-            usageCount: usageCount
+            usageCount: usageCount,
+            remember: remember
         )
     }
 

@@ -38,9 +38,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.AutoLockHelper
 import org.mytonwallet.app_air.walletcontext.helpers.BiometricHelpers
+import org.mytonwallet.app_air.walletcontext.models.MAutoExitOption
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -49,6 +51,7 @@ import org.mytonwallet.app_air.walletcore.api.enclaveRemoveAuth
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.AuthStore
 
 private fun buildMfaRowTitle(): CharSequence {
     val title = LocaleController.getString("2FA with Telegram")
@@ -157,7 +160,10 @@ class SecurityVC(context: Context) : WViewController(context) {
                                 null,
                                 false
                             ) { newToken, err ->
-                                biometricAuthRow.isChecked = newToken != null && err == null
+                                val migrated = newToken != null && err == null
+                                biometricAuthRow.isChecked = migrated
+                                if (migrated) AuthStore.clearLongSession()
+                                updateRememberPasscodeRow()
                             }
                         }
                     }
@@ -165,6 +171,7 @@ class SecurityVC(context: Context) : WViewController(context) {
                     WalletCore.enclaveRemoveAuth(AuthType.BIOMETRIC)
                     WSecureStorage.deleteLegacyBiometricPasscode()
                     WGlobalStorage.removeIsLegacyBiometricActivated()
+                    updateRememberPasscodeRow()
                 }
             }
         ).apply {
@@ -260,13 +267,13 @@ class SecurityVC(context: Context) : WViewController(context) {
     private val lockTimeView = WEditableItemView(context).apply {
         id = generateViewId()
         drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
-        setText(WGlobalStorage.getAppLock().displayName)
+        setText(WGlobalStorage.getAppLock().selectedDisplayName)
     }
 
     private val autoLockRow =
         KeyValueRowView(
             context,
-            LocaleController.getString("Lock the app after"),
+            LocaleController.getString("Auto-Lock"),
             "",
             KeyValueRowView.Mode.PRIMARY,
             isLast = false
@@ -288,7 +295,7 @@ class SecurityVC(context: Context) : WViewController(context) {
                             false
                         ) {
                             WGlobalStorage.setAutoLock(it)
-                            lockTimeView.setText(it.displayName)
+                            lockTimeView.setText(it.selectedDisplayName)
                             AutoLockHelper.start(it.period)
                         }
                     },
@@ -339,6 +346,93 @@ class SecurityVC(context: Context) : WViewController(context) {
     }
 
     private val spacer3 = WBaseView(context)
+
+    private val rememberPasscodeRow: SwitchCell by lazy {
+        SwitchCell(
+            context,
+            title = LocaleController.getString("Remember Passcode"),
+            isChecked = WGlobalStorage.getIsAutoConfirmEnabled(),
+            isFirst = true,
+            isLast = true,
+            onChange = { isChecked ->
+                if (!rememberPasscodeRow.isEnabled ||
+                    WGlobalStorage.getIsAutoConfirmEnabled() == isChecked
+                ) {
+                    return@SwitchCell
+                }
+                rememberPasscodeRow.isChecked = !isChecked
+                confirmPasscode(forceLongSession = isChecked) {
+                    navigationController?.pop {
+                        WGlobalStorage.setIsAutoConfirmEnabled(isChecked)
+                        if (!isChecked) AuthStore.clearLongSession()
+                        rememberPasscodeRow.isChecked = isChecked
+                    }
+                }
+            }
+        )
+    }
+
+    private val rememberPasscodeFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            setLineHeight(18f)
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
+    private val rememberPasscodeSpacer = WBaseView(context)
+
+    private val autoExitValueView = WEditableItemView(context).apply {
+        id = generateViewId()
+        drawable = context.getDrawableCompat(org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18)
+        setText(WGlobalStorage.getAutoExit().displayName)
+    }
+
+    private val autoExitRow =
+        KeyValueRowView(
+            context,
+            LocaleController.getString("Auto-Exit"),
+            "",
+            KeyValueRowView.Mode.PRIMARY,
+            isLast = true
+        ).apply {
+            setTopRadius(ViewConstants.BLOCK_RADIUS.dp)
+            setValueView(autoExitValueView)
+            setOnClickListener {
+                WMenuPopup.present(
+                    autoExitValueView,
+                    MAutoExitOption.entries.map {
+                        WMenuPopup.Item(
+                            null,
+                            it.displayName,
+                            false
+                        ) {
+                            WGlobalStorage.setAutoExit(it)
+                            autoExitValueView.setText(it.displayName)
+                        }
+                    },
+                    popupWidth = WRAP_CONTENT,
+                    positioning = WMenuPopup.Positioning.BELOW,
+                    windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                        autoExitValueView,
+                        roundRadius = 40f.dp
+                    )
+                )
+            }
+        }
+
+    private val autoExitFooterLabel: WLabel by lazy {
+        WLabel(context).apply {
+            setStyle(13f)
+            setLineHeight(18f)
+            text = LocaleController.getString("Log out of all wallets after failed attempts.")
+            gravity = android.view.Gravity.START
+            setTextColor(WColor.SecondaryText)
+        }
+    }
+
+    private val autoExitSpacer = WBaseView(context)
 
     private val disableScreenRecordWarningRow = SwitchCell(
         context,
@@ -402,6 +496,15 @@ class SecurityVC(context: Context) : WViewController(context) {
         v.addView(appLockContainerView, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(appLockFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
+        v.addView(rememberPasscodeRow, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(rememberPasscodeFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(
+            rememberPasscodeSpacer,
+            ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp)
+        )
+        v.addView(autoExitRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
+        v.addView(autoExitFooterLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(autoExitSpacer, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
         v.addView(
             allowSuspiciousActionsRow,
             ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -438,7 +541,17 @@ class SecurityVC(context: Context) : WViewController(context) {
             topToBottom(appLockFooterLabel, appLockContainerView, 8f)
             toCenterX(appLockFooterLabel, 16f)
             topToBottom(spacer3, appLockFooterLabel, 4f)
-            topToBottom(allowSuspiciousActionsRow, spacer3)
+            topToBottom(rememberPasscodeRow, spacer3)
+            toCenterX(rememberPasscodeRow)
+            topToBottom(rememberPasscodeFooterLabel, rememberPasscodeRow, 8f)
+            toCenterX(rememberPasscodeFooterLabel, 16f)
+            topToBottom(rememberPasscodeSpacer, rememberPasscodeFooterLabel, 4f)
+            topToBottom(autoExitRow, rememberPasscodeSpacer)
+            toCenterX(autoExitRow)
+            topToBottom(autoExitFooterLabel, autoExitRow, 8f)
+            toCenterX(autoExitFooterLabel, 16f)
+            topToBottom(autoExitSpacer, autoExitFooterLabel, 4f)
+            topToBottom(allowSuspiciousActionsRow, autoExitSpacer)
             toCenterX(allowSuspiciousActionsRow)
             topToBottom(allowSuspiciousActionsFooterLabel, allowSuspiciousActionsRow, 8f)
             toCenterX(allowSuspiciousActionsFooterLabel, 16f)
@@ -478,6 +591,7 @@ class SecurityVC(context: Context) : WViewController(context) {
             toBottom(scrollView)
         }
 
+        updateRememberPasscodeRow()
         updateTheme()
     }
 
@@ -485,6 +599,16 @@ class SecurityVC(context: Context) : WViewController(context) {
         super.viewWillAppear()
         biometricAuthRow.isChecked = WGlobalStorage.isAnyBiometricActivated()
         allowAppLockRow.isChecked = WGlobalStorage.isAppLockEnabled()
+        updateRememberPasscodeRow()
+    }
+
+    private fun updateRememberPasscodeRow() {
+        rememberPasscodeRow.isChecked = WGlobalStorage.getIsAutoConfirmEnabled()
+        val description = LocaleController.getStringWithKeyValues(
+            "App will not ask for signature for %minutes% minutes after last entry.",
+            listOf("%minutes%" to "5".withLocalizedNumbers)
+        )
+        rememberPasscodeFooterLabel.text = description
     }
 
     override fun viewDidAppear() {
@@ -498,6 +622,7 @@ class SecurityVC(context: Context) : WViewController(context) {
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         changePasscodeRow.setBackgroundColor(WColor.Background.color)
         autoLockRow.setBackgroundColor(WColor.Background.color, 0f, 0f)
+        autoExitRow.setBackgroundColor(WColor.Background.color)
         appLockContainerView.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp
@@ -599,7 +724,10 @@ class SecurityVC(context: Context) : WViewController(context) {
         })
     }
 
-    private fun confirmPasscode(onSuccess: (enclaveToken: String) -> Unit) {
+    private fun confirmPasscode(
+        forceLongSession: Boolean = false,
+        onSuccess: (enclaveToken: String) -> Unit
+    ) {
         navigationController?.push(
             PasscodeConfirmVC(
                 context,
@@ -618,7 +746,8 @@ class SecurityVC(context: Context) : WViewController(context) {
                 ),
                 task = { enclaveToken ->
                     onSuccess(enclaveToken)
-                }
+                },
+                forceLongSession = forceLongSession
             )
         )
     }

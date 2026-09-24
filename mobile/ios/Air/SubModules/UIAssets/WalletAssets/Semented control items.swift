@@ -65,7 +65,7 @@ extension DisplayAssetTab {
 
 @MainActor
 public final class WalletAssetsTabContextMenuProviders {
-    private let accountSource: AccountSource
+    private var accountSource: AccountSource
     private let nftsVCManager: NftsVCManager
     private let sourceViewProvider: () -> UIView?
     private let onReorder: () -> Void
@@ -127,6 +127,10 @@ public final class WalletAssetsTabContextMenuProviders {
         ])
     }
 
+    func switchAccountTo(_ accountId: String) {
+        accountSource = .accountId(accountId)
+    }
+
     private var isTemporaryViewAccount: Bool {
         @Dependency(\.accountStore) var accountStore
         let accountId = accountStore.resolveAccountId(source: accountSource)
@@ -148,10 +152,12 @@ public final class WalletAssetsTabContextMenuProviders {
                 onSelectTab: onSelectTab
             )
         case .nfts:
-            configuration = makeCollectiblesMenuConfig(
-                accountSource: accountSource,
-                onReorder: onReorder
-            )
+            configuration = { [weak self, accountSource, onReorder] in
+                makeCollectiblesMenuConfig(
+                    accountSource: self?.accountSource ?? accountSource,
+                    onReorder: onReorder
+                )()
+            }
 
         case let .nftCollectionFilter(filter):
             configuration = makeNftCollectionMenuConfig(

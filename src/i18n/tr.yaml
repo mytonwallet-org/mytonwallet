@@ -547,6 +547,7 @@ $max_balance: "Maks.: %balance%"
 $available_balance: "Kullanılabilir: %balance%"
 $send_recipient_invalid: Geçersiz
 $send_recipient_not_compatible: Uyumsuz
+$send_recipient_self_transfer: Kendinize gönderemezsiniz
 $unstake_information_instantly: Yatırdığınız tutarı anında alacaksınız
 Select Token: Token seçin
 $token_picker_hidden: Gizli
@@ -933,6 +934,9 @@ Upgrade for %amount% %currency%: "%amount% %currency% karşılığında yükselt
 "%amount% left": "%amount% kaldı"
 "%amount% sold": "%amount% satıldı"
 This card has been sold out: Bu kart tükendi
+"Mint starts in %time%": "Mint işlemi %time% sonra başlayacak"
+"%amount% unique cards total":
+  otherValue: "Toplam %amount% benzersiz kart"
 Import Existing Wallet: Mevcut Cüzdanı İçe Aktar
 View Any Address: Herhangi Bir Adresi Görüntüle
 View Mode: Görüntüleme Modu
@@ -946,6 +950,9 @@ Remember Passcode: Kodu hatırla
 Remember Password: Şifreyi hatırla
 Not available with biometrics.: Biyometrik ile kullanılamaz.
 App will not ask for signature for %minutes% minutes after last entry.: Uygulama, son girişten sonra %minutes% dakika boyunca imza istemeyecek.
+Auto-Exit: Otomatik Çıkış
+Log out of all wallets after failed attempts.: Başarısız denemelerden sonra tüm cüzdanlardan çıkış yap.
+"%count% attempts": "%count% deneme"
 Remember for %minutes% minutes: "%minutes% dakika boyunca hatırla"
 Preview: Önizleme
 $preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
@@ -1793,9 +1800,10 @@ Standalone: Bağımsız
 All Telegram Gifts: Tüm Telegram hediyeleri
 Add Crypto: Kripto ekle
 Share QR Code: QR kodu paylaş
-$send_only_ton: Bu adrese yalnızca Gram (GRAM) veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
-$send_only_chain: Bu adrese yalnızca %chain% (%symbol%) veya %chain% tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
-$send_only_chain_no_tokens: Bu adrese yalnızca %chain% (%symbol%) gönderin. Diğer tokenlar kaybolur.
+$send_only_ton: Bu adrese yalnızca GRAM veya TON tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_chain: Bu adrese yalnızca %symbol% veya %chain% tabanlı varlıklar gönderin. Diğer tokenlar kaybolur.
+$send_only_token_chain: Bu adrese yalnızca %tokenSymbol% veya diğer %chain% tabanlı varlıkları gönderin. Diğer tokenlar kaybolur.
+$send_only_chain_no_tokens: Bu adrese yalnızca %symbol% gönderin. Diğer tokenlar kaybolur.
 Buying with card is not supported for this account.: Bu hesap kartla satın almayı desteklemiyor.
 Swapped at: Takas zamanı
 Price per: Birim fiyat
@@ -2277,7 +2285,6 @@ Tokenized Gold: Tokenize Altın
 Index Funds: Endeks Fonları
 Search token or stock: Token veya hisse ara
 "Activity Failed to Load": "Etkinlik yüklenemedi"
-"$agent_source_bea_attribution": "Bu ürün, Ekonomik Analiz Bürosu (BEA) Veri API’sini kullanır ancak BEA tarafından desteklenmez veya onaylanmaz."
 "Address was copied!": "Adres kopyalandı!"
 "Allow App Lock": "Uygulama kilidine izin ver"
 "An error occurred": "Bir hata oluştu"
@@ -2307,3 +2314,7 @@ Search token or stock: Token veya hisse ara
 
 Unknown Transfer: Bilinmeyen Transfer
 $dapp_sign_data_for_prefix: için
+Successfully Sent: Başarıyla gönderildi
+Successfully Signed: Başarıyla imzalandı
+3D Card: 3B Kart
+Coming soon: Yakında

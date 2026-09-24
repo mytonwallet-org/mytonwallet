@@ -48,6 +48,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
@@ -100,6 +101,7 @@ class SellVC(
 
     private var latestAddressInfo: SendViewModel.AddressInfo? = null
     private var latestUiState: SendViewModel.UiState? = null
+    private var isAutoConfirmSubmitting = false
 
     private val scamLabelSpan by lazy {
         ScamLabelSpan(LocaleController.getString("Scam").uppercase())
@@ -335,13 +337,13 @@ class SellVC(
         )
         val isLoading = uiState.uiButton.status.isLoading
         val isReady = uiState.uiButton.status == SendViewModel.ButtonStatus.Ready
-        confirmButton.isLoading = isLoading
+        confirmButton.isLoading = isLoading || isAutoConfirmSubmitting
         confirmButton.text = when {
             isReady -> sellButtonTitle
             isLoading -> sellButtonTitle
             else -> uiState.uiButton.title.ifBlank { sellButtonTitle }
         }
-        confirmButton.isEnabled = isReady && !isLoading
+        confirmButton.isEnabled = isReady && !confirmButton.isLoading
     }
 
     private fun renderAddressAndButton(uiState: SendViewModel.UiState) {
@@ -435,6 +437,18 @@ class SellVC(
             Logger.LogTag.SEND,
             "confirmWithPassword: Confirming sell with passcode slug=${viewModel.getTokenSlug()}"
         )
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                isAutoConfirmSubmitting = true
+                view.lockView()
+                confirmButton.isLoading = true
+                onTransferConfirmed(config, token)
+            },
+            onPasscodeRequired = { showPasscodeConfirm(config) }
+        )
+    }
+
+    private fun showPasscodeConfirm(config: SendViewModel.DraftResult.Result) {
         val account = AccountStore.activeAccount ?: return
         push(
             PasscodeConfirmVC(
@@ -476,8 +490,36 @@ class SellVC(
                     showSubmissionError(null)
                     return@launch
                 }
-                val id = viewModel.callSend(preparation).activityId
-                sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
+                val result = viewModel.callSend(preparation)
+                result.error?.let { error ->
+                    showSubmissionError(
+                        MBridgeError.fromErrorName(error) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                    )
+                    return@launch
+                }
+                val mfaHash = result.mfaRequestHash
+                if (mfaHash != null) {
+                    if (isAutoConfirmSubmitting) {
+                        isAutoConfirmSubmitting = false
+                        view.unlockView()
+                        confirmButton.isLoading = false
+                    }
+                    val hasPasscodeScreen =
+                        navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC
+                    val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers
+                        .MfaActionConfirmVC(context, requestHash = mfaHash)
+                    navigationController?.push(mfaVC, onCompletion = {
+                        if (hasPasscodeScreen) {
+                            navigationController?.removePrevViewControllerOnly()
+                        }
+                    })
+                    return@launch
+                }
+                val id = result.activityId ?: run {
+                    showSubmissionError(MBridgeError.Type.UNEXPECTED_ERROR)
+                    return@launch
+                }
+                sentActivityId = ActivityHelpers.getTxIdFromId(id)
                 receivedLocalActivities?.firstOrNull { it.getTxHash() == sentActivityId }?.let {
                     checkReceivedActivity(it)
                 }
@@ -488,6 +530,13 @@ class SellVC(
     }
 
     private fun showSubmissionError(error: MBridgeError?) {
+        if (isAutoConfirmSubmitting) {
+            isAutoConfirmSubmitting = false
+            view.unlockView()
+            confirmButton.isLoading = false
+            showError(error)
+            return
+        }
         val navigationController = navigationController
         val previousViewController = navigationController?.viewControllers
             ?.getOrNull(navigationController.viewControllers.size - 2)

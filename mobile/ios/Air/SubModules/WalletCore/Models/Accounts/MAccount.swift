@@ -150,7 +150,7 @@ extension MAccount {
 
     public var currentTonWalletVersion: String? {
         if AccountStore.accountId == id {
-            return AccountStore.walletVersionsData?.currentVersion.nilIfEmpty ?? version?.nilIfEmpty
+            return AccountStore.walletVersionsData?.currentVersion?.nilIfEmpty ?? version?.nilIfEmpty
         }
 
         return version?.nilIfEmpty

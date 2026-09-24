@@ -18,6 +18,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
     public let id: Int64
     public var theme: String
     public var areAnimationsDisabled: Bool
+    public var is3dCardDisabled: Bool
     public var isSeasonalThemingDisabled: Bool
     public var canPlaySounds: Bool
     public var areTinyTransfersHidden: Bool
@@ -26,6 +27,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
     public var useLocalizedTokenNames: Bool
     public var authConfig: String?
     public var autolockValue: String
+    public var isAutoConfirmEnabled: Bool
     public var isSensitiveDataHidden: Bool
     public var selectedExplorerIds: [String: String]
     public var isTokenChartExpanded: Bool
@@ -44,6 +46,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         id: Int64 = SINGLETON_TABLE_ROW_ID,
         theme: String = NightMode.system.rawValue,
         areAnimationsDisabled: Bool = false,
+        is3dCardDisabled: Bool = false,
         isSeasonalThemingDisabled: Bool = false,
         canPlaySounds: Bool = true,
         areTinyTransfersHidden: Bool = true,
@@ -52,6 +55,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         useLocalizedTokenNames: Bool = true,
         authConfig: String? = nil,
         autolockValue: String = DEFAULT_AUTOLOCK_OPTION.rawValue,
+        isAutoConfirmEnabled: Bool = true,
         isSensitiveDataHidden: Bool = false,
         selectedExplorerIds: [String: String] = [:],
         isTokenChartExpanded: Bool = false,
@@ -68,6 +72,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         self.id = id
         self.theme = theme
         self.areAnimationsDisabled = areAnimationsDisabled
+        self.is3dCardDisabled = is3dCardDisabled
         self.isSeasonalThemingDisabled = isSeasonalThemingDisabled
         self.canPlaySounds = canPlaySounds
         self.areTinyTransfersHidden = areTinyTransfersHidden
@@ -76,6 +81,7 @@ public struct MSettings: Equatable, Hashable, Codable, Sendable, FetchableRecord
         self.useLocalizedTokenNames = useLocalizedTokenNames
         self.authConfig = authConfig
         self.autolockValue = autolockValue
+        self.isAutoConfirmEnabled = isAutoConfirmEnabled
         self.isSensitiveDataHidden = isSensitiveDataHidden
         self.selectedExplorerIds = selectedExplorerIds
         self.isTokenChartExpanded = isTokenChartExpanded

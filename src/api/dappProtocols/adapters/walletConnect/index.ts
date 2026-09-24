@@ -1004,6 +1004,11 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
   ): Promise<{ accountId: string; uniqueId: string; dapp: StoredDappConnection } | undefined> {
     const uniqueId = getDappConnectionUniqueId({ ...request, url: dappUrl });
 
+    if (request.accountId) {
+      const dapp = await getDapp(request.accountId, dappUrl, uniqueId);
+      return dapp?.chains?.length ? { accountId: request.accountId, uniqueId, dapp } : undefined;
+    }
+
     try {
       const accountId = await getCurrentAccountOrFail();
       const dapp = await getDapp(accountId, dappUrl, uniqueId);
@@ -1157,7 +1162,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
         connectionType: 'connect',
       });
 
-      let accountId = await getCurrentAccountOrFail();
+      let accountId = request.accountId ?? await getCurrentAccountOrFail();
       let { network } = parseAccountId(accountId);
 
       const { promiseId, promise } = createDappPromise();
@@ -1515,7 +1520,14 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
             message.chain,
           );
 
-        dapp = (await getDapp(accountId, dappUrl, uniqueId))!;
+        dapp = await getDapp(accountId, dappUrl, uniqueId);
+      }
+
+      if (!dapp) {
+        return {
+          success: false,
+          error: { code: 0, message: 'Please reconnect your wallet from the dapp.' },
+        };
       }
 
       logDebug('walletConnect:sendTransaction:enter', {
@@ -1636,6 +1648,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
         this.onUpdate({
           type: 'dappTransferComplete',
+          promiseId,
           accountId,
         });
 
@@ -1652,6 +1665,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       this.onUpdate({
         type: 'dappTransferComplete',
+        promiseId,
         accountId,
       });
 
@@ -1823,6 +1837,7 @@ class WalletConnectAdapter implements DappProtocolAdapter<DappProtocolType.Walle
 
       this.onUpdate({
         type: 'dappSignDataComplete',
+        promiseId,
         accountId,
       });
 

@@ -14,6 +14,7 @@ import Dependencies
 
     var realFee: BigInt?
     var isLoadingDraft = false
+    var isSubmitting = false
     var errorMessage: String?
 
     var onRenew: (() -> Void)?
@@ -60,11 +61,11 @@ import Dependencies
     }
     
     var canRenew: Bool {
-        !isLoadingDraft && realFee != nil && !isInsufficientBalance && !nfts.isEmpty
+        !isSubmitting && !isLoadingDraft && realFee != nil && !isInsufficientBalance && !nfts.isEmpty
     }
     
     var isButtonLoading: Bool {
-        isLoadingDraft
+        isSubmitting || isLoadingDraft
     }
     
     func loadDraft() async {

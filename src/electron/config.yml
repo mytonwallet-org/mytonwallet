@@ -43,7 +43,7 @@ protocols:
   - name: "TonConnect My Wallet"
     schemes: ["mytonwallet-tc"]
   - name: "My Wallet"
-    schemes: ["mtw"]
+    schemes: ["mtw", "mw"]
   - name: "WalletConnect"
     schemes: ["wc"]
   - name: "WalletConnect My Wallet"

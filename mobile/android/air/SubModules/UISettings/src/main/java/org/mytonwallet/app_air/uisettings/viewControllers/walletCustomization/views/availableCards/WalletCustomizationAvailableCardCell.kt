@@ -12,6 +12,7 @@ import android.widget.ImageView
 import java.math.BigInteger
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.uicomponents.commonViews.CardBackgroundArtworkView
 import org.mytonwallet.app_air.uicomponents.commonViews.RadialGradientView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -29,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -66,6 +68,7 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
     private val imageView = WImageView(context, 12.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
+    private val artworkView = CardBackgroundArtworkView(context)
     private val radialGradientView = RadialGradientView(context).apply {
         cornerRadius = 12f.dp
     }
@@ -103,12 +106,14 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
 
     private val cellContainerView = WView(context).apply {
         addView(imageView, LayoutParams(0, 0))
+        addView(artworkView, LayoutParams(0, 0))
         addView(radialGradientView, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         addView(balanceContainerView, LayoutParams(0, MATCH_PARENT))
         addView(bottomViewContainer, LayoutParams(54.dp, 5.dp))
 
         setConstraints {
             allEdges(imageView)
+            allEdges(artworkView)
             toCenterX(balanceContainerView)
             toTop(balanceContainerView, -4f)
             toBottom(balanceContainerView, 4f)
@@ -176,10 +181,24 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
     }
 
     fun updateCardImage() {
+        artworkView.onArtworkChanged = { rendered ->
+            radialGradientView.visibility =
+                if (cardNft?.metadata?.mtwCardType == ApiMtwCardType.STANDARD && !rendered) {
+                    VISIBLE
+                } else {
+                    GONE
+                }
+        }
+        artworkView.setNft(cardNft, 256)
         updateTheme()
 
         if (cardNft == null) {
-            imageView.loadRes(R.drawable.img_card)
+            val image = if (ApplicationContextHolder.isGramApp) {
+                R.drawable.img_card_gram_preview
+            } else {
+                R.drawable.img_card
+            }
+            imageView.loadRes(image)
             setConstraints {
                 allEdges(imageView)
             }
@@ -189,7 +208,7 @@ class WalletCustomizationAvailableCardCell(context: Context, val cellWidth: Int)
         if (cardNft?.metadata?.mtwCardType == ApiMtwCardType.STANDARD) {
             radialGradientView.isTextLight =
                 cardNft?.metadata?.mtwCardTextType == ApiMtwCardTextType.LIGHT
-            radialGradientView.visibility = VISIBLE
+            radialGradientView.visibility = if (artworkView.hasArtwork) GONE else VISIBLE
         } else {
             radialGradientView.visibility = GONE
         }

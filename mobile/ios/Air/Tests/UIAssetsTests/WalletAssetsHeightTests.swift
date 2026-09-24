@@ -1,4 +1,5 @@
 import Dependencies
+import GRDB
 import XCTest
 import UIKit
 @testable import UIAssets
@@ -13,6 +14,71 @@ final class WalletAssetsHeightTests: XCTestCase {
     func testLoadedCollectionsKeepTheirHeight() async throws {
         for itemCount in 0...7 {
             try await checkLoadedCollection(itemCount: itemCount)
+        }
+    }
+
+    func testAccountReplacementReusesCollectiblesControllerWithNewContentAndHeight() async throws {
+        let db = try DatabaseQueue()
+        try makeMigrator().migrate(db)
+        let store = _AccountStore(db: db)
+        let accounts = [1, 7].map { count in
+            MAccount(id: "\(90000 + count)-mainnet", title: "Replacement fixture", type: .view,
+                     byChain: [.ton: .init(address: "replacement-fixture")])
+        }
+        try await db.write { db in
+            for account in accounts { try account.insert(db) }
+        }
+        defer {
+            for account in accounts { NftStore.walletCore(event: .accountDeleted(accountId: account.id)) }
+        }
+        for (account, count) in zip(accounts, [1, 7]) {
+            _ = try await store.accountForActivation(accountId: account.id)
+            let nfts = (0..<count).map { index in
+                var nft = ApiNft.sample
+                nft.address = "\(account.id)-\(index)"
+                nft.collectionAddress = nil
+                nft.thumbnail = nil
+                nft.image = nil
+                return nft
+            }
+            NftStore.walletCore(event: .updateNfts(.init(accountId: account.id, nfts: nfts, chain: .ton)))
+            for _ in 0..<100 where NftStore.getAccountNfts(accountId: account.id)?.count != count {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertEqual(NftStore.getAccountNfts(accountId: account.id)?.count, count)
+        }
+        try withDependencies {
+            $0.accountStore = store
+            $0[DomainsStore.self] = DomainsStore.liveValue
+        } operation: {
+            let controller = WalletAssetsVC(accountSource: .accountId(accounts[0].id))
+            controller.loadViewIfNeeded()
+            let view = try XCTUnwrap(controller.view as? WalletAssetsView)
+            view.frame = CGRect(x: 0, y: 0, width: 408, height: 600)
+            view.layoutIfNeeded()
+            let collectibles = try XCTUnwrap(controller.children.first as? NftsVC)
+            let initialHeight = controller.computedHeight()
+            XCTAssertEqual(collectibles.allShownNftsCount, 1)
+            let nftCollection = try XCTUnwrap(collectibles.view.subviews.compactMap { $0 as? UICollectionView }.first)
+            let layout = nftCollection.collectionViewLayout
+            let itemPath = IndexPath(item: 0, section: 0)
+            let initialItemWidth = try XCTUnwrap(layout.layoutAttributesForItem(at: itemPath)).size.width
+
+            controller.switchAccountTo(accounts[1].id)
+            view.layoutIfNeeded()
+            XCTAssertTrue(controller.children.first === collectibles)
+            XCTAssertEqual(collectibles.allShownNftsCount, 7)
+            XCTAssertEqual(collectibles.$account.source, .accountId(accounts[1].id))
+            XCTAssertGreaterThan(controller.computedHeight(), initialHeight)
+            XCTAssertTrue(nftCollection.collectionViewLayout === layout)
+            XCTAssertLessThan(try XCTUnwrap(layout.layoutAttributesForItem(at: itemPath)).size.width, initialItemWidth)
+
+            controller.switchAccountTo(accounts[0].id)
+            view.layoutIfNeeded()
+            XCTAssertTrue(controller.children.first === collectibles)
+            XCTAssertEqual(collectibles.allShownNftsCount, 1)
+            XCTAssertEqual(collectibles.$account.source, .accountId(accounts[0].id))
+            XCTAssertEqual(controller.computedHeight(), initialHeight, accuracy: 1)
         }
     }
 

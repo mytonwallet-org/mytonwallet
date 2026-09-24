@@ -78,6 +78,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String)
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?)
     static func showMarket()
+    static func showMintCard(accountContext: AccountContext)
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool)
     static func showNftByAddress(_ nftAddress: String)
     static func showPromotion(_ promotion: ApiPromotion)
@@ -96,7 +97,8 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool)
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String)
     static func showTokenBySlug(_ slug: String)
-    static func showUpgradeCard()
+    static func showUpgradeCard(accountContext: AccountContext)
+    static func preloadUpgradeCard()
     static func showWalletSettings()
     static func transitionToRootState(_ rootState: AppRootState, animationDuration: Double?)
 }
@@ -104,6 +106,12 @@ public enum AssetListInitialPosition: Hashable, Sendable {
 @MainActor public var AppActions: any AppActionsProtocol.Type = DummyAppActionProtocolImpl.self
 
 public extension AppActionsProtocol {
+    static func preloadUpgradeCard() { }
+
+    static func showUpgradeCard() {
+        Self.showUpgradeCard(accountContext: AccountContext(source: .current))
+    }
+
     static func openInBrowser(_ url: URL) {
         Self.openInBrowser(url, title: nil, injectDappConnect: true, historyTag: nil)
     }
@@ -209,6 +217,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String) { }
     static func showLinkDomain(accountSource: AccountSource, nftAddress: String, nft: ApiNft?) { }
     static func showMarket() { }
+    static func showMintCard(accountContext: AccountContext) { }
     static func showNft(accountContext: AccountContext, nft: ApiNft, isExpanded: Bool) { }
     static func showNftByAddress(_ nftAddress: String) { }
     static func showPromotion(_ promotion: ApiPromotion) { }
@@ -227,7 +236,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showToken(accountSource: AccountSource, token: ApiToken, isInModal: Bool) { }
     static func showTokenByAddress(chain: ApiChain, tokenAddress: String) { }
     static func showTokenBySlug(_ slug: String) { }
-    static func showUpgradeCard() { }
+    static func showUpgradeCard(accountContext: AccountContext) { }
     static func showWalletSettings() { }
     static func transitionToRootState(_ rootState: AppRootState, animationDuration: Double?) { }
 }

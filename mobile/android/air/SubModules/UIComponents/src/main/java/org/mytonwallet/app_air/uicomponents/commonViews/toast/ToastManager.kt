@@ -20,7 +20,8 @@ object ToastManager {
         val text: CharSequence,
         val actionTitle: CharSequence? = null,
         val duration: Duration = DURATION_DEFAULT,
-        val onAction: (() -> Unit)? = null
+        val onAction: (() -> Unit)? = null,
+        val isLarge: Boolean = false
     ) {
 
         companion object {
@@ -32,11 +33,13 @@ object ToastManager {
     private val toastsChannel = Channel<Toast>(Channel.RENDEZVOUS)
     val toastsFlow: Flow<Toast> = toastsChannel.receiveAsFlow()
 
-    fun show(toast: Toast) {
+    fun show(toast: Toast, onUndelivered: (() -> Unit)? = null) {
         scope.launch {
-            withTimeoutOrNull(5.seconds) {
+            val delivered = withTimeoutOrNull(if (onUndelivered == null) 5.seconds else 2.seconds) {
                 toastsChannel.send(toast)
-            }
+                true
+            } == true
+            if (!delivered) onUndelivered?.invoke()
         }
     }
 }

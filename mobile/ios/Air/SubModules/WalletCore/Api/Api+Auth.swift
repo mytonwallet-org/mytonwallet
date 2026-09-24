@@ -51,23 +51,20 @@ extension Api {
         try await bridge.callApiVoid("removeAccount", accountId, nextAccountId, newestActivityTimestamps)
     }
 
-    internal static func waitDataPreload() async throws {
-        try await bridge.callApiVoid("waitDataPreload")
-    }
-
     internal static func repairInvalidBip39TonAuthTokens() async throws {
         try await bridge.callApiVoid("repairInvalidBip39TonAuthTokens")
     }
 
-    internal static func getMultichainUpgradeCandidateIds() async throws -> [String] {
+    internal static func getMultichainUpgradeCandidateIds(accountIds: [String]) async throws -> [String] {
         try await bridge.callApi(
             "getMultichainUpgradeCandidateIds",
+            accountIds,
             decoding: [String].self
         )
     }
 
-    internal static func upgradeMultichainAccounts(enclaveToken: EnclaveToken) async throws {
-        try await bridge.callApiVoid("upgradeMultichainAccounts", enclaveToken)
+    internal static func upgradeMultichainAccounts(enclaveToken: EnclaveToken, accountIds: [String]) async throws {
+        try await bridge.callApiVoid("upgradeMultichainAccounts", enclaveToken, accountIds)
     }
 
     /// - Important: updates **keychain credentials**

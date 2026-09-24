@@ -143,7 +143,7 @@ function MintCardModal({
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: MintCardState) {
     switch (currentKey) {
       case MintCardState.Initial:
-        return (<CardRoster cardsInfo={cardsInfo!} />);
+        return (<CardRoster cardsInfo={cardsInfo} />);
 
       case MintCardState.Password:
         return renderPasswordForm(isActive);

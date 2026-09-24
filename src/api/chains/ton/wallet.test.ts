@@ -67,3 +67,15 @@ describe('W5 subwallet ID', () => {
     expect(buildWallet(PUBLIC_KEY, 'v4R2', true).address.equals(v4Address)).toBe(true);
   });
 });
+
+describe('wallets with no known version', () => {
+  it('refuses to build a contract instead of falling back to the default one', () => {
+    // An address whose contract the app cannot name reaches storage without a version, and building it as the
+    // default version would hand out the address, state init and version of a contract that is not deployed there.
+    expect(() => getTonWallet({
+      address: 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ',
+      publicKey: PUBLIC_KEY_HEX,
+      index: 0,
+    })).toThrow('Wallet version is missing');
+  });
+});

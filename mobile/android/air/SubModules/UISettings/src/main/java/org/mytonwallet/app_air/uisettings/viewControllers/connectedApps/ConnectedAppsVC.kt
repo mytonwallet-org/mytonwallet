@@ -127,8 +127,9 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
                     item.app.resolvedUrlTrustStatus
                 ) {
                     dialog.dismiss()
-                    connectedAppsViewModel.deleteConnectedApp(item.app)
-                    WalletCore.notifyEvent(WalletEvent.OpenUrl(dappUrl))
+                    connectedAppsViewModel.deleteConnectedApp(item.app) {
+                        WalletCore.notifyEvent(WalletEvent.OpenUrl(dappUrl))
+                    }
                 }
 
                 @Suppress("AssignedValueIsNeverRead")
@@ -163,6 +164,7 @@ class ConnectedAppsVC(context: Context) : WViewControllerWithModelStore(context)
         updateTheme()
 
         collectFlow(connectedAppsViewModel.uiItemsFlow, ::observeUiItems)
+        collectFlow(connectedAppsViewModel.errorFlow) { showError(it) }
     }
 
     private fun observeUiItems(list: List<BaseListItem>) {

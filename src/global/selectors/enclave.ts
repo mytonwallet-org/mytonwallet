@@ -15,5 +15,5 @@ export function selectEnclaveToken(global: GlobalState) {
  * other's requests.
  */
 export function selectAuthUsageCountRequest(global: GlobalState) {
-  return global.multichainUpgradeCount;
+  return global.multichainUpgradeAccountIds?.length;
 }

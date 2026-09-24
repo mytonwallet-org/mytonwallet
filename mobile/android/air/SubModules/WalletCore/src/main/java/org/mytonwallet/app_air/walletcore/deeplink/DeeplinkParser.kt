@@ -73,6 +73,7 @@ sealed class Deeplink {
     data class Stake(override val accountAddress: String?) : Deeplink()
     data class Portfolio(override val accountAddress: String?) : Deeplink()
     data class Market(override val accountAddress: String?) : Deeplink()
+    data class MintCard(override val accountAddress: String?) : Deeplink()
     data class Explore(override val accountAddress: String?, val targetUri: Uri?) : Deeplink()
 
     data class Agent(override val accountAddress: String?) : Deeplink()
@@ -244,6 +245,13 @@ class DeeplinkParser {
                 fields.containsAll(setOf("topic", "wc_ev")) ||
                 fields.containsAll(setOf("topic", "message"))
 
+        internal fun mintCardDeeplink(command: String?): Deeplink.MintCard? =
+            if (command == "nft-card" || command == "mint") {
+                Deeplink.MintCard(accountAddress = null)
+            } else {
+                null
+            }
+
         private fun walletConnectRequestLink(uri: Uri): String? {
             val encodedQuery = uri.encodedQuery
             val encodedValue = encodedQuery?.let { extractUriValue(it) }
@@ -351,6 +359,7 @@ class DeeplinkParser {
             Deeplink.WalletConnectPay(accountAddress = null, requestUri = uri)
 
         private fun handleMTW(uri: Uri): Deeplink? {
+            mintCardDeeplink(uri.host)?.let { return it }
             return when (uri.host) {
                 "swap", "buy-with-crypto" -> {
                     var from: String? = null

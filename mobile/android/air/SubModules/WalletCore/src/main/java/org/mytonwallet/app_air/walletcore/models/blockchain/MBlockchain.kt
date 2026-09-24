@@ -84,19 +84,19 @@ enum class MBlockchain(
         isSupported = true
     ),
 
-    robinhood(
-        R.drawable.ic_blockchain_robinhood_128,
-        "robinhood",
-        "Robinhood",
-        RobinhoodConfig,
-        isSupported = true
-    ),
-
     arc(
         R.drawable.ic_blockchain_arc_128,
         "arc",
         "Arc",
         ArcConfig,
+        isSupported = true
+    ),
+
+    robinhood(
+        R.drawable.ic_blockchain_robinhood_128,
+        "robinhood",
+        "Robinhood",
+        RobinhoodConfig,
         isSupported = true
     ),
 
@@ -228,7 +228,7 @@ enum class MBlockchain(
         const val VIEW_ACCOUNT_EVM_PARAM = "evm"
 
         private val GRAM_CHAIN_ORDER = listOf(
-            ton, bitcoin, ethereum, solana, hyperliquid, tron, bnb, base, robinhood, arc,
+            ton, bitcoin, ethereum, solana, hyperliquid, tron, bnb, base, arc, robinhood,
             monad, arbitrum, polygon, avalanche, dogecoin, litecoin, bitcoincash
         )
 

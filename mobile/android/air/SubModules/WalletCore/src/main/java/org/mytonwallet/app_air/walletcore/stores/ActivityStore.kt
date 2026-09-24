@@ -250,6 +250,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
     // In-memory caches ////////////////////////////////////////////////////////////////////////////
     // All activity state indexed by accountId
     private var accountStates = ConcurrentHashMap<String, AccountActivityState>()
+    private var pendingCardMints = PendingCardMints()
 
     private fun getOrCreateAccountState(accountId: String): AccountActivityState =
         accountStates.getOrPut(accountId) {
@@ -352,13 +353,28 @@ object ActivityStore : IStore, WalletCore.EventObserver {
     }
 
     override fun clearCache() {
-        backgroundQueue.execute { cancelCexSwapRefreshTick() }
+        backgroundQueue.execute {
+            cancelCexSwapRefreshTick()
+            pendingCardMints = PendingCardMints()
+        }
         accountStates = ConcurrentHashMap()
     }
 
     fun removeAccount(removingAccountId: String) {
         backgroundQueue.execute {
             accountStates.remove(removingAccountId)
+            pendingCardMints.remove(removingAccountId)
+        }
+    }
+
+    fun markCardMintSubmitted(accountId: String, startedAt: Long) {
+        backgroundQueue.execute {
+            if (WGlobalStorage.getAccount(accountId) == null) return@execute
+            pendingCardMints.recordSubmission(accountId, startedAt)
+            applyMintedCards(
+                accountId,
+                accountStates[accountId]?.cachedTransactions?.values.orEmpty()
+            )
         }
     }
 
@@ -708,6 +724,10 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             for (activity in allActivities) {
                 updateCachedTransaction(accountId, activity)
             }
+            applyMintedCards(
+                accountId,
+                allActivities.filter { it.shouldHide != true }
+            )
 
             // Merge idsMain with cutoff (activities older than cutoff are filtered out)
             val newMainIds = mainActivities.map { it.id }
@@ -1059,6 +1079,9 @@ object ActivityStore : IStore, WalletCore.EventObserver {
 
             // Auto-install MTW card and unhide a bought NFT from an activity that carries an NFT.
             if (eventType == WalletEvent.ReceivedNewActivities.EventType.UPDATE) {
+                val mintCandidates = sdkPatch?.takeIf { it.accountId == accountId }?.upsert
+                    ?: pendingAndNewActivities
+                applyMintedCards(accountId, mintCandidates.filter { it.shouldHide != true })
                 applyNftsFromActivities(accountId, filteredActivities)
             }
 
@@ -1128,6 +1151,21 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             // First time - create new cache
             val newCache = HashMap(filteredActivities.associateBy { it.id })
             setCachedTransactions(accountId, newCache)
+        }
+    }
+
+    private fun applyMintedCards(accountId: String, activities: Collection<MApiTransaction>) {
+        when (val result = pendingCardMints.consume(accountId, activities)) {
+            is PendingCardMints.Resolution.Minted -> ensureMainThread {
+                NftStore.applyMintedMtwCard(accountId, result.nft)
+                NftStore.setCardMinting(accountId, false)
+            }
+
+            PendingCardMints.Resolution.Refunded -> ensureMainThread {
+                NftStore.setCardMinting(accountId, false)
+            }
+
+            null -> Unit
         }
     }
 

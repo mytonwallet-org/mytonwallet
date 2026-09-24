@@ -155,6 +155,8 @@ struct ClaimRewardsConfirmContent: View {
                         viewModel.onClaim()
                     }
                     .buttonStyle(WUIButtonStyle(style: .primary))
+                    .environment(\.isLoading, viewModel.isSubmitting)
+                    .disabled(viewModel.isSubmitting)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)

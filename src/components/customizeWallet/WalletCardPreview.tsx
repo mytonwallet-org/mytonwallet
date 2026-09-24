@@ -5,6 +5,7 @@ import React, {
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
 import type { Account, UserToken } from '../../global/types';
 
+import { IS_GRAM_WALLET } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
@@ -18,6 +19,7 @@ import useFontScalePreview from './hooks/useFontScalePreview';
 import CardAddress from '../main/sections/Card/CardAddress';
 import CustomCardManager from '../main/sections/Card/CustomCardManager';
 import AnimatedCounter from '../ui/AnimatedCounter';
+import DefaultCardBackground from '../ui/DefaultCardBackground';
 
 import styles from './WalletCardPreview.module.scss';
 
@@ -27,6 +29,7 @@ interface OwnProps {
   baseCurrency?: ApiBaseCurrency;
   currencyRates?: ApiCurrencyRates;
   previewCardNft?: ApiNft;
+  isAnimationDisabled?: boolean;
   variant: 'left' | 'right' | 'middle';
 }
 
@@ -36,6 +39,7 @@ function WalletCardPreview({
   baseCurrency = 'USD',
   currencyRates,
   previewCardNft,
+  isAnimationDisabled,
   variant,
 }: OwnProps) {
   const amountRef = useRef<HTMLDivElement>();
@@ -95,7 +99,15 @@ function WalletCardPreview({
 
   return (
     <div className={buildClassName(styles.container, customCardClassName, styles[variant])}>
-      <CustomCardManager nft={previewCardNft} onCardChange={handleCardChange} className={styles.customCardManager} />
+      {!previewCardNft && (
+        <DefaultCardBackground isGram={IS_GRAM_WALLET} isAnimationDisabled={isAnimationDisabled} />
+      )}
+      <CustomCardManager
+        withMotion={!isAnimationDisabled}
+        nft={previewCardNft}
+        onCardChange={handleCardChange}
+        className={styles.customCardManager}
+      />
 
       <div className={buildClassName(styles.containerInner, customCardClassName)}>
         {values ? renderBalance() : (

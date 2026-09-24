@@ -5,6 +5,7 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
     private weak var touchedView: UIView?
     private let isPagingEnabled: () -> Bool
     private let forwardOnly: Bool
+    private var startedAtForwardEdge = false
     private var forwardTransition: WInteractivePushTransition?
 
     init(
@@ -22,9 +23,12 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        startedAtForwardEdge = forwardOnly && view.map { view in
+            controller?.isForwardNavigationEdge(touch.location(in: view), in: view.bounds) == true
+        } == true
         if forwardOnly {
             guard let scrollView = controller?.scrollView,
-                  touch.view?.isDescendant(of: scrollView) == true else { return false }
+                  startedAtForwardEdge || touch.view?.isDescendant(of: scrollView) == true else { return false }
         }
         touchedView = touch.view
         var candidate = touch.view
@@ -48,7 +52,7 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
               isPagingEnabled() else { return false }
         let velocity = velocity(in: view)
         return abs(velocity.x) > abs(velocity.y)
-            && (!forwardOnly || controller.canBeginForwardNavigation(velocity: velocity.x))
+            && (!forwardOnly || controller.canBeginForwardNavigation(velocity: velocity.x, fromEdge: startedAtForwardEdge))
     }
 
     func gestureRecognizer(
@@ -58,6 +62,9 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
         guard let view, let otherView = otherGestureRecognizer.view,
               otherView.isDescendant(of: view),
               touchedView?.isDescendant(of: otherView) == true else { return false }
+        if startedAtForwardEdge, otherGestureRecognizer is UIPanGestureRecognizer {
+            return false
+        }
         if forwardOnly, let scrollView = otherView as? UIScrollView,
            otherGestureRecognizer === scrollView.panGestureRecognizer {
             if scrollView === controller?.scrollView { return false }
@@ -71,9 +78,20 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
             || otherGestureRecognizer is UISwipeGestureRecognizer
     }
 
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        guard startedAtForwardEdge, let view, let otherView = otherGestureRecognizer.view else { return false }
+        return otherGestureRecognizer is UIPanGestureRecognizer && otherView.isDescendant(of: view)
+    }
+
     @objc private func handlePan() {
         if state == .began {
-            forwardTransition = controller?.beginForwardNavigation(velocity: velocity(in: view))
+            forwardTransition = controller?.beginForwardNavigation(
+                velocity: velocity(in: view),
+                fromEdge: startedAtForwardEdge
+            )
         }
         if let forwardTransition {
             // The root-only paging gate closes as soon as the navigation push starts.

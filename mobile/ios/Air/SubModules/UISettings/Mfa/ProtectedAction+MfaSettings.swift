@@ -22,6 +22,7 @@ extension ProtectedAction where HeaderView == MfaConfirmHeaderView, Result == Ap
                 title: title,
                 header: MfaConfirmHeaderView(account: account, title: title, user: user),
                 biometricPolicy: biometricPolicy,
+                requiresFreshAuthentication: true,
                 prefersNavigationTitleWithCustomHeader: false
             )
         )

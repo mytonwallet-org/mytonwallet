@@ -50,6 +50,11 @@ export async function signTonTransactionsWithLedger(
   isTonConnect?: boolean,
   maxRetries = ATTEMPTS,
 ): Promise<Cell[] | { error: ApiHardwareError }> {
+  const { version } = wallet;
+  if (!version) {
+    throw new Error('Wallet version is missing');
+  }
+
   const accountPath = getLedgerAccountPathByWallet(network, wallet);
   let ledgerTransactions: LedgerTransactionParams[];
 
@@ -66,7 +71,7 @@ export async function signTonTransactionsWithLedger(
     ledgerTransactions = await Promise.all(tonTransactions.map((tonTransaction) => (
       tonTransactionToLedgerTransaction(
         network,
-        wallet.version,
+        version,
         tonTransaction,
         deviceModel?.id,
         ledgerTonVersion,

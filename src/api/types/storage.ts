@@ -23,7 +23,8 @@ export type ApiMfa = {
 };
 
 export type ApiTonWallet = ApiBaseWallet & {
-  version: ApiTonWalletVersion;
+  /** Missing when the address holds a contract this app cannot name, which is possible for a view wallet */
+  version?: ApiTonWalletVersion;
   isInitialized?: boolean;
   authToken?: string;
   mfa?: ApiMfa;

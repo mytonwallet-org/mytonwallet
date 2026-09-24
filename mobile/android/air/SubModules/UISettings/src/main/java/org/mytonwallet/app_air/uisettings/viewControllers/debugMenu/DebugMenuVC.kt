@@ -8,9 +8,14 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.facebook.drawee.backends.pipeline.Fresco
 import java.lang.ref.WeakReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WViewController
+import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.KeyValueRowView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.SwitchCell
@@ -24,6 +29,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundStyle
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uisettings.viewControllers.logs.LogsVC
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVideoCache
 import org.mytonwallet.app_air.uisettings.viewControllers.permissions.PermissionsVC
 import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -33,16 +39,20 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
+import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.helpers.LaunchConfig
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugConfig
-import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugSource
+import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
+import org.mytonwallet.app_air.walletcore.stores.PortfolioStore
+import org.mytonwallet.app_air.walletcore.stores.StakingStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 class DebugMenuVC(context: Context) : WViewController(context) {
     @Suppress("PropertyName")
@@ -51,6 +61,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
     override val shouldDisplayBottomBar = true
 
     private val isDebugSectionVisible = DEBUG_MODE || EnvironmentStore.isBeta
+    private var isClearingCache = false
 
     // Section 1: Logs
     private val logsTitleLabel = HeaderCell(context).apply {
@@ -132,6 +143,27 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         }
     }
 
+    private val clearCacheRow = KeyValueRowView(
+        context,
+        "Clear Cache",
+        "",
+        KeyValueRowView.Mode.PRIMARY,
+        isLast = false
+    ).apply {
+        setOnClickListener {
+            if (isClearingCache) return@setOnClickListener
+            showAlert(
+                "Clear Cache?",
+                "Cached images, videos, activities, token data and NFTs will be removed. " +
+                    "The current wallet will reload its data.",
+                button = "Clear Cache",
+                buttonPressed = { clearCache() },
+                secondaryButton = LocaleController.getString("Cancel"),
+                primaryIsDanger = true
+            )
+        }
+    }
+
     private val shakeToDebugRow = SwitchCell(
         context,
         "Shake to open Debug Menu",
@@ -206,6 +238,19 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         null
     }
 
+    private val soldOutMintCardRow: SwitchCell? = if (isDebugSectionVisible) {
+        SwitchCell(
+            context,
+            "Allow Sold-Out Mint Card Upgrades",
+            WGlobalStorage.getAllowSoldOutMintCardUpgrade(),
+            isLast = false
+        ) { checked ->
+            WGlobalStorage.setAllowSoldOutMintCardUpgrade(checked)
+        }
+    } else {
+        null
+    }
+
     private val seasonalThemeDropdown: WEditableItemView? = if (isDebugSectionVisible) {
         WEditableItemView(context).apply {
             id = generateViewId()
@@ -224,37 +269,10 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             "Seasonal Theme",
             "",
             KeyValueRowView.Mode.PRIMARY,
-            isLast = false
+            isLast = true
         ).apply {
             seasonalThemeDropdown?.let { setValueView(it) }
             setOnClickListener { presentSeasonalThemeOverrideMenu() }
-        }
-    } else {
-        null
-    }
-
-    private val tokenInfoSourceDropdown: WEditableItemView? = if (isDebugSectionVisible) {
-        WEditableItemView(context).apply {
-            id = generateViewId()
-            drawable = context.getDrawableCompat(
-                org.mytonwallet.app_air.icons.R.drawable.ic_arrows_18
-            )
-            setText(TokenInfoDebugConfig.source.displayName)
-        }
-    } else {
-        null
-    }
-
-    private val tokenInfoSourceRow: KeyValueRowView? = if (isDebugSectionVisible) {
-        KeyValueRowView(
-            context,
-            "Token Info Source",
-            "",
-            KeyValueRowView.Mode.PRIMARY,
-            isLast = true
-        ).apply {
-            tokenInfoSourceDropdown?.let { setValueView(it) }
-            setOnClickListener { presentTokenInfoSourceMenu() }
         }
     } else {
         null
@@ -264,11 +282,11 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         val spacer4 = spacer4
         val debugTitleLabel = debugTitleLabel
         val experimentalFeaturesRow = experimentalFeaturesRow
+        val soldOutMintCardRow = soldOutMintCardRow
         val seasonalThemeRow = seasonalThemeRow
-        val tokenInfoSourceRow = tokenInfoSourceRow
         val showDebugSection = spacer4 != null && debugTitleLabel != null &&
-            experimentalFeaturesRow != null && seasonalThemeRow != null &&
-            tokenInfoSourceRow != null
+            experimentalFeaturesRow != null && soldOutMintCardRow != null &&
+            seasonalThemeRow != null
         WView(context).apply {
             // Section 1: Logs
             addView(logsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -282,6 +300,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             // Section 3: Settings
             addView(settingsTitleLabel, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             addView(permissionsRow)
+            addView(clearCacheRow)
             addView(shakeToDebugRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             addView(spacer3, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
             // Section 4: Info
@@ -298,8 +317,8 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                     experimentalFeaturesRow,
                     ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp)
                 )
+                addView(soldOutMintCardRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
                 addView(seasonalThemeRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
-                addView(tokenInfoSourceRow, ConstraintLayout.LayoutParams(MATCH_PARENT, 50.dp))
             }
             setConstraints {
                 // Logs
@@ -318,7 +337,9 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 topToBottom(settingsTitleLabel, spacer2)
                 topToBottom(permissionsRow, settingsTitleLabel)
                 toCenterX(permissionsRow)
-                topToBottom(shakeToDebugRow, permissionsRow)
+                topToBottom(clearCacheRow, permissionsRow)
+                toCenterX(clearCacheRow)
+                topToBottom(shakeToDebugRow, clearCacheRow)
                 toCenterX(shakeToDebugRow)
                 topToBottom(spacer3, shakeToDebugRow)
                 // Info
@@ -333,9 +354,10 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                     topToBottom(debugTitleLabel, spacer4)
                     topToBottom(experimentalFeaturesRow, debugTitleLabel)
                     toCenterX(experimentalFeaturesRow)
-                    topToBottom(seasonalThemeRow, experimentalFeaturesRow)
-                    topToBottom(tokenInfoSourceRow, seasonalThemeRow)
-                    toBottomPx(tokenInfoSourceRow, navigationController?.bottomInset ?: 0)
+                    topToBottom(soldOutMintCardRow, experimentalFeaturesRow)
+                    toCenterX(soldOutMintCardRow)
+                    topToBottom(seasonalThemeRow, soldOutMintCardRow)
+                    toBottomPx(seasonalThemeRow, navigationController?.bottomInset ?: 0)
                 } else {
                     toBottomPx(
                         performanceClassRow,
@@ -401,6 +423,7 @@ class DebugMenuVC(context: Context) : WViewController(context) {
         )
         shakeToDebugRow.setBackgroundColor(WColor.Background.color)
         permissionsRow.setBackgroundColor(WColor.Background.color)
+        clearCacheRow.setBackgroundColor(WColor.Background.color)
         infoTitleLabel.setBackgroundColor(
             WColor.Background.color,
             ViewConstants.BLOCK_RADIUS.dp,
@@ -417,8 +440,8 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                 0f
             )
             experimentalFeaturesRow?.setBackgroundColor(WColor.Background.color)
+            soldOutMintCardRow?.setBackgroundColor(WColor.Background.color)
             seasonalThemeRow?.setBackgroundColor(WColor.Background.color)
-            tokenInfoSourceRow?.setBackgroundColor(WColor.Background.color)
         }
     }
 
@@ -430,6 +453,38 @@ class DebugMenuVC(context: Context) : WViewController(context) {
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
             0
         )
+    }
+
+    private fun clearCache() {
+        if (isClearingCache) return
+        isClearingCache = true
+        clearCacheRow.isLoading = true
+        WalletCore.scope.launch {
+            val result = runCatching {
+                check(WCacheStorage.clearDownloadedData())
+                check(MintCardVideoCache.clear(context))
+                WGlobalStorage.clearDownloadedData()
+                Fresco.getImagePipeline().clearCaches()
+            }
+            withContext(Dispatchers.Main) {
+                clearCacheRow.isLoading = false
+                isClearingCache = false
+                result.exceptionOrNull()?.let {
+                    Logger.e(Logger.LogTag.AIR_APPLICATION, "Clear Cache failed: $it")
+                    showAlert(
+                        "Unable to Clear Cache",
+                        "Some cached data could not be cleared. Please try again."
+                    )
+                } ?: run {
+                    ActivityStore.clearCache()
+                    TokenStore.clearDownloadedData()
+                    NftStore.clearDownloadedData()
+                    PortfolioStore.clearCache()
+                    StakingStore.clearCache()
+                    WalletContextManager.delegate?.get()?.restartApp()
+                }
+            }
+        }
     }
 
     private fun presentSeasonalThemeOverrideMenu() {
@@ -465,32 +520,6 @@ class DebugMenuVC(context: Context) : WViewController(context) {
                     dropdown.setText("Valentine")
                 }
             ),
-            popupWidth = WRAP_CONTENT,
-            positioning = WMenuPopup.Positioning.BELOW,
-            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
-                dropdown,
-                roundRadius = 40f.dp
-            )
-        )
-    }
-
-    private fun presentTokenInfoSourceMenu() {
-        val dropdown = tokenInfoSourceDropdown ?: return
-        val currentSource = TokenInfoDebugConfig.source
-        WMenuPopup.present(
-            dropdown,
-            TokenInfoDebugSource.entries.map { source ->
-                WMenuPopup.Item(
-                    WMenuPopup.Item.Config.SelectableItem(
-                        source.displayName,
-                        null,
-                        source == currentSource
-                    )
-                ) {
-                    TokenInfoDebugConfig.setSource(source)
-                    dropdown.setText(source.displayName)
-                }
-            },
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.BELOW,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(

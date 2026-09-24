@@ -550,6 +550,7 @@ $max_balance: "Максимум: %balance%"
 $available_balance: "Доступно: %balance%"
 $send_recipient_invalid: Некоректна
 $send_recipient_not_compatible: Несумісна
+$send_recipient_self_transfer: Не можна надіслати собі
 $unstake_information_instantly: Ви отримаєте свій депозит миттєво
 Select Token: Вибрати токен
 $token_picker_hidden: Приховані
@@ -947,6 +948,12 @@ Upgrade for %amount% %currency%: Оновлення за %amount% %currency%
 "%amount% left": Залишилося %amount%
 "%amount% sold": Продано %amount%
 This card has been sold out: Ця картка розпродана
+"Mint starts in %time%": "Мінт почнеться через %time%"
+"%amount% unique cards total":
+  oneValue: "Усього %amount% унікальна картка"
+  fewValue: "Усього %amount% унікальні картки"
+  manyValue: "Усього %amount% унікальних карток"
+  otherValue: "Усього %amount% унікальної картки"
 Import Existing Wallet: Імпорт існуючого гаманця
 View Any Address: Перегляд адреси
 View Mode: Режим перегляду
@@ -960,6 +967,9 @@ Remember Passcode: Запам'ятовувати код
 Remember Password: Запам'ятовувати пароль
 Not available with biometrics.: Недоступно при використанні біометрії.
 App will not ask for signature for %minutes% minutes after last entry.: Додаток не запитуватиме підпис протягом %minutes% хвилин після останнього введення.
+Auto-Exit: Автовихід
+Log out of all wallets after failed attempts.: Вийти з усіх гаманців після невдалих спроб.
+"%count% attempts": "%count% спроб"
 Remember for %minutes% minutes: Запам’ятати на %minutes% хвилин
 Preview: Передпрогляд
 $preview_not_guaranteed: Передпроглядання **не гарантує** результату та **може бути підроблено** сервісом.
@@ -1821,9 +1831,10 @@ Standalone: Окремий
 All Telegram Gifts: Усі подарунки Telegram
 Add Crypto: Додати криптовалюту
 Share QR Code: Поділитися QR-кодом
-$send_only_ton: Надсилайте на цю адресу лише Gram (GRAM) або активи мережі TON. Надсилання інших токенів призведе до їх втрати.
-$send_only_chain: Надсилайте на цю адресу лише %chain% (%symbol%) або активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
-$send_only_chain_no_tokens: Надсилайте на цю адресу лише %chain% (%symbol%). Надсилання інших токенів призведе до їх втрати.
+$send_only_ton: Надсилайте на цю адресу лише GRAM або активи мережі TON. Надсилання інших токенів призведе до їх втрати.
+$send_only_chain: Надсилайте на цю адресу лише %symbol% або активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
+$send_only_token_chain: Надсилайте на цю адресу лише %tokenSymbol% або інші активи мережі %chain%. Надсилання інших токенів призведе до їх втрати.
+$send_only_chain_no_tokens: Надсилайте на цю адресу лише %symbol%. Надсилання інших токенів призведе до їх втрати.
 Buying with card is not supported for this account.: Придбання карткою не підтримується для цього облікового запису.
 Swapped at: Обмін виконано о
 Price per: Ціна за
@@ -2318,7 +2329,6 @@ Tokenized Gold: Токенізоване золото
 Index Funds: Індексні фонди
 Search token or stock: Пошук токена або акції
 "Activity Failed to Load": "Не вдалося завантажити активність"
-"$agent_source_bea_attribution": "Цей продукт використовує API даних Бюро економічного аналізу (BEA), але не схвалений і не сертифікований BEA."
 "Address was copied!": "Адресу скопійовано!"
 "Allow App Lock": "Дозволити блокування застосунку"
 "An error occurred": "Сталася помилка"
@@ -2348,3 +2358,7 @@ Search token or stock: Пошук токена або акції
 
 Unknown Transfer: Невідомий переказ
 $dapp_sign_data_for_prefix: для
+Successfully Sent: Успішно відправлено
+Successfully Signed: Успішно підписано
+3D Card: 3D картка
+Coming soon: Незабаром

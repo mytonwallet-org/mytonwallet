@@ -86,6 +86,8 @@ final class NftSendComposeViewController:
         let title: String
         if state.canRetryDraft {
             title = lang("Retry")
+        } else if model.recipientValidationState == .sendToSelf {
+            title = lang("$send_recipient_self_transfer")
         } else if !state.isDraftLoading,
            state.isDraftRejected,
            !model.addressOrDomain.isEmpty {

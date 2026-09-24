@@ -11,6 +11,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -25,7 +26,10 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsAccountCell
@@ -236,10 +240,12 @@ class TonConnectRequestConnectVC(
                 connectConfirm(
                     update.promiseId,
                     enclaveToken = ""
-                ) { success ->
+                ) { error ->
                     buttonView.isLoading = false
-                    if (success) {
+                    if (error == null) {
                         window?.dismissLastNav()
+                    } else {
+                        showError(error)
                     }
                 }
                 return@setOnClickListener
@@ -354,8 +360,30 @@ class TonConnectRequestConnectVC(
     private fun confirmPasscode() {
         val update = update ?: return
         val window = window ?: return
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                view.lockView()
+                buttonView.isLoading = true
+                connectConfirm(update.promiseId, token) { error ->
+                    buttonView.isLoading = false
+                    view.unlockView()
+                    if (error == null) {
+                        window.dismissLastNav()
+                    } else {
+                        showError(error)
+                    }
+                }
+            },
+            onPasscodeRequired = { showPasscodeConfirm() }
+        )
+    }
+
+    private fun showPasscodeConfirm() {
+        val update = update ?: return
+        val window = window ?: return
         lateinit var navVC: WNavigationController
-        val passcodeVC = PasscodeConfirmVC(
+        lateinit var passcodeVC: PasscodeConfirmVC
+        passcodeVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.CustomHeader(
                 ConnectRequestConfirmView(context).apply { configure(update.dapp) },
@@ -365,8 +393,12 @@ class TonConnectRequestConnectVC(
                 connectConfirm(
                     update.promiseId,
                     enclaveToken,
-                    { success ->
-                        if (!success) return@connectConfirm
+                    { error ->
+                        if (error != null) {
+                            passcodeVC.restartAuth()
+                            passcodeVC.showError(error)
+                            return@connectConfirm
+                        }
                         window.dismissLastNav {
                             window.dismissLastNav()
                         }
@@ -386,7 +418,7 @@ class TonConnectRequestConnectVC(
     private fun connectConfirm(
         promiseId: String,
         enclaveToken: String,
-        onCompletion: (success: Boolean) -> Unit
+        onCompletion: (error: MBridgeError?) -> Unit
     ) {
         val update = update ?: return
         val window = window ?: return
@@ -417,12 +449,18 @@ class TonConnectRequestConnectVC(
                             )
                         )
                     )
-                    onCompletion(true)
+                    onCompletion(null)
                     returnToDappIfNeeded(promiseId)
                 } catch (err: JSWebViewBridge.ApiError) {
                     Logger.e(Logger.LogTag.TON_CONNECT, "submitConnect: $err")
                     isConfirmed = false
-                    onCompletion(false)
+                    onCompletion(err.parsed)
+                } catch (err: CancellationException) {
+                    throw err
+                } catch (err: Exception) {
+                    Logger.e(Logger.LogTag.TON_CONNECT, "submitConnect: $err")
+                    isConfirmed = false
+                    onCompletion(MBridgeError.Type.UNEXPECTED_ERROR)
                 }
             }
         }
@@ -434,10 +472,10 @@ class TonConnectRequestConnectVC(
             WalletCore.activateAccount(
                 accountId = update.accountId,
                 notifySDK = true
-            ) { activatedAccount, _ ->
+            ) { activatedAccount, activationError ->
                 val activatedAccount = activatedAccount ?: run {
                     isConfirmed = false
-                    onCompletion(false)
+                    onCompletion(activationError ?: MBridgeError.Type.UNEXPECTED_ERROR)
                     return@activateAccount
                 }
                 callback(activatedAccount)
@@ -446,12 +484,19 @@ class TonConnectRequestConnectVC(
     }
 
     private fun createMultichainWallet(update: ApiUpdate.ApiUpdateDappConnect) {
-        val window = window ?: return
         if (!WGlobalStorage.isPasscodeSet()) {
             // Express creation needs an existing passcode; fall back to the full add-wallet flow.
             cancelAndOpenAddWallet(update)
             return
         }
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token -> createWalletAndResume(null, update, token) },
+            onPasscodeRequired = { showPasscodeCreateMultichainWallet(update) }
+        )
+    }
+
+    private fun showPasscodeCreateMultichainWallet(update: ApiUpdate.ApiUpdateDappConnect) {
+        val window = window ?: return
         lateinit var passcodeConfirmVC: PasscodeConfirmVC
         passcodeConfirmVC = PasscodeConfirmVC(
             context,
@@ -480,20 +525,38 @@ class TonConnectRequestConnectVC(
     }
     private var creationPasscodeConfirmVC: PasscodeConfirmVC? = null
     private var creationDappUpdate: ApiUpdate.ApiUpdateDappConnect? = null
+    private var isAutoConfirmCreatingWallet = false
+
+    private fun stopAutoConfirmCreatingWallet() {
+        if (!isAutoConfirmCreatingWallet) return
+        isAutoConfirmCreatingWallet = false
+        buttonView.isLoading = false
+        view.unlockView()
+    }
 
     private fun createWalletAndResume(
-        passcodeConfirmVC: PasscodeConfirmVC,
+        passcodeConfirmVC: PasscodeConfirmVC?,
         update: ApiUpdate.ApiUpdateDappConnect,
         enclaveToken: String
     ) {
-        passcodeConfirmVC.view.lockView()
+        if (passcodeConfirmVC != null) {
+            passcodeConfirmVC.view.lockView()
+        } else {
+            isAutoConfirmCreatingWallet = true
+            buttonView.isLoading = true
+            view.lockView()
+        }
         creationPasscodeConfirmVC = passcodeConfirmVC
         creationDappUpdate = update
         WalletCore.call(ApiMethod.Auth.GenerateMnemonic(), callback = { words, err ->
             val window = window
             if (words == null || window == null) {
-                passcodeConfirmVC.restartAuth()
-                passcodeConfirmVC.showError(err?.parsed)
+                if (passcodeConfirmVC != null) {
+                    passcodeConfirmVC.restartAuth()
+                    passcodeConfirmVC.showError(err?.parsed)
+                } else {
+                    showError(err?.parsed)
+                }
                 return@call
             }
             walletCreationVM.finalizeAccount(
@@ -513,11 +576,14 @@ class TonConnectRequestConnectVC(
             passcodeConfirmVC.showError(error)
             return
         }
+        stopAutoConfirmCreatingWallet()
         super.showError(error)
     }
 
     override fun finalizedCreation(createdAccount: MAccount, importedAccountsCount: Int) {
+        val hadPasscodeScreen = creationPasscodeConfirmVC != null
         creationPasscodeConfirmVC = null
+        stopAutoConfirmCreatingWallet()
         WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
         // Keep the connect request pending and resume it with the new wallet.
         creationDappUpdate?.let { pendingUpdate ->
@@ -529,7 +595,7 @@ class TonConnectRequestConnectVC(
             )
         }
         creationDappUpdate = null
-        window?.dismissLastNav()
+        if (hadPasscodeScreen) window?.dismissLastNav()
     }
 
     private fun cancelAndOpenAddWallet(update: ApiUpdate.ApiUpdateDappConnect) {

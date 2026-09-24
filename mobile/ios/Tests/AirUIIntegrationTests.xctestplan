@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "id": "C25CC021-978C-43D8-93A0-A9C5B8F7E80F",
+      "name": "Configuration 1",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../Air",
+        "identifier": "UIComponentsIntegrationTests",
+        "name": "UIComponentsIntegrationTests"
+      }
+    }
+  ],
+  "version": 1
+}

@@ -11,6 +11,22 @@ import GRDB
 
 @MainActor
 public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
+
+    public struct PreparedTabs: Sendable {
+        public let accountId: String
+        fileprivate let snapshot: AssetTabsSnapshot?
+    }
+
+    public static func prepareTabs(accountId: String) async -> PreparedTabs {
+        await prepareTabs(accountId: accountId, database: WalletCore.db)
+    }
+
+    static func prepareTabs(accountId: String, database: (any DatabaseReader)?) async -> PreparedTabs {
+        let snapshot = try? await database?.read { db in
+            try AssetTabsSnapshot.fetchOne(db, key: accountId)
+        }
+        return PreparedTabs(accountId: accountId, snapshot: snapshot)
+    }
         
     public private(set) var displayTabs: [DisplayAssetTab] = []
     
@@ -67,6 +83,13 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         setupTabsObservation()
     }
 
+    func switchAccountTo(_ accountId: String, preparedTabs: PreparedTabs? = nil) {
+        guard accountId != observedAccountId else { return }
+        observedAccountId = accountId
+        accountIdProvider.accountId = accountId
+        setupTabsObservation(preparedTabs: preparedTabs)
+    }
+
     deinit {
         observation?.cancel()
     }
@@ -120,25 +143,27 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
         }
     }
 
-    private func setupTabsObservation() {
+    private func setupTabsObservation(preparedTabs: PreparedTabs? = nil) {
         let accountId = self.accountId
-        if let db = self.db {
-            let snapshot = try? db.read { db in
+        observation?.cancel()
+        observation = nil
+        if let preparedTabs, preparedTabs.accountId == accountId {
+            loadTabsFromDB(preparedTabs.snapshot)
+        } else {
+            let snapshot = try? db?.read { db in
                 try AssetTabsSnapshot.fetchOne(db, key: accountId)
             }
             loadTabsFromDB(snapshot)
-
-            observation?.cancel()
-            
+        }
+        if let db = self.db {
             let o = ValueObservation.tracking { db in
                 try AssetTabsSnapshot.fetchOne(db, key: accountId)
             }
-            
-            observation?.cancel()
             observation = Task { [weak self] in
                 do {
                     for try await snapshot in o.values(in: db) {
-                        guard let viewModel = self else { return }
+                        guard !Task.isCancelled, let viewModel = self,
+                              viewModel.accountId == accountId else { return }
                         viewModel.loadTabsFromDB(snapshot)
                     }
                 } catch {
@@ -282,7 +307,7 @@ public final class WalletAssetsViewModel: WalletCoreData.EventsObserver {
     }
 }
 
-private struct AssetTabsSnapshot: Codable, PersistableRecord, FetchableRecord {
+fileprivate struct AssetTabsSnapshot: Codable, PersistableRecord, FetchableRecord, Sendable {
     var account_id: String
     var tabs: [WalletAssetsTab]?
     var auto_telegram_gifts_hidden: Bool?
@@ -290,7 +315,7 @@ private struct AssetTabsSnapshot: Codable, PersistableRecord, FetchableRecord {
     static let databaseTableName = "asset_tabs"
 }
 
-private enum WalletAssetsTab: Codable, Hashable {
+fileprivate enum WalletAssetsTab: Codable, Hashable, Sendable {
     case tokens
     case nfts
     case nftCollection(String)

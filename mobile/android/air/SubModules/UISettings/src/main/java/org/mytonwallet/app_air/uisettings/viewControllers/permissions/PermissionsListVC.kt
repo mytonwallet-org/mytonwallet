@@ -24,6 +24,9 @@ import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.permissions.cells.PermissionCell
@@ -130,11 +133,11 @@ class PermissionsListVC(
             emptyView,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT)
         )
-        view.addView(progressView, ViewGroup.LayoutParams(40.dp, 40.dp))
         view.addView(
             recyclerView,
             ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
         )
+        view.addView(progressView, ViewGroup.LayoutParams(40.dp, 40.dp))
         view.setConstraints {
             toCenterY(emptyView)
             toStart(emptyView, 48f)
@@ -299,6 +302,20 @@ class PermissionsListVC(
     }
 
     private fun confirmRevoke(permission: MWalletPermission) {
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                view.lockView()
+                progressView.visibility = View.VISIBLE
+                revokePermission(permission, token) {
+                    view.unlockView()
+                    progressView.visibility = View.INVISIBLE
+                }
+            },
+            onPasscodeRequired = { showPasscodeRevoke(permission) }
+        )
+    }
+
+    private fun showPasscodeRevoke(permission: MWalletPermission) {
         val nav = navigationController
         val passcodeConfirmVC = PasscodeConfirmVC(
             context,
@@ -317,20 +334,29 @@ class PermissionsListVC(
             ),
             task = { enclaveToken ->
                 nav?.pop()
-                viewModel.revoke(
-                    permission,
-                    enclaveToken,
-                    onSuccess = {},
-                    onError = { error ->
-                        showAlert(
-                            LocaleController.getString("Error"),
-                            error ?: LocaleController.getString("An error occurred")
-                        )
-                    }
-                )
+                revokePermission(permission, enclaveToken)
             }
         )
         nav?.push(passcodeConfirmVC)
+    }
+
+    private fun revokePermission(
+        permission: MWalletPermission,
+        token: String,
+        onFinished: () -> Unit = {}
+    ) {
+        viewModel.revoke(
+            permission,
+            token,
+            onSuccess = onFinished,
+            onError = { error ->
+                onFinished()
+                showAlert(
+                    LocaleController.getString("Error"),
+                    error ?: LocaleController.getString("An error occurred")
+                )
+            }
+        )
     }
 
     override fun updateTheme() {

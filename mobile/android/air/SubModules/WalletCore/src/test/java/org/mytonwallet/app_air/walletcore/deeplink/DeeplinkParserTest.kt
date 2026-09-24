@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.deeplink
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,5 +26,12 @@ class DeeplinkParserTest {
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("topic")))
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("message")))
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("uri")))
+    }
+
+    @Test
+    fun recognizesMintCardCommands() {
+        assertTrue(DeeplinkParser.mintCardDeeplink("nft-card") is Deeplink.MintCard)
+        assertTrue(DeeplinkParser.mintCardDeeplink("mint") is Deeplink.MintCard)
+        assertNull(DeeplinkParser.mintCardDeeplink("card"))
     }
 }

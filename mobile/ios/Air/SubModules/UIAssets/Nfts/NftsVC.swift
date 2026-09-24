@@ -17,18 +17,18 @@ private let log = Log("NftsVC")
 @MainActor
 public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIAdaptivePresentationControllerDelegate {
     
-    private enum Section {
+    private enum Section: Hashable, Sendable {
         case renewalWarning
         case main
         case placeholder
         case actions
     }
     
-    private enum Action: Hashable {
+    private enum Action: Hashable, Sendable {
         case showAll(title: String, count: Int)
     }
     
-    private enum Row: Hashable {
+    private enum Row: Hashable, Sendable {
         case renewalWarning(NftRenewDomainWarningContent)
         case placeholder
         case loadingPlaceholder(Int)
@@ -58,7 +58,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     public var onScroll: ((CGFloat) -> Void)?
         
     private var collectionView: UICollectionView!
-    private var dataSource: UICollectionViewDiffableDataSource<Section, Row>?
+    private var dataSource: UICollectionViewDiffableDataSource<NativeIdentifier<Section>, NativeIdentifier<Row>>?
     private var reorderController: ReorderableCollectionViewController!
     
     internal let filter: NftCollectionFilter
@@ -77,6 +77,19 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     private var nftAnimationPlaybackEligibleIDs = Set<String>()
     private var pendingInteractiveSwitchAccountId: String?
     private var pendingScrollNftID: String?
+    private var displayedPresentation: Presentation?
+
+    private struct Presentation: Equatable {
+        let accountId: String
+        let sections: [SectionContent]
+        let nfts: [NftCellPresentation]
+    }
+
+    private struct SectionContent: Equatable {
+        let section: Section
+        let rows: [Row]
+    }
+
     
     private var contextMenuExtraBlurView: UIView?
     
@@ -249,8 +262,8 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             }
         }
         
-        let dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
-            switch itemIdentifier {
+        let dataSource = UICollectionViewDiffableDataSource<NativeIdentifier<Section>, NativeIdentifier<Row>>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
+            switch itemIdentifier.value {
             case .renewalWarning(let content):
                 collectionView.dequeueConfiguredReusableCell(using: renewalWarningCellRegistration, for: indexPath, item: content)
             case .nft(let nftId):
@@ -280,12 +293,13 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         let layoutChangeID = layoutGeometry.calcLayoutChangeID(
             itemCount: displayedItemCount,
             hasRenewalWarning: domainRenewalWarning != nil,
-            collectionView: collectionView
+            containerWidth: geometryContainerWidth
         )
         if layoutChangeID != self.layoutChangeID {
-            let shouldAnimate = self.layoutChangeID != nil && view.window != nil
             self.layoutChangeID = layoutChangeID
-            collectionView.setCollectionViewLayout(makeLayout(), animated: shouldAnimate)
+            // The section provider reads the current width and item count. Reuse
+            // the layout so snapshot animation also owns changes to grid geometry.
+            collectionView.collectionViewLayout.invalidateLayout()
         }
     }
         
@@ -295,7 +309,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             let (height, contentInsets) = layoutGeometry.calcActionsItemGeometry()
             let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
             let item = NSCollectionLayoutItem(layoutSize: itemSize)
-            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
+            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
             let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
             actionsSection = NSCollectionLayoutSection(group: group)
             actionsSection.contentInsets = contentInsets
@@ -304,9 +318,9 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         let layout = UICollectionViewCompositionalLayout { [weak self] idx, env in
             guard let self, let dataSource else { return nil }
 
-            switch dataSource.sectionIdentifier(for: idx) {
+            switch dataSource.sectionIdentifier(for: idx)?.value {
             case .renewalWarning:
-                let (height, contentInsets) = layoutGeometry.calcRenewalWarningGeometry(collectionView: collectionView)
+                let (height, contentInsets) = layoutGeometry.calcRenewalWarningGeometry(containerWidth: geometryContainerWidth)
                 let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(height))
                 let item = NSCollectionLayoutItem(layoutSize: itemSize)
                 let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(height))
@@ -315,15 +329,17 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 section.contentInsets = contentInsets
                 return section
             case .main:
-                let itemCount = dataSource.snapshot().numberOfItems(inSection: .main)
+                let itemCount = dataSource.snapshot().numberOfItems(inSection: NativeIdentifier(.main))
                 let (cellSize, contentInsets) = layoutGeometry.calcNftItemGeometry(
                     itemCount: itemCount,
-                    collectionView: collectionView,
+                    containerWidth: geometryContainerWidth,
                     isRenewalWarningShown: domainRenewalWarning != nil
                 )
-                let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(cellSize.width), heightDimension: .estimated(cellSize.height))
+                let itemHeight: NSCollectionLayoutDimension = layoutMode.isCompact ? .absolute(cellSize.height) : .estimated(cellSize.height)
+                let groupHeight: NSCollectionLayoutDimension = layoutMode.isCompact ? .absolute(cellSize.height) : .estimated(400)
+                let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(cellSize.width), heightDimension: itemHeight)
                 let item = NSCollectionLayoutItem(layoutSize: itemSize)
-                let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(400))
+                let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: groupHeight)
                 let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
                 group.interItemSpacing = .fixed(layoutGeometry.spacing)
                 let section = NSCollectionLayoutSection(group: group)
@@ -334,7 +350,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 return actionsSection
             case .placeholder:
                 let (height, contentInsets) = layoutGeometry.calcPlaceholderItemGeometry(
-                    collectionView: collectionView,
+                    containerWidth: geometryContainerWidth,
                     isRenewalWarningShown: domainRenewalWarning != nil
                 )
                 let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(height))
@@ -365,7 +381,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
     }
     
     private func updateNfts(animated: Bool = true) {
-        guard dataSource != nil else { return }
+        guard let dataSource else { return }
         domainRenewalWarning = makeRenewalWarning()
         if var nfts = NftStore.getAccountShownNfts(accountId: account.id) {
             nfts = filter.apply(to: nfts)
@@ -379,13 +395,32 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             self.allShownNftsCount = 0
         }
 
-        applySnapshot(makeSnapshot(), animated: animated)
-        updateVisibleEmptyStateAnimations()
-        applyLayoutIfNeeded()
-        updateVisibleNftAnimationPlayback()
-        DispatchQueue.main.async { [weak self] in
-            self?.updateVisibleNftAnimationPlayback()
+        let presentation = Presentation(
+            accountId: account.id,
+            sections: makeSections(),
+            nfts: displayNfts?.values.map {
+                NftCellPresentation(nft: $0.nft, domainExpirationText: resolveTonDomain(for: $0.nft)?.expirationText)
+            } ?? []
+        )
+        guard presentation != displayedPresentation else { return }
+        let previous = displayedPresentation
+        displayedPresentation = presentation
+        var snapshot = NSDiffableDataSourceSnapshot<NativeIdentifier<Section>, NativeIdentifier<Row>>()
+        for content in presentation.sections {
+            snapshot.appendSections([NativeIdentifier(content.section)])
+            snapshot.appendItems(content.rows.map(NativeIdentifier.init), toSection: NativeIdentifier(content.section))
         }
+        if let previous {
+            let previousNfts = Dictionary(uniqueKeysWithValues: previous.nfts.map { ($0.id, $0) })
+            let displayedRows = Set(dataSource.snapshot().itemIdentifiers)
+            let changedRows = presentation.nfts.compactMap { item -> NativeIdentifier<Row>? in
+                let row = NativeIdentifier(Row.nft(item.id))
+                return displayedRows.contains(row) && (previous.accountId != account.id || previousNfts[item.id] != item) ? row : nil
+            }
+            snapshot.reconfigureItems(changedRows)
+        }
+        applySnapshot(snapshot, animated: animated)
+        applyLayoutIfNeeded()
         
         if inSelectionMode, let selectedIds {
             let allIds = Set(displayNfts?.keys ?? [])
@@ -396,40 +431,37 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         notifyStateChange()
     }
     
-    private func makeSnapshot() -> NSDiffableDataSourceSnapshot<Section, Row> {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+    private func makeSections() -> [SectionContent] {
+        var sections: [SectionContent] = []
 
         if let domainRenewalWarning {
-            snapshot.appendSections([.renewalWarning])
-            snapshot.appendItems([.renewalWarning(domainRenewalWarning)], toSection: .renewalWarning)
+            sections.append(.init(section: .renewalWarning, rows: [.renewalWarning(domainRenewalWarning)]))
         }
         
         if let displayNfts {
             if displayNfts.isEmpty {
-                snapshot.appendSections([.placeholder])
-                snapshot.appendItems([.placeholder])
+                sections.append(.init(section: .placeholder, rows: [.placeholder]))
             } else {
-                snapshot.appendSections([.main])
-                snapshot.appendItems(displayNfts.keys.map { Row.nft($0) }, toSection: .main)
+                sections.append(.init(section: .main, rows: displayNfts.keys.map(Row.nft)))
             }
             if layoutMode.isCompact && layoutGeometry.shouldShowShowAllAction(itemCount: allShownNftsCount) {
-                snapshot.appendSections([.actions])
                 let title = filter == .none
                     ? lang("Show All Collectibles")
                     : L10n.showAllName(name: filter.displayTitle)
-                snapshot.appendItems([Row.action(.showAll(title: title, count: allShownNftsCount))], toSection: .actions)
+                sections.append(.init(section: .actions, rows: [.action(.showAll(title: title, count: allShownNftsCount))]))
             }
         } else if loadingPlaceholderCount > 0 {
-            snapshot.appendSections([.main])
-            snapshot.appendItems((0..<loadingPlaceholderCount).map(Row.loadingPlaceholder), toSection: .main)
+            sections.append(.init(section: .main, rows: (0..<loadingPlaceholderCount).map(Row.loadingPlaceholder)))
         }
-        return snapshot
+        return sections
     }
         
-    private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animated: Bool) {
+    private func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<NativeIdentifier<Section>, NativeIdentifier<Row>>, animated: Bool) {
         guard let dataSource else { return }
         dataSource.apply(snapshot, animatingDifferences: animated) { [weak self] in
             self?.applyPendingScrollPosition(animated: false)
+            self?.updateVisibleEmptyStateAnimations()
+            self?.updateVisibleNftAnimationPlayback()
         }
     }
 
@@ -441,23 +473,32 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
 
     private func applyPendingScrollPosition(animated: Bool) {
         guard let dataSource, let pendingScrollNftID else { return }
-        let item = Row.nft(pendingScrollNftID)
+        let item = NativeIdentifier(Row.nft(pendingScrollNftID))
         guard let indexPath = dataSource.indexPath(for: item) else { return }
         collectionView.layoutIfNeeded()
         collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: animated)
         self.pendingScrollNftID = nil
     }
 
-    private func persistNftOrder(from snapshot: NSDiffableDataSourceSnapshot<Section, Row>) {
-        let orderedIds = OrderedSet(snapshot.itemIdentifiers(inSection: .main).compactMap { row -> String? in
-            if case .nft(let id) = row { return id }
+    private func persistNftOrder(from snapshot: NSDiffableDataSourceSnapshot<NativeIdentifier<Section>, NativeIdentifier<Row>>) {
+        let orderedIds = OrderedSet(snapshot.itemIdentifiers(inSection: NativeIdentifier(.main)).compactMap { row -> String? in
+            if case .nft(let id) = row.value { return id }
             return nil
         })
         NftStore.reorderNfts(accountId: account.id, orderedIdsHint: orderedIds)
     }
     
+    private var geometryContainerWidth: CGFloat {
+        collectionView.bounds.width - collectionView.adjustedContentInset.horizontal
+    }
+
     public func calculateHeight(isHosted: Bool) -> CGFloat {
+        calculateHeight(isHosted: isHosted, containerWidth: nil)
+    }
+
+    func calculateHeight(isHosted: Bool, containerWidth: CGFloat?) -> CGFloat {
         loadViewIfNeeded()
+        let geometryContainerWidth = containerWidth ?? self.geometryContainerWidth
     
         let isPlaceholderShown = displayNfts?.isEmpty == true
         let isActionShown = layoutMode.isCompact && layoutGeometry.shouldShowShowAllAction(itemCount: allShownNftsCount)
@@ -472,7 +513,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                     isPlaceholderShown: isPlaceholderShown,
                     isActionShown: isActionShown,
                     isRenewalWarningShown: domainRenewalWarning != nil,
-                    collectionView: collectionView
+                    containerWidth: geometryContainerWidth
                 )
             }
             return layoutGeometry.calculateHeight(
@@ -480,7 +521,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
                 isPlaceholderShown: false,
                 isActionShown: true,
                 isRenewalWarningShown: domainRenewalWarning != nil,
-                collectionView: collectionView
+                containerWidth: geometryContainerWidth
             )
         }
 
@@ -489,7 +530,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
             isPlaceholderShown: isPlaceholderShown,
             isActionShown: isActionShown,
             isRenewalWarningShown: domainRenewalWarning != nil,
-            collectionView: collectionView
+            containerWidth: geometryContainerWidth
         )
     }
     public func switchAccountTo(accountId: String, animated: Bool) {
@@ -551,7 +592,7 @@ public class NftsVC: WViewController, WSegmentedControllerContent, Sendable, UIA
         
         if let dataSource {
             var snapshot = dataSource.snapshot()
-            snapshot.reconfigureItems([.nft(nftId)])
+            snapshot.reconfigureItems([NativeIdentifier(.nft(nftId))])
             dataSource.apply(snapshot, animatingDifferences: true)
         }
         
@@ -585,18 +626,18 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
     }
     
     public func reorderController(_ controller: ReorderableCollectionViewController, canMoveItemAt indexPath: IndexPath) -> Bool {
-        return dataSource?.sectionIdentifier(for: indexPath.section) == .main
+        return dataSource?.sectionIdentifier(for: indexPath.section)?.value == .main
     }
     
     public func reorderController(_ controller: ReorderableCollectionViewController, moveItemAt sourceIndexPath: IndexPath,
                                   to destinationIndexPath: IndexPath) -> Bool {
         guard let dataSource, let displayNfts, !displayNfts.isEmpty,
-              dataSource.sectionIdentifier(for: sourceIndexPath.section) == .main,
-              dataSource.sectionIdentifier(for: destinationIndexPath.section) == .main else {
+              dataSource.sectionIdentifier(for: sourceIndexPath.section)?.value == .main,
+              dataSource.sectionIdentifier(for: destinationIndexPath.section)?.value == .main else {
             return false
         }
         var snapshot = dataSource.snapshot()
-        let mainItems = snapshot.itemIdentifiers(inSection: .main)
+        let mainItems = snapshot.itemIdentifiers(inSection: NativeIdentifier(.main))
         guard sourceIndexPath.item < mainItems.count, destinationIndexPath.item <= mainItems.count, sourceIndexPath.item != destinationIndexPath.item else {
             return false
         }
@@ -605,10 +646,10 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
         reordered.insert(moved, at: destinationIndexPath.item)
 
         snapshot.deleteItems(mainItems)
-        snapshot.appendItems(reordered, toSection: .main)
+        snapshot.appendItems(reordered, toSection: NativeIdentifier(.main))
 
         let orderedIds = reordered.compactMap { row -> String? in
-            if case .nft(let id) = row { return id }
+            if case .nft(let id) = row.value { return id }
             return nil
         }
         var newDisplayNfts: OrderedDictionary<String, DisplayNft> = [:]
@@ -632,7 +673,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
     public func reorderController(_ controller: ReorderableCollectionViewController, didSelectItemAt indexPath: IndexPath) {
         guard let id = dataSource?.itemIdentifier(for: indexPath) else { return }
         
-        switch id {
+        switch id.value {
         case .renewalWarning:
             break
         case .loadingPlaceholder:
@@ -670,7 +711,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
                                   point: CGPoint) -> UIContextMenuConfiguration? {
         guard canStartDragOrOpenMenu() else { return nil }
         guard let row = dataSource?.itemIdentifier(for: indexPath) else { return nil }
-        guard case .nft(let nftId) = row, let displayNft = displayNfts?[nftId] else { return nil }
+        guard case .nft(let nftId) = row.value, let displayNft = displayNfts?[nftId] else { return nil }
         
         MtwCardImagePreloader.preload(displayNft.nft)
         let menu = UIContextMenuConfiguration(identifier: indexPath as NSCopying, previewProvider: nil) { _ in
@@ -888,7 +929,7 @@ extension NftsVC: ReorderableCollectionViewControllerDelegate {
             let insets = layoutGeometry.calcCompactModeNftInsets(
                 itemCount: displayNfts?.count ?? 0,
                 isRenewalWarningShown: domainRenewalWarning != nil,
-                collectionView: collectionView
+                containerWidth: geometryContainerWidth
             )
             let bounds = collectionView.bounds.inset(by: insets)
             result = result.clamped(to: bounds)
@@ -946,7 +987,6 @@ extension NftsVC {
             return
         }
 
-        collectionView.layoutIfNeeded()
         var nextEligibleIDs = Set<String>()
         let visibleItems = collectionView.indexPathsForVisibleItems
             .sorted { lhs, rhs in
@@ -956,7 +996,7 @@ extension NftsVC {
                 return lhs.item < rhs.item
             }
             .compactMap { indexPath -> NftAnimationPlaybackCoordinator.VisibleItem? in
-            guard case .nft(let id) = dataSource?.itemIdentifier(for: indexPath),
+            guard case .nft(let id) = dataSource?.itemIdentifier(for: indexPath)?.value,
                   let cell = collectionView.cellForItem(at: indexPath) as? NftCell,
                   cell.hasPlayableAnimation else {
                 return nil
@@ -1017,7 +1057,6 @@ extension NftsVC {
         guard isViewLoaded, collectionView != nil else {
             return
         }
-        collectionView.layoutIfNeeded()
         for case let cell as WalletAssetsEmptyCell in collectionView.visibleCells {
             applyEmptyStateAnimation(to: cell)
         }
@@ -1193,8 +1232,8 @@ private class LayoutGeometry {
         }
     }
     
-    func calcLayoutChangeID(itemCount: Int, hasRenewalWarning: Bool, collectionView: UICollectionView) -> LayoutChangeID {
-        let containerWidth = max(0, getContainerWidth(collectionView: collectionView))
+    func calcLayoutChangeID(itemCount: Int, hasRenewalWarning: Bool, containerWidth: CGFloat) -> LayoutChangeID {
+        let containerWidth = max(0, containerWidth)
 
         let columnCount: Int
         if layoutMode.isCompact {
@@ -1208,7 +1247,7 @@ private class LayoutGeometry {
                 columnCount = 0
             }
         } else {
-            columnCount = calcColumnCountInNonCompactMode(collectionView: collectionView)
+            columnCount = calcColumnCountInNonCompactMode(containerWidth: containerWidth)
         }
         return .init(columnCount: columnCount, containerWidth: containerWidth, hasRenewalWarning: hasRenewalWarning)
     }
@@ -1218,14 +1257,14 @@ private class LayoutGeometry {
     }
     
     /// Height of whole collection view in compact mode
-    func calculateHeight(itemCount: Int, isPlaceholderShown: Bool, isActionShown: Bool, isRenewalWarningShown: Bool, collectionView: UICollectionView) -> CGFloat {
+    func calculateHeight(itemCount: Int, isPlaceholderShown: Bool, isActionShown: Bool, isRenewalWarningShown: Bool, containerWidth: CGFloat) -> CGFloat {
         guard layoutMode.isCompact else {
             return 0 // we do not care about non-compact height variations
         }
         
         var result: CGFloat = 0
         if isRenewalWarningShown {
-            let (height, contentInsets) = calcRenewalWarningGeometry(collectionView: collectionView)
+            let (height, contentInsets) = calcRenewalWarningGeometry(containerWidth: containerWidth)
             result += height + contentInsets.vertical
         }
         if isActionShown {
@@ -1235,12 +1274,12 @@ private class LayoutGeometry {
             result += compactModeBottomInset // just padding
         }
         if isPlaceholderShown {
-            let (height, contentInsets) = calcPlaceholderItemGeometry(collectionView: collectionView, isRenewalWarningShown: isRenewalWarningShown)
+            let (height, contentInsets) = calcPlaceholderItemGeometry(containerWidth: containerWidth, isRenewalWarningShown: isRenewalWarningShown)
             result += height + contentInsets.vertical
         } else if itemCount > 0 {
             let (cellSize, contentInsets) = calcNftItemGeometry(
                 itemCount: itemCount,
-                collectionView: collectionView,
+                containerWidth: containerWidth,
                 isRenewalWarningShown: isRenewalWarningShown
             )
             let rowCount: Int
@@ -1258,13 +1297,13 @@ private class LayoutGeometry {
         return result
     }
 
-    func calcRenewalWarningGeometry(collectionView: UICollectionView) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
+    func calcRenewalWarningGeometry(containerWidth: CGFloat) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
         let height: CGFloat = 44
         switch layoutMode {
         case .compact:
             return (height: height, contentInsets: .init(top: compactModeTopInset, leading: horizontalMargins, bottom: 14, trailing: horizontalMargins))
         case .compactLarge:
-            let containerWidth = max(CGFloat(1), getContainerWidth(collectionView: collectionView))
+            let containerWidth = max(CGFloat(1), containerWidth)
             let compactContainerWidth = min(containerWidth, compactLargeReferenceContainerWidth)
             let outerInset = max(CGFloat(0), floor((containerWidth - compactContainerWidth) / 2))
             let sideInset = outerInset + compactLargeHorizontalPadding
@@ -1287,7 +1326,7 @@ private class LayoutGeometry {
         return (height: WalletSeeAllCell.defaultHeight, contentInsets: .init(top: topInset, leading: 0, bottom: 0, trailing: 0))
     }
     
-    func calcCompactModeNftInsets(itemCount: Int, isRenewalWarningShown: Bool, collectionView: UICollectionView) -> UIEdgeInsets {
+    func calcCompactModeNftInsets(itemCount: Int, isRenewalWarningShown: Bool, containerWidth: CGFloat) -> UIEdgeInsets {
         var result = UIEdgeInsets(
             top: isRenewalWarningShown ? 0 : compactModeTopInset,
             left: horizontalMargins,
@@ -1295,7 +1334,7 @@ private class LayoutGeometry {
             right: horizontalMargins
         )
         if isRenewalWarningShown {
-            let renewalWarningGeometry = calcRenewalWarningGeometry(collectionView: collectionView)
+            let renewalWarningGeometry = calcRenewalWarningGeometry(containerWidth: containerWidth)
             result.top += renewalWarningGeometry.height + renewalWarningGeometry.contentInsets.vertical
         }
         if shouldShowShowAllAction(itemCount: itemCount) {
@@ -1305,7 +1344,7 @@ private class LayoutGeometry {
         return result
     }
     
-    func calcPlaceholderItemGeometry(collectionView: UICollectionView, isRenewalWarningShown: Bool) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
+    func calcPlaceholderItemGeometry(containerWidth: CGFloat, isRenewalWarningShown: Bool) -> (height: CGFloat, contentInsets: NSDirectionalEdgeInsets) {
         switch layoutMode {
         case .compact:
             return (
@@ -1318,7 +1357,7 @@ private class LayoutGeometry {
                 )
             )
         case .compactLarge:
-            let containerWidth = max(CGFloat(1), getContainerWidth(collectionView: collectionView))
+            let containerWidth = max(CGFloat(1), containerWidth)
             let compactContainerWidth = min(containerWidth, compactLargeReferenceContainerWidth)
             let outerInset = max(CGFloat(0), floor((containerWidth - compactContainerWidth) / 2))
             let sideInset = outerInset + compactLargeHorizontalPadding
@@ -1344,12 +1383,7 @@ private class LayoutGeometry {
         }
     }
     
-    private func getContainerWidth(collectionView: UICollectionView) -> CGFloat {
-        return collectionView.bounds.width - collectionView.adjustedContentInset.horizontal
-    }
-    
-    private func calcColumnCountInNonCompactMode(collectionView: UICollectionView) -> Int {
-        let containerWidth = getContainerWidth(collectionView: collectionView)
+    private func calcColumnCountInNonCompactMode(containerWidth: CGFloat) -> Int {
         let usableWidth: CGFloat = containerWidth - 2 * horizontalMargins
 
         let layoutColumnCount: Int
@@ -1362,8 +1396,8 @@ private class LayoutGeometry {
         return layoutColumnCount
     }
 
-    func calcNftItemGeometry(itemCount: Int, collectionView: UICollectionView, isRenewalWarningShown: Bool = false) -> (cellSize: CGSize, contentInsets: NSDirectionalEdgeInsets) {
-        let containerWidth = max(CGFloat(1), getContainerWidth(collectionView: collectionView))
+    func calcNftItemGeometry(itemCount: Int, containerWidth: CGFloat, isRenewalWarningShown: Bool = false) -> (cellSize: CGSize, contentInsets: NSDirectionalEdgeInsets) {
+        let containerWidth = max(CGFloat(1), containerWidth)
         
         switch layoutMode {
         case .compact:
@@ -1396,7 +1430,7 @@ private class LayoutGeometry {
         case .regular:
             // in non-compact mode we lay out the stuff similar to flow layout.
             let usableWidth: CGFloat = containerWidth - 2 * horizontalMargins
-            let layoutColumnCount = calcColumnCountInNonCompactMode(collectionView: collectionView)
+            let layoutColumnCount = calcColumnCountInNonCompactMode(containerWidth: containerWidth)
             let cellWidth = floor((usableWidth + spacing)/CGFloat(layoutColumnCount)) - spacing
             return (
                 cellSize: CGSize(width: cellWidth, height: cellWidth),

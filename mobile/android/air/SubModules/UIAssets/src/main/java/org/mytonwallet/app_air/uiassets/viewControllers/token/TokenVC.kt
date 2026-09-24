@@ -604,7 +604,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         when (identifier) {
             HeaderActionsView.Identifier.RECEIVE -> {
                 val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
-                val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
+                val receiveVC = ReceiveVC.createIfAvailable(
+                    context,
+                    chain,
+                    singleChain = true,
+                    tokenSymbol = token.symbol
+                ) ?: return
                 val navVC = WNavigationController(
                     window,
                     WNavigationController.PresentationConfig.PreferredFullScreen

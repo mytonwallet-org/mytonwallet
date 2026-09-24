@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore
 import android.content.Context
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
+import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 // The native journal owns a snapshot only until the SDK confirms durable storage acceptance.
@@ -85,7 +86,7 @@ object InstallAttributionDelivery {
                 }
                 editor.commit()
             },
-            ready = { WalletCore.isBridgeReady },
+            ready = { WGlobalStorage.isInitialized && WalletCore.isBridgeReady },
             send = { snapshot, complete ->
                 WalletCore.call(ApiMethod.Other.CaptureInstallAttribution(snapshot.toJson())) {
                         accepted,

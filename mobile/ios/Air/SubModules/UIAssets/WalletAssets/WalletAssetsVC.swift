@@ -23,7 +23,13 @@ import WalletContext
     private let nftsVCManager: NftsVCManager
     
     private let accountIdProvider: AccountIdProvider
-    private var accountSource: AccountSource { accountIdProvider.source }
+    private var accountSource: AccountSource {
+        if case .accountId = accountIdProvider.source {
+            return .accountId(accountIdProvider.accountId)
+        }
+        return accountIdProvider.source
+    }
+    private var isSwitchingAccount = false
     
     private let tabsViewModel: WalletAssetsViewModel
     
@@ -106,6 +112,37 @@ import WalletContext
         displayedAccountId = accountId
         editingNavigator.cancelEditing()
         walletAssetsView.tabsContainer.handleSegmentChange(to: 0, animated: true)
+    }
+
+    public func prepareAccountTransition(animated: Bool) {
+        guard isViewLoaded else { return }
+        walletAssetsView.prepareAccountTransition(animated: animated && hasVisibleContent)
+    }
+
+    public func animateAccountTransition() {
+        guard isViewLoaded else { return }
+        walletAssetsView.animateAccountTransition()
+    }
+
+    public func switchAccountTo(_ accountId: String, preparedTabs: WalletAssetsViewModel.PreparedTabs? = nil) {
+        guard accountId != displayedAccountId else { return }
+        isSwitchingAccount = true
+        nftsVCManager.beginUpdate()
+        defer {
+            nftsVCManager.endUpdate()
+            isSwitchingAccount = false
+        }
+        displayedAccountId = accountId
+        accountIdProvider.accountId = accountId
+        editingNavigator.cancelEditing()
+        tabContextMenuProviders.switchAccountTo(accountId)
+        tabsViewModel.switchAccountTo(accountId, preparedTabs: preparedTabs)
+        for case let controller as NftsVC in children {
+            controller.switchAccountTo(accountId: accountId, animated: false)
+        }
+        invalidateCalculatedTabHeights()
+        walletAssetsView.tabsContainer.handleSegmentChange(to: 0, animated: false)
+        lastReportedHasVisibleContent = hasVisibleContent
     }
 
 
@@ -327,8 +364,13 @@ import WalletContext
         if let measurement = calculatedTabHeights[id], measurement.width == width {
             return measurement.height
         }
-        prepareForHeightCalculation(content, width: width)
-        let height = content.calculateHeight(isHosted: false)
+        let height: CGFloat
+        if let nfts = content as? NftsVC {
+            height = nfts.calculateHeight(isHosted: false, containerWidth: width > 0 ? width : nil)
+        } else {
+            prepareForHeightCalculation(content, width: width)
+            height = content.calculateHeight(isHosted: false)
+        }
         if width > 0 {
             calculatedTabHeights[id] = (width: width, height: height)
         }
@@ -422,11 +464,16 @@ import WalletContext
             newItemsHeight = contentTopInset + calculatedHeight(for: vcs[0])
         } else {
             let lo = max(0, min(vcs.count - 2, Int(progress)))
-            newItemsHeight = contentTopInset + interpolate(
-                from: calculatedHeight(for: vcs[lo]),
-                to: calculatedHeight(for: vcs[lo + 1]),
-                progress: clamp(progress - CGFloat(lo), min: 0, max: 1)
-            )
+            let fraction = clamp(progress - CGFloat(lo), min: 0, max: 1)
+            if fraction == 0 || fraction == 1 {
+                newItemsHeight = contentTopInset + calculatedHeight(for: vcs[lo + Int(fraction)])
+            } else {
+                newItemsHeight = contentTopInset + interpolate(
+                    from: calculatedHeight(for: vcs[lo]),
+                    to: calculatedHeight(for: vcs[lo + 1]),
+                    progress: fraction
+                )
+            }
         }
         
         newItemsHeight += 16
@@ -452,12 +499,13 @@ import WalletContext
 
 extension WalletAssetsVC: WalletAssetsViewModelDelegate {
     public func walletAssetModelDidChangeDisplayTabs(dueToAccountSwitch: Bool) {
-        _displayTabsChanged(force: dueToAccountSwitch, animated: dueToAccountSwitch)
-        if dueToAccountSwitch {
+        let animatesReplacement = dueToAccountSwitch && !isSwitchingAccount
+        _displayTabsChanged(force: animatesReplacement, animated: animatesReplacement)
+        if dueToAccountSwitch && !isSwitchingAccount {
             // Runs after the tabs were rebuilt for the new account, so the first tab's reused
             // controller is switched regardless of how the account observers were ordered
             switchIncomingFirstTabAccountTo(accountIdProvider.accountId)
         }
-        delegate?.walletAssetDidChangeDisplayTabs(animated: dueToAccountSwitch)
+        delegate?.walletAssetDidChangeDisplayTabs(animated: animatesReplacement)
     }
 }

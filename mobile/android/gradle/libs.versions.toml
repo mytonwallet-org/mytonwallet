@@ -38,7 +38,9 @@ timber = "5.0.1"
 firebaseCrashlyticsGradle = "3.0.7"
 firebaseCrashlytics = "20.0.6"
 firebaseMessaging = "25.0.1" # Sync with capacitor app
-workRuntimeKtx = "2.10.5"
+# Pinned because affected API 34 devices lack JobScheduler.forNamespace, which WorkManager 2.10+ calls.
+# Track the upstream fix at https://issuetracker.google.com/issues/556304570.
+workRuntimeKtx = "2.9.1"
 browser = "1.10.0"
 tweetnacl = "1.1.3"
 installReferrer = "2.2"

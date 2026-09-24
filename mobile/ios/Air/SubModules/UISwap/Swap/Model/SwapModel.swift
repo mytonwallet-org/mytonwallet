@@ -77,6 +77,7 @@ private enum SwapModelIntent: Sendable {
     private var isInputDebouncePending = false
     @PerceptionIgnored
     private var stage = SwapStage.editing
+    var isSubmitting: Bool { stage == .confirming }
     private(set) var slippage = DEFAULT_SLIPPAGE
     @PerceptionIgnored
     private var currentTokenPair: (selling: String?, buying: String?)
@@ -160,6 +161,7 @@ private enum SwapModelIntent: Sendable {
         isInputDebouncePending = false
         estimateGate.reset()
         finishEstimating(applyButtonConfiguration: false)
+        applyCurrentButtonConfiguration()
     }
 
     func refreshBalances() {
@@ -234,6 +236,7 @@ private enum SwapModelIntent: Sendable {
     }
 
     func continueRoute() -> SwapRoute? {
+        guard stage == .editing else { return nil }
         guard let context = currentPresentationContext(),
               let route = flow(for: swapType).route(context: context, state: estimateState) else {
             return nil
@@ -603,7 +606,7 @@ private extension SwapModel {
 
     func applyButtonState(_ state: SwapButtonState) {
         delegate?.applyButtonConfiguration(buttonModel.configuration(
-            for: state,
+            for: isSubmitting ? .submitting : state,
             sellingToken: input.sellingToken,
             buyingToken: input.buyingToken
         ))

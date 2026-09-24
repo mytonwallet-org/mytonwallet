@@ -14,12 +14,13 @@ import WalletContext
 struct AccountSelectorCell: View {
     
     let accountContext: AccountContext
+    let viewModel: CustomizeWalletViewModel
     
     var body: some View {
         WithPerceptionTracking {
             MtwCard(aspectRatio: LARGE_CARD_RATIO)
                 .background {
-                    CardBackground(accountContext: accountContext)
+                    CardBackground(accountContext: accountContext, isAnimationEnabled: accountContext.account.id == viewModel.selectedAccountId)
                 }
                 .overlay {
                     _BalanceView(accountContext: accountContext)
@@ -45,10 +46,11 @@ struct AccountSelectorCell: View {
 private struct CardBackground: View {
     
     let accountContext: AccountContext
+    let isAnimationEnabled: Bool
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardBackground(nft: accountContext.nft)
+            MtwCardBackground(nft: accountContext.nft, isAnimationEnabled: isAnimationEnabled)
         }
     }
 }

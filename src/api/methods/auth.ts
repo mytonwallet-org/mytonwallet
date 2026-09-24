@@ -553,10 +553,12 @@ export async function removeAccount(
   }
 }
 
-function findMultichainUpgradeCandidates(accounts: Record<string, ApiAccountAny>) {
+function findMultichainUpgradeCandidates(accounts: Record<string, ApiAccountAny>, accountIds?: string[]) {
   const supportedChains = getSupportedChains();
+  const allowedAccountIds = accountIds ? new Set(accountIds) : undefined;
 
-  return Object.entries(accounts).filter(([, account]) => {
+  return Object.entries(accounts).filter(([accountId, account]) => {
+    if (allowedAccountIds && !allowedAccountIds.has(accountId)) return false;
     if (account.type !== 'bip39' && account.type !== 'ton') return false;
 
     const hasMissingChains = account.type === 'bip39'
@@ -571,18 +573,18 @@ function findMultichainUpgradeCandidates(accounts: Record<string, ApiAccountAny>
   }) as [string, ApiAccountWithMnemonic][];
 }
 
-export async function getMultichainUpgradeCandidateIds() {
+export async function getMultichainUpgradeCandidateIds(accountIds?: string[]) {
   const accounts = await fetchStoredAccounts();
 
-  return findMultichainUpgradeCandidates(accounts).map(([accountId]) => accountId);
+  return findMultichainUpgradeCandidates(accounts, accountIds).map(([accountId]) => accountId);
 }
 
-export async function upgradeMultichainAccounts(enclaveToken: string) {
+export async function upgradeMultichainAccounts(enclaveToken: string, accountIds?: string[]) {
   const supportedChains = getSupportedChains();
 
   const accounts = await fetchStoredAccounts();
 
-  const accountsToUpgrade = findMultichainUpgradeCandidates(accounts);
+  const accountsToUpgrade = findMultichainUpgradeCandidates(accounts, accountIds);
 
   if (accountsToUpgrade.length) {
     logDebug('Upgrade multichain accounts', accountsToUpgrade.map((e) => e[0]));

@@ -7,11 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A11AB0000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		A11AB000000000000000000E /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11AB000000000000000000A /* main.swift */; };
 		A11AB000000000000000000F /* MyLabAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11AB000000000000000000B /* MyLabAppDelegate.swift */; };
 		A11AB0000000000000000010 /* MyLabSceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11AB000000000000000000C /* MyLabSceneDelegate.swift */; };
 		A11AB0000000000000000013 /* AirUILab in Frameworks */ = {isa = PBXBuildFile; productRef = A11AB0000000000000000011 /* AirUILab */; };
 		A11AB0000000000000000014 /* WalletResources in Frameworks */ = {isa = PBXBuildFile; productRef = A11AB0000000000000000012 /* WalletResources */; };
+		A11AB0000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59D100062F90000100FACE01 /* Assets.xcassets */; };
 		210369CA9C0F830790249E00 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
 		27F19F5E2CECB4EB00ACE1B9 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5C2CECB4EB00ACE1B9 /* main.swift */; };
 		27F19F5F2CECB4EB00ACE1B9 /* MyTonWalletApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F19F5D2CECB4EB00ACE1B9 /* MyTonWalletApp.swift */; };
@@ -928,6 +930,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A11AB0000000000000000017 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -56,6 +56,7 @@ private let log = Log("HomeVM")
         updateStatusObservation = observe { [weak self] in
             guard let self else { return }
             let state = updateStatusModel.state
+            HomeTrace.record("homeVM.status", "old=\(previousState) new=\(state) same=\(previousState == state)")
             delegate?.update(state: state, animated: true)
             if previousState == .waitingForNetwork, state != .waitingForNetwork {
                 refreshTransactions()
@@ -68,11 +69,11 @@ private let log = Log("HomeVM")
         switch event {
         case .balanceChanged(let accountId):
             if accountId == self.account.id {
-                dataUpdated()
+                dataUpdated(reason: "balanceChanged")
             }
             break
         case .tokensChanged, .swapTokensChanged:
-            dataUpdated()
+            dataUpdated(reason: HomeTrace.isEnabled ? event.homeTraceDescription ?? "tokens" : "")
             break
         case .baseCurrencyChanged:
             baseCurrencyChanged()
@@ -80,10 +81,10 @@ private let log = Log("HomeVM")
             accountChanged(isNew: isNew)
             break
         case .accountNameChanged:
-            dataUpdated()
+            dataUpdated(reason: "accountNameChanged")
             break
         case .assetsAndActivityDataUpdated:
-            dataUpdated()
+            dataUpdated(reason: "assetsAndActivityDataUpdated")
         default:
             break
         }
@@ -110,20 +111,29 @@ private let log = Log("HomeVM")
         initWalletInfo()
     }
 
-    func dataUpdated(transactions: Bool = true) {
+    func dataUpdated(transactions: Bool = true, reason: String = #function) {
+        let cause = HomeTrace.cause
+        HomeTrace.record("homeVM.tokens.queue", "account=\(account.id) reason=\(reason)")
         DispatchQueue.main.async { [self] in
             // make sure balances are loaded
             if !balancesLoaded {
+                HomeTrace.$cause.withValue(cause) {
+                    HomeTrace.record("homeVM.tokens.skip", "account=\(account.id) reason=balances-not-loaded")
+                }
                 log.info("Balances not loaded yet")
                 return
             }
             DispatchQueue.main.async {
-                self.delegate?.tokensChanged()
+                HomeTrace.$cause.withValue(cause) {
+                    HomeTrace.record("homeVM.tokens.deliver", "account=\(self.account.id) reason=\(reason)")
+                    self.delegate?.tokensChanged()
+                }
             }
         }
     }
     
     @MainActor func baseCurrencyChanged() {
+        HomeTrace.record("homeVM.baseCurrency", "account=\(account.id)")
         // reload tableview to make it clear as the tokens are not up to date
         delegate?.tokensChanged()
     }

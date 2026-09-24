@@ -44,9 +44,12 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uicomponents.widgets.updateLayoutParamsIfExists
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
@@ -432,11 +435,8 @@ class TonConnectRequestSendVC(
                 )
                 return@setOnClickListener
             }
-            update?.let {
-                didAccept = true
-                WalletCore.recordTonConnectEvent(acceptedEventName, it.promiseId)
-            }
             if (AccountStore.activeAccount?.isHardware == true) {
+                recordAcceptance()
                 confirmHardware()
             } else {
                 confirmPasscode()
@@ -536,6 +536,22 @@ class TonConnectRequestSendVC(
     // True once the user tapped Confirm; prevents onDestroy from reporting `declined` after an accepted
     // request whose signing/MFA later failed (which would double-fire accepted + declined for one request).
     private var didAccept = false
+
+    private fun recordAcceptance() {
+        update?.let {
+            didAccept = true
+            WalletCore.recordTonConnectEvent(acceptedEventName, it.promiseId)
+        }
+    }
+
+    private var isAutoConfirmSubmitting = false
+
+    private fun stopAutoConfirmProgress() {
+        if (!isAutoConfirmSubmitting) return
+        isAutoConfirmSubmitting = false
+        view.unlockView()
+        confirmButtonView.isLoading = false
+    }
 
     private val acceptedEventName: String
         get() = if (connectionType ==
@@ -723,9 +739,14 @@ class TonConnectRequestSendVC(
                         }
                     }
                 } else {
-                    navigationController?.pop(true, onCompletion = {
+                    if (isAutoConfirmSubmitting) {
+                        stopAutoConfirmProgress()
                         showError(event.err)
-                    })
+                    } else {
+                        navigationController?.pop(true, onCompletion = {
+                            showError(event.err)
+                        })
+                    }
                 }
             }
 
@@ -741,6 +762,7 @@ class TonConnectRequestSendVC(
             }
 
             is TonConnectRequestSendViewModel.Event.MfaRequested -> {
+                stopAutoConfirmProgress()
                 val promiseId = event.promiseId
                 val requestWindow = window
                 fun confirmMfaRequest() {
@@ -801,8 +823,10 @@ class TonConnectRequestSendVC(
                             }
                         }
                     )
+                val hasPasscodeScreen =
+                    navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC
                 navigationController?.push(mfaVC, onCompletion = {
-                    navigationController?.removePrevViewControllerOnly()
+                    if (hasPasscodeScreen) navigationController?.removePrevViewControllerOnly()
                 })
             }
         }
@@ -928,6 +952,24 @@ class TonConnectRequestSendVC(
     }
 
     private fun confirmPasscode() {
+        val updateValue = update ?: return
+        val viewModel = viewModel ?: return
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                recordAcceptance()
+                isAutoConfirmSubmitting = true
+                view.lockView()
+                confirmButtonView.isLoading = true
+                viewModel.accept(updateValue.promiseId, token)
+            },
+            onPasscodeRequired = {
+                recordAcceptance()
+                showPasscodeConfirm()
+            }
+        )
+    }
+
+    private fun showPasscodeConfirm() {
         val updateValue = update ?: return
         val confirmActionVC = PasscodeConfirmVC(
             context,

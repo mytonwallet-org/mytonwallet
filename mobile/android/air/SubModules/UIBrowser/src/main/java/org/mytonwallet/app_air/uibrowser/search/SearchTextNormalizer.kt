@@ -90,6 +90,16 @@ object SearchTextNormalizer {
 
     fun normalizeIdentifier(text: String): String = fold(text).trim()
 
+    /** Case and diacritic insensitive prefix test that keeps [prefix].length characters aligned. */
+    fun hasPrefix(text: String, prefix: String): Boolean {
+        if (text.startsWith(prefix, ignoreCase = true)) return true
+        val folded = fold(text)
+        val foldedPrefix = fold(prefix)
+        return folded.length == text.length &&
+            foldedPrefix.length == prefix.length &&
+            folded.startsWith(foldedPrefix)
+    }
+
     /** Folds the text and collapses every non-alphanumeric run into a single separator. */
     private fun normalizeWords(text: String): String {
         val folded = fold(text)

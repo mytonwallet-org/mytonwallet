@@ -32,6 +32,7 @@ public final class CustomizeWalletVC: SettingsBaseVC {
         super.viewDidLoad()
         
         navigationItem.title = lang("Customize Wallet")
+        MintCardVC.preloadMedia()
         addCloseNavigationItemIfNeeded()
         
         hostingController = addHostingController(makeView(), constraints: .fill)

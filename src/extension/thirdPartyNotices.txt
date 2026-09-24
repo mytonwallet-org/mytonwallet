@@ -1,0 +1,27 @@
+webextension-polyfill {{VERSION}}
+================================
+
+This extension includes webextension-polyfill by Mozilla, licensed under the
+Mozilla Public License, version 2.0 (MPL-2.0).
+
+The following files are included in this distribution under
+third-party-licenses/webextension-polyfill/:
+
+- LICENSE: the complete MPL-2.0 license text.
+- browser-polyfill.js: the readable library module used as input to our bundle.
+- browser-polyfill.js.map: its upstream source map, including source content.
+
+The corresponding upstream source, including API metadata and build scripts,
+is available without charge at:
+https://github.com/mozilla/webextension-polyfill/tree/{{VERSION}}
+
+Source archive:
+https://github.com/mozilla/webextension-polyfill/archive/refs/tags/{{VERSION}}.tar.gz
+
+The library's source code, including any modifications to its MPL-covered files,
+is governed by MPL-2.0. The application's license does not restrict your rights
+to use, modify or redistribute that source code under MPL-2.0.
+
+The bundled module and source map retain their upstream notices. If this
+distribution includes changes to the module, those changes are included in
+the readable module above; the upstream link identifies the original release.

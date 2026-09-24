@@ -1,4 +1,5 @@
 
+import Dependencies
 import SwiftUI
 import UIKit
 import UIPasscode
@@ -10,15 +11,20 @@ import Perception
 
 struct SecurityView: View {
 
+    @Dependency(\.settingsStore) private var settingsStore
     private let accountContext = AccountContext(source: .current)
 
     @State private var biometrics: Bool
     @State private var isUpdatingBiometrics = false
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
+    @State private var rememberPasscode: Bool
+    @State private var isUpdatingRememberPasscode = false
 
     @MainActor
     init() {
+        @Dependency(\.settingsStore) var settingsStore
         _biometrics = State(initialValue: AuthSupport.status.configuredMethods.contains(.biometrics))
+        _rememberPasscode = State(initialValue: settingsStore.isAutoConfirmEnabled)
     }
     
     var body: some View {
@@ -28,6 +34,7 @@ struct SecurityView: View {
                 passcodeSection
                 mfaSection
                 autolockSection
+                rememberPasscodeSection
                 suspiciousActionsSection
             }
         }
@@ -233,6 +240,27 @@ struct SecurityView: View {
         }
         .onChange(of: autolockOption) { autolock in
             AutolockStore.shared.autolockOption = autolock
+        }
+    }
+
+    // MARK: - Remember passcode
+
+    var rememberPasscodeSection: some View {
+        InsetSection {
+            InsetCell {
+                Toggle(lang("Remember Passcode"), isOn: $rememberPasscode)
+                    .tint(.air.tint)
+                    .disabled(isUpdatingRememberPasscode)
+            }
+        } footer: {
+            Text(L10n.appWillNotAskForSignatureForMinutesMinutesAfterLastEntry(minutes: 5))
+        }
+        .onChange(of: rememberPasscode) { isEnabled in
+            isUpdatingRememberPasscode = true
+            Task { @MainActor in
+                await settingsStore.setIsAutoConfirmEnabled(isEnabled)
+                isUpdatingRememberPasscode = false
+            }
         }
     }
 

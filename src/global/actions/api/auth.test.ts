@@ -5,7 +5,8 @@ import { AppState, AuthState } from '../../types';
 
 import { callApi } from '../../../api';
 import { enclave, legacyAuth } from '../../../enclave';
-import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { holdAccountCreationSession } from '../../helpers/auth';
+import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
 
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(),
@@ -357,5 +358,70 @@ describe('a migration handler always answers', () => {
 
     expect(onError).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledWith('biometric:stub');
+  });
+});
+
+describe('multichain upgrade', () => {
+  const TOKEN = 'passcode:stub';
+  const upgrade = getHandler('upgradeMultichainAccounts');
+  const resetAuth = getHandler('resetAuth');
+  let store: GlobalState;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getGlobal as jest.Mock).mockImplementation(() => store);
+    (setGlobal as jest.Mock).mockImplementation((next: GlobalState) => {
+      store = next;
+    });
+  });
+
+  // The session holds reads only for the accounts `PasswordForm` budgeted before the passcode check,
+  // so an account that joined the global list meanwhile must not spend the operation's own read
+  it('upgrades exactly the budgeted accounts and keeps the rest pending', async () => {
+    store = makeGlobal({ multichainUpgradeAccountIds: ['1-mainnet', '2-mainnet'] });
+    (callApi as jest.Mock)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(['2-mainnet']);
+
+    await upgrade(store, { releaseEnclaveSession: jest.fn() }, { enclaveToken: TOKEN, accountIds: ['1-mainnet'] });
+
+    expect(callApi).toHaveBeenCalledWith('upgradeMultichainAccounts', TOKEN, ['1-mainnet']);
+    expect(callApi).toHaveBeenLastCalledWith('getMultichainUpgradeCandidateIds', [ACCOUNT_ID]);
+    expect(store.multichainUpgradeAccountIds).toEqual(['2-mainnet']);
+  });
+
+  it('keeps the whole pending list when the candidates cannot be read', async () => {
+    store = makeGlobal({ multichainUpgradeAccountIds: ['1-mainnet', '2-mainnet'] });
+    (callApi as jest.Mock)
+      .mockResolvedValueOnce({ error: 'InvalidPassword' })
+      .mockResolvedValueOnce(undefined);
+
+    await upgrade(store, { releaseEnclaveSession: jest.fn() }, { enclaveToken: TOKEN, accountIds: ['1-mainnet'] });
+
+    expect(store.multichainUpgradeAccountIds).toEqual(['1-mainnet', '2-mainnet']);
+  });
+
+  it('does not start while another upgrade is running', async () => {
+    store = makeGlobal({});
+
+    await upgrade(store, {}, { enclaveToken: TOKEN, accountIds: ['1-mainnet'] });
+
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  // Adding a wallet stores the secret only after the user enters the phrase, long after the upgrade ends
+  it('leaves the session to a wallet addition until the auth flow is reset', async () => {
+    const releaseEnclaveSession = jest.fn();
+    (getActions as jest.Mock).mockReturnValueOnce({ releaseEnclaveSession });
+    store = makeGlobal({ multichainUpgradeAccountIds: ['1-mainnet'] });
+
+    holdAccountCreationSession(TOKEN);
+    await upgrade(store, { releaseEnclaveSession }, { enclaveToken: TOKEN, accountIds: ['1-mainnet'] });
+
+    expect(releaseEnclaveSession).not.toHaveBeenCalled();
+
+    resetAuth(store, {});
+
+    expect(releaseEnclaveSession).toHaveBeenCalledWith({ enclaveToken: TOKEN });
   });
 });

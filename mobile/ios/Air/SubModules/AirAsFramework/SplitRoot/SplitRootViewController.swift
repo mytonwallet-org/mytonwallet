@@ -288,49 +288,12 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         collectionsFilter: NftCollectionFilter,
         initialPosition: AssetListInitialPosition?
     ) {
-        let nc = currentNavigationController
-        if nc.showExistingAssetsTab(
+        currentNavigationController.showAssets(
             accountSource: accountSource,
             selectedTab: selectedTab,
-            initialPosition: initialPosition,
-            animated: true
-        ) {
-            return
-        }
-
-        let shouldPushCollection = shouldPushNftCollectionFullscreen(
-            accountSource: accountSource,
-            selectedTab: selectedTab,
-            collectionsFilter: collectionsFilter
-        )
-
-        if shouldPushCollection, (nc.visibleViewController is AssetsTabVC || nc.visibleViewController is NftDetailsVC) {
-            nc.pushViewController(
-                NftsFullScreenVC(
-                    accountSource: accountSource,
-                    filter: collectionsFilter,
-                    initialNftID: initialPosition?.nftID
-                ),
-                animated: true
-            )
-            return
-        }
-        let assetsVC = AssetsTabVC(
-            accountSource: accountSource,
-            defaultTab: selectedTab,
+            collectionsFilter: collectionsFilter,
             initialPosition: initialPosition
         )
-        nc.pushViewController(assetsVC, animated: true)
-        if shouldPushCollection {
-            nc.pushViewController(
-                NftsFullScreenVC(
-                    accountSource: accountSource,
-                    filter: collectionsFilter,
-                    initialNftID: initialPosition?.nftID
-                ),
-                animated: false
-            )
-        }
     }
 
     func focusSidebarAccount(accountId: String?, animated: Bool) {

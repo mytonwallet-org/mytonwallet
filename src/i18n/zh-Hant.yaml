@@ -543,6 +543,7 @@ $max_balance: "最大: %balance%"
 $available_balance: "可用: %balance%"
 $send_recipient_invalid: 無效
 $send_recipient_not_compatible: 不相容
+$send_recipient_self_transfer: 無法向自己傳送
 $unstake_information_instantly: 您將立即收到您的存款
 Select Token: 選擇代幣
 $token_picker_hidden: 隱藏
@@ -928,6 +929,9 @@ Upgrade for %amount% %currency%: 升級需 %amount% %currency%
 "%amount% left": 剩餘 %amount%
 "%amount% sold": 已售 %amount%
 This card has been sold out: 此卡片已售罄
+"Mint starts in %time%": "鑄造將於 %time% 後開始"
+"%amount% unique cards total":
+  otherValue: "共 %amount% 張獨特卡片"
 Import Existing Wallet: 導入現有錢包
 View Any Address: 查看任意地址
 View Mode: 查看模式
@@ -941,6 +945,9 @@ Remember Passcode: 記住驗證碼
 Remember Password: 記住密碼
 Not available with biometrics.: 無法使用生物識別功能。
 App will not ask for signature for %minutes% minutes after last entry.: 應用程式在上次輸入後的%minutes%分鐘內不會要求簽名。
+Auto-Exit: 自動登出
+Log out of all wallets after failed attempts.: 多次嘗試失敗後登出所有錢包。
+"%count% attempts": "%count% 次嘗試"
 Remember for %minutes% minutes: 記住 %minutes% 分鐘
 Preview: 預覽
 $preview_not_guaranteed: 預覽結果**不受保證**，且**可能被服務偽造**。
@@ -1786,9 +1793,10 @@ Standalone: 獨立
 All Telegram Gifts: 全部 Telegram 禮物
 Add Crypto: 新增加密貨幣
 Share QR Code: 分享 QR Code
-$send_only_ton: 請僅將 Gram (GRAM) 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
-$send_only_chain: 請僅將 %chain% (%symbol%) 或 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
-$send_only_chain_no_tokens: 請僅將 %chain% (%symbol%) 傳送到此地址。傳送其他代幣會導致損失。
+$send_only_ton: 請僅將 GRAM 或 TON 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_chain: 請僅將 %symbol% 或 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_token_chain: 請僅將 %tokenSymbol% 或其他 %chain% 網路資產傳送到此地址。傳送其他代幣會導致損失。
+$send_only_chain_no_tokens: 請僅將 %symbol% 傳送到此地址。傳送其他代幣會導致損失。
 Buying with card is not supported for this account.: 此帳戶不支援信用卡購買。
 Swapped at: 兌換時間
 Price per: 單價
@@ -2265,7 +2273,6 @@ Tokenized Gold: 代幣化黃金
 Index Funds: 指數基金
 Search token or stock: 搜尋代幣或股票
 "Activity Failed to Load": "活動載入失敗"
-"$agent_source_bea_attribution": "本產品使用美國經濟分析局（BEA）的資料 API，但未經 BEA 認可或認證。"
 "Address was copied!": "地址已複製！"
 "Allow App Lock": "允許鎖定應用程式"
 "An error occurred": "發生錯誤"
@@ -2295,3 +2302,7 @@ Search token or stock: 搜尋代幣或股票
 
 Unknown Transfer: 未知轉帳
 $dapp_sign_data_for_prefix: 為
+Successfully Sent: 送出成功
+Successfully Signed: 簽名成功
+3D Card: 3D 卡片
+Coming soon: 即將推出

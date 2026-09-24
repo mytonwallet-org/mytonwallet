@@ -1,4 +1,4 @@
-import * as tonWebMnemonic from 'tonweb-mnemonic';
+import { mnemonicWordList } from '@ton/crypto';
 
 import type { DappProtocolType, DappSignDataResult } from '../dappProtocols';
 import type { ApiDappRequestConfirmation } from '../dappProtocols/adapters/tonConnect/types';
@@ -27,7 +27,7 @@ export async function fetchMnemonic(accountId: string, enclaveToken: string) {
 }
 
 export function getMnemonicWordList() {
-  return tonWebMnemonic.wordlists.default;
+  return mnemonicWordList;
 }
 
 export function confirmDappRequest(promiseId: string, enclaveToken?: string) {

@@ -24,7 +24,7 @@ class TotalCurrencyAmountView(context: Context) :
         setPaddingDp(8, 14, 8, 26)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 44f)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
-        typeface = WFont.Medium.typeface
+        typeface = WFont.Balance.typeface
         gravity = Gravity.CENTER
         includeFontPadding = false
         updateTheme()

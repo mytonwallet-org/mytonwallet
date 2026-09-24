@@ -15,12 +15,9 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
-import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
-import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.R
 
 class PromoCardOverlayView(context: Context) : FrameLayout(context) {
@@ -31,6 +28,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
     }
 
     private var currentPromotion: ApiPromotion? = null
+    var onOpenMintCard: (() -> Unit)? = null
 
     private val bgImageView = AppCompatImageView(context).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
@@ -61,10 +59,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
                 }
 
                 "openMintCardModal" -> {
-                    val url = ExplorerHelpers.getMtwCardsUrl(
-                        AccountStore.activeAccount?.network ?: MBlockchainNetwork.MAINNET
-                    )
-                    WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+                    onOpenMintCard?.invoke()
                 }
             }
         }

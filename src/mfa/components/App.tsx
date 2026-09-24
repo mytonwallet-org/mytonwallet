@@ -12,11 +12,13 @@ import {
   IS_SAFARI,
   IS_WINDOWS,
 } from '../../util/windowEnvironment';
+import { ApiServerError } from '../../api/errors';
 import { fetchInstallRequest } from '../utils/installRequest';
 import { parseMfaStartParam } from '../utils/startParam';
 import { fetchTransaction } from '../utils/transaction';
 
 import useEffectOnce from '../../hooks/useEffectOnce';
+import useLang from '../../hooks/useLang';
 
 import Transition from '../../components/ui/Transition';
 import Confirmation from './Confirmation';
@@ -34,7 +36,9 @@ enum AppPages {
 const TRANSITION_KEYS = Object.values(AppPages).length / 2;
 
 function App() {
-  const startParam = getTelegramApp()?.initDataUnsafe.start_param;
+  const telegramApp = getTelegramApp();
+  const lang = useLang();
+  const startParam = telegramApp?.initDataUnsafe.start_param;
   const parsedStartParam = parseMfaStartParam(startParam);
 
   const [activeKey, setActiveKey] = useState<AppPages>(
@@ -44,6 +48,7 @@ function App() {
   const [isLoading, setLoading] = useState<boolean>(true);
 
   const [transaction, setTransaction] = useState<ApiTransaction | undefined>(undefined);
+  const [transactionError, setTransactionError] = useState<string | undefined>(undefined);
   const [installRequest, setInstallRequest] = useState<ApiInstallRequest | undefined>(undefined);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
 
@@ -76,14 +81,20 @@ function App() {
       return;
     }
 
-    fetchTransaction(parsedStartParam.id).then((tx) => {
+    fetchTransaction(parsedStartParam.id, telegramApp?.initData).then((tx) => {
       setTransaction(tx);
+      setTransactionError(undefined);
       setLoading(false);
     }).catch((err) => {
       // eslint-disable-next-line no-console
       console.error(err);
+      if (isTelegramAccountMismatchError(err)) {
+        setTransactionError(lang('This wallet is not linked to the current Telegram account.'));
+        setLoading(false);
+        return;
+      }
+
       alert(`ERROR: ${err}`);
-      // setLoading(false);
     });
   });
 
@@ -104,6 +115,7 @@ function App() {
         {(isActive) => activeKey === AppPages.CONFIRMATION ? (
           <Confirmation
             transaction={transaction}
+            error={transactionError}
             requestId={parsedStartParam.id}
             isLoading={isLoading}
             onConfirm={onConfirm}
@@ -129,6 +141,10 @@ function App() {
       </Transition>
     </div>
   );
+}
+
+function isTelegramAccountMismatchError(err: unknown) {
+  return err instanceof ApiServerError && err.message.includes('Telegram account does not match MFA request');
 }
 
 export default memo(App);

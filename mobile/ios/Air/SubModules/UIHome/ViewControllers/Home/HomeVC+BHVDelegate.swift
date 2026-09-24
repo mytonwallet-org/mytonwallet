@@ -14,6 +14,7 @@ import SwiftUI
 
 extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     public func headerIsAnimating() {
+        collectionView.traceHome("header.animate", "state=\(headerViewModel.state) programmatic=\(isExpandingProgrammatically)")
         let duration = isExpandingProgrammatically ? 0.2 : 0.3
         UIView.animateAdaptive(duration: duration) { [self] in
             updateTableViewHeaderFrame(animated: true)
@@ -27,16 +28,21 @@ extension HomeVC: BalanceHeaderViewDelegate, WalletAssetsDelegate {
     }
 
     public func walletAssetDidChangeHeight(animated: Bool) {
+        guard !isCommittingAccount else { return }
+        collectionView.traceHome("assets.heightChanged", "animated=\(animated)")
         updateTableViewHeaderFrame(animated: animated)
         view.setNeedsLayout()
     }
 
     public func walletAssetDidChangeDisplayTabs(animated: Bool) {
+        guard !isCommittingAccount else { return }
+        collectionView.traceHome("assets.tabsChanged", "animated=\(animated)")
         applySnapshot(makeSnapshot(reconfiguringCustomSections: [assetsCustomSectionID]), animatingDifferences: animated)
         walletAssetDidChangeHeight(animated: animated)
     }
     
     public func expandHeader() {
+        collectionView.traceHome("header.expandProgrammatically")
         isExpandingProgrammatically = true
         headerViewModel.state = .expanded
         collectionView.contentInset.top = expansionInset

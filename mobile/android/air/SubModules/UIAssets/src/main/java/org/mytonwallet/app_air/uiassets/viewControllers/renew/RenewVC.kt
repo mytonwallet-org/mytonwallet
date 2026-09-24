@@ -27,6 +27,8 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
@@ -240,58 +242,110 @@ class RenewVC(context: Context, val nft: ApiNft) : WViewController(context) {
     private fun renewWithPassword() {
         val window = window ?: return
         val accountId = AccountStore.activeAccountId ?: return
-        val passcodeConfirmVC = PasscodeConfirmVC(
-            context,
-            PasscodeViewState.CustomHeader(
-                headerView,
-                LocaleController.getString("Confirm Renewing")
-            ),
-            task = { passcode ->
-                WalletCore.call(
-                    ApiMethod.Domains.SubmitDnsRenewal(
-                        accountId,
-                        passcode,
-                        listOf(nft),
-                        realFee
-                    ),
-                    callback = { res, err ->
-                        if (err != null) {
-                            showError(err.parsed)
-                            return@call
-                        }
-                        val result = res?.firstOrNull()
-                        if (result == null) {
-                            showError(MBridgeError.Type.UNKNOWN)
-                            return@call
-                        }
-                        if (result.error != null) {
-                            showError(MBridgeError.fromErrorName(result.error))
-                            return@call
-                        }
-                        val mfaHash = result.mfaRequestHash
-                        if (mfaHash != null) {
-                            val mfaVC = org.mytonwallet.app_air.uicomponents
-                                .viewControllers.MfaActionConfirmVC(
-                                    context,
-                                    requestHash = mfaHash
-                                )
-                            navigationController?.push(mfaVC, onCompletion = {
-                                navigationController?.removePrevViewControllerOnly()
-                            })
-                            return@call
-                        }
-                        window.dismissLastNav {
-                            window.dismissLastNav { }
-                        }
-                    }
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                renewButton.lockView()
+                renewButton.isLoading = true
+                submitRenewal(accountId, token, null)
+            },
+            onPasscodeRequired = {
+                val nav = WNavigationController(
+                    window,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
                 )
+                nav.setRoot(
+                    PasscodeConfirmVC(
+                        context,
+                        PasscodeViewState.CustomHeader(
+                            headerView,
+                            LocaleController.getString("Confirm Renewing")
+                        ),
+                        task = { token -> submitRenewal(accountId, token, nav) }
+                    )
+                )
+                window.present(nav)
             }
         )
-        val nav = WNavigationController(
-            window,
-            WNavigationController.PresentationConfig.PreferredFullScreen
+    }
+
+    private fun submitRenewal(
+        accountId: String,
+        token: String,
+        passcodeNav: WNavigationController?
+    ) {
+        val window = window ?: return
+        WalletCore.call(
+            ApiMethod.Domains.SubmitDnsRenewal(
+                accountId,
+                token,
+                listOf(nft),
+                realFee
+            ),
+            callback = { res, err ->
+                if (passcodeNav == null && isDestroyed) return@call
+                if (err != null) {
+                    showSubmissionError(err.parsed, passcodeNav)
+                    return@call
+                }
+                val result = res?.firstOrNull()
+                if (result == null) {
+                    showSubmissionError(MBridgeError.Type.UNEXPECTED_ERROR, passcodeNav)
+                    return@call
+                }
+                if (result.error != null) {
+                    showSubmissionError(
+                        MBridgeError.fromErrorName(result.error)
+                            ?: MBridgeError.Type.UNEXPECTED_ERROR,
+                        passcodeNav
+                    )
+                    return@call
+                }
+                val mfaHash = result.mfaRequestHash
+                if (mfaHash != null) {
+                    val mfaVC = org.mytonwallet.app_air.uicomponents
+                        .viewControllers.MfaActionConfirmVC(
+                            context,
+                            requestHash = mfaHash,
+                            onConfirmed = { window.dismissNav(navigationController) }
+                        )
+                    if (passcodeNav != null) {
+                        passcodeNav.push(mfaVC, onCompletion = {
+                            passcodeNav.removePrevViewControllerOnly()
+                        })
+                    } else {
+                        renewButton.isLoading = false
+                        renewButton.unlockView()
+                        val mfaNav = WNavigationController(
+                            window,
+                            WNavigationController.PresentationConfig.PreferredFullScreen
+                        )
+                        mfaNav.setRoot(mfaVC)
+                        window.present(mfaNav)
+                    }
+                    return@call
+                }
+                if (result.activityIds.isNullOrEmpty()) {
+                    showSubmissionError(MBridgeError.Type.UNEXPECTED_ERROR, passcodeNav)
+                    return@call
+                }
+                if (passcodeNav != null) {
+                    window.dismissLastNav { window.dismissLastNav { } }
+                } else {
+                    window.dismissNav(navigationController)
+                }
+            }
         )
-        nav.setRoot(passcodeConfirmVC)
-        window.present(nav)
+    }
+
+    private fun showSubmissionError(error: MBridgeError, passcodeNav: WNavigationController?) {
+        val passcodeVC = passcodeNav?.viewControllers?.firstOrNull() as? PasscodeConfirmVC
+        if (passcodeVC != null) {
+            passcodeVC.restartAuth()
+            passcodeVC.showError(error)
+        } else {
+            renewButton.isLoading = false
+            renewButton.unlockView()
+            showError(error)
+        }
     }
 }

@@ -541,6 +541,7 @@ $max_balance: "Max: %balance%"
 $available_balance: "Available: %balance%"
 $send_recipient_invalid: Invalid
 $send_recipient_not_compatible: Not compatible
+$send_recipient_self_transfer: Cannot send to yourself
 $unstake_information_instantly: You will get your deposit instantly
 Select Token: Select Token
 $token_picker_hidden: Hidden
@@ -929,7 +930,7 @@ Mint Cards: Mint Cards
 Card has been upgraded!: Card has been upgraded!
 $mint_card_result: NFT Card will be **minted** and **installed automatically** within a minute.
 Unique: Unique
-Get a card with unique background and personalized palette for wallet interface.: Get a card with unique background and personalized palette for wallet interface.
+Get a card with unique background and personalized palette for wallet interface.: Get a card with unique background and personalized accent color for wallet interface.
 Transferable: Transferable
 Easily send your upgraded card to any of your friends.: Easily send your upgraded card to any of your friends.
 Tradable: Tradable
@@ -938,6 +939,10 @@ Upgrade for %amount% %currency%: Upgrade for %amount% %currency%
 "%amount% left": "%amount% left"
 "%amount% sold": "%amount% sold"
 This card has been sold out: This card has been sold out
+"Mint starts in %time%": "Mint starts in %time%"
+"%amount% unique cards total":
+  oneValue: "%amount% unique card total"
+  otherValue: "%amount% unique cards total"
 Import Existing Wallet: Import Existing Wallet
 View Any Address: View Any Address
 View Mode: View Mode
@@ -951,6 +956,9 @@ Remember Passcode: Remember Passcode
 Remember Password: Remember Password
 Not available with biometrics.: Not available with biometrics.
 App will not ask for signature for %minutes% minutes after last entry.: The app will not ask for a signature for %minutes% minutes after the last entry.
+Auto-Exit: Auto-Exit
+Log out of all wallets after failed attempts.: Log out of all wallets after failed attempts.
+"%count% attempts": "%count% attempts"
 Remember for %minutes% minutes: Remember for %minutes% minutes
 Preview: Preview
 $preview_not_guaranteed: Preview result **is not guaranteed** and **can be forged** by the service.
@@ -1829,9 +1837,10 @@ Standalone: Standalone
 All Telegram Gifts: All Telegram Gifts
 Add Crypto: Add Crypto
 Share QR Code: Share QR Code
-$send_only_ton: Send only Gram (GRAM) or TON-based assets to this address. Sending other tokens will result in loss.
-$send_only_chain: Send only %chain% (%symbol%) or %chain%-based assets to this address. Sending other tokens will result in loss.
-$send_only_chain_no_tokens: Send only %chain% (%symbol%) to this address. Sending other tokens will result in loss.
+$send_only_ton: Send only GRAM or TON-based assets to this address. Sending other tokens will result in loss.
+$send_only_chain: Send only %symbol% or %chain%-based assets to this address. Sending other tokens will result in loss.
+$send_only_token_chain: Send only %tokenSymbol% or other %chain%-based assets to this address. Sending other tokens will result in loss.
+$send_only_chain_no_tokens: Send only %symbol% to this address. Sending other tokens will result in loss.
 Buying with card is not supported for this account.: Buying with card is not supported for this account.
 Swapped at: Swapped at
 Price per: Price per
@@ -2308,3 +2317,7 @@ Search token or stock: Search token or stock
 Unknown Transfer: Unknown Transfer
 # Prefix before the requesting Dapp name on the Sign Data confirmation screen.
 $dapp_sign_data_for_prefix: for
+Successfully Sent: Successfully Sent
+Successfully Signed: Successfully Signed
+3D Card: 3D Card
+Coming soon: Coming soon

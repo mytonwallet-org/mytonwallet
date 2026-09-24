@@ -32,9 +32,11 @@ struct CrosschainFromWalletView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .disabled(model.isSubmitting)
             .safeAreaInset(edge: .bottom) {
                 BottomButtons(
                     canContinue: model.canContinue,
+                    isSubmitting: model.isSubmitting,
                     onClose: onClose,
                     onContinue: onContinue
                 )
@@ -234,6 +236,7 @@ private struct AccountButton: View {
 
 private struct BottomButtons: View {
     let canContinue: Bool
+    let isSubmitting: Bool
     let onClose: () -> Void
     let onContinue: () -> Void
 
@@ -248,7 +251,8 @@ private struct BottomButtons: View {
                 Text(lang("Continue"))
             }
             .buttonStyle(.airPrimary)
-            .disabled(!canContinue)
+            .environment(\.isLoading, isSubmitting)
+            .disabled(!canContinue || isSubmitting)
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)

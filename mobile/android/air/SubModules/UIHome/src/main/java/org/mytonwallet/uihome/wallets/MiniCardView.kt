@@ -26,6 +26,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -173,7 +174,12 @@ class MiniCardView(context: Context, private val containerWidth: Int) :
         updateTheme()
 
         if (cardNft == null) {
-            imageView.loadRes(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)
+            val image = if (ApplicationContextHolder.isGramApp) {
+                org.mytonwallet.app_air.uicomponents.R.drawable.img_card_gram_preview
+            } else {
+                org.mytonwallet.app_air.uicomponents.R.drawable.img_card
+            }
+            imageView.loadRes(image)
             return
         }
         imageView.hierarchy.setPlaceholderImage(

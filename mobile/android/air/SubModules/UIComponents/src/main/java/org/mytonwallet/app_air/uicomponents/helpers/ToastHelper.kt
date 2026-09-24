@@ -81,7 +81,7 @@ object ToastHelper {
         notifyWalletAction(
             viewController = viewController,
             accountId = accountId,
-            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_swap_30,
+            iconResId = org.mytonwallet.app_air.icons.R.drawable.ic_transferable,
             text = LocaleController.getString("Subwallet Switched")
         )
     }

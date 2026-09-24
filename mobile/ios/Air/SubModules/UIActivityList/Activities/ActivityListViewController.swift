@@ -77,6 +77,10 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
     open var headerPlaceholderHeight: CGFloat { fatalError("abstract") }
     open var headerPlaceholderBottomSpacing: CGFloat { 16 }
+    private var headerPlaceholderLayoutHeight: CGFloat {
+        // Compositional layout rejects zero-height groups (history has no visible header).
+        max(headerPlaceholderHeight, 1 / max(traitCollection.displayScale, 1))
+    }
     open var customSections: [any CustomSectionDataProvider] { [] }
     open var activeCustomSectionIDs: [String] { customSections.map(\.id) }
     open var trailingCustomSections: [any CustomSectionDataProvider] { [] }
@@ -93,6 +97,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     public var activityViewModel: ActivityListViewModel?
 
     private var reconfigureTokensWhenStopped: Bool = false
+    private var pendingContentReplacementCompletion: (@MainActor @Sendable () -> Void)?
+    private var pendingContentReplacementUpdates: (@MainActor @Sendable () -> Void)?
     private let nftAnimationPlaybackCoordinator = NftAnimationPlaybackCoordinator()
     private var isViewVisibleForNftAnimationPlayback = false
     private var nftAnimationPlaybackEligibleIDs = Set<String>()
@@ -104,6 +110,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         animatingDifferences: Bool,
         notifiesDidApply: Bool
     )?
+    private var preparingMainThreadSnapshot: NSDiffableDataSourceSnapshot<Section, Row>?
+    private var pendingHomeTraceRequests: [UInt64] = []
+    private var pendingHomeTraceCauses = Set<UInt64>()
 
     // MARK: - Misc
 
@@ -200,7 +209,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     private func customItemIdentifier(from row: Row, sectionID: String) -> String? {
-        guard case .custom(let identifier) = row else { return nil }
+        guard case .custom(let identifier) = row.value else { return nil }
         let prefix = sectionID + Self.customItemIdentifierSeparator
         if identifier.hasPrefix(prefix) {
             return String(identifier.dropFirst(prefix.count))
@@ -270,10 +279,13 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     
     private func makeLayout() -> UICollectionViewLayout {
         
-        func makePlainSection(bottomSpacing: CGFloat) -> NSCollectionLayoutSection {
+        func makePlainSection(
+            bottomSpacing: CGFloat,
+            height: NSCollectionLayoutDimension = .estimated(plainSectionEstimatedHeight)
+        ) -> NSCollectionLayoutSection {
             let size = NSCollectionLayoutSize(
                 widthDimension: .fractionalWidth(1),
-                heightDimension: .estimated(plainSectionEstimatedHeight)
+                heightDimension: height
             )
             let item = NSCollectionLayoutItem(layoutSize: size)
             let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [item])
@@ -283,7 +295,6 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             return section
         }
         let plainSection = makePlainSection(bottomSpacing: 16)
-        let headerPlaceholderSection = makePlainSection(bottomSpacing: headerPlaceholderBottomSpacing)
         
         return CollectionViewCompositionalLayout { [weak self] sectionIndex, layoutEnvironment in
             guard let self else {
@@ -292,7 +303,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
             }
             
-            return switch self.dataSource?.sectionIdentifier(for: sectionIndex) {
+            return switch self.dataSource?.sectionIdentifier(for: sectionIndex)?.value {
             case .custom(let id):
                 if let customLayout = customSectionDataProvider(id: id)?.makeLayoutSection(
                     layoutEnvironment: layoutEnvironment
@@ -304,7 +315,10 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     plainSection
                 }
             case .headerPlaceholder:
-                headerPlaceholderSection
+                makePlainSection(
+                    bottomSpacing: headerPlaceholderBottomSpacing,
+                    height: .absolute(headerPlaceholderLayoutHeight)
+                )
             case .emptyPlaceholder:
                 plainSection
             case .placeholderTransactionsSection, .transactions, .none:
@@ -315,15 +329,14 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     
     public func makeDataSource() -> UICollectionViewDiffableDataSource<Section, Row> {
         allCustomSectionDataProviders.forEach { $0.prepareForUse() }
-        let headerPlaceholderCellRegistration = UICollectionView.CellRegistration<HeaderPlaceholderCell, Row> { [unowned self] cell, _, _ in
-            cell.configure(height: headerPlaceholderHeight)
+        let headerPlaceholderCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { cell, _, _ in
             cell.backgroundColor = .clear
         }
         let fallbackCellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, Row> { cell, _, _ in
             cell.backgroundColor = .clear
         }
         let activityCellRegistration = UICollectionView.CellRegistration<ActivityCell, Row> { [unowned self] cell, _, item in
-            switch item {
+            switch item.value {
             case .transaction(_, let transactionId):
                 if let activityViewModel, let showingTransaction = activityViewModel.activity(forStableId: transactionId) {
                     cell.configure(
@@ -352,7 +365,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             elementKind: UICollectionView.elementKindSectionHeader
         ) { [weak self] cell, _, indexPath in
             guard let self, let section = self.dataSource?.sectionIdentifier(for: indexPath.section) else { return }
-            switch section {
+            switch section.value {
             case .placeholderTransactionsSection:
                 cell.configureSkeleton()
             case .transactions(_, let date):
@@ -363,12 +376,13 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
 
         let dataSource = UICollectionViewDiffableDataSource<Section, Row>(collectionView: collectionView) { [unowned self] collectionView, indexPath, item in
-            switch item {
+            self.collectionView.countHomeWork("configureCell.section\(indexPath.section)")
+            switch item.value {
             case .headerPlaceholder:
                 return collectionView.dequeueConfiguredReusableCell(using: headerPlaceholderCellRegistration, for: indexPath, item: item)
 
             case .custom:
-                guard case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section),
+                guard case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
                       let dataProvider = self.customSectionDataProvider(id: sectionID),
                       let itemIdentifier = self.customItemIdentifier(from: item, sectionID: sectionID) else {
                     assertionFailure("Missing custom section data provider at \(indexPath)")
@@ -388,7 +402,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             }
         }
         dataSource.supplementaryViewProvider = { [unowned self] collectionView, kind, indexPath in
-            if case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section),
+            if case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
                let supplementaryView = customSectionDataProvider(id: sectionID)?.dequeueSupplementaryView(
                    collectionView,
                    kind: kind,
@@ -465,7 +479,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         if let activityViewModel {
             var snapshot = activityViewModel.snapshot!
             let currentCustomSections = snapshot.sectionIdentifiers.compactMap { section -> Section? in
-                if case .custom = section {
+                if case .custom = section.value {
                     return section
                 }
                 return nil
@@ -504,7 +518,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 }
             }
             if let lastTransactionsSection = snapshot.sectionIdentifiers.last(where: { section in
-                if case .transactions = section {
+                if case .transactions = section.value {
                     return true
                 }
                 return false
@@ -548,6 +562,19 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
     
     // MARK: - Reload methods
+
+    public func applyContentReplacementSnapshot(
+        _ snapshot: NSDiffableDataSourceSnapshot<Section, Row>,
+        animatingDifferences: Bool = false,
+        alongside updates: (@MainActor @Sendable () -> Void)? = nil,
+        completion: (@MainActor @Sendable () -> Void)? = nil
+    ) {
+        precondition(updates == nil || !usesBackgroundSnapshotDiffing)
+        pendingMainThreadSnapshot?.animatingDifferences = animatingDifferences
+        pendingContentReplacementCompletion = completion
+        pendingContentReplacementUpdates = updates
+        applySnapshot(snapshot, animatingDifferences: animatingDifferences)
+    }
     
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
         guard let dataSource else { return }
@@ -555,6 +582,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             enqueueMainThreadSnapshot(snapshot, animatingDifferences: animatingDifferences, notifiesDidApply: true)
             return
         }
+        let replacementCompletion = pendingContentReplacementCompletion
+        pendingContentReplacementCompletion = nil
         queue.async {
             // @MainActor annotation conflicts with the docs which allow calling consistently on the background thread
             dataSource.apply(snapshot, animatingDifferences: animatingDifferences) {
@@ -562,6 +591,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                     self.updateVisibleActivityNftAnimationPlayback()
                     self.didApplySnapshot()
+                    replacementCompletion?()
                 }
             }
         }
@@ -585,18 +615,66 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             animatingDifferences || pending?.animatingDifferences == true,
             notifiesDidApply || pending?.notifiesDidApply == true
         )
+        if collectionView.tracesHomeUpdates, HomeTrace.isEnabled {
+            let current = dataSource?.snapshot()
+            let changedStructure = current?.sectionIdentifiers != snapshot.sectionIdentifiers
+                || current?.itemIdentifiers != snapshot.itemIdentifiers
+            let sections = snapshot.sectionIdentifiers.map { section -> String in
+                let name: String = switch section.value {
+                case .headerPlaceholder: "header"
+                case .custom(let id): id
+                default: "activity"
+                }
+                return "\(name):\(snapshot.numberOfItems(inSection: section))"
+            }.joined(separator: ",")
+            let request = collectionView.traceHome("snapshot.enqueue", "coalesced=\(pending != nil) structureChanged=\(changedStructure) sections=[\(sections)] rows=\(snapshot.numberOfItems) reconfigure=\(snapshot.reconfiguredItemIdentifiers.count) animated=\(animatingDifferences)")
+            if let request { pendingHomeTraceRequests.append(request) }
+            if let cause = HomeTrace.cause { pendingHomeTraceCauses.insert(cause) }
+        }
         guard pending == nil else { return }
         // Home's bounded sections often change together during one account switch.
         DispatchQueue.main.async { [weak self] in
             guard let self, let pending = self.pendingMainThreadSnapshot else { return }
             self.pendingMainThreadSnapshot = nil
-            self.dataSource?.apply(pending.snapshot, animatingDifferences: pending.animatingDifferences) { [weak self] in
-                guard let self else { return }
-                self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
-                self.updateVisibleActivityNftAnimationPlayback()
-                if pending.notifiesDidApply {
-                    self.didApplySnapshot()
+            let replacementCompletion = self.pendingContentReplacementCompletion
+            let replacementUpdates = self.pendingContentReplacementUpdates
+            self.pendingContentReplacementCompletion = nil
+            self.pendingContentReplacementUpdates = nil
+            let requests = self.pendingHomeTraceRequests
+            let causes = self.pendingHomeTraceCauses.sorted()
+            self.pendingHomeTraceRequests.removeAll(keepingCapacity: true)
+            self.pendingHomeTraceCauses.removeAll(keepingCapacity: true)
+            let startedAt = HomeTrace.isEnabled ? HomeTrace.now : 0
+            let applyID = self.collectionView.traceHome("snapshot.apply.begin", "requests=\(requests) causes=\(causes) rows=\(pending.snapshot.numberOfItems) reconfigure=\(pending.snapshot.reconfiguredItemIdentifiers.count) animated=\(pending.animatingDifferences)")
+            let apply = { [self] in
+                HomeTrace.$cause.withValue(applyID) {
+                    // Coordinated geometry updates can reconfigure an offscreen section.
+                    // Fold them into the incoming snapshot before UIKit sees it.
+                    self.preparingMainThreadSnapshot = pending.snapshot
+                    replacementUpdates?()
+                    let snapshot = self.preparingMainThreadSnapshot!
+                    self.preparingMainThreadSnapshot = nil
+                    let completion = { [weak self] in
+                        guard let self else { return }
+                        self.collectionView.traceHome("snapshot.apply.end", "apply=\(applyID.map(String.init) ?? "-") duration_ms=\(HomeTrace.milliseconds(since: startedAt)) requests=\(requests) causes=\(causes)")
+                        self.collectionView.flushHomeTrace(reason: "snapshot-complete", force: true)
+                        self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
+                        self.updateVisibleActivityNftAnimationPlayback()
+                        if pending.notifiesDidApply {
+                            self.didApplySnapshot()
+                        }
+                        replacementCompletion?()
+                    }
+                    self.dataSource?.apply(snapshot, animatingDifferences: pending.animatingDifferences, completion: completion)
                 }
+            }
+            if replacementUpdates != nil, pending.animatingDifferences {
+                UIView.animateAdaptive(duration: 0.3) {
+                    apply()
+                    self.view.layoutIfNeeded()
+                }
+            } else {
+                apply()
             }
         }
     }
@@ -612,7 +690,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     ) -> Bool {
         guard let dataSource else { return false }
         let row = dataSource.snapshot().itemIdentifiers.first { item in
-            guard case .transaction(_, let itemStableID) = item else { return false }
+            guard case .transaction(_, let itemStableID) = item.value else { return false }
             return itemStableID == stableID
         }
         guard let row, let indexPath = dataSource.indexPath(for: row) else { return false }
@@ -622,11 +700,15 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
     
     public func reconfigureHeaderPlaceholder(animated: Bool) {
-        if let cell = collectionView.cellForItem(at: IndexPath(row: 0, section: 0)) as? HeaderPlaceholderCell {
-            cell.configure(height: headerPlaceholderHeight)
-        }
-        
-        collectionView.collectionViewLayout.invalidateLayout()
+        guard let indexPath = dataSource?.indexPath(for: .headerPlaceholder) else { return }
+        let layout = collectionView.collectionViewLayout
+        guard let original = layout.layoutAttributesForItem(at: indexPath),
+              original.size.height != headerPlaceholderLayoutHeight else { return }
+        // The layout owns this known height, including while the placeholder is offscreen.
+        let context = UICollectionViewLayoutInvalidationContext()
+        context.invalidateItems(at: [indexPath])
+        collectionView.traceHome("layout.invalidate.header", "oldH=\(original.size.height) newH=\(headerPlaceholderLayoutHeight) animated=\(animated)")
+        layout.invalidateLayout(with: context)
     }
     
     public func invalidateCustomSectionLayout(id: String) {
@@ -635,15 +717,21 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         guard !indexPaths.isEmpty else { return }
         let context = UICollectionViewLayoutInvalidationContext()
         context.invalidateItems(at: indexPaths)
+        collectionView.traceHome("layout.invalidate.section", "section=\(id) items=\(indexPaths.count)")
         collectionView.collectionViewLayout.invalidateLayout(with: context)
     }
 
     public func reconfigureCustomSection(id: String) {
         guard let dataSource, let dataProvider = customSectionDataProvider(id: id) else { return }
-        let currentSnapshot = pendingMainThreadSnapshot?.snapshot ?? dataSource.snapshot()
+        let currentSnapshot = pendingMainThreadSnapshot?.snapshot ?? preparingMainThreadSnapshot ?? dataSource.snapshot()
         let rows = customRows(for: dataProvider).filter(currentSnapshot.itemIdentifiers.contains)
+        collectionView.traceHome("section.reconfigure", "section=\(id) rows=\(rows.count) pendingSnapshot=\(pendingMainThreadSnapshot != nil)")
         guard !rows.isEmpty else { return }
         if !usesBackgroundSnapshotDiffing {
+            if pendingMainThreadSnapshot == nil, preparingMainThreadSnapshot != nil {
+                preparingMainThreadSnapshot?.reconfigureItems(rows)
+                return
+            }
             var snapshot = currentSnapshot
             snapshot.reconfigureItems(rows)
             enqueueMainThreadSnapshot(snapshot, animatingDifferences: true, notifiesDidApply: false)
@@ -680,6 +768,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
     
     public func updateTokensInVisibleRows() {
+        collectionView.traceHome("activityRows.updateTokens", "deferred=\(collectionView.isDecelerating || collectionView.isTracking)")
         if collectionView.isDecelerating || collectionView.isTracking {
             self.reconfigureTokensWhenStopped = true
         } else {
@@ -704,6 +793,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     // MARK: - Table view delegate
     
     open dynamic func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        collectionView.traceHome("scroll.deceleration.end")
+        collectionView.flushHomeTrace(reason: "deceleration-end", force: true)
         if reconfigureTokensWhenStopped {
             self.reconfigureTokensWhenStopped = false
             self.updateTokensInVisibleRows()
@@ -712,6 +803,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
     
     open dynamic func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        collectionView.traceHome("scroll.drag.end", "willDecelerate=\(decelerate)")
+        collectionView.flushHomeTrace(reason: "drag-end", force: true)
         if !decelerate {
             if reconfigureTokensWhenStopped {
                 self.reconfigureTokensWhenStopped = false
@@ -754,7 +847,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     ) -> ((any CustomSectionDataProvider), String)? {
         guard let dataSource,
               let row = dataSource.itemIdentifier(for: indexPath),
-              case .custom(let sectionID) = dataSource.sectionIdentifier(for: indexPath.section),
+              case .custom(let sectionID) = dataSource.sectionIdentifier(for: indexPath.section)?.value,
               let dataProvider = customSectionDataProvider(id: sectionID),
               let itemIdentifier = customItemIdentifier(from: row, sectionID: sectionID) else {
             return nil
@@ -906,6 +999,32 @@ public extension ActivityListViewController.CustomSectionDataProvider {
 // MARK: - Debug
 
 private final class CollectionViewCompositionalLayout: UICollectionViewCompositionalLayout {
+    override func prepare() {
+        (collectionView as? ActivitiesCollectionView)?.countHomeWork("prepare")
+        super.prepare()
+    }
+
+    override func invalidateLayout() {
+        (collectionView as? ActivitiesCollectionView)?.countHomeWork("invalidate.full")
+        super.invalidateLayout()
+    }
+
+    override func invalidateLayout(with context: UICollectionViewLayoutInvalidationContext) {
+        let collection = collectionView as? ActivitiesCollectionView
+        collection?.countHomeWork(context.invalidateEverything ? "invalidate.contextAll" : "invalidate.partial")
+        if context.invalidateDataSourceCounts { collection?.countHomeWork("invalidate.dataCounts") }
+        if context.invalidatedItemIndexPaths?.isEmpty == false { collection?.countHomeWork("invalidate.items") }
+        super.invalidateLayout(with: context)
+    }
+
+    override func invalidationContext(
+        forPreferredLayoutAttributes preferredAttributes: UICollectionViewLayoutAttributes,
+        withOriginalAttributes originalAttributes: UICollectionViewLayoutAttributes
+    ) -> UICollectionViewLayoutInvalidationContext {
+        (collectionView as? ActivitiesCollectionView)?.countHomeWork("selfSize.section\(preferredAttributes.indexPath.section)")
+        return super.invalidationContext(forPreferredLayoutAttributes: preferredAttributes, withOriginalAttributes: originalAttributes)
+    }
+
     override func initialLayoutAttributesForAppearingItem(at itemIndexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
         let attrs = super.initialLayoutAttributesForAppearingItem(at: itemIndexPath)
 //        print(#function, itemIndexPath, attrs)
@@ -914,43 +1033,6 @@ private final class CollectionViewCompositionalLayout: UICollectionViewCompositi
 }
 
 // MARK: - First Row cell
-
-private final class HeaderPlaceholderCell: UICollectionViewCell {
-    private let spacerView = UIView()
-    private var heightConstraint: NSLayoutConstraint!
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        contentView.backgroundColor = .clear
-        spacerView.translatesAutoresizingMaskIntoConstraints = false
-        spacerView.backgroundColor = .clear
-        contentView.addSubview(spacerView)
-        heightConstraint = spacerView.heightAnchor.constraint(equalToConstant: 0)
-        
-        NSLayoutConstraint.activate([
-            spacerView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            spacerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            spacerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            spacerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-//            heightConstraint,
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { nil }
-
-    func configure(height: CGFloat) {
-        heightConstraint.constant = height
-    }
-    
-    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
-        let attrs = super.preferredLayoutAttributesFitting(layoutAttributes)
-        attrs.size.height = heightConstraint.constant
-        return attrs
-    }
-    
-}
 
 open class FirstRowCell: UICollectionViewCell {
     public override init(frame: CGRect) {
@@ -972,10 +1054,9 @@ open class FirstRowCell: UICollectionViewCell {
     }
     
     open override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
-        let attrs = super.preferredLayoutAttributesFitting(layoutAttributes)
-        if let height {
-            attrs.size.height = height
-        }
-        return attrs
+        guard let height else { return super.preferredLayoutAttributesFitting(layoutAttributes) }
+        let attributes = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
+        attributes.size.height = height
+        return attributes
     }
 }

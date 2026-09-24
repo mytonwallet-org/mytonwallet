@@ -182,6 +182,10 @@ private struct AccountSwitcherMenuRow: View {
 }
 
 public final class AccountSwitcherButton: UIControl {
+    public var chevronTintColor: UIColor = .label {
+        didSet { chevronView.tintColor = chevronTintColor }
+    }
+
     private let iconView = IconView(size: buttonIconSize)
     private let chevronView = UIImageView(
         image: UIImage(

@@ -1,5 +1,6 @@
 import { DappProtocolType } from '../../types';
 
+import { SEND_TRANSACTION_ERROR_CODES } from './errors';
 import { createTonConnectAdapter } from './index';
 
 const mockFetchJsonWithProxy = jest.fn();
@@ -102,6 +103,7 @@ describe('TonConnectAdapter.connect', () => {
       ton: {
         address: activeAddress,
         publicKey: 'active-public-key',
+        version: 'W5',
       },
     },
   };
@@ -112,6 +114,7 @@ describe('TonConnectAdapter.connect', () => {
       ton: {
         address: selectedAddress,
         publicKey: 'selected-public-key',
+        version: 'W5',
       },
     },
   };
@@ -142,18 +145,21 @@ describe('TonConnectAdapter.connect', () => {
     mockToRawAddress.mockImplementation((address: string) => `raw:${address}`);
   });
 
-  it('uses the wallet selected in the connect modal, not the initially active wallet', async () => {
+  async function createConnectedAdapter() {
     const adapter = createTonConnectAdapter();
-    const onUpdate = jest.fn();
     await adapter.init({
-      onUpdate,
+      onUpdate: jest.fn(),
       env: {
         agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false, byNetwork: { mainnet: {}, testnet: {} },
       },
       chainDappSupports: {},
     });
 
-    const result = await adapter.connect(
+    return adapter;
+  }
+
+  function connect(adapter: Awaited<ReturnType<typeof createConnectedAdapter>>) {
+    return adapter.connect(
       {
         url: undefined,
         identifier: 'request-1',
@@ -179,6 +185,12 @@ describe('TonConnectAdapter.connect', () => {
       },
       123,
     );
+  }
+
+  it('uses the wallet selected in the connect modal, not the initially active wallet', async () => {
+    const adapter = await createConnectedAdapter();
+
+    const result = await connect(adapter);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -213,5 +225,21 @@ describe('TonConnectAdapter.connect', () => {
     );
     expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(activeAccountId, 'ton');
     expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(selectedAccountId, 'ton');
+  });
+
+  it.each(['publicKey', 'version'] as const)('refuses to connect a wallet with no %s', async (field) => {
+    mockFetchStoredChainAccount.mockResolvedValue({
+      ...selectedAccount,
+      byChain: { ton: { ...selectedAccount.byChain.ton, [field]: undefined } },
+    });
+
+    const result = await connect(await createConnectedAdapter());
+
+    // Without either one the reply cannot be built, and the dapp is told what is wrong instead of getting
+    // an unknown error from a failure deeper in the wallet code
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.code).toBe(SEND_TRANSACTION_ERROR_CODES.BAD_REQUEST_ERROR);
   });
 });

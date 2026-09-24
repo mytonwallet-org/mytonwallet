@@ -16,7 +16,8 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     var actionsView: ActionsView { actionsContainerView.actionsView }
     
     @AccountContext var account: MAccount
-    private lazy var opacityAnimator = DisplayLinkAlphaAnimator(view: view)
+    private var opacityAnimator: UIViewPropertyAnimator?
+    private var targetAlpha: CGFloat?
     
     init(accountSource: AccountSource) {
         self._account = AccountContext(source: accountSource)
@@ -59,6 +60,13 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
         hideUnsupportedActions(animated: true)
     }
 
+    func switchAccountTo(_ accountId: String, animated: Bool = false) {
+        guard displayedAccountId != accountId else { return }
+        displayedAccountId = accountId
+        $account.accountId = accountId
+        hideUnsupportedActions(animated: animated)
+    }
+
     private func hideUnsupportedActions(animated: Bool = false) {
         if account.isView {
             view.isUserInteractionEnabled = false
@@ -77,7 +85,21 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     }
 
     private func setActionButtonsAlpha(_ targetAlpha: CGFloat, animated: Bool) {
-        opacityAnimator.setAlpha(targetAlpha, animated: animated, duration: actionsRowFadeDuration)
+        guard self.targetAlpha != targetAlpha else { return }
+        self.targetAlpha = targetAlpha
+        let currentAlpha = view.layer.presentation().map { CGFloat($0.opacity) } ?? view.alpha
+        opacityAnimator?.stopAnimation(true)
+        opacityAnimator = nil
+        guard animated, view.window != nil, AppStorageHelper.animations, !UIAccessibility.isReduceMotionEnabled else {
+            view.alpha = targetAlpha
+            return
+        }
+        view.alpha = currentAlpha
+        let animator = UIViewPropertyAnimator(duration: actionsRowFadeDuration, curve: .easeInOut) { [weak self] in
+            self?.view.alpha = targetAlpha
+        }
+        opacityAnimator = animator
+        animator.startAnimation()
     }
     
     var calculatedHeight: CGFloat {

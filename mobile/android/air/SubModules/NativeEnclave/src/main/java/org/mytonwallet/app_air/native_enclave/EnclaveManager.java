@@ -184,6 +184,10 @@ public class EnclaveManager {
         }
     }
 
+    public void releaseSessionUsages(String token, int count) {
+        sessionManager.releaseUsages(token, count);
+    }
+
     public void removeAuth(AuthType authType) {
         Objects.requireNonNull(auths.get(authType)).destroy();
     }

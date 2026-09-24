@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.text.Spannable
 import android.text.SpannableStringBuilder
+import android.text.TextUtils
 import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
@@ -49,6 +50,8 @@ class PasscodeHeaderSendView(
         typeface = WFont.Balance.typeface
         setTextColor(WColor.PrimaryText)
         includeFontPadding = false
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
     }
 
     private val sendingTextView = WLabel(context).apply {

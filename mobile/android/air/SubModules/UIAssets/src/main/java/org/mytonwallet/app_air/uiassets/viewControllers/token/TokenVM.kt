@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import java.lang.ref.WeakReference
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,8 +18,6 @@ import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
-import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugConfig
-import org.mytonwallet.app_air.walletcore.debug.TokenInfoDebugSource
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -113,36 +110,13 @@ class TokenVM(
         loadTokenInfo()
     }
 
-    private fun initialTokenInfoState(): TokenInfoState {
-        if (TokenInfoDebugConfig.source != TokenInfoDebugSource.REAL_API) {
-            return TokenInfoState.Loading
-        }
-        return TokenStore.cachedTokenDetails(token.slug)?.let {
+    private fun initialTokenInfoState(): TokenInfoState =
+        TokenStore.cachedTokenDetails(token.slug)?.let {
             TokenInfoState.resolved(it.tokenInfo)
         } ?: TokenInfoState.Loading
-    }
 
     private fun loadTokenInfo() {
         tokenInfoJob?.cancel()
-        when (val debugSource = TokenInfoDebugConfig.source) {
-            TokenInfoDebugSource.COMPLETE_DATA,
-            TokenInfoDebugSource.LOCALIZED_DESCRIPTION,
-            TokenInfoDebugSource.LONG_DESCRIPTION_PARTIAL_DATA,
-            TokenInfoDebugSource.MISSING_DESCRIPTION -> {
-                setTokenInfoState(TokenInfoState.Loading)
-                val info = debugSource.mockTokenInfo
-                val state = TokenInfoState.resolved(info)
-                tokenInfoJob = scope.launch {
-                    delay(2_000L.milliseconds)
-                    withContext(Dispatchers.Main) {
-                        setTokenInfoState(state)
-                    }
-                }
-                return
-            }
-
-            TokenInfoDebugSource.REAL_API -> Unit
-        }
         tokenInfoJob = scope.launch {
             val cachedDetails = TokenStore.awaitCachedTokenDetails(accountId, token.slug)
             cachedDetails?.let {

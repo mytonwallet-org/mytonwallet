@@ -552,6 +552,7 @@ $max_balance: "Максимум: %balance%"
 $available_balance: "Доступно: %balance%"
 $send_recipient_invalid: Некорректный
 $send_recipient_not_compatible: Несовместим
+$send_recipient_self_transfer: Нельзя отправить себе
 $unstake_information_instantly: Вы получите свой депозит мгновенно
 Select Token: Выбрать токен
 $token_picker_hidden: Скрытые
@@ -950,6 +951,12 @@ Upgrade for %amount% %currency%: Улучшить за %amount% %currency%
 "%amount% left": Осталось %amount%
 "%amount% sold": Продано %amount%
 This card has been sold out: Эта карта распродана
+"Mint starts in %time%": "Минт начнётся через %time%"
+"%amount% unique cards total":
+  oneValue: "Всего %amount% уникальная карта"
+  fewValue: "Всего %amount% уникальные карты"
+  manyValue: "Всего %amount% уникальных карт"
+  otherValue: "Всего %amount% уникальной карты"
 Import Existing Wallet: Импортировать существующий
 View Any Address: Просмотр адреса
 View Mode: Режим просмотра
@@ -963,6 +970,9 @@ Remember Passcode: Запоминать код
 Remember Password: Запоминать пароль
 Not available with biometrics.: Недоступно при использовании биометрии.
 App will not ask for signature for %minutes% minutes after last entry.: Приложение не будет запрашивать подпись в течение %minutes% минут после последнего ввода.
+Auto-Exit: Автовыход
+Log out of all wallets after failed attempts.: Выйти из всех кошельков после неудачных попыток.
+"%count% attempts": "%count% попыток"
 Remember for %minutes% minutes: Запомнить на %minutes% минут
 Preview: Предпросмотр
 $preview_not_guaranteed: Предпросмотр **не гарантирует** результат и **может быть подделан** сервисом.
@@ -1824,9 +1834,10 @@ Standalone: Отдельный
 All Telegram Gifts: Все подарки Telegram
 Add Crypto: Пополнить
 Share QR Code: Поделиться QR кодом
-$send_only_ton: Отправляйте только Gram (GRAM) или активы на базе TON на этот адрес. Отправка других токенов приведёт к их потере.
-$send_only_chain: Отправляйте только %chain% (%symbol%) или активы на базе %chain% на этот адрес. Отправка других токенов приведёт к их потере.
-$send_only_chain_no_tokens: Отправляйте только %chain% (%symbol%) на этот адрес. Отправка других токенов приведёт к их потере.
+$send_only_ton: Отправляйте только GRAM или активы на базе TON на этот адрес. Отправка других токенов приведёт к их потере.
+$send_only_chain: Отправляйте только %symbol% или активы на базе %chain% на этот адрес. Отправка других токенов приведёт к их потере.
+$send_only_token_chain: Отправляйте на этот адрес только %tokenSymbol% или другие активы сети %chain%. Отправка других токенов приведёт к их потере.
+$send_only_chain_no_tokens: Отправляйте только %symbol% на этот адрес. Отправка других токенов приведёт к их потере.
 Buying with card is not supported for this account.: Покупка с карты не поддерживается для этого аккаунта.
 Swapped at: Обмен выполнен в
 Price per: Цена за
@@ -2345,3 +2356,7 @@ Search token or stock: Поиск токена или акции
 
 Unknown Transfer: Неизвестный перевод
 $dapp_sign_data_for_prefix: для
+Successfully Sent: Успешно отправлено
+Successfully Signed: Успешно подписано
+3D Card: 3D карта
+Coming soon: Скоро

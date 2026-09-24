@@ -202,6 +202,7 @@ open class HomeHeaderView(
     private var initialTouchY = 0f
     private var lastTouchX = 0f
     private var isHorizontalScrolling = false
+    private var isAccountSwipeGesture = false
     private var scrollDirectionLocked = false
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val horizontalScroller = Scroller(context)
@@ -441,6 +442,32 @@ open class HomeHeaderView(
     fun viewWillDisappear() {
         balanceView.interruptAnimation()
         cardViews.forEach { it.viewWillDisappear() }
+    }
+
+    fun viewWillAppear() {
+        cardViews.forEach { it.viewWillAppear() }
+    }
+
+    fun releaseCardPress() {
+        cardViews.forEach { it.releasePress() }
+    }
+
+    fun beginHorizontalScroll() {
+        if (mode != Mode.Expanded) return
+        isAccountSwipeGesture = true
+        cardViews.forEach { it.isAccountScrolling = true }
+        prevCardView.syncEffectsFrom(cardView)
+        nextCardView.syncEffectsFrom(cardView)
+    }
+
+    fun endHorizontalScroll() {
+        if (!isAccountSwipeGesture) return
+        isAccountSwipeGesture = false
+        render()
+    }
+
+    fun setReparenting(reparenting: Boolean) {
+        cardViews.forEach { it.setReparenting(reparenting) }
     }
 
     override fun updateTheme() {
@@ -771,6 +798,10 @@ open class HomeHeaderView(
             setRoundingParam(WalletCardView.EXPANDED_RADIUS.dp.toFloat())
         }
         nextCardView.isInGoneState = expandProgress <= 0.9f
+        if (isAccountSwipeGesture || abs(horizontalScrollOffset) > 0.5f.dp) {
+            prevCardView.syncEffectsFrom(cardView)
+            nextCardView.syncEffectsFrom(cardView)
+        }
         layoutCardView()
     }
 
@@ -1151,8 +1182,15 @@ open class HomeHeaderView(
             prevCardView.isOffScreen = horizontalScrollOffset >= 0f
             nextCardView.isOffScreen = horizontalScrollOffset <= 0f
             cardView.isOffScreen = false
+            val isAccountScrolling = isAccountSwipeGesture || abs(horizontalScrollOffset) > 0.5f.dp
+            prevCardView.isAccountScrolling = isAccountScrolling
+            cardView.isAccountScrolling = isAccountScrolling
+            nextCardView.isAccountScrolling = isAccountScrolling
             cardView.isBalanceCollapsed = false
         } else {
+            prevCardView.isAccountScrolling = false
+            cardView.isAccountScrolling = false
+            nextCardView.isAccountScrolling = false
             prevCardView.isInGoneState = true
             nextCardView.isInGoneState = true
             prevCardView.isOffScreen = true

@@ -543,6 +543,7 @@ $max_balance: "最大: %balance%"
 $available_balance: "可用: %balance%"
 $send_recipient_invalid: 无效
 $send_recipient_not_compatible: 不兼容
+$send_recipient_self_transfer: 无法向自己发送
 $unstake_information_instantly: 您将立即获得存款
 Select Token: 选择代币
 $token_picker_hidden: 隐藏
@@ -928,6 +929,9 @@ Upgrade for %amount% %currency%: 升级需 %amount% %currency%
 "%amount% left": 剩余 %amount%
 "%amount% sold": 已售 %amount%
 This card has been sold out: 此卡片已售罄
+"Mint starts in %time%": "铸造将在 %time% 后开始"
+"%amount% unique cards total":
+  otherValue: "共 %amount% 张独特卡片"
 Import Existing Wallet: 导入现有钱包
 View Any Address: 查看任意地址
 View Mode: 查看模式
@@ -941,6 +945,9 @@ Remember Passcode: 记住验证码
 Remember Password: 记住密码
 Not available with biometrics.: 生物识别不可用。
 App will not ask for signature for %minutes% minutes after last entry.: 应用程序在上次输入后%minutes%分钟内不会要求签名。
+Auto-Exit: 自动退出
+Log out of all wallets after failed attempts.: 多次尝试失败后退出所有钱包。
+"%count% attempts": "%count% 次尝试"
 Remember for %minutes% minutes: 记住 %minutes% 分钟
 Preview: 预览
 $preview_not_guaranteed: 预览结果**不受保证**，且**可能被服务伪造**。
@@ -1786,9 +1793,10 @@ Standalone: 独立模式
 All Telegram Gifts: 所有 Telegram 礼物
 Add Crypto: 充值加密货币
 Share QR Code: 分享二维码
-$send_only_ton: 仅向此地址发送 Gram (GRAM) 或 TON 网络资产。发送其他代币会导致丢失。
-$send_only_chain: 仅向此地址发送 %chain% (%symbol%) 或 %chain% 网络资产。发送其他代币会导致丢失。
-$send_only_chain_no_tokens: 仅向此地址发送 %chain% (%symbol%)。发送其他代币会导致丢失。
+$send_only_ton: 仅向此地址发送 GRAM 或 TON 网络资产。发送其他代币会导致丢失。
+$send_only_chain: 仅向此地址发送 %symbol% 或 %chain% 网络资产。发送其他代币会导致丢失。
+$send_only_token_chain: 仅向此地址发送 %tokenSymbol% 或其他 %chain% 网络资产。发送其他代币会导致丢失。
+$send_only_chain_no_tokens: 仅向此地址发送 %symbol%。发送其他代币会导致丢失。
 Buying with card is not supported for this account.: 此账户不支持银行卡购买。
 Swapped at: 兑换时间
 Price per: 单价
@@ -2272,7 +2280,6 @@ Tokenized Gold: 代币化黄金
 Index Funds: 指数基金
 Search token or stock: 搜索代币或股票
 "Activity Failed to Load": "活动加载失败"
-"$agent_source_bea_attribution": "本产品使用美国经济分析局（BEA）的数据 API，但未经 BEA 认可或认证。"
 "Address was copied!": "地址已复制！"
 "Allow App Lock": "允许锁定应用"
 "An error occurred": "发生错误"
@@ -2302,3 +2309,7 @@ Search token or stock: 搜索代币或股票
 
 Unknown Transfer: 未知转账
 $dapp_sign_data_for_prefix: 为
+Successfully Sent: 发送成功
+Successfully Signed: 签名成功
+3D Card: 3D 卡片
+Coming soon: 即将推出

@@ -37,19 +37,19 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
         orientation = VERTICAL
 
         addProsRow(
-            R.drawable.ic_diamond_30,
+            R.drawable.ic_diamond,
             LocaleController.getString("Unique"),
             LocaleController.getString(
                 "Get a card with unique background and personalized palette for wallet interface."
             )
         )
         addProsRow(
-            R.drawable.ic_swap_30,
+            R.drawable.ic_transferable,
             LocaleController.getString("Transferable"),
             LocaleController.getString("Easily send your upgraded card to any of your friends.")
         )
         addProsRow(
-            R.drawable.ic_auction_30,
+            R.drawable.ic_auction,
             LocaleController.getString("Tradable"),
             LocaleController.getString("Sell or auction your card on third-party NFT marketplaces.")
         )
@@ -58,11 +58,12 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
     private fun addProsRow(iconRes: Int, title: String, description: String) {
         val row = LinearLayout(context).apply {
             orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP
         }
         val iconView = AppCompatImageView(context).apply {
             setImageDrawable(context.requireDrawableCompat(iconRes))
             scaleType = ImageView.ScaleType.FIT_CENTER
+            translationY = -(1.dp).toFloat()
         }
         prosIcons.add(iconView)
         val textColumn = LinearLayout(context).apply {
@@ -84,20 +85,25 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
         textColumn.addView(
             descLabel,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                topMargin = 2.dp
+                topMargin = 1.dp
             }
         )
-        row.addView(iconView, LayoutParams(36.dp, 36.dp))
+        row.addView(
+            iconView,
+            LayoutParams(36.dp, 36.dp).apply {
+                marginStart = 4.dp
+            }
+        )
         row.addView(
             textColumn,
             LayoutParams(0, WRAP_CONTENT, 1f).apply {
-                marginStart = 16.dp
+                marginStart = 8.dp
             }
         )
         addView(
             row,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-                if (isNotEmpty()) topMargin = 16.dp
+                topMargin = if (isNotEmpty()) 32.dp else 13.dp
             }
         )
     }

@@ -224,6 +224,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         amount2Container.addContent(amount2Label)
         firstTwoRows.addSubview(amount2Container)
         NSLayoutConstraint.activate([
+            amount2Label.heightAnchor.constraint(greaterThanOrEqualTo: detailsLabel.heightAnchor),
             amount2Label.firstBaselineAnchor.constraint(equalTo: detailsLabel.firstBaselineAnchor),
             amount2Label.leadingAnchor.constraint(greaterThanOrEqualTo: detailsLabel.trailingAnchor, constant: 6)
         ])

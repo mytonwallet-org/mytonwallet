@@ -64,6 +64,7 @@ sealed class WalletEvent {
     data object AddNewWalletCompletion : WalletEvent()
     data class TemporaryAccountSaved(val accountId: String) : WalletEvent()
     data class AccountWillChange(val fromHome: Boolean) : WalletEvent()
+    data object AccountChangeAborted : WalletEvent()
     data object DappsCountUpdated : WalletEvent()
     data class DappRemoved(val dapp: ApiDapp) : WalletEvent()
     data class DappDisconnect(val accountId: String, val origin: String) : WalletEvent()

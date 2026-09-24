@@ -163,6 +163,10 @@ let package = Package(
             exact: "1.10.0"
         ),
         .package(
+            url: "https://github.com/pointfreeco/xctest-dynamic-overlay",
+            exact: "1.9.0"
+        ),
+        .package(
             url: "https://github.com/pointfreeco/swift-navigation",
             exact: "2.6.0"
         ),
@@ -264,7 +268,8 @@ let package = Package(
                 .product(name: "Lottie", package: "lottie-spm"),
                 .product(name: "SwiftSVG", package: "SwiftSVG"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
-            ]
+            ],
+            resources: [.process("Resources")]
         ),
         airTarget(
             "UIActivityList",
@@ -607,6 +612,7 @@ let package = Package(
                 "UISwap",
                 "UITransaction",
                 "UIUniversalSearch",
+                "UIHome",
                 "WalletContext",
                 "WalletCore",
             ],
@@ -669,11 +675,13 @@ let package = Package(
         airTestTarget(
             "UniversalSearchFeatureTests",
             dependencies: [
+                "UIComponents",
                 "UIUniversalSearch",
                 "UniversalSearchCore",
                 "UniversalSearchFeature",
                 "UniversalSearchWalletCore",
                 "WalletCoreTypes",
+                "WalletResources",
             ]
         ),
         airTestTarget(
@@ -705,12 +713,39 @@ let package = Package(
                 "UISend",
                 "WalletCore",
                 "WalletContext",
+                "WalletResources",
             ]
         ),
         airTestTarget(
             "UIComponentsTests",
             dependencies: [
                 "UIComponents",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UIComponentsIntegrationTests",
+            dependencies: [
+                "UIComponents",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UISettingsTests",
+            dependencies: [
+                "UISettings",
+                "WalletCore",
+                "WalletContext",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
+            "UIHomeTests",
+            dependencies: [
+                "UIHome",
+                "UIComponents",
+                "WalletCore",
+                "WalletContext",
                 "WalletResources",
             ]
         ),
@@ -748,6 +783,7 @@ let package = Package(
         airTestTarget(
             "UIAssetsTests",
             dependencies: [
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "ProtectedAction",
                 "UIActivityList",
                 "UIAssets",

@@ -13,6 +13,84 @@ import WalletCore
 
 public class WalletTokenCell: WHighlightCollectionViewCell {
     nonisolated public static let defaultHeight = 60.0
+    public var walletToken: MTokenBalance? { tokenContent?.walletToken }
+    public var isUIAssets: Bool { false }
+    public override var safeAreaInsets: UIEdgeInsets { isUIAssets ? super.safeAreaInsets : .zero }
+
+    private(set) var tokenContent: WalletTokenContentView?
+    private var releasesContentOnReuse = false
+    private var contextMenuInteraction: ContextMenuInteraction?
+
+    public override init(frame: CGRect) {
+        super.init(frame: frame)
+        isExclusiveTouch = true
+        contentView.backgroundColor = .clear
+        highlightBackgroundColor = .air.highlight
+    }
+
+    @available(*, unavailable)
+    public required init?(coder: NSCoder) { nil }
+
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        setContextMenuInteraction(nil)
+        if tokenContent?.superview === contentView {
+            tokenContent?.resetReveal()
+            if releasesContentOnReuse { tokenContent?.removeFromSuperview() }
+        }
+        if releasesContentOnReuse { tokenContent = nil }
+    }
+
+    func setContextMenuInteraction(_ interaction: ContextMenuInteraction?) {
+        contextMenuInteraction?.detach()
+        contextMenuInteraction = interaction
+        interaction?.attach(to: self)
+    }
+
+    func host(_ content: WalletTokenContentView, releasesOnReuse: Bool = true) {
+        releasesContentOnReuse = releasesOnReuse
+        guard tokenContent !== content || content.superview !== contentView else { return }
+        #if DEBUG || HOME_FRAME_PROBE
+        HomeFrameProbe.shared.event("token.content.attach")
+        #endif
+        if tokenContent?.superview === contentView { tokenContent?.removeFromSuperview() }
+        tokenContent = content
+        content.removeFromSuperview()
+        content.resetReveal()
+        content.frame = contentView.bounds
+        content.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        contentView.addSubview(content)
+    }
+
+    public override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        let attributes = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
+        attributes.size.height = Self.defaultHeight
+        return attributes
+    }
+
+    public func configure(with walletToken: MTokenBalance,
+                          animated: Bool = true,
+                          badgeContent: BadgeContent?,
+                          stakingAccessoryContent: StakingAccessoryContent?,
+                          isMultichain: Bool,
+                          isPinned: Bool) {
+        let content = tokenContent ?? WalletTokenContentView(frame: contentView.bounds)
+        host(content, releasesOnReuse: false)
+        content.configure(with: walletToken, animated: animated, badgeContent: badgeContent,
+                          stakingAccessoryContent: stakingAccessoryContent, isMultichain: isMultichain, isPinned: isPinned)
+    }
+
+    public func configureStakingPresentation(badgeContent: BadgeContent?, accessoryContent: StakingAccessoryContent?) {
+        tokenContent?.configureStakingPresentation(badgeContent: badgeContent, accessoryContent: accessoryContent)
+    }
+
+    public func configureBadge(badgeContent: BadgeContent?) {
+        tokenContent?.configureBadge(badgeContent: badgeContent)
+    }
+}
+
+final class WalletTokenContentView: UIView {
+    nonisolated public static let defaultHeight = 60.0
 
     private static let pinIconSideLength: CGFloat = 12
     private static let pinIconSpacing: CGFloat = 4
@@ -23,13 +101,13 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     private static let badgeFadeHiddenInset: CGFloat = 1
 
     public var walletToken: MTokenBalance?
+    var preparedItemIdentifier: String?
+    var preparedPresentation: WalletTokenPresentation?
     
     private var isMultichain = false
-    private var contextMenuInteraction: ContextMenuInteraction?
 
-    public var isUIAssets: Bool { false }
-    
-    public override var safeAreaInsets: UIEdgeInsets { isUIAssets ? super.safeAreaInsets : .zero }
+    private var contentView: UIView { self }
+    public override var safeAreaInsets: UIEdgeInsets { .zero }
 
     private let mainView = UIView()
     private let tokenNameClipView: UIView = configured(object: UIView()) {
@@ -81,19 +159,13 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     @available(*, unavailable)
     public required init?(coder _: NSCoder) { nil }
     
-    public override func prepareForReuse() {
-        super.prepareForReuse()
-        setContextMenuInteraction(nil)
-        amountContainer.resetReveal()
-        amount2Container.resetReveal()
+    func resetReveal() {
+        UIView.performWithoutAnimation {
+            amountContainer.resetReveal()
+            amount2Container.resetReveal()
+        }
     }
 
-    func setContextMenuInteraction(_ interaction: ContextMenuInteraction?) {
-        contextMenuInteraction?.detach()
-        contextMenuInteraction = interaction
-        interaction?.attach(to: self)
-    }
-    
     private func setupViews() {
         isExclusiveTouch = true
         contentView.backgroundColor = .clear
@@ -208,7 +280,6 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
     }
 
     private func updateTheme() {
-        highlightBackgroundColor = .air.highlight
         backgroundColor = .clear
         tokenNameLabel.textColor = UIColor.label
         amountLabel.textColor = UIColor.label
@@ -315,11 +386,7 @@ public class WalletTokenCell: WHighlightCollectionViewCell {
         let fiatAmountCols = 5 + (amountCols % 6)
         amountContainer.setCols(amountCols)
         amount2Container.setCols(fiatAmountCols)
-        mainView.layoutIfNeeded()
-        if updateBadgeLayoutModeIfNeeded() {
-            mainView.layoutIfNeeded()
-        }
-        updateTokenNameFadeMask()
+        setNeedsLayout()
         prevToken = token?.slug
     }
 

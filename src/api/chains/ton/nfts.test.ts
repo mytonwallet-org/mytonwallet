@@ -2,7 +2,7 @@ import type { MetadataMap, NftItemsResponse, NftItemState, NftTransferState } fr
 
 import { fetchNftItems, fetchNftTransfers } from './toncenter/nfts';
 import { calculateNftTransferFee, checkNftOwnership, getAccountNfts, getNftUpdates } from './nfts';
-import { isActiveSmartContract } from './wallet';
+import { isActiveNonWalletContract } from './wallet';
 
 jest.mock('./toncenter/nfts', () => ({
   ...jest.requireActual('./toncenter/nfts'),
@@ -10,7 +10,7 @@ jest.mock('./toncenter/nfts', () => ({
   fetchNftTransfers: jest.fn(),
 }));
 
-jest.mock('./wallet', () => ({ isActiveSmartContract: jest.fn() }));
+jest.mock('./wallet', () => ({ isActiveNonWalletContract: jest.fn() }));
 
 jest.mock('../../common/accounts', () => ({
   fetchStoredWallet: jest.fn(() => Promise.resolve({ address: 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy' })),
@@ -39,11 +39,12 @@ const RAW_STRANGER_ADDRESS = '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC
 const RAW_NFT_ADDRESS = '0:6DA90942D3DC56FE838724EACCA1F0E616774EAD8EF30A377B6D810B22869B3B';
 const RAW_NFT_ADDRESS_2 = '0:2485DF4016504E8893F093C8D917D275B96DADE7A2D4F2010247817182F9EB91';
 const RAW_COLLECTION_ADDRESS = '0:4357CFBB796F7E1CD0FF86111FEA43EAFF16A6184265FAA6A7BBC085CB550F2D';
+const RAW_MW_CARDS_COLLECTION = '0:901362FD85FC31D55F2C82617D91EADA1F1D6B34AF559A047572D56F20D046CA';
 const PROXIED_MEDIUM = 'https://imgproxy.toncenter.com/signature/pr:medium/encoded';
 
 const mockedFetchNftItems = jest.mocked(fetchNftItems);
 const mockedFetchNftTransfers = jest.mocked(fetchNftTransfers);
-const mockedIsActiveSmartContract = jest.mocked(isActiveSmartContract);
+const mockedIsActiveSmartContract = jest.mocked(isActiveNonWalletContract);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -97,8 +98,8 @@ describe('getAccountNfts', () => {
     // The batch is full, so pagination must continue even though one entry yields no NFT
     mockedFetchNftItems
       .mockResolvedValueOnce(makeResponse(
-        [makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2)],
-        [RAW_NFT_ADDRESS], // The second NFT has no metadata
+        [makeItem(RAW_NFT_ADDRESS), makeItem(RAW_NFT_ADDRESS_2, { collection_address: RAW_MW_CARDS_COLLECTION })],
+        [RAW_NFT_ADDRESS], // The card has no metadata
       ))
       .mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS_2)]));
 
@@ -106,6 +107,15 @@ describe('getAccountNfts', () => {
 
     expect(mockedFetchNftItems).toHaveBeenCalledTimes(2);
     expect(nfts).toHaveLength(2);
+  });
+
+  it('keeps an NFT the indexer has not fetched the metadata of', async () => {
+    mockedFetchNftItems.mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS, { index: '170' })], []));
+
+    const [nft] = await getAccountNfts(ACCOUNT_ID, { limit: 1 });
+
+    expect(nft).toMatchObject({ index: 170, ownerAddress: WALLET_ADDRESS, isMetadataMissing: true });
+    expect(nft.name).toBeUndefined();
   });
 
   it('stops paginating on a partial batch', async () => {

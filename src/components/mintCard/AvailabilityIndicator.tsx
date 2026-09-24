@@ -15,13 +15,29 @@ interface OwnProps {
   label?: string;
   className?: string;
   progress?: number;
+  isComingSoon?: boolean;
+  isMintScheduled?: boolean;
 }
 
-function AvailabilityIndicator({ cardInfo, label, className, progress }: OwnProps) {
+function AvailabilityIndicator({
+  cardInfo, label, className, progress, isComingSoon, isMintScheduled,
+}: OwnProps) {
   const lang = useLang();
   const { all, notMinted } = cardInfo || {};
 
-  if (all !== undefined && notMinted !== undefined) {
+  if (isMintScheduled) {
+    return (
+      <div className={buildClassName(styles.availability, styles.availabilityScheduled, className)}>
+        <div className={styles.soldOut}>
+          {lang('%amount% unique cards total', { amount: formatNumber(all!) }, undefined, all)}
+        </div>
+      </div>
+    );
+  }
+
+  // A tier the current campaign does not carry arrives as `all: 0`, and its share of minted cards
+  // is undefined rather than zero, so it falls through to the sold-out text below.
+  if (all !== undefined && notMinted !== undefined && all > 0) {
     const sold = all - notMinted;
     const leftAmount = lang('%amount% left', { amount: formatNumber(notMinted) });
     const soldAmount = lang('%amount% sold', { amount: formatNumber(sold) });
@@ -37,6 +53,16 @@ function AvailabilityIndicator({ cardInfo, label, className, progress }: OwnProp
         </div>
         <div className={buildClassName(styles.amount, styles.amountLeft)}>{leftAmount}</div>
         <div className={buildClassName(styles.amount, styles.amountSold)}>{soldAmount}</div>
+      </div>
+    );
+  }
+
+  if (isComingSoon) {
+    return (
+      <div className={buildClassName(styles.availability, className)}>
+        <div className={buildClassName(styles.amount, styles.amountLeft)}>
+          {lang('%amount% left', { amount: '0' })}
+        </div>
       </div>
     );
   }

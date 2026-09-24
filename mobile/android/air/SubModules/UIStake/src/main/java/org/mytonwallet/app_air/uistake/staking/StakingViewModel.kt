@@ -27,6 +27,7 @@ import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
@@ -331,8 +332,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     }
 
     private fun submitStake(enclaveToken: String) {
-        val stakingState = stakingState ?: return
-        val accountId = accountId ?: return
+        val stakingState = stakingState ?: run {
+            _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
+            return
+        }
+        val accountId = accountId ?: run {
+            _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
+            return
+        }
 
         viewModelScope.launch {
             try {
@@ -345,6 +352,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                         realFee = realFee
                     )
                 )
+                result.error?.let { error ->
+                    _eventsFlow.tryEmit(
+                        VmToVcEvents.SubmitFailure(
+                            MBridgeError.fromErrorName(error) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                        )
+                    )
+                    return@launch
+                }
                 val mfaHash = result.mfaRequestHash
                 if (mfaHash != null) {
                     _eventsFlow.tryEmit(VmToVcEvents.MfaRequested(mfaHash, isStake = true))
@@ -353,7 +368,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 }
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
+                _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e.parsed))
             } catch (e: Throwable) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
@@ -362,8 +377,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
     }
 
     private fun submitUnstake(enclaveToken: String) {
-        val stakingState = stakingState ?: return
-        val accountId = accountId ?: return
+        val stakingState = stakingState ?: run {
+            _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
+            return
+        }
+        val accountId = accountId ?: run {
+            _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
+            return
+        }
 
         viewModelScope.launch {
             try {
@@ -374,6 +395,14 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                     enclaveToken = enclaveToken,
                     realFee = realFee
                 )
+                result.error?.let { error ->
+                    _eventsFlow.tryEmit(
+                        VmToVcEvents.SubmitFailure(
+                            MBridgeError.fromErrorName(error) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                        )
+                    )
+                    return@launch
+                }
                 val mfaHash = result.mfaRequestHash
                 if (mfaHash != null) {
                     _eventsFlow.tryEmit(VmToVcEvents.MfaRequested(mfaHash, isStake = false))
@@ -382,7 +411,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 }
             } catch (e: JSWebViewBridge.ApiError) {
                 e.printStackTrace()
-                _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e))
+                _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(e.parsed))
             } catch (e: Throwable) {
                 e.printStackTrace()
                 _eventsFlow.tryEmit(VmToVcEvents.SubmitFailure(null))
@@ -419,7 +448,7 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
 
     sealed class VmToVcEvents {
         data class SubmitSuccess(val activityId: String?) : VmToVcEvents()
-        data class SubmitFailure(val error: JSWebViewBridge.ApiError?) : VmToVcEvents()
+        data class SubmitFailure(val error: MBridgeError?) : VmToVcEvents()
         data class MfaRequested(val requestHash: String, val isStake: Boolean) : VmToVcEvents()
         object InitialState : VmToVcEvents()
     }

@@ -21,14 +21,17 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         }
     }
 
-    public enum Section: Equatable, Hashable, Sendable {
+    public typealias Section = NativeIdentifier<SectionValue>
+    public typealias Row = NativeIdentifier<RowValue>
+
+    public enum SectionValue: Equatable, Hashable, Sendable {
         case headerPlaceholder
         case custom(String)
         case placeholderTransactionsSection
         case transactions(String, Date)
         case emptyPlaceholder
     }
-    public enum Row: Equatable, Hashable, Sendable {
+    public enum RowValue: Equatable, Hashable, Sendable {
         case headerPlaceholder
         case custom(String)
         case transaction(String, String)
@@ -52,7 +55,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
 
     @MainActor public weak var delegate: ActivityListViewModelDelegate?
 
-    private var activitiesStore: _ActivityStore = .shared
+    private let activitiesStore: _ActivityStore
     private var activityIdAliases: [String: String] = [:]
     private var snapshotProxy: ActivityListSnapshotProxy
     private var currentIdsByDate: OrderedDictionary<Date, [String]>?
@@ -73,6 +76,18 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         customSectionIDs: [String] = [],
         delegate: any ActivityListViewModelDelegate
     ) async {
+        await self.init(accountId: accountId, token: token, customSectionIDs: customSectionIDs,
+                        delegate: delegate, activitiesStore: .shared)
+    }
+
+    init(
+        accountId: String,
+        token: ApiToken?,
+        customSectionIDs: [String] = [],
+        delegate: any ActivityListViewModelDelegate,
+        activitiesStore: _ActivityStore
+    ) async {
+        self.activitiesStore = activitiesStore
         self.accountContext = await AccountContext(accountId: accountId)
         self.accountId = accountId
         self.token = token
@@ -183,7 +198,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         }
     }
 
-    private func handleEvent(_ event: WalletCoreData.Event) async {
+    func handleEvent(_ event: WalletCoreData.Event) async {
         switch event {
         case .activitiesChanged(let accountId, let updatedIds, let replacedIds):
             if accountId == self.accountId {
@@ -270,8 +285,9 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         }
         if !activityIdAliases.isEmpty {
             let nextIdSet = Set(nextIds)
-            activityIdAliases = activityIdAliases.filter { _, currentId in
-                nextIdSet.contains(currentId)
+            activityIdAliases = activityIdAliases.filter { stableId, currentId in
+                // A reappearing source is a separate live row; it must own its own identifier.
+                nextIdSet.contains(currentId) && !nextIdSet.contains(stableId)
             }
         }
         var stableIdByCurrent: [String: String] = [:]
@@ -285,4 +301,21 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
         let resolvedId = activityIdAliasesSnapshot[stableId] ?? stableId
         return activitiesById?[resolvedId]
     }
+}
+
+public extension NativeIdentifier where Value == ActivityListViewModel.SectionValue {
+    static var headerPlaceholder: Self { Self(.headerPlaceholder) }
+    static func custom(_ id: String) -> Self { Self(.custom(id)) }
+    static var placeholderTransactionsSection: Self { Self(.placeholderTransactionsSection) }
+    static func transactions(_ accountId: String, _ date: Date) -> Self { Self(.transactions(accountId, date)) }
+    static var emptyPlaceholder: Self { Self(.emptyPlaceholder) }
+}
+
+public extension NativeIdentifier where Value == ActivityListViewModel.RowValue {
+    static var headerPlaceholder: Self { Self(.headerPlaceholder) }
+    static func custom(_ id: String) -> Self { Self(.custom(id)) }
+    static func transaction(_ accountId: String, _ id: String) -> Self { Self(.transaction(accountId, id)) }
+    static func transactionPlaceholder(_ index: Int) -> Self { Self(.transactionPlaceholder(index)) }
+    static var loadingMore: Self { Self(.loadingMore) }
+    static var emptyPlaceholder: Self { Self(.emptyPlaceholder) }
 }

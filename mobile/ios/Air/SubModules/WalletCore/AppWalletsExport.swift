@@ -277,13 +277,11 @@ public enum AppWalletsExport {
             do {
                 switch wallet.type {
                 case .mnemonic:
-                    guard let enclaveToken else {
-                        throw ImportError.invalidDump("authorization is required to import mnemonic wallets")
-                    }
+                    let importToken = try await resolveImportEnclaveToken(sessionKind: .oneShot)
                     let imported = try await AccountStore.importMnemonic(
                         network: .mainnet,
                         words: wallet.mnemonic ?? [],
-                        enclaveToken: enclaveToken
+                        enclaveToken: importToken
                     )
                     if let accountId = imported.first?.id {
                         try await AccountStore.updateAccountTitle(accountId: accountId, newTitle: wallet.name)
@@ -308,12 +306,20 @@ public enum AppWalletsExport {
     }
 
     @MainActor
-    private static func resolveImportEnclaveToken() async throws -> EnclaveToken {
-        let passcode = resolveImportPasscode()
-        if AuthSupport.status.configuredMethods.isEmpty {
-            return try await AuthSupport.setPasscode(passcode)
+    private static func resolveImportEnclaveToken(sessionKind: AuthSessionKind = .reusable) async throws -> EnclaveToken {
+        try await authorizeImport(passcode: resolveImportPasscode(), sessionKind: sessionKind, authSupport: AuthSupport)
+    }
+
+    static func authorizeImport(
+        passcode: String,
+        sessionKind: AuthSessionKind,
+        authSupport: AuthSupportProtocol.Type
+    ) async throws -> EnclaveToken {
+        if authSupport.status.configuredMethods.isEmpty {
+            // Passcode setup returns a one-use token, which cannot cover the restore's mnemonic reads.
+            _ = try await authSupport.setPasscode(passcode)
         }
-        guard let enclaveToken = try await AuthSupport.authorizeWithPasscode(passcode, sessionKind: .reusable) else {
+        guard let enclaveToken = try await authSupport.authorizeWithPasscode(passcode, sessionKind: sessionKind) else {
             throw ImportError.invalidDump("failed to authorize with the import passcode")
         }
         return enclaveToken

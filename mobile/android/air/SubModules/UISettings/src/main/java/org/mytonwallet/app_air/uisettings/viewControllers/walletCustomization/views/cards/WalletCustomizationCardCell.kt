@@ -13,6 +13,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import kotlin.math.roundToInt
+import org.mytonwallet.app_air.uicomponents.commonViews.CardBackgroundArtworkView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
@@ -73,6 +74,7 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
     private val imageView = WImageView(context, 20.dp).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
     }
+    private val artworkView = CardBackgroundArtworkView(context)
 
     private val titleLabel = WLabel(context).apply {
         setStyle(17f, WFont.Medium)
@@ -123,12 +125,14 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
         super.setupViews()
 
         addView(imageView, LayoutParams(0, 0))
+        addView(artworkView, LayoutParams(0, 0))
         addView(titleLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(balanceContainerView, LayoutParams(0, MATCH_PARENT))
         addView(addressLabel, LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
 
         setConstraints {
             allEdges(imageView)
+            allEdges(artworkView)
             toTop(titleLabel, 16f)
             toCenterX(balanceContainerView)
             toTop(balanceContainerView, -4f)
@@ -151,12 +155,17 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
     private var account: MAccount? = null
     private var cardNft: ApiNft? = null
 
-    fun configure(account: MAccount) {
+    fun configure(account: MAccount, isSelected: Boolean) {
         this.account = account
         titleLabel.text = account.name
 
         updateCardImage()
+        setEffectsActive(isSelected)
         updateBalance()
+    }
+
+    fun setEffectsActive(active: Boolean) {
+        artworkView.setEffectsActive(active, fadeOut = !active)
     }
 
     fun updateCardImage() {
@@ -165,6 +174,7 @@ class WalletCustomizationCardCell(context: Context, cellWidth: Int) :
                 WGlobalStorage.getCardBackgroundNft(activeAccountId)
                     ?.let { ApiNft.fromJson(it) }
             }
+        artworkView.setNft(cardNft, 256)
         updateTheme()
 
         if (cardNft == null) {

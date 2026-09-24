@@ -315,7 +315,6 @@ export enum SignDataState {
   None,
   Initial,
   Password,
-  Complete,
 }
 
 export enum WalletConnectPayState {
@@ -786,11 +785,10 @@ export type GlobalState = {
   authTypes?: AuthType[];
   enclaveSession?: EnclaveSession;
   /**
-   * Number of accounts awaiting the multichain upgrade: they miss wallets for newly supported chains
-   * or a backend auth token. The upgrade clears the count when it starts, so a non-zero value means
-   * it has not run yet.
+   * Accounts awaiting the multichain upgrade: they miss wallets for newly supported chains or a backend
+   * auth token. The upgrade clears the list when it starts, so a non-empty value means it has not run yet.
    */
-  multichainUpgradeCount?: number;
+  multichainUpgradeAccountIds?: string[];
 
   biometrics: {
     state: BiometricsState;
@@ -1101,7 +1099,7 @@ export type GlobalState = {
   byAccountId: Record<string, AccountState>;
 
   walletVersions?: {
-    currentVersion: ApiTonWalletVersion;
+    currentVersion?: ApiTonWalletVersion;
     byId: Record<string, ApiWalletWithVersionInfo[]>;
   };
 
@@ -1110,6 +1108,7 @@ export type GlobalState = {
     theme: Theme;
     animationLevel: AnimationLevel;
     isSeasonalThemingDisabled?: boolean;
+    is3dCardDisabled?: boolean;
     developerSettingsOverrides?: DeveloperSettingsOverrides;
     langCode: LangCode;
     langSource?: LanguageSource;
@@ -1125,6 +1124,7 @@ export type GlobalState = {
     isSecurityWarningHidden?: boolean;
     areTokensWithNoCostHidden: boolean;
     areUnverifiedNftsHidden?: boolean;
+    areChainBadgesShown?: boolean;
     importToken?: {
       isLoading?: boolean;
       token?: UserToken | UserSwapToken;
@@ -1202,6 +1202,8 @@ export type GlobalState = {
     state?: MintCardState;
     error?: string;
     isLoading?: boolean;
+    /** The `startsAt` we already polled the account config for after its countdown hit zero */
+    checkedMintStartsAt?: number;
   };
 
   latestAppVersion?: string;
@@ -1305,7 +1307,7 @@ export interface ActionPayloads {
   addSubWallet: { group: ApiGroupedWalletVariant };
   addAllFoundSubwallets: { foundSubwallets: ApiGroupedWalletVariant[] };
   createSubWallet: { enclaveToken: string };
-  upgradeMultichainAccounts: { enclaveToken: string };
+  upgradeMultichainAccounts: { enclaveToken: string; accountIds: string[] };
   importViewAccount: { addressByChain: ApiImportAddressByChain };
   openTemporaryViewAccount: { addressByChain: Partial<Record<ApiChain, string>> };
   saveTemporaryAccount: undefined;
@@ -1557,10 +1559,12 @@ export interface ActionPayloads {
   setTheme: { theme: Theme };
   setAnimationLevel: { level: AnimationLevel };
   toggleSeasonalTheming: { isEnabled?: boolean };
+  toggle3dCard: { isEnabled?: boolean };
   setDeveloperSettingsOverride: DeveloperSettingsOverridePayload;
   toggleTinyTransfersHidden: { isEnabled?: boolean } | undefined;
   toggleUnverifiedNftsHidden: { isEnabled?: boolean } | undefined;
   toggleLocalizedTokenNames: { isEnabled?: boolean } | undefined;
+  toggleChainBadges: { isEnabled?: boolean } | undefined;
   toggleInvestorView: { isEnabled?: boolean } | undefined;
   toggleCanPlaySounds: { isEnabled?: boolean } | undefined;
   toggleTonProxy: { isEnabled: boolean };
@@ -1769,6 +1773,7 @@ export interface ActionPayloads {
   startCardMinting: { type: ApiMtwCardType };
   submitMintCard: { enclaveToken?: string } | undefined;
   clearMintCardError: undefined;
+  checkMintStart: { startsAt: number };
 
   toggleNotifications: { isEnabled: boolean };
   renameNotificationAccount: { accountId: string };

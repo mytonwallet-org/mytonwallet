@@ -201,7 +201,7 @@ export async function parseTransactionForPreview(
             fromAmount: swap.fromAmount,
             to: swap.to,
             toAmount: swap.toAmount,
-            networkFee: swap.networkFee,
+            networkFee: toDecimal(feeForActivity, getChainConfig(chain).nativeToken.decimals),
             swapFee: '0',
             status: 'completed',
             hashes: [],
@@ -229,10 +229,10 @@ export async function parseTransactionForPreview(
             slug: transfer.slug,
             isIncoming: false,
             normalizedAddress: transfer.toAddress,
-            fee: transfer.fee,
+            fee: feeForActivity,
             status: 'completed',
           })],
-          realFee: transfer.fee,
+          realFee: feeForActivity,
         };
       }
     }
@@ -292,6 +292,7 @@ export async function parseTokenOperation(
 ): Promise<EvmTokenOperation | undefined> {
   const changes = new Map<string, bigint>();
   const assets: string[] = [];
+  const normalizedUserAddress = normalizeAddress(userAddress);
 
   const nativeSlug = getChainConfig(chain).nativeToken.slug;
 
@@ -302,8 +303,8 @@ export async function parseTokenOperation(
 
     assets.push(change.contractAddress || nativeSlug);
 
-    const isIncoming = normalizeAddress(change.to) === userAddress;
-    const isOutgoing = normalizeAddress(change.from) === userAddress;
+    const isIncoming = normalizeAddress(change.to) === normalizedUserAddress;
+    const isOutgoing = normalizeAddress(change.from) === normalizedUserAddress;
 
     if (isIncoming) {
       const current = changes.get(change.contractAddress || nativeSlug) || 0n;
@@ -344,16 +345,18 @@ export async function parseTokenOperation(
 
     // if no from/to address - consider to be mint or burn(?) - use transaction initiator as fallback
     const fromAddress = isSentOnly
-      ? userAddress
-      : tx.changes.find((e) => e.from !== userAddress)?.from || tx.changes[0].from;
+      ? normalizedUserAddress
+      : normalizeAddress(tx.changes.find((e) => normalizeAddress(e.from) !== normalizedUserAddress)?.from
+        || tx.changes[0].from);
 
     const toAddress = !isSentOnly
-      ? userAddress
-      : tx.changes.find((e) => e.to !== userAddress)?.to || tx.changes[0].to;
+      ? normalizedUserAddress
+      : normalizeAddress(tx.changes.find((e) => normalizeAddress(e.to) !== normalizedUserAddress)?.to
+        || tx.changes[0].to);
 
     const amount = isSentOnly ? sent.get(asset) || 0n : received.get(asset) || 0n;
 
-    const isIncoming = toAddress === userAddress;
+    const isIncoming = toAddress === normalizedUserAddress;
 
     return {
       assets,
@@ -395,7 +398,7 @@ export async function parseTokenOperation(
     assets,
     isSwap: true,
     swap: {
-      fromAddress: userAddress,
+      fromAddress: normalizedUserAddress,
       from: assetFrom?.slug || '',
       fromAmount: toDecimal(sent.get([...sent][0][0])!, assetFrom?.decimals || 18),
       to: assetTo?.slug || '',

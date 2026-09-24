@@ -58,6 +58,17 @@ class BridgeCallbackRegistryTest {
     }
 
     @Test
+    fun parsesUnresolvedDomainAsBridgeError() {
+        val registry = BridgeCallbackRegistry()
+        var callbackError: MBridgeError? = null
+        registry.register(1) { _, error -> callbackError = error }
+
+        registry.complete(1, success = false, result = "{\"error\":\"DomainNotResolved\"}")
+
+        assertSame(MBridgeError.Type.DOMAIN_NOT_RESOLVED, callbackError)
+    }
+
+    @Test
     fun mapsUnknownErrorWithoutMutatingSharedValue() {
         val registry = BridgeCallbackRegistry()
         var callbackError: MBridgeError? = null
@@ -68,7 +79,7 @@ class BridgeCallbackRegistryTest {
             success = false,
             result =
                 """
-                {"error":{"name":"UnexpectedError","displayError":"Request-specific message"}}
+                {"error":{"name":"UnrecognizedBridgeErrorForTest","displayError":"Request-specific message"}}
                 """.trimIndent()
         )
 

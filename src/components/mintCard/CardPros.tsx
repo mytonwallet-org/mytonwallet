@@ -1,14 +1,18 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
 import type { ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 
 import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
+import { SECOND } from '../../util/dateFormat';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { getToncoinAmountForTransfer } from '../../util/fee/getTonOperationFees';
 import { formatNumber } from '../../util/formatNumber';
+import { setCancellableTimeout } from '../../util/schedulers';
+import { formatMintCountdown } from './helpers/mintCountdown';
 
+import useForceUpdate from '../../hooks/useForceUpdate';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
@@ -23,14 +27,44 @@ interface OwnProps {
   mycoinBalance?: bigint;
   toncoinBalance?: bigint;
   isAvailable?: boolean;
+  isComingSoon?: boolean;
+  mintStartsAt?: number;
 }
 
 const SWAP_AMOUNT_RESERVE_MULTIPLIER = 105n; // 100% + 5% reserve
 
-function CardPros({ type, mycoin, price, mycoinBalance, toncoinBalance, isAvailable }: OwnProps) {
-  const { startCardMinting, showDialog, startSwap, setSwapAmountOut, closeMintCardModal } = getActions();
+function CardPros({
+  type, mycoin, price, mycoinBalance, toncoinBalance, isAvailable, isComingSoon, mintStartsAt,
+}: OwnProps) {
+  const {
+    startCardMinting, showDialog, startSwap, setSwapAmountOut, closeMintCardModal, checkMintStart,
+  } = getActions();
 
   const lang = useLang();
+  const forceUpdate = useForceUpdate();
+  const mintSecondsLeft = mintStartsAt !== undefined
+    ? Math.max(0, Math.ceil((mintStartsAt - Date.now()) / SECOND))
+    : undefined;
+  const isCountingDown = Boolean(mintSecondsLeft);
+  // At zero, the button shows "Coming soon" and we poll the account config right away: if the mint has started,
+  // the usual "Upgrade" button shows up
+  const isMintStartReached = mintSecondsLeft === 0;
+
+  // Rerender right when the shown second changes, so the numbers don't lag or skip.
+  useEffect(() => {
+    if (!isCountingDown) return undefined;
+
+    const nextChangeAt = mintStartsAt! - (mintSecondsLeft - 1) * SECOND;
+
+    return setCancellableTimeout(nextChangeAt - Date.now(), forceUpdate);
+  });
+
+  useEffect(() => {
+    if (isMintStartReached) {
+      checkMintStart({ startsAt: mintStartsAt! });
+    }
+  }, [isMintStartReached, mintStartsAt]);
+
   const isEnoughMycoinBalance = price && mycoinBalance && mycoin
     ? fromDecimal(price, mycoin.decimals) <= mycoinBalance
     : false;
@@ -76,7 +110,7 @@ function CardPros({ type, mycoin, price, mycoinBalance, toncoinBalance, isAvaila
   });
 
   return (
-    <div className={buildClassName(styles.root, styles[type])}>
+    <div className={buildClassName(styles.root, styles[type], 'custom-scroll')}>
       <dl className={styles.list}>
         <dt className={styles.term}>
           {lang('Unique')}
@@ -99,17 +133,21 @@ function CardPros({ type, mycoin, price, mycoinBalance, toncoinBalance, isAvaila
         <dd className={styles.data}>{lang('Sell or auction your card on third-party NFT marketplaces.')}</dd>
       </dl>
 
-      {!!price && (
+      {(!!price || isComingSoon || mintSecondsLeft !== undefined) && (
         <Button
           isPrimary
           isDisabled={isSubmitDisabled}
-          className={styles.button}
+          className={buildClassName(styles.button, isCountingDown && styles.scheduled)}
           onClick={isSubmitDisabled ? undefined : handleSubmit}
         >
-          {lang('Upgrade for %amount% %currency%', {
-            amount: formatNumber(price),
-            currency: mycoin?.symbol || 'MY',
-          })}
+          {isCountingDown
+            ? lang('Mint starts in %time%', { time: formatMintCountdown(mintSecondsLeft) })
+            : price && mintStartsAt === undefined
+              ? lang('Upgrade for %amount% %currency%', {
+                amount: formatNumber(price),
+                currency: mycoin?.symbol || 'MY',
+              })
+              : lang('Coming soon')}
         </Button>
       )}
     </div>

@@ -79,7 +79,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        swapModel.setStage(.editing)
+        if !swapModel.isSubmitting {
+            swapModel.setStage(.editing)
+        }
         swapModel.refreshBalances()
         prepareBottomButtonForPresentation()
     }
@@ -314,7 +316,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         case .authorizeDiesel:
             authorizeDiesel()
         case .confirmSwap(let presentCrosschainResult):
-            startSwapFlow(presentCrosschain: presentCrosschainResult)
+            Task {
+                await startSwapFlow(presentCrosschain: presentCrosschainResult)
+            }
         case .crosschainFromWallet(let confirmation):
             swapModel.setStage(.externalAddress)
             let crosschainSwapVC = CrosschainFromWalletVC(
@@ -323,7 +327,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
                 cexLabel: confirmation.cexLabel,
                 accountContext: _account,
                 onContinue: { [weak self] payoutAddress, authorizationPresenter in
-                    self?.startSwapFlow(
+                    await self?.startSwapFlow(
                         presentCrosschain: false,
                         payoutAddress: payoutAddress,
                         failureStage: .externalAddress,
@@ -339,7 +343,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         payoutAddress: String? = nil,
         failureStage: SwapStage = .editing,
         authorizationPresenter: UIViewController? = nil
-    ) {
+    ) async {
+        guard !swapModel.isSubmitting else { return }
         guard let protectedAction = ProtectedAction.swap(
             model: swapModel,
             presentCrosschainResult: presentCrosschain,
@@ -350,18 +355,16 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             return
         }
         swapModel.setStage(.confirming)
-        Task {
-            let context = ExecutionContext(
-                authorizationPresenter: authorizationPresenter ?? self,
-                flowOrigin: self
-            )
-            let outcome = await ProtectedActionExecutor.execute(protectedAction, in: context)
-            switch outcome {
-            case .completed, .partiallyCommitted, .indeterminate:
-                swapModel.setStage(.complete)
-            case .cancelled, .failed:
-                swapModel.setStage(failureStage)
-            }
+        let context = ExecutionContext(
+            authorizationPresenter: authorizationPresenter ?? self,
+            flowOrigin: self
+        )
+        let outcome = await ProtectedActionExecutor.execute(protectedAction, in: context)
+        switch outcome {
+        case .completed, .partiallyCommitted, .indeterminate:
+            swapModel.setStage(.complete)
+        case .cancelled, .failed:
+            swapModel.setStage(failureStage)
         }
     }
 

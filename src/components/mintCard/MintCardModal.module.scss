@@ -1,7 +1,7 @@
 @use "../../styles/mixins";
 
 .dialog {
-  --modal-border-radius: var(--border-radius-normal);
+  --modal-border-radius: var(--border-radius-default);
 
   overflow: hidden;
 
@@ -32,8 +32,11 @@
   --current-accent-text-color: var(--color-accent-button-text);
 
   position: relative;
+
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+
   height: 100%;
 }
 
@@ -41,10 +44,12 @@
   position: relative;
 
   display: flex;
+  flex-shrink: 0;
   align-items: end;
   justify-content: center;
 
   aspect-ratio: 1;
+  max-height: 60%;
   border-radius: var(--modal-border-radius) var(--modal-border-radius) 0 0;
 
   font-size: 1.25rem;
@@ -151,6 +156,12 @@
   backdrop-filter: blur(12px);
 }
 
+.availabilityScheduled {
+  opacity: 0.6;
+  background: none;
+  backdrop-filter: none;
+}
+
 .progress {
   --multiplier: calc(1 / var(--progress) - 1);
 
@@ -163,7 +174,7 @@
 
   width: calc(var(--progress) * 100% - var(--progress) * 0.5rem);
   height: 1.75rem;
-  border-radius: var(--border-radius-mini);
+  border-radius: var(--border-radius-default);
 
   background: var(--color-card-text);
 }
@@ -193,18 +204,18 @@
 }
 
 .amountLeft {
-  inset-inline-start: 0.625rem;
+  inset-inline-start: 0.75rem;
 
   &.amountInner {
-    inset-inline-start: 0.375rem;
+    inset-inline-start: 0.5rem;
   }
 }
 
 .amountSold {
-  inset-inline-end: 0.625rem;
+  inset-inline-end: 0.75rem;
 
   &.amountInner {
-    inset-inline-end: calc(-100% * var(--multiplier) + 0.375rem);
+    inset-inline-end: calc(-100% * var(--multiplier) + 0.5rem);
 
   }
 }

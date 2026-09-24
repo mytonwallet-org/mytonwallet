@@ -11,8 +11,9 @@ import { GitRevisionPlugin } from 'git-revision-webpack-plugin';
 import HtmlPlugin from 'html-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import path from 'path';
+import webextensionPolyfillPackage from 'webextension-polyfill/package.json';
 import type { Compiler, Configuration } from 'webpack';
-import { Compilation, EnvironmentPlugin, IgnorePlugin, ProvidePlugin, sources } from 'webpack';
+import { BannerPlugin, Compilation, EnvironmentPlugin, IgnorePlugin, ProvidePlugin, sources } from 'webpack';
 
 import { convertI18nYamlToJson } from './dev/locales/convertI18nYamlToJson';
 import {
@@ -242,7 +243,16 @@ export default function createConfig(
     ],
 
     optimization: {
-      minimize: APP_ENV === 'production' && !IS_EXTENSION,
+      // Extension bundles ship unminified so that store reviewers can read them. AMO is the
+      // exception: its validator refuses to parse any file above 5 MB and fails the whole
+      // submission, and the service worker bundle is well past that. Mozilla accepts minified
+      // code as long as the sources are submitted alongside it, which `firefox_pack_sources.sh`
+      // does on every release. That limit belongs to the store rather than to one environment,
+      // so both packaged environments are built the way AMO would receive them, which also keeps
+      // the staging package worth validating.
+      minimize: IS_FIREFOX_EXTENSION
+        ? APP_ENV === 'production' || APP_ENV === 'staging'
+        : APP_ENV === 'production' && !IS_EXTENSION,
       usedExports: true,
       ...(APP_ENV === 'staging' && {
         chunkIds: 'named',
@@ -534,8 +544,33 @@ export default function createConfig(
       new ProvidePlugin({
         process: 'process/browser',
       }),
+      ...(IS_EXTENSION ? [new BannerPlugin({
+        banner: 'webextension-polyfill: for licensing and source code, see THIRD_PARTY_NOTICES.txt.',
+        test: /\.js$/,
+      })] : []),
       new CopyWebpackPlugin({
         patterns: [
+          ...(IS_EXTENSION ? [
+            {
+              from: 'src/extension/thirdPartyNotices.txt',
+              to: 'THIRD_PARTY_NOTICES.txt',
+              transform: (content: Buffer) => {
+                const { version, license } = webextensionPolyfillPackage;
+                if (license !== 'MPL-2.0') {
+                  throw new Error('Review webextension-polyfill notices for its new license');
+                }
+
+                return content.toString().replaceAll('{{VERSION}}', version);
+              },
+            },
+            ...['LICENSE', 'dist/browser-polyfill.js', 'dist/browser-polyfill.js.map'].map((filename) => ({
+              from: require.resolve(`webextension-polyfill/${filename}`),
+              to: `third-party-licenses/webextension-polyfill/${path.basename(filename)}`,
+              toType: 'file' as const,
+              // Preserve the distributed source bytes when Firefox enables Terser
+              info: { minimized: true },
+            })),
+          ] : []),
           {
             from: 'src/extension/manifest.json',
             transform: (content) => {

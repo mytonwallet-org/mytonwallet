@@ -42,6 +42,7 @@ interface StateProps {
   cardBackgroundNft?: ApiNft;
   isNftBuyingDisabled: boolean;
   isSeasonalThemingDisabled?: boolean;
+  is3dCardDisabled?: boolean;
 }
 
 const SWITCH_THEME_DURATION_MS = 300;
@@ -67,6 +68,7 @@ function SettingsAppearance({
   isTrayIconEnabled,
   isNftBuyingDisabled,
   isSeasonalThemingDisabled,
+  is3dCardDisabled,
   onTrayIconEnabledToggle,
   onBackClick,
 }: OwnProps & StateProps) {
@@ -75,6 +77,7 @@ function SettingsAppearance({
     setAnimationLevel,
     openCustomizeWalletModal,
     toggleSeasonalTheming,
+    toggle3dCard,
   } = getActions();
 
   const lang = useLang();
@@ -98,6 +101,8 @@ function SettingsAppearance({
     }, SWITCH_THEME_DURATION_MS);
   });
 
+  const areAnimationsEnabled = animationLevel !== ANIMATION_LEVEL_MIN;
+
   const handleAnimationLevelToggle = useLastCallback(() => {
     const level = animationLevel === ANIMATION_LEVEL_MIN ? ANIMATION_LEVEL_MAX : ANIMATION_LEVEL_MIN;
     setAnimationLevel({ level });
@@ -106,6 +111,10 @@ function SettingsAppearance({
 
   const handleSeasonalThemingToggle = useLastCallback(() => {
     toggleSeasonalTheming({ isEnabled: isSeasonalThemingDisabled });
+  });
+
+  const handle3dCardToggle = useLastCallback(() => {
+    toggle3dCard({ isEnabled: is3dCardDisabled });
   });
 
   const handleCustomizeWalletClick = useLastCallback(() => {
@@ -188,7 +197,20 @@ function SettingsAppearance({
             <Switcher
               className={styles.menuSwitcher}
               label={lang('Enable Animations')}
-              checked={animationLevel !== ANIMATION_LEVEL_MIN}
+              checked={areAnimationsEnabled}
+            />
+          </div>
+          <div
+            className={buildClassName(styles.item, styles.item_small, !areAnimationsEnabled && styles.item_disabled)}
+            onClick={areAnimationsEnabled ? handle3dCardToggle : undefined}
+          >
+            <span className={styles.itemTitle}>{lang('3D Card')}</span>
+
+            <Switcher
+              className={styles.menuSwitcher}
+              label={lang('3D Card')}
+              checked={!is3dCardDisabled}
+              isDisabled={!areAnimationsEnabled}
             />
           </div>
           <div className={buildClassName(styles.item, styles.item_small)} onClick={handleSeasonalThemingToggle}>
@@ -224,5 +246,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     cardBackgroundNft: accountSettings?.cardBackgroundNft,
     isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
     isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
+    is3dCardDisabled: global.settings.is3dCardDisabled,
   };
 })(SettingsAppearance));

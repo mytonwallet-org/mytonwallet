@@ -1230,6 +1230,18 @@ class SwapViewModel :
                         build.transaction
                     )
                 )
+                submitResult.error?.let { error ->
+                    swappedEstimateConfig = null
+                    _eventsFlow.tryEmit(
+                        Event.SwapComplete(
+                            success = false,
+                            error =
+                                MBridgeError.fromErrorName(error)
+                                    ?: MBridgeError.Type.UNEXPECTED_ERROR
+                        )
+                    )
+                    return
+                }
                 submitResult.mfaRequestHash?.let { hash ->
                     _eventsFlow.tryEmit(
                         Event.MfaRequested(hash, submitResult.swapId, estimate)

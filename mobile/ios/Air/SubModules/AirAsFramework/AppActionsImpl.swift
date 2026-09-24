@@ -605,9 +605,7 @@ private class AppActionsImpl: AppActionsProtocol {
         } else if rootContainerRouter.pushOnHome(hiddenVC) {
             return
         } else {
-            let assetsVC = AssetsTabVC(accountSource: accountSource, defaultTab: .nfts)
-            let nc = WNavigationController()
-            nc.viewControllers = [assetsVC, hiddenVC]
+            let nc = WNavigationController(rootViewController: hiddenVC)
             topVC?.present(nc, animated: true)
         }
     }
@@ -862,10 +860,14 @@ private class AppActionsImpl: AppActionsProtocol {
         showToken(accountSource: .current, token: token, isInModal: false)
     }
     
-    static func showUpgradeCard() {
+    static func preloadUpgradeCard() {
+        MintCardVC.preloadMedia()
+    }
+
+    static func showUpgradeCard(accountContext: AccountContext) {
         log.info("showUpgradeCard")
-        let accountContext = AccountContext(source: .current)
-        guard accountContext.config.cardsInfo != nil else {
+        guard accountContext.config.cardsInfo != nil
+                || accountContext.activePromotion?.cardOverlay?.onClickAction == .openMintCardModal else {
             AppActions.openInBrowser(
                 URL(string: "https://getgems.io/collection/EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGykyM")!,
                 title: "My Wallet NFT Cards",
@@ -874,6 +876,11 @@ private class AppActionsImpl: AppActionsProtocol {
             return
         }
 
+        showMintCard(accountContext: accountContext)
+    }
+
+    static func showMintCard(accountContext: AccountContext) {
+        guard !(topViewController() is MintCardVC) else { return }
         let vc = MintCardVC(accountContext: accountContext)
         let nc = WNavigationController(rootViewController: vc)
         if let sheet = nc.sheetPresentationController {

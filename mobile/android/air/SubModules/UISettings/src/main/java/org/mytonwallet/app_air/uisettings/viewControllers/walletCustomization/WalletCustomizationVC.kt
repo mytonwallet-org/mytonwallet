@@ -30,6 +30,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.updateThemeForChildren
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteItemView
 import org.mytonwallet.app_air.uisettings.viewControllers.appearance.views.palette.AppearancePaletteView
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardHelpers
 import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.availableCards.WalletCustomizationAvailableCardsView
 import org.mytonwallet.app_air.uisettings.viewControllers.walletCustomization.views.cards.WalletCustomizationCardsView
@@ -54,7 +55,6 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
-import org.mytonwallet.app_air.walletcore.stores.NftStore
 
 class WalletCustomizationVC private constructor(
     context: Context,
@@ -199,6 +199,9 @@ class WalletCustomizationVC private constructor(
                     WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
                 }
             }
+            onEmptyViewTap = {
+                openUpgradeCard(selectedAccount.accountId)
+            }
         }
     }
 
@@ -223,7 +226,8 @@ class WalletCustomizationVC private constructor(
                             LocaleController.getString("Unlock New Palettes"),
                             LocaleController.getString(
                                 "Get a unique My Wallet Card to unlock new palettes."
-                            )
+                            ),
+                            buttonPressed = { openUpgradeCard(accountId) }
                         )
                     }
 
@@ -259,24 +263,22 @@ class WalletCustomizationVC private constructor(
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             setPadding(20.dp, 0, 20.dp, 0)
             setOnClickListener {
-                val account = AccountStore.activeAccount
-                val accountId = account?.accountId
-                val eligible = account?.isMainnet == true &&
-                    !account.isViewOnly &&
-                    ConfigStore.isLimited != true
-                val canMint = eligible && accountId != null &&
-                    (
-                        WGlobalStorage.getCardsInfo(accountId) != null ||
-                            NftStore.isCardMinting(accountId)
-                        )
-                if (canMint) {
-                    navigationController?.let { MintCardVC.present(it) }
-                    return@setOnClickListener
-                }
-                val url = context.getString(BaseR.string.app_cards_url)
-                if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
+                openUpgradeCard(selectedAccount.accountId)
             }
         }
+    }
+
+    private fun openUpgradeCard(accountId: String) {
+        val account = AccountStore.accountById(accountId)
+        val eligible = account?.isMainnet == true &&
+            !account.isViewOnly &&
+            ConfigStore.isLimited != true
+        if (eligible && MintCardHelpers.shouldOpenUpgrade(accountId)) {
+            navigationController?.let { MintCardVC.present(it, accountId) }
+            return
+        }
+        val url = context.getString(BaseR.string.app_cards_url)
+        if (url.isNotEmpty()) WalletCore.notifyEvent(WalletEvent.OpenUrl(url))
     }
 
     private val contentView by lazy {

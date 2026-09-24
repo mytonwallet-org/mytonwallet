@@ -985,21 +985,31 @@ export function parseToncenterNft(
      * name alone proves nothing.
      */
     isDns?: boolean;
+    /**
+     * Passed as `true` when the source proves that the NFT exists, as `/nft/items` does. The NFT is then built
+     * even if the indexer has not fetched its metadata, so the user still sees it.
+     */
+    isMetadataOptional?: boolean;
   },
 ): { nft?: ApiNft; isMetadataMissing?: true } {
-  const { rawCollectionAddress, index, ownerAddress, isOnSale, isDns: isDnsByContext } = options ?? {};
+  const {
+    rawCollectionAddress, index, ownerAddress, isOnSale, isDns: isDnsByContext, isMetadataOptional,
+  } = options ?? {};
 
   try {
     const nftMetadata = extractMetadata<NftItemMetadata>(rawNftAddress, metadataMap, 'nft_items');
+    const collectionAddress = rawCollectionAddress ? toBase64Address(rawCollectionAddress, true, network) : undefined;
+    const isMwCard = collectionAddress === MW_CARDS_COLLECTION;
 
-    if (!nftMetadata) {
+    // A card without metadata has no design, yet a newly received card gets installed as the wallet card
+    if (!nftMetadata && (!isMetadataOptional || isMwCard)) {
       return { isMetadataMissing: true };
     }
 
     const {
       name, description, extra, image, nft_index: metadataIndex,
       is_nsfw: isNsfwByModeration, is_scam: isScamByModeration,
-    } = nftMetadata;
+    }: Partial<NftItemMetadata> = nftMetadata ?? {};
     const parsedIndex = Number(index ?? metadataIndex);
     const nftIndex = Number.isFinite(parsedIndex) ? parsedIndex : 0;
     const lottie = extra?.lottie ? getProxiedLottieUrl(extra.lottie) : undefined;
@@ -1008,7 +1018,6 @@ export function parseToncenterNft(
     const collectionMetadata = rawCollectionAddress
       ? extractMetadata<NftCollectionMetadata>(rawCollectionAddress, metadataMap, 'nft_collections')
       : undefined;
-    const collectionAddress = rawCollectionAddress ? toBase64Address(rawCollectionAddress, true, network) : undefined;
 
     const domain = extra?.domain ?? name ?? '';
     const { zone: domainZone, base: domainBase } = getDnsDomainZone(domain) ?? {};
@@ -1062,7 +1071,6 @@ export function parseToncenterNft(
     const isHidden = extra?.render_type === 'hidden' || isScam;
     const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
     const isOnFragment = isFragmentGift || NFT_FRAGMENT_COLLECTIONS.includes(rawCollectionAddress!);
-    const isMwCard = collectionAddress === MW_CARDS_COLLECTION;
     // A non-string `value` breaks the UI, and the MyTonWallet card traits are read as strings too
     const attributes = Array.isArray(extra?.attributes)
       ? extra.attributes.filter((attribute): attribute is ApiNftAttribute => typeof attribute?.value === 'string')
@@ -1091,6 +1099,7 @@ export function parseToncenterNft(
       isScam,
       isNsfw,
       isUnverified: getIsNftUnverified({ collectionAddress, isOnFragment }),
+      isMetadataMissing: nftMetadata ? undefined : true,
       metadata: {
         ...(attributes && { attributes }),
         ...(lottie && { lottie }),

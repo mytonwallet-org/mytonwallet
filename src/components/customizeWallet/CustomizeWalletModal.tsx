@@ -4,7 +4,7 @@ import { getActions, withGlobal } from '../../global';
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
 import type { Account, Theme, UserToken } from '../../global/types';
 
-import { MW_CARDS_COLLECTION, MW_CARDS_WEBSITE } from '../../config';
+import { ANIMATION_LEVEL_MIN, MW_CARDS_COLLECTION, MW_CARDS_WEBSITE } from '../../config';
 import {
   selectAccount,
   selectAccountSettings,
@@ -53,6 +53,7 @@ interface StateProps {
   isNftBuyingDisabled: boolean;
   returnTo?: 'settings' | 'accountSelector';
   areCardsLoading?: boolean;
+  isAnimationDisabled: boolean;
 }
 
 function CustomizeWalletModal({
@@ -71,6 +72,7 @@ function CustomizeWalletModal({
   isNftBuyingDisabled,
   returnTo,
   areCardsLoading,
+  isAnimationDisabled,
 }: OwnProps & StateProps) {
   const {
     openCustomizeWalletModal,
@@ -274,6 +276,7 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
+            isAnimationDisabled={isAnimationDisabled}
             variant="left"
           />
 
@@ -283,6 +286,7 @@ function CustomizeWalletModal({
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
             previewCardNft={previewCard}
+            isAnimationDisabled={isAnimationDisabled}
             variant="middle"
           />
 
@@ -291,6 +295,7 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
+            isAnimationDisabled={isAnimationDisabled}
             variant="right"
           />
         </div>
@@ -316,6 +321,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     return {
       theme: global.settings.theme,
       isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
+      isAnimationDisabled: global.settings.animationLevel === ANIMATION_LEVEL_MIN,
     };
   }
 
@@ -343,5 +349,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
     returnTo: global.customizeWalletReturnTo,
     areCardsLoading,
+    isAnimationDisabled: global.settings.animationLevel === ANIMATION_LEVEL_MIN,
   };
 })(CustomizeWalletModal));

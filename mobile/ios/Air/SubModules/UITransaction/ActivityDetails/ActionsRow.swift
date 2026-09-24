@@ -30,16 +30,19 @@ struct ActionsRow: View {
 
     private var shareUrl: URL? {
         let activity = model.activity
-        guard let chain = TokenStore.tokens[activity.slug]?.chain, chain.isSupported else { return nil }
-        
-        var txHash: String?
-        if case .swap(let swap) = activity, swap.cex != nil {
-            // Assuming the backend always returns the "from" transaction hash as the first hash (by Classic)
-            txHash = swap.hashes?.first
+        let chain: ApiChain
+        let txHash: String
+        if let swap = activity.swap {
+            let transactionIds = swap.displayTransactionIds
+            guard let reference = transactionIds.outgoing ?? transactionIds.incoming else { return nil }
+            chain = reference.chain
+            txHash = reference.hash
         } else {
+            guard let tokenChain = TokenStore.tokens[activity.slug]?.chain else { return nil }
+            chain = tokenChain
             txHash = activity.parsedTxId.hash
         }
-        guard let txHash else { return nil }
+        guard chain.isSupported else { return nil }
         
         let url = ExplorerHelper.viewTransactionUrl(network: model.accountContext.account.network, chain: chain, txHash: txHash)
         return url

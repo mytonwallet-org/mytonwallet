@@ -101,6 +101,7 @@ public let MTW_CARDS_COLLECTION = "EQCQE2L9hfwx1V8sgmF9keraHx1rNK9VmgR1ctVvINBGy
 public let MTW_CARDS_MINT_BASE_URL = "https://static.mytonwallet.org/mint-cards/"
 public let MINT_CARD_ADDRESS = "EQBpst3ZWJ9Dqq5gE2YH-yPsFK_BqMOmgi7Z_qK6v7WbrPWv"
 public let MINT_CARD_COMMENT = "Mint card"
+public let MINT_CARD_REFUND_COMMENT = "Refund"
 
 public let CARD_RATIO: CGFloat = 208/358
 public let SMALL_CARD_RATIO: CGFloat = 116/80

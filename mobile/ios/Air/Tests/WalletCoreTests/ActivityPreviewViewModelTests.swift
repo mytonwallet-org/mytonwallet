@@ -45,11 +45,83 @@ struct ActivityPreviewViewModelTests {
         #expect(Array(visibleIDs?.prefix(2) ?? []) == ["visible-1", "visible-2"])
     }
 
+    @Test @MainActor
+    func `updates outside the preview do not change its presentation`() {
+        let visible = activity(id: "visible")
+        let old = presentation([visible, activity(id: "older")])
+        let next = presentation([visible, activity(id: "older", comment: "updated")])
+        #expect(old == next)
+        #expect(old != presentation([activity(id: "visible", comment: "updated")]))
+    }
+
+    @Test @MainActor
+    func `only metadata for displayed activity tokens changes the presentation`() {
+        let visible = activity(id: "visible")
+        let originalToken = ApiToken(slug: "toncoin", name: "Toncoin", symbol: "TON", decimals: 9, chain: .ton)
+        let old = presentation([visible], tokens: ["toncoin": originalToken])
+        var tokens = ["toncoin": originalToken, "unrelated": originalToken]
+        tokens["unrelated"]?.image = "new-icon"
+        #expect(old == presentation([visible], tokens: tokens))
+        tokens["toncoin"]?.image = "new-icon"
+        #expect(old != presentation([visible], tokens: tokens))
+        #expect(presentation([visible]) != old)
+    }
+
+    @Test @MainActor
+    func `stored NFT preview changes remain observable without an activity change`() {
+        let nft = ApiNft(chain: .ton, address: "gift", isOnSale: false)
+        let visible = activity(id: "visible", nft: nft)
+        let old = presentation([visible])
+        var resolvedNft = nft
+        resolvedNft.name = "Updated gift"
+        #expect(old != presentation([visible], resolveNft: { _ in resolvedNft }))
+    }
+
+    @Test @MainActor
+    func `currency changes update populated previews but leave empty previews alone`() {
+        let visible = activity(id: "visible")
+        #expect(presentation([visible]) != presentation([visible], currency: .EUR))
+        #expect(presentation([visible]) != presentation([visible], currencyRate: 2))
+        #expect(presentation([]) == presentation([], currency: .EUR, currencyRate: 2))
+    }
+
+    @Test @MainActor
+    func `unknown history and preview limit changes remain observable`() {
+        let unknown = ActivityPreviewViewModel.Presentation(
+            activityIDs: nil, activitiesById: nil, requestedCount: 1,
+            baseCurrency: .USD, baseCurrencyRate: 1, token: { _ in nil }, resolveNft: { $0 }
+        )
+        #expect(unknown != presentation([]))
+        #expect(presentation([]) != presentation([], requestedCount: 2))
+    }
+
+    @MainActor
+    private func presentation(
+        _ activities: [ApiActivity],
+        tokens: [String: ApiToken] = [:],
+        currency: MBaseCurrency = .USD,
+        currencyRate: Double = 1,
+        requestedCount: Int = 1,
+        resolveNft: (ApiNft) -> ApiNft = { $0 }
+    ) -> ActivityPreviewViewModel.Presentation {
+        .init(
+            activityIDs: activities.map(\.id),
+            activitiesById: Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) }),
+            requestedCount: requestedCount,
+            baseCurrency: currency,
+            baseCurrencyRate: currencyRate,
+            token: { tokens[$0] },
+            resolveNft: resolveNft
+        )
+    }
+
     private func activity(
         id: String,
         shouldHide: Bool = false,
         isIncoming: Bool = false,
-        isScam: Bool = false
+        isScam: Bool = false,
+        comment: String? = nil,
+        nft: ApiNft? = nil
     ) -> ApiActivity {
         .transaction(ApiTransactionActivity(
             id: id,
@@ -60,7 +132,7 @@ struct ActivityPreviewViewModelTests {
             amount: 0,
             fromAddress: "from",
             toAddress: "to",
-            comment: nil,
+            comment: comment,
             encryptedComment: nil,
             fee: 0,
             slug: "toncoin",
@@ -68,7 +140,7 @@ struct ActivityPreviewViewModelTests {
             normalizedAddress: nil,
             type: nil,
             metadata: isScam ? ApiAddressInfo(name: nil, isScam: true, isMemoRequired: nil) : nil,
-            nft: nil,
+            nft: nft,
             status: .confirmed
         ))
     }

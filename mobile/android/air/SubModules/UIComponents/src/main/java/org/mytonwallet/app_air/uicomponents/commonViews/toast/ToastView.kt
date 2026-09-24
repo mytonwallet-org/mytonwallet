@@ -6,6 +6,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.view.isVisible
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -29,6 +30,7 @@ class ToastView(context: Context) :
 
     companion object {
         const val HEIGHT_DP = 56
+        const val LARGE_HEIGHT_DP = 80
         private const val CORNER_RADIUS_DP = HEIGHT_DP / 2f
         private const val ICON_SIZE_DP = 24
     }
@@ -81,11 +83,11 @@ class ToastView(context: Context) :
             toStart(iconView, 16f)
 
             toCenterY(actionLabel)
-            toEnd(actionLabel, 10f)
+            toEnd(actionLabel, 16f)
 
             toCenterY(textLabel)
             startToEnd(textLabel, iconView, 16f)
-            endToStart(textLabel, actionLabel)
+            toEnd(textLabel, 16f)
         }
 
         actionLabel.setOnClickListener {
@@ -103,9 +105,18 @@ class ToastView(context: Context) :
             )
         }
         textLabel.text = toast.text
+        textLabel.maxLines = if (toast.isLarge) 3 else 2
         with(actionLabel) {
             isVisible = toast.actionTitle != null
             text = toast.actionTitle
+        }
+        setConstraints {
+            clear(textLabel.id, ConstraintSet.END)
+            if (toast.actionTitle == null) {
+                toEnd(textLabel, 16f)
+            } else {
+                endToStart(textLabel, actionLabel, 8f)
+            }
         }
         actionListener = onAction
         updateTheme()

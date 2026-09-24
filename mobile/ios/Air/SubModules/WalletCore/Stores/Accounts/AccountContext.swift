@@ -71,7 +71,10 @@ public final class AccountContext: Sendable {
         }
     }
     public var source: AccountSource {
-        accountIdProvider.source
+        if case .accountId = accountIdProvider.source {
+            return .accountId(accountId)
+        }
+        return accountIdProvider.source
     }
 
     public var isCurrent: Bool {

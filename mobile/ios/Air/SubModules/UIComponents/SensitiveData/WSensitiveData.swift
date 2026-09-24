@@ -135,8 +135,11 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     }
 
     private func resetRevealAndUpdateSensitiveData() {
+        let wasRevealed = isRevealed
         cancelRevealReset()
         isRevealed = false
+        let shouldMask = !isDisabled && AppStorageHelper.isSensitiveDataHidden
+        guard wasRevealed || lastReportedMaskVisible != shouldMask else { return }
         updateSensitiveData()
     }
 
@@ -157,15 +160,11 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         let isSensitiveDataHidden = isGloballyHidden && !isRevealed
         notifyMaskStateChangedIfNeeded(isSensitiveDataHidden)
         setupMaskIfNeeded(isSensitiveDataHidden: isSensitiveDataHidden)
-        if isSensitiveDataHidden {
-            self.shyMask?.startUpdates()
-        }
         UIView.animate(withDuration: 0.3) {
             self.contentContainer.alpha = isSensitiveDataHidden ? 0 : 1
             self.shyMask?.alpha = isSensitiveDataHidden ? 1 : 0
         } completion: { [weak self] _ in
             if let self, let shyMask, shyMask.alpha == 0 {
-                shyMask.pauseUpdates()
                 shyMask.removeFromSuperview()
                 self.shyMask = nil
             }

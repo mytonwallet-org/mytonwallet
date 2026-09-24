@@ -103,10 +103,20 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
         ) { result, err ->
             if (err != null) {
                 delegate.get()?.showError(err.parsed)
+            } else if (result == null) {
+                delegate.get()?.showError(null)
             } else {
-                val mfaHash = result?.mfaRequestHash
+                result.error?.let { error ->
+                    delegate.get()?.showError(
+                        MBridgeError.fromErrorName(error) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                    )
+                    return@call
+                }
+                val mfaHash = result.mfaRequestHash
                 if (mfaHash != null) {
                     onMfaRequested(mfaHash)
+                } else if (result.activityIds.isNullOrEmpty()) {
+                    delegate.get()?.showError(MBridgeError.Type.UNEXPECTED_ERROR)
                 } else {
                     onSent()
                 }

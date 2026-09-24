@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchDapp
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchHistoryCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchItemCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchRecentChatCell
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchResolvingDomainCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSectionCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSelectorHeaderCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchWalletCell
@@ -64,6 +65,18 @@ import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
+data class SearchBestMatchAction(
+    val suggestion: String,
+    val title: String,
+    val isAgent: Boolean = false
+)
+
+enum class SearchBestMatchOutcome {
+    OPENED,
+    NOT_FOUND,
+    IGNORED
+}
+
 class SearchVC(
     context: Context,
     internal val usesGlobalSearchOverlay: Boolean = false,
@@ -98,6 +111,8 @@ class SearchVC(
         val SEARCH_APP_ITEM_CELL = WCell.Type(21)
         val SEARCH_BEST_APP_ITEM_CELL = WCell.Type(22)
         val SEARCH_BEST_AGENT_CELL = WCell.Type(23)
+        val SEARCH_BEST_WEBSITE_CELL = WCell.Type(24)
+        val SEARCH_BEST_RESOLVING_DOMAIN_CELL = WCell.Type(25)
 
         const val SECTION_CHATS = 0
 
@@ -153,6 +168,8 @@ class SearchVC(
                 SEARCH_APP_ITEM_CELL,
                 SEARCH_BEST_APP_ITEM_CELL,
                 SEARCH_BEST_AGENT_CELL,
+                SEARCH_BEST_WEBSITE_CELL,
+                SEARCH_BEST_RESOLVING_DOMAIN_CELL,
                 SEARCH_SELECTOR_TITLE_CELL,
                 SEARCH_CHAT_HINT_CELL,
                 SEARCH_RECENT_CHAT_CELL,
@@ -246,9 +263,15 @@ class SearchVC(
     internal var searchResult: ExploreVM.SearchResult? = null
     internal var searchQuery = ""
 
-    private data class PendingBestMatchRequest(val query: String, val onResolved: (Boolean) -> Unit)
+    private data class PendingBestMatchRequest(
+        val query: String,
+        val onResolved: (SearchBestMatchOutcome) -> Unit
+    )
 
     private var pendingBestMatchRequest: PendingBestMatchRequest? = null
+
+    var onBestMatchActionChanged: ((query: String, action: SearchBestMatchAction?) -> Unit)? = null
+    private var lastBestMatchAction: Pair<String, SearchBestMatchAction?>? = null
 
     fun updateSearchQuery(query: String) {
         if (query != searchQuery) pendingBestMatchRequest = null
@@ -269,6 +292,7 @@ class SearchVC(
         val previousCellTypes = cellTypes(previousSectionItemCounts)
         mutate()
         searchDataSource.onSearchStateChanged()
+        notifyBestMatchAction()
         val currentSectionItemCounts = sectionItemCounts()
         // updateVisibleCells() rebinds through the adapter's cached section layout, which only
         // reloadData() rebuilds, so it is safe only while that layout is unchanged.
@@ -279,6 +303,15 @@ class SearchVC(
         } else {
             rvAdapter.reloadData()
         }
+    }
+
+    private fun notifyBestMatchAction() {
+        // Follows the displayed best match, which lags the query like the rows do.
+        val action = searchDataSource.bestMatchAction()
+        val current = searchQuery to action
+        if (current == lastBestMatchAction) return
+        lastBestMatchAction = current
+        onBestMatchActionChanged?.invoke(searchQuery, action)
     }
 
     private fun sectionItemCounts(): IntArray = searchDataSource.sectionItemCounts(recyclerView)
@@ -303,7 +336,7 @@ class SearchVC(
         }
     }.toIntArray()
 
-    fun openBestMatch(onResolved: (Boolean) -> Unit) {
+    fun openBestMatch(onResolved: (SearchBestMatchOutcome) -> Unit) {
         pendingBestMatchRequest = null
         resolveBestMatch(PendingBestMatchRequest(searchQuery, onResolved))
     }
@@ -317,15 +350,22 @@ class SearchVC(
             pendingBestMatchRequest = null
             return
         }
+        if (searchResult?.keyword == searchQuery &&
+            searchResult?.isWalletInfoLookupPending == true
+        ) {
+            pendingBestMatchRequest = null
+            request.onResolved(SearchBestMatchOutcome.IGNORED)
+            return
+        }
         when (searchDataSource.openBestMatch()) {
             SearchDataSource.BestMatchResult.OPENED -> {
                 pendingBestMatchRequest = null
-                request.onResolved(true)
+                request.onResolved(SearchBestMatchOutcome.OPENED)
             }
 
             SearchDataSource.BestMatchResult.NOT_FOUND -> {
                 pendingBestMatchRequest = null
-                request.onResolved(false)
+                request.onResolved(SearchBestMatchOutcome.NOT_FOUND)
             }
 
             SearchDataSource.BestMatchResult.PENDING -> {
@@ -475,6 +515,20 @@ class SearchVC(
         ExploreHistoryStore.saveSearchHistory(keyword)
     }
 
+    internal fun openDeeplink(link: String) {
+        WalletContextManager.delegate?.get()?.handleDeeplink(link, DeeplinkOpenSource.SEARCH)
+    }
+
+    internal fun openWebsite(url: String) {
+        openInAppBrowser(
+            InAppBrowserConfig(
+                url = url,
+                injectDappConnect = true,
+                saveInVisitedHistory = true
+            )
+        )
+    }
+
     internal fun openInAppBrowser(config: InAppBrowserConfig) {
         val inAppBrowserVC = InAppBrowserVC(
             context,
@@ -535,6 +589,11 @@ class SearchVC(
             )
         )
 
+        SEARCH_BEST_RESOLVING_DOMAIN_CELL -> SearchBestMatchCell(
+            context,
+            SearchResolvingDomainCell(context)
+        )
+
         SEARCH_BEST_DAPP_CELL -> SearchBestMatchCell(
             context,
             SearchDappCell(context, onTap = ::openDapp)
@@ -559,6 +618,16 @@ class SearchVC(
                 iconRes = R.drawable.ic_agent_filled,
                 iconColor = WColor.PrimaryText,
                 onTap = { prompt -> openAgent(prompt) }
+            )
+        )
+
+        SEARCH_BEST_WEBSITE_CELL -> SearchBestMatchCell(
+            context,
+            SearchItemCell(
+                context,
+                iconRes = R.drawable.ic_explore,
+                iconColor = WColor.PrimaryText,
+                onTap = { searchDataSource.openBestLink() }
             )
         )
 
@@ -615,7 +684,9 @@ class SearchVC(
         SEARCH_TITLE_CELL -> HeaderCell(context)
 
         SEARCH_SEARCHED_CELL -> SearchItemCell(context, onTap = { history ->
-            if (WalletContextManager.delegate?.get()?.handleDeeplink(history) == true) {
+            if (WalletContextManager.delegate?.get()
+                    ?.handleDeeplink(history, DeeplinkOpenSource.SEARCH) == true
+            ) {
                 return@SearchItemCell
             }
             val (isValidUrl, uri) = InAppBrowserVC.convertToUri(history)

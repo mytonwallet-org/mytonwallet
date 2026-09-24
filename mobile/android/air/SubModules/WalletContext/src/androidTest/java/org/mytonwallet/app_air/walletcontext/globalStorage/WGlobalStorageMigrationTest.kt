@@ -33,6 +33,40 @@ class WGlobalStorageMigrationTest {
     @After
     fun tearDown() {
         WSecureStorage.clearStorage()
+        WCacheStorage.setExploreHistory("0-ton-mainnet", null)
+        WCacheStorage.setAgentClientId(null)
+        WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
+    }
+
+    @Test
+    fun clearingDownloadedDataPreservesWalletState() {
+        val accountId = "0-ton-mainnet"
+        val storage = InMemoryGlobalStorageProvider(JSONObject().apply { put("stateVersion", 61) })
+        WGlobalStorage.init(storage)
+        WGlobalStorage.saveAccount(accountId, JSONObject().apply { put("type", "mnemonic") })
+        storage.set(
+            "byAccountId.$accountId.activities.byId",
+            JSONObject().apply { put("activity", JSONObject()) },
+            IGlobalStorageProvider.PERSIST_NO
+        )
+        storage.set("settings.theme", "dark", IGlobalStorageProvider.PERSIST_NO)
+        WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.HOME)
+        WCacheStorage.setAgentClientId("client-id")
+        WCacheStorage.setExploreHistory(accountId, "history")
+        WCacheStorage.setTokens("tokens")
+        WCacheStorage.setNfts(accountId, "nfts")
+
+        assertTrue(WCacheStorage.clearDownloadedData())
+        WGlobalStorage.clearDownloadedData()
+
+        assertEquals(null, WCacheStorage.getTokens())
+        assertEquals(null, WCacheStorage.getNfts(accountId))
+        assertEquals("history", WCacheStorage.getExploreHistory(accountId))
+        assertEquals("client-id", WCacheStorage.getAgentClientId())
+        assertEquals(WCacheStorage.InitialScreen.HOME, WCacheStorage.getInitialScreen())
+        assertEquals(null, storage.getDict("byAccountId.$accountId.activities"))
+        assertNotNull(WGlobalStorage.getAccount(accountId))
+        assertEquals("dark", storage.getString("settings.theme"))
     }
 
     @Test

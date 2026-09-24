@@ -179,13 +179,14 @@ addActionHandler('apiUpdate', (global, actions, update) => {
           .filter((addr) => streamed.has(addr) || currentNfts?.byAddress?.[addr]?.chain !== chain);
       } else if (shouldAppend) {
         // Batch or collection loading - preserve existing entries (fresher websocket data), except the
-        // verification verdict, which the incoming batch recomputes from the current trusted collection list
+        // verification verdict, which the incoming batch recomputes from the current trusted collection list.
+        // An entry stored without metadata is replaced entirely, as the incoming batch may carry the metadata.
         byAddress = { ...nfts };
         for (const [address, existingNft] of Object.entries(currentNfts?.byAddress ?? {})) {
           const incomingNft = nfts[address];
-          byAddress[address] = incomingNft
+          byAddress[address] = incomingNft && !existingNft.isMetadataMissing
             ? omitUndefined({ ...existingNft, isUnverified: incomingNft.isUnverified })
-            : existingNft;
+            : incomingNft ?? existingNft;
         }
         orderedAddresses = unique(
           ([] as string[]).concat(currentNfts?.orderedAddresses ?? [], newOrderedAddresses),

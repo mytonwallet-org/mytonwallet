@@ -36,6 +36,11 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
             identifier.hasPrefix(tokenPrefix)
         }
 
+        static func tokenAccountId(_ identifier: String) -> String? {
+            guard isToken(identifier) else { return nil }
+            return identifier.dropFirst(tokenPrefix.count).split(separator: ":", maxSplits: 1).first.map(String.init)
+        }
+
         static func isPlaceholder(_ identifier: String) -> Bool {
             identifier.hasPrefix(placeholderPrefix)
         }
@@ -50,9 +55,11 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     }
 
     private struct TokenItem {
-        let tokenBalance: MTokenBalance
-        let isPinned: Bool
+        let presentation: WalletTokenPresentation
         let animatedAmounts: Bool
+
+        var tokenBalance: MTokenBalance { presentation.tokenBalance }
+        var isPinned: Bool { presentation.isPinned }
     }
 
     private enum State {
@@ -74,13 +81,88 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     private var state: State = .placeholders(count: 5)
     private var tokenItemsByIdentifier: [String: TokenItem] = [:]
     private var emptyStateAnimationSessionID = 0
+    private struct CachedContent {
+        let accountId: String
+        let presentation: WalletTokenPresentation
+        let view: WalletTokenContentView
+    }
+    private var cachedContent: [String: CachedContent] = [:]
+    private var preloadTask: Task<Void, Never>?
+    private var cachedAccountOrder: [String] = []
 
-    private lazy var tokenRegistration = UICollectionView.CellRegistration<WalletTokenCell, String> { [weak self] cell, _, itemIdentifier in
-        guard let self, let item = tokenItemsByIdentifier[itemIdentifier] else {
-            cell.setContextMenuInteraction(nil)
-            return
+    public func preloadAccounts(_ accountIds: [String], rowWidth: CGFloat, visibleRowCount: Int) {
+        preloadTask?.cancel()
+        for id in [accountId] + accountIds.prefix(2) {
+            cachedAccountOrder.removeAll { $0 == id }
+            cachedAccountOrder.append(id)
         }
-        configureTokenCell(cell, item: item)
+        cachedAccountOrder = Array(cachedAccountOrder.suffix(3))
+        let retainedAccounts = Set(cachedAccountOrder)
+        guard rowWidth > 0, visibleRowCount > 0 else { return }
+        preloadTask = Task { @MainActor [weak self] in
+            // Let the account animation finish before preparing neighboring rows.
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.cachedContent = self?.cachedContent.filter { retainedAccounts.contains($0.value.accountId) } ?? [:]
+            for accountId in accountIds.prefix(2) {
+                guard !Task.isCancelled, let self else { return }
+                let context = AccountContext(source: .accountId(accountId))
+                let balances = context.walletTokensData?.orderedTokenBalances ?? []
+                let items = Self.makeTokenItems(balances, accountContext: context, animated: false)
+                for item in items.prefix(visibleRowCount) {
+                    guard !Task.isCancelled else { return }
+                    let identifier = ItemIdentifier.token(accountId: accountId, tokenID: item.tokenBalance.tokenID)
+                    if cachedContent[identifier]?.presentation == item.presentation { continue }
+                    let content = self.content(for: item, identifier: identifier, accountId: accountId, host: nil)
+                    if content.superview == nil {
+                        content.frame = CGRect(x: 0, y: 0, width: rowWidth, height: WalletTokenCell.defaultHeight)
+                        content.layoutIfNeeded()
+                    }
+                    // Bound preparation to one row per run-loop interval.
+                    try? await Task.sleep(for: .milliseconds(20))
+                }
+            }
+        }
+    }
+
+    public func cancelPreloading() {
+        preloadTask?.cancel()
+        preloadTask = nil
+    }
+
+    public func discardPreparedContent() {
+        cancelPreloading()
+        cachedContent.removeAll()
+        cachedAccountOrder.removeAll()
+    }
+
+    isolated deinit { preloadTask?.cancel() }
+
+    // A bounded set of pools preserves warm hosts. An item's registration must stay
+    // stable when UIKit reconfigures it, including after moves or an account switch.
+    private lazy var tokenRegistrations = (0..<(3 * HomeWalletVisibleTokensLimit.top30.rawValue)).map { _ in
+        UICollectionView.CellRegistration<WalletTokenCell, String> { [weak self] cell, _, identifier in
+            guard let self, let accountId = ItemIdentifier.tokenAccountId(identifier),
+                  let item = tokenItem(for: identifier, accountId: accountId) else {
+                cell.setContextMenuInteraction(nil)
+                return
+            }
+            configureTokenCell(cell, item: item, identifier: identifier, accountId: accountId)
+        }
+    }
+
+    private func tokenItem(for identifier: String, accountId: String) -> TokenItem? {
+        if let item = tokenItemsByIdentifier[identifier] { return item }
+        if let cached = cachedContent[identifier] {
+            return TokenItem(presentation: cached.presentation, animatedAmounts: false)
+        }
+        // The displayed snapshot can still request outgoing/prefetched rows while
+        // Home has already prepared the next account or a shorter token list.
+        let context = AccountContext(source: .accountId(accountId))
+        guard let balance = context.walletTokensData?.orderedTokenBalances.first(where: {
+            ItemIdentifier.token(accountId: accountId, tokenID: $0.tokenID) == identifier
+        }) else { return nil }
+        return Self.makeTokenItems([balance], accountContext: context, animated: false).first
     }
 
     private lazy var placeholderRegistration = UICollectionView.CellRegistration<ActivitySkeletonCollectionCell, String> { cell, _, _ in
@@ -138,6 +220,14 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         refresh(animated: true)
     }
 
+    public func switchAccountTo(_ accountId: String) {
+        guard displayedAccountId != accountId else { return }
+        displayedAccountId = accountId
+        accountContext.accountId = accountId
+        // Home owns the replacement animation; individual amounts stay still underneath it.
+        refresh(animated: false, notify: false)
+    }
+
     private func makeItemIdentifiers() -> [String] {
         let identifiers: [String] = switch state {
         case .placeholders(let count):
@@ -153,7 +243,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     }
 
     public func prepareForUse() {
-        _ = tokenRegistration
+        _ = tokenRegistrations
         _ = placeholderRegistration
         _ = emptyRegistration
         _ = showAllRegistration
@@ -194,7 +284,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
     ) -> UICollectionViewCell {
         if ItemIdentifier.isToken(itemIdentifier) {
             return collectionView.dequeueConfiguredReusableCell(
-                using: tokenRegistration,
+                using: tokenRegistrations[Int(UInt(bitPattern: itemIdentifier.hashValue) % UInt(tokenRegistrations.count))],
                 for: indexPath,
                 item: itemIdentifier
             )
@@ -258,20 +348,21 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
 
     public nonisolated func walletCore(event: WalletCoreData.Event) {
         MainActor.assumeIsolated {
+            let reason = HomeTrace.isEnabled ? event.homeTraceDescription ?? "other" : ""
             switch event {
             case .stakingAccountData(let data):
                 if data.accountId == accountId {
-                    refresh(animated: true)
+                    refresh(animated: true, reason: reason)
                 }
-            case .tokensChanged, .assetsAndActivityDataUpdated, .homeWalletVisibleTokensLimitChanged:
-                refresh(animated: true)
+            case .tokensChanged, .baseCurrencyChanged, .assetsAndActivityDataUpdated, .homeWalletVisibleTokensLimitChanged:
+                refresh(animated: true, reason: reason)
             case .accountChanged(let accountId, _):
                 if accountId == self.accountId {
-                    refresh(animated: true)
+                    refresh(animated: true, reason: reason)
                 }
             case .balanceChanged(let accountId):
                 if accountId == self.accountId {
-                    refresh(animated: true)
+                    refresh(animated: true, reason: reason)
                 }
             default:
                 break
@@ -292,26 +383,58 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         return items.last?.tokenBalance.tokenID
     }
 
-    private func refresh(animated: Bool, notify: Bool = true) {
+    private func refresh(animated: Bool, notify: Bool = true, reason: String = #function) {
         let previousItemIdentifiers = itemIdentifiers
+        let traceStartedAt = HomeTrace.isEnabled ? HomeTrace.now : 0
+        let previousTokenItems = tokenItemsByIdentifier
+        let previousCount = allTokensCount
+        HomeTrace.record("tokens.refresh.begin", "account=\(accountId) reason=\(reason) notify=\(notify) animated=\(animated)")
+        defer {
+            itemIdentifiers = makeItemIdentifiers()
+            let retainedIdentifiers = Set(itemIdentifiers)
+            cachedContent = cachedContent.filter { $0.value.accountId != accountId || retainedIdentifiers.contains($0.key) }
+            let structureChanged = previousItemIdentifiers != itemIdentifiers
+            let presentationChanges = tokenItemsByIdentifier.filter {
+                previousTokenItems[$0.key]?.presentation != $0.value.presentation
+            }.count
+            let shouldNotify = notify && (structureChanged || presentationChanges > 0 || previousCount != allTokensCount)
+            if HomeTrace.isEnabled {
+                let balanceOrPriceChanges = tokenItemsByIdentifier.filter {
+                    previousTokenItems[$0.key]?.tokenBalance != $0.value.tokenBalance
+                }.count
+                let pinChanges = tokenItemsByIdentifier.filter {
+                    previousTokenItems[$0.key]?.isPinned != $0.value.isPinned
+                }.count
+                HomeTrace.record("tokens.refresh.end", "account=\(accountId) reason=\(reason) duration_ms=\(HomeTrace.milliseconds(since: traceStartedAt)) rows=\(itemIdentifiers.count) structureChanged=\(structureChanged) balanceOrPriceChanged=\(balanceOrPriceChanges) pinChanged=\(pinChanges) presentationChanged=\(presentationChanges) total=\(previousCount)->\(allTokensCount) notify=\(shouldNotify)")
+            }
+            if shouldNotify {
+                onStateChange?(structureChanged, animated)
+            }
+        }
         tokenItemsByIdentifier.removeAll(keepingCapacity: true)
 
         guard let walletTokensData = accountContext.walletTokensData else {
             state = .placeholders(count: 5)
-            finishRefresh(previousItemIdentifiers: previousItemIdentifiers, animated: animated, notify: notify)
             return
         }
 
         let orderedTokens = walletTokensData.orderedTokenBalances
         guard !orderedTokens.isEmpty else {
             state = .empty
-            finishRefresh(previousItemIdentifiers: previousItemIdentifiers, animated: animated, notify: notify)
             return
         }
 
-        let visibleTokens = Array(orderedTokens.prefix(AppStorageHelper.homeWalletVisibleTokensLimit.rawValue))
-        let assetsData = AssetsAndActivityDataStore.data(accountId: accountId) ?? .empty
-        let items = visibleTokens.map { tokenBalance in
+        let items = Self.makeTokenItems(orderedTokens, accountContext: accountContext, animated: animated)
+        tokenItemsByIdentifier = Dictionary(uniqueKeysWithValues: items.map { item in
+            (ItemIdentifier.token(accountId: accountId, tokenID: item.tokenBalance.tokenID), item)
+        })
+        state = .loaded(items: items, allTokensCount: orderedTokens.count)
+    }
+
+    private static func makeTokenItems(_ orderedTokens: [MTokenBalance], accountContext: AccountContext, animated: Bool) -> [TokenItem] {
+        let visibleTokens = orderedTokens.prefix(AppStorageHelper.homeWalletVisibleTokensLimit.rawValue)
+        let assetsData = AssetsAndActivityDataStore.data(accountId: accountContext.accountId) ?? .empty
+        return visibleTokens.map { tokenBalance in
             let isPinned: Bool
             if case .pinned = assetsData.isTokenPinned(
                 slug: tokenBalance.tokenSlug,
@@ -321,53 +444,64 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
             } else {
                 isPinned = false
             }
-            return TokenItem(
+            let stakingPresentation = accountContext.getStakingTokenPresentation(
+                tokenSlug: tokenBalance.tokenSlug,
+                isStaking: tokenBalance.isStaking
+            )
+            let presentation = WalletTokenPresentation(
                 tokenBalance: tokenBalance,
+                token: tokenBalance.token,
+                badgeContent: getBadgeContent(
+                    accountContext: accountContext,
+                    slug: tokenBalance.tokenSlug,
+                    stakingBadge: stakingPresentation?.badge
+                ),
+                stakingAccessory: stakingPresentation?.accessory,
+                isMultichain: accountContext.account.isMultichain,
                 isPinned: isPinned,
-                animatedAmounts: animated
+                baseCurrency: TokenStore.baseCurrency,
+                baseCurrencyRate: TokenStore.baseCurrencyRate,
+                accentColor: accountContext.accentColor
             )
-        }
-        tokenItemsByIdentifier = Dictionary(uniqueKeysWithValues: items.map { item in
-            (
-                ItemIdentifier.token(accountId: accountId, tokenID: item.tokenBalance.tokenID),
-                item
-            )
-        })
-        state = .loaded(items: items, allTokensCount: orderedTokens.count)
-        finishRefresh(previousItemIdentifiers: previousItemIdentifiers, animated: animated, notify: notify)
-    }
-
-    private func finishRefresh(
-        previousItemIdentifiers: [String],
-        animated: Bool,
-        notify: Bool
-    ) {
-        itemIdentifiers = makeItemIdentifiers()
-        if notify {
-            onStateChange?(previousItemIdentifiers != itemIdentifiers, animated)
+            return TokenItem(presentation: presentation, animatedAmounts: animated)
         }
     }
 
-    private func configureTokenCell(_ cell: WalletTokenCell, item: TokenItem) {
+    private func content(for item: TokenItem, identifier: String, accountId: String, host: UIView?,
+                         existing: WalletTokenContentView? = nil) -> WalletTokenContentView {
+        let cached = cachedContent[identifier]
+        // Preloading must not replace an unchanged view that UIKit retains in its reuse pool.
+        if host == nil, let cached, cached.presentation == item.presentation { return cached.view }
+        // Offscreen and prefetched cells still own their content until reuse.
+        let owned = existing.flatMap { $0.preparedItemIdentifier == identifier && $0.superview === host ? $0 : nil }
+        let available = cached.flatMap { $0.view.superview == nil || $0.view.superview === host ? $0.view : nil }
+        let reusable = owned ?? available
+        let content = reusable ?? WalletTokenContentView(frame: .zero)
+        #if DEBUG || HOME_FRAME_PROBE
+        HomeFrameProbe.shared.event(reusable != nil ? "token.content.reuse" : "token.content.create")
+        #endif
+        if content.preparedPresentation != item.presentation {
+            content.tintColor = item.presentation.accentColor
+            content.configure(
+                with: item.tokenBalance,
+                animated: item.animatedAmounts && content.superview === host && host != nil,
+                badgeContent: item.presentation.badgeContent,
+                stakingAccessoryContent: item.presentation.stakingAccessory,
+                isMultichain: item.presentation.isMultichain,
+                isPinned: item.isPinned
+            )
+            content.preparedPresentation = item.presentation
+        }
+        content.preparedItemIdentifier = identifier
+        cachedContent[identifier] = CachedContent(accountId: accountId, presentation: item.presentation, view: content)
+        return content
+    }
+
+    private func configureTokenCell(_ cell: WalletTokenCell, item: TokenItem, identifier: String, accountId: String) {
         let token = item.tokenBalance
-        let stakingPresentation = accountContext.getStakingTokenPresentation(
-            tokenSlug: token.tokenSlug,
-            isStaking: token.isStaking
-        )
-        let badgeContent = getBadgeContent(
-            accountContext: accountContext,
-            slug: token.tokenSlug,
-            stakingBadge: stakingPresentation?.badge
-        )
         cell.baseBackgroundColor = .air.groupedItem
-        cell.configure(
-            with: token,
-            animated: item.animatedAmounts,
-            badgeContent: badgeContent,
-            stakingAccessoryContent: stakingPresentation?.accessory,
-            isMultichain: accountContext.account.isMultichain,
-            isPinned: item.isPinned
-        )
+        cell.host(content(for: item, identifier: identifier, accountId: accountId, host: cell.contentView,
+                          existing: cell.tokenContent))
 
         let interaction = ContextMenuInteraction(
             triggers: [.longPress],

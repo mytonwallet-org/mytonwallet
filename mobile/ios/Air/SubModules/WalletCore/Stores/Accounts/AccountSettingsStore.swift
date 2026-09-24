@@ -118,13 +118,13 @@ public final class AccountSettings: Sendable {
     }
 
     private func installAccentColorFromNft(accountId: String, nft: ApiNft?) {
-        Task.detached {
+        Task {
             let color: Int? = if let nft {
                 await getAccentColorIndexFromNft(nft: nft)
             } else {
                 nil
             }
-            await self.setAccentColorIndex(index: color)
+            self.setAccentColorIndex(index: color, for: nft)
         }
     }
 
@@ -138,7 +138,8 @@ public final class AccountSettings: Sendable {
         persist()
     }
 
-    private func setAccentColorIndex(index newValue: Int?) {
+    func setAccentColorIndex(index newValue: Int?, for nft: ApiNft?) {
+        guard accentColorNft?.id == nft?.id else { return }
         accentColorIndex = newValue
         @Dependency(\.accountStore) var accountStore
         if accountId == accountStore.currentAccountId {

@@ -25,6 +25,7 @@ import SwiftNavigation
     var realFee: BigInt?
     var isLoadingDraft = false
     var isPreparingAction = false
+    var isSubmitting = false
     var isResolvingAddress = false
     var errorMessage: String?
 
@@ -97,7 +98,7 @@ import SwiftNavigation
     var canLink: Bool {
         guard isAddressValid else { return false }
         if let linkedWalletAddress, linkedWalletAddress == normalizedWalletAddress { return false }
-        return !isPreparingAction && !isLoadingDraft && realFee != nil && !isInsufficientBalance
+        return !isSubmitting && !isPreparingAction && !isLoadingDraft && realFee != nil && !isInsufficientBalance
     }
 
     private var normalizedWalletAddress: String {
@@ -105,7 +106,7 @@ import SwiftNavigation
     }
 
     var isButtonLoading: Bool {
-        isPreparingAction || isLoadingDraft || realFee == nil
+        isSubmitting || isPreparingAction || isLoadingDraft || realFee == nil
     }
 
     func displayComponents() -> (primary: String?, secondary: String?) {

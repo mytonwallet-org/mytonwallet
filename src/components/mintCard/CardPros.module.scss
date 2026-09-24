@@ -1,11 +1,12 @@
 .root {
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
   gap: 1rem;
 
+  min-height: 0;
   padding: 1rem 1rem max(1rem, calc(var(--safe-area-bottom) + 0.5rem));
-  border-radius: 0 0 var(--modal-border-radius) var(--modal-border-radius);
 
   background-color: var(--color-background-window);
 
@@ -91,4 +92,15 @@
   width: 100% !important;
   max-width: none !important;
   margin-top: auto;
+
+  &.scheduled {
+    --color-accent-button-background: var(--color-gray-3);
+    --color-accent-button-text: #FFFFFF;
+
+    font-variant-numeric: tabular-nums;
+
+    &[disabled] {
+      opacity: 1;
+    }
+  }
 }

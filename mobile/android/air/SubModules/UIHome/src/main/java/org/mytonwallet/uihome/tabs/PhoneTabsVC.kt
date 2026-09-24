@@ -36,6 +36,8 @@ import me.vkryl.android.animatorx.BoolAnimator
 import me.vkryl.android.animatorx.FloatAnimator
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchAction
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchOutcome
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
@@ -86,6 +88,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
@@ -96,7 +99,6 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
@@ -129,6 +131,7 @@ class PhoneTabsVC(context: Context) :
 
         private const val SEARCH_OVERLAY_ANIMATION = AnimationConstants.VERY_VERY_QUICK_ANIMATION
         internal const val TOP_TABS_HEIGHT = 44
+        internal const val TOP_TABS_ROOT_INSET = WNavigationBar.DEFAULT_HEIGHT + 2
         private const val TOP_TABS_THUMB_HEIGHT = 36f
         internal const val TOP_TABS_TOP_MARGIN = 8
         private const val TOP_TABS_START_MARGIN = 16
@@ -174,11 +177,7 @@ class PhoneTabsVC(context: Context) :
     private var pendingSelectedTab: Int? = null
     private var pendingTabToPresentOverMain: Int? = null
 
-    override fun exportSearchText(): String = if (searchMatchedSite != null) {
-        searchKeyword
-    } else {
-        (searchEditText.text?.toString() ?: "")
-    }
+    override fun exportSearchText(): String = searchEditText.typedText()
 
     override fun restoreSearchText(text: String) {
         searchEditText.setText(text)
@@ -229,7 +228,7 @@ class PhoneTabsVC(context: Context) :
 
     override fun rootTopInsetForTab(id: Int): Int {
         if (id == AppTabsManager.ID_SETTINGS) return 0
-        return (WNavigationBar.DEFAULT_HEIGHT + 2).dp
+        return TOP_TABS_ROOT_INSET.dp
     }
 
     private var selectedTabId = AppTabsManager.ID_HOME
@@ -468,7 +467,7 @@ class PhoneTabsVC(context: Context) :
     private fun updateTopChromeVisibility(selectedItemId: Int) {
         val shouldShowTabs =
             !isTopChromeHidden && selectedItemId != AppTabsManager.ID_SETTINGS
-        val shouldShowAvatar = shouldShowTabs && AccountStore.activeAccount != null
+        val shouldShowAvatar = shouldShowTabs && AccountStore.permanentActiveAccount != null
         topTabsControl.isVisible = shouldShowTabs
         topAvatarView.isVisible = shouldShowAvatar
         if (!isTopChromeHidden) {
@@ -519,7 +518,7 @@ class PhoneTabsVC(context: Context) :
     }
 
     private fun updateTopAvatar() {
-        val account = AccountStore.activeAccount
+        val account = AccountStore.permanentActiveAccount
         if (account != null) {
             val currentIcon = visibleTopAvatarIconView ?: topAvatarIconView.also {
                 visibleTopAvatarIconView = it
@@ -623,13 +622,18 @@ class PhoneTabsVC(context: Context) :
 
             override fun onSelectionChanged(selStart: Int, selEnd: Int) {
                 super.onSelectionChanged(selStart, selEnd)
-                if (isProcessingSearchKeyword || searchMatchedSite == null) return
+                if (isProcessingSearchKeyword ||
+                    autoCompleteSuffixStart() < 0 ||
+                    !isSelectionChangeFromTouch()
+                ) {
+                    return
+                }
 
                 val keyword = searchKeyword
                 val autoCompleteText = text?.toString()
                 doOnPreDraw {
                     if (isProcessingSearchKeyword ||
-                        searchMatchedSite == null ||
+                        autoCompleteSuffixStart() < 0 ||
                         searchKeyword != keyword ||
                         text?.toString() != autoCompleteText
                     ) {
@@ -637,22 +641,16 @@ class PhoneTabsVC(context: Context) :
                     }
                     isProcessingSearchKeyword = true
                     removeAutoCompleteSuffix()
-                    searchMatchedSite = null
                     isProcessingSearchKeyword = false
                 }
             }
         }.apply {
             hint = LocaleController.getString(SEARCH_HINT_KEY)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            doAfterTextChanged { editable ->
+            doAfterTextChanged {
                 if (isProcessingSearchKeyword) return@doAfterTextChanged
                 val suffixStart = autoCompleteSuffixStart()
-                val keyword =
-                    if (suffixStart >= 0) {
-                        editable?.substring(0, suffixStart) ?: ""
-                    } else {
-                        editable?.toString() ?: ""
-                    }
+                val keyword = typedText()
                 if (keyword == searchKeyword) return@doAfterTextChanged
                 if (suffixStart >= 0) {
                     isProcessingSearchKeyword = true
@@ -661,7 +659,7 @@ class PhoneTabsVC(context: Context) :
                 }
                 val shouldCheckForMatchingUrl = keyword.length > searchKeyword.length
                 searchKeyword = keyword
-                searchMatchedSite = null
+                autoCompleteKeyword = keyword.takeIf { shouldCheckForMatchingUrl }
                 updateSearch(searchKeyword, hasFocus())
                 if (shouldCheckForMatchingUrl) {
                     post {
@@ -678,7 +676,13 @@ class PhoneTabsVC(context: Context) :
                 ) {
                     return@OnFocusChangeListener
                 }
-                val query = if (hasFocus) text?.toString() else null
+                if (!hasFocus) {
+                    isProcessingSearchKeyword = true
+                    removeAutoCompleteSuffix()
+                    isProcessingSearchKeyword = false
+                }
+                val query = if (hasFocus) typedText() else null
+                autoCompleteKeyword = query
                 updateSearch(query, hasFocus)
                 checkForMatchingUrl(query ?: "")
             }
@@ -689,44 +693,37 @@ class PhoneTabsVC(context: Context) :
                             event.keyCode == KeyEvent.KEYCODE_ENTER
                         )
                 ) {
-                    val submittedText = text.toString()
+                    val submittedText = typedText()
                     if (submittedText.isBlank()) {
                         clearFocus()
                         hideKeyboard()
                         return@setOnEditorActionListener true
                     }
-                    if (WalletContextManager.delegate?.get()?.handleDeeplink(submittedText) ==
-                        true
+                    if (WalletContextManager.delegate?.get()
+                            ?.handleDeeplink(submittedText, DeeplinkOpenSource.SEARCH) == true
                     ) {
                         setText("")
                         clearFocus()
                         hideKeyboard()
                         return@setOnEditorActionListener true
                     }
-                    val matchedSite = searchMatchedSite
-                    val onBestMatchResolved: (Boolean) -> Unit = { opened ->
-                        if (opened) {
+                    val onBestMatchResolved: (SearchBestMatchOutcome) -> Unit = { outcome ->
+                        if (outcome == SearchBestMatchOutcome.IGNORED) {
+                            hideKeyboard(clearFocus = false)
+                        } else if (outcome == SearchBestMatchOutcome.OPENED) {
                             setText("")
                             clearFocus()
                             hideKeyboard()
                         } else {
-                            val config = matchedSite?.let {
-                                InAppBrowserConfig(
-                                    url = it.url,
-                                    injectDappConnect = true,
-                                    saveInVisitedHistory = true
-                                )
-                            } ?: run {
-                                val (isValidUrl, uri) = InAppBrowserVC.convertToUri(submittedText)
-                                if (!isValidUrl) {
-                                    ExploreHistoryStore.saveSearchHistory(submittedText)
-                                }
-                                InAppBrowserConfig(
-                                    url = uri.toString(),
-                                    injectDappConnect = true,
-                                    saveInVisitedHistory = isValidUrl
-                                )
+                            val (isValidUrl, uri) = InAppBrowserVC.convertToUri(submittedText)
+                            if (!isValidUrl) {
+                                ExploreHistoryStore.saveSearchHistory(submittedText)
                             }
+                            val config = InAppBrowserConfig(
+                                url = uri.toString(),
+                                injectDappConnect = true,
+                                saveInVisitedHistory = isValidUrl
+                            )
                             val inAppBrowserVC = InAppBrowserVC(
                                 context,
                                 this@PhoneTabsVC,
@@ -746,7 +743,7 @@ class PhoneTabsVC(context: Context) :
                     if (cachedExploreVC?.openBestSearchMatch(onBestMatchResolved) == true) {
                         return@setOnEditorActionListener true
                     }
-                    onBestMatchResolved(false)
+                    onBestMatchResolved(SearchBestMatchOutcome.NOT_FOUND)
                     return@setOnEditorActionListener true
                 }
                 false
@@ -1170,6 +1167,7 @@ class PhoneTabsVC(context: Context) :
 
         searchEditText.highlightColor = tintColor.colorWithAlpha(51)
         isProcessingSearchKeyword = true
+        searchEditText.removeAutoCompleteSuffix()
         checkForMatchingUrl(searchKeyword)
         isProcessingSearchKeyword = false
 
@@ -1284,9 +1282,6 @@ class PhoneTabsVC(context: Context) :
             cachedExploreVC?.shouldKeepSearchActiveOnKeyboardDismiss != true
         ) {
             searchEditText.clearFocus()
-        }
-        if (searchMatchedSite != null && !isKeyboardOpen) {
-            clearSearchAutoComplete()
         }
         updateSearchPadding()
         updateStickyGradientHeight()
@@ -1545,53 +1540,47 @@ class PhoneTabsVC(context: Context) :
         }
     }
 
-    var searchMatchedSite: MExploreHistory.VisitedSite? = null
     var searchKeyword = ""
+
+    private var autoCompleteKeyword: String? = null
+    private var bestSearchMatchAction: Pair<String, SearchBestMatchAction?>? = null
+
+    override fun onExploreCreated(exploreVC: ExploreVC) {
+        exploreVC.onBestSearchMatchActionChanged = { query, action ->
+            bestSearchMatchAction = query to action
+            if (query == searchKeyword) checkForMatchingUrl(query)
+        }
+    }
+
     private fun checkForMatchingUrl(keyword: String) {
         searchKeyword = keyword
         if (keyword.isEmpty()) return
-        searchMatchedSite =
-            if (!isKeyboardOpen) {
-                null
-            } else {
-                ExploreHistoryStore.exploreHistory?.visitedSites?.firstOrNull {
-                    it.url.toUri().host?.startsWith(keyword) == true ||
-                        it.url.startsWith(keyword)
-                }
-            }
+        val action = bestSearchMatchAction
+            ?.takeIf { it.first == keyword && autoCompleteKeyword == keyword }
+            ?.second
+            ?.takeIf { searchEditText.typedText() == keyword }
+        val completion = action?.suggestion?.drop(keyword.length)
+        val suffixText = action?.let { "$completion — ${it.title}" }
+        if (suffixText != null && searchEditText.autoCompleteSuffixText() == suffixText) return
         val wasProcessingSearchKeyword = isProcessingSearchKeyword
         isProcessingSearchKeyword = true
         searchEditText.removeAutoCompleteSuffix()
-        isProcessingSearchKeyword = wasProcessingSearchKeyword
-        searchMatchedSite?.let { matchedSite ->
-            val urlPart = matchedSite.url.toUri().let { uri ->
-                if (uri.host?.startsWith(keyword) == true) {
-                    uri.host
-                } else {
-                    "${uri.scheme}://${uri.host}"
-                }
-            }
-            val txt = "$urlPart — ${matchedSite.title}"
-            if (txt.length <= keyword.length ||
-                !txt.startsWith(keyword) ||
-                searchEditText.text?.toString() != keyword
-            ) {
-                return
-            }
-            val suffix = SpannableString(txt.substring(keyword.length))
+        if (action != null && completion != null && suffixText != null) {
+            val suffix = SpannableString(suffixText)
             suffix.setSpan(
-                ForegroundColorSpan(WColor.Tint.color),
-                ((urlPart?.length ?: 0) - keyword.length).coerceIn(0, suffix.length),
+                ForegroundColorSpan(
+                    (if (action.isAgent) WColor.PrimaryText else WColor.Tint).color
+                ),
+                completion.length,
                 suffix.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            isProcessingSearchKeyword = true
             searchEditText.appendAutoCompleteSuffix(suffix)
-            isProcessingSearchKeyword = wasProcessingSearchKeyword
             searchView.post {
                 searchView.scrollTo(0, 0)
             }
         }
+        isProcessingSearchKeyword = wasProcessingSearchKeyword
     }
 
     private fun clearSearchAutoComplete() {
@@ -1730,7 +1719,7 @@ class PhoneTabsVC(context: Context) :
         val showTabs = visible &&
             !isTopChromeHidden &&
             selectedTabId != AppTabsManager.ID_SETTINGS
-        val showAvatar = showTabs && AccountStore.activeAccount != null
+        val showAvatar = showTabs && AccountStore.permanentActiveAccount != null
         fadeTopChromeView(topTabsControl, showTabs)
         fadeTopChromeView(topAvatarView, showAvatar)
     }
@@ -1832,7 +1821,7 @@ class PhoneTabsVC(context: Context) :
         topTabsControl.isEnabled = true
         topAvatarView.isEnabled = true
         val shouldShowTabs = selectedTabId != AppTabsManager.ID_SETTINGS
-        val shouldShowAvatar = shouldShowTabs && AccountStore.activeAccount != null
+        val shouldShowAvatar = shouldShowTabs && AccountStore.permanentActiveAccount != null
         showTopChromeView(topTabsControl, shouldShowTabs)
         showTopChromeView(topAvatarView, shouldShowAvatar)
     }

@@ -11,7 +11,8 @@ import {
 const TON_PROTOCOL = 'ton';
 const TONCONNECT_PROTOCOL = 'tc';
 const TONCONNECT_PROTOCOL_SELF = 'mytonwallet-tc';
-const SELF_PROTOCOL = 'mtw';
+const SELF_PROTOCOL = 'mw';
+const SELF_PROTOCOL_LEGACY = 'mtw';
 const WALLETCONNECT_SCHEME = 'wc';
 const WALLETCONNECT_DEEPLINK_SCHEME = 'mywallet-wc';
 const WALLETCONNECT_DEEPLINK = 'mywallet-wc://';
@@ -23,6 +24,7 @@ export function initDeeplink() {
     if (process.argv.length >= 2) {
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF, process.execPath, [path.resolve(process.argv[1])]);
+      app.setAsDefaultProtocolClient(SELF_PROTOCOL_LEGACY, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(SELF_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(WALLETCONNECT_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient(WALLETCONNECT_DEEPLINK_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
@@ -30,6 +32,7 @@ export function initDeeplink() {
   } else {
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL);
     app.setAsDefaultProtocolClient(TONCONNECT_PROTOCOL_SELF);
+    app.setAsDefaultProtocolClient(SELF_PROTOCOL_LEGACY);
     app.setAsDefaultProtocolClient(SELF_PROTOCOL);
     app.setAsDefaultProtocolClient(WALLETCONNECT_SCHEME);
     app.setAsDefaultProtocolClient(WALLETCONNECT_DEEPLINK_SCHEME);
@@ -92,7 +95,7 @@ export function processDeeplink() {
 
   if (getIsDeeplink(deeplinkUrl)) {
     mainWindow.webContents.send(ElectronEvent.DEEPLINK, {
-      url: deeplinkUrl,
+      url: normalizeSelfProtocol(deeplinkUrl),
     });
   }
   deeplinkUrl = undefined;
@@ -106,7 +109,15 @@ function getIsDeeplink(url: string) {
   return url.startsWith(`${TON_PROTOCOL}://`)
     || url.startsWith(`${TONCONNECT_PROTOCOL}://`)
     || url.startsWith(`${TONCONNECT_PROTOCOL_SELF}://`)
+    || url.startsWith(`${SELF_PROTOCOL_LEGACY}://`)
     || url.startsWith(`${SELF_PROTOCOL}://`)
     || url.startsWith(`${WALLETCONNECT_SCHEME}:`)
     || url.startsWith(WALLETCONNECT_DEEPLINK);
+}
+
+// The web bundle recognizes only `mtw://`, and shells and bundles are versioned separately
+function normalizeSelfProtocol(url: string) {
+  return url.startsWith(`${SELF_PROTOCOL}://`)
+    ? `${SELF_PROTOCOL_LEGACY}://${url.slice(`${SELF_PROTOCOL}://`.length)}`
+    : url;
 }

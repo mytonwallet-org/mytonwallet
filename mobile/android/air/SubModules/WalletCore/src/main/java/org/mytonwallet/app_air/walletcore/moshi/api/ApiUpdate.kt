@@ -144,8 +144,11 @@ sealed class ApiUpdate {
     ) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)
-    data class ApiUpdateUpdatingStatus(val kind: String, val isUpdating: Boolean? = null) :
-        ApiUpdate()
+    data class ApiUpdateUpdatingStatus(
+        val kind: String,
+        val accountId: String? = null,
+        val isUpdating: Boolean? = null
+    ) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)
     data class ApiUpdateShowError(val error: String? = null) : ApiUpdate()
@@ -254,7 +257,7 @@ sealed class ApiUpdate {
     @JsonClass(generateAdapter = true)
     data class ApiUpdateWalletVersions(
         val accountId: String,
-        val currentVersion: String,
+        val currentVersion: String? = null,
         val versions: List<Version>
     ) : ApiUpdate() {
         @JsonClass(generateAdapter = true)

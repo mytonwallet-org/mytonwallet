@@ -1,4 +1,4 @@
-import * as tonWebMnemonic from 'tonweb-mnemonic';
+import { mnemonicNew, mnemonicToSeed, mnemonicValidate, mnemonicWordList } from '@ton/crypto';
 import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
@@ -57,7 +57,7 @@ export async function generateMnemonic(): Promise<string[]> {
   // BIP39-valid phrases, which at ~1/256 per draw means a broken RNG, so fail loudly rather than mint an
   // ambiguous phrase or spin forever.
   for (let attempt = 0; attempt < 1000; attempt++) {
-    const mnemonic = await tonWebMnemonic.generateMnemonic();
+    const mnemonic = await mnemonicNew(24);
     if (!validateBip39Mnemonic(mnemonic)) {
       return mnemonic;
     }
@@ -66,8 +66,13 @@ export async function generateMnemonic(): Promise<string[]> {
   throw new Error('Failed to generate an unambiguous TON mnemonic');
 }
 
-export function validateMnemonic(mnemonic: string[]) {
-  return tonWebMnemonic.validateMnemonic(mnemonic);
+export async function validateMnemonic(mnemonic: string[]) {
+  // The SDK accepts canonical words; input normalization belongs to the importer
+  if (!mnemonic.length || mnemonic.some((word) => !mnemonicWordList.includes(word))) {
+    return false;
+  }
+
+  return mnemonicValidate(mnemonic);
 }
 
 export function privateKeyHexToKeyPair(privateKeyHex: string) {
@@ -127,8 +132,15 @@ export async function getKeyPairFromStoredMnemonic(
 
     return getWalletVariantByIndex(seed.toString('hex'), derivation.index, derivation.path);
   } else {
-    return tonWebMnemonic.mnemonicToKeyPair(mnemonic);
+    return mnemonicToKeyPair(mnemonic);
   }
+}
+
+async function mnemonicToKeyPair(mnemonic: string[]) {
+  // Stored words must derive their original keys without implicit case or whitespace normalization
+  const seed = await mnemonicToSeed(mnemonic, 'TON default seed');
+
+  return nacl.sign.keyPair.fromSeed(seed.subarray(0, nacl.sign.seedLength));
 }
 
 export async function rawSign(accountId: string, enclaveToken: string, dataHex: string) {
@@ -221,7 +233,7 @@ export async function getWalletFromMnemonic(
   // able to tell "no history" from "could not look it up" and opt out of the fallback
   isOfflineFallbackAllowed = true,
 ): Promise<ApiTonWallet & { lastTxId?: string }> {
-  const { publicKey } = await tonWebMnemonic.mnemonicToKeyPair(mnemonic);
+  const { publicKey } = await mnemonicToKeyPair(mnemonic);
   try {
     return await getWalletFromKeys(
       network,
@@ -360,9 +372,9 @@ export async function getWalletFromAddress(
     wallet: omitUndefined<ApiTonWallet>({
       publicKey: publicKey ? bytesToHex(publicKey) : undefined,
       address: walletInfo.address,
-      // The wallet has no version until it's initialized as a wallet. Using the default version just for the type
-      // compliance, it plays no role for view wallets anyway.
-      version: walletInfo?.version ?? DEFAULT_WALLET_VERSION,
+      // An address may hold no wallet at all, or a wallet contract this app has no implementation for. Both leave
+      // the version unknown, and naming one anyway would put it in front of the user as the contract's version.
+      version: walletInfo?.version,
       index: 0,
       isInitialized: walletInfo?.isInitialized ?? false,
     }),

@@ -12,6 +12,7 @@ final class NftSendReviewViewController: WViewController {
     private let model: NftSendModel
     private let confirmed: ConfirmedNftSend?
     private var confirmButton: WButton
+    private var isConfirming = false
 
     init(
         model: NftSendModel,
@@ -136,6 +137,7 @@ final class NftSendReviewViewController: WViewController {
     }
 
     @objc private func confirmPressed() {
+        guard !isConfirming else { return }
         view.endEditing(true)
         if confirmed == nil, model.continueState.canRetryDraft {
             model.retryDraft()
@@ -148,7 +150,13 @@ final class NftSendReviewViewController: WViewController {
             AppActions.showError(error: error)
             return
         }
+        isConfirming = true
+        updateConfirmButton()
         Task {
+            defer {
+                isConfirming = false
+                updateConfirmButton()
+            }
             await confirmAction(confirmedSend)
         }
         Haptics.prepare(.success)
@@ -164,6 +172,11 @@ final class NftSendReviewViewController: WViewController {
     }
 
     private func updateConfirmButton() {
+        if isConfirming || confirmed != nil {
+            confirmButton.showLoading = isConfirming
+            confirmButton.isEnabled = !isConfirming
+            return
+        }
         let state = model.continueState
         confirmButton.showLoading = state.isDraftLoading
         confirmButton.isEnabled =

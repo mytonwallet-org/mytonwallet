@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.view.View
 import androidx.core.math.MathUtils.clamp
 import kotlin.math.roundToInt
@@ -47,6 +48,26 @@ class SensitiveDataMaskView(context: Context) : View(context) {
     }
 
     var skin: Skin? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var foregroundColor: Int? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var centerDrawable: Drawable? = null
+        set(value) {
+            field?.callback = null
+            field = value
+            value?.callback = this
+            invalidate()
+        }
+
+    var centerDrawableSize = 0
         set(value) {
             field = value
             invalidate()
@@ -142,6 +163,10 @@ class SensitiveDataMaskView(context: Context) : View(context) {
         val currentSkin =
             skin ?: if (ThemeManager.isDark) Skin.DARK_THEME else Skin.LIGHT_THEME
         val colorArray = SKIN_COLORS[currentSkin] ?: SKIN_COLORS.getValue(Skin.LIGHT_THEME)
+        val maskColor = foregroundColor
+        val maskRed = maskColor?.let { Color.red(it) } ?: colorArray[0]
+        val maskGreen = maskColor?.let { Color.green(it) } ?: colorArray[1]
+        val maskBlue = maskColor?.let { Color.blue(it) } ?: colorArray[2]
 
         for (row in 0 until rows) {
             for (col in 0 until cols) {
@@ -162,9 +187,9 @@ class SensitiveDataMaskView(context: Context) : View(context) {
 
                 paint.color = Color.argb(
                     (nextOpacity * 255).roundToInt(),
-                    colorArray[0],
-                    colorArray[1],
-                    colorArray[2]
+                    maskRed,
+                    maskGreen,
+                    maskBlue
                 )
 
                 canvas.drawRect(
@@ -176,6 +201,16 @@ class SensitiveDataMaskView(context: Context) : View(context) {
                 )
 
                 isRendered = true
+            }
+        }
+
+        centerDrawable?.let { drawable ->
+            val size = centerDrawableSize.coerceAtMost(width).coerceAtMost(height)
+            if (size > 0) {
+                val left = (width - size) / 2
+                val top = (height - size) / 2
+                drawable.setBounds(left, top, left + size, top + size)
+                drawable.draw(canvas)
             }
         }
 

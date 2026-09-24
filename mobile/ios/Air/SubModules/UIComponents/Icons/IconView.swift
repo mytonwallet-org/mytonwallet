@@ -1008,6 +1008,7 @@ public class IconView: UIView {
     ) -> KingfisherOptionsInfo {
         var options: KingfisherOptionsInfo = [
             .transition(.fade(0.2)),
+            .backgroundDecode,
             .alsoPrefetchToMemory,
             .cacheOriginalImage,
         ]

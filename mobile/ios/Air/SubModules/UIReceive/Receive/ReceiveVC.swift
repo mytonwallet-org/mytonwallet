@@ -22,10 +22,21 @@ public class ReceiveVC: WViewController {
     private var segmentedController: WSegmentedController!
     private var hostingController: UIHostingController<ReceiveHeaderView>!
     private var previousNavigationBarStyle: UIUserInterfaceStyle = .unspecified
-    private var displayedAccountId: String?
+    private var displayedAccount: MAccount?
+    private var isSwitchingAccount = false
     private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .receive)) { [weak self] accountId in
         self?.selectAccount(accountId: accountId)
     }
+    private lazy var accountSwitcherBarButtonItem: UIBarButtonItem = {
+        if #available(iOS 27, *) {
+            return accountSwitcher.barButtonItem
+        } else if #available(iOS 26, *) {
+            accountSwitcher.button.chevronTintColor = .white
+            return makeClearGlassBarButtonItem(content: accountSwitcher.button, horizontalInset: 4)
+        } else {
+            return accountSwitcher.barButtonItem
+        }
+    }()
     
     @AccountContext private var account: MAccount
 
@@ -47,10 +58,11 @@ public class ReceiveVC: WViewController {
     
     private func setupViews() {
         let chainItems = makeChainItems()
+        let initialChainId = chainItems.first(where: { $0.id == selectedChain?.rawValue })?.id
 
         segmentedController = WSegmentedController(
             items: chainItems,
-            defaultItemId: selectedChain?.rawValue,
+            defaultItemId: initialChainId,
             barHeight: 0,
             goUnderNavBar: true,
             animationSpeed: .slow,
@@ -88,8 +100,21 @@ public class ReceiveVC: WViewController {
         configureNavigationItemWithTransparentBackground()
         setNavigationControlsAppearance()
         
-        if #available(iOS 26, *) {
+        if #available(iOS 27, *) {
             addCloseNavigationItemIfNeeded()
+        } else if #available(iOS 26, *) {
+            if isPresentationModal {
+                let button = UIButton(type: .system)
+                let image = UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
+                button.setImage(image, for: .normal)
+                button.tintColor = .white
+                button.accessibilityLabel = lang("Close")
+                button.widthAnchor.constraint(equalToConstant: 44).isActive = true
+                button.addAction(UIAction { [weak self] _ in
+                    self?.dismiss(animated: true)
+                }, for: .touchUpInside)
+                navigationItem.rightBarButtonItem = makeClearGlassBarButtonItem(content: button)
+            }
         } else {
             let image = UIImage(systemName: "xmark")
             let item = UIBarButtonItem(image: image, primaryAction: UIAction { _ in
@@ -99,24 +124,14 @@ public class ReceiveVC: WViewController {
             navigationItem.rightBarButtonItem = item
         }
         updateNavigationItems()
-        if let selectedChain {
-            DispatchQueue.main.async { [self] in
-                applyInitialChainSelection(selectedChain)
-            }
-        }
-
-        displayedAccountId = account.id
+        displayedAccount = account
         observe { [weak self] in
             guard let self else { return }
-            let accountId = account.id
             updateAccountSwitcher()
-            guard displayedAccountId != accountId else { return }
-            displayedAccountId = accountId
+            guard displayedAccount != account else { return }
+            displayedAccount = account
             segmentedController.replace(items: makeChainItems())
             updateChainSelector()
-            DispatchQueue.main.async { [weak self] in
-                self?.keepUserInterfaceStyleForChildPages()
-            }
         }
 
         updateTheme()
@@ -130,31 +145,12 @@ public class ReceiveVC: WViewController {
     
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        navigationController?.navigationBar.overrideUserInterfaceStyle = .unspecified
         navigationController?.navigationBar.overrideUserInterfaceStyle = previousNavigationBarStyle
-    }
-    
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        keepUserInterfaceStyleForChildPages()
     }
     
     /// Overrides user interface style to dark to turn off whitish tint for navigation controls (segmented tabs + close button)
     private func setNavigationControlsAppearance() {
-        segmentedController.overrideUserInterfaceStyle = .dark
-        keepUserInterfaceStyleForChildPages()
-    }
-    
-    /// Restores system-wide user interface style overridden in `setNavigationControlsAppearance `
-    private func keepUserInterfaceStyleForChildPages() {
-        segmentedController.model.items.forEach {
-             $0.viewController.overrideUserInterfaceStyle = traitCollection.userInterfaceStyle
-        }
-    }
-
-    private func applyInitialChainSelection(_ chain: ApiChain) {
-        guard let index = segmentedController.model.getItemIndexById(itemId: chain.rawValue) else { return }
-        segmentedController.setSelectedIndex(to: index, animated: false)
+        segmentedController.segmentedControl.overrideUserInterfaceStyle = .dark
     }
 
     private func updateNavigationItems() {
@@ -163,20 +159,46 @@ public class ReceiveVC: WViewController {
     }
 
     private func updateAccountSwitcher() {
-        accountSwitcher.update(selectedAccountId: account.id)
+        accountSwitcher.update(selectedAccountId: account.id, isEnabled: !isSwitchingAccount)
         let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
-            ? [accountSwitcher.barButtonItem]
+            ? [accountSwitcherBarButtonItem]
             : nil
         navigationItem.setLeftBarButtonItems(items, animated: true)
     }
 
+    @available(iOS 26, *)
+    private func makeClearGlassBarButtonItem(content: UIView, horizontalInset: CGFloat = 0) -> UIBarButtonItem {
+        // Match the chain selector's clear glass on iOS 26 instead of UIKit's pale shared background.
+        let container = UIView()
+        let background = HostingView {
+            Color.clear.glassEffect(.clear, in: .capsule)
+        }
+        background.isUserInteractionEnabled = false
+        container.addSubview(background)
+        container.addSubview(content)
+        background.translatesAutoresizingMaskIntoConstraints = false
+        content.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(equalToConstant: 44),
+            background.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            background.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            background.topAnchor.constraint(equalTo: container.topAnchor),
+            background.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: horizontalInset),
+            content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -horizontalInset),
+            content.topAnchor.constraint(equalTo: container.topAnchor),
+            content.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        let item = UIBarButtonItem(customView: container)
+        item.hidesSharedBackground = true
+        return item
+    }
+
     private func updateChainSelector() {
         let isMultichain = segmentedController.model.items.count > 1
-        let canSwitchAccounts = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
-        let showsChainSelector = canSwitchAccounts || isMultichain
         segmentedController.scrollView.isScrollEnabled = isMultichain
-        segmentedController.segmentedControl.isHidden = !showsChainSelector
-        if showsChainSelector {
+        segmentedController.segmentedControl.isHidden = !isMultichain
+        if isMultichain {
             segmentedController.segmentedControl.embed(in: navigationItem)
         } else {
             segmentedController.segmentedControl.removeFromSuperview()
@@ -191,7 +213,14 @@ public class ReceiveVC: WViewController {
     }
 
     private func selectAccount(accountId: String) {
+        guard accountId != account.id, !isSwitchingAccount else { return }
+        isSwitchingAccount = true
+        updateAccountSwitcher()
         Task {
+            defer {
+                isSwitchingAccount = false
+                updateAccountSwitcher()
+            }
             do {
                 try await AccountStore.activateAccount(accountId: accountId)
                 $account.accountId = accountId

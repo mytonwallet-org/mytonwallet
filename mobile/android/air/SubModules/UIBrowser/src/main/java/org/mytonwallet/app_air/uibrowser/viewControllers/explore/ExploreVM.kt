@@ -38,6 +38,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.loadExploreSites
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MCollectionTabToShow
 import org.mytonwallet.app_air.walletcore.models.MExploreCategory
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
@@ -48,6 +49,7 @@ import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
+import org.mytonwallet.app_air.walletcore.moshi.MApiAnyDisplayError
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -108,11 +110,22 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         val onResult: (SearchResult) -> Unit
     )
 
-    private data class WalletInfoSearchRequest(val pendingChains: MutableSet<MBlockchain>)
+    private data class WalletInfoSearchRequest(
+        val pendingChains: MutableSet<MBlockchain>,
+        var hadRetriableFailure: Boolean = false
+    )
+
+    private data class CompletedWalletInfoLookup(
+        val keyword: String,
+        val accountId: String,
+        val network: MBlockchainNetwork,
+        val match: WalletInfoMatch?
+    )
 
     private var activeSearchRequest: ActiveSearchRequest? = null
     private var searchRefreshJob: Job? = null
     private var walletInfoSearchRequest: WalletInfoSearchRequest? = null
+    private var completedWalletInfoLookup: CompletedWalletInfoLookup? = null
 
     fun delegateIsReady() {
         WalletCore.registerObserver(this)
@@ -339,6 +352,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         searchRefreshJob = null
         searchJob?.cancel()
         walletInfoSearchRequest = null
+        if (currentSearchKeyword != keyword) completedWalletInfoLookup = null
         currentSearchKeyword = keyword
         activeSearchRequest = ActiveSearchRequest(keyword, onResult)
 
@@ -350,10 +364,21 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 visitedSites = history?.visitedSites?.toList().orEmpty(),
                 recentTokenSlugs = history?.recentTokenSlugs().orEmpty()
             )
-            val result = withContext(Dispatchers.Default) {
+            val baseResult = withContext(Dispatchers.Default) {
                 buildSearchResult(keyword, historySnapshot)
             }
             if (searchJob !== currentJob) return@launch
+
+            val completedLookup = completedWalletInfoLookup?.takeIf {
+                it.keyword == keyword &&
+                    it.accountId == AccountStore.activeAccountId &&
+                    it.network == AccountStore.activeAccount?.network
+            }
+            val result = if (baseResult.isWalletInfoLookupPending && completedLookup != null) {
+                baseResult.withWalletInfo(completedLookup.match)
+            } else {
+                baseResult
+            }
 
             onResult(result)
 
@@ -378,6 +403,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         searchJob = null
         activeSearchRequest = null
         walletInfoSearchRequest = null
+        completedWalletInfoLookup = null
         currentSearchKeyword = null
     }
 
@@ -396,6 +422,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             while (searchJob?.isActive == true) {
                 searchJob?.join()
             }
+            if (walletInfoSearchRequest != null) return@launch
             val request = activeSearchRequest ?: return@launch
             searchRefreshJob = null
             search(request.keyword, request.onResult)
@@ -591,6 +618,12 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             ) { info, err ->
                 if (walletInfoSearchRequest !== request) return@call
                 request.pendingChains.remove(chain)
+                val isDefinitiveMiss =
+                    err?.parsed?.type == MBridgeError.Type.DOMAIN_NOT_RESOLVED ||
+                        (err == null && info?.error == MApiAnyDisplayError.DOMAIN_NOT_RESOLVED)
+                if (!isDefinitiveMiss && (info == null || err != null || info.error != null)) {
+                    request.hadRetriableFailure = true
+                }
 
                 val isDomain = chain.isValidDNS(keyword)
                 val resolved = info?.resolvedAddress?.takeIf { it.isNotEmpty() }
@@ -606,32 +639,43 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
                 if (address != null) {
                     walletInfoSearchRequest = null
-                    onResult(
-                        result.copy(
-                            recentSearches = if (result.noResultsFound) {
-                                emptyList()
-                            } else {
-                                result.recentSearches
-                            },
-                            noResultsFound = false,
-                            walletInfo = WalletInfoMatch(
-                                network = network,
-                                chain = chain,
-                                inputAddressOrDomain = keyword,
-                                address = address,
-                                name = info?.addressName?.takeIf { it.isNotEmpty() },
-                                domain = if (isDomain) keyword else null
-                            ),
-                            isWalletInfoLookupPending = false
-                        )
+                    val match = WalletInfoMatch(
+                        network = network,
+                        chain = chain,
+                        inputAddressOrDomain = keyword,
+                        address = address,
+                        name = info?.addressName?.takeIf { it.isNotEmpty() },
+                        domain = if (isDomain) keyword else null
                     )
+                    completedWalletInfoLookup = CompletedWalletInfoLookup(
+                        keyword,
+                        account.accountId,
+                        network,
+                        match
+                    )
+                    onResult(result.withWalletInfo(match))
                 } else if (request.pendingChains.isEmpty()) {
                     walletInfoSearchRequest = null
-                    onResult(result.copy(isWalletInfoLookupPending = false))
+                    if (!request.hadRetriableFailure) {
+                        completedWalletInfoLookup = CompletedWalletInfoLookup(
+                            keyword,
+                            account.accountId,
+                            network,
+                            null
+                        )
+                    }
+                    onResult(result.withWalletInfo(null))
                 }
             }
         }
     }
+
+    private fun SearchResult.withWalletInfo(match: WalletInfoMatch?): SearchResult = copy(
+        recentSearches = if (match != null && noResultsFound) emptyList() else recentSearches,
+        noResultsFound = if (match != null) false else noResultsFound,
+        walletInfo = match,
+        isWalletInfoLookupPending = false
+    )
 
     private fun shouldLookupWalletInfo(keyword: String, myWallets: List<MyWalletMatch>): Boolean =
         keyword.isNotEmpty() &&

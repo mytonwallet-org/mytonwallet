@@ -475,8 +475,9 @@ struct ActivityView: View {
     @ViewBuilder
     var swapTransactionIds: some View {
         if let swap = activity.swap {
-            let outgoing = swap.transactionIds.outgoing
-            let incoming = swap.transactionIds.incoming
+            let transactionIds = swap.displayTransactionIds
+            let outgoing = transactionIds.outgoing
+            let incoming = transactionIds.incoming
             if let outgoing, let incoming, outgoing.hash != incoming.hash {
                 swapTransactionIdCell(label: lang("Outgoing Transaction ID"), transactionId: outgoing)
                 swapTransactionIdCell(label: lang("Incoming Transaction ID"), transactionId: incoming)
@@ -501,7 +502,7 @@ struct ActivityView: View {
     @ViewBuilder
     var transactionId: some View {
         let txId = activity.parsedTxId.hash
-        if !activity.isBackendSwapId && txId.count > 20 {
+        if activity.transaction != nil && txId.count > 20 {
             InsetDetailCell {
                 Text(lang("Transaction ID"))
                     .foregroundStyle(Color.air.secondaryLabel)

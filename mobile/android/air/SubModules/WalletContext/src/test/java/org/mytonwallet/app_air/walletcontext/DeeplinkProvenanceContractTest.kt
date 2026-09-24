@@ -23,7 +23,7 @@ class DeeplinkProvenanceContractTest {
         val sourceNames = sourceClass.enumConstants!!.map { (it as Enum<*>).name }
 
         assertEquals(
-            listOf("OS_EXTERNAL", "IN_APP_BROWSER", "INTERNAL_UI", "QR_SCAN", "AGENT"),
+            listOf("OS_EXTERNAL", "IN_APP_BROWSER", "INTERNAL_UI", "QR_SCAN", "AGENT", "SEARCH"),
             sourceNames
         )
 
@@ -32,12 +32,14 @@ class DeeplinkProvenanceContractTest {
         assertTrue(getBooleanProperty(sourceClass, "IN_APP_BROWSER", "requiresFreshAuth"))
         assertTrue(getBooleanProperty(sourceClass, "QR_SCAN", "requiresFreshAuth"))
         assertTrue(getBooleanProperty(sourceClass, "AGENT", "requiresFreshAuth"))
+        assertTrue(getBooleanProperty(sourceClass, "SEARCH", "requiresFreshAuth"))
 
         assertTrue(getBooleanProperty(sourceClass, "OS_EXTERNAL", "canRouteOfframp"))
         assertTrue(getBooleanProperty(sourceClass, "INTERNAL_UI", "canRouteOfframp"))
         assertTrue(getBooleanProperty(sourceClass, "AGENT", "canRouteOfframp"))
         assertFalse(getBooleanProperty(sourceClass, "IN_APP_BROWSER", "canRouteOfframp"))
         assertFalse(getBooleanProperty(sourceClass, "QR_SCAN", "canRouteOfframp"))
+        assertFalse(getBooleanProperty(sourceClass, "SEARCH", "canRouteOfframp"))
     }
 
     private fun getDeeplinkOpenSourceClass(): Class<*> =

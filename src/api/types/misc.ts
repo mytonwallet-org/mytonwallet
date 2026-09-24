@@ -205,6 +205,8 @@ export interface ApiNft {
   isUnverified?: true;
   // The indexer already serves blurred images for these, so this flag is informational
   isNsfw?: boolean;
+  /** Set when the indexer has not fetched the NFT metadata, so the NFT has no name, description or image */
+  isMetadataMissing?: true;
   metadata: ApiNftMetadata;
   interface: ApiNftInterface;
   compression?: {

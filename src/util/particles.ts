@@ -118,9 +118,9 @@ const DEFAULT_CONFIG: Required<ParticleConfig> = {
 };
 
 export const PARTICLE_COLORS = {
-  TON: [0, 152 / 255, 234 / 255] as [number, number, number], // #0098EA
+  TON: [33 / 255, 150 / 255, 243 / 255] as [number, number, number], // #2196F3
   USDT: [0, 147 / 255, 147 / 255] as [number, number, number], // #009393
-  MY: [64 / 255, 122 / 255, 207 / 255] as [number, number, number], // #407ACF
+  MY: [8 / 255, 120 / 255, 248 / 255] as [number, number, number], // #0878F8
   DEFAULT: [0.6, 0.6, 0.6] as [number, number, number], // #999999
 };
 

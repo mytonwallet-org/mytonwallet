@@ -46,8 +46,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
@@ -533,7 +536,18 @@ class ConfirmNftVC(
     }
 
     override fun showError(error: MBridgeError?) {
-        super.showError(error)
+        if (isAutoConfirmSubmitting) {
+            isAutoConfirmSubmitting = false
+            view.unlockView()
+            confirmButton.isLoading = false
+        }
+        val passcodeVC = navigationController?.viewControllers?.lastOrNull() as? PasscodeConfirmVC
+        if (passcodeVC != null) {
+            passcodeVC.restartAuth()
+            passcodeVC.showError(error)
+        } else {
+            super.showError(error)
+        }
         sentNftAddresses = null
     }
 
@@ -566,7 +580,7 @@ class ConfirmNftVC(
                 feeSectionView.fadeIn()
             }
         }
-        confirmButton.isLoading = false
+        confirmButton.isLoading = isAutoConfirmSubmitting
         confirmButton.isEnabled = err == null
         confirmButton.text = err?.toLocalized ?: title
     }
@@ -612,7 +626,10 @@ class ConfirmNftVC(
         }.replaceSpacesWithNbsp()
     }
 
+    private var isAutoConfirmSubmitting = false
+
     private fun confirmSend() {
+        if (isAutoConfirmSubmitting) return
         if (account?.isHardware == true) {
             val tonAddress = account.tonAddress ?: run {
                 Logger.e(
@@ -645,52 +662,64 @@ class ConfirmNftVC(
                 )
             )
         } else {
-            push(
-                PasscodeConfirmVC(
-                    context,
-                    PasscodeViewState.CustomHeader(
-                        headerView,
-                        LocaleController.getString("Confirm")
-                    ),
-                    task = { passcode ->
-                        sentNftAddresses = nfts.mapTo(mutableSetOf()) { it.address }
-                        viewModel.submitTransferNft(
-                            nfts,
-                            mode is Mode.Burn,
-                            comment,
-                            passcode,
-                            onSent = {
-                                // Wait for Pending Activity event...
-                            },
-                            onMfaRequested = { hash ->
-                                val recipient = viewModel.resolvedAddress.orEmpty()
-                                val chipText = LocaleController.getString(
-                                    "%amount% to %address%"
-                                )
-                                    .replace("%amount%", "${nfts.size} NFT")
-                                    .replace(
-                                        "%address%",
-                                        recipient.formatStartEndAddress()
-                                    )
-                                val mfaVC = org.mytonwallet.app_air.uicomponents
-                                    .viewControllers.MfaActionConfirmVC(
-                                        context,
-                                        requestHash = hash,
-                                        chip = org.mytonwallet.app_air.uicomponents
-                                            .viewControllers.MfaActionConfirmVC.Chip(
-                                                leading = null,
-                                                text = chipText
-                                            )
-                                    )
-                                navigationController?.push(mfaVC, onCompletion = {
-                                    navigationController?.removePrevViewControllerOnly()
-                                })
-                            }
+            ProtectedActionAuth.confirm(
+                onConfirmed = { token ->
+                    isAutoConfirmSubmitting = true
+                    view.lockView()
+                    confirmButton.isLoading = true
+                    submitNftTransfer(token, false)
+                },
+                onPasscodeRequired = {
+                    push(
+                        PasscodeConfirmVC(
+                            context,
+                            PasscodeViewState.CustomHeader(
+                                headerView,
+                                LocaleController.getString("Confirm")
+                            ),
+                            task = { token -> submitNftTransfer(token, true) }
                         )
-                    }
-                )
+                    )
+                }
             )
         }
+    }
+
+    private fun submitNftTransfer(token: String, hasPasscodeScreen: Boolean) {
+        sentNftAddresses = nfts.mapTo(mutableSetOf()) { it.address }
+        viewModel.submitTransferNft(
+            nfts,
+            mode is Mode.Burn,
+            comment,
+            token,
+            onSent = {
+                // Wait for Pending Activity event...
+            },
+            onMfaRequested = { hash ->
+                if (isAutoConfirmSubmitting) {
+                    isAutoConfirmSubmitting = false
+                    view.unlockView()
+                    confirmButton.isLoading = false
+                }
+                val recipient = viewModel.resolvedAddress.orEmpty()
+                val chipText = LocaleController.getString("%amount% to %address%")
+                    .replace("%amount%", "${nfts.size} NFT")
+                    .replace("%address%", recipient.formatStartEndAddress())
+                val mfaVC = org.mytonwallet.app_air.uicomponents
+                    .viewControllers.MfaActionConfirmVC(
+                        context,
+                        requestHash = hash,
+                        chip = org.mytonwallet.app_air.uicomponents
+                            .viewControllers.MfaActionConfirmVC.Chip(
+                                leading = null,
+                                text = chipText
+                            )
+                    )
+                navigationController?.push(mfaVC, onCompletion = {
+                    if (hasPasscodeScreen) navigationController?.removePrevViewControllerOnly()
+                })
+            }
+        )
     }
 
     private val headerView: View

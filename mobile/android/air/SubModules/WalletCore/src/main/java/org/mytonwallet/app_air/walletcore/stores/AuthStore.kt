@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.native_enclave.auth.AuthType
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
@@ -15,6 +16,7 @@ import org.mytonwallet.app_air.walletcore.api.cleanupLegacyBiometricAuthIfMigrat
 import org.mytonwallet.app_air.walletcore.api.enclaveAuthorize
 import org.mytonwallet.app_air.walletcore.api.enclaveMigrateAuth
 import org.mytonwallet.app_air.walletcore.api.enclaveMigrateFromLegacy
+import org.mytonwallet.app_air.walletcore.api.resetAccounts
 import org.mytonwallet.app_air.walletcore.helpers.LegacyMigration
 import org.mytonwallet.app_air.walletcore.helpers.MultichainAccountUpgradeDetector
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
@@ -24,7 +26,7 @@ class AuthCooldownError(val cooldownDate: Long) : Exception()
 
 object AuthStore : IStore {
     @Volatile
-    private var cachedMultichainUpgradeUsageCount: Int? = null
+    private var cachedMultichainUpgradeAccountIds: List<String>? = null
 
     private var failedLoginAttempts: Int
         get() {
@@ -50,6 +52,30 @@ object AuthStore : IStore {
     fun getCooldownDate(): Long =
         lastFailedAttempt + cooldownForNumberOfFailedAttempts(failedLoginAttempts)
 
+    private var longSessionToken: String? = null
+    private var longSessionValidUntil = 0L
+
+    private val isRememberPasscodeEnabled: Boolean
+        get() = WGlobalStorage.getIsAutoConfirmEnabled()
+
+    fun getAutoConfirmToken(): String? {
+        if (!isRememberPasscodeEnabled) return null
+        val token = longSessionToken ?: return null
+        if (System.currentTimeMillis() >= longSessionValidUntil) {
+            clearLongSession()
+            return null
+        }
+        return token
+    }
+
+    fun getAutoConfirmValidUntil(): Long? =
+        if (getAutoConfirmToken() != null) longSessionValidUntil else null
+
+    fun clearLongSession() {
+        longSessionToken = null
+        longSessionValidUntil = 0L
+    }
+
     /**
      * Authorizes via the enclave using passcode.
      * Returns the enclave session token on success, not the passcode itself.
@@ -62,6 +88,7 @@ object AuthStore : IStore {
         activity: FragmentActivity,
         passcode: String,
         extraUsages: Int = 0,
+        forceLongSession: Boolean = false,
         callback: (
             success: Boolean,
             enclaveToken: String?,
@@ -79,8 +106,8 @@ object AuthStore : IStore {
 
         fun performAuth() {
             WalletCore.scope.launch {
-                val upgradeUsageCount = pendingMultichainUpgradeUsageCount()
-                val usageCount = 1 + extraUsages + upgradeUsageCount
+                val upgradeAccountIds = pendingMultichainUpgradeAccountIds()
+                val usageCount = 1 + extraUsages + upgradeAccountIds.size
 
                 val needsLegacyMigration = LegacyMigration.needsMigration()
                 if (needsLegacyMigration) {
@@ -89,22 +116,27 @@ object AuthStore : IStore {
                             activity,
                             passcode,
                             usageCount,
-                            upgradeUsageCount,
+                            upgradeAccountIds,
                             callback
                         )
                     }
                 } else {
+                    val shouldCreateLongSession = isRememberPasscodeEnabled || forceLongSession
                     WalletCore.enclaveAuthorize(
                         activity,
                         AuthType.PASSCODE,
-                        false,
+                        shouldCreateLongSession,
                         passcode,
                         usageCount
-                    ) { token, error ->
+                    ) { token, validUntil, error ->
                         WalletCore.scope.launch(Dispatchers.Main) {
                             if (token != null) {
+                                if (shouldCreateLongSession && validUntil > 0) {
+                                    longSessionToken = token
+                                    longSessionValidUntil = validUntil
+                                }
                                 submitSuccessfulLogin()
-                                startMultichainUpgradeIfNeeded(token, upgradeUsageCount)
+                                startMultichainUpgradeIfNeeded(token, upgradeAccountIds)
                                 callback(true, token, null, null)
                             } else if (error != null) {
                                 callback(false, null, null, error)
@@ -141,14 +173,14 @@ object AuthStore : IStore {
 
         WalletCore.doOnBridgeReady {
             WalletCore.scope.launch {
-                val upgradeUsageCount = pendingMultichainUpgradeUsageCount()
-                val usageCount = 1 + extraUsages + upgradeUsageCount
+                val upgradeAccountIds = pendingMultichainUpgradeAccountIds()
+                val usageCount = 1 + extraUsages + upgradeAccountIds.size
 
                 withContext(Dispatchers.Main) {
                     onBridgeReady()
                     val onAuthorized: (String?) -> Unit = { token ->
                         if (token != null) {
-                            startMultichainUpgradeIfNeeded(token, upgradeUsageCount)
+                            startMultichainUpgradeIfNeeded(token, upgradeAccountIds)
                         }
                         callback(token)
                     }
@@ -166,7 +198,7 @@ object AuthStore : IStore {
                             false,
                             null,
                             usageCount
-                        ) { token, _ ->
+                        ) { token, _, _ ->
                             onAuthorized(token)
                         }
                     }
@@ -181,16 +213,16 @@ object AuthStore : IStore {
         extraUsages: Int,
         callback: (enclaveToken: String?) -> Unit
     ) {
-        var upgradeUsageCount = 0
+        var upgradeAccountIds: List<String> = emptyList()
         EnclaveManager.sharedInstance.authorizeWithBiometrics(
             activity,
             { createSession ->
                 onAuthenticated()
                 WalletCore.doOnBridgeReady {
                     WalletCore.scope.launch {
-                        upgradeUsageCount = pendingMultichainUpgradeUsageCount()
+                        upgradeAccountIds = pendingMultichainUpgradeAccountIds()
                         withContext(Dispatchers.Main) {
-                            createSession.accept(1 + extraUsages + upgradeUsageCount)
+                            createSession.accept(1 + extraUsages + upgradeAccountIds.size)
                         }
                     }
                 }
@@ -198,7 +230,7 @@ object AuthStore : IStore {
             object : EnclaveManager.SessionCallback {
                 override fun onSuccess(token: String?, validUntil: Long) {
                     if (token != null) {
-                        startMultichainUpgradeIfNeeded(token, upgradeUsageCount)
+                        startMultichainUpgradeIfNeeded(token, upgradeAccountIds)
                     }
                     callback(token)
                 }
@@ -214,7 +246,7 @@ object AuthStore : IStore {
         activity: FragmentActivity,
         passcode: String,
         usageCount: Int,
-        upgradeUsageCount: Int,
+        upgradeAccountIds: List<String>,
         callback: (
             success: Boolean,
             enclaveToken: String?,
@@ -269,58 +301,70 @@ object AuthStore : IStore {
                         )
                     }
                     val authorizedToken = newToken ?: token
-                    startMultichainUpgradeIfNeeded(authorizedToken, upgradeUsageCount)
+                    startMultichainUpgradeIfNeeded(authorizedToken, upgradeAccountIds)
                     callback(true, authorizedToken, null, null)
                 }
             } else {
-                startMultichainUpgradeIfNeeded(token, upgradeUsageCount)
+                startMultichainUpgradeIfNeeded(token, upgradeAccountIds)
                 callback(true, token, null, null)
             }
         }
     }
 
-    private suspend fun pendingMultichainUpgradeUsageCount(): Int {
-        cachedMultichainUpgradeUsageCount?.let {
+    private suspend fun pendingMultichainUpgradeAccountIds(): List<String> {
+        cachedMultichainUpgradeAccountIds?.let {
             return it
         }
 
         val needsSDKPreparation = MultichainAccountUpgradeDetector.needsSDKPreparation()
         if (!needsSDKPreparation) {
-            cachedMultichainUpgradeUsageCount = 0
-            return 0
+            cachedMultichainUpgradeAccountIds = emptyList()
+            return emptyList()
         }
 
         return try {
-            WalletCore.call(ApiMethod.Auth.WaitDataPreload())
             WalletCore.call(ApiMethod.Auth.RepairInvalidBip39TonAuthTokens())
-            WalletCore.call(ApiMethod.Auth.GetMultichainUpgradeCandidateIds()).size.also {
-                cachedMultichainUpgradeUsageCount = it
-            }
+            val encryptedAccountIds = MultichainAccountUpgradeDetector.encryptedAccountIds()
+            WalletCore.call(ApiMethod.Auth.GetMultichainUpgradeCandidateIds(encryptedAccountIds))
+                .toList()
+                .also { cachedMultichainUpgradeAccountIds = it }
         } catch (t: Throwable) {
             Logger.e(
                 Logger.LogTag.WALLET_CORE,
                 "Failed to prepare multichain account upgrade: $t"
             )
-            0
+            emptyList()
         }
     }
 
-    private fun startMultichainUpgradeIfNeeded(enclaveToken: String, usageCount: Int) {
-        if (usageCount == 0) {
+    private fun startMultichainUpgradeIfNeeded(enclaveToken: String, accountIds: List<String>) {
+        if (accountIds.isEmpty()) {
             return
         }
 
-        cachedMultichainUpgradeUsageCount = 0
+        val upgradableAccountIds = accountIds.filter(EnclaveManager.sharedInstance::hasSecret)
+        EnclaveManager.sharedInstance.releaseSessionUsages(
+            enclaveToken,
+            accountIds.size - upgradableAccountIds.size
+        )
+        if (upgradableAccountIds.isEmpty()) {
+            cachedMultichainUpgradeAccountIds = null
+            return
+        }
+
+        cachedMultichainUpgradeAccountIds = emptyList()
         WalletCore.scope.launch {
             try {
-                WalletCore.call(ApiMethod.Auth.UpgradeMultichainAccounts(enclaveToken))
-                cachedMultichainUpgradeUsageCount = null
+                WalletCore.call(
+                    ApiMethod.Auth.UpgradeMultichainAccounts(enclaveToken, upgradableAccountIds)
+                )
+                cachedMultichainUpgradeAccountIds = null
                 Logger.i(
                     Logger.LogTag.WALLET_CORE,
-                    "Upgraded $usageCount multichain accounts"
+                    "Upgraded ${upgradableAccountIds.size} multichain accounts"
                 )
             } catch (t: Throwable) {
-                cachedMultichainUpgradeUsageCount = null
+                cachedMultichainUpgradeAccountIds = null
                 Logger.e(
                     Logger.LogTag.WALLET_CORE,
                     "Failed to upgrade multichain accounts: $t"
@@ -345,13 +389,28 @@ object AuthStore : IStore {
     private fun submitFailedLogin() {
         failedLoginAttempts += 1
         lastFailedAttempt = System.currentTimeMillis()
+        val autoExitAttempts = WGlobalStorage.getAutoExit().failedAttempts ?: return
+        if (failedLoginAttempts >= autoExitAttempts) autoExit()
+    }
+
+    private fun autoExit() {
+        Logger.i(
+            Logger.LogTag.WALLET_CORE,
+            "Auto-exit: removing all wallets after $failedLoginAttempts failed attempts"
+        )
+        WalletCore.resetAccounts { _, _ ->
+            WGlobalStorage.deleteAllWallets()
+            WSecureStorage.deleteAllWalletValues()
+            WalletContextManager.delegate?.get()?.restartApp()
+        }
     }
 
     override fun wipeData() {
-        cachedMultichainUpgradeUsageCount = null
+        cachedMultichainUpgradeAccountIds = null
+        clearLongSession()
     }
 
     override fun clearCache() {
-        cachedMultichainUpgradeUsageCount = null
+        cachedMultichainUpgradeAccountIds = null
     }
 }

@@ -92,11 +92,11 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
             }
             let persistentIds = Set(persistentById?.keys.map { $0 } ?? [])
             let persistentIdsBySlug = idsBySlug?.mapValues { ids in
-                ids.filter { persistentIds.contains($0) }
+                unique(ids.filter { persistentIds.contains($0) })
             }
 
             snapshot.byId = persistentById
-            snapshot.idsMain = idsMain?.filter { persistentIds.contains($0) }
+            snapshot.idsMain = idsMain.map { unique($0.filter { persistentIds.contains($0) }) }
             snapshot.idsBySlug = persistentIdsBySlug
             if let persistentById, let persistentIdsBySlug {
                 snapshot.newestActivitiesBySlug = _getNewestActivitiesBySlug(
@@ -116,6 +116,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     private var byAccountId: [String: AccountState] = [:]
     private var initialMainHistoryProgressByAccountId: [String: InitialMainHistoryProgress] = [:]
+    private var pendingCardMints = PendingCardMints()
     
     private func withAccountState(_ accountId: String, updates: (inout AccountState) -> Void) {
         guard !removedAccountIds.contains(accountId) else {
@@ -327,6 +328,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
         }
         updatePoisoningCache(accountId: accountId, activities: visibleUpserts)
         applyNftsFromActivities(accountId: accountId, activities: visibleUpserts)
+        applyMintedCards(accountId: accountId, activities: visibleUpserts)
         
         if let chain = update.chain {
             setIsInitialActivitiesLoadedTrue(accountId: accountId, chain: chain);
@@ -662,6 +664,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
 
         for accountId in deletedAccountIds {
             byAccountId[accountId] = nil
+            pendingCardMints.remove(accountId: accountId)
             initialMainHistoryProgressByAccountId[accountId] = nil
             poisoningCacheById[accountId] = nil
             WalletCoreData.notify(event: .activitiesChanged(accountId: accountId, updatedIds: [], replacedIds: [:]))
@@ -687,6 +690,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     func clean() {
+        pendingCardMints = PendingCardMints()
         pendingCexSwapRefreshTask?.cancel()
         pendingCexSwapRefreshTask = nil
         byAccountId = [:]
@@ -1027,7 +1031,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
 
     @discardableResult
-    private func applyActivitiesPatch(accountId: String, patch: ApiActivitiesPatch, visibleChain: ApiChain?) -> [String] {
+    func applyActivitiesPatch(accountId: String, patch: ApiActivitiesPatch, visibleChain: ApiChain?) -> [String] {
         var updatedIds: [String] = []
         let hiddenUpsertIds = patch.upsert.filter { $0.shouldHide == true }.map(\.id)
 
@@ -1216,6 +1220,18 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
 
     private func shouldHideBecauseOfNft(accountId: String, transaction: ApiTransactionActivity) -> Bool {
         NftStore.shouldHideTransaction(accountId: accountId, transaction: transaction)
+    }
+
+    public func markCardMintSubmitted(accountId: String, since date: Date) {
+        guard shouldHandleActivities(accountId: accountId) else { return }
+        pendingCardMints.recordSubmission(accountId: accountId, since: date)
+        // A confirmed delivery can reach the store before the submission callback.
+        applyMintedCards(accountId: accountId, activities: (getAccountState(accountId).byId ?? [:]).values)
+    }
+
+    private func applyMintedCards(accountId: String, activities: some Collection<ApiActivity>) {
+        guard case .minted(let nft) = pendingCardMints.consume(accountId: accountId, activities: activities) else { return }
+        NftStore.applyMintedMtwCard(accountId: accountId, nft: nft)
     }
 
     private func applyNftsFromActivities(accountId: String, activities: some Collection<ApiActivity>) {

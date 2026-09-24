@@ -33,6 +33,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.HeaderCell
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
+import org.mytonwallet.app_air.uicomponents.helpers.BottomActionAreaController
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
@@ -81,6 +82,11 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
     private val firstNft = nfts.first()
     private val chain = firstNft.chain ?: MBlockchain.ton
     private var suggestionAnimator: Animator? = null
+    private var showSuggestionAnimatorInProgress: Boolean = false
+
+    private val continueButtonHeightPx: Int = 50.dp
+    private val continueButtonBottomMarginPx: Int = 20.dp
+    private val feeLabelBottomMarginPx: Int = 16.dp
 
     private val title1 = HeaderCell(context).apply {
         id = View.generateViewId()
@@ -316,6 +322,17 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             if (ignoreSideGuttering) setHorizontalPadding(0f)
         }
 
+    private val bottomAreaController by lazy {
+        BottomActionAreaController(
+            viewController = this,
+            scrollView = scrollView,
+            contentView = linearLayout,
+            cornerView = bottomReversedCornerViewUpsideDown,
+            gradientSolidHeight = continueButtonBottomMarginPx + continueButtonHeightPx,
+            actionAreaHeight = ::getContinueAreaHeight
+        )
+    }
+
     private val continueButton by lazy {
         WButton(context).apply {
             id = View.generateViewId()
@@ -352,12 +369,13 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         )
         setupNavBar(true)
 
+        view.addHorizontalGuideline(bottomAreaController.guideline)
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(
             bottomReversedCornerViewUpsideDown,
             ConstraintLayout.LayoutParams(
                 MATCH_PARENT,
-                MATCH_CONSTRAINT
+                bottomAreaController.getCornerViewHeight()
             )
         )
         scrollView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -372,27 +390,25 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             feeLabel,
             ViewGroup.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
-        view.addView(continueButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 50.dp))
+        view.addView(
+            continueButton,
+            ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, continueButtonHeightPx)
+        )
+        bottomAreaController.insetsUpdated()
         view.setConstraints {
             toCenterX(scrollView)
             navigationBar?.let { topToBottom(scrollView, it) }
-            bottomToTop(scrollView, feeLabel, 12f)
-            toCenterX(feeLabel)
-            bottomToTop(feeLabel, continueButton, 16f)
-            topToTop(
-                bottomReversedCornerViewUpsideDown,
-                continueButton,
-                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
-            )
+            toBottom(scrollView)
+            toCenterX(bottomReversedCornerViewUpsideDown)
             toBottom(bottomReversedCornerViewUpsideDown)
+            toCenterX(feeLabel)
+            bottomToTopPx(feeLabel, continueButton, feeLabelBottomMarginPx)
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
-            toBottomPx(
+            bottomToTopPx(
                 continueButton,
-                20.dp + max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (navigationController?.imeInsetBottom ?: 0)
-                )
+                bottomAreaController.guideline,
+                continueButtonBottomMarginPx
             )
         }
 
@@ -431,6 +447,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
     override fun onDestroy() {
         super.onDestroy()
         suggestionAnimator?.cancel()
+        bottomAreaController.onDestroy()
         viewModel.onDestroy()
         addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)
     }
@@ -468,20 +485,24 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset,
             0,
             ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset,
-            0
+            linearLayout.paddingBottom
         )
+        addressInputView.insetsUpdated()
+        if (showSuggestionAnimatorInProgress) {
+            return
+        }
         view.setConstraints {
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
-            toBottomPx(
-                continueButton,
-                20.dp + max(
-                    (navigationController?.getSystemBars()?.bottom ?: 0),
-                    (navigationController?.imeInsetBottom ?: 0)
-                )
-            )
         }
-        addressInputView.insetsUpdated()
+        bottomAreaController.insetsUpdated()
+    }
+
+    private fun getContinueAreaHeight(): Int {
+        val spec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        feeLabel.measure(spec, spec)
+        return ViewConstants.GAP.dp + feeLabel.measuredHeight + feeLabelBottomMarginPx +
+            continueButtonHeightPx + continueButtonBottomMarginPx
     }
 
     override fun onBackPressed(): Boolean {
@@ -573,6 +594,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         suggestionAnimator?.cancel()
         val dy = 32f.dp
         val shouldShowFee = !feeLabel.text.isNullOrBlank()
+        val continueAreaHeight = getContinueAreaHeight().toFloat()
 
         with(primaryContent) {
             isVisible = true
@@ -594,6 +616,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             alpha = 1f
             translationY = 0f
         }
+        bottomAreaController.update(true)
 
         val onEnd = {
             with(primaryContent) {
@@ -608,14 +631,17 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             with(continueButton) {
                 isGone = true
                 alpha = 0f
-                translationY = dy
+                translationY = continueAreaHeight
             }
             with(feeLabel) {
                 isGone = true
                 alpha = 0f
-                translationY = dy
+                translationY = continueAreaHeight
             }
+            bottomAreaController.update(false)
             scrollView.scrollTo(0, 0)
+            showSuggestionAnimatorInProgress = false
+            insetsUpdated()
         }
 
         if (!WGlobalStorage.getAreAnimationsActive()) {
@@ -623,6 +649,8 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             return
         }
 
+        showSuggestionAnimatorInProgress = true
+        val cornerViewDiff = bottomAreaController.cornerViewDiff
         suggestionAnimator = animatorSet {
             together {
                 duration(AnimationConstants.NAV_PUSH)
@@ -637,18 +665,21 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
                 }
                 viewProperty(continueButton) {
                     alpha(0f)
-                    translationY(dy)
+                    translationY(continueAreaHeight)
                 }
                 if (shouldShowFee) {
                     viewProperty(feeLabel) {
                         alpha(0f)
-                        translationY(dy)
+                        translationY(continueAreaHeight)
                     }
                 }
                 intValues(scrollView.scrollY, 0) {
                     onUpdate { animatedValue ->
                         scrollView.scrollTo(0, animatedValue)
                     }
+                }
+                intValues(cornerViewDiff, 0) {
+                    onUpdate { animatedValue -> bottomAreaController.update(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }
@@ -665,6 +696,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         suggestionAnimator?.cancel()
         val dy = 32f.dp
         val shouldShowFee = !feeLabel.text.isNullOrBlank()
+        val continueAreaHeight = getContinueAreaHeight().toFloat()
 
         with(primaryContent) {
             isVisible = true
@@ -679,13 +711,14 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
         with(continueButton) {
             isVisible = true
             alpha = 0f
-            translationY = dy
+            translationY = continueAreaHeight
         }
         with(feeLabel) {
             isVisible = shouldShowFee
             alpha = 0f
-            translationY = dy
+            translationY = continueAreaHeight
         }
+        bottomAreaController.update(false)
 
         val onEnd = {
             with(primaryContent) {
@@ -702,10 +735,11 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
                 translationY = 0f
             }
             with(feeLabel) {
-                isVisible = shouldShowFee
+                isVisible = !text.isNullOrBlank()
                 alpha = 1f
                 translationY = 0f
             }
+            bottomAreaController.update(true)
         }
 
         if (!WGlobalStorage.getAreAnimationsActive()) {
@@ -713,6 +747,7 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
             return
         }
 
+        val cornerViewDiff = bottomAreaController.cornerViewDiff
         suggestionAnimator = animatorSet {
             together {
                 duration(AnimationConstants.NAV_PUSH)
@@ -734,6 +769,9 @@ class SendNftVC(context: Context, val nfts: List<ApiNft>) :
                         alpha(1f)
                         translationY(0f)
                     }
+                }
+                intValues(0, cornerViewDiff) {
+                    onUpdate { animatedValue -> bottomAreaController.update(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }

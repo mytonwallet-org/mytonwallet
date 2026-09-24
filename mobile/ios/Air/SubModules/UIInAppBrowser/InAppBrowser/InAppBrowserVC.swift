@@ -287,7 +287,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
                 navigationBar.titleLabel.transform = titleIsNil ? .identity.scaledBy(x: 0.4, y: 0.4) : .identity
             }
 
-            let host = pageState.url.host(percentEncoded: false)
+            let host = pageState.url.displayHost
             let subtitle: String? = pageState.url.isSubproject ? nil : host
             let subtitleIsNil = subtitle?.nilIfEmpty == nil
             navigationBar.subtitleLabel.text = subtitle
@@ -504,7 +504,7 @@ final class InAppBrowserVC: WViewController, InAppBrowserPageDelegate {
         pages.map { page in
             let pageState = page.state
             let url = pageState.url
-            let title = pageState.title?.nilIfEmpty ?? url.host(percentEncoded: false) ?? url.absoluteString
+            let title = pageState.title?.nilIfEmpty ?? url.displayHost ?? url.absoluteString
             let subtitle = url.absoluteString
             return InAppBrowserTabInfo(
                 id: pageState.id,

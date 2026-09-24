@@ -8,6 +8,9 @@ import org.mytonwallet.app_air.uibrowser.search.AppSearchEntry
 import org.mytonwallet.app_air.uibrowser.search.SearchRelevanceBand
 import org.mytonwallet.app_air.uibrowser.search.SearchResultRanker
 import org.mytonwallet.app_air.uibrowser.search.SearchTarget
+import org.mytonwallet.app_air.uibrowser.search.SearchTextNormalizer
+import org.mytonwallet.app_air.uibrowser.search.SearchWebIntent
+import org.mytonwallet.app_air.uibrowser.search.SearchWebsite
 import org.mytonwallet.app_air.uibrowser.search.UniversalSearchHit
 import org.mytonwallet.app_air.uibrowser.search.UniversalSearchQuery
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVM
@@ -20,8 +23,10 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Compani
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_APP_ITEM_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_DAPP_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_NFT_CELL
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_RESOLVING_DOMAIN_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_TOKEN_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_WALLET_CELL
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_BEST_WEBSITE_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_CHAT_HINT_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_COLLECTIBLE_CELL
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC.Companion.SEARCH_DAPP_CELL
@@ -57,6 +62,7 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchDapp
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchHistoryCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchItemCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchRecentChatCell
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchResolvingDomainCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSectionCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchSelectorHeaderCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.cells.SearchWalletCell
@@ -69,13 +75,16 @@ import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.utils.formatStartEndAddress
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.deeplink.DeeplinkParser
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreHistory
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 internal class SearchDataSource(private val searchVC: SearchVC) :
     WRecyclerViewAdapter.WRecyclerViewDataSource {
@@ -135,6 +144,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
 
     /** The result the rows currently on screen were built from. */
     private var displayedResult: ExploreVM.SearchResult? = null
+    private var resolvingDomain: String? = null
 
     /**
      * Ranking normalizes every candidate's fields, and onSearchStateChanged runs again for state
@@ -144,6 +154,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
     private var rankedHitsFor: ExploreVM.SearchResult? = null
     private var rankedHits: List<UniversalSearchHit> = emptyList()
     private var rankedTarget: SearchTarget? = null
+    private var rankedWebsite: SearchWebsite? = null
 
     fun onSearchStateChanged() {
         val result = searchResult
@@ -156,15 +167,42 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         // still waits for a result matching the current query, so a stale row is never opened.
         val freshResult = result?.takeIf { searchQuery.isNotEmpty() && it.keyword.isNotEmpty() }
         displayedResult = freshResult
+        resolvingDomain = freshResult?.takeIf { result ->
+            result.keyword == searchQuery &&
+                result.isWalletInfoLookupPending &&
+                MBlockchain.supportedChains.any { it.isValidDNS(result.keyword) }
+        }?.keyword
 
         // One ranked list decides the promoted row, so relevance rather than entity category picks
         // it, and the keyboard action opens exactly the row that is shown as the best match.
         if (rankedHitsFor !== freshResult) {
             rankedHitsFor = freshResult
             rankedHits = freshResult?.let { SearchResultRanker.rank(it) }.orEmpty()
-            rankedTarget = freshResult?.let { promotedTarget(it.keyword, rankedHits) }
+            val deeplink = freshResult?.keyword?.takeIf { DeeplinkParser.parse(it.toUri()) != null }
+            val website = if (deeplink == null) {
+                freshResult?.let { SearchWebIntent.website(it.keyword) }
+            } else {
+                null
+            }
+            rankedWebsite = website
+            rankedTarget = when {
+                deeplink != null -> {
+                    rankedHits = emptyList()
+                    SearchTarget.Deeplink(deeplink)
+                }
+
+                website != null -> {
+                    rankedHits =
+                        rankedHits.filter { hit -> opensWebsite(hit.document.payload, website) }
+                    rankedHits.firstOrNull()?.document?.payload as? SearchTarget
+                        ?: SearchTarget.Website(website)
+                }
+
+                else -> freshResult?.let { promotedTarget(it.keyword, rankedHits) }
+            }
         }
         val target = rankedTarget
+        val website = rankedWebsite
         bestMatchTarget = target
 
         regularWalletMatches = freshResult?.myWallets.orEmpty().let { matches ->
@@ -186,10 +224,18 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         regularSiteMatches = freshResult?.recentVisitedSites.orEmpty().let { matches ->
             val promoted = (target as? SearchTarget.Site)?.site
             if (promoted == null) matches else matches.filterNot { it.url == promoted.url }
-        }
+        }.filter { website == null || opensWebsite(SearchTarget.Site(it), website) }
         regularDappMatches = freshResult?.dapps.orEmpty().let { matches ->
             val promoted = (target as? SearchTarget.Dapp)?.dapp
             if (promoted == null) matches else matches.filterNot { it.url == promoted.url }
+        }.filter { website == null || opensWebsite(SearchTarget.Dapp(it), website) }
+        if (website != null) {
+            regularWalletMatches = emptyList()
+            regularTokenMatches = emptyList()
+            regularCollectibleMatches = emptyList()
+            regularActionMatches = emptyList()
+            regularSettingMatches = emptyList()
+            return
         }
         regularCollectibleMatches = freshResult?.collectibles.orEmpty().let { matches ->
             val promoted = (target as? SearchTarget.Collectible)?.match
@@ -200,6 +246,15 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
             .filterNot { it.id == promotedEntry?.id }
         regularSettingMatches = freshResult?.settings.orEmpty()
             .filterNot { it.id == promotedEntry?.id }
+    }
+
+    private fun opensWebsite(payload: Any?, website: SearchWebsite): Boolean {
+        val url = when (payload) {
+            is SearchTarget.Site -> payload.site.url
+            is SearchTarget.Dapp -> payload.dapp.url
+            else -> null
+        } ?: return false
+        return SearchWebIntent.isSameDestination(website.url, url)
     }
 
     /** A multi-word query is a request unless a hit covers all of its terms. */
@@ -312,11 +367,103 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
 
             is SearchTarget.App -> searchVC.openAppEntry(target.entry)
 
+            is SearchTarget.Website -> searchVC.openWebsite(target.website.url)
+
+            is SearchTarget.Deeplink -> searchVC.openDeeplink(target.link)
+
             SearchTarget.AskAgent -> searchVC.openAgent(searchQuery)
 
             null -> return BestMatchResult.NOT_FOUND
         }
         return BestMatchResult.OPENED
+    }
+
+    fun bestMatchAction(): SearchBestMatchAction? {
+        val typed = searchQuery
+        if (typed.isBlank() || resolvingDomain != null) return null
+        return when (val target = bestMatchTarget) {
+            is SearchTarget.Website -> SearchWebIntent.website(typed)?.let {
+                SearchBestMatchAction(typed, LocaleController.getString("Open Website"))
+            }
+
+            is SearchTarget.Deeplink -> DeeplinkParser.parse(typed.toUri())?.let {
+                SearchBestMatchAction(typed, LocaleController.getString("Open in App"))
+            }
+
+            SearchTarget.AskAgent ->
+                SearchBestMatchAction(
+                    typed,
+                    LocaleController.getString("Ask Agent"),
+                    isAgent = true
+                )
+
+            is SearchTarget.Token -> standardAction(
+                typed,
+                target.tokenBalance.token?.let { TokenStore.getToken(it) }?.displayName,
+                "Open Token"
+            )
+
+            is SearchTarget.Dapp -> standardAction(typed, target.dapp.name, "Open App")
+
+            is SearchTarget.OwnWallet -> standardAction(
+                typed,
+                target.match.account.name.takeIf { it.isNotEmpty() }
+                    ?: target.match.address?.formatStartEndAddress(),
+                "Open Wallet"
+            )
+
+            is SearchTarget.WalletInfo -> standardAction(
+                typed,
+                target.match.name?.takeIf { it.isNotEmpty() }
+                    ?: target.match.address.formatStartEndAddress(),
+                "Open Wallet"
+            )
+
+            is SearchTarget.Collectible -> when (val match = target.match) {
+                is ExploreVM.CollectibleMatch.Nft ->
+                    standardAction(typed, match.nft.name, "Open Collectible")
+
+                is ExploreVM.CollectibleMatch.Collection ->
+                    standardAction(typed, match.collection.name, "Open Collection")
+            }
+
+            is SearchTarget.App -> standardAction(typed, target.entry.title, "Open")
+
+            is SearchTarget.Site -> siteAction(typed, target.site)
+
+            null -> null
+        }
+    }
+
+    private fun standardAction(
+        typed: String,
+        suggestion: String?,
+        titleKey: String
+    ): SearchBestMatchAction? {
+        if (suggestion.isNullOrEmpty() || !SearchTextNormalizer.hasPrefix(suggestion, typed)) {
+            return null
+        }
+        return SearchBestMatchAction(suggestion, LocaleController.getString(titleKey))
+    }
+
+    private fun siteAction(
+        typed: String,
+        site: MExploreHistory.VisitedSite
+    ): SearchBestMatchAction? {
+        val uri = site.url.toUri()
+        val host = uri.host ?: return null
+        val suggestion =
+            if (SearchTextNormalizer.hasPrefix(host, typed)) host else "${uri.scheme}://$host"
+        if (!SearchTextNormalizer.hasPrefix(suggestion, typed)) return null
+        return SearchBestMatchAction(suggestion, site.title)
+    }
+
+    fun openBestLink() {
+        when (val target = bestMatchTarget) {
+            is SearchTarget.Website -> searchVC.openWebsite(target.website.url)
+            is SearchTarget.Deeplink -> searchVC.openDeeplink(target.link)
+            else -> Unit
+        }
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = SECTION_GOOGLE + 1
@@ -338,7 +485,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         }
 
         SECTION_BEST_MATCH -> {
-            if (bestMatchTarget == null) 0 else 2
+            if (bestMatchTarget == null && resolvingDomain == null) 0 else 2
         }
 
         SECTION_RECENT_QUERIES -> {
@@ -350,7 +497,9 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         }
 
         SECTION_SUGGESTIONS -> {
-            if (bestMatchTarget !is SearchTarget.Site &&
+            if (rankedWebsite == null &&
+                bestMatchTarget !is SearchTarget.Site &&
+                bestMatchTarget !is SearchTarget.Deeplink &&
                 !displayedResult?.recentSearches.isNullOrEmpty() &&
                 displayedResult?.noResultsFound != true
             ) {
@@ -393,7 +542,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         }
 
         SECTION_GOOGLE -> {
-            if (searchQuery.isBlank()) 0 else 3
+            if (searchQuery.isBlank() || isSearchQueryDeeplink) 0 else 3
         }
 
         else -> throw IllegalStateException("Unexpected search section: $section")
@@ -402,16 +551,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
     override fun recyclerViewCellType(rv: RecyclerView, indexPath: IndexPath): WCell.Type {
         if (indexPath.row == 0) {
             return when (indexPath.section) {
-                SECTION_BEST_MATCH -> when (bestMatchTarget) {
-                    is SearchTarget.WalletInfo, is SearchTarget.OwnWallet -> SEARCH_BEST_WALLET_CELL
-                    is SearchTarget.Site -> SEARCH_MATCH_CELL
-                    is SearchTarget.Token -> SEARCH_BEST_TOKEN_CELL
-                    is SearchTarget.Dapp -> SEARCH_BEST_DAPP_CELL
-                    is SearchTarget.Collectible -> SEARCH_BEST_NFT_CELL
-                    is SearchTarget.App -> SEARCH_BEST_APP_ITEM_CELL
-                    SearchTarget.AskAgent -> SEARCH_BEST_AGENT_CELL
-                    null -> SEARCH_BEST_TOKEN_CELL
-                }
+                SECTION_BEST_MATCH -> bestMatchCellType()
 
                 SECTION_RECENT_QUERIES -> {
                     RECENT_SEARCH_TITLE_CELL
@@ -437,9 +577,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
         return when (indexPath.section) {
             SECTION_AGENT -> SEARCH_AGENT_CELL
 
-            SECTION_GOOGLE -> {
-                if (isSearchQueryDeeplink) SEARCH_SEARCHED_CELL else SEARCH_GOOGLE_CELL
-            }
+            SECTION_GOOGLE -> SEARCH_GOOGLE_CELL
 
             SECTION_MY_WALLETS,
             SECTION_CHATS,
@@ -455,6 +593,21 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
             else -> throw IllegalStateException(
                 "Unexpected search section: ${indexPath.section}"
             )
+        }
+    }
+
+    private fun bestMatchCellType(): WCell.Type {
+        if (resolvingDomain != null) return SEARCH_BEST_RESOLVING_DOMAIN_CELL
+        return when (bestMatchTarget) {
+            is SearchTarget.WalletInfo, is SearchTarget.OwnWallet -> SEARCH_BEST_WALLET_CELL
+            is SearchTarget.Site -> SEARCH_MATCH_CELL
+            is SearchTarget.Token -> SEARCH_BEST_TOKEN_CELL
+            is SearchTarget.Dapp -> SEARCH_BEST_DAPP_CELL
+            is SearchTarget.Collectible -> SEARCH_BEST_NFT_CELL
+            is SearchTarget.App -> SEARCH_BEST_APP_ITEM_CELL
+            is SearchTarget.Website, is SearchTarget.Deeplink -> SEARCH_BEST_WEBSITE_CELL
+            SearchTarget.AskAgent -> SEARCH_BEST_AGENT_CELL
+            null -> SEARCH_BEST_TOKEN_CELL
         }
     }
 
@@ -544,6 +697,11 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
             // One promoted row, captioned by whatever kind the ranker put first.
             SECTION_BEST_MATCH -> {
                 val bestMatchCell = cellHolder.cell as SearchBestMatchCell
+                resolvingDomain?.let { domain ->
+                    bestMatchCell.configure(LocaleController.getString("View Wallet"))
+                    (bestMatchCell.contentCell as SearchResolvingDomainCell).configure(domain)
+                    return
+                }
                 when (val target = bestMatchTarget) {
                     is SearchTarget.WalletInfo -> {
                         bestMatchCell.configure(LocaleController.getString("View Wallet"))
@@ -620,6 +778,24 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                         )
                         (bestMatchCell.contentCell as SearchAppItemCell).configure(
                             target.entry,
+                            isLastItem = true,
+                            hasOpaqueBackground = false
+                        )
+                    }
+
+                    is SearchTarget.Website -> {
+                        bestMatchCell.configure(LocaleController.getString("Open Website"))
+                        (bestMatchCell.contentCell as SearchItemCell).configure(
+                            target.website.displayText,
+                            isLastItem = true,
+                            hasOpaqueBackground = false
+                        )
+                    }
+
+                    is SearchTarget.Deeplink -> {
+                        bestMatchCell.configure(LocaleController.getString("Open in App"))
+                        (bestMatchCell.contentCell as SearchItemCell).configure(
+                            target.link,
                             isLastItem = true,
                             hasOpaqueBackground = false
                         )
@@ -894,9 +1070,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                     configureSectionHeader(
                         cellHolder,
                         indexPath,
-                        LocaleController.getString(
-                            if (isSearchQueryDeeplink) "Open in App" else "Search in Google"
-                        )
+                        LocaleController.getString("Search in Google")
                     )
                 } else {
                     (cellHolder.cell as SearchItemCell).configure(

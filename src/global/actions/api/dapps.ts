@@ -6,6 +6,7 @@ import { ANIMATION_END_DELAY } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { getDoesUsePinPad } from '../../../util/biometrics';
 import { getDappConnectionUniqueId } from '../../../util/getDappConnectionUniqueId';
+import { getTranslation } from '../../../util/langProvider';
 import { pause } from '../../../util/schedulers';
 import { USER_AGENT_LANG_CODE } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
@@ -320,7 +321,6 @@ addActionHandler('apiUpdateDappSendTransaction', async (global, actions, payload
     payload,
     (global) => global.currentDappTransfer,
     actions.closeDappTransfer,
-    (global) => global.currentDappTransfer.state !== TransferState.None,
     clearCurrentDappTransfer,
     (global) => updateCurrentDappTransfer(global, {
       state: TransferState.Initial,
@@ -346,7 +346,6 @@ addActionHandler('apiUpdateDappSignData', async (global, actions, payload) => {
     payload,
     (global) => global.currentDappSignData,
     actions.closeDappSignData,
-    (global) => global.currentDappSignData.state !== SignDataState.None,
     clearCurrentDappSignData,
     (global) => updateCurrentDappSignData(global, {
       state: SignDataState.Initial,
@@ -365,7 +364,6 @@ async function apiUpdateDappOperation(
   payload: { accountId: string },
   getState: (global: GlobalState) => { promiseId?: string },
   close: NoneToVoidFunction,
-  isStateActive: (global: GlobalState) => boolean,
   clearState: (global: GlobalState) => GlobalState,
   updateState: (global: GlobalState) => GlobalState,
 ) {
@@ -460,14 +458,16 @@ addActionHandler('loadExploreSites', async (global, _, { isLandscape, langCode =
   setGlobal(global);
 });
 
-addActionHandler('updateDappMfaRequestStatus', async (global) => {
+addActionHandler('updateDappMfaRequestStatus', async (global, actions) => {
   const hash = global.currentDappTransfer.mfaRequestHash;
   if (!hash) return;
   const result = await callApi('fetchMfaRequest', hash);
 
-  if (result?.isConfirmed) {
-    global = getGlobal();
-    global = updateCurrentDappTransfer(global, { state: TransferState.Complete });
-    setGlobal(global);
+  // The status is polled every second, so a slow response may arrive after the modal is closed or shows another request
+  global = getGlobal();
+  const { state, mfaRequestHash } = global.currentDappTransfer;
+  if (result?.isConfirmed && state === TransferState.ConfirmMfa && mfaRequestHash === hash) {
+    actions.closeDappTransfer();
+    actions.showToast({ message: getTranslation('Successfully Sent'), icon: 'icon-check' });
   }
 });

@@ -1,3 +1,5 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 import Foundation
 import WalletCore
 import WalletContext
@@ -167,3 +169,5 @@ struct NewYearGarland: View {
 private extension UIImage {
     static let newYearGarland = UIImage.airBundle("NewYearGarland")
 }
+
+#endif

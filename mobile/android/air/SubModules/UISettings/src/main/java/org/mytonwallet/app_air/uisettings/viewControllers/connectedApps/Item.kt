@@ -13,7 +13,7 @@ sealed class Item(type: Int, key: String? = null) : BaseListItem(type, key) {
     }
 
     data class DApp(val app: ApiDapp, val isLastItem: Boolean) :
-        Item(Type.DAPP.value, app.manifestUrl)
+        Item(Type.DAPP.value, "${app.url}:${app.connectionUniqueId}")
 
     data class Header(val walletName: String) : Item(Type.HEADER.value)
 }

@@ -28,7 +28,7 @@ public final class AccountThemeObserver {
         }
     }
 
-    private func apply(animated: Bool) {
+    public func apply(animated: Bool) {
         let accountId = AccountStore.currentAccountId
         guard appliedAccountId != accountId else { return }
         appliedAccountId = accountId

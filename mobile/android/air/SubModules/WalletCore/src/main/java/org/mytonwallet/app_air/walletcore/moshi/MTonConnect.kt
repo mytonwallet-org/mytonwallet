@@ -57,6 +57,11 @@ data class ApiDapp(
     val wcPairingTopic: String? = null,
     val chains: List<ApiDappSessionChain>? = null
 ) : IDapp {
+    val connectionUniqueId: String
+        get() = sse?.appClientId?.takeIf { it.isNotEmpty() }
+            ?: wcPairingTopic?.takeIf { it.isNotEmpty() }
+            ?: "jsbridge"
+
     val host: String? = try {
         url?.toUri()?.host
     } catch (_: Throwable) {

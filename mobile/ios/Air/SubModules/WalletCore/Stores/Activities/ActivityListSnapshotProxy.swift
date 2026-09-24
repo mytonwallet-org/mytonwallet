@@ -23,13 +23,13 @@ struct ActivityListSnapshotProxy {
     }
 
     mutating func didUpdateData(idsByDate: OrderedDictionary<Date, [String]>?) {
-        let nextLoadedIds = idsByDate?.values.flatMap { $0 } ?? []
+        let nextLoadedIds = Array(OrderedSet(idsByDate?.values.flatMap { $0 } ?? []))
         loadedActivityIds = nextLoadedIds
         loadedIndexByStableId = Dictionary(nextLoadedIds.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     func rowDidBecomeVisible(_ row: Row, isEndReached: Bool?) -> Bool {
-        let stableId: String? = switch row {
+        let stableId: String? = switch row.value {
         case .transaction(_, let stableId):
             stableId
         default:
@@ -56,8 +56,11 @@ struct ActivityListSnapshotProxy {
             }
         }
 
+        // Diffable identifiers must be unique across the entire snapshot, including different dates.
+        var visibleIds = Set<String>()
         if let idsByDate {
             for (date, ids) in idsByDate {
+                let ids = ids.filter { visibleIds.insert($0).inserted }
                 guard !ids.isEmpty else { continue }
                 snapshot.appendSections([.transactions(accountId, date)])
                 snapshot.appendItems(ids.map { Row.transaction(accountId, $0) })
@@ -67,7 +70,7 @@ struct ActivityListSnapshotProxy {
             snapshot.appendItems(ActivityListViewModel.placeholderTransactionRows)
         }
 
-        if let idsByDate, idsByDate.isEmpty {
+        if idsByDate != nil, visibleIds.isEmpty {
             if isEndReached == true {
                 snapshot.appendSections([.emptyPlaceholder])
                 snapshot.appendItems([.emptyPlaceholder])
@@ -75,17 +78,11 @@ struct ActivityListSnapshotProxy {
                 snapshot.appendSections([.placeholderTransactionsSection])
                 snapshot.appendItems([.loadingMore])
             }
-        } else if let idsByDate, !idsByDate.isEmpty, isEndReached != true {
+        } else if !visibleIds.isEmpty, isEndReached != true {
             snapshot.appendItems([.loadingMore])
         }
 
-        let visibleIds = Set(snapshot.itemIdentifiers.compactMap { row -> String? in
-            if case .transaction(_, let stableId) = row {
-                return stableId
-            }
-            return nil
-        })
-        let visibleUpdatedIds = updatedIds.filter { visibleIds.contains($0) }
+        let visibleUpdatedIds = OrderedSet(updatedIds).filter { visibleIds.contains($0) }
         snapshot.reconfigureItems(visibleUpdatedIds.map { Row.transaction(accountId, $0) })
 
         return snapshot
@@ -96,7 +93,7 @@ struct ActivityListSnapshotProxy {
             return false
         }
 
-        if case .loadingMore = row {
+        if case .loadingMore = row.value {
             return true
         }
 

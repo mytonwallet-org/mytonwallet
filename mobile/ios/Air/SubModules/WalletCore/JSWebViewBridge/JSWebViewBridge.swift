@@ -132,6 +132,8 @@ public class JSWebViewBridge: UIViewController {
         
         recreateWebView()
         view.isUserInteractionEnabled = false
+        // This hidden SDK host has no account-colored UI.
+        view.tintColor = .black
         view.alpha = 0.1
 
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in

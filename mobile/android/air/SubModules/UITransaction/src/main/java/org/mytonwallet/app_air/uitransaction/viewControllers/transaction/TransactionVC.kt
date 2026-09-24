@@ -65,6 +65,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundSt
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisend.send.SendVC
@@ -96,6 +97,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.isUtxoChain
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -159,6 +161,7 @@ class TransactionVC(
         }
     }
 
+    private var isPendingTransaction = tx is MApiTransaction.Transaction && tx.isPending()
     private var transaction = adjustTransactionStatusForUi(tx)
 
     private var loadingDetailsActivityId: String? = null
@@ -300,56 +303,76 @@ class TransactionVC(
         btn.gravity = Gravity.CENTER
         btn.setPaddingDp(8, 4, 8, 4)
         btn.setOnClickListener {
-            val window = window ?: return@setOnClickListener
             val accountId = AccountStore.activeAccountId ?: return@setOnClickListener
-            val nav = WNavigationController(
-                window,
-                WNavigationController.PresentationConfig.PreferredFullScreen
+            ProtectedActionAuth.confirm(
+                onConfirmed = { token -> decryptComment(accountId, token, null) },
+                onPasscodeRequired = { showPasscodeDecrypt(accountId) }
             )
-            nav.setRoot(
-                PasscodeConfirmVC(
-                    context,
-                    PasscodeViewState.Default(
-                        LocaleController.getString("Message is encrypted"),
-                        LocaleController.getString(
-                            if (WGlobalStorage.isAnyBiometricActivated() &&
-                                BiometricHelpers.canAuthenticate(context)
-                            ) {
-                                "Enter passcode or use fingerprint"
-                            } else {
-                                "Enter Passcode"
-                            }
-                        ),
-                        LocaleController.getString("Decrypt"),
-                        showNavigationSeparator = false,
-                        startWithBiometrics = true
-                    ),
-                    task = { passcode ->
-                        WalletCore.call(
-                            ApiMethod.WalletData.DecryptComment(
-                                accountId,
-                                transaction,
-                                passcode
-                            )
-                        ) { res, err ->
-                            if (err != null) return@call
-                            commentLabel.text = res
-                            commentView.removeView(decryptButton)
-                            commentView.setConstraints {
-                                toEnd(commentLabel)
-                                constrainMaxWidth(
-                                    commentLabel.id,
-                                    ConstraintSet.MATCH_CONSTRAINT_SPREAD
-                                )
-                            }
-                            window.dismissLastNav()
-                        }
-                    }
-                )
-            )
-            window?.present(nav)
         }
         btn
+    }
+
+    private fun showPasscodeDecrypt(accountId: String) {
+        val window = window ?: return
+        val nav = WNavigationController(
+            window,
+            WNavigationController.PresentationConfig.PreferredFullScreen
+        )
+        nav.setRoot(
+            PasscodeConfirmVC(
+                context,
+                PasscodeViewState.Default(
+                    LocaleController.getString("Message is encrypted"),
+                    LocaleController.getString(
+                        if (WGlobalStorage.isAnyBiometricActivated() &&
+                            BiometricHelpers.canAuthenticate(context)
+                        ) {
+                            "Enter passcode or use fingerprint"
+                        } else {
+                            "Enter Passcode"
+                        }
+                    ),
+                    LocaleController.getString("Decrypt"),
+                    showNavigationSeparator = false,
+                    startWithBiometrics = true
+                ),
+                task = { token -> decryptComment(accountId, token, nav) }
+            )
+        )
+        window.present(nav)
+    }
+
+    private fun decryptComment(
+        accountId: String,
+        token: String,
+        passcodeNav: WNavigationController?
+    ) {
+        val currentTransaction = transaction as? MApiTransaction.Transaction ?: return
+        if (!decryptButton.isEnabled) return
+        decryptButton.isEnabled = false
+        WalletCore.call(
+            ApiMethod.WalletData.DecryptComment(accountId, currentTransaction, token)
+        ) { res, err ->
+            if (err != null || res == null) {
+                decryptButton.isEnabled = true
+                val passcodeVC = passcodeNav?.viewControllers?.firstOrNull() as? PasscodeConfirmVC
+                val error = err?.parsed ?: MBridgeError.Type.UNEXPECTED_ERROR
+                if (passcodeVC != null) {
+                    passcodeVC.restartAuth()
+                    passcodeVC.showError(error)
+                } else {
+                    showError(error)
+                }
+                return@call
+            }
+            commentLabel.text = res
+            commentView.removeView(decryptButton)
+            commentView.setConstraints {
+                toEnd(commentLabel)
+                constrainMaxWidth(commentLabel.id, ConstraintSet.MATCH_CONSTRAINT_SPREAD)
+            }
+            passcodeNav?.let { window?.dismissNav(it) }
+        }
     }
 
     private val commentView: WView by lazy {
@@ -920,6 +943,7 @@ class TransactionVC(
         }
 
         val addressView = WAddressActionView(context).apply {
+            balanceShortAddressLine = true
             onTap = { view, _ ->
                 transactionAddress?.let { onAddressClicked(it, view, transaction) }
             }
@@ -1194,7 +1218,13 @@ class TransactionVC(
         val blockchain = TokenStore.getToken(tx.slug)?.mBlockchain ?: return null
         val confirmations = tx.confirmations ?: return null
         val maxConfirmations = tx.maxConfirmations ?: return null
-        if (!isUtxoChain(blockchain) || confirmations >= maxConfirmations) return null
+        if (!isPendingTransaction ||
+            !isUtxoChain(blockchain) ||
+            maxConfirmations <= 0 ||
+            confirmations >= maxConfirmations
+        ) {
+            return null
+        }
 
         return LocaleController.getPluralOrFormat(
             "\$utxo_confirmations",
@@ -1858,9 +1888,11 @@ class TransactionVC(
             }
 
             is WalletEvent.ReceivedNewActivities -> {
+                if (walletEvent.accountId != showingAccountId) return
                 walletEvent.newActivities?.find {
                     this.transaction.isSame(it)
                 }?.let {
+                    isPendingTransaction = it is MApiTransaction.Transaction && it.isPending()
                     this.transaction = adjustTransactionStatusForUi(it)
                     reloadData()
                 }

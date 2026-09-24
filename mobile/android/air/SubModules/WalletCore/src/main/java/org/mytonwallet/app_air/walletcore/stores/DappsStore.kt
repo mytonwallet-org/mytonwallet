@@ -6,6 +6,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
@@ -13,6 +15,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 object DappsStore : IStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val refreshMutex = Mutex()
 
     // Observable Flow
     private val _dAppsFlow = MutableStateFlow<Map<String, List<ApiDapp>>>(emptyMap())
@@ -29,12 +32,17 @@ object DappsStore : IStore {
         val accountId = accountId ?: AccountStore.activeAccountId ?: return
         scope.launch {
             try {
-                val apps = WalletCore.call(ApiMethod.DApp.GetDapps(accountId))
-                setDapps(accountId, apps)
-                WalletCore.notifyEvent(WalletEvent.DappsCountUpdated)
+                refreshNow(accountId)
             } catch (_: Throwable) {
             }
         }
+    }
+
+    suspend fun refreshNow(accountId: String): List<ApiDapp> = refreshMutex.withLock {
+        val apps = WalletCore.call(ApiMethod.DApp.GetDapps(accountId))
+        setDapps(accountId, apps)
+        WalletCore.notifyEvent(WalletEvent.DappsCountUpdated)
+        apps
     }
 
     fun removeAccount(accountId: String) {
