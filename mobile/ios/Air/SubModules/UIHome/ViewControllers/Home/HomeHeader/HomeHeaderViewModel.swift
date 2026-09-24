@@ -27,9 +27,15 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     
     var height: CGFloat = 0
     var state: HomeHeaderState = .expanded
+    var isVisible = false
     private var cardFadeOpacity: Double = 1
     var _collapseProgress: CGFloat = 0
     var seasonalThemingVersion: Int = 0
+    var isAccountScrolling = false
+    private(set) var walletCardTopLine: WalletCardTopLine = .defaultValue
+
+    @PerceptionIgnored
+    private nonisolated(unsafe) var settingsObservation: NSObjectProtocol?
     
     var isCollapsed: Bool { state == .collapsed }
     var cardOpacity: Double { isCollapsed ? cardFadeOpacity : 1 }
@@ -71,7 +77,33 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
         self.collapsedHeight = rootNavigationStyle.usesNavigationBarTopTabs
             ? 166
             : 95
+        updateSettings()
+        // Defaults can change while ConfigStore holds its queue. Never block the
+        // posting queue while the main actor reads configuration during rendering.
+        settingsObservation = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.updateSettings() }
+        }
         WalletCoreData.add(eventObserver: self)
+    }
+
+    func allowsCardEffects(for accountId: String) -> Bool {
+        guard isVisible, !isCollapsed, !isCardHidden, !isAccountScrolling else { return false }
+        switch accountSource {
+        case .current: return accountId == currentAccountId
+        case .accountId(let selected): return accountId == selected
+        case .constant(let account): return accountId == account.id
+        }
+    }
+
+    private func updateSettings() {
+        let topLine = WalletCardTopLine(rawValue: UserDefaults.standard.string(forKey: WalletCardSettings.topLineUserDefaultsKey) ?? "") ?? .defaultValue
+        if walletCardTopLine != topLine { walletCardTopLine = topLine }
+    }
+
+    deinit {
+        if let settingsObservation { NotificationCenter.default.removeObserver(settingsObservation) }
     }
     
     func scrollOffsetChanged(to y: CGFloat) {

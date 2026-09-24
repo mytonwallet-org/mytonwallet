@@ -1,6 +1,7 @@
 import Dependencies
 import Foundation
 import GRDB
+import NativeEnclave
 import WalletContext
 import WalletCoreTypes
 
@@ -49,6 +50,16 @@ public final class SettingsStore: Sendable {
     public func setAreAnimationsDisabled(_ areAnimationsDisabled: Bool) {
         update {
             $0.areAnimationsDisabled = areAnimationsDisabled
+        }
+    }
+
+    public var is3dCardDisabled: Bool {
+        _row.withLock { $0.is3dCardDisabled }
+    }
+
+    public func setIs3dCardDisabled(_ isDisabled: Bool) {
+        update {
+            $0.is3dCardDisabled = isDisabled
         }
     }
 
@@ -138,6 +149,19 @@ public final class SettingsStore: Sendable {
     public func setAutolockOption(_ option: MAutolockOption) {
         update {
             $0.autolockValue = option.rawValue
+        }
+    }
+
+    public var isAutoConfirmEnabled: Bool {
+        _row.withLock { $0.isAutoConfirmEnabled }
+    }
+
+    @MainActor public func setIsAutoConfirmEnabled(_ isEnabled: Bool) async {
+        update {
+            $0.isAutoConfirmEnabled = isEnabled
+        }
+        if !isEnabled {
+            await EnclaveManager.shared.invalidateRememberedSessions()
         }
     }
 

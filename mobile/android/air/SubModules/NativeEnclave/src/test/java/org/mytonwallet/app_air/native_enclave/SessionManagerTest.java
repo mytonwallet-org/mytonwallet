@@ -42,6 +42,23 @@ public class SessionManagerTest {
     }
 
     @Test
+    public void releasedUsesAreNoLongerGranted() throws Exception {
+        SessionManager manager = new SessionManager();
+        SessionManager.SessionResult result =
+                manager.createSession(AuthType.PASSCODE, false, 3, new byte[32]);
+
+        manager.releaseUsages(result.token, 2);
+        manager.validateSessionAndGetMasterKey(result.token, true);
+
+        try {
+            manager.validateSessionAndGetMasterKey(result.token, true);
+            fail("Expected the released uses to be gone");
+        } catch (Exception expected) {
+            assertEquals("Invalid or expired session token", expected.getMessage());
+        }
+    }
+
+    @Test
     public void concurrentReadsCannotExceedShortSessionBudget() throws Exception {
         SessionManager manager = new SessionManager();
         SessionManager.SessionResult result =

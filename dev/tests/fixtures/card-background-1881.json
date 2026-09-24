@@ -1,0 +1,72 @@
+{
+  "id": 1881,
+  "name": "MyTonWallet Card #1881",
+  "description": "A indigo background MyTonWallet card with purple uniform texture.",
+  "image": "https://static.mytonwallet.org/cards/v4/preview/1881-4590e.jpg",
+  "attributes": [
+    {
+      "trait_type": "Card Type",
+      "value": "🍀 Standard"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Indigo"
+    },
+    {
+      "trait_type": "Shine",
+      "value": "Up"
+    },
+    {
+      "trait_type": "Text",
+      "value": "Light"
+    },
+    {
+      "trait_type": "Texture Type",
+      "value": "Uniform"
+    },
+    {
+      "trait_type": "Texture Color",
+      "value": "Purple"
+    },
+    {
+      "trait_type": "Texture Rotation",
+      "value": "-135°"
+    },
+    {
+      "trait_type": "Texture Size",
+      "value": "1200"
+    },
+    {
+      "trait_type": "Texture Position X",
+      "value": "75%"
+    },
+    {
+      "trait_type": "Texture Position Y",
+      "value": "75%"
+    },
+    {
+      "trait_type": "First Spot Color",
+      "value": "White"
+    },
+    {
+      "trait_type": "First Spot Position",
+      "value": "I quarter"
+    },
+    {
+      "trait_type": "Second Spot Color",
+      "value": "Mystical"
+    },
+    {
+      "trait_type": "Second Spot Position",
+      "value": "III quarter"
+    },
+    {
+      "trait_type": "Third Spot Color",
+      "value": "Gray cloud"
+    },
+    {
+      "trait_type": "Third Spot Position",
+      "value": "IV quarter"
+    }
+  ]
+}

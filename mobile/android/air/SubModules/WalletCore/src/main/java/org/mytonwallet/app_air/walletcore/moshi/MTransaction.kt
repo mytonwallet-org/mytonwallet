@@ -558,7 +558,11 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                     etaSeconds != comparing.etaSeconds ||
                     type != comparing.type ||
                     amount != comparing.amount ||
-                    isApprovalUnlimited != comparing.isApprovalUnlimited
+                    isApprovalUnlimited != comparing.isApprovalUnlimited ||
+                    isIncoming != comparing.isIncoming ||
+                    fromAddress != comparing.fromAddress ||
+                    toAddress != comparing.toAddress ||
+                    nft != comparing.nft
             }
         }
         return false

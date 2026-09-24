@@ -87,7 +87,7 @@ struct SelectCardEmptyView: View {
             .multilineTextAlignment(.center)
             .contentShape(.rect)
             .onTapGesture {
-                AppActions.showUpgradeCard()
+                AppActions.showUpgradeCard(accountContext: AccountContext(accountId: viewModel.selectedAccountId))
             }
         }
     }
@@ -153,7 +153,7 @@ private struct CardView: View {
                         .padding(.bottom, 8)
                 }
                 .background {
-                    MtwCardBackground(nft: nft, borderWidthMultiplier: 0.5)
+                    MtwCardBackground(nft: nft, borderWidthMultiplier: 0.5, resolution: .thumbnail)
                         .allowsHitTesting(false)
                 }
                 .clipShape(.containerRelative)

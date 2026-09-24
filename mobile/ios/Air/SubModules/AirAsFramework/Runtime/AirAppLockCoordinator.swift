@@ -132,6 +132,14 @@ final class AirAppLockCoordinator: NSObject {
         lockMode = .app
         rootStateCoordinator.transition(to: .unlock, animationDuration: nil)
 
+        Task { [weak self] in
+            await AuthSupport.invalidateSessions()
+            guard let self, self.lockMode == .app else { return }
+            self.presentAppUnlock(animated: animated)
+        }
+    }
+
+    private func presentAppUnlock(animated: Bool) {
         let unlockVC = AppLockUnlockVC(
             mode: .app,
             onDone: { [weak self] _ in

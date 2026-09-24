@@ -10,6 +10,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
     private let onSubmit: (ApiUpdate.WalletConnectPaySignData, EnclaveToken?) async throws -> ApiMfaProtectedResult
     private var onCancel: (() -> Void)?
     private var isWaitingForNextStep = false
+    private var isSubmitting = false
     private var hostingController: UIHostingController<WalletConnectPaySignDataView>?
 
     @AccountContext var account: MAccount
@@ -53,7 +54,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
     }
 
     private func onConfirm() {
-        guard !isWaitingForNextStep else { return }
+        guard !isSubmitting, !isWaitingForNextStep else { return }
         let protectedAction = ProtectedAction.walletConnectPaySignData(
             account: account,
             accountContext: _account,
@@ -63,7 +64,13 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
                 self?.finishConfirm()
             }
         )
+        isSubmitting = true
+        render()
         Task {
+            defer {
+                isSubmitting = false
+                render()
+            }
             _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
@@ -72,7 +79,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
         WalletConnectPaySignDataView(
             update: update,
             accountContext: _account,
-            isWaitingForNextStep: isWaitingForNextStep,
+            isBusy: isSubmitting || isWaitingForNextStep,
             onConfirm: { [weak self] in self?.onConfirm() },
             onCancel: { [weak self] in self?.onCancelPressed() },
             onShowTransferInfo: { [weak self] in self?.showTransferInfo() }
@@ -84,11 +91,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
     }
 
     private func finishConfirm() {
-        onCancel = nil
         isWaitingForNextStep = true
-        isModalInPresentation = true
-        navigationController?.isModalInPresentation = true
-        navigationItem.rightBarButtonItem?.isEnabled = false
         render()
     }
 
@@ -98,6 +101,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
     }
 
     private func showTransferInfo() {
+        guard !isSubmitting, !isWaitingForNextStep else { return }
         navigationController?.pushViewController(
             WalletConnectPaySignDataInfoVC(update: update),
             animated: true
@@ -112,7 +116,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
 private struct WalletConnectPaySignDataView: View {
     var update: ApiUpdate.WalletConnectPaySignData
     var accountContext: AccountContext
-    var isWaitingForNextStep: Bool
+    var isBusy: Bool
     var onConfirm: () -> Void
     var onCancel: () -> Void
     var onShowTransferInfo: () -> Void
@@ -140,16 +144,15 @@ private struct WalletConnectPaySignDataView: View {
     private var buttons: some View {
         HStack(spacing: 16) {
             Button(action: onCancel) {
-                Text(lang("Cancel"))
+                Text(isBusy ? lang("Close") : lang("Cancel"))
             }
             .buttonStyle(.airSecondary)
-            .disabled(isWaitingForNextStep)
             Button(action: onConfirm) {
                 Text(lang("Sign"))
             }
             .buttonStyle(.airPrimary)
-            .environment(\.isLoading, isWaitingForNextStep)
-            .disabled(isWaitingForNextStep)
+            .environment(\.isLoading, isBusy)
+            .disabled(isBusy)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)

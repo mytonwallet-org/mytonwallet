@@ -115,6 +115,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         val nowWide = isWideHome
         if (appliedWideHome == nowWide) return
         appliedWideHome = nowWide
+        syncTopOverlayMode()
 
         swapActionsView(nowWide)
         if (nowWide) {
@@ -135,7 +136,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             phoneHeaderView.doOnPreDraw { restorePhoneHeaderState() }
             applyHeaderCards(false)
             updateBalance(false)
-            updateAccountName(homeVM.showingAccount?.name ?: "", false)
+            updateAccountName(homeVM.showingAccount?.name ?: "")
             stickyHeaderView.update(
                 stickyHeaderViewMode,
                 UpdateStatusView.State.Updated(homeVM.showingAccount?.name ?: ""),
@@ -147,7 +148,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
         if (!nowWide) {
             moveActionsViewToCell()
-            if (hasTopTabs) sortViews()
+            sortViews()
         }
         rvMode = if (nowWide) recyclerViewModeValue() else phoneHeaderView.mode
         if (!nowWide) {
@@ -306,6 +307,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 if (isVertical) {
                     moveHeaderViewToCell()
                 } else {
+                    phoneHeaderView.beginHorizontalScroll()
                     moveHeaderViewToParent()
                 }
             }
@@ -332,11 +334,18 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         }
                     }
                 }
-                return if (isPassingToDirectionalTouchHandler) {
+                val handled = if (isPassingToDirectionalTouchHandler) {
                     touchHandler.dispatchTouch(view, ev) ?: super.dispatchTouchEvent(ev)
                 } else {
                     super.dispatchTouchEvent(ev)
                 }
+                if (ev.actionMasked == MotionEvent.ACTION_UP ||
+                    ev.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
+                    phoneHeaderView.releaseCardPress()
+                    phoneHeaderView.endHorizontalScroll()
+                }
+                return handled
             }
         }
     }
@@ -453,37 +462,22 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             },
             wideHomeHeaderView = false,
             collapsedCardTopInsetOverride = {
-                if (hasTopTabs) {
-                    navigationController?.getSystemBars()?.top
-                } else {
-                    null
-                }
+                navigationController?.getSystemBars()?.top?.plus(
+                    if (hasTopTabs) 0 else PhoneTabsVC.TOP_TABS_ROOT_INSET.dp
+                )
             },
-            collapsedCardWidthOverride =
-                if (hasTopTabs) 40.5f.dp else null,
-            collapsedCardTopOffsetOverride =
-                if (hasTopTabs) 12f.dp else null,
-            collapsedBalanceStyle =
-                if (hasTopTabs) {
-                    HomeHeaderView.CollapsedBalanceStyle(
-                        topOffset = 44f.dp,
-                        currencySize = 34f,
-                        primarySize = 40f,
-                        decimalsSize = 28f
-                    )
-                } else {
-                    null
-                },
-            collapsedHeightExtra = if (hasTopTabs) 51.dp else 0,
-            scrollCollapsedContent = hasTopTabs,
-            keepCollapsedCardVisibleForStatus = hasTopTabs,
-            topInsetExtra = {
-                if (hasTopTabs) {
-                    TOP_TABS_CARD_OFFSET.dp
-                } else {
-                    0
-                }
-            }
+            collapsedCardWidthOverride = 40.5f.dp,
+            collapsedCardTopOffsetOverride = 12f.dp,
+            collapsedBalanceStyle = HomeHeaderView.CollapsedBalanceStyle(
+                topOffset = 44f.dp,
+                currencySize = 34f,
+                primarySize = 40f,
+                decimalsSize = 28f
+            ),
+            collapsedHeightExtra = 51.dp,
+            scrollCollapsedContent = true,
+            keepCollapsedCardVisibleForStatus = true,
+            topInsetExtra = { TOP_TABS_CARD_OFFSET.dp }
         )
         v.apply {
             background = null
@@ -709,9 +703,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         get() = topBlurReversedCornerView
 
     private val usesTopGradient: Boolean
-        get() = isRootTopGradientEnabled && WGlobalStorage.isGradientNavigationBarActive()
+        get() = (isRootTopGradientEnabled || (!hasTopTabs && !isWideHome)) &&
+            WGlobalStorage.isGradientNavigationBarActive()
 
-    override fun onRootTopGradientModeChanged(enabled: Boolean) {
+    override fun onRootTopGradientModeChanged(enabled: Boolean) = syncTopOverlayMode()
+
+    private fun syncTopOverlayMode() {
         if (topBlurReversedCornerView.isGradientMode == usesTopGradient) return
         topBlurReversedCornerView.setGradientMode(usesTopGradient)
         updateTopReversedCornerViewHeight()
@@ -749,7 +746,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             toCenterX(stickyHeaderView)
             toTop(topBlurReversedCornerView)
         }
-        if (hasTopTabs && !isWideHome) sortViews()
+        if (!isWideHome) sortViews()
 
         val fadesInOnItsOwn = mode != MScreenMode.Default || isWideHome
         if (fadesInOnItsOwn) view.alpha = 0f
@@ -788,6 +785,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        phoneHeaderView.viewWillAppear()
+        syncTopOverlayMode()
         if (restoreScrollOnAppear) {
             restoreScrollOnAppear = false
             if (!isWideHome) {
@@ -854,10 +853,15 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             currentActivityListView.recyclerView.computeVerticalScrollOffset() == 0 &&
             phoneHeaderView.mode == HomeHeaderView.Mode.Expanded
         ) {
-            (phoneHeaderView.parent as? ViewGroup)?.removeView(phoneHeaderView)
-            headerCell?.addView(phoneHeaderView)
-            headerCell?.setConstraints {
-                toCenterX(phoneHeaderView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+            phoneHeaderView.setReparenting(true)
+            try {
+                (phoneHeaderView.parent as? ViewGroup)?.removeView(phoneHeaderView)
+                headerCell?.addView(phoneHeaderView)
+                headerCell?.setConstraints {
+                    toCenterX(phoneHeaderView, -ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+                }
+            } finally {
+                phoneHeaderView.setReparenting(false)
             }
         }
     }
@@ -866,15 +870,20 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     private fun moveHeaderViewToParent() {
         if (isWideHome) return
         if (phoneHeaderView.parent != view) {
-            (phoneHeaderView.parent as? ViewGroup)?.removeView(phoneHeaderView)
-            view.addView(
-                phoneHeaderView,
-                ViewGroup.LayoutParams(
-                    MATCH_PARENT,
-                    headerCell?.height ?: WRAP_CONTENT
+            phoneHeaderView.setReparenting(true)
+            try {
+                (phoneHeaderView.parent as? ViewGroup)?.removeView(phoneHeaderView)
+                view.addView(
+                    phoneHeaderView,
+                    ViewGroup.LayoutParams(
+                        MATCH_PARENT,
+                        headerCell?.height ?: WRAP_CONTENT
+                    )
                 )
-            )
-            sortViews()
+                sortViews()
+            } finally {
+                phoneHeaderView.setReparenting(false)
+            }
         }
     }
 
@@ -925,14 +934,14 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     // Sort views in hierarchy to keep all the buttons clickable
     private fun sortViews() {
         if (rvMode == HomeHeaderView.Mode.Expanded) {
-            if (hasTopTabs && !isWideHome) {
+            if (!isWideHome) {
                 topBlurReversedCornerView.bringToFront()
             }
             stickyHeaderView.bringToFront()
             navigationBar?.bringToFront()
         } else {
             phoneHeaderView.bringToFront()
-            if (hasTopTabs && !isWideHome) {
+            if (!isWideHome) {
                 topBlurReversedCornerView.bringToFront()
             }
             stickyHeaderView.bringToFront()
@@ -1042,12 +1051,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         }
 
-        val actionsFadeStart =
-            px92 + if (hasTopTabs) {
-                PhoneTabsVC.TOP_TABS_HEIGHT.dp + 16.dp
-            } else {
-                0
-            }
+        val actionsFadeStart = px92 + PhoneTabsVC.TOP_TABS_HEIGHT.dp + 16.dp
         val actionsFadeProgress = if (scrollY > actionsFadeStart) {
             (scrollY - actionsFadeStart) / px92.toFloat()
         } else {
@@ -1082,23 +1086,24 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         ((navigationController?.getSystemBars()?.top ?: 0) + HomeHeaderView.navDefaultHeight)
 
     private fun topOverlayHeight(): Int = (navigationController?.getSystemBars()?.top ?: 0) +
-        if (hasTopTabs &&
-            !isWideHome &&
-            !isActionGradientExpanded
-        ) {
-            if (usesTopGradient) {
-                (PhoneTabsVC.TOP_TABS_TOP_MARGIN + PhoneTabsVC.TOP_TABS_BOTTOM_EDGE).dp -
-                    (navigationController?.additionalRootTopInset ?: 0)
-            } else {
-                TOP_TABS_BLUR_OFFSET.dp - (
-                    navigationController?.additionalRootTopInset
-                        ?: 0
-                    ) +
+        when {
+            isWideHome || isActionGradientExpanded ->
+                HomeHeaderView.navDefaultHeight + ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+
+            usesTopGradient ->
+                if (hasTopTabs) {
+                    (PhoneTabsVC.TOP_TABS_TOP_MARGIN + PhoneTabsVC.TOP_TABS_BOTTOM_EDGE).dp -
+                        (navigationController?.additionalRootTopInset ?: 0)
+                } else {
+                    HomeHeaderView.navDefaultHeight
+                }
+
+            hasTopTabs ->
+                TOP_TABS_BLUR_OFFSET.dp - (navigationController?.additionalRootTopInset ?: 0) +
                     ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
-            }
-        } else {
-            HomeHeaderView.navDefaultHeight +
-                ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
+
+            else ->
+                HomeHeaderView.navDefaultHeight + ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
         }
 
     private var topOverlayHeightAnimator: ValueAnimator? = null
@@ -1459,23 +1464,12 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             )
     }
 
-    private fun updateAccountName(accountName: String, animated: Boolean) {
+    private fun updateAccountName(accountName: String) {
         phoneHeaderView.updateAccountName(accountName)
         if (isWideHome) {
             return
         }
-        if (hasTopTabs) {
-            stickyHeaderView.updateStatusView.setAppearance(false, animated = false)
-            return
-        }
-        if (stickyHeaderView.updateStatusView.state is UpdateStatusView.State.Updated) {
-            stickyHeaderView.updateStatusView.setAppearance(
-                phoneHeaderView.mode == HomeHeaderView.Mode.Expanded,
-                animated
-            )
-        } else {
-            stickyHeaderView.updateStatusView.setAppearance(true, animated)
-        }
+        stickyHeaderView.updateStatusView.setAppearance(false, animated = false)
     }
 
     override fun configureAccountViews(
@@ -1493,10 +1487,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             updateActionsAlpha()
         }
         if (shouldLoadNewWallets) {
-            updateAccountName(
-                (headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "",
-                false
-            )
+            updateAccountName((headerView.centerAccount ?: homeVM.showingAccount)?.name ?: "")
             if (isWideHome || rvMode == phoneHeaderView.mode) {
                 currentActivityListView.updateHeaderHeights()
             } else {
@@ -1552,7 +1543,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             skipSkeletonOnCache = fromHome
         )
         if (fromHome) {
-            updateAccountName(headerView.centerAccount?.name ?: "", true)
+            updateAccountName(headerView.centerAccount?.name ?: "")
         } else {
             // Account will change from another screen, invalidate swipeFadeInPercent
             swipeFadeInPercent = 1f
@@ -1636,7 +1627,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     private fun setHeaderActionModeClipEnabled(isEnabled: Boolean) {
         phoneHeaderView.setTopContentClipInset(
-            if (isEnabled && (!hasTopTabs || isWideHome)) {
+            if (isEnabled && isWideHome) {
                 phoneHeaderView.collapsedMinHeight
             } else {
                 0
@@ -1694,9 +1685,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
     override fun swipeItemsOffset(): Int = swipeItemsOffset
 
     private val isActionsRowHiddenBySetting: Boolean
-        get() = hasTopTabs &&
-            !isWideHome &&
-            WGlobalStorage.isActionButtonsRowHidden()
+        get() = !isWideHome && WGlobalStorage.isActionButtonsRowHidden()
 
     override fun activityListReserveActionsCell(): Boolean =
         headerView.centerAccount?.isViewOnly != true && !isActionsRowHiddenBySetting
@@ -1706,9 +1695,9 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
 
     override fun activityListReserveAssetsCell(): Boolean = true
 
-    override fun activityListUsesCardSections(): Boolean = hasTopTabs
+    override fun activityListUsesCardSections(): Boolean = true
 
-    override fun activityListShouldSnapCollapsedHeader(): Boolean = !hasTopTabs
+    override fun activityListShouldSnapCollapsedHeader(): Boolean = false
 
     override fun recyclerViewModeValue(): HomeHeaderView.Mode {
         if (isWideHome) return HomeHeaderView.Mode.Collapsed

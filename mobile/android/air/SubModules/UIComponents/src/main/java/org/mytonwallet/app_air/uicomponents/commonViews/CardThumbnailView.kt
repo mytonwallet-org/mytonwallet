@@ -14,6 +14,7 @@ import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -80,9 +81,14 @@ class CardThumbnailView(context: Context) : WFrameLayout(context) {
         } ?: run {
             imageView.clear()
             if (showDefaultCard) {
+                val image = if (ApplicationContextHolder.isGramApp) {
+                    org.mytonwallet.app_air.uicomponents.R.drawable.img_card_gram_preview
+                } else {
+                    org.mytonwallet.app_air.uicomponents.R.drawable.img_card
+                }
                 imageView.set(
                     Content(
-                        Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card),
+                        Content.Image.Res(image),
                         scaleType = ScalingUtils.ScaleType.FIT_XY
                     )
                 )

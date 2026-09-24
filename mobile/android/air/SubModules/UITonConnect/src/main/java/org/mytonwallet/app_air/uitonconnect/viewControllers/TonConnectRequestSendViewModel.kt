@@ -374,18 +374,20 @@ class TonConnectRequestSendViewModel private constructor(
 
         _uiStateFlow.value = _uiStateFlow.value.copy(cancelButtonIsLoading = true)
         (scope ?: viewModelScope).launch {
-            val t = FakeLoading.init()
-            try {
-                WalletCore.call(
-                    ApiMethod.DApp.CancelDappRequest(
-                        promiseId = update.promiseId,
-                        reason = reason
+            if (WalletCore.isBridgeReady) {
+                val t = FakeLoading.init()
+                try {
+                    WalletCore.call(
+                        ApiMethod.DApp.CancelDappRequest(
+                            promiseId = update.promiseId,
+                            reason = reason
+                        )
                     )
-                )
-                FakeLoading.start(500, t)
-            } catch (err: JSWebViewBridge.ApiError) {
-                Logger.e(Logger.LogTag.TON_CONNECT, "cancelSendTransactions: $err")
-                // todo: show error
+                    FakeLoading.start(500, t)
+                } catch (err: JSWebViewBridge.ApiError) {
+                    Logger.e(Logger.LogTag.TON_CONNECT, "cancelSendTransactions: $err")
+                    // todo: show error
+                }
             }
             _eventsFlow.tryEmit(Event.Close)
             _uiStateFlow.value = _uiStateFlow.value.copy(cancelButtonIsLoading = false)
@@ -517,8 +519,8 @@ class TonConnectRequestSendViewModel private constructor(
                     WalletCore.call(
                         ApiMethod.DApp.DeleteDapp(
                             update.accountId,
-                            update.dapp.sse?.appClientId ?: "",
-                            update.dapp.url ?: ""
+                            update.dapp.url ?: "",
+                            update.dapp.connectionUniqueId
                         ),
                         callback = { _, _ ->
                             WalletCore.notifyEvent(WalletEvent.DappRemoved(update.dapp))
@@ -969,19 +971,24 @@ class TonConnectRequestSendViewModel private constructor(
             }
 
             val summaryItems = mutableListOf<BaseListItem>()
-            CoinUtils.fromDecimal(totalPrice, 9)?.toString(
-                currency = tokens.currency.sign,
-                decimals = 9,
-                currencyDecimals = tokens.currency.decimalsCount,
-                showPositiveSign = false,
-                roundUp = false
-            )?.let { totalCurrencyAmount ->
-                summaryItems.add(
-                    TonConnectItem.CurrencyAmount(
-                        formatCurrencyAmount(totalCurrencyAmount, tokens.currency.sign)
+            val minimumTotalPrice = TokenStore.baseCurrencyRate
+                ?.takeIf { it.isFinite() && it > 0.0 }
+                ?.let { BigDecimal.valueOf(it) * BigDecimal("0.5") }
+            if (minimumTotalPrice != null && totalPrice > minimumTotalPrice) {
+                CoinUtils.fromDecimal(totalPrice, 9)?.toString(
+                    currency = tokens.currency.sign,
+                    decimals = 9,
+                    currencyDecimals = tokens.currency.decimalsCount,
+                    showPositiveSign = false,
+                    roundUp = false
+                )?.let { totalCurrencyAmount ->
+                    summaryItems.add(
+                        TonConnectItem.CurrencyAmount(
+                            formatCurrencyAmount(totalCurrencyAmount, tokens.currency.sign)
+                        )
                     )
-                )
-                summaryItems.add(Item.Gap())
+                    summaryItems.add(Item.Gap())
+                }
             }
 
             if (update.isDangerous) {

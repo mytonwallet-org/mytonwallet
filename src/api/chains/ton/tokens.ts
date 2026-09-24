@@ -31,7 +31,7 @@ import { extractMetadata, getProxiedImage } from './toncenter/metadata';
 import { callToncenterV3, fetchMetadata } from './toncenter/other';
 import { DEFAULT_DECIMALS, TOKEN_TRANSFER_FORWARD_AMOUNT } from './constants';
 import { updateTokenHashes } from './priceless';
-import { fetchIsActiveSmartContract, isActiveSmartContract } from './wallet';
+import { fetchIsAddressInitialized, isAddressInitialized } from './wallet';
 
 export type TokenBalanceParsed = {
   slug: string;
@@ -235,8 +235,8 @@ export async function buildTokenTransfer(options: {
 
   const {
     isTokenWalletDeployed = !!(await (signal
-      ? fetchIsActiveSmartContract(network, tokenWalletAddress, signal)
-      : isActiveSmartContract(network, tokenWalletAddress))),
+      ? fetchIsAddressInitialized(network, tokenWalletAddress, signal)
+      : isAddressInitialized(network, tokenWalletAddress))),
     isMintlessClaimed,
     mintlessTokenBalance,
     customPayload,
@@ -292,7 +292,7 @@ export async function getTokenBalanceWithMintless(network: ApiNetwork, accountAd
   const token = getTokenByAddress(tokenAddress)!;
 
   const {
-    isTokenWalletDeployed = !!(await isActiveSmartContract(network, tokenWalletAddress)),
+    isTokenWalletDeployed = !!(await isAddressInitialized(network, tokenWalletAddress)),
     mintlessTokenBalance,
   } = await getMintlessParams({
     network, fromAddress: accountAddress, token, tokenWalletAddress,
@@ -340,8 +340,8 @@ async function getMintlessParams(options: {
 
   if (isMintlessToken && !shouldSkipMintless) {
     isTokenWalletDeployed = !!(await (signal
-      ? fetchIsActiveSmartContract(network, tokenWalletAddress, signal)
-      : isActiveSmartContract(network, tokenWalletAddress)));
+      ? fetchIsAddressInitialized(network, tokenWalletAddress, signal)
+      : isAddressInitialized(network, tokenWalletAddress)));
     isMintlessClaimed = isTokenWalletDeployed
       && await checkMintlessTokenWalletIsClaimed(network, tokenWalletAddress, signal);
 

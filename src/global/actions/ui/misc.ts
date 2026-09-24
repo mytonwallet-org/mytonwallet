@@ -31,6 +31,7 @@ import {
   IS_ELECTRON,
 } from '../../../util/windowEnvironment';
 import { callApi } from '../../../api';
+import { holdAccountCreationSession } from '../../helpers/auth';
 import { closeAllOverlays, parsePlainAddressQr, resolveReplacedActivityId } from '../../helpers/misc';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
@@ -243,6 +244,16 @@ addActionHandler('toggleLocalizedTokenNames', (global, actions, { isEnabled } = 
   };
 });
 
+addActionHandler('toggleChainBadges', (global, actions, { isEnabled } = {}) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      areChainBadgesShown: isEnabled,
+    },
+  };
+});
+
 addActionHandler('setCurrentTokenPeriod', (global, actions, { period }) => {
   return updateCurrentAccountState(global, {
     currentTokenPeriod: period,
@@ -252,6 +263,11 @@ addActionHandler('setCurrentTokenPeriod', (global, actions, { period }) => {
 addActionHandler('addAccount', async (global, actions, {
   method, isAuthFlow, clearDappConnectOnVerified, enclaveToken,
 }) => {
+  // Taken before the first await, otherwise the upgrade may finish and release the session meanwhile
+  if (enclaveToken) {
+    holdAccountCreationSession(enclaveToken);
+  }
+
   const hasPassword = selectHasPassword(global);
   const isMnemonicImport = method === 'importMnemonic';
 
@@ -453,6 +469,16 @@ addActionHandler('toggleSeasonalTheming', (global, actions, { isEnabled }) => {
     settings: {
       ...global.settings,
       isSeasonalThemingDisabled: !isEnabled || undefined,
+    },
+  };
+});
+
+addActionHandler('toggle3dCard', (global, actions, { isEnabled }) => {
+  return {
+    ...global,
+    settings: {
+      ...global.settings,
+      is3dCardDisabled: !isEnabled || undefined,
     },
   };
 });

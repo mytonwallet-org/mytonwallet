@@ -295,3 +295,26 @@ extension NftCell: NftAnimationPlaybackTarget {
         self.mediaView.stopAnimationPlayback()
     }
 }
+
+/// Values read by the cell, separate from ApiNft's identity-only equality.
+struct NftCellPresentation: Equatable {
+    let id: String
+    let name: String?
+    let collectionName: String?
+    let thumbnail: String?
+    let image: String?
+    let metadata: ApiNftMetadata?
+    let isOnSale: Bool
+    let domainExpirationText: String?
+
+    init(nft: ApiNft, domainExpirationText: String?) {
+        id = nft.id
+        name = nft.name
+        collectionName = nft.collectionName
+        thumbnail = nft.thumbnail
+        image = nft.image
+        metadata = nft.metadata
+        isOnSale = nft.isOnSale
+        self.domainExpirationText = domainExpirationText
+    }
+}

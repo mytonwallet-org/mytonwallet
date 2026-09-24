@@ -114,11 +114,11 @@ class _AccountSelectorView: UIView, UICollectionViewDelegate {
         
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         
-        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { cell, _, accountId in
+        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, String> { [viewModel] cell, _, accountId in
             let accountContext = AccountContext(accountId: accountId)
             cell.configurationUpdateHandler = { cell, _ in
                 cell.contentConfiguration = UIHostingConfiguration {
-                    AccountSelectorCell(accountContext: accountContext)
+                    AccountSelectorCell(accountContext: accountContext, viewModel: viewModel)
                 }
                 .margins(.all, 0)
             }

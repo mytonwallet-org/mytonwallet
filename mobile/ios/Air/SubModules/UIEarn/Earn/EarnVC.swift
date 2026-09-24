@@ -170,8 +170,10 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         
         claimRewardsViewModel.viewController = self
         claimRewardsViewModel.onClaim = { [weak self] in
-            guard let self else { return }
+            guard let self, !claimRewardsViewModel.isSubmitting else { return }
+            claimRewardsViewModel.isSubmitting = true
             Task {
+                defer { self.claimRewardsViewModel.isSubmitting = false }
                 do {
                     try await self.claimRewardsViewModel.confirmAction(account: self.accountContext.account)
                     withAnimation(.default.delay(0.3)) {

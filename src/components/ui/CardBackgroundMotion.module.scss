@@ -1,0 +1,14 @@
+// Sits exactly over the still artwork it animates, so the two are interchangeable frame to frame
+.canvas {
+  pointer-events: none;
+
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+
+  width: 100%;
+  height: 100%;
+
+  // Firefox ignores `border-radius` on a WebGL canvas, and an ancestor's `overflow: hidden` does not clip it either
+  clip-path: inset(0 round var(--border-radius-card));
+}

@@ -44,8 +44,12 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
-class QRCodeVC(context: Context, val chain: MBlockchain, private val onQrLoaded: (() -> Unit)?) :
-    WViewController(context) {
+class QRCodeVC(
+    context: Context,
+    val chain: MBlockchain,
+    private val onQrLoaded: (() -> Unit)?,
+    private val tokenSymbol: String? = null
+) : WViewController(context) {
     @Suppress("PropertyName")
     override val TAG = "QRCode"
 
@@ -132,12 +136,15 @@ class QRCodeVC(context: Context, val chain: MBlockchain, private val onQrLoaded:
         setText(SpannableHelpers.addressSpan(walletAddress), walletAddress)
     }
 
+    private val addressTitleName = tokenSymbol?.takeIf { it.isNotBlank() }
+        ?.let { "$it (${chain.displayName})" } ?: chain.displayName
+
     private val titleLabel = HeaderCell(context, startMargin = 24f).apply {
         configure(
             title = LocaleController.getString(
                 if (isViewOnlyAccount) "%blockchain% Address" else "My %blockchain% Address"
             )
-                .replace("%blockchain%", title.toString()),
+                .replace("%blockchain%", addressTitleName),
             titleColor = WColor.Tint,
             topRounding = HeaderCell.TopRounding.NORMAL
         )
@@ -146,17 +153,23 @@ class QRCodeVC(context: Context, val chain: MBlockchain, private val onQrLoaded:
     private val warningLabel = WLabel(context).apply {
         setStyle(14f, WFont.Regular)
         setLineHeight(TypedValue.COMPLEX_UNIT_SP, 20f)
-        text = if (chain == MBlockchain.ton) {
+        val nativeSymbol = TokenStore.getToken(chain.nativeSlug)?.symbol.orEmpty()
+        val receivingTokenSymbol = tokenSymbol?.takeIf {
+            it.isNotBlank() && !isUtxoChain(chain)
+        }
+        text = if (chain == MBlockchain.ton && tokenSymbol == null) {
             LocaleController.getString("\$send_only_ton")
         } else {
             LocaleController.getStringWithKeyValues(
-                if (isUtxoChain(chain)) "\$send_only_chain_no_tokens" else "\$send_only_chain",
+                when {
+                    isUtxoChain(chain) -> "\$send_only_chain_no_tokens"
+                    receivingTokenSymbol != null -> "\$send_only_token_chain"
+                    else -> "\$send_only_chain"
+                },
                 listOf(
-                    Pair("%chain%", chain.name.replaceFirstChar { it.uppercaseChar() }),
-                    Pair(
-                        "%symbol%",
-                        TokenStore.getToken(chain.nativeSlug)?.symbol ?: ""
-                    )
+                    Pair("%chain%", chain.displayName),
+                    Pair("%symbol%", nativeSymbol.ifBlank { tokenSymbol.orEmpty() }),
+                    Pair("%tokenSymbol%", receivingTokenSymbol.orEmpty())
                 )
             )
         }

@@ -39,6 +39,7 @@ extension SwapButtonTitle {
 }
 
 enum SwapButtonState: Equatable {
+    case submitting
     case invalidPair
     case emptyAmount
     case estimating(showContinue: Bool)
@@ -171,6 +172,8 @@ final class SwapButtonPresentationController {
             return SwapButtonConfiguration(title: .continue, isEnabled: false, showLoading: false)
         }
         switch state {
+        case .submitting:
+            return SwapButtonConfiguration(title: .swap(sellingToken, buyingToken), isEnabled: false, showLoading: true)
         case .invalidPair:
             return SwapButtonConfiguration(
                 title: .issue(.invalidPair),

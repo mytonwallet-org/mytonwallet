@@ -9,9 +9,18 @@ import UIComponents
 import WalletCore
 import WalletContext
 
-public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
-    private let accountIdProvider: AccountIdProvider
-    private var accountSource: AccountSource { accountIdProvider.source }
+public class AssetsTabVC: WViewController, SharedBottomToolbarContentProviding {
+    @AccountContext private var account: MAccount
+    private var accountSource: AccountSource { $account.source }
+
+    public var isSharedBottomToolbarEnabled: Bool {
+        !account.isTemporaryView && nftsVCManager.editingNavigator.state.editingState == nil
+    }
+    public var sharedBottomToolbarActions: [SharedBottomToolbarAction] { [] }
+    public var onSharedBottomToolbarActionsChange: (() -> Void)?
+
+    public func setSharedBottomToolbarHosted(_ isHosted: Bool) {}
+    public func performSharedBottomToolbarAction(id: String) {}
 
     private var segmentedController: WSegmentedController!
     private let defaultTab: DisplayAssetTab
@@ -41,7 +50,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         initialPosition: AssetListInitialPosition? = nil
     ) {
         let tabsViewModel = WalletAssetsViewModel(accountSource: accountSource)
-        self.accountIdProvider = AccountIdProvider(source: accountSource)
+        self._account = AccountContext(source: accountSource)
         self.defaultTab = defaultTab
         self.initialPosition = initialPosition
         self.tabsViewModel = tabsViewModel
@@ -56,7 +65,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
 
     public func canShow(accountSource: AccountSource, tab: DisplayAssetTab) -> Bool {
         let accountIdProvider = AccountIdProvider(source: accountSource)
-        return accountIdProvider.accountId == self.accountIdProvider.accountId && Self.hasDisplayTab(tab, in: tabsViewModel.displayTabs)
+        return accountIdProvider.accountId == $account.accountId && Self.hasDisplayTab(tab, in: tabsViewModel.displayTabs)
     }
 
     @discardableResult
@@ -82,28 +91,17 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         fatalError("init(coder:) has not been implemented")
     }
     
-    public func walletCore(event: WalletCoreData.Event) {
-        switch event {
-        default:
-            break
-        }
-    }
-
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
-        WalletCoreData.add(eventObserver: self)
+        observe { [weak self] in
+            guard let self else { return }
+            _ = account.isTemporaryView
+            onSharedBottomToolbarActionsChange?()
+        }
     }
     
     func setupViews() {
-        if let sheet = self.sheetPresentationController {
-            sheet.configureFullScreen(true)
-            sheet.configureAllowsInteractiveDismiss(true)
-            if IOS_26_MODE_ENABLED {
-                sheet.prefersGrabberVisible = true
-            }
-        }
-
         nftsVCManager.restoreTabsOnReorderCanceling = true
 
         let displayTabs = tabsViewModel.displayTabs
@@ -146,7 +144,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         segmentedController.model.onItemsReorder = { [weak self] items in
             guard let self else { return }
             let displayTabs: [DisplayAssetTab] = items.compactMap { item in
-                DisplayAssetTab.fromSegmentedControlItemId(item.id, accountId: self.accountIdProvider.accountId)
+                DisplayAssetTab.fromSegmentedControlItemId(item.id, accountId: self.$account.accountId)
             }
             try? await self.tabsViewModel.setOrder(displayTabs: displayTabs)
         }
@@ -160,9 +158,8 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if let sheet = self.sheetPresentationController {
-            sheet.configureAllowsInteractiveDismiss(true)
-        }
+        segmentedController.setBackNavigation(in: navigationController)
+        updateState()
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -282,6 +279,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
 
     private func updateState() {
         updateNavigationAppearance()
+        onSharedBottomToolbarActionsChange?()
         
         let navigator = nftsVCManager.editingNavigator
         let state = navigator.state
@@ -298,7 +296,7 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         
         var leadingItemGroups: [UIBarButtonItemGroup] = []
         var trailingItemGroups: [UIBarButtonItemGroup] = []
-        var setCloseButton: Bool = false
+        navigationItem.hidesBackButton = navigator.state.editingState != nil
         if let editingState = navigator.state.editingState {
             segmentedController.scrollView.isScrollEnabled = false
             switch editingState {
@@ -314,13 +312,9 @@ public class AssetsTabVC: WViewController, WalletCoreData.EventsObserver {
         } else {
             segmentedController.scrollView.isScrollEnabled = true
             segmentedController.segmentedControl?.isHidden = false
-            setCloseButton = true
         }
         navigationItem.leadingItemGroups = leadingItemGroups
         navigationItem.trailingItemGroups = trailingItemGroups
-        if setCloseButton {
-            addCloseNavigationItemIfNeeded()
-        }
     }
 
     private func onSegmentsReorder() {

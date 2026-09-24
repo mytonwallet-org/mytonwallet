@@ -10,6 +10,7 @@ private let debounceAddressResolution: Duration = .seconds(0.250)
 enum SendRecipientValidationState: Equatable {
     case invalid
     case incompatible
+    case sendToSelf
 
     var localizationKey: String {
         switch self {
@@ -17,6 +18,8 @@ enum SendRecipientValidationState: Equatable {
             "$send_recipient_invalid"
         case .incompatible:
             "$send_recipient_not_compatible"
+        case .sendToSelf:
+            "$send_recipient_self_transfer"
         }
     }
 
@@ -40,9 +43,11 @@ enum SendRecipientValidationState: Equatable {
         }
 
         let address = validatedRecipient?.resolvedAddress ?? input
-        if isSendAddressDraftError(validatedRecipient?.error)
-            || (!activeChain.isSendToSelfAllowed
-                && address == senderAddress) {
+        if !activeChain.isSendToSelfAllowed,
+           address == senderAddress {
+            return .sendToSelf
+        }
+        if isSendAddressDraftError(validatedRecipient?.error) {
             return .invalid
         }
         return nil

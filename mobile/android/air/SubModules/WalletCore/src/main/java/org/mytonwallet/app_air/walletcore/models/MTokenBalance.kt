@@ -9,7 +9,6 @@ import org.mytonwallet.app_air.walletcore.TON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.buildVirtualStakingSlug
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
-import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 data class MTokenBalance(
     val token: String?,
@@ -17,7 +16,8 @@ data class MTokenBalance(
     var toBaseCurrency: Double?,
     var toBaseCurrency24h: Double?,
     val toUsdBaseCurrency: Double?,
-    val isVirtualStakingRow: Boolean = false
+    val isVirtualStakingRow: Boolean = false,
+    val tokenName: String? = null
 ) {
     val virtualStakingToken: String? = if (isVirtualStakingRow && token != null) {
         buildVirtualStakingSlug(token)
@@ -68,8 +68,8 @@ data class MTokenBalance(
 
         val thisSlug = this.token ?: ""
         val otherSlug = other.token ?: ""
-        val thisName = TokenStore.getToken(thisSlug)?.name ?: thisSlug
-        val otherName = TokenStore.getToken(otherSlug)?.name ?: otherSlug
+        val thisName = this.tokenName ?: thisSlug
+        val otherName = other.tokenName ?: otherSlug
         val nameCompare = thisName.compareTo(otherName)
         if (nameCompare != 0) {
             return nameCompare
@@ -98,10 +98,12 @@ data class MTokenBalance(
 
         // Factory method to create an instance from JSON
         fun fromJson(json: JSONObject): MTokenBalance {
-            val token = json.optJSONObject("token")?.optString("slug")
+            val tokenJson = json.optJSONObject("token")
+            val token = tokenJson?.optString("slug")
+            val tokenName = tokenJson?.optString("name")?.ifBlank { null }
             val amountValueString = json.optString("balance").substringAfter("bigint:", "")
             val amountValue = amountValueString.toBigIntegerOrNull() ?: BigInteger.ZERO
-            return MTokenBalance(token, amountValue, null, null, null)
+            return MTokenBalance(token, amountValue, null, null, null, tokenName = tokenName)
         }
 
         // Factory method to create an instance from separate parameters
@@ -144,7 +146,8 @@ data class MTokenBalance(
                 amount,
                 toBaseCurrency,
                 toBaseCurrency24h,
-                toUsdBaseCurrency
+                toUsdBaseCurrency,
+                tokenName = token.name.ifBlank { null }
             )
         }
 

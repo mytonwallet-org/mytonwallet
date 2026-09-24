@@ -17,15 +17,6 @@ jest.mock('../src/api/chains/ton/wallet', () => {
   };
 });
 
-jest.mock('tonweb-mnemonic', () => ({
-  mnemonicToKeyPair: jest.fn(() => ({
-    publicKey: new Uint8Array(32).fill(7),
-    secretKey: new Uint8Array(64).fill(9),
-  })),
-  validateMnemonic: jest.fn(() => true),
-  generateMnemonic: jest.fn(() => ([])),
-}));
-
 jest.mock('../src/api/chains/solana/wallet', () => {
   const actual = jest.requireActual('../src/api/chains/solana/wallet');
   const { ApiServerError: ApiServerErrorActual } = jest.requireActual('../src/api/errors');

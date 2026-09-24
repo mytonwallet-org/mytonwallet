@@ -151,9 +151,9 @@ object TokenStore : IStore {
     private val _swapAssetsFlow = MutableStateFlow<List<MApiSwapAsset>?>(null)
     val swapAssetsFlow = _swapAssetsFlow.asStateFlow()
 
-    // List of swap assets, as MToken to query
+    // Swap assets, as MToken to query, indexed by slug
     @Volatile
-    private var swapAssetTokens: List<MToken>? = null
+    private var swapAssetTokensBySlug: Map<String, MToken>? = null
 
     @Volatile
     var swapAssets: List<MApiSwapAsset>? = null
@@ -187,7 +187,7 @@ object TokenStore : IStore {
     }
 
     fun setSwapAssets(tokens: List<MToken>?, isDefault: Boolean = false) {
-        swapAssetTokens = tokens
+        swapAssetTokensBySlug = tokens?.associateBy { it.slug }
         swapAssets = tokens?.map { MApiSwapAsset.from(it) }
         swapAssetsMap = swapAssets?.associateBy { it.slug }
         _swapAssetsFlow.value = swapAssets
@@ -204,10 +204,15 @@ object TokenStore : IStore {
     fun getToken(slug: String?, searchMinterAddress: Boolean = false): MToken? {
         val key = slug ?: return null
 
-        return tokens[key]
-            ?: swapAssetTokens?.find {
-                it.slug == key ||
-                    (searchMinterAddress && it.tokenAddress == key)
+        tokens[key]?.let { return it }
+        val swapAssetsBySlug = swapAssetTokensBySlug ?: return null
+        return swapAssetsBySlug[key]
+            ?: if (searchMinterAddress) {
+                swapAssetsBySlug.values.find {
+                    it.tokenAddress == key
+                }
+            } else {
+                null
             }
     }
 
@@ -318,7 +323,7 @@ object TokenStore : IStore {
     private var swapCacheJob: Job? = null
 
     fun updateSwapCache() {
-        val snapshot = ArrayList(swapAssetTokens ?: emptyList())
+        val snapshot = ArrayList(swapAssetTokensBySlug?.values ?: emptyList())
         swapCacheJob?.cancel()
         swapCacheJob = cacheScope.launch {
             try {
@@ -369,7 +374,7 @@ object TokenStore : IStore {
         for (token in tokens.values) {
             token.localizedName = null
         }
-        swapAssetTokens?.forEach { it.localizedName = null }
+        swapAssetTokensBySlug?.values?.forEach { it.localizedName = null }
         updateTokensCache()
         updateSwapCache()
         WalletCore.notifyEvent(WalletEvent.TokensChanged)
@@ -447,5 +452,17 @@ object TokenStore : IStore {
 
     override fun clearCache() {
         TokenDetailsCacheHelper.clear()
+    }
+
+    fun clearDownloadedData() {
+        tokensCacheJob?.cancel()
+        swapCacheJob?.cancel()
+        clearCache()
+        tokens = ConcurrentHashMap()
+        _tokensFlow.value = null
+        currencyRates = null
+        setSwapAssets(null)
+        isLoadingSwapAssets = false
+        seedDefaultTokensIfRequired()
     }
 }

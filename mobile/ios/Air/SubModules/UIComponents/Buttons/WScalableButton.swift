@@ -396,6 +396,7 @@ open class ButtonsToolbar: UIView {
 
     private struct ArrangedView {
         let view: UIView
+        let toolbarItem: (any ButtonsToolbarItem)?
         let widthConstraint: NSLayoutConstraint
     }
 
@@ -466,7 +467,7 @@ open class ButtonsToolbar: UIView {
         view.tintColor = .tintColor
         let widthConstraint = view.widthAnchor.constraint(equalToConstant: minItemWidth)
         widthConstraint.priority = UILayoutPriority(999)
-        arrangedSubviews.append(.init(view: view, widthConstraint: widthConstraint))
+        arrangedSubviews.append(.init(view: view, toolbarItem: view as? ButtonsToolbarItem, widthConstraint: widthConstraint))
         NSLayoutConstraint.activate([
              widthConstraint,
              view.heightAnchor.constraint(equalTo: stackView.heightAnchor)
@@ -486,13 +487,13 @@ open class ButtonsToolbar: UIView {
         
         let context = ButtonsToolbarLayoutContext(font: nil, itemWidth: itemWidth, pass: .draft)
         visibleItems.forEach { arrangedView in
-            if let item = arrangedView.view as? ButtonsToolbarItem {
+            if let item = arrangedView.toolbarItem {
                 item.onToolbarLayout(layoutContext: context)
             }
         }
         context.pass = .finalizing
         visibleItems.forEach { arrangedView in
-            if let item = arrangedView.view as? ButtonsToolbarItem {
+            if let item = arrangedView.toolbarItem {
                 item.onToolbarLayout(layoutContext: context)
             }
         }

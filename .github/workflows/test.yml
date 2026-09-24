@@ -11,8 +11,8 @@ jobs:
     name: Localization health
     permissions:
       contents: read
-    # Match the iOS release toolchain; named catalog placeholders require Xcode 26.
-    runs-on: macos-26
+    # Match the Xcode 27 toolchain used for iOS releases.
+    runs-on: xcode-27
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -70,6 +70,9 @@ jobs:
 
       - name: Test filename lint and autofix
         run: npm run test:file-names
+
+      - name: Test extension license distribution
+        run: npm run test:extension-licenses
 
       - name: Test
         run: npm test

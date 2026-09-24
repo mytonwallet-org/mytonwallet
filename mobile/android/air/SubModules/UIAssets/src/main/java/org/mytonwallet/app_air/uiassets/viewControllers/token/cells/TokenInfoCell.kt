@@ -104,7 +104,12 @@ class TokenInfoCell(
 
     private val descriptionContainer = WFrameLayout(context).apply {
         addView(expandedDescriptionLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        addView(collapsedDescriptionLabel, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        addView(
+            collapsedDescriptionLabel,
+            LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                marginEnd = 32.dp
+            }
+        )
     }
 
     private val arrowIcon = AppCompatImageView(context).apply {
@@ -132,7 +137,7 @@ class TokenInfoCell(
             toEnd(titleLabel, 52f)
             topToBottom(descriptionContainer, titleLabel, 3f)
             toStart(descriptionContainer, 20f)
-            toEnd(descriptionContainer, 52f)
+            toEnd(descriptionContainer, 20f)
             toBottom(descriptionContainer, 9f)
             topToBottom(skeletonIndicator, titleLabel, 3f)
             toStart(skeletonIndicator, 20f)
@@ -380,6 +385,7 @@ class TokenInfoCell(
         expandedDescriptionLabel.alpha = progress
         collapsedDescriptionLabel.alpha = 1f - progress
         arrowIcon.rotation = 90f + 180f * progress
+        arrowIcon.translationY = -13.dp * progress
         detailsContainer.alpha = progress
     }
 

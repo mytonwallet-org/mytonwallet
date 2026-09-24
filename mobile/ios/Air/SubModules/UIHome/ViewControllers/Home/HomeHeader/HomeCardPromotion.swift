@@ -1,6 +1,6 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 import Foundation
-import Kingfisher
-import Perception
 import SwiftUI
 import UIComponents
 import WalletCore
@@ -30,72 +30,6 @@ private enum HomeCardPromotionLayout {
                 y: -mascotIcon.top
             )
         )
-    }
-}
-
-struct HomeCardPromotionVisual: View {
-    let accountContext: AccountContext
-
-    var body: some View {
-        WithPerceptionTracking {
-            let promotion = cardOverlayPromotion
-            ZStack {
-                if let promotion {
-                    _HomeCardPromotionVisual(promotion: promotion)
-                        .transition(.opacity)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.smooth(duration: 0.3), value: promotion?.id)
-        }
-    }
-
-    private var cardOverlayPromotion: ApiPromotion? {
-        guard let promotion = accountContext.activePromotion, promotion.kind == .cardOverlay else {
-            return nil
-        }
-        return promotion
-    }
-}
-
-private struct _HomeCardPromotionVisual: View {
-    let promotion: ApiPromotion
-
-    @Environment(\.layoutDirection) private var layoutDirection
-
-    var body: some View {
-        let alignment = HomeCardPromotionLayout.physicalTopTrailingAlignment(for: layoutDirection)
-        ZStack(alignment: alignment) {
-            Image.airBundle("PromoCardBg")
-            mascotView()
-            Image.airBundle("PromoCardOverlay")
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
-    }
-
-    @ViewBuilder
-    private func mascotView() -> some View {
-        if let mascotIcon = promotion.cardOverlay.mascotIcon,
-           let mascotURLString = mascotIcon.url.nilIfEmpty,
-           let mascotURL = URL(string: mascotURLString)
-        {
-            let frame = HomeCardPromotionLayout.mascotFrame(for: mascotIcon)
-            KFImage(mascotURL)
-                .placeholder {
-                    Color.clear
-                }
-                .fade(duration: 0.15)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: frame.size.width, height: frame.size.height)
-                .rotationEffect(.degrees(mascotIcon.rotation))
-                .offset(
-                    x: HomeCardPromotionLayout.physicalTrailingOffset(frame.offset.x, layoutDirection: layoutDirection),
-                    y: frame.offset.y
-                )
-        }
     }
 }
 
@@ -129,7 +63,7 @@ struct HomeCardPromotionHitArea: View {
     }
 
     private func hitAreaFrame(for promotion: ApiPromotion) -> (size: CGSize, offset: CGPoint) {
-        guard let mascotIcon = promotion.cardOverlay.mascotIcon else {
+        guard let mascotIcon = promotion.cardOverlay?.mascotIcon else {
             return (
                 size: CGSize(width: HomeCardPromotionLayout.defaultHitAreaSize, height: HomeCardPromotionLayout.defaultHitAreaSize),
                 offset: .zero
@@ -142,7 +76,8 @@ struct HomeCardPromotionHitArea: View {
 
 @MainActor
 private func handlePromotionTap(_ promotion: ApiPromotion) {
-    switch promotion.cardOverlay.onClickAction {
+    guard let cardOverlay = promotion.cardOverlay else { return }
+    switch cardOverlay.onClickAction {
     case .openPromotionModal:
         AppActions.showPromotion(promotion)
     case .openMintCardModal:
@@ -151,7 +86,8 @@ private func handlePromotionTap(_ promotion: ApiPromotion) {
 }
 
 private func promotionAccessibilityLabel(_ promotion: ApiPromotion) -> String {
-    switch promotion.cardOverlay.onClickAction {
+    guard let cardOverlay = promotion.cardOverlay else { return lang("More") }
+    return switch cardOverlay.onClickAction {
     case .openPromotionModal:
         promotion.modal?.title.nilIfEmpty
             ?? promotion.modal?.actionButton?.title.nilIfEmpty
@@ -161,15 +97,4 @@ private func promotionAccessibilityLabel(_ promotion: ApiPromotion) -> String {
     }
 }
 
-#if DEBUG
-@available(iOS 26, *)
-#Preview("Promotion Card Overlay", traits: .sizeThatFitsLayout) {
-    ZStack {
-        MtwCardBackground(nft: nil)
-            .aspectRatio(1 / CARD_RATIO, contentMode: .fit)
-        _HomeCardPromotionVisual(promotion: DebugPromotionPreset.airPromotion)
-    }
-    .frame(width: 345, height: 200)
-    .clipShape(.rect(cornerRadius: 26))
-}
 #endif

@@ -13,6 +13,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
+import org.mytonwallet.app_air.walletcontext.models.MAutoExitOption
 import org.mytonwallet.app_air.walletcontext.models.MAutoLockOption
 import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
@@ -84,6 +85,13 @@ object WGlobalStorage {
         cachedLangCode = null
     }
 
+    fun clearDownloadedData() {
+        val keys =
+            globalStorageProvider.keysIn("byAccountId").map { "byAccountId.$it.activities" } +
+                arrayOf(PRICE_HISTORY, "tokenInfo.bySlug", "currencyRates")
+        globalStorageProvider.remove(keys.toTypedArray(), IGlobalStorageProvider.PERSIST_INSTANT)
+    }
+
     fun incDoNotSynchronize() {
         globalStorageProvider.incrementDoNotSynchronize()
         // Logger.d("---", "doNotSynchronize: ${globalStorageProvider.doNotSynchronize}")
@@ -125,6 +133,8 @@ object WGlobalStorage {
     private const val PRICE_HISTORY = "tokenPriceHistory.bySlug"
     private const val AUTO_LOCK_VALUE = "settings.autolockValue"
     private const val IS_APP_LOCK_ENABLED = "settings.isAppLockEnabled"
+    private const val IS_AUTO_CONFIRM_ENABLED = "settings.isAutoConfirmEnabled"
+    private const val AUTO_EXIT_VALUE = "settings.autoExitValue"
     private const val IS_SENSITIVE_DATA_HIDDEN = "settings.isSensitiveDataHidden"
     private const val STATE_VERSION = "stateVersion"
     private const val PUSH_NOTIFICATIONS_TOKEN = "pushNotifications.userToken"
@@ -138,7 +148,7 @@ object WGlobalStorage {
     private const val ARE_EXPERIMENTAL_FEATURES_ENABLED = "settings.areExperimentalFeaturesEnabled"
     private const val IS_TOKEN_CHART_EXPANDED = "settings.isTokenChartExpanded"
     private const val IS_TOKEN_INFO_EXPANDED = "settings.isTokenInfoExpanded"
-    private const val TOKEN_INFO_DEBUG_SOURCE = "debug.tokenInfoSource"
+    private const val ALLOW_SOLD_OUT_MINT_CARD_UPGRADE = "debug.allowSoldOutMintCardUpgrade"
     private const val TABLET_PANEL_WIDTH = "settings.tabletPanelWidth"
     private const val APP_TAB_ORDER = "settings.appTabOrder"
 
@@ -917,6 +927,28 @@ object WGlobalStorage {
 
     fun isAppLockEnabled(): Boolean = globalStorageProvider.getBool(IS_APP_LOCK_ENABLED) != false
 
+    fun getIsAutoConfirmEnabled(): Boolean =
+        globalStorageProvider.getBool(IS_AUTO_CONFIRM_ENABLED) != false
+
+    fun setIsAutoConfirmEnabled(value: Boolean) {
+        globalStorageProvider.set(
+            IS_AUTO_CONFIRM_ENABLED,
+            value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getAutoExit(): MAutoExitOption =
+        MAutoExitOption.fromValue(globalStorageProvider.getString(AUTO_EXIT_VALUE))
+
+    fun setAutoExit(option: MAutoExitOption) {
+        globalStorageProvider.set(
+            AUTO_EXIT_VALUE,
+            option.value,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun setIsAppLockEnabled(value: Boolean) {
         globalStorageProvider.set(
             IS_APP_LOCK_ENABLED,
@@ -1270,13 +1302,13 @@ object WGlobalStorage {
         )
     }
 
-    fun getTokenInfoDebugSource(): String? =
-        globalStorageProvider.getString(TOKEN_INFO_DEBUG_SOURCE)
+    fun getAllowSoldOutMintCardUpgrade(): Boolean =
+        globalStorageProvider.getBool(ALLOW_SOLD_OUT_MINT_CARD_UPGRADE) == true
 
-    fun setTokenInfoDebugSource(source: String) {
+    fun setAllowSoldOutMintCardUpgrade(enabled: Boolean) {
         globalStorageProvider.set(
-            TOKEN_INFO_DEBUG_SOURCE,
-            source,
+            ALLOW_SOLD_OUT_MINT_CARD_UPGRADE,
+            enabled,
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }

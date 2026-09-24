@@ -170,6 +170,9 @@ class SettingsHeaderView(private val viewController: SettingsVC, private var top
                     null
                 }
             }
+        val directionalBalanceText = balanceText?.let {
+            if (LocaleController.isRTL) "\u200F\u200E$it\u200F" else it
+        }
         val badges = account?.let {
             SpannableHelpers.accountBadgesSpan(
                 context,
@@ -180,11 +183,11 @@ class SettingsHeaderView(private val viewController: SettingsVC, private var top
             )
         }
         walletBalanceLabel.text = if (badges.isNullOrEmpty()) {
-            balanceText
+            directionalBalanceText
         } else {
             badges.apply {
                 append(" ", WSpacingSpan(5.dp), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                append(balanceText ?: "")
+                append(directionalBalanceText ?: "")
             }
         }
     }

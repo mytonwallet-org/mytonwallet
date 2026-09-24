@@ -51,6 +51,7 @@ public struct Confirmation<HeaderView: ConfirmationContent> {
     public let headerView: HeaderView
     public let presentationStyle: PresentationStyle
     public let biometricPolicy: BiometricPolicy
+    public let requiresFreshAuthentication: Bool
     public let prefersNavigationTitleWithCustomHeader: Bool
 
     public init(
@@ -58,12 +59,14 @@ public struct Confirmation<HeaderView: ConfirmationContent> {
         header: HeaderView,
         presentationStyle: PresentationStyle = .push,
         biometricPolicy: BiometricPolicy = .onAuthorizationScreen,
+        requiresFreshAuthentication: Bool = false,
         prefersNavigationTitleWithCustomHeader: Bool = true
     ) {
         self.title = title
         self.headerView = header
         self.presentationStyle = presentationStyle
         self.biometricPolicy = biometricPolicy
+        self.requiresFreshAuthentication = requiresFreshAuthentication
         self.prefersNavigationTitleWithCustomHeader = prefersNavigationTitleWithCustomHeader
     }
 }

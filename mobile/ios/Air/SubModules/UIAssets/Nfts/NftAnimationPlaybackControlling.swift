@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor
+@MainActor @objc
 public protocol NftAnimationPlaybackControlling: AnyObject {
     func setNftAnimationPlaybackActive(_ isActive: Bool)
 }

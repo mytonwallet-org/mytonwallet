@@ -3,8 +3,12 @@ import type { ApiTransaction } from '../types';
 import { MFA_API_URL } from '../config';
 import { fetchJson } from '../../util/fetch';
 
-export async function fetchTransaction(hash: string) {
-  const response = await fetchJson(`${MFA_API_URL}/transaction/${hash}`, undefined);
+export async function fetchTransaction(hash: string, initData?: string) {
+  const response = await fetchJson(`${MFA_API_URL}/transaction/${hash}`, undefined, initData ? {
+    headers: {
+      'X-Telegram-Init-Data': initData,
+    },
+  } : undefined);
   return response as ApiTransaction;
 }
 

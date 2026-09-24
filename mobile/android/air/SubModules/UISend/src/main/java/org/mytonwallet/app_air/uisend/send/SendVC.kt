@@ -17,10 +17,8 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.Space
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.constraintlayout.widget.Guideline
 import androidx.core.text.buildSpannedString
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -28,8 +26,6 @@ import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import java.lang.ref.WeakReference
-import kotlin.math.max
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.icons.R
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -49,6 +45,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.disableInteraction
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setReadOnly
+import org.mytonwallet.app_air.uicomponents.helpers.BottomActionAreaController
 import org.mytonwallet.app_air.uicomponents.helpers.DieselAuthorizationHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
@@ -59,6 +56,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
+import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.autoComplete.WAutoCompleteAddressView
 import org.mytonwallet.app_air.uicomponents.widgets.clearSegmentedControl.WClearSegmentedControl
 import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
@@ -68,7 +66,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup.BackgroundSt
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.setRoundedOutline
 import org.mytonwallet.app_air.uicomponents.widgets.showKeyboard
-import org.mytonwallet.app_air.uicomponents.widgets.updateLayoutParamsIfExists
+import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uisend.send.helpers.ScamDetectionHelpers
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -186,10 +184,6 @@ class SendVC(
     private val continueButtonVerticalMarginPx: Int = 15.dp
     private val continueButtonSpaceHeightPx: Int =
         continueButtonHeightPx + continueButtonVerticalMarginPx * 2
-
-    private val bottomGuideline = Guideline(context).apply {
-        id = generateViewId()
-    }
 
     private val title1: HeaderCell by lazy {
         HeaderCell(context).apply {
@@ -481,17 +475,14 @@ class SendVC(
     }
 
     private val scrollView by lazy {
-        ScrollView(context).apply {
+        WScrollView(WeakReference(this)).apply {
             addView(
                 linearLayout,
                 ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             )
-            id = generateViewId()
             setOnScrollChangeListener { _, _, _, _, _ ->
                 updateBlurViews(scrollView = this)
             }
-            overScrollMode = ScrollView.OVER_SCROLL_ALWAYS
-            isVerticalScrollBarEnabled = false
         }
     }
 
@@ -513,6 +504,16 @@ class SendVC(
                 setHorizontalPadding(0f)
             }
         }
+    }
+
+    private val bottomAreaController by lazy {
+        BottomActionAreaController(
+            viewController = this,
+            scrollView = scrollView,
+            contentView = linearLayout,
+            cornerView = bottomReversedCornerViewUpsideDown,
+            actionAreaHeight = { continueButtonSpaceHeightPx }
+        )
     }
 
     private val onInputCommentTextWatcher = object : TextWatcher {
@@ -598,7 +599,7 @@ class SendVC(
         continueButtonSpace.updateLayoutParams {
             height = continueButtonSpaceHeightPx
         }
-        updateBottomOffsets(true)
+        bottomAreaController.update(true)
         val onEnd = {
             with(primaryContent) {
                 isGone = true
@@ -617,7 +618,7 @@ class SendVC(
             continueButtonSpace.updateLayoutParams {
                 height = 1
             }
-            updateBottomOffsets(false)
+            bottomAreaController.update(false)
             scrollView.scrollTo(0, 0)
             showSuggestionAnimatorInProgress = false
             insetsUpdated()
@@ -627,8 +628,7 @@ class SendVC(
             return
         }
         showSuggestionAnimatorInProgress = true
-        val cornerViewDiff = getBottomReversedCornerViewUpsideDownHeight(true) -
-            getBottomReversedCornerViewUpsideDownHeight(false)
+        val cornerViewDiff = bottomAreaController.cornerViewDiff
         suggestionAnimator = animatorSet {
             together {
                 duration(AnimationConstants.NAV_PUSH)
@@ -656,7 +656,7 @@ class SendVC(
                     }
                 }
                 intValues(cornerViewDiff, 0) {
-                    onUpdate { animatedValue -> updateBottomOffsets(false, animatedValue) }
+                    onUpdate { animatedValue -> bottomAreaController.update(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }
@@ -691,7 +691,7 @@ class SendVC(
         continueButtonSpace.updateLayoutParams {
             height = 1
         }
-        updateBottomOffsets(false)
+        bottomAreaController.update(false)
         val onEnd = {
             with(primaryContent) {
                 alpha = 1f
@@ -709,15 +709,14 @@ class SendVC(
             continueButtonSpace.updateLayoutParams {
                 height = continueButtonSpaceHeightPx
             }
-            updateBottomOffsets(true)
+            bottomAreaController.update(true)
             continueButton.translationY = 0f
         }
         if (!WGlobalStorage.getAreAnimationsActive()) {
             onEnd()
             return
         }
-        val cornerViewDiff = getBottomReversedCornerViewUpsideDownHeight(true) -
-            getBottomReversedCornerViewUpsideDownHeight(false)
+        val cornerViewDiff = bottomAreaController.cornerViewDiff
         suggestionAnimator = animatorSet {
             together {
                 duration(AnimationConstants.NAV_PUSH)
@@ -740,7 +739,7 @@ class SendVC(
                     }
                 }
                 intValues(0, cornerViewDiff) {
-                    onUpdate { animatedValue -> updateBottomOffsets(false, animatedValue) }
+                    onUpdate { animatedValue -> bottomAreaController.update(false, animatedValue) }
                 }
             }
             onEnd { onEnd() }
@@ -762,13 +761,13 @@ class SendVC(
             navigationBar?.addLeadingView(accountSelectorView)
         }
 
-        view.addHorizontalGuideline(bottomGuideline)
+        view.addHorizontalGuideline(bottomAreaController.guideline)
         view.addView(scrollView, ViewGroup.LayoutParams(MATCH_PARENT, 0))
         view.addView(
             bottomReversedCornerViewUpsideDown,
             FrameLayout.LayoutParams(
                 MATCH_PARENT,
-                getBottomReversedCornerViewUpsideDownHeight()
+                bottomAreaController.getCornerViewHeight()
             ).apply {
                 gravity = Gravity.BOTTOM
             }
@@ -794,16 +793,20 @@ class SendVC(
                 continueButtonHeightPx
             )
         )
+        bottomAreaController.insetsUpdated()
         view.setConstraints {
             allEdges(scrollView)
             toCenterX(bottomReversedCornerViewUpsideDown)
             toBottom(bottomReversedCornerViewUpsideDown)
-            bottomToTop(continueButtonSpace, bottomGuideline)
+            bottomToTop(continueButtonSpace, bottomAreaController.guideline)
             toCenterX(continueButtonSpace)
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
-            bottomToTopPx(continueButton, bottomGuideline, continueButtonVerticalMarginPx)
-            guidelineEndPx(bottomGuideline, getSystemBottomOffset())
+            bottomToTopPx(
+                continueButton,
+                bottomAreaController.guideline,
+                continueButtonVerticalMarginPx
+            )
         }
 
         initialTokenSlug?.let {
@@ -1067,8 +1070,16 @@ class SendVC(
                                 return@launch
                             }
                             val result = viewModel.callSend(preparation)
+                            result.error?.let { error ->
+                                showSubmissionError(
+                                    MBridgeError.fromErrorName(error)
+                                        ?: MBridgeError.Type.UNEXPECTED_ERROR
+                                )
+                                return@launch
+                            }
                             val mfaHash = result.mfaRequestHash
                             if (mfaHash != null) {
+                                vc.onSubmissionAwaitingMfa()
                                 val amountStr = CoinUtils.toDecimalString(
                                     config.request.amountEquivalent.tokenAmount.amountInteger,
                                     config.request.token.decimals
@@ -1096,13 +1107,21 @@ class SendVC(
                                                     text = chipText
                                                 )
                                         )
+                                val hasPasscodeScreen =
+                                    navigationController?.viewControllers?.lastOrNull() is
+                                        PasscodeConfirmVC
                                 navigationController?.push(mfaVC, onCompletion = {
-                                    navigationController?.removePrevViewControllerOnly()
+                                    if (hasPasscodeScreen) {
+                                        navigationController?.removePrevViewControllerOnly()
+                                    }
                                 })
                                 return@launch
                             }
-                            val id = result.activityId
-                            sentActivityId = id?.let { ActivityHelpers.getTxIdFromId(it) }
+                            val id = result.activityId ?: run {
+                                showSubmissionError(MBridgeError.Type.UNEXPECTED_ERROR)
+                                return@launch
+                            }
+                            sentActivityId = ActivityHelpers.getTxIdFromId(id)
                             // Wait for Pending Activity event...
                             receivedLocalActivities?.firstOrNull {
                                 it.getTxHash() == sentActivityId
@@ -1123,6 +1142,11 @@ class SendVC(
 
     private fun showSubmissionError(error: MBridgeError?) {
         val navigationController = navigationController
+        val currentViewController = navigationController?.viewControllers?.lastOrNull()
+        if (currentViewController is SendConfirmVC) {
+            currentViewController.onSubmissionFailed(error)
+            return
+        }
         val previousViewController = navigationController?.viewControllers
             ?.getOrNull(navigationController.viewControllers.size - 2)
         if (previousViewController == null) {
@@ -1308,32 +1332,6 @@ class SendVC(
         }
     }
 
-    private fun getSystemBottomOffset(): Int = max(
-        (navigationController?.getSystemBars()?.bottom ?: 0),
-        (navigationController?.imeInsetBottom ?: 0)
-    )
-
-    private fun getScrollViewBottomMargin(buttonVisible: Boolean = true): Int {
-        val system = getSystemBottomOffset()
-        val button = if (buttonVisible) {
-            continueButtonSpaceHeightPx
-        } else {
-            0
-        }
-        return system + button
-    }
-
-    private fun getBottomReversedCornerViewUpsideDownHeight(buttonVisible: Boolean = true): Int {
-        val system = getSystemBottomOffset()
-        val button = if (buttonVisible) {
-            continueButtonSpaceHeightPx
-        } else {
-            ViewConstants.GAP.dp
-        }
-        val radius = ViewConstants.BLOCK_RADIUS.dp.roundToInt()
-        return system + button + radius
-    }
-
     override fun insetsUpdated() {
         super.insetsUpdated()
         scrollView.setPaddingRelative(
@@ -1348,19 +1346,11 @@ class SendVC(
         if (showSuggestionAnimatorInProgress) {
             return
         }
-        updateBottomOffsets(continueButton.isVisible)
         view.setConstraints {
-            guidelineEndPx(bottomGuideline, getSystemBottomOffset())
             toStartPx(continueButton, 20.dp + systemBarStartInset)
             toEndPx(continueButton, 20.dp + systemBarEndInset)
         }
-    }
-
-    private fun updateBottomOffsets(buttonVisible: Boolean, extraSize: Int = 0) {
-        bottomReversedCornerViewUpsideDown.updateLayoutParamsIfExists {
-            height = getBottomReversedCornerViewUpsideDownHeight(buttonVisible) + extraSize
-        }
-        linearLayout.setPadding(0, 0, 0, getScrollViewBottomMargin(buttonVisible) + extraSize)
+        bottomAreaController.insetsUpdated()
     }
 
     private fun updateCommentViews() {
@@ -1444,6 +1434,7 @@ class SendVC(
 
     override fun onDestroy() {
         super.onDestroy()
+        bottomAreaController.onDestroy()
         scrollView.setOnScrollChangeListener(null)
         addressInputView.qrScanImageView.setOnClickListener(null)
         addressInputView.removeTextChangedListener(onInputDestinationTextWatcher)

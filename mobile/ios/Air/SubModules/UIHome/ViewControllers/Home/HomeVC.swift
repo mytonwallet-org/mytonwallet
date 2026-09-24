@@ -16,7 +16,7 @@ import ContextMenuKit
 import Perception
 import SwiftUI
 
-private let homeCollectionViewBottomExtension: CGFloat = 200
+private let homeCollectionViewBottomExtension: CGFloat = 0
 private let homeContentBottomSpacing: CGFloat = 32
 private let isInitialHomeFadeInEnabled = false
 
@@ -38,6 +38,15 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     let headerViewModel: HomeHeaderViewModel
     let rootNavigationStyle: HomeRootNavigationStyle
     private let showsActionsRow: Bool
+    private let bodyAccountSource: AccountSource
+    private struct AccountPresentation {
+        let activities: ActivityPreviewViewModel
+        let assetTabs: WalletAssetsViewModel.PreparedTabs
+    }
+    private let accountTransition = HomeAccountTransition<AccountPresentation>()
+    var isCommittingAccount = false
+    private var accountPresentationRevision = 0
+    private var imagePreloadTask: Task<Void, Never>?
     private var removesTemporaryAccountOnDeinit = true
 
     private var didReportDataReady = false
@@ -119,14 +128,21 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         rootNavigationStyle: HomeRootNavigationStyle = .standard,
         showsActionsRow: Bool = true
     ) {
-        self.actionsVC = ActionsVC(accountSource: accountSource)
+        let homeVM = HomeViewModel(accountSource: accountSource)
+        self.homeVM = homeVM
+        let bodyAccountSource: AccountSource = if case .constant = accountSource {
+            accountSource
+        } else {
+            .accountId(homeVM.account.id)
+        }
+        self.bodyAccountSource = bodyAccountSource
+        self.actionsVC = ActionsVC(accountSource: bodyAccountSource)
         self.tokensSectionDataProvider = HomeWalletTokensSectionDataProvider(
             id: "tokens",
-            accountSource: accountSource
+            accountSource: bodyAccountSource
         )
         self.rootNavigationStyle = rootNavigationStyle
         self.showsActionsRow = showsActionsRow
-        homeVM = HomeViewModel(accountSource: accountSource)
         headerViewModel = HomeHeaderViewModel(
             accountSource: accountSource,
             rootNavigationStyle: rootNavigationStyle
@@ -159,6 +175,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     isolated deinit {
+        imagePreloadTask?.cancel()
         guard removesTemporaryAccountOnDeinit else { return }
         let accountId = homeVM.account.id
         Task {
@@ -245,7 +262,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         // Must be created before the collection view's data source, because the assets custom
         // section cell registration reads `walletAssetsVC.view` / `walletAssetsVC.computedHeight()`.
         // This keeps the first dequeue/layout pass consistent with the assets section.
-        let walletAssetsVC = WalletAssetsVC(accountSource: homeVM.$account.source)
+        let walletAssetsVC = WalletAssetsVC(accountSource: bodyAccountSource)
         self.walletAssetsVC = walletAssetsVC
         tokensSectionDataProvider.menuProvider = { [weak walletAssetsVC] in
             walletAssetsVC?.tokensMenu
@@ -253,8 +270,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         addChild(walletAssetsVC)
         walletAssetsVC.loadViewIfNeeded()
         walletAssetsVC.didMove(toParent: self)
-        walletAssetsVC.editingNavigator.onStateChange = { [weak self] _, newState in
-            guard let self else { return }
+        walletAssetsVC.editingNavigator.onStateChange = { [weak self] oldState, newState in
+            guard let self, oldState.editingState != newState.editingState else { return }
             if newState.editingState == .selection,
                !self.rootNavigationStyle.usesNavigationBarTopTabs {
                 self.walletAssetsVC?.editingNavigator.installToolbar(into: self.view)
@@ -263,7 +280,9 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             self.onWalletAssetsEditingStateChange?()
         }
 
+        collectionView.tracesHomeUpdates = true
         super.setupCollectionView(collectionViewBottomConstraint: homeCollectionViewBottomExtension)
+        collectionView.traceHome("home.setup", "account=\(homeVM.account.id) navigation=\(rootNavigationStyle)")
         collectionView.alpha = isInitialHomeFadeInEnabled ? 0 : 1
         if #available(iOS 26, iOSApplicationExtension 26, *) {
             collectionView.topEdgeEffect.isHidden = true
@@ -440,6 +459,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     public override func scrollToTop(animated: Bool) {
+        collectionView.traceHome("scroll.toTop", "animated=\(animated)")
         collectionView.setContentOffset(
             CGPoint(x: 0, y: -collectionView.adjustedContentInset.top),
             animated: animated
@@ -470,6 +490,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        headerViewModel.isVisible = true
+        collectionView.traceHome("home.appeared", "account=\(homeVM.account.id)")
         if rootNavigationStyle.usesTopTabs, !hasCompletedInitialTopTabsAppearance {
             updateSafeAreaInsets()
             hasCompletedInitialTopTabsAppearance = true
@@ -482,8 +504,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
     }
 
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        headerViewModel.isVisible = false
+    }
+
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        collectionView.countHomeWork("homeLayout")
         updateScrollingHeaderTransforms()
         updateScrollingHeaderZOrder()
         updateHeaderCardLayout()
@@ -497,6 +525,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func updateSafeAreaInsets() {
+        collectionView.traceHome("home.safeArea", "top=\(view.safeAreaInsets.top) bottom=\(view.safeAreaInsets.bottom)")
         updateCollectionViewBottomInset()
         guard let navigationController else { return }
         let navBarHeight = navigationController.navigationBar.frame.height
@@ -530,6 +559,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         let additionalCollapseInset = max(0, minimumCollapseContentOffset - maximumContentOffsetWithBaseInset)
         let bottomInset = baseBottomInset + additionalCollapseInset
         if abs(collectionView.contentInset.bottom - bottomInset) > 0.5 {
+            collectionView.traceHome("home.bottomInset", "old=\(collectionView.contentInset.bottom) new=\(bottomInset) collapseExtra=\(additionalCollapseInset)")
             collectionView.contentInset.bottom = bottomInset
         }
     }
@@ -596,7 +626,11 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     func contentOffsetChanged() {
         // `contentInset` is not applied until `scrollViewWillEndDragging` so inset is calculated here based on expansion state
         let topContentInset = (collectionView.adjustedContentInset.top - collectionView.contentInset.top) + (headerViewModel.state == .expanded ? expansionInset : 0.0)
+        let previousState = headerViewModel.state
         balanceHeaderView.updateHeight(scrollOffset: collectionView.contentOffset.y + topContentInset, isExpandingProgrammatically: isExpandingProgrammatically)
+        if previousState != headerViewModel.state {
+            collectionView.traceHome("header.state", "old=\(previousState) new=\(headerViewModel.state) programmatic=\(isExpandingProgrammatically)")
+        }
         updateHeaderBlur()
         headerViewModel.scrollOffsetChanged(to: collectionView.contentOffset.y + (collectionView.adjustedContentInset.top - collectionView.contentInset.top))
         updateCardVisibility()
@@ -730,7 +764,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func tokensSectionDidChange(hasStructuralChanges: Bool, animated: Bool) {
-        guard isViewLoaded else { return }
+        guard isViewLoaded, !isCommittingAccount else { return }
+        collectionView.traceHome("home.tokensChanged", "structureChanged=\(hasStructuralChanges) animated=\(animated)")
         if hasStructuralChanges {
             applySnapshot(makeSnapshot(reconfiguringCustomSections: [tokensCustomSectionID]), animatingDifferences: animated)
         } else {
@@ -746,25 +781,33 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         headerBottomConstraint?.constant = -actionsHeightWithSpacer
     }
 
-    func updateTableViewHeaderFrame(animated: Bool = true) {
-        if headerPlaceholderHeight != appliedHeaderPlaceholderHeight ||
-            bhvHeight != appliedHeaderHeightWithoutAssets ||
-            assetsCustomSectionHeight != appliedAssetsCustomSectionHeight {
-            appliedHeaderPlaceholderHeight = headerPlaceholderHeight
-            appliedHeaderHeightWithoutAssets = bhvHeight
-            appliedAssetsCustomSectionHeight = assetsCustomSectionHeight
+    func updateTableViewHeaderFrame(animated: Bool = true, reason: String = #function) {
+        let headerHeight = headerPlaceholderHeight
+        let balanceHeight = bhvHeight
+        let assetsHeight = assetsCustomSectionHeight
+        let headerChanged = headerHeight != appliedHeaderPlaceholderHeight
+            || balanceHeight != appliedHeaderHeightWithoutAssets
+        let assetsChanged = assetsHeight != appliedAssetsCustomSectionHeight
+        if headerChanged || assetsChanged {
+            collectionView.traceHome("home.heights", "reason=\(reason) header=\(appliedHeaderPlaceholderHeight ?? -1)->\(headerHeight) balance=\(appliedHeaderHeightWithoutAssets ?? -1)->\(balanceHeight) assets=\(appliedAssetsCustomSectionHeight ?? -1)->\(assetsHeight) animated=\(animated)")
+            appliedHeaderPlaceholderHeight = headerHeight
+            appliedHeaderHeightWithoutAssets = balanceHeight
+            appliedAssetsCustomSectionHeight = assetsHeight
             let updates = { [self] in
-                actionsBottomConstraint?.constant = headerPlaceholderHeight
-                updateHeaderBottomConstraint()
-                if let cell = visibleCustomSectionCell(id: assetsCustomSectionID) as? HomeAssetsRowCell {
-                    configureAssetsCustomSection(cell: cell)
-                } else {
-                    // The cell is unreachable while a batch update is in flight; a queued reconfigure
-                    // lands after it and re-runs the registration with the current height, so the new
-                    // height isn't lost to the applied-height caching above
-                    reconfigureCustomSection(id: assetsCustomSectionID)
+                if headerChanged {
+                    actionsBottomConstraint?.constant = headerHeight
+                    updateHeaderBottomConstraint()
+                    reconfigureHeaderPlaceholder(animated: animated)
                 }
-                reconfigureHeaderPlaceholder(animated: true)
+                if assetsChanged {
+                    if let cell = visibleCustomSectionCell(id: assetsCustomSectionID) as? HomeAssetsRowCell {
+                        configureAssetsCustomSection(cell: cell)
+                        invalidateCustomSectionLayout(id: assetsCustomSectionID)
+                    } else {
+                        // A batch update can temporarily hide the cell; queue its new height.
+                        reconfigureCustomSection(id: assetsCustomSectionID)
+                    }
+                }
             }
             if animated && skeletonState != .loading {
                 UIView.animateAdaptive(duration: isExpandingProgrammatically == true ? 0.2 : 0.3) { [self] in
@@ -932,10 +975,16 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     // MARK: HomeVMDelegate
     func update(state: UpdateStatusView.State, animated: Bool) {
+        let cause = HomeTrace.cause
         DispatchQueue.main.async {
-            self.updateStatus = state
-            self.onUpdateStatusChange?(state, animated)
-            self.balanceHeaderView.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
+            HomeTrace.$cause.withValue(cause) {
+                if self.isViewLoaded {
+                    self.collectionView.traceHome("home.status", "old=\(self.updateStatus) new=\(state) same=\(self.updateStatus == state) animated=\(animated)")
+                }
+                self.updateStatus = state
+                self.onUpdateStatusChange?(state, animated)
+                self.balanceHeaderView.update(status: state, animatedWithDuration: animated ? 0.3 : nil)
+            }
         }
     }
 
@@ -948,12 +997,9 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateNavigationItem()
     }
 
-    private var switchActivitiesTask: Task<Void, Never>?
-    private var displayedAccountId: String?
-
     func interactivelySwitchAccountTo(accountId: String) {
         guard homeVM.isTrackingActiveAccount else { return }
-        AccountStore.activateAccountInteractively(accountId: accountId)
+        prepareAccountTransition(accountId: accountId, activatesAccount: true)
     }
 
     private func observeCurrentAccount() {
@@ -972,9 +1018,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateContent(accountId: AccountStore.currentAccountId)
     }
 
-    /// The actions row hides itself for view-only accounts by observing its own account context, which
-    /// updates in a separate tick from `updateContent`'s layout pass — so the header space it occupies
-    /// must track its height directly
+    /// Account replacement updates this height synchronously; other availability changes still
+    /// need to update the header when the actions row changes independently.
     private func observeActionsRowHeight() {
         withPerceptionTracking {
             _ = actionsVC.calculatedHeight
@@ -987,29 +1032,99 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     private func actionsRowHeightChanged() {
+        guard !isCommittingAccount else { return }
         UIView.animate(withDuration: 0.30) { [self] in
             walletAssetDidChangeHeight(animated: true)
         }
     }
 
     private func updateContent(accountId: String) {
-        guard displayedAccountId != accountId else { return }
-        let isFirstContent = displayedAccountId == nil
-        displayedAccountId = accountId
+        guard accountId != accountTransition.displayedAccountId else { return }
+        prepareAccountTransition(accountId: accountId, activatesAccount: false)
+    }
 
-        scrollToTop(animated: false)
-        UIView.animate(withDuration: 0.30) { [self] in
-            walletAssetDidChangeHeight(animated: true)
+    private func preloadNeighboringContent() {
+        let ids = Array(headerViewModel.accountStore.orderedAccountIds)
+        guard let index = ids.firstIndex(of: tokensSectionDataProvider.accountId) else { return }
+        let neighbors = [index - 1, index + 1].filter { ids.indices.contains($0) }.map { ids[$0] }
+        tokensSectionDataProvider.preloadAccounts(neighbors,
+            rowWidth: max(0, collectionView.bounds.width - 32),
+            visibleRowCount: Int(ceil(collectionView.bounds.height / WalletTokenCell.defaultHeight)))
+        imagePreloadTask?.cancel()
+        imagePreloadTask = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            for accountId in neighbors {
+                guard !Task.isCancelled else { return }
+                let nfts = NftStore.getAccountShownNfts(accountId: accountId).map { $0.values.prefix(6).map(\.nft) } ?? []
+                await NftMediaView.prepareCachedImages(for: nfts)
+            }
         }
+    }
 
-        switchActivitiesTask?.cancel()
-        switchActivitiesTask = Task {
-            let nextActivityViewModel = await makeActivityPreviewViewModel(accountId: accountId)
-            guard !Task.isCancelled else { return }
-            activityPreviewViewModel = nextActivityViewModel
-            transactionsUpdated(accountChanged: isFirstContent, isUpdateEvent: false)
+    public override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        imagePreloadTask?.cancel()
+        tokensSectionDataProvider.discardPreparedContent()
+    }
+
+    private func prepareAccountTransition(accountId: String, activatesAccount: Bool) {
+        tokensSectionDataProvider.cancelPreloading()
+        imagePreloadTask?.cancel()
+        collectionView.traceHome("home.account.prepare", "old=\(accountTransition.displayedAccountId ?? "-") new=\(accountId) interactive=\(activatesAccount)")
+        let sourceAccountId = AccountStore.currentAccountId
+        accountTransition.request(accountId: accountId) { [weak self] in
+            guard let self else { return nil }
+            async let assetTabs = WalletAssetsViewModel.prepareTabs(accountId: accountId)
+            let activities = await self.makeActivityPreviewViewModel(accountId: accountId)
+            let presentation = await AccountPresentation(activities: activities, assetTabs: assetTabs)
+            if activatesAccount {
+                guard AccountStore.currentAccountId == sourceAccountId,
+                      AccountStore.accountsById[accountId] != nil else { return nil }
+            } else if self.homeVM.isTrackingActiveAccount {
+                // A direct switch can return to the displayed account before this load finishes.
+                guard AccountStore.currentAccountId == accountId else { return nil }
+            }
+            return presentation
+        } commit: { [weak self] presentation in
+            self?.commitAccountTransition(presentation, activatesAccount: activatesAccount)
+        }
+    }
+
+    private func commitAccountTransition(_ presentation: AccountPresentation, activatesAccount: Bool) {
+        let accountId = presentation.activities.accountId
+        #if DEBUG || HOME_FRAME_PROBE
+        HomeFrameProbe.shared.commit()
+        #endif
+        accountPresentationRevision += 1
+        let revision = accountPresentationRevision
+        collectionView.traceHome("home.account.commit", "account=\(accountId)")
+        let animated = activityPreviewViewModel != nil && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+        isCommittingAccount = true
+        walletAssetsVC?.prepareAccountTransition(animated: animated)
+        UIView.performWithoutAnimation {
+            // Scrolling may request offscreen rows from the still-displayed account.
             scrollToTop(animated: false)
+            if activatesAccount {
+                AccountStore.activateAccountInteractively(accountId: accountId)
+                AccountThemeObserver.shared.apply(animated: false)
+            }
+            activityPreviewViewModel?.delegate = nil
+            activityPreviewViewModel = presentation.activities
+            activitySectionDataProvider.update(viewModel: presentation.activities)
+            tokensSectionDataProvider.switchAccountTo(accountId)
+            walletAssetsVC?.switchAccountTo(accountId, preparedTabs: presentation.assetTabs)
             updateNavigationItem()
+        }
+        applyContentReplacementSnapshot(makeSnapshot(), animatingDifferences: animated, alongside: { [weak self] in
+            guard let self, self.accountPresentationRevision == revision else { return }
+            self.walletAssetsVC?.animateAccountTransition()
+            self.actionsVC.switchAccountTo(accountId, animated: animated)
+            self.updateTableViewHeaderFrame(animated: false)
+            self.isCommittingAccount = false
+        }) { [weak self] in
+            guard let self, self.accountPresentationRevision == revision else { return }
+            self.updateSkeletonState()
+            self.preloadNeighboringContent()
         }
     }
 
@@ -1024,6 +1139,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     public override func transactionsUpdated(accountChanged: Bool, isUpdateEvent: Bool) {
+        guard !isCommittingAccount else { return }
+        collectionView.traceHome("home.activitiesChanged", "account=\(displayedActivitiesAccountId) accountChanged=\(accountChanged) updateEvent=\(isUpdateEvent) visible=\(activityPreviewViewModel?.activityIDs?.count ?? -1) state=\(String(describing: activityPreviewViewModel?.loadState))")
         activitySectionDataProvider.update(viewModel: activityPreviewViewModel)
         applySnapshot(makeSnapshot(reconfiguringCustomSections: [activityCustomSectionID]), animatingDifferences: true)
         updateSkeletonState()

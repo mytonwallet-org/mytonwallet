@@ -10,13 +10,14 @@ import CustomCardBackground from './CustomCardBackground';
 
 interface OwnProps {
   isSticky?: boolean;
+  withMotion?: boolean;
   nft?: ApiNft;
-  onCardChange: (hasGradient: boolean, className?: string) => void;
   className?: string;
   shadowClassName?: string;
+  onCardChange: (hasGradient: boolean, className?: string) => void;
 }
 
-function CustomCardManager({ isSticky, nft, onCardChange, className, shadowClassName }: OwnProps) {
+function CustomCardManager({ isSticky, withMotion, nft, className, shadowClassName, onCardChange }: OwnProps) {
   const prevNftRef = useRef<ApiNft | undefined>(undefined);
   const forceUpdate = useForceUpdate();
 
@@ -47,6 +48,7 @@ function CustomCardManager({ isSticky, nft, onCardChange, className, shadowClass
         <CustomCardBackground
           key={prevNft.address}
           isSticky={isSticky}
+          withMotion={withMotion}
           nft={prevNft}
           shouldHide={!nft}
           onTransitionEnd={handleTransitionEnd}
@@ -58,6 +60,7 @@ function CustomCardManager({ isSticky, nft, onCardChange, className, shadowClass
         <CustomCardBackground
           key={nft.address}
           isSticky={isSticky}
+          withMotion={withMotion}
           nft={nft}
           noShowAnimation={noShowAnimation}
           onLoad={onCardChange}

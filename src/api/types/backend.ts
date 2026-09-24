@@ -447,6 +447,8 @@ export type ApiCardInfo = {
   all: number;
   notMinted: number;
   price: number;
+  /** Mint start time as an ISO 8601 UTC date-time string. */
+  startsAt?: string;
 };
 
 export type ApiCardsInfo = Record<ApiMtwCardType, ApiCardInfo>;
@@ -459,7 +461,25 @@ export type ApiAccountConfig = {
 
 export type ApiSwapVersion = 2 | 3;
 
-export type ApiPromotion = {
+export type ApiPromotion = ApiCardOverlayPromotion | ApiInfoBannerPromotion;
+
+export type ApiInfoBannerPromotion = {
+  id: string;
+  kind: 'infoBanner';
+  infoBanner: {
+    title: string;
+    /** Inline Markdown, including emphasis. */
+    description: string;
+    actionButton: {
+      title: string;
+      onClickAction: 'openEarn';
+    };
+  };
+  cardOverlay?: never;
+  modal?: never;
+};
+
+export type ApiCardOverlayPromotion = {
   id: string;
   kind: 'cardOverlay';
   cardOverlay: {

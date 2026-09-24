@@ -26,6 +26,21 @@ addActionHandler('initApi', async (global, actions) => {
     accountIds,
   });
 
+  // The repair clears broken auth tokens, the detection below flags accounts missing one.
+  // If the detection ran first, the just-cleaned accounts would stay unflagged until the next launch.
+  // Both read only the storage, so they run ahead of the data preload and a password entered right after startup
+  // already budgets for the upgrade. They are awaited because the repair rewrites stored accounts, and so do the
+  // migrations below. The detection covers only the accounts known here: a record left only in the storage,
+  // e.g. an import whose secret was never saved, has no secret to read and would abort the upgrade.
+  await callApi('repairInvalidBip39TonAuthTokens');
+  const candidateIds = await callApi('getMultichainUpgradeCandidateIds', accountIds);
+  if (candidateIds?.length) {
+    setGlobal({
+      ...getGlobal(),
+      multichainUpgradeAccountIds: candidateIds,
+    });
+  }
+
   await callApi('waitDataPreload');
   // Properly handle temporary account cleanup
   if (global.currentTemporaryViewAccountId) {
@@ -48,18 +63,6 @@ addActionHandler('initApi', async (global, actions) => {
     global = { ...global, isDerivationsSynced: true };
     setGlobal(global);
   }
-
-  // The repair clears broken auth tokens, the detection below flags accounts missing one.
-  // If the detection ran first, the just-cleaned accounts would stay unflagged until the next launch.
-  void callApi('repairInvalidBip39TonAuthTokens').then(async () => {
-    const candidateIds = await callApi('getMultichainUpgradeCandidateIds');
-    if (candidateIds?.length) {
-      setGlobal({
-        ...getGlobal(),
-        multichainUpgradeCount: candidateIds.length,
-      });
-    }
-  });
 
   const { currentAccountId } = global;
 

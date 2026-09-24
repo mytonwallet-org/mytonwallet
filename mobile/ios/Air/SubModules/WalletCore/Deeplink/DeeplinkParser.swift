@@ -311,6 +311,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "market":
         return .market
 
+    case "nft-card", "mint":
+        return .mintCard
+
     case "settings":
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         if let section = pathComponents.first?.nilIfEmpty {

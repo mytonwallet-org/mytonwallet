@@ -2,14 +2,13 @@ import { SignDataState, TransferState } from '../../types';
 
 import { TONCOIN } from '../../../config';
 import { processDeeplink } from '../../../util/deeplink';
+import { getTranslation } from '../../../util/langProvider';
 import { addActionHandler, setGlobal } from '../../index';
 import {
   clearCurrentDappTransfer,
   clearCurrentSignature,
   clearCurrentTransfer,
   clearDappConnectRequest,
-  updateCurrentDappSignData,
-  updateCurrentDappTransfer,
   updateCurrentSignature,
   updateCurrentTransfer,
   updateCurrentTransferByCheckResult,
@@ -185,23 +184,21 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'dappTransferComplete': {
-      if (global.currentDappTransfer.state !== TransferState.None) {
-        global = updateCurrentDappTransfer(global, {
-          state: TransferState.Complete,
-          isLoading: false,
-        });
-        setGlobal(global);
+      // The modal may already show a newer request while this transaction is still being sent.
+      // Closing the modal would reject that request as if the user had declined it.
+      const { state, promiseId } = global.currentDappTransfer;
+      if (state !== TransferState.None && promiseId === update.promiseId) {
+        actions.closeDappTransfer();
+        actions.showToast({ message: getTranslation('Successfully Sent'), icon: 'icon-check' });
       }
       break;
     }
 
     case 'dappSignDataComplete': {
-      if (global.currentDappSignData.state !== SignDataState.None) {
-        global = updateCurrentDappSignData(global, {
-          state: SignDataState.Complete,
-          isLoading: false,
-        });
-        setGlobal(global);
+      const { state, promiseId } = global.currentDappSignData;
+      if (state !== SignDataState.None && promiseId === update.promiseId) {
+        actions.closeDappSignData();
+        actions.showToast({ message: getTranslation('Successfully Signed'), icon: 'icon-check' });
       }
       break;
     }

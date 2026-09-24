@@ -401,6 +401,7 @@ class TabletTabsVC(context: Context) :
 
     override fun onExploreCreated(exploreVC: ExploreVC) {
         searchBar.setupBlurWith(exploreVC.view)
+        exploreVC.onBestSearchMatchActionChanged = searchBar::setBestMatchAction
     }
 
     override fun exportSearchText(): String = searchBar.currentText()
@@ -507,6 +508,7 @@ class TabletTabsVC(context: Context) :
 
     override fun viewWillAppear() {
         super.viewWillAppear()
+        headerView.viewWillAppear()
         contentNav.viewWillAppear()
     }
 
@@ -520,6 +522,7 @@ class TabletTabsVC(context: Context) :
 
     override fun viewWillDisappear() {
         super.viewWillDisappear()
+        headerView.viewWillDisappear()
         contentNav.viewWillDisappear()
     }
 
@@ -550,9 +553,6 @@ class TabletTabsVC(context: Context) :
             cachedExploreVC?.shouldKeepSearchActiveOnKeyboardDismiss != true
         ) {
             searchBar.editText.clearFocus()
-        }
-        if (searchBar.searchMatchedSite != null && !isKeyboardOpen) {
-            searchBar.clearSearchAutoComplete()
         }
         updateSearchBarPosition()
     }

@@ -11,6 +11,7 @@ import { selectCurrentAccountTokenBalance, selectCurrentToncoinBalance, selectMy
 import buildClassName from '../../util/buildClassName';
 import { captureEvents, SwipeDirection } from '../../util/captureEvents';
 import { IS_TOUCH_ENV } from '../../util/windowEnvironment';
+import { getMintStartsAt } from './helpers/mintCountdown';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
@@ -32,7 +33,7 @@ export const MAP_CARD_TYPE_TO_NAME = {
 } as const;
 
 interface OwnProps {
-  cardsInfo: ApiCardsInfo;
+  cardsInfo?: ApiCardsInfo;
 }
 
 interface StateProps {
@@ -129,6 +130,7 @@ function CardRoster({ cardsInfo, mycoin, mycoinBalance, toncoinBalance }: OwnPro
       mycoinBalance,
       toncoinBalance,
       currentKey,
+      isComingSoon: !cardsInfo,
     };
 
     switch (currentKey) {
@@ -180,7 +182,7 @@ function CardRoster({ cardsInfo, mycoin, mycoinBalance, toncoinBalance }: OwnPro
       <Transition
         ref={transitionRef}
         name="semiFade"
-        className={buildClassName(styles.transition, 'custom-scroll')}
+        className={styles.transition}
         activeKey={currentSlide}
         nextKey={nextKey}
       >
@@ -209,6 +211,7 @@ function renderMediaCard({
   mycoinBalance,
   toncoinBalance,
   currentKey,
+  isComingSoon,
 }: {
   lang: LangFn;
   title: string;
@@ -218,7 +221,10 @@ function renderMediaCard({
   mycoinBalance?: bigint;
   toncoinBalance?: bigint;
   currentKey: number;
+  isComingSoon?: boolean;
 }) {
+  const mintStartsAt = cardInfo && getMintStartsAt(cardInfo);
+
   return (
     (
       <div className={styles.content}>
@@ -239,7 +245,11 @@ function renderMediaCard({
           <div className={styles.slideInner}>
             {renderDots(currentKey)}
             <div className={styles.cardType}>{title}</div>
-            <AvailabilityIndicator cardInfo={cardInfo} />
+            <AvailabilityIndicator
+              cardInfo={cardInfo}
+              isComingSoon={isComingSoon}
+              isMintScheduled={mintStartsAt !== undefined}
+            />
           </div>
         </div>
         <CardPros
@@ -249,6 +259,8 @@ function renderMediaCard({
           toncoinBalance={toncoinBalance}
           mycoin={mycoin}
           isAvailable={Boolean(cardInfo?.notMinted)}
+          isComingSoon={isComingSoon}
+          mintStartsAt={mintStartsAt}
         />
       </div>
     )

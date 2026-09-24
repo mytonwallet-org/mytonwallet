@@ -232,10 +232,15 @@ public final class NftMediaView: UIView {
 
     private func loadImage(from urls: [URL], at index: Int, requestID: UUID) {
         let url = urls[index]
+        if let image = ImageCache.default.retrieveImageInMemoryCache(forKey: url.absoluteString) {
+            self.imageView.image = image
+            self.didLoadStaticImage()
+            return
+        }
         self.imageView.kf.setImage(
             with: .network(url),
             placeholder: nil,
-            options: [.alsoPrefetchToMemory, .cacheOriginalImage]
+            options: [.alsoPrefetchToMemory, .cacheOriginalImage, .backgroundDecode]
         ) { [weak self] result in
             guard let self, self.currentRequestID == requestID else {
                 return
@@ -243,10 +248,7 @@ public final class NftMediaView: UIView {
 
             switch result {
             case .success:
-                self.isStaticImageLoading = false
-                self.isStaticImageAvailable = true
-                self.updateAnimationVisibility()
-                self.emitStateChange()
+                self.didLoadStaticImage()
             case .failure(let error):
                 if error.isTaskCancelled {
                     return
@@ -264,6 +266,13 @@ public final class NftMediaView: UIView {
                 }
             }
         }
+    }
+
+    private func didLoadStaticImage() {
+        self.isStaticImageLoading = false
+        self.isStaticImageAvailable = true
+        self.updateAnimationVisibility()
+        self.emitStateChange()
     }
 
     private func loadAnimation(from url: URL, requestID: UUID) {
@@ -346,6 +355,22 @@ public final class NftMediaView: UIView {
     private func updateAnimationVisibility() {
         self.animationView.isHidden = !self.isAnimationAvailable
             || (!self.isAnimationPlaybackInFlight && self.isStaticImageAvailable)
+    }
+
+    /// Prepare cached thumbnails before an account transition, without starting speculative downloads.
+    public static func prepareCachedImages(for nfts: [ApiNft]) async {
+        for nft in nfts {
+            for url in candidateImageURLs(for: nft) {
+                guard !Task.isCancelled else { return }
+                guard let result = try? await KingfisherManager.shared.retrieveImage(
+                    with: url, options: [.onlyFromCache, .backgroundDecode]
+                ) else { continue }
+                if let image = await result.image.byPreparingForDisplay(), !Task.isCancelled {
+                    try? await ImageCache.default.store(image, forKey: url.absoluteString, toDisk: false)
+                }
+                break
+            }
+        }
     }
 
     private static func candidateImageURLs(for nft: ApiNft?) -> [URL] {

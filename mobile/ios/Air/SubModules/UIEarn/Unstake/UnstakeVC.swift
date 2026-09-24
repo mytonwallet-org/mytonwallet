@@ -26,6 +26,7 @@ public class UnstakeVC: WViewController {
     
     var fakeTextField = UITextField(frame: .zero)
     private var continueButton: WButton?
+    private var isConfirming = false
     public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
         self._account = accountContext
         self.model = UnstakeModel(config: config, stakingState: stakingState, accountContext: accountContext)
@@ -94,6 +95,11 @@ public class UnstakeVC: WViewController {
     
     func amountChanged(amount: BigInt?) {
         guard let continueButton else { return }
+        if isConfirming {
+            continueButton.showLoading = true
+            continueButton.isEnabled = false
+            return
+        }
         let buttonTitle = L10n.unstakeAsset(symbol: model.baseToken.symbol)
         
         let isLong = getIsLongUnstake(state: stakingState, amount: amount)
@@ -165,12 +171,19 @@ public class UnstakeVC: WViewController {
     }
     
     @objc func continuePressed() {
+        guard !isConfirming else { return }
         view.endEditing(true)
         if model.canRetryDraft {
             model.retryDraft()
             return
         }
+        isConfirming = true
+        amountChanged(amount: model.amount)
         Task {
+            defer {
+                isConfirming = false
+                amountChanged(amount: model.amount)
+            }
             do {
                 try await confirmAction(account: account)
             } catch {

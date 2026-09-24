@@ -687,6 +687,17 @@ public final class _NftStore: Sendable {
         }
     }
 
+    func applyMintedMtwCard(accountId: String, nft: ApiNft) {
+        guard nft.chain == .ton, nft.collectionAddress == MTW_CARDS_COLLECTION else { return }
+        updatesQueue.async { [self] in
+            received(accountId: accountId, newNfts: [nft], removedNftIds: [])
+            Task {
+                _ = await AssetsAndActivityDataStore.addOwnedMtwCardAddressIfNeeded(accountId: accountId, address: nft.address)
+                await installMtwCardIfNeeded(accountId: accountId, nft: nft, replacingCurrent: true)
+            }
+        }
+    }
+
     /// Buying an NFT is an explicit intent to own it, so it enters the gallery visible even if its collection
     /// is untrusted. Applied from the activity, so it does not wait for the `nftReceived` update.
     public func applyPurchasedNft(accountId: String, nft: ApiNft) {
@@ -746,10 +757,10 @@ public final class _NftStore: Sendable {
     }
 
     @MainActor
-    private func installMtwCardIfNeeded(accountId: String, nft: ApiNft) {
+    func installMtwCardIfNeeded(accountId: String, nft: ApiNft, replacingCurrent: Bool = false) {
         @Dependency(\.accountSettings) var accountSettingsStore
         let accountSettings = accountSettingsStore.for(accountId: accountId)
-        guard accountSettings.backgroundNft == nil else {
+        guard replacingCurrent || accountSettings.backgroundNft == nil else {
             return
         }
         log.info("cardBackground.autoInstall accountId=\(accountId, .public) nftAddress=\(nft.address, .public) nftChain=\(nft.chain.rawValue, .public) nftMtwId=\(nft.metadata?.mtwCardId as Any, .public)")

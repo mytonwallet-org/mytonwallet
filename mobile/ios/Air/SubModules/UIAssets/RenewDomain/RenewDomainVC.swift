@@ -54,7 +54,9 @@ public final class RenewDomainVC: WViewController {
                 }
             }
         )
+        viewModel.isSubmitting = true
         Task {
+            defer { viewModel.isSubmitting = false }
             _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }

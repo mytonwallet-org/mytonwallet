@@ -214,7 +214,7 @@ class StickyHeaderView(
         listOf(scanButton, lockButton, eyeButton).forEach {
             it.updateColors(WColor.Tint, WColor.BackgroundRipple)
         }
-        val hideDefaultItems = shouldHideDefaultItems(isWideScreen = false)
+        val hideDefaultItems = shouldHideDefaultItems()
         if (screenMode is MScreenMode.Default) {
             scanButton.isVisible = !hideDefaultItems
         }
@@ -244,6 +244,8 @@ class StickyHeaderView(
     }
 
     private var appliedWideScreen: Boolean? = null
+    private var isWideLayout = false
+    private var appliedWideLayout: Boolean? = null
 
     fun update(mode: Mode, state: UpdateStatusView.State?, handleAnimation: Boolean) {
         val effectiveMode =
@@ -255,8 +257,9 @@ class StickyHeaderView(
         val isShowing =
             state is UpdateStatusView.State.Updated && effectiveMode == Mode.Collapsed
         val isWideScreen = effectiveMode == Mode.WideScreen
+        isWideLayout = mode == Mode.WideScreen
         updateStatusView.setAppearance(
-            isShowing = !shouldHideDefaultItems(isWideScreen) && !isWideScreen && !isShowing,
+            isShowing = !shouldHideDefaultItems() && !isWideScreen && !isShowing,
             animated = handleAnimation
         )
         state?.let {
@@ -266,9 +269,10 @@ class StickyHeaderView(
     }
 
     private fun applyWideScreenLayout(isWideScreen: Boolean) {
-        if (appliedWideScreen == isWideScreen) return
+        if (appliedWideScreen == isWideScreen && appliedWideLayout == isWideLayout) return
         appliedWideScreen = isWideScreen
-        val hideDefaultItems = shouldHideDefaultItems(isWideScreen)
+        appliedWideLayout = isWideLayout
+        val hideDefaultItems = shouldHideDefaultItems()
 
         if (screenMode is MScreenMode.Default) {
             scanButton.isVisible = !isWideScreen && !hideDefaultItems
@@ -295,7 +299,7 @@ class StickyHeaderView(
     }
 
     fun updateActions() {
-        val hideDefaultItems = shouldHideDefaultItems(appliedWideScreen == true)
+        val hideDefaultItems = shouldHideDefaultItems()
         val lockButtonVisibility =
             if (!hideDefaultItems && WGlobalStorage.isPasscodeSet()) VISIBLE else GONE
         if (lockButton.visibility != lockButtonVisibility) {
@@ -311,8 +315,7 @@ class StickyHeaderView(
         }
     }
 
-    private fun shouldHideDefaultItems(isWideScreen: Boolean): Boolean =
-        screenMode is MScreenMode.Default && !isWideScreen
+    private fun shouldHideDefaultItems(): Boolean = !isWideLayout
 
     private fun updateButtonPositions() {
         val isWideScreen = appliedWideScreen == true

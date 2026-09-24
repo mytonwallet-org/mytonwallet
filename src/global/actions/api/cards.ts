@@ -35,6 +35,19 @@ addActionHandler('submitMintCard', withEnclaveSessionRelease(async (global, acti
   setGlobal(global);
 }));
 
+// Called when a card's mint countdown hits zero. Polls the account config once per start time, even if several
+// card slides call it at once, and polls again after the modal is reopened
+addActionHandler('checkMintStart', (global, actions, { startsAt }) => {
+  // With the modal closed, saving `checkedMintStartsAt` would recreate `currentMintCard`, and the next opening
+  // would find the start time already checked
+  if (!global.currentMintCard || global.currentMintCard.checkedMintStartsAt === startsAt) return undefined;
+
+  // The fresh config arrives as a regular `updateAccountConfig` update
+  void callApi('pollAccountConfig');
+
+  return updateMintCards(global, { checkedMintStartsAt: startsAt });
+});
+
 function createTransferOptions(globalState: GlobalState, enclaveToken?: string): ApiSubmitTransferOptions {
   const { currentAccountId, currentMintCard } = globalState;
   const { config } = selectAccountState(globalState, currentAccountId!)!;

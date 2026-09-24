@@ -35,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
+import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
@@ -63,7 +64,8 @@ import org.mytonwallet.app_air.walletcore.stores.AuthStore
 class PasscodeScreenView(
     private val containerVC: WViewController,
     private val passcodeViewState: PasscodeViewState,
-    ignoreBiometry: Boolean
+    ignoreBiometry: Boolean,
+    private var withAutoConfirm: Boolean = false
 ) : WView(containerVC.context),
     WThemedView,
     PasscodeKeyboardView.PasscodeListener {
@@ -161,30 +163,62 @@ class PasscodeScreenView(
     }
 
     val topLinearLayout = object : LinearLayout(context) {
-        var desiredHeight: Int = 0
+        override fun measureChildWithMargins(
+            child: View,
+            parentWidthMeasureSpec: Int,
+            widthUsed: Int,
+            parentHeightMeasureSpec: Int,
+            heightUsed: Int
+        ) {
+            val heightMeasureSpec = if (passcodeViewState is PasscodeViewState.CustomHeader) {
+                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
+            } else {
+                parentHeightMeasureSpec
+            }
+            super.measureChildWithMargins(
+                child,
+                parentWidthMeasureSpec,
+                widthUsed,
+                heightMeasureSpec,
+                heightUsed
+            )
+        }
+
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
 
-            if (desiredHeight == 0) desiredHeight = measuredHeight
-            if (measuredHeight < desiredHeight) {
+            val child = children.firstOrNull() as? ViewGroup ?: return
+            val availableHeight = measuredHeight
+            val childHeight = child.measuredHeight
+            val scale = if (childHeight > availableHeight) {
+                availableHeight / childHeight.toFloat()
+            } else {
+                1f
+            }
+            if (scale < 1f) {
                 clipChildren = false
                 clipToPadding = false
-                val child = children.firstOrNull() as? ViewGroup
-                child?.apply {
-                    pivotX = measuredWidth / 2f
-                    pivotY = (desiredHeight - measuredHeight) / 4f
-                    clipChildren = false
-                    clipToPadding = false
-                    val scale = measuredHeight / desiredHeight.toFloat()
-                    scaleX = scale
-                    scaleY = scale
-                }
+                child.clipChildren = false
+                child.clipToPadding = false
             }
+            child.pivotX = child.measuredWidth / 2f
+            // Overflow within the bottom padding keeps the top-biased anchor; larger one is centered.
+            val overflow = childHeight - availableHeight
+            child.pivotY =
+                if (overflow <= child.paddingBottom) overflow * 0.75f else childHeight / 2f
+            child.scaleX = scale
+            child.scaleY = scale
         }
     }.apply {
         id = generateViewId()
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
+    }
+    private val confirmButton: WButton by lazy {
+        WButton(context).apply {
+            text = LocaleController.getString("Confirm")
+            setOnClickListener { delegate?.onAutoConfirm() }
+        }
     }
     private val bottomLayout = WView(context)
     private val centerGuideline = Guideline(context).apply {
@@ -482,7 +516,11 @@ class PasscodeScreenView(
             }
 
             is PasscodeViewState.CustomHeader -> {
-                passcodeKeyboardView.setPadding(0, 0, 0, keyboardBottomInset)
+                if (withAutoConfirm) {
+                    applyCustomHeaderBottomConstraints(isWideCustomHeaderLayout ?: return)
+                } else {
+                    passcodeKeyboardView.setPadding(0, 0, 0, keyboardBottomInset)
+                }
             }
         }
     }
@@ -506,6 +544,15 @@ class PasscodeScreenView(
 
     private fun setupAsCustomHeader() {
         addView(gapView2, LayoutParams(WRAP_CONTENT, ViewConstants.GAP.dp))
+        if (withAutoConfirm) {
+            bottomLayout.addView(confirmButton, LayoutParams(MATCH_PARENT, 50.dp))
+        } else {
+            addPasscodeInputViews()
+        }
+        applyCustomHeaderLayout()
+    }
+
+    private fun addPasscodeInputViews() {
         bottomLayout.addView(
             subTitleTextView,
             LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -515,10 +562,44 @@ class PasscodeScreenView(
             LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
         )
         bottomLayout.addView(passcodeKeyboardView, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-        applyCustomHeaderLayout()
+    }
+
+    fun exitAutoConfirm(onViewsSwapped: () -> Unit) {
+        if (!withAutoConfirm) return
+        withAutoConfirm = false
+        if (!isConfigured) {
+            onViewsSwapped()
+            return
+        }
+        confirmButton.isEnabled = false
+        confirmButton.fadeOut(AnimationConstants.VERY_QUICK_ANIMATION) {
+            bottomLayout.removeView(confirmButton)
+            bottomLayout.alpha = 0f
+            addPasscodeInputViews()
+            passcodeKeyboardView.updateButtons(isEmpty = true)
+            isWideCustomHeaderLayout = null
+            applyCustomHeaderLayout()
+            onViewsSwapped()
+            bottomLayout.fadeIn(AnimationConstants.VERY_QUICK_ANIMATION)
+        }
     }
 
     private fun applyCustomHeaderBottomConstraints(isWide: Boolean) {
+        if (withAutoConfirm) {
+            bottomLayout.setConstraints {
+                toCenterXPx(confirmButton, 20.dp - ViewConstants.HORIZONTAL_PADDINGS.dp)
+                if (isWide) {
+                    toCenterY(confirmButton)
+                } else {
+                    toTop(confirmButton)
+                    toBottomPx(
+                        confirmButton,
+                        15.dp + (containerVC.navigationController?.getSystemBars()?.bottom ?: 0)
+                    )
+                }
+            }
+            return
+        }
         if (isWide) {
             bottomLayout.setConstraints {
                 constrainedHeight(passcodeKeyboardView.id, true)
@@ -590,7 +671,8 @@ class PasscodeScreenView(
                 it.height = ViewConstants.GAP.dp
             }
             topLinearLayout.layoutParams = LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            bottomLayout.layoutParams = LayoutParams(MATCH_PARENT, 0)
+            bottomLayout.layoutParams =
+                LayoutParams(MATCH_PARENT, if (withAutoConfirm) WRAP_CONTENT else 0)
             if (centerGuideline.parent != null) removeView(centerGuideline)
             setConstraints {
                 val parentHeight = (containerVC.navigationController?.parent as? View)?.height ?: 0
@@ -604,6 +686,10 @@ class PasscodeScreenView(
                 topToBottom(gapView2, topLinearLayout)
                 topToBottom(bottomLayout, gapView2)
                 toBottom(bottomLayout)
+                if (withAutoConfirm) {
+                    setVerticalBias(bottomLayout.id, 1f)
+                    return@setConstraints
+                }
                 createVerticalChain(
                     ConstraintSet.PARENT_ID,
                     ConstraintSet.TOP,
@@ -661,7 +747,7 @@ class PasscodeScreenView(
 
     override fun updateTheme() {
         if (passcodeViewState !is PasscodeViewState.Default) {
-            if (isWideCustomHeaderLayout == true) {
+            if (withAutoConfirm || isWideCustomHeaderLayout == true) {
                 bottomLayout.background = null
             } else {
                 bottomLayout.setBackgroundColor(
@@ -713,6 +799,8 @@ class PasscodeScreenView(
         )
 
         fun onBiometricToken(enclaveToken: String) {}
+
+        fun onAutoConfirm() {}
 
         fun signOutPressed() {}
     }
@@ -858,10 +946,15 @@ class PasscodeScreenView(
     }
 
     fun showIndicator(animateToGreen: Boolean = true) {
+        if (withAutoConfirm) {
+            confirmButton.isLoading = true
+            return
+        }
         passcodeInputView.showIndicator(animateToGreen)
     }
 
     fun clearPasscode() {
+        if (withAutoConfirm) confirmButton.isLoading = false
         passcodeInputView.hideIndicator(false)
         passcodeInputView.passcode = ""
         passcodeKeyboardView.updateButtons(isEmpty = true)

@@ -10,7 +10,11 @@ private let log = Log("DebugView")
 
 
 @MainActor func _showDebugView() {
-    let vc = UIHostingController(rootView: DebugView())
+    let vc = UIHostingController(rootView: DebugView(onCreateTonOnlyWallet: {
+        topViewController()?.dismiss(animated: true) {
+            AirDebugActions.createTonOnlyWallet()
+        }
+    }))
     topViewController()?.present(vc, animated: true)
 }
 
@@ -24,12 +28,14 @@ private let log = Log("DebugView")
 /// can always be turned off. Use `IS_DEBUG_OR_TESTFLIGHT` for feature availability elsewhere.
 struct DebugView: View {
 
+    let onCreateTonOnlyWallet: () -> Void
+
     @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
+    @AppStorage(DebugPromotionPreset.cardMintingUserDefaultsKey) private var showCardMintingPromotionPreset = false
 #if DEBUG
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
     @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
-    @AppStorage(DebugPromotionPreset.cardMintingUserDefaultsKey) private var showCardMintingPromotionPreset = false
 #endif
 
     @Environment(\.dismiss) private var dismiss
@@ -74,6 +80,10 @@ struct DebugView: View {
             }
         } header: {
             Text("Logs")
+        }
+
+        Section {
+            Button(lang("Create TON-Only Wallet"), action: onCreateTonOnlyWallet)
         }
 
         Section {
@@ -183,6 +193,20 @@ struct DebugView: View {
             Text("Launches the intro flow for testing with existing accounts.")
         }
 
+        Section {
+            Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
+        } footer: {
+            Text("Overrides the current account promotion and card inventory with a mint-card sample.")
+        }
+        .onChange(of: showCardMintingPromotionPreset) { _ in
+            if showCardMintingPromotionPreset {
+                UserDefaults.standard.set(false, forKey: DebugPromotionPreset.userDefaultsKey)
+            }
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
+            }
+        }
+
         TestFlightConfigDebugSection()
     }
     
@@ -221,20 +245,6 @@ struct DebugView: View {
         .onChange(of: showAirPromotionPreset) { _ in
             if showAirPromotionPreset {
                 showCardMintingPromotionPreset = false
-            }
-            Task { @MainActor in
-                AccountConfigStore.liveValue.refreshDebugOverrides()
-            }
-        }
-
-        Section {
-            Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
-        } footer: {
-            Text("Overrides the current account promotion and card inventory with a mint-card sample.")
-        }
-        .onChange(of: showCardMintingPromotionPreset) { _ in
-            if showCardMintingPromotionPreset {
-                showAirPromotionPreset = false
             }
             Task { @MainActor in
                 AccountConfigStore.liveValue.refreshDebugOverrides()

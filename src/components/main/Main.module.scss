@@ -5,7 +5,9 @@
 @use "../../styles/scssVariables" as v;
 
 $scrollOffset: 0.1875rem;
-$landscapeSidebarWidth: 21.375rem;
+// Holds the column's own content at its previous width now that the sidebar reserves 1rem of air
+// on each side of it
+$landscapeSidebarWidth: 22.375rem;
 
 .portraitContainer {
   display: flex;
@@ -73,7 +75,7 @@ $landscapeSidebarWidth: 21.375rem;
     max-width: none;
 
     @media (min-width: 1100px) and (min-height: 700px) {
-      grid-template-columns: 24.5rem 1fr;
+      grid-template-columns: 25.5rem 1fr;
     }
   }
 
@@ -81,6 +83,11 @@ $landscapeSidebarWidth: 21.375rem;
     margin-inline-end: #{$scrollOffset};
     padding-top: var(--app-padding-top);
     padding-bottom: max(var(--safe-area-bottom), 1rem);
+    // The trailing gap is 1rem once the scrollbar and the scroll offset are taken out of it. The
+    // leading side has nothing to subtract, so the same 1rem is set directly and the column ends up
+    // with equal air on both sides. The sidebar scrolls, which clips anything reaching its edge -
+    // the wallet card leans out of its box while it tilts, and without this it loses that edge.
+    padding-inline-start: 1rem;
     padding-inline-end: calc(1rem - var(--scrollbar-width) - #{$scrollOffset});
   }
 

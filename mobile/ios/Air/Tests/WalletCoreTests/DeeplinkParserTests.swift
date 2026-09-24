@@ -4,6 +4,31 @@ import WalletCore
 
 @Suite("Deeplink Parser")
 struct DeeplinkParserTests {
+    @Test(arguments: [
+        "mtw://nft-card",
+        "mtw://nft-card/",
+        "mtw://nft-card?utm_source=promotion",
+        "https://my.tt/nft-card",
+        "https://my.tt/nft-card/",
+        "https://go.mytonwallet.org/nft-card",
+        "http://go.mytonwallet.org/nft-card?utm_source=promotion",
+        "mtw://mint",
+        "mtw://mint/",
+        "mtw://mint?utm_source=promotion",
+        "https://my.tt/mint",
+        "https://my.tt/mint/",
+        "https://go.mytonwallet.org/mint",
+        "http://go.mytonwallet.org/mint?utm_source=promotion",
+    ])
+    func parsesMintCardDeeplink(value: String) throws {
+        let url = try #require(URL(string: value))
+        let deeplink = try #require(Deeplink(url: url))
+        guard case .mintCard = deeplink else {
+            Issue.record("Expected mint card deeplink")
+            return
+        }
+    }
+
     struct WalletConnectCase: Sendable {
         let url: String
         let expectedRequestLink: String

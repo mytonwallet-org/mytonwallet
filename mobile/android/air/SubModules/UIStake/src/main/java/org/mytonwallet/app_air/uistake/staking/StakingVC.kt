@@ -34,6 +34,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uistake.confirm.ConfirmStakingHeaderView
@@ -462,21 +463,44 @@ class StakingVC(context: Context, private val tokenSlug: String, mode: StakingVi
                     Logger.LogTag.STAKING,
                     "handleViewModelEvent: SubmitSuccess activityId=${event.activityId}"
                 )
-                MBlockchain.ton.idToTxHash(event.activityId)?.let {
-                    onDone(it)
+                val txHash = MBlockchain.ton.idToTxHash(event.activityId)
+                if (txHash != null) {
+                    onDone(txHash)
+                } else {
+                    if (isAutoConfirmSubmitting) {
+                        isAutoConfirmSubmitting = false
+                        view.unlockView()
+                        stakeButton.isLoading = false
+                    }
+                    if (navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC) {
+                        pop()
+                    }
+                    showError(null)
                 }
             }
 
             is StakingViewModel.VmToVcEvents.SubmitFailure -> {
                 Logger.d(
                     Logger.LogTag.STAKING,
-                    "handleViewModelEvent: SubmitFailure error=${event.error?.parsed}"
+                    "handleViewModelEvent: SubmitFailure error=${event.error}"
                 )
-                pop()
-                showError(event.error?.parsed)
+                if (isAutoConfirmSubmitting) {
+                    isAutoConfirmSubmitting = false
+                    view.unlockView()
+                    stakeButton.isLoading = false
+                }
+                if (navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC) {
+                    pop()
+                }
+                showError(event.error)
             }
 
             is StakingViewModel.VmToVcEvents.MfaRequested -> {
+                if (isAutoConfirmSubmitting) {
+                    isAutoConfirmSubmitting = false
+                    view.unlockView()
+                    stakeButton.isLoading = false
+                }
                 presentMfaConfirm(event)
             }
 
@@ -489,18 +513,35 @@ class StakingVC(context: Context, private val tokenSlug: String, mode: StakingVi
             context,
             requestHash = event.requestHash
         )
+        val hasPasscodeScreen =
+            navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC
         navigationController?.push(mfaVC, onCompletion = {
-            navigationController?.removePrevViewControllerOnly()
+            if (hasPasscodeScreen) navigationController?.removePrevViewControllerOnly()
         })
     }
 
+    private var isAutoConfirmSubmitting = false
+
     private fun pushConfirmView() {
+        if (isAutoConfirmSubmitting) return
         val mode = if (stakingViewModel.isStake()) "stake" else "unstake"
         Logger.d(
             Logger.LogTag.STAKING,
             "pushConfirmView: mode=$mode tokenSlug=${stakingViewModel.tokenSlug}"
         )
         view.hideKeyboard()
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                isAutoConfirmSubmitting = true
+                view.lockView()
+                stakeButton.isLoading = true
+                stakingViewModel.onStakeConfirmed(token)
+            },
+            onPasscodeRequired = { pushPasscodeConfirmView() }
+        )
+    }
+
+    private fun pushPasscodeConfirmView() {
         val passcodeConfirmVC = PasscodeConfirmVC(
             context = context,
             passcodeViewState = PasscodeViewState.CustomHeader(

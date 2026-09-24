@@ -20,6 +20,7 @@ import { raceWithAbortSignal } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
 import { extractKey, findLast } from '../../../util/iteratees';
 import withCacheAsync from '../../../util/withCacheAsync';
+import { findKnownContract } from './util/knownContracts';
 import {
   getTonClient, toBase64Address, walletClassMap,
 } from './util/tonCore';
@@ -28,7 +29,6 @@ import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
 import {
   ALL_WALLET_VERSIONS,
   ContractType,
-  KnownContracts,
   NETWORK_CONFIG,
   WORKCHAIN,
 } from './constants';
@@ -36,17 +36,31 @@ import { loadTokenBalances } from './tokens';
 import { fetchJettonWallets } from './tokens';
 import { getWalletInfos } from './toncenter';
 
+// The cached wrappers take no `AbortSignal`: `withCacheAsync` keys the cache on the arguments, and every signal
+// stringifies to the same key, so a cached call cannot honour one. Pass a signal to the `fetch` functions instead.
 export const isAddressInitialized = withCacheAsync(
-  async (network: ApiNetwork, walletOrAddress: TonWallet | string) => {
-    return (await getWalletInfo(network, walletOrAddress)).isInitialized;
-  },
+  (network: ApiNetwork, walletOrAddress: TonWallet | string) => fetchIsAddressInitialized(network, walletOrAddress),
 );
 
-export const isActiveSmartContract = withCacheAsync(fetchIsActiveSmartContract, (value) => value !== undefined);
+export async function fetchIsAddressInitialized(
+  network: ApiNetwork, walletOrAddress: TonWallet | string, signal?: AbortSignal,
+) {
+  return (await getWalletInfo(network, walletOrAddress, signal)).isInitialized;
+}
 
-export async function fetchIsActiveSmartContract(network: ApiNetwork, address: string, signal?: AbortSignal) {
-  const { isInitialized, version } = await getWalletInfo(network, address, signal);
-  return isInitialized ? !version : undefined;
+export const isActiveNonWalletContract = withCacheAsync(
+  (network: ApiNetwork, address: string) => fetchIsActiveNonWalletContract(network, address),
+  (value) => value !== undefined,
+);
+
+/**
+ * Whether the address holds a contract that is not somebody's wallet. Unlike the wallet type reported by the indexer,
+ * this covers every wallet listed in `KnownContracts`, including the ones the app has no implementation for.
+ * Undefined for an address that holds nothing, so that the answer is not cached before a contract appears there.
+ */
+export async function fetchIsActiveNonWalletContract(network: ApiNetwork, address: string, signal?: AbortSignal) {
+  const { isInitialized, isWallet } = await getContractInfo(network, address, signal);
+  return isInitialized ? !isWallet : undefined;
 }
 
 export function publicKeyToAddress(
@@ -139,13 +153,12 @@ export async function getContractInfo(network: ApiNetwork, address: string, sign
 
   const { code, state } = data;
 
-  const codeHashOld = Buffer.from(await sha256(base64ToBytes(code))).toString('hex');
-  // For inactive addresses, `code` is an empty string. Cell.fromBase64 throws when `code` is an empty string.
+  // For inactive addresses, `code` is an empty string, and hashing that yields the digest of nothing: a value that
+  // looks like a fingerprint of code where there is no code. Cell.fromBase64 throws on an empty string as well.
+  const codeHashOld = code && Buffer.from(await sha256(base64ToBytes(code))).toString('hex');
   const codeHash = code && Cell.fromBase64(code).hash().toString('hex');
 
-  const contractInfo = Object.values(KnownContracts).find(
-    (info) => info.hash === codeHash || info.oldHash === codeHashOld,
-  );
+  const contractInfo = findKnownContract(codeHash, codeHashOld);
 
   const isInitialized = state === 'active';
   const isWallet = state === 'active' ? contractInfo?.type === ContractType.Wallet : undefined;
@@ -289,13 +302,8 @@ export async function getWalletVersionInfos(
   const walletInfos = await getWalletInfos(network, extractKey(items, 'address'));
 
   const result = items.map((item) => {
-    const walletInfo = walletInfos[item.address] ?? {
-      balance: 0n,
-      isInitialized: false,
-    };
-
     return {
-      ...walletInfo,
+      ...walletInfos[item.address],
       ...item,
     };
   });
@@ -388,6 +396,9 @@ export function getTonWallet(tonWallet: ApiTonWallet) {
   const { publicKey, version, address } = tonWallet;
   if (!publicKey) {
     throw new Error('Public key is missing');
+  }
+  if (!version) {
+    throw new Error('Wallet version is missing');
   }
 
   // For W5 wallets, determine the correct subwallet ID by comparing addresses

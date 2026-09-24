@@ -13,6 +13,7 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     private let onSubmit: (ApiUpdate.WalletConnectPaySignTransaction, EnclaveToken?) async throws -> ApiSignDappTransfersResult
     private var onCancel: (() -> Void)?
     private var isWaitingForNextStep = false
+    private var isSubmitting = false
     private var sendButtonObserver: ObserveToken?
 
     private var hostingController: UIHostingController<WalletConnectPaySignTransactionView>?
@@ -136,9 +137,11 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     }
 
     private func updateSendButtonState() {
-        guard !isWaitingForNextStep else {
+        let isBusy = isSubmitting || isWaitingForNextStep
+        sendButton.showLoading = isBusy
+        cancelButton.setTitle(isBusy ? lang("Close") : lang("Cancel"), for: .normal)
+        guard !isBusy else {
             sendButton.isEnabled = false
-            cancelButton.isEnabled = false
             return
         }
         let insufficientTokens = dappRequest.insufficientTokens(accountContext: $account)
@@ -152,7 +155,7 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     }
 
     @objc private func onSend() {
-        guard !isWaitingForNextStep else { return }
+        guard !isSubmitting, !isWaitingForNextStep else { return }
         guard canSend(insufficientTokens: dappRequest.insufficientTokens(accountContext: $account)) else { return }
         submit()
     }
@@ -167,19 +170,20 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
                 self?.finishConfirm()
             }
         )
+        isSubmitting = true
+        updateSendButtonState()
         Task {
+            defer {
+                isSubmitting = false
+                updateSendButtonState()
+            }
             _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 
     private func finishConfirm() {
-        onCancel = nil
         isWaitingForNextStep = true
-        sendButton.showLoading = true
         updateSendButtonState()
-        navigationItem.rightBarButtonItem?.isEnabled = false
-        isModalInPresentation = true
-        navigationController?.isModalInPresentation = true
     }
 
     @objc private func onCancelPressed() {
@@ -188,6 +192,7 @@ final class WalletConnectPaySignTransactionVC: WViewController, UISheetPresentat
     }
 
     private func showTransferInfo() {
+        guard !isSubmitting, !isWaitingForNextStep else { return }
         let transfers = request.visibleTransfers
         guard !transfers.isEmpty else { return }
         navigationController?.pushViewController(

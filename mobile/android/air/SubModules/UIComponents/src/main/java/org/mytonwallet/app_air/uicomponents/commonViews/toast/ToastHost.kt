@@ -87,6 +87,14 @@ class ToastHost(context: Context) : WFrameLayout(context) {
     private fun configureActiveToast() {
         val presentation = activeToast ?: return
         val toastView = getOrCreateToastView()
+        val height = if (presentation.isLarge) {
+            ToastView.LARGE_HEIGHT_DP.dp
+        } else {
+            ToastView.HEIGHT_DP.dp
+        }
+        if (toastView.layoutParams.height != height) {
+            toastView.layoutParams = toastView.layoutParams.apply { this.height = height }
+        }
         toastView.configure(presentation) {
             presentation.onAction?.invoke()
             dismissCurrentToast()

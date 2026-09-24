@@ -41,11 +41,13 @@ public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, S
     public init() {}
     
     public func set(key: String, value: String) -> Bool {
-        let saveSuccessful: Bool = keychainWrapper.set(value, forKey: key, withAccessibility: .afterFirstUnlockThisDeviceOnly)
-        if saveSuccessful == false {
-            log.error("failed to save to keychain key=\(key, .public)")
+        do {
+            try store(key: key, value: value)
+            return true
+        } catch {
+            log.error("failed to save to keychain key=\(key, .public): \(error, .public)")
+            return false
         }
-        return saveSuccessful
     }
     
     public func get(key: String) -> (Bool, String?) {

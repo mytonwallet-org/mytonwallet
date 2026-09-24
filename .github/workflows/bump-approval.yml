@@ -47,6 +47,10 @@ jobs:
             // carries is captured to be compared in full: a line merely containing the title's
             // version would pass both `"postinstall": "sh evil # 26.8.7"` and a bump to 26.8.70.
             const VERSION_FIELD_PATTERN = /^[+-]\s*"version": "(\d+\.\d+\.\d+)",?$/;
+            // The desktop force-update gate holds the bare version and nothing else; `postversion`
+            // rewrites it on every bump, so the removed line is the previous version and the added
+            // one must be the title's.
+            const GATE_LINE_PATTERN = /^[+-](\d+\.\d+\.\d+)$/;
             // `npm version` writes a single boilerplate line, with room for a hand-written one.
             const CHANGELOG_MAX_LINES = 5;
 
@@ -86,6 +90,7 @@ jobs:
               ['package.json', { status: 'modified', line: VERSION_FIELD_PATTERN }],
               ['package-lock.json', { status: 'modified', line: VERSION_FIELD_PATTERN }],
               [`changelogs/${version}.txt`, { status: 'added' }],
+              ['public/electronVersion.txt', { status: 'modified', line: GATE_LINE_PATTERN }],
             ]);
 
             const files = await github.paginate(github.rest.pulls.listFiles, { ...prRef, per_page: 100 });
@@ -118,6 +123,13 @@ jobs:
                 }
 
                 continue;
+              }
+
+              // The gate must stay a single version line: a patch that adds a second copy of the
+              // title's version would pass the per-line check, and the client rejects a multi-line
+              // file outright, which freezes every desktop update check.
+              if (expected.line === GATE_LINE_PATTERN && (file.additions !== 1 || file.deletions !== 1)) {
+                return decline(`${file.filename} is not a one-line replacement`);
               }
 
               for (const line of changedLines) {

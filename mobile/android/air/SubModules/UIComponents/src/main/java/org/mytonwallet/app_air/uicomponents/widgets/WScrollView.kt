@@ -34,6 +34,32 @@ open class WScrollView(private val viewController: WeakReference<WViewController
         overScrollMode = OVER_SCROLL_ALWAYS
     }
 
+    // Height of the scroll view's bottom area covered by overlays (keyboard, bottom bar).
+    var bottomObscuredInset = 0
+        set(value) {
+            if (field == value) return
+            val grew = value > field
+            field = value
+            if (grew) post { revealFocusedChild() }
+        }
+
+    private val tempRect = Rect()
+
+    private fun revealFocusedChild() {
+        val focused = findFocus() ?: return
+        if (focused === this) return
+        focused.getDrawingRect(tempRect)
+        offsetDescendantRectToMyCoords(focused, tempRect)
+        val delta = computeScrollDeltaToGetChildRectOnScreen(tempRect)
+        if (delta != 0) smoothScrollBy(0, delta)
+    }
+
+    override fun computeScrollDeltaToGetChildRectOnScreen(rect: Rect): Int {
+        if (bottomObscuredInset == 0) return super.computeScrollDeltaToGetChildRectOnScreen(rect)
+        val adjustedRect = Rect(rect).apply { bottom += bottomObscuredInset }
+        return super.computeScrollDeltaToGetChildRectOnScreen(adjustedRect)
+    }
+
     var onScrollChange: ((Int) -> Unit)? = null
     var onScrollStateChange: ((Int) -> Unit)? = null
 

@@ -9,7 +9,7 @@ import Perception
 import Dependencies
 import UIKitNavigation
 
-@Perceptible @MainActor
+@MainActor
 final class Container {
     var headerViewModel: HomeHeaderViewModel?
     var accountContext: AccountContext?
@@ -28,18 +28,26 @@ final class HomeCard: UICollectionViewCell {
 
     let container = Container()
 
-    var cardBackground: UIView!
-    var cardPromotion: UIView!
+    // This stationary layer flattens the surface's 3D subtree above collapsed content.
+    private let cardPresentation = UIView()
+    private let cardSurface = UIView()
+    private lazy var interaction = CardSurfaceInteraction(container: contentView, surface: cardSurface) { [weak self] in
+        self?.cardBackground.setLight($0)
+    }
+    private var motionObservation: ObserveToken?
+    private let cardBackground = HomeCardBackground()
+    private let cardPromotion = HomeCardPromotionView()
     var cardContentMaskingContainer: UIView!
     var cardContentMask: UIView!
-    var cardContent: UIView!
-    var collapsedContent: UIView!
-    var miniatureContent: UIView!
+    private let cardContent = HomeCardContentView(mode: .expanded)
+    private let collapsedContent = HomeCardContentView(mode: .collapsed)
+    private let miniatureContent = HomeCardMiniatureContent()
     private let miniatureTapButton = UIButton(type: .custom)
     private var widthConstraint: NSLayoutConstraint!
     private var heightConstraint: NSLayoutConstraint!
 
     var observeToken: ObserveToken?
+    private var tintObservation: ObserveToken?
 
     override init(frame: CGRect) {
         super.init(frame: .zero)
@@ -59,9 +67,6 @@ final class HomeCard: UICollectionViewCell {
             heightConstraint,
         ])
 
-        collapsedContent = HostingView { [container] in
-            CollapsedContentContainer(container: container)
-        }
         contentView.addSubview(collapsedContent)
         NSLayoutConstraint.activate([
             collapsedContent.topAnchor.constraint(equalTo: contentView.topAnchor),
@@ -70,42 +75,53 @@ final class HomeCard: UICollectionViewCell {
             collapsedContent.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
 
-        cardBackground = HostingView { [container] in
-            BackgroundContainer(container: container)
-        }
+        cardPresentation.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(cardPresentation)
+        NSLayoutConstraint.activate([
+            cardPresentation.topAnchor.constraint(equalTo: contentView.topAnchor),
+            cardPresentation.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            cardPresentation.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            cardPresentation.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
+        cardSurface.translatesAutoresizingMaskIntoConstraints = false
+        cardPresentation.addSubview(cardSurface)
+        NSLayoutConstraint.activate([
+            cardSurface.topAnchor.constraint(equalTo: cardPresentation.topAnchor),
+            cardSurface.leadingAnchor.constraint(equalTo: cardPresentation.leadingAnchor),
+            cardSurface.trailingAnchor.constraint(equalTo: cardPresentation.trailingAnchor),
+            cardSurface.bottomAnchor.constraint(equalTo: cardPresentation.bottomAnchor),
+        ])
+
         cardBackground.isAccessibilityElement = false
         cardBackground.accessibilityElementsHidden = true
         cardBackground.isUserInteractionEnabled = false
-        contentView.addSubview(cardBackground)
+        cardSurface.addSubview(cardBackground)
         NSLayoutConstraint.activate([
-            cardBackground.topAnchor.constraint(equalTo: contentView.topAnchor),
-            cardBackground.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            cardBackground.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardBackground.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            cardBackground.topAnchor.constraint(equalTo: cardSurface.topAnchor),
+            cardBackground.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
+            cardBackground.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
+            cardBackground.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
         ])
 
-        cardPromotion = HostingView { [container] in
-            PromotionContainer(container: container)
-        }
         cardPromotion.isAccessibilityElement = false
         cardPromotion.accessibilityElementsHidden = true
         cardPromotion.isUserInteractionEnabled = false
-        contentView.addSubview(cardPromotion)
+        cardSurface.addSubview(cardPromotion)
         NSLayoutConstraint.activate([
-            cardPromotion.topAnchor.constraint(equalTo: contentView.topAnchor),
-            cardPromotion.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            cardPromotion.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardPromotion.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            cardPromotion.topAnchor.constraint(equalTo: cardSurface.topAnchor),
+            cardPromotion.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
+            cardPromotion.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
+            cardPromotion.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
         ])
 
         cardContentMaskingContainer = UIView()
         cardContentMaskingContainer.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(cardContentMaskingContainer)
+        cardSurface.addSubview(cardContentMaskingContainer)
         NSLayoutConstraint.activate([
-             cardContentMaskingContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
-             cardContentMaskingContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-             cardContentMaskingContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-             cardContentMaskingContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+             cardContentMaskingContainer.topAnchor.constraint(equalTo: cardSurface.topAnchor),
+             cardContentMaskingContainer.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
+             cardContentMaskingContainer.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
+             cardContentMaskingContainer.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
         ])
 
         cardContentMask = UIView()
@@ -115,30 +131,24 @@ final class HomeCard: UICollectionViewCell {
         cardContentMask.layer.cornerCurve = .continuous
         cardContentMask.layer.masksToBounds = true
 
-        cardContent = HostingView {
-            CardContentContainer(container: container)
-        }
         cardContent.isAccessibilityElement = false
         cardContentMaskingContainer.addSubview(cardContent)
         NSLayoutConstraint.activate([
-            cardContent.topAnchor.constraint(equalTo: contentView.topAnchor),
-            cardContent.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            cardContent.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardContent.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            cardContent.topAnchor.constraint(equalTo: cardSurface.topAnchor),
+            cardContent.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
+            cardContent.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
+            cardContent.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
         ])
 
-        miniatureContent = HostingView {
-            CardMiniatureContainer(container: container)
-        }
         miniatureContent.isAccessibilityElement = false
         miniatureContent.accessibilityElementsHidden = true
         miniatureContent.isUserInteractionEnabled = false
-        contentView.addSubview(miniatureContent)
+        cardSurface.addSubview(miniatureContent)
         NSLayoutConstraint.activate([
-            miniatureContent.topAnchor.constraint(equalTo: contentView.topAnchor),
-            miniatureContent.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            miniatureContent.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            miniatureContent.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            miniatureContent.topAnchor.constraint(equalTo: cardSurface.topAnchor),
+            miniatureContent.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
+            miniatureContent.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
+            miniatureContent.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
         ])
 
         miniatureTapButton.accessibilityLabel = lang("Expand")
@@ -156,10 +166,25 @@ final class HomeCard: UICollectionViewCell {
         layout: HomeCardLayoutMetrics = .screen,
         minimumHomeCardFontScale: CGFloat = 1
     ) {
+        HomeTrace.record("card.configure", "card=\(ObjectIdentifier(self)) state=\(headerViewModel.state)")
         observeToken?.cancel()
         observeToken = nil
+        tintObservation?.cancel()
+        tintObservation = observe { [weak self] in
+            self?.contentView.tintColor = accountContext.accentColor
+        }
+        motionObservation?.cancel()
+        interaction.setActive(false)
         self.container.headerViewModel = headerViewModel
         self.container.accountContext = accountContext
+        motionObservation = observe { [weak self] in
+            self?.interaction.setActive(headerViewModel.allowsCardEffects(for: accountContext.account.id))
+        }
+        cardBackground.configure(headerViewModel: headerViewModel, accountContext: accountContext)
+        miniatureContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
+        cardPromotion.configure(headerViewModel: headerViewModel, accountContext: accountContext)
+        cardContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
+        collapsedContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
         applyLayoutMetrics(layout, minimumHomeCardFontScale: minimumHomeCardFontScale, force: true)
         updateAccessibilityState(headerViewModel: headerViewModel)
         observeToken = observe { [weak self] in
@@ -222,8 +247,23 @@ final class HomeCard: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        motionObservation?.cancel()
+        motionObservation = nil
+        interaction.setActive(false)
+        cardBackground.prepareForReuse()
+        miniatureContent.prepareForReuse()
+        cardPromotion.prepareForReuse()
+        cardContent.prepareForReuse()
+        collapsedContent.prepareForReuse()
         observeToken?.cancel()
         observeToken = nil
+        tintObservation?.cancel()
+        tintObservation = nil
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        interaction.updateVisibility()
     }
 
     override func layoutSubviews() {
@@ -255,6 +295,8 @@ final class HomeCard: UICollectionViewCell {
         container.layout = layout
         container.minimumHomeCardFontScale = minimumHomeCardFontScale
         guard didChange else { return }
+        cardContent.updateLayout(layout, minimumFontScale: minimumHomeCardFontScale)
+        collapsedContent.updateLayout(layout, minimumFontScale: minimumHomeCardFontScale)
         updateLayout(layout)
         updateCardContentMask(layout)
         guard let headerViewModel = container.headerViewModel else { return }
@@ -286,78 +328,12 @@ final class HomeCard: UICollectionViewCell {
     private func updateAccessibilityState(headerViewModel: HomeHeaderViewModel) {
         let isCollapsed = headerViewModel.isCollapsed
         let isHidden = headerViewModel.isCardHidden
+        cardPresentation.isUserInteractionEnabled = !isCollapsed && !isHidden
         cardContentMaskingContainer.isUserInteractionEnabled = !isCollapsed && !isHidden
         collapsedContent.isUserInteractionEnabled = isCollapsed
         miniatureTapButton.isHidden = !isCollapsed || isHidden
         cardContent.accessibilityElementsHidden = isCollapsed || isHidden
         collapsedContent.accessibilityElementsHidden = !isCollapsed
-    }
-}
-
-private struct CollapsedContentContainer: View {
-    var container: Container
-
-    var body: some View {
-        WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardCollapsedContent(headerViewModel: headerViewModel, accountContext: accountContext)
-            }
-        }
-    }
-}
-
-private struct BackgroundContainer: View {
-
-    var container: Container
-
-    var body: some View {
-        WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardBackground(headerViewModel: headerViewModel, accountContext: accountContext)
-            }
-        }
-    }
-}
-
-private struct PromotionContainer: View {
-    var container: Container
-
-    var body: some View {
-        WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardPromotionVisual(accountContext: accountContext)
-                    .opacity(headerViewModel.cardOpacity)
-            }
-        }
-    }
-}
-
-private struct CardContentContainer: View {
-    var container: Container
-
-    var body: some View {
-        WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardContent(
-                    headerViewModel: headerViewModel,
-                    accountContext: accountContext,
-                    layout: container.layout,
-                    minimumHomeCardFontScale: container.minimumHomeCardFontScale
-                )
-            }
-        }
-    }
-}
-
-private struct CardMiniatureContainer: View {
-    var container: Container
-
-    var body: some View {
-        WithPerceptionTracking {
-            if let headerViewModel = container.headerViewModel, let accountContext = container.accountContext {
-                HomeCardMiniatureContent(headerViewModel: headerViewModel, accountContext: accountContext, layout: container.layout)
-            }
-        }
     }
 }
 

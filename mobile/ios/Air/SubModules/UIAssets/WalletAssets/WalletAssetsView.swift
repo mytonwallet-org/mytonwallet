@@ -11,6 +11,7 @@ import WalletContext
 
 final class WalletAssetsView: WTouchPassView {
     private let walletCollectiblesView: WSegmentedControllerContent
+    private var accountTransitionSnapshot: UIView?
 
     var onScrollingOffsetChanged: ((_ progress: CGFloat, _ animated: Bool) -> Void)?
     var scrollProgress: CGFloat = 0
@@ -59,6 +60,43 @@ final class WalletAssetsView: WTouchPassView {
     
     private func updateTheme() {
         backgroundColor = .air.groupedItem
+    }
+
+    func prepareAccountTransition(animated: Bool) {
+        let previousSnapshot = accountTransitionSnapshot
+        accountTransitionSnapshot = nil
+        defer { previousSnapshot?.removeFromSuperview() }
+
+        guard animated, let window, !bounds.isEmpty else { return }
+        var visibleRect = convert(bounds, to: window).intersection(window.bounds)
+        var ancestor: UIView? = self
+        while let view = ancestor {
+            guard !view.isHidden, view.alpha > 0 else { return }
+            if view.clipsToBounds {
+                visibleRect = visibleRect.intersection(view.convert(view.bounds, to: window))
+            }
+            ancestor = view.superview
+        }
+        guard !visibleRect.isEmpty,
+              let snapshot = snapshotView(afterScreenUpdates: false) else { return }
+        // Capture the current composite before removing an interrupted fade.
+        snapshot.frame = bounds
+        snapshot.isUserInteractionEnabled = false
+        snapshot.accessibilityElementsHidden = true
+        addSubview(snapshot)
+        accountTransitionSnapshot = snapshot
+    }
+
+    func animateAccountTransition() {
+        guard let snapshot = accountTransitionSnapshot else { return }
+        UIView.animateAdaptive(duration: 0.3) {
+            snapshot.alpha = 0
+        } completion: { [weak self] _ in
+            snapshot.removeFromSuperview()
+            if self?.accountTransitionSnapshot === snapshot {
+                self?.accountTransitionSnapshot = nil
+            }
+        }
     }
     
     var selectedIndex: Int {

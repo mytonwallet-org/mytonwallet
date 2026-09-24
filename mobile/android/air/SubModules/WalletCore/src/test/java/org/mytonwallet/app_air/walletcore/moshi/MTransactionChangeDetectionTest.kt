@@ -39,6 +39,30 @@ class MTransactionChangeDetectionTest {
         assertTrue(next.isChanged(previous))
     }
 
+    @Test
+    fun detectsDirectionOnlyChanges() {
+        val previous = btcTransaction(confirmations = 1, maxConfirmations = 2)
+        val next = previous.copy(isIncoming = false)
+
+        assertTrue(next.isChanged(previous))
+    }
+
+    @Test
+    fun detectsNftScamFlagOnlyChanges() {
+        val nft = ApiNft(
+            address = "nft",
+            thumbnail = null,
+            image = null,
+            isOnSale = false,
+            metadata = ApiNftMetadata(fragmentUrl = "https://fragment.com/nft")
+        )
+        val previous = btcTransaction(confirmations = 1, maxConfirmations = 2).copy(nft = nft)
+        val next = previous.copy(nft = nft.copy(isScam = true))
+
+        assertTrue(next.isChanged(previous))
+        assertFalse(previous.copy(nft = nft.copy()).isChanged(previous))
+    }
+
     private fun btcTransaction(
         confirmations: Int?,
         maxConfirmations: Int?,

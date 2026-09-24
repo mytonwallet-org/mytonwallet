@@ -34,7 +34,6 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiLedgerAccountInfo
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
 import org.mytonwallet.app_air.walletcore.moshi.MApiReconcileActivityUpdateResult
-import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitMultiTransferResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapBuildRequest
@@ -185,13 +184,6 @@ sealed class ApiMethod<T> {
 
     /* Auth */
     object Auth {
-        class WaitDataPreload : ApiMethod<Unit>() {
-            override val name: String = "waitDataPreload"
-            override val type: Type = Unit::class.java
-            override val arguments: String = ArgumentsBuilder()
-                .build()
-        }
-
         class RepairInvalidBip39TonAuthTokens : ApiMethod<Unit>() {
             override val name: String = "repairInvalidBip39TonAuthTokens"
             override val type: Type = Unit::class.java
@@ -199,18 +191,22 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class GetMultichainUpgradeCandidateIds : ApiMethod<Array<String>>() {
+        class GetMultichainUpgradeCandidateIds(accountIds: List<String>) :
+            ApiMethod<Array<String>>() {
             override val name: String = "getMultichainUpgradeCandidateIds"
             override val type: Type = Array<String>::class.java
             override val arguments: String = ArgumentsBuilder()
+                .jsArray(accountIds, String::class.java)
                 .build()
         }
 
-        class UpgradeMultichainAccounts(enclaveToken: String) : ApiMethod<Unit>() {
+        class UpgradeMultichainAccounts(enclaveToken: String, accountIds: List<String>) :
+            ApiMethod<Unit>() {
             override val name: String = "upgradeMultichainAccounts"
             override val type: Type = Unit::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(enclaveToken)
+                .jsArray(accountIds, String::class.java)
                 .build()
         }
 
@@ -662,9 +658,9 @@ sealed class ApiMethod<T> {
             historyItem: MApiSwapHistoryItem,
             withDiesel: Boolean,
             transaction: String?
-        ) : ApiMethod<MApiSubmitMultiTransferResult>() {
+        ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "swapSubmit"
-            override val type: Type = MApiSubmitMultiTransferResult::class.java
+            override val type: Type = ApiSubmitTransferResult::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(chain.name)
                 .string(accountId)
@@ -818,14 +814,14 @@ sealed class ApiMethod<T> {
                 .build()
         }
 
-        class DeleteDapp(accountId: String, appClientId: String, origin: String) :
-            ApiMethod<Any>() {
+        class DeleteDapp(accountId: String, url: String, uniqueId: String) :
+            ApiMethod<Boolean?>() {
             override val name: String = "deleteDapp"
-            override val type: Type = Any::class.java
+            override val type: Type = Boolean::class.java
             override val arguments: String = ArgumentsBuilder()
                 .string(accountId)
-                .string(origin)
-                .string(appClientId)
+                .string(url)
+                .string(uniqueId)
                 .string(null)
                 .build()
         }

@@ -158,15 +158,16 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
         )
         await switchAccountIfNeeded(accountId: update.accountId)
 
+        let submission = makeSubmission(promiseId: update.promiseId)
         let vc = WalletConnectPaySignTransactionVC(
             request: update,
             onSubmit: { [weak self] request, enclaveToken in
                 guard let self else { throw CancellationError() }
-                return try await self.submitSignTransaction(request: request, enclaveToken: enclaveToken)
+                return try await submission.submit {
+                    try await self.submitSignTransaction(request: request, enclaveToken: enclaveToken)
+                }
             },
-            onCancel: { [weak self] in
-                self?.cancelAndDismiss(promiseId: update.promiseId)
-            }
+            onCancel: submission.dismiss
         )
         showStep(.signTransaction, viewController: vc)
     }
@@ -179,15 +180,16 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
         )
         await switchAccountIfNeeded(accountId: update.accountId)
 
+        let submission = makeSubmission(promiseId: update.promiseId)
         let vc = WalletConnectPaySignDataVC(
             update: update,
             onSubmit: { [weak self] update, enclaveToken in
                 guard let self else { throw CancellationError() }
-                return try await self.submitSignData(update: update, enclaveToken: enclaveToken)
+                return try await submission.submit {
+                    try await self.submitSignData(update: update, enclaveToken: enclaveToken)
+                }
             },
-            onCancel: { [weak self] in
-                self?.cancelAndDismiss(promiseId: update.promiseId)
-            }
+            onCancel: submission.dismiss
         )
         showStep(.signData, viewController: vc)
     }
@@ -422,9 +424,11 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
     }
 
     private func cancelAndDismiss(promiseId: String, reason: String? = walletConnectPayUserCancelReason) {
-        shouldIgnoreStatusUpdates = true
-        dismissFlow()
+        dismissUserClosedFlow()
+        cancel(promiseId: promiseId, reason: reason)
+    }
 
+    private func cancel(promiseId: String, reason: String? = walletConnectPayUserCancelReason) {
         Task {
             do {
                 try await Api.cancelWalletConnectPay(promiseId: promiseId, reason: reason)
@@ -432,6 +436,13 @@ final class WalletConnectPayFlow: WalletCoreData.EventsObserver {
                 log.error("cancelWalletConnectPay failed: \(error, .public)")
             }
         }
+    }
+
+    private func makeSubmission(promiseId: String) -> WalletConnectPaySubmission {
+        WalletConnectPaySubmission(
+            onCancel: { [weak self] in self?.cancel(promiseId: promiseId) },
+            onDismiss: { [weak self] in self?.dismissUserClosedFlow() }
+        )
     }
 
     private func dismissUserClosedFlow() {

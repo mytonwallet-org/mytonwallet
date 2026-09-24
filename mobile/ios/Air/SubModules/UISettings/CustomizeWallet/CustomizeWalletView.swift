@@ -60,6 +60,6 @@ struct GetMoreCardsSection: View {
     }
     
     func onUnlockNew() {
-        AppActions.showUpgradeCard()
+        AppActions.showUpgradeCard(accountContext: AccountContext(accountId: viewModel.selectedAccountId))
     }
 }

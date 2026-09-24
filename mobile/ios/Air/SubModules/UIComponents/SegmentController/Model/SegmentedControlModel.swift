@@ -139,6 +139,8 @@ public final class SegmentedControlModel {
             } else {
                 self.selection = .init(item1: newItems[0].id)
             }
+        } else {
+            self.selection = nil
         }
     }
     

@@ -30,6 +30,12 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var pendingSelectionRetryTask: Task<Void, Never>?
     private var accountContexts: [String: AccountContext] = [:]
     private var isUpdatingLayoutMetrics = false
+    private lazy var scrollActivity = ScrollActivityMonitor { [weak self] isScrolling in
+        self?.viewModel.isAccountScrolling = isScrolling
+        #if DEBUG || HOME_FRAME_PROBE
+        if isScrolling { HomeFrameProbe.shared.begin() }
+        #endif
+    }
 
     private enum Section {
         case main
@@ -123,6 +129,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
             let currentItems = dataSource.snapshot().itemIdentifiers
             evictUnusedAccountContexts(keeping: accountIds)
             if newItems != currentItems {
+                HomeTrace.record("cards.snapshot", "selector=\(ObjectIdentifier(self)) oldCount=\(currentItems.count) newCount=\(newItems.count)")
                 pendingSelectionScroll = true
                 var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
                 snapshot.appendSections([.main])
@@ -253,10 +260,14 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
 
     public override func layoutSubviews() {
+        super.layoutSubviews()
         if collectionView.frame != bounds {
             collectionView.frame = bounds
         }
         updateLayoutMetricsIfNeeded()
+        if let horizontalScrollView = collectionView.horizontalScrollView {
+            scrollActivity.attach(to: horizontalScrollView)
+        }
         if pendingSelectionScroll {
             scrollToSelectedIfPossible()
         }
@@ -264,6 +275,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        if window == nil { scrollActivity.detach() }
         guard window != nil, selectedAccountId != nil else { return }
         pendingSelectionScroll = true
         scrollToSelectedIfPossible()
@@ -272,6 +284,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private func updateLayoutMetricsIfNeeded() {
         let newMetrics = bounds.width > 0 ? HomeCardLayoutMetrics.forContainerWidth(bounds.width) : .screen
         guard newMetrics != currentLayoutMetrics else { return }
+        HomeTrace.record("cards.invalidate", "selector=\(ObjectIdentifier(self)) reason=width oldWidth=\(currentLayoutMetrics.itemWidth) newWidth=\(newMetrics.itemWidth)")
         currentLayoutMetrics = newMetrics
         invalidateIntrinsicContentSize()
         isUpdatingLayoutMetrics = true
@@ -346,6 +359,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
         let targetOffsetX = targetOffsetX(for: indexPath)
         guard maxOffsetX(for: horizontalScrollView) + 0.5 >= targetOffsetX else {
+            HomeTrace.record("cards.invalidate", "selector=\(ObjectIdentifier(self)) reason=selection-retry targetX=\(targetOffsetX) maxX=\(maxOffsetX(for: horizontalScrollView))")
             collectionView.collectionViewLayout.invalidateLayout()
             collectionView.setNeedsLayout()
             schedulePendingSelectionRetryIfNeeded()
@@ -354,6 +368,8 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
         pendingSelectionRetryTask?.cancel()
         pendingSelectionRetryTask = nil
+        scrollActivity.attach(to: horizontalScrollView)
+        if pendingSelectionAnimated { scrollActivity.beginScrolling() }
         horizontalScrollView.setContentOffset(
             CGPoint(x: clampedOffsetX(targetOffsetX, in: horizontalScrollView), y: horizontalScrollView.contentOffset.y),
             animated: pendingSelectionAnimated

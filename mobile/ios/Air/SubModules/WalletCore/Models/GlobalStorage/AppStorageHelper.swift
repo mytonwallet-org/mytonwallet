@@ -12,6 +12,8 @@ import WalletContext
 import WalletCoreTypes
 
 public enum AppStorageHelper {
+    public static let animationsChangedNotification = Notification.Name("AppStorageHelper.animationsChanged")
+    public static let cardEffectsChangedNotification = Notification.Name("AppStorageHelper.cardEffectsChanged")
     private static var settingsStore: SettingsStore { SettingsStore.liveValue }
     private static let landscapeModeKey = "settings.isLandscapeModeEnabled"
 
@@ -35,6 +37,15 @@ public enum AppStorageHelper {
         set {
             UIView.setAnimationsEnabled(newValue)
             settingsStore.setAreAnimationsDisabled(!newValue)
+            NotificationCenter.default.post(name: animationsChangedNotification, object: nil)
+        }
+    }
+
+    @MainActor public static var is3dCardDisabled: Bool {
+        get { settingsStore.is3dCardDisabled }
+        set {
+            settingsStore.setIs3dCardDisabled(newValue)
+            NotificationCenter.default.post(name: cardEffectsChangedNotification, object: nil)
         }
     }
 

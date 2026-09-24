@@ -25,6 +25,7 @@ public class AddStakeVC: WViewController {
 
     var fakeTextField = UITextField(frame: .zero)
     private var continueButton: WButton?
+    private var isConfirming = false
     public init(
         config: StakingConfig,
         stakingState: ApiStakingState,
@@ -103,6 +104,11 @@ public class AddStakeVC: WViewController {
 
     func amountChanged(amount: BigInt?) {
         guard let continueButton else { return }
+        if isConfirming {
+            continueButton.showLoading = true
+            continueButton.isEnabled = false
+            return
+        }
 
         guard account.supportsEarn else {
             continueButton.showLoading = false
@@ -163,12 +169,19 @@ public class AddStakeVC: WViewController {
     }
 
     @objc func continuePressed() {
+        guard !isConfirming else { return }
         view.endEditing(true)
         if model.canRetryDraft {
             model.retryDraft()
             return
         }
+        isConfirming = true
+        amountChanged(amount: model.amount)
         Task {
+            defer {
+                isConfirming = false
+                amountChanged(amount: model.amount)
+            }
             do {
                 try await confirmAction(account: account)
             } catch {

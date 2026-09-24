@@ -1,0 +1,68 @@
+{
+  "attributes": [
+    {
+      "trait_type": "Card Type",
+      "value": "🍀 Standard"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Rainbow"
+    },
+    {
+      "trait_type": "Shine",
+      "value": "Right"
+    },
+    {
+      "trait_type": "Text",
+      "value": "Light"
+    },
+    {
+      "trait_type": "Texture Type",
+      "value": "Desert"
+    },
+    {
+      "trait_type": "Texture Color",
+      "value": "Purple & Yellow"
+    },
+    {
+      "trait_type": "Texture Rotation",
+      "value": "-135°"
+    },
+    {
+      "trait_type": "Texture Size",
+      "value": "900"
+    },
+    {
+      "trait_type": "Texture Position X",
+      "value": "50%"
+    },
+    {
+      "trait_type": "Texture Position Y",
+      "value": "25%"
+    },
+    {
+      "trait_type": "First Spot Color",
+      "value": "Toxic"
+    },
+    {
+      "trait_type": "First Spot Position",
+      "value": "II quarter"
+    },
+    {
+      "trait_type": "Second Spot Color",
+      "value": "No"
+    },
+    {
+      "trait_type": "Second Spot Position",
+      "value": "No"
+    },
+    {
+      "trait_type": "Third Spot Color",
+      "value": "No"
+    },
+    {
+      "trait_type": "Third Spot Position",
+      "value": "No"
+    }
+  ]
+}

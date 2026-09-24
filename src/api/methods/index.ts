@@ -10,6 +10,7 @@ export * from './nfts';
 export * from './domains';
 export {
   initPolling,
+  pollAccountConfig,
 } from './polling';
 export * from './accounts';
 export * from './tokens';

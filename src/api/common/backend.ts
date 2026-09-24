@@ -71,6 +71,7 @@ export function getBackendHeaders() {
     ...(APP_VERSION && APP_VERSION !== 'undefined' && { 'X-App-Version': APP_VERSION }),
     'X-App-Env': APP_ENV,
     'X-App-Name': APP_NAME,
+    'X-App-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
   } as Record<string, string>;
 }
 

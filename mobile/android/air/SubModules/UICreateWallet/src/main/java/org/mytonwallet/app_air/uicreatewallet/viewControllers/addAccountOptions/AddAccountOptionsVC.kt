@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
+import android.widget.ProgressBar
 import androidx.constraintlayout.widget.ConstraintLayout
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -16,10 +17,13 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importViewWallet.ImportViewWalletVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.importWallet.ImportWalletVC
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.wordDisplay.WordDisplayVC
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uisettings.viewControllers.settings.cells.SettingsItemCell
@@ -38,6 +42,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.api.enclaveDuplicateSecrets
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.pushNotifications.AirPushNotifications
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -288,6 +293,11 @@ class AddAccountOptionsVC(
         }
     }
 
+    private val subwalletProgressView = ProgressBar(context).apply {
+        id = View.generateViewId()
+        visibility = View.GONE
+    }
+
     override fun setupViews() {
         super.setupViews()
 
@@ -303,8 +313,11 @@ class AddAccountOptionsVC(
             scrollView,
             ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
+        view.addView(subwalletProgressView, ConstraintLayout.LayoutParams(40.dp, 40.dp))
         view.setConstraints {
             allEdges(scrollView)
+            toCenterX(subwalletProgressView)
+            toCenterY(subwalletProgressView)
         }
         view.post {
             calculatedHeight = view.measuredHeight
@@ -392,6 +405,13 @@ class AddAccountOptionsVC(
     }
 
     private fun promptAndCreateSubwallet() {
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token -> createSubwallet(null, token) },
+            onPasscodeRequired = { showPasscodeCreateSubwallet() }
+        )
+    }
+
+    private fun showPasscodeCreateSubwallet() {
         val window = window ?: return
         lateinit var passcodeConfirmVC: PasscodeConfirmVC
         passcodeConfirmVC = PasscodeConfirmVC(
@@ -419,25 +439,32 @@ class AddAccountOptionsVC(
         handlePush(passcodeConfirmVC)
     }
 
-    private fun createSubwallet(passcodeConfirmVC: PasscodeConfirmVC, enclaveToken: String) {
-        passcodeConfirmVC.view.lockView()
+    private fun createSubwallet(passcodeConfirmVC: PasscodeConfirmVC?, enclaveToken: String) {
+        if (passcodeConfirmVC != null) {
+            passcodeConfirmVC.view.lockView()
+        } else {
+            view.lockView()
+            subwalletProgressView.visibility = View.VISIBLE
+        }
         WalletCore.call(
             ApiMethod.Settings.CreateSubWallet(accountId, enclaveToken)
         ) { result, error ->
             if (error != null || result == null) {
-                passcodeConfirmVC.restartAuth()
-                passcodeConfirmVC.showError(error?.parsed)
+                finishSubwalletAuth(
+                    passcodeConfirmVC,
+                    error?.parsed ?: MBridgeError.Type.UNEXPECTED_ERROR
+                )
                 return@call
             }
 
             val activeAccount = AccountStore.activeAccount ?: run {
-                passcodeConfirmVC.restartAuth()
+                finishSubwalletAuth(passcodeConfirmVC, MBridgeError.Type.UNEXPECTED_ERROR)
                 return@call
             }
 
             if (result.isNew) {
                 val byChain = result.byChain ?: run {
-                    passcodeConfirmVC.restartAuth()
+                    finishSubwalletAuth(passcodeConfirmVC, MBridgeError.Type.UNEXPECTED_ERROR)
                     return@call
                 }
                 val enclaveError = WalletCore.enclaveDuplicateSecrets(
@@ -445,8 +472,7 @@ class AddAccountOptionsVC(
                     listOf(result.accountId)
                 )
                 if (enclaveError != null) {
-                    passcodeConfirmVC.restartAuth()
-                    passcodeConfirmVC.showError(enclaveError)
+                    finishSubwalletAuth(passcodeConfirmVC, enclaveError)
                     return@call
                 }
                 Logger.d(
@@ -475,8 +501,9 @@ class AddAccountOptionsVC(
                 accountId = result.accountId,
                 notifySDK = false
             ) { _, activateErr ->
-                passcodeConfirmVC.restartAuth()
+                if (activateErr == null) finishSubwalletAuth(passcodeConfirmVC)
                 if (activateErr != null) {
+                    finishSubwalletAuth(passcodeConfirmVC, activateErr)
                     Logger.e(
                         Logger.LogTag.ACCOUNT,
                         LogMessage.Builder()
@@ -490,6 +517,20 @@ class AddAccountOptionsVC(
                 window?.dismissLastNav()
                 WalletCore.notifyEvent(WalletEvent.AddNewWalletCompletion)
             }
+        }
+    }
+
+    private fun finishSubwalletAuth(
+        passcodeConfirmVC: PasscodeConfirmVC?,
+        error: MBridgeError? = null
+    ) {
+        if (passcodeConfirmVC != null) {
+            passcodeConfirmVC.restartAuth()
+            if (error != null) passcodeConfirmVC.showError(error)
+        } else {
+            subwalletProgressView.visibility = View.GONE
+            view.unlockView()
+            if (error != null) showError(error)
         }
     }
 

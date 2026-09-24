@@ -368,5 +368,17 @@ func makeMigrator() -> DatabaseMigrator {
         }
     }
 
+    migrator.registerMigration("v27") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "isAutoConfirmEnabled", .boolean).notNull().defaults(to: true)
+        }
+    }
+
+    migrator.registerMigration("v28") { db in
+        try db.alter(table: "settings") { t in
+            t.add(column: "is3dCardDisabled", .boolean).notNull().defaults(to: false)
+        }
+    }
+
     return migrator
 }

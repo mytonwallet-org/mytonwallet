@@ -74,6 +74,7 @@ interface StateProps {
   isViewMode?: boolean;
   isSwapDisabled?: boolean;
   isMultichainAccount: boolean;
+  areChainBadgesShown?: boolean;
   isStakingDisabled?: boolean;
   pinnedSlugs?: string[];
   alwaysHiddenSlugs?: string[];
@@ -98,6 +99,7 @@ function Assets({
   theme,
   states,
   isMultichainAccount,
+  areChainBadgesShown,
   isViewMode,
   isSwapDisabled,
   isStakingDisabled,
@@ -309,6 +311,9 @@ function Assets({
     const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled && getIsNewStakeAllowed(slug));
     const yieldSource = stakingState || (isStakingAvailable ? baseTokenState : undefined);
     const { annualYield, yieldType } = yieldSource || {};
+    // Unless `areChainBadgesShown` is on, only labeled tokens get the chain icon. A token with a yield badge
+    // gets none, as on iOS, where the yield badge takes the place of the label.
+    const withChainIcon = isMultichainAccount && (areChainBadgesShown || (Boolean(token.label) && !annualYield));
     const isSwapAvailable = Boolean(swapTokensBySlug[slug]);
     const isPinned = pinnedSlugsSet.has(slug);
     const amountDecimal = isStaking ? toDecimal(amount, decimals) : undefined;
@@ -332,7 +337,7 @@ function Assets({
           isInvestorView={isInvestorViewEnabled}
           isActive={token.slug === currentTokenSlug}
           baseCurrency={baseCurrency}
-          withChainIcon={isMultichainAccount}
+          withChainIcon={withChainIcon}
           appTheme={appTheme}
           isSensitiveDataHidden={isSensitiveDataHidden}
           areTokenNamesLocalized={areTokenNamesLocalized}
@@ -425,7 +430,7 @@ export default memo(
       const swapTokens = selectSwapTokens(global);
       const accountState = selectCurrentAccountState(global);
       const accountSettings = selectCurrentAccountSettings(global);
-      const { isInvestorViewEnabled, areTokenNamesLocalized } = global.settings;
+      const { isInvestorViewEnabled, areTokenNamesLocalized, areChainBadgesShown } = global.settings;
 
       const states = selectAccountStakingStates(global, currentAccountId);
       const isViewMode = selectIsCurrentAccountViewMode(global);
@@ -443,6 +448,7 @@ export default memo(
         theme: global.settings.theme,
         states,
         isMultichainAccount: selectIsMultichainAccount(global, currentAccountId),
+        areChainBadgesShown,
         isViewMode,
         isSwapDisabled: selectIsSwapDisabled(global),
         isStakingDisabled: selectIsStakingDisabled(global),

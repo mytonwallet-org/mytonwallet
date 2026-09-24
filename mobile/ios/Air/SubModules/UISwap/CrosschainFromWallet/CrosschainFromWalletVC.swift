@@ -8,7 +8,7 @@ import WalletContext
 final class CrosschainFromWalletVC: WViewController {
     
     private let model: CrosschainFromWalletModel
-    private let onContinue: (String, UIViewController) -> Void
+    private let onContinue: (String, UIViewController) async -> Void
     
     private var hostingController: UIHostingController<CrosschainFromWalletView>?
     
@@ -17,7 +17,7 @@ final class CrosschainFromWalletVC: WViewController {
         buyingToken: TokenAmount,
         cexLabel: ApiSwapCexLabel?,
         accountContext: AccountContext,
-        onContinue: @escaping (String, UIViewController) -> Void
+        onContinue: @escaping (String, UIViewController) async -> Void
     ) {
         self.model = CrosschainFromWalletModel(
             sellingToken: sellingToken,
@@ -84,7 +84,12 @@ final class CrosschainFromWalletVC: WViewController {
     
     @objc private func continuePressed() {
         view.endEditing(true)
-        guard model.canContinue else { return }
-        onContinue(model.toAddress, self)
+        guard model.canContinue, !model.isSubmitting else { return }
+        let address = model.toAddress
+        model.isSubmitting = true
+        Task {
+            defer { model.isSubmitting = false }
+            await onContinue(address, self)
+        }
     }
 }

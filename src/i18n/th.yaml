@@ -547,6 +547,7 @@ $max_balance: "สูงสุด: %balance%"
 $available_balance: "ที่ใช้ได้: %balance%"
 $send_recipient_invalid: ไม่ถูกต้อง
 $send_recipient_not_compatible: ไม่รองรับ
+$send_recipient_self_transfer: ไม่สามารถส่งให้ตัวเองได้
 $unstake_information_instantly: คุณจะได้รับฝากภายในอีกที่สักครู่
 Select Token: เลือกโทเคน
 $token_picker_hidden: ที่ซ่อนไว้
@@ -933,6 +934,9 @@ Upgrade for %amount% %currency%: อัปเกรดสำหรับ %amount
 "%amount% left": เหลือ %amount%
 "%amount% sold": ขายแล้ว %amount%
 This card has been sold out: การ์ดนี้ขายหมดแล้ว
+"Mint starts in %time%": "การมินต์จะเริ่มใน %time%"
+"%amount% unique cards total":
+  otherValue: "การ์ดไม่ซ้ำกันทั้งหมด %amount% ใบ"
 Import Existing Wallet: นำเข้ากระเป๋าเงินที่มีอยู่
 View Any Address: ดูที่อยู่ใดก็ได้
 View Mode: โหมดดู
@@ -946,6 +950,9 @@ Remember Passcode: จดจำรหัส
 Remember Password: จดจำรหัสผ่าน
 Not available with biometrics.: ไม่สามารถใช้งานได้กับไบโอเมตริกซ์.
 App will not ask for signature for %minutes% minutes after last entry.: แอปจะไม่ขอให้เซ็นชื่อเป็นเวลา %minutes% นาทีหลังจากการป้อนครั้งล่าสุด
+Auto-Exit: ออกจากระบบอัตโนมัติ
+Log out of all wallets after failed attempts.: ออกจากระบบวอลเล็ตทั้งหมดหลังจากพยายามไม่สำเร็จ
+"%count% attempts": "%count% ครั้ง"
 Remember for %minutes% minutes: จำไว้เป็นเวลา %minutes% นาที
 Preview: แสดงตัวอย่าง
 $preview_not_guaranteed: ผลลัพธ์ของการแสดงตัวอย่าง **ไม่ได้รับการรับประกัน** และ **อาจถูกปลอมแปลง** โดยบริการ
@@ -1786,9 +1793,10 @@ Standalone: แยกเดี่ยว
 All Telegram Gifts: ของขวัญ Telegram ทั้งหมด
 Add Crypto: เพิ่มคริปโต
 Share QR Code: แชร์ QR โค้ด
-$send_only_ton: ส่ง Gram (GRAM) หรือสินทรัพย์บน TON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
-$send_only_chain: ส่ง %chain% (%symbol%) หรือสินทรัพย์บน %chain% เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
-$send_only_chain_no_tokens: ส่ง %chain% (%symbol%) เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_ton: ส่ง GRAM หรือสินทรัพย์บน TON เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_chain: ส่ง %symbol% หรือสินทรัพย์บน %chain% เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_token_chain: ส่งเฉพาะ %tokenSymbol% หรือสินทรัพย์อื่นบน %chain% ไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
+$send_only_chain_no_tokens: ส่ง %symbol% เท่านั้นไปยังที่อยู่นี้ การส่งโทเคนอื่นจะทำให้สูญหาย
 Buying with card is not supported for this account.: บัญชีนี้ไม่รองรับการซื้อด้วยบัตร
 Swapped at: แลกเปลี่ยนเมื่อ
 Price per: ราคาต่อ
@@ -2271,7 +2279,6 @@ Tokenized Gold: ทองโทเคนไนซ์
 Index Funds: กองทุนดัชนี
 Search token or stock: ค้นหาโทเค็นหรือหุ้น
 "Activity Failed to Load": "โหลดกิจกรรมไม่สำเร็จ"
-"$agent_source_bea_attribution": "ผลิตภัณฑ์นี้ใช้ API ข้อมูลของสำนักวิเคราะห์เศรษฐกิจ (BEA) แต่ไม่ได้รับการรับรองหรือการรับประกันจาก BEA"
 "Address was copied!": "คัดลอกที่อยู่แล้ว!"
 "Allow App Lock": "อนุญาตให้ล็อกแอป"
 "An error occurred": "เกิดข้อผิดพลาด"
@@ -2301,3 +2308,7 @@ Search token or stock: ค้นหาโทเค็นหรือหุ้น
 
 Unknown Transfer: การโอนที่ไม่รู้จัก
 $dapp_sign_data_for_prefix: สำหรับ
+Successfully Sent: ส่งสำเร็จแล้ว
+Successfully Signed: ลงนามสำเร็จแล้ว
+3D Card: การ์ด 3 มิติ
+Coming soon: เร็ว ๆ นี้

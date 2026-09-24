@@ -125,7 +125,7 @@ private struct _Content: View {
             VStack(spacing: layoutGeometry.vStackSpacing) {
                 MtwCard(aspectRatio: SMALL_CARD_RATIO)
                     .background {
-                        MtwCardBackground(nft: accountContext.nft, hideBorder: true)
+                        MtwCardBackground(nft: accountContext.nft, hideBorder: true, resolution: .thumbnail)
                     }
                     .overlay {
                         _BalanceView(accountContext: accountContext, onClearHighlight: onClearHighlight)

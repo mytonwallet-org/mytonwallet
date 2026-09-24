@@ -240,6 +240,7 @@ fun WalletCore.activateAccount(
         if (!isCurrentActivation) return
         nextAccountId = null
         nextAccountIsPushedTemporary = null
+        WalletCore.notifyEvent(WalletEvent.AccountChangeAborted)
         callback(null, MBridgeError.Type.BRIDGE_INTERRUPTED)
     }
 
@@ -249,6 +250,7 @@ fun WalletCore.activateAccount(
             if (account == null || err != null) {
                 nextAccountId = null
                 nextAccountIsPushedTemporary = null
+                WalletCore.notifyEvent(WalletEvent.AccountChangeAborted)
                 callback(null, err)
             } else {
                 AccountStore.isPushedTemporary = isPushedTemporary
@@ -300,6 +302,7 @@ fun WalletCore.activateAccount(
                         if (nextAccountId != accountId) return@callApi
                         nextAccountId = null
                         nextAccountIsPushedTemporary = null
+                        WalletCore.notifyEvent(WalletEvent.AccountChangeAborted)
                         callback(null, error)
                     } else {
                         fetch()
@@ -336,6 +339,20 @@ fun WalletCore.fetchAccount(accountId: String, callback: (MAccount?, MBridgeErro
 fun WalletCore.resetAccounts(callback: (Boolean?, MBridgeError?) -> Unit) {
     val accountIds = WGlobalStorage.accountIds()
     AccountStore.updateActiveAccount(null)
+    fun wipeNativeState() {
+        AirPushNotifications.unsubscribeAll()
+        WalletCore.stores.forEach { it.wipeData() }
+        WSdkStorage.clearStorage()
+        WalletCore.enclaveReset()
+        PoisoningCacheHelper.clearCache()
+        WCacheStorage.clean(accountIds)
+        WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
+    }
+    if (!isBridgeReady) {
+        wipeNativeState()
+        callback(true, null)
+        return
+    }
     bridge?.callApi(
         "resetAccounts",
         "[]"
@@ -343,13 +360,7 @@ fun WalletCore.resetAccounts(callback: (Boolean?, MBridgeError?) -> Unit) {
         if (error != null || result == null) {
             callback(null, error)
         } else {
-            AirPushNotifications.unsubscribeAll()
-            WalletCore.stores.forEach { it.wipeData() }
-            WSdkStorage.clearStorage()
-            WalletCore.enclaveReset()
-            PoisoningCacheHelper.clearCache()
-            WCacheStorage.clean(accountIds)
-            WCacheStorage.setInitialScreen(WCacheStorage.InitialScreen.INTRO)
+            wipeNativeState()
             callback(true, null)
         }
     }
@@ -413,7 +424,7 @@ fun WalletCore.enclaveAuthorize(
     isLong: Boolean,
     passcode: String?,
     usageCount: Int = 1,
-    callback: (token: String?, MBridgeError?) -> Unit
+    callback: (token: String?, validUntil: Long, MBridgeError?) -> Unit
 ) {
     EnclaveManager.sharedInstance.authorize(
         authType,
@@ -423,11 +434,11 @@ fun WalletCore.enclaveAuthorize(
         activity,
         object : EnclaveManager.SessionCallback {
             override fun onSuccess(token: String?, validUntil: Long) {
-                callback(token, null)
+                callback(token, validUntil, null)
             }
 
             override fun onError(error: String?) {
-                callback(null, enclaveError(error))
+                callback(null, 0L, enclaveError(error))
             }
         }
     )

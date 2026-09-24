@@ -42,11 +42,14 @@ public final class LinkDomainVC: WViewController {
     }
 
     private func linkPressed() {
+        guard !viewModel.isSubmitting else { return }
         Task {
             do {
                 guard let snapshot = try await viewModel.makeConfirmationSnapshot() else {
                     return
                 }
+                viewModel.isSubmitting = true
+                defer { viewModel.isSubmitting = false }
                 let protectedAction = ProtectedAction.linkDomain(
                     snapshot: snapshot,
                     onCommitted: { [weak self] in

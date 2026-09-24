@@ -1,3 +1,5 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 import Foundation
 import UIKit
 import ContextMenuKit
@@ -107,3 +109,5 @@ private struct _CollapsedDisplayName: View {
         }
     }
 }
+
+#endif

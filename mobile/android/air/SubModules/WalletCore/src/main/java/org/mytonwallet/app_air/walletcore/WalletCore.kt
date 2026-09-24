@@ -102,6 +102,7 @@ const val DOGECOIN_SLUG = "doge"
 const val ETH_SLUG = "eth"
 const val ETH_USDT_MAINNET_SLUG = "ethereum-0xdac17f95"
 const val ETH_USDC_MAINNET_SLUG = "ethereum-0xa0b86991"
+const val ETH_BNB_MAINNET_SLUG = "ethereum-0xb8c77482"
 const val BASE_SLUG = "base"
 const val BASE_USDT_MAINNET_SLUG = "base-0xfde4c96c"
 const val BASE_USDC_MAINNET_SLUG = "base-0x833589fc"
@@ -759,11 +760,21 @@ object WalletCore {
 
             is ApiUpdate.ApiUpdateUpdatingStatus -> {
                 ensureMainThread {
-                    when (update.kind) {
-                        "activities" -> AccountStore.updatingActivities = update.isUpdating == true
-                        "balance" -> AccountStore.updatingBalance = update.isUpdating == true
+                    val accountId = update.accountId ?: AccountStore.activeAccountId
+                    if (accountId != null) {
+                        when (update.kind) {
+                            "activities" -> AccountStore.setUpdatingActivities(
+                                accountId,
+                                update.isUpdating == true
+                            )
+
+                            "balance" -> AccountStore.setUpdatingBalance(
+                                accountId,
+                                update.isUpdating == true
+                            )
+                        }
+                        notifyEvent(WalletEvent.UpdatingStatusChanged)
                     }
-                    notifyEvent(WalletEvent.UpdatingStatusChanged)
                 }
             }
 

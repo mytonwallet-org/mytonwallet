@@ -48,7 +48,7 @@ class SessionManager {
     }
 
     synchronized SessionResult createSession(AuthType authType, boolean isLong, int usageCount,
-                                              byte[] masterKey) {
+                                             byte[] masterKey) {
         String token = authType.key + ":" + randomHex(16);
         long validUntil = isLong ? System.currentTimeMillis() + LONG_SESSION_DURATION_MS : 0;
         sessions.put(token, new Session(token, validUntil, Math.max(usageCount, 1), masterKey));
@@ -56,7 +56,7 @@ class SessionManager {
     }
 
     synchronized byte[] validateSessionAndGetMasterKey(String token, Boolean invalidateShortSession)
-            throws Exception {
+        throws Exception {
         Session session = sessions.get(token);
         if (session == null) {
             throw new Exception("Invalid or expired session token");
@@ -88,6 +88,18 @@ class SessionManager {
         }
 
         return session.masterKey;
+    }
+
+    synchronized void releaseUsages(String token, int count) {
+        Session session = sessions.get(token);
+        if (session == null || session.validUntil > 0 || count <= 0) {
+            return;
+        }
+        session.remainingUsages -= count;
+        if (session.remainingUsages <= 0) {
+            session.zeroize();
+            sessions.remove(token);
+        }
     }
 
     synchronized void invalidateShortSession(String token) {

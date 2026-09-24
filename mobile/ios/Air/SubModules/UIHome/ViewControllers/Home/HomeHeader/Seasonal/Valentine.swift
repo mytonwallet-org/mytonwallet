@@ -1,3 +1,5 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 import Foundation
 import SwiftUI
 import UIKit
@@ -190,3 +192,5 @@ private extension UIImage {
     static let valentinesHeart = UIImage.airBundle("ValentinesHeart")
     static let valentinesSparkle = UIImage.airBundle("ValentinesSparkle")
 }
+
+#endif

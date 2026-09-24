@@ -890,7 +890,7 @@ class TokensVC(
         )
         actions.add(
             WMenuPopup.Item(
-                R.drawable.ic_swap_30,
+                R.drawable.ic_transferable,
                 LocaleController.getString("Swap")
             ) { openSwap(token) }
         )
@@ -926,7 +926,7 @@ class TokensVC(
         if (ClaimRewardsHelper.canClaimRewards(stakingState)) {
             actions.add(
                 WMenuPopup.Item(
-                    R.drawable.ic_diamond_30,
+                    R.drawable.ic_diamond,
                     LocaleController.getString("Claim Rewards")
                 ) { claimRewards(tokenBalance) }
             )
@@ -937,7 +937,17 @@ class TokensVC(
     private fun openAdd(token: MToken) {
         val window = this.window ?: return
         val chain = MBlockchain.valueOfOrNull(token.chain) ?: return
-        val receiveVC = ReceiveVC.createIfAvailable(context, chain) ?: return
+        if (AccountStore.activeAccount?.accountId != showingAccountId ||
+            WalletCore.nextAccountId != null
+        ) {
+            return
+        }
+        val receiveVC = ReceiveVC.createIfAvailable(
+            context,
+            chain,
+            singleChain = true,
+            tokenSymbol = token.symbol
+        ) ?: return
         val navVC = WNavigationController(
             window,
             WNavigationController.PresentationConfig.PreferredFullScreen

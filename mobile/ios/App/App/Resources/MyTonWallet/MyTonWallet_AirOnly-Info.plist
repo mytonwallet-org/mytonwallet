@@ -51,6 +51,8 @@
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Bluetooth access is needed to connect Ledger.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Device motion makes the light on your wallet card respond to tilt.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The app enables the scanning of various barcodes.</string>
 	<key>NSMicrophoneUsageDescription</key>

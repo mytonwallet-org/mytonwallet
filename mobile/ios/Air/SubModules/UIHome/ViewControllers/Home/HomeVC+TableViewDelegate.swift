@@ -10,8 +10,13 @@ import UIKit
 import UIComponents
 
 extension HomeVC {
+    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        collectionView.traceHomeGestureBegan()
+    }
     
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        collectionView.countHomeWork("scroll")
+        collectionView.flushHomeTrace(reason: "scroll")
         if isExpandingProgrammatically, scrollView.contentOffset.y == 0 {
             // return to prevent top bar jump glitch
             return
@@ -23,6 +28,10 @@ extension HomeVC {
     public func scrollViewWillEndDragging(_ scrollView: UIScrollView,
                                           withVelocity velocity: CGPoint,
                                           targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        let proposedTargetY = targetContentOffset.pointee.y
+        defer {
+            collectionView.traceHome("scroll.snap", "proposedY=\(proposedTargetY) targetY=\(targetContentOffset.pointee.y) velocityY=\(velocity.y) header=\(headerViewModel.state)")
+        }
         
         scrollView.contentInset.top = headerViewModel.state == .expanded ? expansionInset : 0
 

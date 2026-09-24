@@ -23,7 +23,6 @@ import PasswordForm from '../ui/PasswordForm';
 import Transition from '../ui/Transition';
 import DappMfaConfirm from './DappMfaConfirm';
 import DappTransaction from './DappTransaction';
-import DappTransferComplete from './DappTransferComplete';
 import DappTransferInitial from './DappTransferInitial';
 
 import modalStyles from '../ui/Modal.module.scss';
@@ -63,16 +62,8 @@ function DappTransferModal({
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
   const needsExtraHeight = useMemo(
-    () => {
-      // Do not apply the extra height if the transfer is complete, otherwise the Close button will be hidden on the iOS device
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      if (renderingKey === TransferState.Complete) {
-        return false;
-      }
-
-      return shouldForceFullScreen(transactions, emulation?.activities, isDangerous);
-    },
-    [transactions, emulation, isDangerous, renderingKey],
+    () => shouldForceFullScreen(transactions, emulation?.activities, isDangerous),
+    [transactions, emulation, isDangerous],
   );
 
   const handleBackClick = useLastCallback(() => {
@@ -157,13 +148,6 @@ function DappTransferModal({
           />
         );
 
-      case TransferState.Complete:
-        return (
-          <DappTransferComplete
-            isActive={isActive}
-            onClose={closeDappTransfer}
-          />
-        );
       case TransferState.ConfirmMfa:
         return (
           <DappMfaConfirm

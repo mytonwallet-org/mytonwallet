@@ -1,12 +1,17 @@
 {
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.32104,0.70703,0.97559,1.00000",
+      "display-p3:0.28125,0.62939,0.97168,1.00000",
       "display-p3:0.16833,0.39746,0.94189,1.00000"
     ]
   },
   "groups" : [
     {
+      "blur-material" : null,
       "layers" : [
         {
           "fill-specializations" : [
@@ -20,6 +25,7 @@
               }
             }
           ],
+          "glass" : true,
           "hidden" : false,
           "image-name" : "Foreground 1@2x.png",
           "name" : "Foreground 1",
@@ -31,7 +37,26 @@
               0
             ]
           }
-        },
+        }
+      ],
+      "refractivity" : {
+        "depth" : 0.08,
+        "enabled" : true,
+        "strength" : 0.5
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
         {
           "blend-mode" : "normal",
           "fill-specializations" : [
@@ -53,12 +78,13 @@
               }
             }
           ],
+          "glass" : false,
           "hidden" : false,
           "image-name" : "Foreground 2@2x.png",
           "name" : "Foreground 2",
           "opacity-specializations" : [
             {
-              "value" : 1
+              "value" : 0.5
             },
             {
               "appearance" : "tinted",
@@ -109,7 +135,7 @@
           ],
           "glass" : false,
           "hidden" : false,
-          "image-name" : "Foreground 4@2x.png",
+          "image-name" : "Foreground 5@2x.png",
           "name" : "Foreground 4",
           "opacity-specializations" : [
             {
@@ -122,13 +148,19 @@
           ]
         }
       ],
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 0.5
+      },
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "specular" : false,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.3
       }
     }
   ],

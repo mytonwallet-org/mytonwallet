@@ -5,6 +5,8 @@ public struct ApiCardInfo: Equatable, Hashable, Codable, Sendable {
     public var all: Int
     public var notMinted: Int
     public var price: Double
+    /// Mint start time as an ISO 8601 UTC date-time string.
+    public var startsAt: String? = nil
 }
 
 public struct ApiCardsInfo: Equatable, Hashable, Codable, Sendable {
@@ -62,6 +64,7 @@ public struct ApiAccountConfig: Equatable, Hashable, Codable, Sendable {
 public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
     public enum Kind: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
         case cardOverlay
+        case infoBanner
     }
 
     public struct CardOverlay: Equatable, Hashable, Codable, Sendable {
@@ -100,13 +103,71 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
         public var actionButton: ActionButton?
     }
 
-    public var id: String
-    public var kind: Kind
-    public var cardOverlay: CardOverlay
-    public var modal: Modal?
+    public struct InfoBanner: Equatable, Hashable, Codable, Sendable {
+        public struct ActionButton: Equatable, Hashable, Codable, Sendable {
+            public enum OnClickAction: String, Equatable, Hashable, Codable, Sendable {
+                case openEarn
+            }
+
+            public var title: String
+            public var onClickAction: OnClickAction
+
+            public init(title: String, onClickAction: OnClickAction) {
+                self.title = title
+                self.onClickAction = onClickAction
+            }
+        }
+
+        public var title: String
+        /// Inline Markdown, including emphasis.
+        public var description: String
+        public var actionButton: ActionButton
+
+        public init(title: String, description: String, actionButton: ActionButton) {
+            self.title = title
+            self.description = description
+            self.actionButton = actionButton
+        }
+    }
+
+    public let id: String
+    public let kind: Kind
+    public let cardOverlay: CardOverlay?
+    public let modal: Modal?
+    public let infoBanner: InfoBanner?
+
+    public init(id: String, cardOverlay: CardOverlay, modal: Modal? = nil) {
+        self.id = id
+        self.kind = .cardOverlay
+        self.cardOverlay = cardOverlay
+        self.modal = modal
+        self.infoBanner = nil
+    }
+
+    public init(id: String, infoBanner: InfoBanner) {
+        self.id = id
+        self.kind = .infoBanner
+        self.cardOverlay = nil
+        self.modal = nil
+        self.infoBanner = infoBanner
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try container.decode(String.self, forKey: .id)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .cardOverlay:
+            self.init(
+                id: id,
+                cardOverlay: try container.decode(CardOverlay.self, forKey: .cardOverlay),
+                modal: try container.decodeIfPresent(Modal.self, forKey: .modal)
+            )
+        case .infoBanner:
+            self.init(id: id, infoBanner: try container.decode(InfoBanner.self, forKey: .infoBanner))
+        }
+    }
 }
 
-#if DEBUG
 public enum DebugPromotionPreset {
     public static let userDefaultsKey = "debug_showAirPromotionPreset"
     public static let cardMintingUserDefaultsKey = "debug_showCardMintingPromotionPreset"
@@ -119,11 +180,15 @@ public enum DebugPromotionPreset {
     private static let cachedCardMintingPromotion = CachedUserDefault<Bool>(key: cardMintingUserDefaultsKey)
 
     public static var airPromotionIsEnabled: Bool {
-        cachedAirPromotion.value
+        #if DEBUG
+        IS_DEBUG_OR_TESTFLIGHT && cachedAirPromotion.value
+        #else
+        false
+        #endif
     }
 
     public static var cardMintingPromotionIsEnabled: Bool {
-        cachedCardMintingPromotion.value
+        IS_DEBUG_OR_TESTFLIGHT && cachedCardMintingPromotion.value
     }
 
     public static var activePromotion: ApiPromotion? {
@@ -142,7 +207,6 @@ public enum DebugPromotionPreset {
 
     public static let airPromotion = ApiPromotion(
         id: "securityCheckup-2026",
-        kind: .cardOverlay,
         cardOverlay: .init(
             mascotIcon: .init(
                 url: "https://static.mytonwallet.org/icons/promotion-air-mascot.webp",
@@ -174,7 +238,6 @@ public enum DebugPromotionPreset {
 
     public static let cardMintingPromotion = ApiPromotion(
         id: "cardMinting-2026",
-        kind: .cardOverlay,
         cardOverlay: .init(
             mascotIcon: .init(
                 url: "https://static.mytonwallet.org/cards/v2/cards/1806.webp",
@@ -197,7 +260,6 @@ public enum DebugPromotionPreset {
         .black: ApiCardInfo(all: 250, notMinted: 18, price: 1_000),
     ])
 }
-#endif
 
 public enum DebugMfaEnabledOverride {
     public static let userDefaultsKey = "debug_forceMfaEnabled"

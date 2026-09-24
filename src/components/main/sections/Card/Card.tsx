@@ -15,15 +15,17 @@ import type {
   UserToken,
 } from '../../../../global/types';
 import type { LangFn } from '../../../../hooks/useLang';
+import type { CardGlare } from '../../../ui/CardTilt';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
-import { IS_GRAM_WALLET } from '../../../../config';
+import { ANIMATION_LEVEL_MIN, IS_GRAM_WALLET } from '../../../../config';
 import {
   selectAccountStakingStates, selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
+  selectIs3dCardDisabled,
   selectIsCurrentAccountViewMode,
   selectPortfolioHistoryBundle,
   selectPortfolioMainnetWalletKeys,
@@ -49,6 +51,8 @@ import useWindowSize from '../../../../hooks/useWindowSize';
 
 import MintCardButton from '../../../mintCard/MintCardButton';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
+import CardTilt from '../../../ui/CardTilt';
+import DefaultCardBackground from '../../../ui/DefaultCardBackground';
 import Image from '../../../ui/Image';
 import LoadingDots from '../../../ui/LoadingDots';
 import SensitiveData from '../../../ui/SensitiveData';
@@ -81,6 +85,7 @@ interface StateProps {
   isNftBuyingDisabled: boolean;
   isViewMode: boolean;
   animationLevel: number;
+  is3dCardDisabled: boolean;
   isSeasonalThemingDisabled?: boolean;
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   activePromotion?: ApiPromotion;
@@ -122,6 +127,9 @@ function useSeasonalTheming({
   };
 }
 
+// Every card of a build shares one glare: Gram Wallet's turns with the tilt, My Wallet's follows the pointer
+const CARD_GLARE: CardGlare = IS_GRAM_WALLET ? 'radial' : 'spot';
+
 const CARD_PORTRAIT_WIDTH = 378;
 const CARD_PORTRAIT_HEIGHT = 220;
 const CARD_LANDSCAPE_WIDTH = 328;
@@ -141,6 +149,7 @@ function Card({
   cardNft,
   isViewMode,
   animationLevel,
+  is3dCardDisabled,
   isSeasonalThemingDisabled,
   seasonalTheme,
   activePromotion,
@@ -397,74 +406,90 @@ function Card({
         {isUpdating ? <LoadingDots isActive isDoubled /> : undefined}
       </Transition>
 
-      <div
-        className={
-          buildClassName(
-            styles.container,
-            customCardClassName,
-            IS_GRAM_WALLET && 'gram',
-          )
-        }
+      <CardTilt
+        isDisabled={is3dCardDisabled}
+        glare={CARD_GLARE}
+        className={styles.tiltArea}
       >
-        <CustomCardManager nft={cardNft} onCardChange={handleCardChange} />
-        <SeasonalTheming
-          animationLevel={animationLevel}
-          seasonalTheme={seasonalTheme}
-          isSeasonalThemingDisabled={isSeasonalThemingDisabled}
-          seasonalContextMenuItems={seasonalContextMenuItems}
-          onDisableSeasonalTheming={handleDisableSeasonalTheming}
-        />
-
-        {shouldRenderPromo && (
-          <div className={styles.promoLayer}>
-            <Image
-              url={promoBgMaskUrl}
-              alt=""
-              className={styles.promoBg}
-              imageClassName={styles.promoBg_img}
-              isSlow
-              loading="eager"
-              onLoad={handlePromoBgLoad}
+        <div
+          className={
+            buildClassName(
+              styles.container,
+              customCardClassName,
+              IS_GRAM_WALLET && 'gram',
+            )
+          }
+        >
+          {!hasCustomCard && (
+            <DefaultCardBackground
+              isGram={IS_GRAM_WALLET}
+              isAnimationDisabled={animationLevel === ANIMATION_LEVEL_MIN}
             />
-            <Image
-              url={promoOverlayMaskUrl}
-              alt=""
-              className={styles.promoOverlay}
-              imageClassName={styles.promoOverlay_img}
-              isSlow
-              loading="eager"
-              onLoad={handlePromoOverlayLoad}
-            />
-            <div
-              // This class name should be applied only once. When the mascot is present, it should be applied to the image instead.
-              className={!(mascotIcon && isPromoImagesLoaded) ? styles.promoMascot : undefined}
-              style={promoMascotStyle}
-              role="button"
-              tabIndex={0}
-              onClick={handlePromoClick}
-            >
-              {mascotIcon && isPromoImagesLoaded && (
-                <Image url={mascotIcon.url} alt="" loading="eager" className={styles.promoMascot} />
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className={buildClassName(styles.containerInner, customCardClassName)}>
-          {values ? renderBalance() : renderLoader()}
-          <Transition
-            activeKey={mainKey}
-            name="fade"
-            className={styles.cardAddressContainer}
-            slideClassName={styles.cardAddressSlide}
-          >
-            <CardAddress withTextGradient={withTextGradient} />
-          </Transition>
-          {!isNftBuyingDisabled && !isViewMode && (
-            <MintCardButton />
           )}
+          <CustomCardManager
+            nft={cardNft}
+            withMotion={!is3dCardDisabled}
+            onCardChange={handleCardChange}
+          />
+          <SeasonalTheming
+            animationLevel={animationLevel}
+            seasonalTheme={seasonalTheme}
+            isSeasonalThemingDisabled={isSeasonalThemingDisabled}
+            seasonalContextMenuItems={seasonalContextMenuItems}
+            onDisableSeasonalTheming={handleDisableSeasonalTheming}
+          />
+
+          {shouldRenderPromo && (
+            <div className={styles.promoLayer}>
+              <Image
+                url={promoBgMaskUrl}
+                alt=""
+                className={styles.promoBg}
+                imageClassName={styles.promoBg_img}
+                isSlow
+                loading="eager"
+                onLoad={handlePromoBgLoad}
+              />
+              <Image
+                url={promoOverlayMaskUrl}
+                alt=""
+                className={styles.promoOverlay}
+                imageClassName={styles.promoOverlay_img}
+                isSlow
+                loading="eager"
+                onLoad={handlePromoOverlayLoad}
+              />
+              <div
+                // This class name should be applied only once. When the mascot is present, it should be applied to the image instead.
+                className={!(mascotIcon && isPromoImagesLoaded) ? styles.promoMascot : undefined}
+                style={promoMascotStyle}
+                role="button"
+                tabIndex={0}
+                onClick={handlePromoClick}
+              >
+                {mascotIcon && isPromoImagesLoaded && (
+                  <Image url={mascotIcon.url} alt="" loading="eager" className={styles.promoMascot} />
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className={buildClassName(styles.containerInner, customCardClassName)}>
+            {values ? renderBalance() : renderLoader()}
+            <Transition
+              activeKey={mainKey}
+              name="fade"
+              className={styles.cardAddressContainer}
+              slideClassName={styles.cardAddressSlide}
+            >
+              <CardAddress withTextGradient={withTextGradient} />
+            </Transition>
+            {!isNftBuyingDisabled && !isViewMode && (
+              <MintCardButton />
+            )}
+          </div>
         </div>
-      </div>
+      </CardTilt>
 
     </div>
   );
@@ -509,6 +534,7 @@ export default memo(
         isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
         isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
         animationLevel: global.settings.animationLevel,
+        is3dCardDisabled: selectIs3dCardDisabled(global),
         isSeasonalThemingDisabled: global.settings.isSeasonalThemingDisabled,
         seasonalTheme: selectSeasonalTheme(global),
         activePromotion: accountState?.config?.activePromotion,

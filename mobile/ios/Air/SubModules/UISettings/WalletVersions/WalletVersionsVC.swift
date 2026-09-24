@@ -140,8 +140,10 @@ public class WalletVersionsVC: SettingsBaseVC, UICollectionViewDelegate {
     private func applySnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
 
-        snapshot.appendSections([.currentVersion])
-        snapshot.appendItems([.currentWallet], toSection: .currentVersion)
+        if walletVersionsData?.currentVersion != nil {
+            snapshot.appendSections([.currentVersion])
+            snapshot.appendItems([.currentWallet], toSection: .currentVersion)
+        }
 
         if let versions = walletVersionsData?.versions, !versions.isEmpty {
             snapshot.appendSections([.otherVersions])

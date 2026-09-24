@@ -17,12 +17,20 @@ enum PasswordPresenter {
         authorizationUI: AuthorizationUI,
         isPresentationValid: @escaping @MainActor () -> Bool
     ) async -> ScreenResolution<SoftwareSubmission<Result>> {
+        guard !Task.isCancelled else {
+            return .cancelled(.init(stage: .authentication, reason: .taskCancelled))
+        }
         guard isPresentationValid() else {
             return .cancelled(.init(stage: .authentication, reason: .dismissed))
         }
 
-        if confirmation.biometricPolicy == .beforePresentation,
-           let enclaveToken = await biometricTokenIfAvailable() {
+        if let enclaveToken = await tokenBeforePresentation(
+            requiresFreshAuthentication: confirmation.requiresFreshAuthentication,
+            biometricPolicy: confirmation.biometricPolicy
+        ) {
+            guard !Task.isCancelled else {
+                return .cancelled(.init(stage: .authentication, reason: .taskCancelled))
+            }
             guard isPresentationValid() else {
                 return .cancelled(.init(stage: .authentication, reason: .dismissed))
             }
@@ -316,7 +324,14 @@ enum PasswordPresenter {
         }
     }
 
-    private static func biometricTokenIfAvailable() async -> EnclaveToken? {
+    static func tokenBeforePresentation(
+        requiresFreshAuthentication: Bool,
+        biometricPolicy: BiometricPolicy
+    ) async -> EnclaveToken? {
+        if !requiresFreshAuthentication, let token = await AuthSupport.rememberedToken() {
+            return token
+        }
+        guard biometricPolicy == .beforePresentation, !Task.isCancelled else { return nil }
         guard AuthSupport.status.authorizableMethods.contains(.biometrics) else {
             return nil
         }

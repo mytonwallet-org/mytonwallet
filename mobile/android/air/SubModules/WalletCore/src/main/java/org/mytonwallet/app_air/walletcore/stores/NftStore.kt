@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.models.MCollectionTab
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.MTW_CARDS_COLLECTION
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -60,6 +61,7 @@ object NftStore : IStore {
 
     data class NftData(
         val accountId: String,
+        @Volatile
         var cachedNfts: MutableList<ApiNft>? = null,
         var whitelistedNftAddresses: MutableList<String> = mutableListOf(),
         var blacklistedNftAddresses: MutableList<String> = mutableListOf(),
@@ -326,7 +328,7 @@ object NftStore : IStore {
                     WalletCore.notifyEvent(WalletEvent.HomeNftCollectionsUpdated)
                 }
             }
-            writeToCache(shouldWriteNftsToCache)
+            writeToCache(accountId, currentData.cachedNfts, shouldWriteNftsToCache)
 
             if (streamedAddresses != null) {
                 drainPendingMtwCardsOnStreamComplete(accountId, currentData.cachedNfts.orEmpty())
@@ -475,28 +477,36 @@ object NftStore : IStore {
         WalletCore.notifyEvent(WalletEvent.NftDomainExpirationDismissed(accountId))
     }
 
-    fun add(accountId: String, nft: ApiNft) {
+    fun add(accountId: String, nft: ApiNft, allowInactive: Boolean = false) {
         cacheExecutor.execute {
-            if (nftData?.accountId != accountId) return@execute
-            val current = nftData?.cachedNfts
+            val activeData = nftData?.takeIf { it.accountId == accountId }
+            if (activeData == null &&
+                (!allowInactive || WGlobalStorage.getAccount(accountId) == null)
+            ) {
+                return@execute
+            }
+            val current = activeData?.cachedNfts ?: fetchCachedNfts(accountId)
             val index = current?.indexOfFirst { it.address == nft.address } ?: -1
-            nftData?.cachedNfts = when {
+            val updated = when {
                 current == null -> mutableListOf(nft)
                 index > -1 -> current.toMutableList().also { it[index] = nft }
                 else -> current.toMutableList().also { it.add(0, nft) }
             }
-            WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
-            writeToCache()
+            activeData?.cachedNfts = updated
+            writeToCache(accountId, updated)
+            if (activeData != null && nftData === activeData) {
+                WalletCore.notifyEvent(WalletEvent.ReceivedNewNFT)
+            }
         }
     }
 
     fun removeByAddress(accountId: String, nftAddress: String) {
         cacheExecutor.execute {
-            if (nftData?.accountId != accountId) return@execute
-            nftData?.cachedNfts =
-                nftData?.cachedNfts?.filter { it.address != nftAddress }?.toMutableList()
-            WalletCore.notifyEvent(WalletEvent.NftsUpdated)
-            writeToCache()
+            val activeData = nftData?.takeIf { it.accountId == accountId } ?: return@execute
+            activeData.cachedNfts =
+                activeData.cachedNfts?.filter { it.address != nftAddress }?.toMutableList()
+            writeToCache(accountId, activeData.cachedNfts)
+            if (nftData === activeData) WalletCore.notifyEvent(WalletEvent.NftsUpdated)
         }
     }
 
@@ -514,6 +524,17 @@ object NftStore : IStore {
         if (alreadyOwned) return
         if (WGlobalStorage.getCardBackgroundNft(accountId) != null) return
 
+        installMtwCard(accountId, nft)
+    }
+
+    fun applyMintedMtwCard(accountId: String, nft: ApiNft) {
+        if (nft.chain != MBlockchain.ton || nft.collectionAddress != MTW_CARDS_COLLECTION) return
+        if (WGlobalStorage.getAccount(accountId) == null) return
+        val owned = WGlobalStorage.getOwnedMtwCardAddresses(accountId)
+        if (!owned.contains(nft.address)) {
+            WGlobalStorage.setOwnedMtwCardAddresses(accountId, owned + nft.address)
+        }
+        add(accountId, nft, allowInactive = true)
         installMtwCard(accountId, nft)
     }
 
@@ -537,23 +558,31 @@ object NftStore : IStore {
     }
 
     private fun installMtwCard(accountId: String, nft: ApiNft) {
-        WGlobalStorage.setCardBackgroundNft(accountId, nft.toDictionary())
+        val nftJson = nft.toDictionary()
+        WGlobalStorage.setCardBackgroundNft(accountId, nftJson)
+        WGlobalStorage.setNftAccentColor(accountId, null, nftJson)
+        ensureMainThread {
+            if (AccountStore.activeAccountId == accountId) {
+                WalletContextManager.delegate?.get()?.themeChanged()
+            }
+        }
+        WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
         val extractor = paletteExtractor
         if (extractor != null) {
             extractor.extract(nft) { colorIndex ->
-                if (WGlobalStorage.getCardBackgroundNftAddress(accountId) != nft.address) {
+                if (WGlobalStorage.getAccentColorNft(accountId)?.optString("address") !=
+                    nft.address
+                ) {
                     return@extract
                 }
                 if (colorIndex != null) {
-                    WGlobalStorage.setNftAccentColor(accountId, colorIndex, nft.toDictionary())
+                    WGlobalStorage.setNftAccentColor(accountId, colorIndex, nftJson)
                 }
                 if (AccountStore.activeAccountId == accountId) {
                     WalletContextManager.delegate?.get()?.themeChanged()
                 }
                 WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
             }
-        } else {
-            WalletCore.notifyEvent(WalletEvent.NftCardUpdated)
         }
     }
 
@@ -576,43 +605,52 @@ object NftStore : IStore {
         paletteExtractor = null
     }
 
+    fun clearDownloadedData() {
+        clearActiveNftData()
+        collectionsPreloadExecutor.shutdownNow()
+        collectionsPreloadExecutor = Executors.newSingleThreadExecutor()
+        preloadingCollections.clear()
+        cachedNftCollections.clear()
+        cachedHasHiddenNfts.clear()
+    }
+
     private fun clearActiveNftData() {
         nftData = null
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
     }
 
-    private fun writeToCache(shouldWriteNfts: Boolean = true) {
-        val nftData = nftData ?: return
-        nftData.accountId.let { accountId ->
-            nftData.cachedNfts?.let { cachedNfts ->
-                if (shouldWriteNfts) {
-                    val jsonString = try {
-                        buildString {
-                            append("[")
-                            cachedNfts.forEachIndexed { index, nft ->
-                                append(nft.toDictionary().toString())
-                                if (index != cachedNfts.lastIndex) append(",")
-                            }
-                            append("]")
-                        }
-                    } catch (t: OutOfMemoryError) {
-                        Logger.e(
-                            Logger.LogTag.MEMORY,
-                            "NftStore: OOM serializing nfts cache: ${t.message}"
-                        )
-                        WCacheStorage.setNfts(accountId, null)
-                        return
+    private fun writeToCache(
+        accountId: String,
+        cachedNfts: List<ApiNft>?,
+        shouldWriteNfts: Boolean = true
+    ) {
+        val nfts = cachedNfts ?: return
+        if (shouldWriteNfts) {
+            val jsonString = try {
+                buildString {
+                    append("[")
+                    nfts.forEachIndexed { index, nft ->
+                        append(nft.toDictionary().toString())
+                        if (index != nfts.lastIndex) append(",")
                     }
-                    WCacheStorage.setNfts(accountId, jsonString)
+                    append("]")
                 }
-                val collections = getCollectionsFromNfts(cachedNfts)
-                writeCollectionsToCache(accountId, collections)
-                val hasHiddenNft = cachedNfts.hasHiddenNfts()
-                WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
-                cachedHasHiddenNfts[accountId] = hasHiddenNft
+            } catch (t: OutOfMemoryError) {
+                Logger.e(
+                    Logger.LogTag.MEMORY,
+                    "NftStore: OOM serializing nfts cache: ${t.message}"
+                )
+                WCacheStorage.setNfts(accountId, null)
+                return
             }
+            WCacheStorage.setNfts(accountId, jsonString)
         }
+        val collections = getCollectionsFromNfts(nfts)
+        writeCollectionsToCache(accountId, collections)
+        val hasHiddenNft = nfts.hasHiddenNfts()
+        WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
+        cachedHasHiddenNfts[accountId] = hasHiddenNft
     }
 
     // NFT update events fire per-account/per-batch, causing a burst of ownership checks.

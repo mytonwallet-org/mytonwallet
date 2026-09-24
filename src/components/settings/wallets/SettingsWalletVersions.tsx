@@ -92,7 +92,9 @@ function SettingsWalletVersions({
         onScroll={handleContentScroll}
       >
         <div className={styles.blockWalletVersionText}>
-          <span>{lang('$current_wallet_version', { version: <strong>{currentVersion}</strong> })}</span>
+          {currentVersion && (
+            <span>{lang('$current_wallet_version', { version: <strong>{currentVersion}</strong> })}</span>
+          )}
           <span>{lang('You have tokens on other versions of your wallet. You can import them from here.')}</span>
         </div>
         <div className={styles.block}>

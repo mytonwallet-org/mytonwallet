@@ -204,6 +204,27 @@ object WCacheStorage {
         }
     }
 
+    fun clearDownloadedData(): Boolean {
+        val keys = setOf(
+            CACHE_PREF_TOKENS,
+            CACHE_PREF_SWAP_ASSETS,
+            CACHE_PREF_TOKEN_DETAILS,
+            CACHE_PREF_MARKET_ASSETS
+        )
+        val prefixes = listOf(
+            CACHE_PREF_STAKING_DATA,
+            CACHE_PREF_NFTS,
+            CACHE_PREF_NFT_COLLECTIONS,
+            CACHE_PREF_HAS_HIDDEN_NFT,
+            CACHE_PREF_PORTFOLIO
+        )
+        return sharedPreferences.edit().apply {
+            sharedPreferences.all.keys.forEach { key ->
+                if (key in keys || prefixes.any { key.startsWith(it) }) remove(key)
+            }
+        }.commit()
+    }
+
     fun clean(accountIds: Array<String>) {
         for (accountId in accountIds) {
             clean(accountId)

@@ -119,6 +119,19 @@ describe('updateNfts api update', () => {
 
     expect(nft).toMatchObject({ isOnSale: true, name: 'From socket' });
   });
+
+  it('replaces a stored NFT without metadata with the batch version', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT_ADDRESS]: makeNft({ isMetadataMissing: true }) },
+      orderedAddresses: [NFT_ADDRESS],
+    };
+
+    const nft = dispatchUpdateNfts(global, [makeNft({ name: 'From batch' })], true);
+
+    expect(nft).toMatchObject({ name: 'From batch' });
+    expect(nft.isMetadataMissing).toBeUndefined();
+  });
 });
 
 describe('removeAccounts api update', () => {

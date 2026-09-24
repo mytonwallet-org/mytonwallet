@@ -5,10 +5,11 @@
 //
 
 import Perception
+import SwiftUI
 import UIKit
 import WalletContext
 
-public final class WSegmentedControl: UIView {
+public final class WSegmentedControl: UIView, UIScrollViewDelegate {
 
     public let model: SegmentedControlModel
     private let scrollContentMargin: CGFloat
@@ -19,10 +20,8 @@ public final class WSegmentedControl: UIView {
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
-
-    private let capsuleView = UIView()
-    private let capsuleBackgroundView = UIView()
-    private let capsuleContentView = UIView()
+    private let lensView = WSegmentedControlLensView()
+    private let selectedScrollView = UIView()
     private let secondaryContainer = UIView()
     private let primaryContainer = UIView()
     private let interactionContainer = UIView()
@@ -31,6 +30,7 @@ public final class WSegmentedControl: UIView {
         let id: String
         let secondaryView: UIView
         let secondaryLabel: UILabel
+        let primaryView: UIView
         let primaryLabel: UILabel
         let arrow: UIImageView?
         let interaction: SegmentedControlInteractionView
@@ -45,6 +45,9 @@ public final class WSegmentedControl: UIView {
     private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
     private var autoScrollWorkItem: DispatchWorkItem?
     private var replacementCrossfadeCount = 0
+    private var isLayingOutContent = false
+    private var liftWorkItem: DispatchWorkItem?
+    private var isLensLifted = false
 
     private var reorderingVC: SegmentedControlReorderingVC?
     private var isReorderingApplied = false
@@ -72,7 +75,25 @@ public final class WSegmentedControl: UIView {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        if window == nil { endLensLift(animated: false) }
         applyColors()
+    }
+
+    public override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        // Match Telegram's header-panel overlay so the lifted lens can extend beyond the glass.
+        var ancestor = superview
+        var container: UIView?
+        if #available(iOS 26, *) {
+            while let view = ancestor {
+                if let effect = view as? UIVisualEffectView, effect.effect is UIGlassContainerEffect {
+                    container = effect.contentView
+                    break
+                }
+                ancestor = view.superview
+            }
+        }
+        lensView.setLiftedContainer(container)
     }
 
     public override func tintColorDidChange() {
@@ -84,6 +105,7 @@ public final class WSegmentedControl: UIView {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
         applyColors()
+        updateLens(animated: false)
     }
 
     private func setupViews() {
@@ -99,35 +121,29 @@ public final class WSegmentedControl: UIView {
         scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.decelerationRate = .fast
         scrollView.alwaysBounceVertical = false
-        addSubview(scrollView)
+        scrollView.scrollsToTop = false
+        scrollView.delaysContentTouches = false
+        scrollView.canCancelContentTouches = true
+        scrollView.delegate = self
+        addSubview(lensView)
+        lensView.contentView.addSubview(scrollView)
+        selectedScrollView.clipsToBounds = true
+        lensView.selectedContentView.addSubview(selectedScrollView)
 
         contentView.clipsToBounds = false
         scrollView.addSubview(contentView)
 
-        let c = model.constants
-
         secondaryContainer.isUserInteractionEnabled = false
         contentView.addSubview(secondaryContainer)
-
-        capsuleView.backgroundColor = .clear
-        capsuleView.layer.cornerRadius = c.height / 2
-        capsuleView.layer.cornerCurve = .continuous
-        capsuleView.isUserInteractionEnabled = false
-        capsuleView.clipsToBounds = true
-        capsuleView.isHidden = true
-        contentView.addSubview(capsuleView)
-
-        capsuleBackgroundView.isUserInteractionEnabled = false
-        capsuleView.addSubview(capsuleBackgroundView)
-
-        capsuleContentView.isUserInteractionEnabled = false
-        capsuleContentView.clipsToBounds = true
-        capsuleView.addSubview(capsuleContentView)
-
         primaryContainer.isUserInteractionEnabled = false
-        capsuleContentView.addSubview(primaryContainer)
-
+        selectedScrollView.addSubview(primaryContainer)
         contentView.addSubview(interactionContainer)
+    }
+
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard !isHidden, alpha > 0.01, isUserInteractionEnabled, self.point(inside: point, with: event) else { return nil }
+        if isReorderingApplied { return super.hitTest(point, with: event) }
+        return scrollView.hitTest(convert(point, to: scrollView), with: event)
     }
 
     private func observeModel() {
@@ -157,6 +173,7 @@ public final class WSegmentedControl: UIView {
     private func applyModelState(didRebuild willRebuild: Bool) {
         var didRebuild = willRebuild
         if model.items != renderedItems {
+            cancelSelectionAnimations()
             model.elementSizes.removeAll(keepingCapacity: true)
             rebuildItems()
             didRebuild = true
@@ -215,6 +232,7 @@ public final class WSegmentedControl: UIView {
 
     internal func beginReplacementCrossfade() {
         replacementCrossfadeCount += 1
+        cancelSelectionAnimations()
     }
 
     internal func endReplacementCrossfade() {
@@ -234,8 +252,7 @@ public final class WSegmentedControl: UIView {
     private func rebuildItems() {
         for views in itemViews {
             views.secondaryView.removeFromSuperview()
-            views.primaryLabel.removeFromSuperview()
-            views.arrow?.removeFromSuperview()
+            views.primaryView.removeFromSuperview()
             views.interaction.removeFromSuperview()
         }
         itemViews.removeAll()
@@ -256,9 +273,12 @@ public final class WSegmentedControl: UIView {
             secondaryLabel.isAccessibilityElement = false
             secondaryView.addSubview(secondaryLabel)
 
+            let primaryView = UIView()
+            primaryView.isUserInteractionEnabled = false
+            primaryContainer.addSubview(primaryView)
             let primaryLabel = makeLabel(title: item.title, color: model.primaryColor, font: font)
             primaryLabel.isAccessibilityElement = false
-            primaryContainer.addSubview(primaryLabel)
+            primaryView.addSubview(primaryLabel)
 
             var arrow: UIImageView?
             if item.shouldShowMenuIconWhenActive {
@@ -266,7 +286,7 @@ public final class WSegmentedControl: UIView {
                 imageView.tintColor = model.secondaryColor
                 imageView.alpha = 0.5
                 imageView.contentMode = .center
-                primaryContainer.addSubview(imageView)
+                primaryView.addSubview(imageView)
                 arrow = imageView
             }
 
@@ -277,6 +297,7 @@ public final class WSegmentedControl: UIView {
                 id: item.id,
                 secondaryView: secondaryView,
                 secondaryLabel: secondaryLabel,
+                primaryView: primaryView,
                 primaryLabel: primaryLabel,
                 arrow: arrow,
                 interaction: interaction
@@ -284,16 +305,23 @@ public final class WSegmentedControl: UIView {
         }
 
         updateInteractions()
+        accessibilityElements = reorderingVC.map { [$0.view!] } ?? itemViews.map(\.interaction)
         invalidateIntrinsicContentSize()
     }
 
     private func applyColors() {
-        capsuleBackgroundView.backgroundColor = model.capsuleColor
         let primaryColor = model.primaryColor.resolvedColor(with: traitCollection)
+        let secondaryColor = model.secondaryColor
         for views in itemViews {
-            views.secondaryLabel.textColor = model.secondaryColor
-            views.primaryLabel.textColor = primaryColor
-            views.arrow?.tintColor = primaryColor
+            if views.secondaryLabel.textColor != secondaryColor {
+                views.secondaryLabel.textColor = secondaryColor
+            }
+            if views.primaryLabel.textColor != primaryColor {
+                views.primaryLabel.textColor = primaryColor
+            }
+            if let arrow = views.arrow, arrow.tintColor != primaryColor {
+                arrow.tintColor = primaryColor
+            }
         }
     }
 
@@ -320,6 +348,7 @@ public final class WSegmentedControl: UIView {
                 segmentedControl: self,
                 allowsSimultaneousGlassInteraction: isGlassInteractive,
                 onSelect: { [weak self] in
+                    self?.beginLensLift()
                     self?.model.onSelect(item)
                 }
             )
@@ -338,11 +367,15 @@ public final class WSegmentedControl: UIView {
 
     private func layoutSegmentedContent() {
         super.layoutSubviews()
+        isLayingOutContent = true
+        defer { isLayingOutContent = false }
 
         let c = model.constants
         let availableWidth = max(0, bounds.width - 2 * c.backgroundPadding)
         let availableHeight = c.height
+        let naturalWidth = model.calculateContentWidth(includeBackground: false)
         let distributesItemsEvenly = model.style == .compactRootHeader && !renderedItems.isEmpty
+            && naturalWidth <= availableWidth
         let inner: CGFloat
         if distributesItemsEvenly {
             let spacingWidth = CGFloat(renderedItems.count - 1) * c.spacing
@@ -355,22 +388,31 @@ public final class WSegmentedControl: UIView {
             }
             inner = availableWidth
         } else {
-            inner = model.calculateContentWidth(includeBackground: false)
+            // Restore measured widths after a compact header stops fitting (rotation/localization).
+            let attributes: [NSAttributedString.Key: Any] = [.font: model.font]
+            for item in renderedItems {
+                let width = (item.title as NSString).size(withAttributes: attributes).width + 2 * c.innerPadding
+                model.setSize(itemId: item.id, size: CGSize(width: width, height: availableHeight))
+            }
+            inner = naturalWidth
         }
 
         backgroundContainer.frame = bounds
         backgroundView?.frame = backgroundContainer.bounds
         (backgroundView as? WCapsuleGlassBackgroundView)?.updateCornerRadius(bounds.height / 2)
 
-        scrollView.frame = CGRect(
+        lensView.frame = CGRect(
             x: c.backgroundPadding,
             y: c.topInset + c.backgroundPadding,
             width: availableWidth,
             height: availableHeight
         )
+        scrollView.frame = CGRect(origin: .zero, size: lensView.bounds.size)
         scrollView.layer.cornerRadius = availableHeight / 2
         scrollView.layer.cornerCurve = .continuous
         scrollView.clipsToBounds = true
+        selectedScrollView.layer.cornerRadius = availableHeight / 2
+        selectedScrollView.layer.cornerCurve = .continuous
 
         let fits = inner <= availableWidth
         scrollView.isScrollEnabled = !fits
@@ -379,6 +421,7 @@ public final class WSegmentedControl: UIView {
 
         let contentLeft = ((totalContent - inner) / 2).rounded()
         contentView.frame = CGRect(x: contentLeft, y: 0, width: inner, height: availableHeight)
+        primaryContainer.frame = contentView.frame
         secondaryContainer.frame = contentView.bounds
         interactionContainer.frame = contentView.bounds
 
@@ -399,6 +442,7 @@ public final class WSegmentedControl: UIView {
             autoScrollWorkItem?.cancel()
             autoScrollToSelected(animated: false)
         }
+        updateLens(animated: false)
     }
 
     private func layoutItemSlots() {
@@ -413,16 +457,16 @@ public final class WSegmentedControl: UIView {
             views.secondaryView.bounds = slotBounds
             views.secondaryView.center = slotCenter
             views.secondaryLabel.frame = slotBounds
-            views.primaryLabel.bounds = slotBounds
-            views.primaryLabel.center = slotCenter
-
-            views.interaction.frame = resolvedFrame(for: layout.interactionFrame)
+            let interactionFrame = resolvedFrame(for: layout.interactionFrame)
+            views.primaryView.frame = interactionFrame
+            views.primaryLabel.frame = slot.offsetBy(dx: -interactionFrame.minX, dy: -interactionFrame.minY)
+            views.interaction.frame = interactionFrame
 
             if let arrow = views.arrow {
                 let arrowSize = c.accessoryWidth
                 let logicalArrowCenterX = layout.labelFrame.maxX - c.innerPadding + 4 + arrowSize / 2
                 arrow.bounds = CGRect(x: 0, y: 0, width: arrowSize, height: c.height)
-                arrow.center = CGPoint(x: resolvedX(for: logicalArrowCenterX), y: c.height / 2)
+                arrow.center = CGPoint(x: resolvedX(for: logicalArrowCenterX) - interactionFrame.minX, y: c.height / 2)
                 let scale = max(0.001, layout.accessoryVisibility)
                 arrow.transform = CGAffineTransform(scaleX: scale, y: scale)
                 arrow.alpha = 0.5
@@ -453,29 +497,9 @@ public final class WSegmentedControl: UIView {
     }
 
     private func updateSelection(animated: Bool) {
-        guard let frame = resolvedSelectionFrame else {
-            layoutItemSlots()
-            capsuleView.isHidden = true
-            primaryContainer.isHidden = true
-            return
-        }
-
-        capsuleView.isHidden = false
-        primaryContainer.isHidden = false
         updateInteractions()
-
         let apply = { [self] in
             layoutItemSlots()
-            capsuleView.bounds = CGRect(origin: .zero, size: frame.size)
-            capsuleView.center = CGPoint(x: frame.midX, y: frame.midY)
-            capsuleBackgroundView.frame = capsuleView.bounds
-            capsuleContentView.frame = capsuleView.bounds
-            primaryContainer.frame = CGRect(
-                x: -frame.minX,
-                y: -frame.minY,
-                width: contentView.bounds.width,
-                height: contentView.bounds.height
-            )
         }
 
         if animated {
@@ -490,14 +514,58 @@ public final class WSegmentedControl: UIView {
         } else {
             apply()
         }
+        updateLens(animated: animated)
         hasAppliedSelection = true
     }
 
-    func contextMenuActivationView(forItemId itemId: String) -> UIView? {
-        if model.selection?.effectiveSelectedItemID == itemId {
-            return capsuleContentView
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard !isLayingOutContent else { return }
+        updateLens(animated: false)
+    }
+
+    private func updateLens(animated: Bool) {
+        selectedScrollView.frame = CGRect(origin: .zero, size: lensView.bounds.size)
+        selectedScrollView.bounds.origin = scrollView.contentOffset
+        let selection = resolvedSelectionFrame?.offsetBy(
+            dx: contentView.frame.minX - scrollView.contentOffset.x, dy: 0
+        )
+        lensView.update(selectionFrame: selection, isLifted: isLensLifted,
+                        color: model.capsuleColor, animated: animated)
+    }
+
+    private func beginLensLift() {
+        guard !shouldSuppressTransientAnimations, traitCollection.userInterfaceIdiom != .pad,
+              UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled else { return }
+        liftWorkItem?.cancel()
+        isLensLifted = true
+        updateLens(animated: true)
+        let work = DispatchWorkItem { [weak self] in self?.endLensLift(animated: true) }
+        liftWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    private func endLensLift(animated: Bool) {
+        liftWorkItem?.cancel()
+        liftWorkItem = nil
+        isLensLifted = false
+        updateLens(animated: animated)
+    }
+
+    private func cancelSelectionAnimations() {
+        autoScrollWorkItem?.cancel()
+        lensView.cancelAnimations()
+        endLensLift(animated: false)
+        scrollView.layer.removeAllAnimations()
+        primaryContainer.layer.removeAllAnimations()
+        for item in itemViews {
+            item.primaryView.layer.removeAllAnimations()
+            item.secondaryView.layer.removeAllAnimations()
         }
-        return itemViews.first(where: { $0.id == itemId })?.secondaryView
+    }
+
+    func contextMenuActivationView(forItemId itemId: String) -> UIView? {
+        guard let item = itemViews.first(where: { $0.id == itemId }) else { return nil }
+        return model.selection?.effectiveSelectedItemID == itemId ? item.primaryView : item.secondaryView
     }
 
     private func scheduleAutoScrollToSelected() {
@@ -545,6 +613,7 @@ public final class WSegmentedControl: UIView {
         isReorderingApplied = shouldReorder
 
         if shouldReorder {
+            cancelSelectionAnimations()
             let vc = SegmentedControlReorderingVC(
                 items: model.items,
                 selection: model.selection,
@@ -560,16 +629,18 @@ public final class WSegmentedControl: UIView {
             vc.view.frame = CGRect(x: 0, y: 0, width: bounds.width, height: model.constants.fullHeight)
             vc.view.alpha = 0
             addSubview(vc.view)
+            accessibilityElements = [vc.view!]
 
             UIView.animate(withDuration: 0.15) {
-                self.scrollView.alpha = 0
+                self.lensView.alpha = 0
                 self.backgroundContainer.alpha = 0
                 vc.view.alpha = 1
             }
         } else if let vc = reorderingVC {
             reorderingVC = nil
+            accessibilityElements = itemViews.map(\.interaction)
             UIView.animate(withDuration: 0.15) {
-                self.scrollView.alpha = 1
+                self.lensView.alpha = 1
                 self.backgroundContainer.alpha = 1
                 vc.view.alpha = 0
             } completion: { _ in
@@ -607,7 +678,7 @@ public final class WSegmentedControl: UIView {
         }
         if isGlassInteractive,
            let backgroundView = backgroundView as? WCapsuleGlassBackgroundView,
-           backgroundView.hostContentIfSupported(scrollView) {
+           backgroundView.hostContentIfSupported(lensView) {
             backgroundContainer.isUserInteractionEnabled = true
         }
         setNeedsLayout()
@@ -673,10 +744,19 @@ private final class WCapsuleGlassBackgroundView: UIView {
     private func setup() {
         switch style {
         case .colorHeader:
-            if #available(iOS 26, *) {
+            if #available(iOS 27, *) {
                 let effect = UIGlassEffect()
                 effect.isInteractive = isInteractive
                 let view = UIVisualEffectView(effect: effect)
+                addSubview(view)
+                glassView = view
+            } else if #available(iOS 26, *) {
+                // UIKit's iOS 26 glass follows the light content behind the navbar,
+                // despite its dark override. SwiftUI clear glass preserves this header's colors.
+                let view = HostingView {
+                    Color.clear.glassEffect(.clear, in: .capsule)
+                }
+                view.translatesAutoresizingMaskIntoConstraints = true
                 addSubview(view)
                 glassView = view
             } else if #available(iOS 17, *) {

@@ -100,6 +100,25 @@ struct SegmentedPagingGestureTests {
     }
 
     @Test(arguments: [false, true])
+    func `back navigation starts only beyond the settled first page`(rtl: Bool) {
+        let controller = makeController(rtl: rtl)
+        let x: CGFloat = rtl ? -300 : 300
+        #expect(controller.canBeginBackNavigation(velocity: CGPoint(x: x, y: 0)))
+        #expect(!controller.canBeginBackNavigation(velocity: CGPoint(x: -x, y: 0)))
+        #expect(!controller.canBeginBackNavigation(velocity: CGPoint(x: x, y: 500)))
+        #expect(!controller.canBeginBackNavigation(velocity: .zero))
+
+        controller.setSelectedIndex(to: 1, animated: false)
+        #expect(!controller.canBeginBackNavigation(velocity: CGPoint(x: x, y: 0)))
+        controller.setSelectedIndex(to: 0, animated: false)
+        controller.scrollView.contentOffset.x += rtl ? -30 : 30
+        #expect(!controller.canBeginBackNavigation(velocity: CGPoint(x: x, y: 0)))
+        controller.setSelectedIndex(to: 0, animated: false)
+        controller.scrollView.isScrollEnabled = false
+        #expect(!controller.canBeginBackNavigation(velocity: CGPoint(x: x, y: 0)))
+    }
+
+    @Test(arguments: [false, true])
     func `forward navigation starts only beyond the settled last page`(rtl: Bool) {
         let controller = makeController(rtl: rtl)
         let forwardVelocity: CGFloat = rtl ? 300 : -300
@@ -112,6 +131,55 @@ struct SegmentedPagingGestureTests {
         #expect(!controller.canBeginForwardNavigation(velocity: 0))
         controller.scrollView.contentOffset.x += rtl ? 30 : -30
         #expect(!controller.canBeginForwardNavigation(velocity: forwardVelocity))
+    }
+
+    @Test(arguments: [false, true])
+    func `edge forward navigation is opt in and uses the trailing screen edge`(rtl: Bool) {
+        let controller = makeController(rtl: rtl)
+        let bounds = CGRect(x: 0, y: 0, width: 400, height: 800)
+        let edge = CGPoint(x: rtl ? 5 : 395, y: 400)
+        let oppositeEdge = CGPoint(x: rtl ? 395 : 5, y: 400)
+        let boundary = CGPoint(x: rtl ? 20 : 380, y: 400)
+        let interior = CGPoint(x: rtl ? 24 : 376, y: 400)
+        let velocity: CGFloat = rtl ? 300 : -300
+        #expect(!controller.isForwardNavigationEdge(edge, in: bounds))
+        #expect(!controller.canBeginForwardNavigation(velocity: velocity, fromEdge: true))
+
+        controller.setForwardNavigation(in: UIView(), allowsEdgeNavigation: true, beginTransition: { nil }, isEnabled: { true })
+        #expect(controller.isForwardNavigationEdge(edge, in: bounds))
+        #expect(controller.isForwardNavigationEdge(boundary, in: bounds))
+        #expect(!controller.isForwardNavigationEdge(oppositeEdge, in: bounds))
+        #expect(!controller.isForwardNavigationEdge(interior, in: bounds))
+
+        for index in 0..<3 {
+            controller.setSelectedIndex(to: index, animated: false)
+            #expect(controller.canBeginForwardNavigation(velocity: velocity, fromEdge: true))
+            #expect(controller.canBeginForwardNavigation(velocity: velocity) == (index == 2))
+            #expect(!controller.canBeginForwardNavigation(velocity: -velocity, fromEdge: true))
+            #expect(!controller.canBeginForwardNavigation(velocity: 0, fromEdge: true))
+            controller.scrollView.contentOffset.x += rtl ? 30 : -30
+            #expect(!controller.canBeginForwardNavigation(velocity: velocity, fromEdge: true))
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `edge forward navigation respects the root availability gate and vertical scrolling`(rtl: Bool) {
+        let controller = makeController(rtl: rtl)
+        var enabled = false
+        var attempts = 0
+        controller.setForwardNavigation(in: UIView(), allowsEdgeNavigation: true, beginTransition: { attempts += 1; return nil }, isEnabled: { enabled })
+        let x: CGFloat = rtl ? 300 : -300
+        _ = controller.beginForwardNavigation(velocity: CGPoint(x: x, y: 0), fromEdge: true)
+        #expect(attempts == 0)
+        enabled = true
+        _ = controller.beginForwardNavigation(velocity: CGPoint(x: x, y: 500), fromEdge: true)
+        _ = controller.beginForwardNavigation(velocity: CGPoint(x: -x, y: 0), fromEdge: true)
+        #expect(attempts == 0)
+        _ = controller.beginForwardNavigation(velocity: CGPoint(x: x, y: 0), fromEdge: true)
+        #expect(attempts == 1)
+        controller.scrollView.isScrollEnabled = false
+        _ = controller.beginForwardNavigation(velocity: CGPoint(x: x, y: 0), fromEdge: true)
+        #expect(attempts == 1)
     }
 
     @Test(arguments: [false, true])

@@ -31,9 +31,15 @@ public struct SharedBottomToolbarAction: Equatable, Identifiable, Sendable {
 /// transitions. This keeps feature-specific routing out of the toolbar view.
 @MainActor
 public protocol SharedBottomToolbarContentProviding: AnyObject {
+    var isSharedBottomToolbarEnabled: Bool { get }
     var sharedBottomToolbarActions: [SharedBottomToolbarAction] { get }
+    /// Notify the host when actions or toolbar availability change.
     var onSharedBottomToolbarActionsChange: (() -> Void)? { get set }
 
     func setSharedBottomToolbarHosted(_ isHosted: Bool)
     func performSharedBottomToolbarAction(id: String)
+}
+
+extension SharedBottomToolbarContentProviding {
+    public var isSharedBottomToolbarEnabled: Bool { true }
 }

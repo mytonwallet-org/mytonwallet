@@ -53,14 +53,14 @@ open class BackgroundBlurView: UIVisualEffectView {
     public init(radius: CGFloat) {
         super.init(effect: UIBlurEffect(style: .regular))
         for subview in subviews {
-            if subview.description.contains("VisualEffectSubview") {
+            if NSStringFromClass(type(of: subview)).contains("VisualEffectSubview") {
                 subview.isHidden = true
             }
         }
         if let sublayer = layer.sublayers?.first, let filters = sublayer.filters {
             sublayer.backgroundColor = nil
             sublayer.isOpaque = false
-            sublayer.filters = filters.filter { "\($0)" == "gaussianBlur" }
+            sublayer.filters = filters.filter { ($0 as? NSObject)?.description == "gaussianBlur" }
             // The backdrop layer defaults to heavily downsampled rendering, which is visible near radius zero.
             sublayer.setValue(1 as NSNumber, forKey: "scale")
             self.blurLayer = sublayer

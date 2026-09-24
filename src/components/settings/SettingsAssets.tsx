@@ -49,6 +49,7 @@ interface StateProps {
   areTokensWithNoCostHidden?: boolean;
   areTokenNamesLocalized?: boolean;
   hasLocalizedTokenNames?: boolean;
+  areChainBadgesShown?: boolean;
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   tokens?: UserToken[];
@@ -72,6 +73,7 @@ function SettingsAssets({
   areTokensWithNoCostHidden,
   areTokenNamesLocalized,
   hasLocalizedTokenNames,
+  areChainBadgesShown,
   baseCurrency,
   tokens,
   pinnedSlugs,
@@ -89,6 +91,7 @@ function SettingsAssets({
     toggleTinyTransfersHidden,
     toggleUnverifiedNftsHidden,
     toggleLocalizedTokenNames,
+    toggleChainBadges,
     toggleInvestorView,
     toggleTokensWithNoCost,
     changeBaseCurrency,
@@ -142,6 +145,10 @@ function SettingsAssets({
 
   const handleOpenChains = useLastCallback(() => {
     setSettingsState({ state: SettingsState.Chains });
+  });
+
+  const handleChainBadgesToggle = useLastCallback(() => {
+    toggleChainBadges({ isEnabled: !areChainBadgesShown });
   });
 
   // Collapse into the badge only when it hides at least two chains
@@ -269,7 +276,7 @@ function SettingsAssets({
         {accountChainCount > 1 && (
           <>
             <p className={styles.blockTitle}>{lang('Blockchains')}</p>
-            <div className={styles.settingsBlock}>
+            <div className={buildClassName(styles.settingsBlock, styles.settingsBlockWithDescription)}>
               <div className={buildClassName(styles.item, styles.item_small)} onClick={handleOpenChains}>
                 <div className={styles.chainIconList}>
                   {stackedChains.map((chain) => (
@@ -288,7 +295,17 @@ function SettingsAssets({
                 </div>
                 <i className={buildClassName(styles.iconChevronRight, 'icon-chevron-right')} aria-hidden />
               </div>
+              <div className={buildClassName(styles.item, styles.item_small)} onClick={handleChainBadgesToggle}>
+                <span className={styles.itemTitle}>{lang('Blockchain Badges')}</span>
+
+                <Switcher
+                  className={styles.menuSwitcher}
+                  label={lang('Blockchain Badges')}
+                  checked={areChainBadgesShown}
+                />
+              </div>
             </div>
+            <p className={styles.blockDescription}>{lang('$settings_blockchain_badges_description')}</p>
           </>
         )}
         <p className={styles.blockTitle}>{lang('Token Settings')}</p>
@@ -348,6 +365,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areUnverifiedNftsHidden,
     areTokensWithNoCostHidden,
     areTokenNamesLocalized,
+    areChainBadgesShown,
     baseCurrency,
     isSensitiveDataHidden,
   } = global.settings;
@@ -371,6 +389,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areTokensWithNoCostHidden,
     areTokenNamesLocalized,
     hasLocalizedTokenNames: selectHasLocalizedTokenNames(global),
+    areChainBadgesShown,
     baseCurrency,
     tokens: selectCurrentAccountTokens(global),
     pinnedSlugs,

@@ -44,6 +44,7 @@ import styles from './Confirmation.module.scss';
 
 interface OwnProps {
   transaction?: ApiTransaction;
+  error?: string;
   requestId?: string;
 
   isLoading: boolean;
@@ -80,6 +81,7 @@ const actionSkeletonRows: DappSkeletonRow[] = [
 
 function Confirmation({
   transaction,
+  error: transactionError,
   requestId,
   isLoading,
   isActive,
@@ -97,48 +99,82 @@ function Confirmation({
 }: OwnProps & StateProps) {
   const [currentState, setState] = useState<States>(States.LOADING);
   const [extensionAddress, setExtensionAddress] = useState<Address | undefined>(undefined);
+  const [activeTelegramId, setActiveTelegramId] = useState<string | undefined>(undefined);
   const [emulation, setEmulation] = useState<Pick<ApiEmulationResult, 'activities' | 'realFee'> | undefined>(
     undefined,
   );
   const [areActionsLoading, setAreActionsLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const lang = useLang();
+  const appTheme = useAppTheme(theme);
+  const title = transaction
+    ? getPayloadOpCode(transaction.payload) === OpCode.REMOVE_EXTENSION
+      ? lang('Confirm Unlinking')
+      : lang('Is it all ok?')
+    : undefined;
 
   useEffect(() => {
     if (isLoading || !transaction) return;
 
-    const telegramId = getTelegramApp()?.initDataUnsafe.user?.id;
-    if (!telegramId) {
+    const app = getTelegramApp();
+    if (!app?.initData) {
       setState(States.ERROR);
+      alert('ERROR: Missing Telegram WebApp init data');
       return;
     }
 
     let isCanceled = false;
     setState(States.LOADING);
+    setError(undefined);
     setExtensionAddress(undefined);
+    setActiveTelegramId(undefined);
     setEmulation(undefined);
     setAreActionsLoading(false);
 
     const opCode = getPayloadOpCode(transaction.payload);
     const shouldCheckActions = opCode === OpCode.SEND_ACTIONS;
 
-    resolveExtensionAddress(transaction.address, String(telegramId)).then(
-      (result) => {
+    const resolveExtension = () => {
+      if (!requestId) {
+        setState(States.ERROR);
+        alert('ERROR: Missing MFA request id');
+        return;
+      }
+
+      // UX-only fail-fast from raw initData; the backend verifies the same initData before returning the transaction.
+      const telegramId = getTelegramUserIdFromInitData(app.initData);
+
+      if (isCanceled) return;
+
+      if (!telegramId) {
+        setState(States.ERROR);
+        alert('ERROR: Missing Telegram WebApp user id');
+        return;
+      }
+
+      setActiveTelegramId(telegramId);
+
+      resolveExtensionAddress(transaction.address, telegramId).then((result) => {
         if (isCanceled) return;
         setExtensionAddress(result);
         setState(shouldCheckActions ? States.CHECKING : States.READY);
-      },
-    ).catch(() => {
-      if (!isCanceled) setState(States.UNINSTALLED);
-    });
+      }).catch(() => {
+        if (!isCanceled) {
+          setState(States.UNINSTALLED);
+          setError(lang('This wallet is not linked to the current Telegram account.'));
+        }
+      });
+    };
+    resolveExtension();
 
     return () => {
       isCanceled = true;
     };
-  }, [isLoading, transaction]);
+  }, [isLoading, lang, requestId, transaction]);
 
   useEffect(() => {
-    if (!extensionAddress || !transaction) return;
+    if (!extensionAddress || !transaction || !activeTelegramId) return;
 
-    const telegramId = getTelegramApp()!.initDataUnsafe.user?.id;
     let isCanceled = false;
 
     void (async () => {
@@ -153,7 +189,7 @@ function Confirmation({
         }
 
         const result = await checkTransaction(
-          String(telegramId),
+          activeTelegramId,
           transaction.payload,
           extensionAddress,
           transaction.address,
@@ -178,15 +214,7 @@ function Confirmation({
     return () => {
       isCanceled = true;
     };
-  }, [extensionAddress, transaction]);
-
-  const lang = useLang();
-  const appTheme = useAppTheme(theme);
-  const title = transaction
-    ? getPayloadOpCode(transaction.payload) === OpCode.REMOVE_EXTENSION
-      ? lang('Confirm Unlinking')
-      : lang('Is it all ok?')
-    : undefined;
+  }, [activeTelegramId, extensionAddress, lang, transaction]);
 
   const onConfirmClicked = async () => {
     if (!extensionAddress || !requestId) return;
@@ -222,6 +250,8 @@ function Confirmation({
 
       <div className={styles.title}>{title ?? '\u00A0'}</div>
 
+      {(error || transactionError) && <div className={styles.error}>{error || transactionError}</div>}
+
       <div className={styles.preview}>
         {areActionsLoading ? (
           <DappSkeletonWithContent
@@ -251,8 +281,13 @@ function Confirmation({
 
       <UniversalButton
         isPrimary
-        isActive={isActive && currentState !== States.ERROR}
-        isLoading={isLoading || currentState !== States.READY}
+        isActive={isActive && currentState !== States.ERROR && currentState !== States.UNINSTALLED && !transactionError}
+        isLoading={isLoading || (
+          !transactionError
+          && currentState !== States.READY
+          && currentState !== States.ERROR
+          && currentState !== States.UNINSTALLED
+        )}
         onClick={onConfirmClicked}
       >
         {lang('Confirm')}
@@ -279,6 +314,18 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     accounts,
   };
 })(Confirmation));
+
+function getTelegramUserIdFromInitData(initData: string) {
+  const user = new URLSearchParams(initData).get('user');
+  if (!user) return undefined;
+
+  try {
+    const parsed = JSON.parse(user) as { id?: string | number };
+    return parsed.id ? String(parsed.id) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function getPayloadOpCode(payload: string) {
   return Cell.fromBase64(payload).beginParse().loadUint(32) as OpCode;

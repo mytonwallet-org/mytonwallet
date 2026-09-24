@@ -16,6 +16,7 @@ import Flow
 struct OtherAppearanceSettingsSection: View {
     
     @State private var animationEnabled: Bool = AppStorageHelper.animations
+    @State private var cardEffectsEnabled = !AppStorageHelper.is3dCardDisabled
     @State private var seasonalThemingEnabled: Bool = !AppStorageHelper.isSeasonalThemingDisabled
     @State private var landscapeModeEnabled: Bool = AppStorageHelper.isLandscapeModeEnabled
     
@@ -32,6 +33,18 @@ struct OtherAppearanceSettingsSection: View {
                 }
                 .frame(minHeight: 44)
             }
+            InsetCell(verticalPadding: 0) {
+                HStack {
+                    Text(lang("3D Card"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Toggle(lang("3D Card"), isOn: $cardEffectsEnabled)
+                        .labelsHidden()
+                        .accessibilityIdentifier("appearance.3dCard")
+                }
+                .frame(minHeight: 44)
+            }
+            .disabled(!animationEnabled)
+            .opacity(animationEnabled ? 1 : 0.5)
             InsetCell(verticalPadding: 0) {
                 HStack {
                     Text(lang("Enable Seasonal Theming"))
@@ -66,6 +79,9 @@ struct OtherAppearanceSettingsSection: View {
                     AppStorageHelper.animations = animationEnabled
                 }
             } catch {}
+        }
+        .onChange(of: cardEffectsEnabled) { enabled in
+            AppStorageHelper.is3dCardDisabled = !enabled
         }
         .task(id: seasonalThemingEnabled) {
             do {

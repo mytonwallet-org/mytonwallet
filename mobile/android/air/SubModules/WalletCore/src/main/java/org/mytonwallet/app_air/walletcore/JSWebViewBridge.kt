@@ -46,7 +46,7 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 val INIT_SCRIPT
     get() =
-        "window.airBridge.initApi((data) => {androidApp.onUpdate(JSON.stringify(data))}, {isAndroidApp: true, langCode: '${LocaleController.activeLanguage.langCode}'})"
+        "window.airBridge.initApi((data) => {androidApp.onUpdate(data.type, JSON.stringify(data))}, {isAndroidApp: true, langCode: '${LocaleController.activeLanguage.langCode}'})"
 
 @SuppressLint("SetJavaScriptEnabled")
 class JSWebViewBridge(context: Context) : WebView(context) {
@@ -288,83 +288,31 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
-        private fun peekUpdateType(updateString: String): String? {
-            val reader = JsonReader.of(Buffer().writeUtf8(updateString))
-            return try {
-                if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) return null
-                reader.beginObject()
-                while (reader.hasNext()) {
-                    if (reader.nextName() == "type") {
-                        return if (reader.peek() ==
-                            JsonReader.Token.STRING
-                        ) {
-                            reader.nextString()
-                        } else {
-                            null
-                        }
-                    }
-                    reader.skipValue()
-                }
-                null
-            } catch (_: Exception) {
-                null
-            } finally {
-                try {
-                    reader.close()
-                } catch (_: Exception) {
-                }
-            }
-        }
-
-        private fun readTokenUpdateKind(updateString: String): ApiTokenUpdateKind? {
-            val reader = JsonReader.of(Buffer().writeUtf8(updateString))
-            return try {
-                if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) return null
-                reader.beginObject()
-                while (reader.hasNext()) {
-                    if (reader.nextName() == "kind") {
-                        return if (reader.peek() == JsonReader.Token.STRING) {
-                            when (reader.nextString()) {
-                                "fromCache" -> ApiTokenUpdateKind.FROM_CACHE
-                                "full" -> ApiTokenUpdateKind.FULL
-                                "partial" -> ApiTokenUpdateKind.PARTIAL
-                                else -> null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-                    reader.skipValue()
-                }
-                null
-            } catch (_: Exception) {
-                null
-            } finally {
-                try {
-                    reader.close()
-                } catch (_: Exception) {
-                }
-            }
-        }
-
         private fun streamUpdateTokens(updateString: String) {
-            val kind = readTokenUpdateKind(updateString)
-            if (kind == null) {
-                Logger.e(
-                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                    "updateTokens: missing or invalid kind"
-                )
-                return
-            }
             val reader = JsonReader.of(Buffer().writeUtf8(updateString))
             val tokens = LinkedHashMap<String, MToken>()
             val presentSlugs = HashSet<String>()
             val removedSlugs = ArrayList<String>()
+            var kind: ApiTokenUpdateKind? = null
             var hasTokens = false
             try {
                 reader.beginObject()
                 while (reader.hasNext()) {
                     when (reader.nextName()) {
+                        "kind" -> {
+                            kind = if (reader.peek() == JsonReader.Token.STRING) {
+                                when (reader.nextString()) {
+                                    "fromCache" -> ApiTokenUpdateKind.FROM_CACHE
+                                    "full" -> ApiTokenUpdateKind.FULL
+                                    "partial" -> ApiTokenUpdateKind.PARTIAL
+                                    else -> null
+                                }
+                            } else {
+                                reader.skipValue()
+                                null
+                            }
+                        }
+
                         "tokens" -> {
                             if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
                                 reader.skipValue()
@@ -409,6 +357,13 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                     }
                 }
                 reader.endObject()
+                if (kind == null) {
+                    Logger.e(
+                        Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                        "updateTokens: missing or invalid kind"
+                    )
+                    return
+                }
                 if (!hasTokens) {
                     Logger.e(Logger.LogTag.JS_WEBVIEW_BRIDGE, "updateTokens: missing tokens")
                     return
@@ -483,8 +438,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
-        private fun streamTokenUpdates(updateString: String) {
-            val updateType = peekUpdateType(updateString) ?: return
+        private fun streamTokenUpdates(updateType: String, updateString: String) {
             when (updateType) {
                 "updateTokens" -> streamUpdateTokens(updateString)
                 "updateSwapTokens" -> streamUpdateSwapTokens(updateString)
@@ -492,9 +446,10 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         }
 
         @JavascriptInterface
-        fun onUpdate(updateString: String) {
+        fun onUpdate(updateType: String, updateString: String) {
             scope.launch {
-                streamTokenUpdates(updateString)
+                streamTokenUpdates(updateType, updateString)
+                if (updateType == "updateSwapTokens") return@launch
 
                 val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
                 try {
@@ -503,11 +458,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 } catch (e: Exception) {
                     Logger.w(
                         Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                        "onUpdate: Moshi rejected type=${
-                            peekUpdateType(
-                                updateString
-                            )
-                        } error=${e.javaClass.simpleName}"
+                        "onUpdate: Moshi rejected type=$updateType " +
+                            "error=${e.javaClass.simpleName}"
                     )
                 }
             }

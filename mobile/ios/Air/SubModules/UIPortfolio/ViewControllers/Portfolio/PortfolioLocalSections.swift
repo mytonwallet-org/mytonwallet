@@ -419,5 +419,8 @@ private struct PortfolioInsightLegendView: View {
 }
 
 private func portfolioInsightPercentageText(_ value: Double) -> String {
-    formatPercent(value, decimals: 0, showPlus: false, showMinus: false)
+    if value > 0, (value * 100).rounded(decimals: 1) == 0 {
+        return "< 0.1%"
+    }
+    return formatPercent(value, decimals: value > 0 && value < 0.1 ? 1 : 0, showPlus: false, showMinus: false)
 }

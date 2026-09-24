@@ -199,6 +199,10 @@ public enum IntroAuthMode: Sendable {
                 try? await Task.sleep(for: .seconds(0.35))
                 
                 AppActions.showHome(popToRoot: true)
+            } else if let presented = topViewController(), presented.presentingViewController != nil {
+                presented.dismiss(animated: true) {
+                    AppActions.transitionToRootState(.active, animationDuration: 0.35)
+                }
             } else {
                 AppActions.transitionToRootState(.active, animationDuration: 0.35)
             }

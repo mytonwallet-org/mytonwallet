@@ -5,10 +5,13 @@ import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.SystemClock
+import android.text.Editable
 import android.text.NoCopySpan
 import android.text.Spanned
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.withSave
 import kotlin.math.roundToInt
@@ -158,44 +161,107 @@ open class WSearchEditText @JvmOverloads constructor(
         setTextColor(WColor.PrimaryText.color)
     }
 
+    private companion object {
+        const val SELECTION_TOUCH_WINDOW_MS = 500L
+    }
+
     private val autoCompleteSuffixMarker = NoCopySpan.Concrete()
+    private var autoCompleteSuffix: CharSequence? = null
+    private var autoCompleteSuffixSpans: Array<out Any> = emptyArray()
 
     /**
      * Start of the inline autocomplete suffix, or -1 when none is attached.
-     * Everything before it is the user's own text (possibly still composing in the IME).
+     * Typing over the selected suffix stretches the marker span, so it only counts while it
+     * still wraps the suffix. An IME rewrite can drop the marker with the suffix still in
+     * place, so the suffix stays attached while the text ends with it.
      */
     fun autoCompleteSuffixStart(): Int {
         val editable = text ?: return -1
+        val suffix = autoCompleteSuffix?.toString() ?: return -1
         val start = editable.getSpanStart(autoCompleteSuffixMarker)
-        if (start < 0) return -1
-        if (editable.getSpanEnd(autoCompleteSuffixMarker) <= start) {
-            editable.removeSpan(autoCompleteSuffixMarker)
-            return -1
+        val end = editable.getSpanEnd(autoCompleteSuffixMarker)
+        if (start >= 0 && end > start && editable.substring(start, end) == suffix) return start
+        val restoredStart = editable.length - suffix.length
+        if (restoredStart >= 0 && editable.substring(restoredStart) == suffix) {
+            attachAutoCompleteSuffixSpans(editable, restoredStart)
+            return restoredStart
         }
-        return start
+        clearAutoCompleteSuffixSpans(editable)
+        return -1
+    }
+
+    /** The text without the autocomplete suffix; an IME can leave typed text after it. */
+    fun typedText(): String {
+        val editable = text ?: return ""
+        val start = autoCompleteSuffixStart()
+        if (start < 0) return editable.toString()
+        val end = editable.getSpanEnd(autoCompleteSuffixMarker)
+        return editable.substring(0, start) + editable.substring(end)
+    }
+
+    fun autoCompleteSuffixText(): String? =
+        if (autoCompleteSuffixStart() >= 0) autoCompleteSuffix?.toString() else null
+
+    private var lastTouchAt = 0L
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN ||
+            event.actionMasked == MotionEvent.ACTION_UP
+        ) {
+            lastTouchAt = SystemClock.uptimeMillis()
+        }
+        return super.onTouchEvent(event)
+    }
+
+    /** IMEs move the selection on their own while composing; only a touch dismisses the suffix. */
+    fun isSelectionChangeFromTouch(): Boolean =
+        SystemClock.uptimeMillis() - lastTouchAt <= SELECTION_TOUCH_WINDOW_MS
+
+    private fun attachAutoCompleteSuffixSpans(editable: Editable, start: Int) {
+        autoCompleteSuffixSpans.forEach(editable::removeSpan)
+        val suffix = autoCompleteSuffix ?: return
+        val spanned = suffix as? Spanned
+        autoCompleteSuffixSpans = spanned?.getSpans(0, suffix.length, Any::class.java).orEmpty()
+        autoCompleteSuffixSpans.forEach { span ->
+            editable.setSpan(
+                span,
+                start + spanned!!.getSpanStart(span),
+                start + spanned.getSpanEnd(span),
+                spanned.getSpanFlags(span)
+            )
+        }
+        editable.setSpan(
+            autoCompleteSuffixMarker,
+            start,
+            start + suffix.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+    }
+
+    private fun clearAutoCompleteSuffixSpans(editable: Editable) {
+        editable.removeSpan(autoCompleteSuffixMarker)
+        autoCompleteSuffixSpans.forEach(editable::removeSpan)
+        autoCompleteSuffixSpans = emptyArray()
+        autoCompleteSuffix = null
     }
 
     fun appendAutoCompleteSuffix(suffix: CharSequence) {
         val editable = text ?: return
         removeAutoCompleteSuffix()
         val start = editable.length
-        editable.append(suffix)
-        editable.setSpan(
-            autoCompleteSuffixMarker,
-            start,
-            editable.length,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
+        editable.append(suffix.toString())
+        autoCompleteSuffix = suffix
+        attachAutoCompleteSuffixSpans(editable, start)
         setSelection(start, editable.length)
     }
 
     fun removeAutoCompleteSuffix() {
+        val start = autoCompleteSuffixStart()
         val editable = text ?: return
-        val start = editable.getSpanStart(autoCompleteSuffixMarker)
         if (start < 0) return
         val end = editable.getSpanEnd(autoCompleteSuffixMarker)
-        editable.removeSpan(autoCompleteSuffixMarker)
-        if (end > start) editable.delete(start, end)
+        clearAutoCompleteSuffixSpans(editable)
+        editable.delete(start, end)
     }
 
     override fun onStartMoveToState(targetState: ViewState) {

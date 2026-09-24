@@ -1,7 +1,6 @@
 package org.mytonwallet.app_air.walletcontext.models
 
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
-import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 
 enum class MAutoLockOption(val value: String, val period: Int?) {
     NEVER("never", null),
@@ -17,32 +16,22 @@ enum class MAutoLockOption(val value: String, val period: Int?) {
     }
 
     val displayName: String
-        get() {
-            return when (this) {
-                NEVER -> {
-                    LocaleController.getString("Never")
-                }
-
-                THIRTY_SECONDS -> {
-                    LocaleController.getStringWithKeyValues(
-                        "%count% seconds",
-                        listOf("%count%" to "30".withLocalizedNumbers)
-                    )
-                }
-
-                THREE_MINUTES -> {
-                    LocaleController.getStringWithKeyValues(
-                        "%count% minutes",
-                        listOf("%count%" to "3".withLocalizedNumbers)
-                    )
-                }
-
-                TEN_MINUTES -> {
-                    LocaleController.getStringWithKeyValues(
-                        "%count% minutes",
-                        listOf("%count%" to "10".withLocalizedNumbers)
-                    )
-                }
+        get() = LocaleController.getString(
+            when (this) {
+                NEVER -> "Disabled"
+                THIRTY_SECONDS -> "30 seconds"
+                THREE_MINUTES -> "3 minutes"
+                TEN_MINUTES -> "10 minutes"
             }
-        }
+        )
+
+    val selectedDisplayName: String
+        get() = LocaleController.getString(
+            when (this) {
+                NEVER -> "Disabled"
+                THIRTY_SECONDS -> "If away for 30 sec"
+                THREE_MINUTES -> "If away for 3 min"
+                TEN_MINUTES -> "If away for 10 min"
+            }
+        )
 }

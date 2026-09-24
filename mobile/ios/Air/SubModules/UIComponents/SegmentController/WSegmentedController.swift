@@ -74,7 +74,9 @@ public class WSegmentedController: WTouchPassView {
     private var additionalPagingStart: (offset: CGFloat, index: Int)?
     private var beginForwardTransition: (() -> WInteractivePushTransition?)?
     private var isForwardNavigationEnabled: () -> Bool = { false }
+    private var allowsForwardNavigationFromEdge = false
     private var contentForwardGesture: WSegmentedPagingGesture?
+    private weak var backNavigationController: UINavigationController?
 
     public private(set) var model: SegmentedControlModel
 
@@ -153,7 +155,15 @@ public class WSegmentedController: WTouchPassView {
 
         var constraints = [NSLayoutConstraint]()
 
-        scrollView = UIScrollView()
+        let pagingScrollView = WSegmentedScrollView()
+        pagingScrollView.shouldYieldToBackNavigation = { [weak self] velocity in
+            guard let self, let navigationController = backNavigationController,
+                  navigationController.viewControllers.count > 1,
+                  navigationController.presentedViewController == nil,
+                  navigationController.isBackSwipeToDismissAllowed else { return false }
+            return canBeginBackNavigation(velocity: velocity)
+        }
+        scrollView = pagingScrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.canCancelContentTouches = true
@@ -265,6 +275,13 @@ public class WSegmentedController: WTouchPassView {
                 return
             }
 
+            interruptScrollAnimation()
+            additionalPagingStart = nil
+            let wasScrollEnabled = scrollView.isScrollEnabled
+            scrollView.isScrollEnabled = false
+            scrollView.setContentOffset(scrollView.contentOffset, animated: false)
+            scrollView.isScrollEnabled = wasScrollEnabled
+
             var newSelected = segmentedItemPageOffset
 
             self.viewControllers = viewControllers
@@ -302,29 +319,23 @@ public class WSegmentedController: WTouchPassView {
             scrollViewWidthConstraint = scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.widthAnchor, multiplier: CGFloat(viewControllers.count))
             scrollViewWidthConstraint.isActive = true
             
-            syncContentOffsetWitgSelectedItemIndex(newSelected)
+            // Keep the model and pages in sync before layout or scroll callbacks can run.
+            model.setItems(items)
+            currentPageIndex = newSelected
 
             bringSubviewToFront(scrollView)
             bringSubviewToFront(separator)
             bringSubviewToFront(blurView)
-            bringSubviewToFront(segmentedControl)
+            if segmentedControl.superview === self {
+                bringSubviewToFront(segmentedControl)
+            }
             setNeedsLayout()
             layoutIfNeeded()
 
-            DispatchQueue.main.async {
-                UIView.performWithoutAnimation {
-                    self.model.setItems(items)
-                    if let selectedItemIndex = items.indices.contains(newSelected - self.segmentedItemPageOffset)
-                        ? newSelected - self.segmentedItemPageOffset
-                        : nil {
-                        self.model.onSelect(items[selectedItemIndex])
-                    }
-                    self.setSelectedIndex(to: newSelected, animated: false)
-                    self.delegate?.segmentedController(scrollOffsetChangedTo: CGFloat(newSelected))
-
-                    self.setNeedsLayout()
-                    self.layoutIfNeeded()
-                }
+            if viewControllers.indices.contains(newSelected) {
+                setSelectedIndex(to: newSelected, animated: false)
+            } else {
+                scrollView.setContentOffset(.zero, animated: false)
             }
         }
     }
@@ -484,11 +495,13 @@ public class WSegmentedController: WTouchPassView {
     /// Adds a forward-only content pan to a host that stays in place during navigation.
     public func setForwardNavigation(
         in view: UIView,
+        allowsEdgeNavigation: Bool = false,
         beginTransition: @escaping () -> WInteractivePushTransition?,
         isEnabled: @escaping () -> Bool
     ) {
         beginForwardTransition = beginTransition
         isForwardNavigationEnabled = isEnabled
+        allowsForwardNavigationFromEdge = allowsEdgeNavigation
         if let contentForwardGesture {
             contentForwardGesture.isEnabled = false
             contentForwardGesture.view?.removeGestureRecognizer(contentForwardGesture)
@@ -499,19 +512,46 @@ public class WSegmentedController: WTouchPassView {
         contentForwardGesture = gesture
     }
 
-    func beginForwardNavigation(velocity: CGPoint) -> WInteractivePushTransition? {
+    /// Lets navigation handle a back swipe beyond the first page.
+    public func setBackNavigation(in navigationController: UINavigationController?) {
+        backNavigationController = navigationController
+        if #available(iOS 26.0, *) {
+            navigationController?.interactiveContentPopGestureRecognizer?.require(toFail: scrollView.panGestureRecognizer)
+        }
+        (navigationController as? WNavigationController)?
+            .fullWidthBackGestureRecognizerRequireToFail(scrollView.panGestureRecognizer)
+    }
+
+    func canBeginBackNavigation(velocity: CGPoint) -> Bool {
+        guard selectedIndex == 0, scrollTrackingProxy == nil, scrollView.isScrollEnabled,
+              abs(velocity.x) > abs(velocity.y) else { return false }
+        let direction: CGFloat = usesRightToLeftPageLayout ? -1 : 1
+        let firstPageOffset = contentOffsetX(forLogicalProgress: 0, viewportWidth: scrollView.bounds.width)
+        return velocity.x * direction > 0 && abs(scrollView.contentOffset.x - firstPageOffset) < 1
+    }
+
+    func beginForwardNavigation(velocity: CGPoint, fromEdge: Bool = false) -> WInteractivePushTransition? {
         guard scrollView.isScrollEnabled,
               abs(velocity.x) > abs(velocity.y),
-              canBeginForwardNavigation(velocity: velocity.x),
+              canBeginForwardNavigation(velocity: velocity.x, fromEdge: fromEdge),
               isForwardNavigationEnabled() else { return nil }
         return beginForwardTransition?()
     }
 
-    func canBeginForwardNavigation(velocity: CGFloat) -> Bool {
-        guard selectedIndex == viewControllers.count - 1, scrollTrackingProxy == nil else { return false }
+    func canBeginForwardNavigation(velocity: CGFloat, fromEdge: Bool = false) -> Bool {
+        guard let selectedIndex, scrollTrackingProxy == nil,
+              selectedIndex == viewControllers.count - 1 || (fromEdge && allowsForwardNavigationFromEdge) else { return false }
         let direction: CGFloat = usesRightToLeftPageLayout ? 1 : -1
-        let lastPageOffset = contentOffsetX(forLogicalProgress: maxPageProgress, viewportWidth: scrollView.bounds.width)
-        return velocity * direction > 0 && abs(scrollView.contentOffset.x - lastPageOffset) < 1
+        let pageOffset = contentOffsetX(forLogicalProgress: CGFloat(selectedIndex), viewportWidth: scrollView.bounds.width)
+        return velocity * direction > 0 && abs(scrollView.contentOffset.x - pageOffset) < 1
+    }
+
+    func isForwardNavigationEdge(_ point: CGPoint, in bounds: CGRect) -> Bool {
+        guard allowsForwardNavigationFromEdge, bounds.width > 0, bounds.contains(point) else { return false }
+        let edgeWidth: CGFloat = 20
+        return usesRightToLeftPageLayout
+            ? point.x <= bounds.minX + edgeWidth
+            : point.x >= bounds.maxX - edgeWidth
     }
 
     func beginAdditionalPaging() {
@@ -621,6 +661,19 @@ public class WSegmentedController: WTouchPassView {
         let lowerAlpha: CGFloat = viewControllers[lowerIndex].scrollPosition > 0 ? 1 : 0
         let upperAlpha: CGFloat = viewControllers[upperIndex].scrollPosition > 0 ? 1 : 0
         return lowerAlpha * (1 - fraction) + upperAlpha * fraction
+    }
+}
+
+@MainActor
+private final class WSegmentedScrollView: UIScrollView {
+    var shouldYieldToBackNavigation: ((CGPoint) -> Bool)?
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === panGestureRecognizer,
+           shouldYieldToBackNavigation?(panGestureRecognizer.velocity(in: self)) == true {
+            return false
+        }
+        return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 }
 

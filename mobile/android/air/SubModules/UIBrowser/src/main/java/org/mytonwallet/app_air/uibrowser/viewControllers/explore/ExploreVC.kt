@@ -20,6 +20,8 @@ import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreCa
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreConnectedCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.cells.ExploreTrendingCell
 import org.mytonwallet.app_air.uibrowser.viewControllers.exploreCategory.ExploreCategoryVC
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchAction
+import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchBestMatchOutcome
 import org.mytonwallet.app_air.uibrowser.viewControllers.search.SearchVC
 import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
@@ -468,6 +470,8 @@ class ExploreVC(context: Context) :
 
     // SUGGESTIONS //////////
     var searchVC: SearchVC? = null
+    var onBestSearchMatchActionChanged: ((query: String, action: SearchBestMatchAction?) -> Unit)? =
+        null
     var isShowingSearch = false
     private var searchNavigationController: WNavigationController? = null
     private var isGlobalSearchSession = false
@@ -502,7 +506,11 @@ class ExploreVC(context: Context) :
                 // Covers dismissals that bypass dismissSearchScreen (swipe back, nav pop),
                 // which would otherwise leave the search request refreshing on every poll.
                 onDestroyed = { exploreVM.cancelSearch() }
-            )
+            ).apply {
+                onBestMatchActionChanged = { query, action ->
+                    onBestSearchMatchActionChanged?.invoke(query, action)
+                }
+            }
             searchNavigationController = targetNavigationController
             isGlobalSearchSession = isGlobalSearch
             this.searchVC = searchVC
@@ -551,7 +559,7 @@ class ExploreVC(context: Context) :
         }
     }
 
-    fun openBestSearchMatch(onResolved: (Boolean) -> Unit): Boolean {
+    fun openBestSearchMatch(onResolved: (SearchBestMatchOutcome) -> Unit): Boolean {
         val searchVC = searchVC ?: return false
         searchVC.openBestMatch(onResolved)
         return true

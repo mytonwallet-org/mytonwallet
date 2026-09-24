@@ -73,6 +73,7 @@ const TOKEN_DETAILS_THROTTLE = 3 * SEC;
 let onUpdate: OnApiUpdate;
 let stopCommonBackendPolling: NoneToVoidFunction | undefined;
 let stopActiveAccountPolling: NoneToVoidFunction | undefined;
+let activeAccountConfigPolling: ReturnType<typeof setupAccountConfigPolling> | undefined;
 let configUpdateGeneration = 0;
 const inactiveAccountPolling = createInactiveAccountsPollingManager();
 const setUpdatingStatus = createUpdatingStatusManager();
@@ -291,6 +292,7 @@ export async function setActivePollingAccount(
 ) {
   stopActiveAccountPolling?.();
   stopActiveAccountPolling = undefined;
+  activeAccountConfigPolling = undefined;
 
   if (accountId) {
     const account = await fetchStoredAccount(accountId);
@@ -308,8 +310,12 @@ export async function setActivePollingAccount(
       }
     }
 
+    activeAccountConfigPolling = canPollAccountConfig(account)
+      ? setupAccountConfigPolling(accountId, account)
+      : undefined;
+
     const stopPollingFns = [
-      canPollAccountConfig(account) ? setupAccountConfigPolling(accountId, account).stop : undefined,
+      activeAccountConfigPolling?.stop,
       !NO_EXTRA_FEATURES && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
 
       ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
@@ -367,6 +373,14 @@ export function removeAllPollingAccounts() {
  */
 function canPollAccountConfig(account: ApiAccountAny) {
   return account.type === 'view' || doesAccountHaveChain(account, 'ton');
+}
+
+/**
+ * Polls the active account config right away. The loop never polls in parallel, so a poll already in flight finishes
+ * first and can't overwrite this result. Does nothing if the active account has no config polling.
+ */
+export function pollAccountConfig() {
+  activeAccountConfigPolling?.poll();
 }
 
 function setupAccountConfigPolling(accountId: string, account: ApiAccountAny) {

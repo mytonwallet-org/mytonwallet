@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uicomponents.widgets.unlockView
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.views.PasscodeScreenView
@@ -57,6 +58,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.replaceSpacesWithNbsp
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.moshi.MApiSubmitTransferOptions
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
@@ -82,6 +84,7 @@ class SendConfirmVC(
     override val shouldDisplayBottomBar = false
 
     private var task: ((passcode: String?) -> Unit)? = null
+    private var isAutoConfirmSubmitting = false
     private val scamLabelSpan by lazy {
         ScamLabelSpan(LocaleController.getString("Scam").uppercase())
     }
@@ -555,6 +558,39 @@ class SendConfirmVC(
             Logger.LogTag.SEND,
             "confirmWithPassword: Confirming send with passcode slug=$slug"
         )
+        if (shouldRequireFreshAuth) {
+            showPasscodeConfirm()
+            return
+        }
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                val submit = task ?: return@confirm
+                isAutoConfirmSubmitting = true
+                view.lockView()
+                confirmButton.isLoading = true
+                submit(token)
+            },
+            onPasscodeRequired = { showPasscodeConfirm() }
+        )
+    }
+
+    fun onSubmissionFailed(error: MBridgeError?) {
+        stopAutoConfirmProgress()
+        showError(error)
+    }
+
+    fun onSubmissionAwaitingMfa() {
+        stopAutoConfirmProgress()
+    }
+
+    private fun stopAutoConfirmProgress() {
+        if (!isAutoConfirmSubmitting) return
+        isAutoConfirmSubmitting = false
+        view.unlockView()
+        confirmButton.isLoading = false
+    }
+
+    private fun showPasscodeConfirm() {
         val account = AccountStore.activeAccount ?: return
         push(
             PasscodeConfirmVC(

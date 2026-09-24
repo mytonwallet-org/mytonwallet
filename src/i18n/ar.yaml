@@ -526,6 +526,7 @@ Bitcoin: بيتكوين
 $max_balance: "الحد الأقصى: %balance%"
 $send_recipient_invalid: غير صالح
 $send_recipient_not_compatible: غير متوافق
+$send_recipient_self_transfer: لا يمكنك الإرسال إلى نفسك
 $unstake_information_instantly: سوف تحصل على الودائع الخاصة بك على الفور
 Select Token: حدد التوكن
 $token_picker_hidden: المخفية
@@ -921,6 +922,14 @@ Upgrade for %amount% %currency%: الترقية إلى %amount% %currency%
 "%amount% left": "%amount% اليسار"
 "%amount% sold": تم بيع %amount%
 This card has been sold out: لقد تم بيع هذه البطاقة
+"Mint starts in %time%": "يبدأ السكّ خلال %time%"
+"%amount% unique cards total":
+  zeroValue: "إجمالي البطاقات الفريدة: %amount%"
+  oneValue: "إجمالي البطاقات الفريدة: %amount%"
+  twoValue: "إجمالي البطاقات الفريدة: %amount%"
+  fewValue: "إجمالي البطاقات الفريدة: %amount%"
+  manyValue: "إجمالي البطاقات الفريدة: %amount%"
+  otherValue: "إجمالي البطاقات الفريدة: %amount%"
 Import Existing Wallet: استيراد المحفظة الموجودة
 View Any Address: عرض أي عنوان
 View Mode: وضع العرض
@@ -934,6 +943,9 @@ Remember Passcode: تذكر رمز المرور
 Remember Password: تذكر كلمة المرور
 Not available with biometrics.: غير متوفر مع القياسات الحيوية.
 App will not ask for signature for %minutes% minutes after last entry.: لن يطلب التطبيق توقيعًا لمدة دقائق %minutes% بعد آخر إدخال.
+Auto-Exit: الخروج التلقائي
+Log out of all wallets after failed attempts.: تسجيل الخروج من جميع المحافظ بعد محاولات فاشلة.
+"%count% attempts": "%count% محاولات"
 Remember for %minutes% minutes: تذكر دقائق %minutes%
 Preview: معاينة
 $preview_not_guaranteed: نتيجة المعاينة **غير مضمونة** و **يمكن تزويرها** بواسطة الخدمة.
@@ -1746,9 +1758,10 @@ Standalone: مستقل
 All Telegram Gifts: جميع هدايا Telegram
 Add Crypto: أضف التشفير
 Share QR Code: مشاركة رمز الاستجابة السريعة
-$send_only_ton: أرسل فقط الأصول المستندة إلى Gram (GRAM) أو TON إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
-$send_only_chain: أرسل فقط الأصول المستندة إلى %chain% (%symbol%) أو %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
-$send_only_chain_no_tokens: أرسل فقط %chain% (%symbol%) إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_ton: أرسل فقط الأصول المستندة إلى GRAM أو TON إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_chain: أرسل فقط الأصول المستندة إلى %symbol% أو %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_token_chain: أرسل فقط %tokenSymbol% أو الأصول الأخرى المستندة إلى %chain% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
+$send_only_chain_no_tokens: أرسل فقط %symbol% إلى هذا العنوان. إرسال الرموز الأخرى سيؤدي إلى الخسارة.
 Buying with card is not supported for this account.: الشراء باستخدام البطاقة غير مدعوم لهذا الحساب.
 Swapped at: تم المبادلة عند
 Price per: السعر لكل
@@ -2281,7 +2294,6 @@ Tokenized Gold: الذهب المرمّز
 Index Funds: صناديق المؤشرات
 Search token or stock: ابحث عن توكن أو سهم
 "Activity Failed to Load": "تعذر تحميل النشاط"
-"$agent_source_bea_attribution": "يستخدم هذا المنتج واجهة بيانات مكتب التحليل الاقتصادي (BEA)، لكنه غير معتمد أو مصدّق عليه من BEA."
 "Address was copied!": "تم نسخ العنوان!"
 "Allow App Lock": "السماح بقفل التطبيق"
 "An error occurred": "حدث خطأ"
@@ -2311,3 +2323,7 @@ Search token or stock: ابحث عن توكن أو سهم
 
 Unknown Transfer: تحويل غير معروف
 $dapp_sign_data_for_prefix: لـ
+Successfully Sent: تم الإرسال بنجاح
+Successfully Signed: تم التوقيع بنجاح
+3D Card: بطاقة ثلاثية الأبعاد
+Coming soon: قريبًا

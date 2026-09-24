@@ -8,7 +8,7 @@ import WalletCore
 import WalletContext
 import UIComponents
 
-public enum BadgeContent {
+public enum BadgeContent: Equatable {
     case staking(StakingBadgeContent)
     case chain(ApiChain)
     case tokenLabel(text: String, style: BadgeView.TokenLabelStyle)

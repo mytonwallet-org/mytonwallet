@@ -28,11 +28,11 @@ public struct MWalletVersionsData: Sendable {
         }
     }
     
-    public let currentVersion: String
+    public let currentVersion: String?
     public var versions: [Version]
 
     public init(dictionary: [String: Any]) {
-        self.currentVersion = dictionary["currentVersion"] as? String ?? ""
+        self.currentVersion = dictionary["currentVersion"] as? String
         if let versions = dictionary["versions"] as? [[String: Any]] {
             self.versions = []
             for version in versions {

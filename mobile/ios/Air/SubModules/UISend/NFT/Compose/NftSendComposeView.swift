@@ -12,11 +12,7 @@ struct NftSendComposeView: View {
                 NftPreviewSection(nfts: model.configuration.nfts)
                 RecipientAddressSection(
                     model: model.recipient,
-                    validationState: model.recipient.validationState(
-                        validatedRecipient:
-                            model.currentValidatedDraft?.recipient,
-                        showsIncompatibleError: true
-                    )
+                    validationState: model.recipientValidationState
                 )
                 if !model.recipient.isFocused {
                     NftSendFormSections(model: model)

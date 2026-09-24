@@ -21,7 +21,7 @@ public func connectToDatabase() throws -> any DatabaseWriter {
     configuration.prepareDatabase { db in
         db.trace(options: .profile) { sql in
 //            log.info("[SQL] \(sql, .public)")
-            log.info("[SQL] \(sql, .public)", fileOnly: true)
+            log.info("[SQL] \(sql.description, .public)", fileOnly: true)
         }
     }
 

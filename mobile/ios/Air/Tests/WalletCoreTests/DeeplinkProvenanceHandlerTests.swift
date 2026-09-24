@@ -8,6 +8,22 @@ import WalletContext
 @Suite("Deeplink Provenance Handler")
 struct DeeplinkProvenanceHandlerTests {
     @Test
+    func `routes mint card links without requiring account promotion data`() throws {
+        let navigator = RecordingDeeplinkNavigator()
+        let handler = DeeplinkHandler(deeplinkNavigator: navigator)
+        let url = try #require(URL(string: "\(SELF_PROTOCOL_SCHEME)://card"))
+        let sources: [DeeplinkOpenSource] = [.generic, .qrScan, .inAppBrowser, .exploreSearchBar]
+        for source in sources {
+            #expect(handler.handle(url, source: source))
+            guard case .mintCard = navigator.handledDeeplinks.last else {
+                Issue.record("Expected mint card navigation")
+                return
+            }
+        }
+        #expect(navigator.handledSources == sources)
+    }
+
+    @Test
     func `blocks Offramp from in-app browser`() throws {
         let navigator = RecordingDeeplinkNavigator()
         let handler = DeeplinkHandler(deeplinkNavigator: navigator)

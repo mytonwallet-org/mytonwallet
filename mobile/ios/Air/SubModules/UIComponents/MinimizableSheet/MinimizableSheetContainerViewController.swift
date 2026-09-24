@@ -522,6 +522,10 @@ open class MinimizableSheetContainerViewController: UIViewController {
     }
 
     fileprivate func setSheetState(_ newState: MinimizableSheetState, animated: Bool) {
+        if newState != .expanded {
+            // Collapsing keeps the content mounted, so it must explicitly release input focus.
+            sheetViewController.viewIfLoaded?.endEditing(true)
+        }
         let values = layoutValues(for: newState)
         let oldState = sheetState
         let duration = transitionDuration(from: oldState, to: newState)

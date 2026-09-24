@@ -19,15 +19,9 @@ public actor AccountConfigStore: WalletCoreData.EventsObserver {
 
     @MainActor public func `for`(accountId: String) -> AccountConfig {
         let value = byAccountId.for(accountId: accountId)
-#if DEBUG
         if DebugPromotionPreset.isEnabled || isMfaEnabledOverrideActive {
             value.refreshDebugOverrides()
         }
-#else
-        if isMfaEnabledOverrideActive {
-            value.refreshDebugOverrides()
-        }
-#endif
         return value
     }
 
@@ -93,13 +87,8 @@ public final class AccountConfig: Sendable {
 
     private func applyResolvedConfig() {
         isMfaEnabled = serverIsMfaEnabled || isMfaEnabledOverrideActive
-#if DEBUG
         cardsInfo = DebugPromotionPreset.cardsInfoOverride ?? serverCardsInfo
         activePromotion = DebugPromotionPreset.activePromotion ?? serverActivePromotion
-#else
-        cardsInfo = serverCardsInfo
-        activePromotion = serverActivePromotion
-#endif
     }
 }
 

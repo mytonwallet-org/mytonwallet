@@ -553,6 +553,7 @@ $max_balance: "Maksymalnie: %balance%"
 $available_balance: "Dostępne: %balance%"
 $send_recipient_invalid: Nieprawidłowy
 $send_recipient_not_compatible: Niezgodny
+$send_recipient_self_transfer: Nie można wysłać do siebie
 $unstake_information_instantly: Otrzymasz swoją kaucję natychmiast
 Select Token: Wybierz token
 $token_picker_hidden: Ukryte
@@ -951,6 +952,12 @@ Upgrade for %amount% %currency%: Ulepszenie za %amount% %currency%
 "%amount% left": Pozostało %amount%
 "%amount% sold": Sprzedano %amount%
 This card has been sold out: Ta karta jest wyprzedana
+"Mint starts in %time%": "Mintowanie rozpocznie się za %time%"
+"%amount% unique cards total":
+  oneValue: "Łącznie %amount% unikalna karta"
+  fewValue: "Łącznie %amount% unikalne karty"
+  manyValue: "Łącznie %amount% unikalnych kart"
+  otherValue: "Łącznie %amount% unikalnej karty"
 Import Existing Wallet: Importuj istniejący portfel
 View Any Address: Wyświetl dowolny adres
 View Mode: Tryb podglądu
@@ -964,6 +971,9 @@ Remember Passcode: Zapamiętywać kod
 Remember Password: Zapamiętywać hasło
 Not available with biometrics.: Niedostępne z biometrią.
 App will not ask for signature for %minutes% minutes after last entry.: Aplikacja nie będzie prosić o podpis przez %minutes% minut po ostatnim wprowadzeniu.
+Auto-Exit: Automatyczne wylogowanie
+Log out of all wallets after failed attempts.: Wyloguj ze wszystkich portfeli po nieudanych próbach.
+"%count% attempts": "%count% prób"
 Remember for %minutes% minutes: Zapamiętaj na %minutes% minut
 Preview: Podgląd
 $preview_not_guaranteed: Wynik podglądu **nie jest gwarantowany** i **może zostać sfałszowany** przez usługę.
@@ -1827,9 +1837,10 @@ Standalone: Samodzielny
 All Telegram Gifts: Wszystkie prezenty Telegramu
 Add Crypto: Dodaj kryptowalutę
 Share QR Code: Udostępnij kod QR
-$send_only_ton: Wysyłaj na ten adres wyłącznie Gram (GRAM) lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
-$send_only_chain: Wysyłaj na ten adres wyłącznie %chain% (%symbol%) lub aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
-$send_only_chain_no_tokens: Wysyłaj na ten adres wyłącznie %chain% (%symbol%). Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_ton: Wysyłaj na ten adres wyłącznie GRAM lub aktywa sieci TON. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_chain: Wysyłaj na ten adres wyłącznie %symbol% lub aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_token_chain: Wysyłaj na ten adres wyłącznie %tokenSymbol% lub inne aktywa sieci %chain%. Wysłanie innych tokenów spowoduje ich utratę.
+$send_only_chain_no_tokens: Wysyłaj na ten adres wyłącznie %symbol%. Wysłanie innych tokenów spowoduje ich utratę.
 Buying with card is not supported for this account.: Zakup kartą nie jest obsługiwany dla tego konta.
 Swapped at: Zamieniono o
 Price per: Cena za
@@ -2320,7 +2331,6 @@ Tokenized Gold: Tokenizowane złoto
 Index Funds: Fundusze indeksowe
 Search token or stock: Wyszukaj token lub akcję
 "Activity Failed to Load": "Nie udało się wczytać aktywności"
-"$agent_source_bea_attribution": "Ten produkt korzysta z API danych Bureau of Economic Analysis (BEA), ale nie jest popierany ani certyfikowany przez BEA."
 "Address was copied!": "Adres został skopiowany!"
 "Allow App Lock": "Zezwól na blokadę aplikacji"
 "An error occurred": "Wystąpił błąd"
@@ -2350,3 +2360,7 @@ Search token or stock: Wyszukaj token lub akcję
 
 Unknown Transfer: Nieznany transfer
 $dapp_sign_data_for_prefix: dla
+Successfully Sent: Wysłano pomyślnie
+Successfully Signed: Podpisano pomyślnie
+3D Card: Karta 3D
+Coming soon: Wkrótce

@@ -1,0 +1,135 @@
+// Rotation reached at the very edge of the card
+$tiltAngle: 8deg;
+
+// Perspective is an absolute length rather than a ratio, so it is tuned to the card's own width
+$tiltPerspective: 40rem;
+
+// The spot runs slightly ahead of the pointer, so it reaches the edge before the pointer does
+$spotTravelGain: 1.15;
+
+.root {
+  --card-glare-angle: calc((var(--card-pointer-x, 0.5) - 0.5) * 180deg + (var(--card-pointer-y, 0.5) - 0.5) * 120deg);
+
+  border-radius: var(--border-radius-card);
+  perspective: $tiltPerspective;
+}
+
+.rotator {
+  position: relative;
+  transform:
+    rotateY(calc((var(--card-pointer-x, 0.5) - 0.5) * 2 * #{$tiltAngle}))
+    rotateX(calc((var(--card-pointer-y, 0.5) - 0.5) * -2 * #{$tiltAngle}));
+
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.disabled,
+:global(html.animation-level-0) .rotator {
+  transform: none;
+}
+
+.glare {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+
+  overflow: hidden;
+
+  border-radius: inherit;
+
+  opacity: var(--card-glow-opacity, 0);
+  mix-blend-mode: plus-lighter;
+}
+
+// Card-sized, so its percentage offsets are fractions of the card
+.spotMover {
+  position: absolute;
+  inset: 0;
+  transform:
+    translate(
+      calc(clamp(-1, (var(--card-pointer-x, 0.5) - 0.5) * #{2 * $spotTravelGain}, 1) * 50%),
+      calc(clamp(-1, (var(--card-pointer-y, 0.5) - 0.5) * #{2 * $spotTravelGain}, 1) * 50%)
+    );
+}
+
+.spotMover::before {
+  content: '';
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  aspect-ratio: 1;
+  width: 118%;
+  border-radius: 50%;
+
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.27),
+    rgba(255, 255, 255, 0.1425) 28%,
+    rgba(255, 255, 255, 0.0525) 58%,
+    transparent
+  );
+  filter: blur(1.75rem);
+}
+
+// The two lobes stay lit at rest and turn with the tilt, peaking at 24% brightness
+.radial {
+  opacity: 0.64;
+}
+
+.radial::before {
+  content: '';
+
+  position: absolute;
+  inset: -25%;
+
+  background-image: conic-gradient(
+    from var(--card-glare-angle, 0deg),
+    transparent 0deg 4deg,
+    rgba(255, 255, 255, 0.0675) 28deg,
+    rgba(255, 255, 255, 0.16875) 42deg,
+    rgba(255, 255, 255, 0.375) 54deg,
+    rgba(255, 255, 255, 0.16875) 66deg,
+    rgba(255, 255, 255, 0.0675) 86deg,
+    transparent 124deg 184deg,
+    rgba(255, 255, 255, 0.0675) 208deg,
+    rgba(255, 255, 255, 0.16875) 222deg,
+    rgba(255, 255, 255, 0.375) 234deg,
+    rgba(255, 255, 255, 0.16875) 246deg,
+    rgba(255, 255, 255, 0.0675) 266deg,
+    transparent 304deg 360deg
+  );
+  filter: blur(1.125rem);
+}
+
+:global(html.animation-level-0) .glare {
+  display: none;
+}
+
+// While the tilt transform changes every frame, Firefox rebuilds the blend group of a blended layer
+// inside the 3D-transformed card, and the card content (address, change pill, mint button) blinks in
+// and out. Plain alpha compositing keeps the content stable
+:global(html.is-firefox) .glare {
+  mix-blend-mode: normal;
+}
+
+// The spot moves with the pointer, so it is kept cheap: no blur. Without the blur it has to fade out
+// by its own edge: the default gradient reaches transparency only at the corner of its square, so the
+// circle would end with a visible step. The stops keep the same brightness per distance from the
+// center, scaled from the corner to the circle edge
+:global(html.is-firefox) .spotMover::before {
+  background: radial-gradient(
+    circle closest-side,
+    rgba(255, 255, 255, 0.27),
+    rgba(255, 255, 255, 0.1425) 40%,
+    rgba(255, 255, 255, 0.0525) 82%,
+    transparent
+  );
+  filter: none;
+}

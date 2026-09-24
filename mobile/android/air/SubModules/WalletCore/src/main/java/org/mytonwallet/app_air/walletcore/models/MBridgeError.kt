@@ -46,6 +46,7 @@ sealed interface MBridgeError {
 
         BRIDGE_INTERRUPTED("BridgeInterrupted"),
         PARSE_ERROR("JSON Parse Error"),
+        UNEXPECTED_ERROR("UnexpectedError"),
         UNKNOWN("Unknown");
 
         override val type: Type
@@ -137,6 +138,8 @@ sealed interface MBridgeError {
                 Type.UNSUCCESSFUL_TRANSFER -> LocaleController.getString(
                     "Transfer was unsuccessful. Try again later."
                 )
+
+                Type.UNEXPECTED_ERROR -> LocaleController.getString("An error occurred")
 
                 Type.HARDWARE_OUTDATED -> LocaleController.getString("HardwareOutdated")
 

@@ -8,7 +8,9 @@ import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.models.MCardInfo
 import org.mytonwallet.app_air.walletcore.models.MCardsInfo
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 object MintCardHelpers {
@@ -20,6 +22,13 @@ object MintCardHelpers {
 
     fun cardsInfo(accountId: String): MCardsInfo? =
         MCardsInfo.fromJson(WGlobalStorage.getCardsInfo(accountId))
+
+    fun shouldOpenUpgrade(accountId: String): Boolean = cardsInfo(accountId) != null ||
+        NftStore.isCardMinting(accountId) ||
+        WGlobalStorage.getActivePromotion(accountId)
+            ?.let { ApiPromotion.fromJson(it) }
+            ?.cardOverlay
+            ?.onClickAction == "openMintCardModal"
 
     fun mycoinBalance(accountId: String): BigInteger =
         BalanceStore.getBalances(accountId)?.get(MYCOIN_SLUG) ?: BigInteger.ZERO

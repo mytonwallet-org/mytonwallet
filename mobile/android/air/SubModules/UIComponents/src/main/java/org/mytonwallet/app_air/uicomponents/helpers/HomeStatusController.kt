@@ -59,8 +59,19 @@ object HomeStatusController : WalletCore.EventObserver {
             WalletEvent.UpdatingStatusChanged -> scheduleUpdate(animated = true)
 
             is WalletEvent.AccountWillChange,
-            is WalletEvent.AccountChanged,
             is WalletEvent.AccountNameChanged -> refreshName()
+
+            is WalletEvent.AccountChanged -> {
+                checkUpdatingTimer?.let { handler.removeCallbacks(it) }
+                checkUpdatingTimer = null
+                state = if (waitingForNetwork) {
+                    UpdateStatusView.State.WaitingForNetwork
+                } else {
+                    UpdateStatusView.State.Updated(currentName())
+                }
+                listeners.forEach { it.get()?.onStatus(state, animated = true) }
+                if (!waitingForNetwork) scheduleUpdate(animated = true)
+            }
 
             WalletEvent.NetworkDisconnected -> {
                 waitingForNetwork = true

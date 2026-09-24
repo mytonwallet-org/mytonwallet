@@ -10,6 +10,7 @@ final class TokenSendReviewViewController: WViewController {
     private let confirmed: ConfirmedTokenSend?
     private var confirmButton = WButton(style: .primary)
     private var editButton: WButton?
+    private var isConfirming = false
 
     init(
         model: TokenSendModel,
@@ -148,6 +149,7 @@ final class TokenSendReviewViewController: WViewController {
     }
 
     @objc private func confirmPressed() {
+        guard !isConfirming else { return }
         view.endEditing(true)
         let confirmedSend: ConfirmedTokenSend
         do {
@@ -175,13 +177,20 @@ final class TokenSendReviewViewController: WViewController {
             AppActions.showError(error: error)
             return
         }
+        isConfirming = true
+        updateConfirmButton()
         Task {
+            defer {
+                isConfirming = false
+                updateConfirmButton()
+            }
             await confirmAction(confirmedSend)
         }
         Haptics.prepare(.success)
     }
 
     @objc private func editPressed() {
+        guard !isConfirming else { return }
         navigationController?.popViewController(animated: true)
     }
 
@@ -195,12 +204,20 @@ final class TokenSendReviewViewController: WViewController {
     }
 
     private func updateConfirmButton() {
+        editButton?.isEnabled = !isConfirming
+        if isConfirming || confirmed != nil {
+            confirmButton.showLoading = isConfirming
+            confirmButton.isEnabled = !isConfirming
+            return
+        }
         let action = model.primaryAction
         confirmButton.showLoading = action.isLoading
         confirmButton.isEnabled = action.isEnabled
         let title = switch action {
         case .unavailable(.invalidRecipient):
-            lang("Invalid address")
+            model.recipientValidationState == .sendToSelf
+                ? lang("$send_recipient_self_transfer")
+                : lang("Invalid address")
         case .unavailable(.insufficientAmount):
             lang("Insufficient Balance")
         case .unavailable(.insufficientFee):

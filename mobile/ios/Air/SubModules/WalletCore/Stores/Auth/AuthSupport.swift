@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 import LocalAuthentication
 import NativeEnclave
@@ -40,6 +41,8 @@ public struct AuthStatus: Sendable {
 
 public protocol AuthSupportProtocol {
     static var status: AuthStatus { get }
+    static func rememberedToken() async -> EnclaveToken?
+    static func invalidateSessions() async
     static func setPasscode(_ passcode: String) async throws -> EnclaveToken
     static func changePasscode(to newPasscode: String, using authorizationToken: EnclaveToken) async throws
     static func enableBiometrics(using authorizationToken: EnclaveToken) async throws -> EnclaveToken
@@ -106,6 +109,22 @@ public enum AuthSupportBiometricsError: LocalizedError {
 }
 
 final class AuthSupportImpl: AuthSupportProtocol {
+    static var shouldRememberAuthentication: Bool {
+        @Dependency(\.settingsStore) var settingsStore
+        return settingsStore.isAutoConfirmEnabled
+    }
+
+    static func rememberedToken() async -> EnclaveToken? {
+        guard shouldRememberAuthentication else { return nil }
+        let session = await EnclaveManager.shared.rememberedSession()
+        guard shouldRememberAuthentication else { return nil }
+        return session?.token
+    }
+
+    static func invalidateSessions() async {
+        await EnclaveManager.shared.invalidateSessions()
+    }
+
     static var status: AuthStatus {
         let configuredMethods = configuredMethods()
         let requiresAuthorization = accountsSupportAppLock
@@ -253,11 +272,11 @@ final class AuthSupportImpl: AuthSupportProtocol {
             if failedLoginAttempts >= 5 {
                 try await Task.sleep(for: .seconds(3))
             }
-            let upgradeUsageCount = await pendingMultichainUpgradeUsageCount()
+            let upgradeAccountIds = await pendingMultichainUpgradeAccountIds()
             let enclaveToken = try await authorizeWithEnclave(
                 passcode: passcode,
                 sessionKind: sessionKind,
-                usageCount: 1 + extraUsages + upgradeUsageCount
+                usageCount: 1 + extraUsages + upgradeAccountIds.count
             )
             if let enclaveToken {
                 failedLoginAttempts = 0
@@ -265,7 +284,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
                 await AuthSupportLegacy.retryCleanupAfterCommittedMigration()
                 startMultichainUpgradeIfNeeded(
                     enclaveToken: enclaveToken,
-                    usageCount: upgradeUsageCount
+                    accountIds: upgradeAccountIds
                 )
             } else {
                 failedLoginAttempts += 1
@@ -286,8 +305,8 @@ final class AuthSupportImpl: AuthSupportProtocol {
         sessionKind: AuthSessionKind,
         extraUsages: Int
     ) async throws -> EnclaveToken? {
-        let upgradeUsageCount = await pendingMultichainUpgradeUsageCount()
-        let usageCount = 1 + extraUsages + upgradeUsageCount
+        let upgradeAccountIds = await pendingMultichainUpgradeAccountIds()
+        let usageCount = 1 + extraUsages + upgradeAccountIds.count
         let enclaveToken: EnclaveToken?
 
         if AuthSupportLegacy.hasLegacyBiometrics {
@@ -308,7 +327,7 @@ final class AuthSupportImpl: AuthSupportProtocol {
             await AuthSupportLegacy.retryCleanupAfterCommittedMigration()
             startMultichainUpgradeIfNeeded(
                 enclaveToken: enclaveToken,
-                usageCount: upgradeUsageCount
+                accountIds: upgradeAccountIds
             )
         }
         return enclaveToken
@@ -371,38 +390,41 @@ final class AuthSupportImpl: AuthSupportProtocol {
             authType: authType,
             isLong: sessionKind.isLong,
             usageCount: usageCount,
+            remember: shouldRememberAuthentication,
             passcode: passcode
         )
         return session?.token
     }
 
-    private static func pendingMultichainUpgradeUsageCount() async -> Int {
+    private static func pendingMultichainUpgradeAccountIds() async -> [String] {
         guard hasPendingMultichainUpgrade else {
-            return 0
+            return []
         }
 
         do {
-            try await Api.waitDataPreload()
             try await Api.repairInvalidBip39TonAuthTokens()
-            return try await Api.getMultichainUpgradeCandidateIds().count
+            let accountIds = AccountStore.accountsById.values
+                .filter { $0.type.isStoredEncrypted }
+                .map(\.id)
+            return try await Api.getMultichainUpgradeCandidateIds(accountIds: accountIds)
         } catch {
             authSupportLog.error("Failed to prepare multichain account upgrade: \(error, .public)")
-            return 0
+            return []
         }
     }
 
     private static func startMultichainUpgradeIfNeeded(
         enclaveToken: EnclaveToken,
-        usageCount: Int
+        accountIds: [String]
     ) {
-        guard usageCount > 0 else {
+        guard !accountIds.isEmpty else {
             return
         }
 
         Task {
             do {
-                try await Api.upgradeMultichainAccounts(enclaveToken: enclaveToken)
-                authSupportLog.info("Upgraded \(usageCount, .public) multichain accounts")
+                try await Api.upgradeMultichainAccounts(enclaveToken: enclaveToken, accountIds: accountIds)
+                authSupportLog.info("Upgraded \(accountIds.count, .public) multichain accounts")
             } catch {
                 authSupportLog.error("Failed to upgrade multichain accounts: \(error, .public)")
             }

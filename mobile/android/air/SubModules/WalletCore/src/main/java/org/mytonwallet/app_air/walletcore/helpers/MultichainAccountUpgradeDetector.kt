@@ -5,6 +5,7 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import kotlin.io.encoding.Base64
+import org.mytonwallet.app_air.native_enclave.EnclaveManager
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -23,17 +24,22 @@ internal object MultichainAccountUpgradeDetector {
         Moshi.Builder().build().adapter<Map<String, StoredAccount>>(type)
     }
 
-    suspend fun needsSDKPreparation(): Boolean {
-        val encryptedAccountIds = WGlobalStorage.accountIds().mapNotNullTo(
-            mutableSetOf()
-        ) { accountId ->
+    fun encryptedAccountIds(): List<String> {
+        val isLegacyMigrationPending = LegacyMigration.needsMigration()
+        return WGlobalStorage.accountIds().filter { accountId ->
             when (WGlobalStorage.getAccount(accountId)?.optString("type")) {
                 MAccount.AccountType.HARDWARE.value,
-                MAccount.AccountType.VIEW.value -> null
+                MAccount.AccountType.VIEW.value -> false
 
-                else -> accountId
+                else ->
+                    isLegacyMigrationPending ||
+                        EnclaveManager.sharedInstance.hasSecret(accountId)
             }
         }
+    }
+
+    suspend fun needsSDKPreparation(): Boolean {
+        val encryptedAccountIds = encryptedAccountIds().toSet()
         val supportedUpgradeChains = MBlockchain.supportedChains
             .filter { it.multiWalletSupport != null }
             .mapTo(mutableSetOf()) { it.name }

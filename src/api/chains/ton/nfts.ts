@@ -40,7 +40,7 @@ import {
   NftOpCode,
 } from './constants';
 import { checkMultiTransactionDraft, checkToAddress, submitMultiTransferWithMfa } from './transfer';
-import { isActiveSmartContract } from './wallet';
+import { isActiveNonWalletContract } from './wallet';
 
 const NFT_TRANSFER_BATCH_SIZE = 100;
 
@@ -148,7 +148,7 @@ export async function getNftUpdates(accountId: string, fromSec: number) {
       if (nft) {
         updates.push({ type: 'nftReceived', accountId, nftAddress, nft });
       }
-    } else if (await isActiveSmartContract(network, newOwnerAddress)) {
+    } else if (await isActiveNonWalletContract(network, newOwnerAddress)) {
       // A finished sale never hits this branch: its transfer goes from the sale contract to the
       // buyer, so the `owner_address` filter does not return it for the seller at all. The seller's
       // gallery catches up on the next full reload instead

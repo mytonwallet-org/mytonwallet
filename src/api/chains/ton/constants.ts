@@ -220,56 +220,75 @@ export const DNS_CATEGORY_HASH_MAP = {
 export const KnownContracts: Record<ContractName, ContractInfo> = {
   simpleR1: {
     name: 'simpleR1',
+    hash: 'a0cfc2c48aee16a271f2cfc0b7382d81756cecb1017d077faaab3bb602f6868c',
     oldHash: '3232dc55b02b3d2a9485adc151cf29c50b94c374d3571cb59390d761b87af8bd',
     type: ContractType.Wallet,
   },
   simpleR2: {
     name: 'simpleR2',
+    hash: 'd4902fcc9fad74698fa8e353220a68da0dcf72e32bcb2eb9ee04217c17d3062c',
     oldHash: '672ce2b01d2fd487a5e0528611e7e4fc11867148cc13ff772bd773b72fb368df',
     type: ContractType.Wallet,
   },
   simpleR3: {
     name: 'simpleR3',
+    hash: '587cc789eff1c84f46ec3797e45fc809a14ff5ae24f1e0c7a6a99cc9dc9061ff',
     oldHash: 'd95417233f66ae218317f533630cbbddc677d6d893d5722be6947c8fad8e9d52',
     type: ContractType.Wallet,
   },
   v2R1: {
     name: 'v2R1',
+    hash: '5c9a5e68c108e18721a07c42f9956bfb39ad77ec6d624b60c576ec88eee65329',
     oldHash: 'fb3bd539b7e50166f1cfdc0bbd298b1c88f6b261fe5ee61343ea47ab4b256029',
     type: ContractType.Wallet,
   },
   v2R2: {
     name: 'v2R2',
+    hash: 'fe9530d3243853083ef2ef0b4c2908c0abf6fa1c31ea243aacaa5bf8c7d753f1',
     oldHash: 'b584b6106753b7f34709df505be603e463a44ff6a85adf7fec4e26453c325983',
     type: ContractType.Wallet,
   },
   v3R1: {
     name: 'v3R1',
+    hash: 'b61041a58a7980b946e8fb9e198e3c904d24799ffa36574ea4251c41a566f581',
     oldHash: '11d123ed5c2055128e75a9ef4cf1e837e6d14a9c079c39939885c78dc13626e6',
     type: ContractType.Wallet,
   },
   v3R2: {
     name: 'v3R2',
+    hash: '84dafa449f98a6987789ba232358072bc0f76dc4524002a5d0918b9a75d2d599',
     oldHash: 'df7bf014ee7ac0c38da19ef1b7fa054e2cc7a4513df1f1aa295109cf3606ac14',
     type: ContractType.Wallet,
   },
   v4R1: {
     name: 'v4R1',
+    hash: '64dd54805522c5be8a9db59cea0105ccf0d08786ca79beb8cb79e880a8d7322d',
     oldHash: '1bc0dfa40956c911616f8a5db09ecc217601bae48d7d3f9311562c5afcb66dcf',
     type: ContractType.Wallet,
   },
   v4R2: {
     name: 'v4R2',
+    hash: 'feb5ff6820e2ff0d9483e7e0d62c817d846789fb4ae580c878866d959dabd5c0',
     oldHash: '5659ce2300f4a09a37b0bdee41246ded52474f032c1d6ffce0d7d31b18b7b2b1',
     type: ContractType.Wallet,
   },
   W5: {
     name: 'W5',
+    hash: '20834b7b72b112147e1b2fb457b84e74d1a30f04f737d4f62a668e9552d2b72f',
     oldHash: '7e94eaaeaaa423b9396e79747038c42edc4fe98dce65094071f0e0ad2df22fd5',
+    type: ContractType.Wallet,
+  },
+  telegram: {
+    name: 'telegram',
+    // Every Telegram wallet deploys the same immutable trampoline, so this hash identifies the wallet but says
+    // nothing about its logic: that lives in the blockchain config, under key -123, and is replaced by validator
+    // voting. There is deliberately no `ApiTonWalletVersion` for it, because the app cannot build the contract yet.
+    hash: '9149ae51c1e4689710cebf7830297b16acfbadb363a920a537893e7ffeeca768',
     type: ContractType.Wallet,
   },
   highloadV2: {
     name: 'highloadV2',
+    hash: '9494d1cc8edf12f05671a1a9ba09921096eb50811e1924ec65c3c629fbb80812',
     oldHash: 'fcd7d1f3b3847f0b9bd44bc64a2256c03450979dd1646a24fbc874b075392d6e',
     type: ContractType.Wallet,
   },
@@ -285,16 +304,19 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
   },
   multisigV2: {
     name: 'multisigV2',
+    hash: 'edefd6b2ee7c5a9aff0346c874823f79eb4327e1da17cccecd15c051e76f626c',
     oldHash: 'eb1323c5544d5bf26248dc427d108d722d5c2922dd97dd0bdf903c4cea73ca97',
     type: ContractType.Wallet,
   },
   vesting: {
     name: 'vesting',
+    hash: 'b48b531abec3b714638291f7d77ed6dc9f6a2729efca20477137374d4ae8b590',
     oldHash: '69dc931958f7aa203c4a7bfcf263d25d2d828d573184b542a65dd55c8398ad83',
     type: ContractType.Wallet,
   },
   multisigNew: {
     name: 'multisigNew',
+    hash: 'a01e057fbd4288402b9898d78d67bd4e90254c93c5866879bc2d1d12865436bc',
     oldHash: '7cb3678880388acff45d74b2e7e7544caa8039d20b49f57c75b53c051b6fa30f',
     type: ContractType.Wallet,
   },

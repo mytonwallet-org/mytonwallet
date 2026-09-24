@@ -1,0 +1,45 @@
+diff --git a/node_modules/@ton/crypto-primitives/dist/browser/getSecureRandom.js b/node_modules/@ton/crypto-primitives/dist/browser/getSecureRandom.js
+index 815d4da..57ffbda 100644
+--- a/node_modules/@ton/crypto-primitives/dist/browser/getSecureRandom.js
++++ b/node_modules/@ton/crypto-primitives/dist/browser/getSecureRandom.js
+@@ -9,10 +9,10 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.getSecureRandomWords = exports.getSecureRandomBytes = void 0;
+ function getSecureRandomBytes(size) {
+-    return Buffer.from(window.crypto.getRandomValues(new Uint8Array(size)));
++    return Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(size)));
+ }
+ exports.getSecureRandomBytes = getSecureRandomBytes;
+ function getSecureRandomWords(size) {
+-    return window.crypto.getRandomValues(new Uint16Array(size));
++    return globalThis.crypto.getRandomValues(new Uint16Array(size));
+ }
+ exports.getSecureRandomWords = getSecureRandomWords;
+diff --git a/node_modules/@ton/crypto-primitives/dist/browser/hmac_sha512.js b/node_modules/@ton/crypto-primitives/dist/browser/hmac_sha512.js
+index 1f0cdc8..3b1c3d4 100644
+--- a/node_modules/@ton/crypto-primitives/dist/browser/hmac_sha512.js
++++ b/node_modules/@ton/crypto-primitives/dist/browser/hmac_sha512.js
+@@ -12,7 +12,7 @@ async function hmac_sha512(key, data) {
+     let keyBuffer = typeof key === 'string' ? Buffer.from(key, 'utf-8') : key;
+     let dataBuffer = typeof data === 'string' ? Buffer.from(data, 'utf-8') : data;
+     const hmacAlgo = { name: "HMAC", hash: "SHA-512" };
+-    const hmacKey = await window.crypto.subtle.importKey("raw", keyBuffer, hmacAlgo, false, ["sign"]);
++    const hmacKey = await globalThis.crypto.subtle.importKey("raw", keyBuffer, hmacAlgo, false, ["sign"]);
+     return Buffer.from(await crypto.subtle.sign(hmacAlgo, hmacKey, dataBuffer));
+ }
+ exports.hmac_sha512 = hmac_sha512;
+diff --git a/node_modules/@ton/crypto-primitives/dist/browser/pbkdf2_sha512.js b/node_modules/@ton/crypto-primitives/dist/browser/pbkdf2_sha512.js
+index 6a9669e..2b1f7fb 100644
+--- a/node_modules/@ton/crypto-primitives/dist/browser/pbkdf2_sha512.js
++++ b/node_modules/@ton/crypto-primitives/dist/browser/pbkdf2_sha512.js
+@@ -11,8 +11,8 @@ exports.pbkdf2_sha512 = void 0;
+ async function pbkdf2_sha512(key, salt, iterations, keyLen) {
+     const keyBuffer = typeof key === 'string' ? Buffer.from(key, 'utf-8') : key;
+     const saltBuffer = typeof salt === 'string' ? Buffer.from(salt, 'utf-8') : salt;
+-    const pbkdf2_key = await window.crypto.subtle.importKey("raw", keyBuffer, { name: "PBKDF2" }, false, ["deriveBits"]);
+-    const derivedBits = await window.crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-512", salt: saltBuffer, iterations: iterations }, pbkdf2_key, keyLen * 8);
++    const pbkdf2_key = await globalThis.crypto.subtle.importKey("raw", keyBuffer, { name: "PBKDF2" }, false, ["deriveBits"]);
++    const derivedBits = await globalThis.crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-512", salt: saltBuffer, iterations: iterations }, pbkdf2_key, keyLen * 8);
+     return Buffer.from(derivedBits);
+ }
+ exports.pbkdf2_sha512 = pbkdf2_sha512;

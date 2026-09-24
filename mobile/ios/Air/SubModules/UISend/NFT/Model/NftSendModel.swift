@@ -167,6 +167,13 @@ final class NftSendModel: Sendable {
         )
     }
 
+    var recipientValidationState: SendRecipientValidationState? {
+        recipient.validationState(
+            validatedRecipient: currentValidatedDraft?.recipient,
+            showsIncompatibleError: true
+        )
+    }
+
     var balanceStatus: SendBalanceStatus {
         let nativeBalance = $account.balances[feeToken.slug]
         return SendBalancePolicy.evaluate(

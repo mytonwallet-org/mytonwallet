@@ -128,7 +128,9 @@ final class TokenSendComposeViewController:
         continueButton.isEnabled = action.isEnabled
         let title = switch action {
         case .unavailable(.invalidRecipient):
-            lang("Invalid address")
+            model.recipientValidationState == .sendToSelf
+                ? lang("$send_recipient_self_transfer")
+                : lang("Invalid address")
         case .unavailable(.insufficientAmount):
             lang("Insufficient Balance")
         case .unavailable(.insufficientFee):

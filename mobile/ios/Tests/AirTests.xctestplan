@@ -15,6 +15,20 @@
     {
       "target" : {
         "containerPath" : "container:..\/Air",
+        "identifier" : "UISettingsTests",
+        "name" : "UISettingsTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
+        "identifier" : "UIHomeTests",
+        "name" : "UIHomeTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:..\/Air",
         "identifier" : "UniversalSearchCoreTests",
         "name" : "UniversalSearchCoreTests"
       }

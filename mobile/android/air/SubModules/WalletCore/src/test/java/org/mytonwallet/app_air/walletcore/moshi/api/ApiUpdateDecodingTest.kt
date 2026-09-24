@@ -21,6 +21,7 @@ class ApiUpdateDecodingTest {
             """{"kind":"balance","accountId":"0-ton","isUpdating":true,"futureField":{"nested":[1,2]}}"""
         )
         assertEquals("balance", update?.kind)
+        assertEquals("0-ton", update?.accountId)
         assertEquals(true, update?.isUpdating)
     }
 
@@ -35,6 +36,15 @@ class ApiUpdateDecodingTest {
             null,
             decode<ApiUpdate.ApiUpdateOpenUrl>("""{"url":"https://a.b"}""")?.isExternal
         )
+    }
+
+    @Test
+    fun walletVersionsDecodeWithoutCurrentVersion() {
+        val update = decode<ApiUpdate.ApiUpdateWalletVersions>(
+            """{"accountId":"0-ton","versions":[{"address":"EQ1","balance":"bigint:0","isInitialized":false,"version":"v4R2"}]}"""
+        )
+        assertNull(update?.currentVersion)
+        assertEquals("v4R2", update?.versions?.single()?.version)
     }
 
     @Test

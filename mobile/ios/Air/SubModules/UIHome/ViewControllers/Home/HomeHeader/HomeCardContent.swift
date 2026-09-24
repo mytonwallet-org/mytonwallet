@@ -1,3 +1,5 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 //
 //  HomeCard.swift
 //  MyTonWalletAir
@@ -304,6 +306,7 @@ private struct _BalanceChangeContent: View, Equatable {
             HStack(spacing: 4) {
                 Text(text)
                     .environment(\.layoutDirection, .leftToRight)
+                    .offset(y: -0.5) // Optically center the compact font in the pill.
                 Image(systemName: "chevron.forward")
                     .textStyle(.caption2Strong, content: .technical)
             }
@@ -366,14 +369,15 @@ private struct _BalanceChangeContent: View, Equatable {
 private struct _WalletTitleLine: View {
 
     let accountContext: AccountContext
+    var snapshot: MtwCardContentData? = nil
 
     @Namespace private var ns
 
     var body: some View {
         WithPerceptionTracking {
-            let account = accountContext.account
-            let addressLine = accountContext.addressLine
-            let nft = accountContext.nft
+            let account = snapshot?.account ?? accountContext.account
+            let addressLine = snapshot?.addressLine ?? accountContext.addressLine
+            let nft = snapshot == nil ? accountContext.nft : snapshot?.nft
             let isTemporary = account.isTemporary == true
             let increasedBadgeOpacity = nft?.metadata?.mtwCardType?.isPremium == true
 
@@ -503,3 +507,137 @@ private struct _AddressLineContent: View {
         .animation(.smooth.delay(0.18), value: isTemporary)
     }
 }
+
+@Perceptible @MainActor
+public final class HomeCardContentReferenceModel {
+    public var data: MtwCardContentData
+    public var collapsed = false
+    public var progress: CGFloat = 0
+    public var topTabs = false
+    public var cardWidth: CGFloat = 358
+    public var minimumFontScale: CGFloat = 1
+    public var sensitiveDataHidden = false
+    public var isRTL = false
+    public var freezesAnimations = false
+    let context: AccountContext
+
+    public init(data: MtwCardContentData) {
+        self.data = data
+        context = AccountContext(source: .constant(data.account))
+    }
+
+    public func makeView() -> UIView {
+        let view = HostingView { [self] in
+            WithPerceptionTracking {
+                HomeCardContentReference(model: self)
+                    .environment(\.layoutDirection, self.isRTL ? .rightToLeft : .leftToRight)
+                    .transaction { if self.freezesAnimations { $0.animation = nil; $0.disablesAnimations = true } }
+            }
+        }
+        view.translatesAutoresizingMaskIntoConstraints = true
+        view.isUserInteractionEnabled = false
+        return view
+    }
+}
+
+private struct HomeCardContentReference: View {
+    let model: HomeCardContentReferenceModel
+
+    var body: some View {
+        WithPerceptionTracking {
+            let data = model.data
+            if model.collapsed {
+                let style: MtwCardBalanceView.Style = model.topTabs ? .homeNavigationBarCollapsed : .homeCollaped
+                VStack(spacing: model.topTabs ? 6 : interpolate(from: 5, to: -2, progress: model.progress)) {
+                    MtwCardBalanceView(balance: data.balance, style: style)
+                        .modifier(HomeCardReferencePrivacy(hidden: model.sensitiveDataHidden && data.balance != nil, cellSize: style.sensitiveDataCellSize, theme: style.sensitiveDataTheme))
+                        .overlay { HomeCardBalanceRevealHint(style: style, isVisible: model.sensitiveDataHidden) }
+                        .scaleEffect(model.topTabs ? 1 : interpolate(from: 1, to: 17.0 / 40, progress: model.progress), anchor: .bottom)
+                    if model.topTabs {
+                        change(style: .plainBackground)
+                    } else {
+                        HStack(spacing: 4) {
+                            if data.account.isView {
+                                Image.airBundle("inline_view").imageScale(.small)
+                            }
+                            Text(data.account.displayName).lineLimit(1)
+                        }
+                        .foregroundStyle(.secondary)
+                        .textStyle(.body)
+                        .scaleEffect(interpolate(from: 1, to: 13.0 / 17, progress: model.progress), anchor: .top)
+                    }
+                }
+                .padding(.horizontal, 80)
+                .padding(.bottom, model.topTabs ? 24 : interpolate(from: 12, to: 16 + (IOS_26_MODE_ENABLED ? -3 : -14), progress: model.progress))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            } else {
+                ZStack {
+                    VStack(spacing: 5) {
+                        expandedBalance(data)
+                            .padding(.leading, 1)
+                            .padding(.horizontal, 32)
+                        change(style: .card)
+                    }
+                    .offset(y: -5)
+                    .scaleEffect(interpolate(from: 1, to: 17.0 / 40, progress: model.progress))
+                    .backportGeometryGroup()
+                    .offset(y: -interpolate(from: 0, to: -16 + (IOS_26_MODE_ENABLED ? -3 : -14), progress: model.progress))
+                    Group {
+                        if data.showsWalletName {
+                            _WalletTitleLine(accountContext: model.context, snapshot: data)
+                        } else {
+                            _AddressLineContent(accountId: data.account.id, isTemporary: data.account.isTemporary == true,
+                                                addressLine: data.addressLine, accountContext: model.context, nft: data.nft)
+                        }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .top) { SeasonalOverlay(seasonalTheme: data.seasonalTheme) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func expandedBalance(_ data: MtwCardContentData) -> some View {
+        if model.sensitiveDataHidden, data.balance != nil {
+            let style = MtwCardBalanceView.Style.homeCard(cardWidth: model.cardWidth, minimumScale: model.minimumFontScale)
+            MtwCardBalanceView(balance: data.balance, style: style)
+                .modifier(HomeCardReferencePrivacy(hidden: true, cellSize: style.sensitiveDataCellSize, theme: style.sensitiveDataTheme))
+                .sourceAtop { MtwCardBalanceGradient(nft: data.nft).padding(-40) }
+                .overlay { HomeCardBalanceRevealHint(style: style, isVisible: true) }
+        } else {
+            _BalanceViewContent(accountId: data.account.id, balance: data.balance, nft: data.nft, isCurrent: false,
+                                cardWidth: model.cardWidth, minimumHomeCardFontScale: model.minimumFontScale,
+                                isSensitiveDataHidden: false)
+        }
+    }
+
+    private func change(style: _BalanceChange.Style) -> some View {
+        _BalanceChangeContent(balance: model.data.balance, balance24h: model.data.previousBalance,
+                              balanceChange: model.data.balanceChange, nft: model.data.nft, style: style, onTap: {})
+            .modifier(HomeCardReferencePrivacy(hidden: model.sensitiveDataHidden && MtwCardChangeView.text(balance: model.data.balance, previous: model.data.previousBalance, percent: model.data.balanceChange)?.isEmpty == false,
+                                               cols: 10, rows: 2, cellSize: 13,
+                                               theme: style == .card ? .color(UIColor(getSecondaryForegroundColor(nft: model.data.nft))) : .adaptive,
+                                               radius: 13))
+    }
+}
+
+private struct HomeCardReferencePrivacy: ViewModifier {
+    var hidden: Bool
+    var cols = 14
+    var rows = 3
+    var cellSize: CGFloat
+    var theme: ShyMask.Theme
+    var radius: CGFloat = 12
+    func body(content: Content) -> some View {
+        content.opacity(hidden ? 0 : 1).overlay {
+            if hidden {
+                WUIShyMask(cols: cols, rows: rows, cellSize: cellSize, theme: theme)
+                    .fixedSize().clipShape(.rect(cornerRadius: radius))
+            }
+        }
+    }
+}
+#endif

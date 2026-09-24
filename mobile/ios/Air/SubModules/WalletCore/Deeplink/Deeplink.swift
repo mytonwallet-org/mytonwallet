@@ -14,6 +14,7 @@ public enum Deeplink {
     case stake
     case portfolio
     case market
+    case mintCard
     case url(url: URL, title: String?, injectDappConnect: Bool)
     case transfer
     case receive

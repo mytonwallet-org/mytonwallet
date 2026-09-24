@@ -52,6 +52,7 @@ import org.mytonwallet.app_air.uisettings.viewControllers.appearance.AppearanceV
 import org.mytonwallet.app_air.uisettings.viewControllers.assetsAndActivities.AssetsAndActivitiesVC
 import org.mytonwallet.app_air.uisettings.viewControllers.connectedApps.ConnectedAppsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.language.LanguageVC
+import org.mytonwallet.app_air.uisettings.viewControllers.mintCard.MintCardVC
 import org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.NotificationSettingsVC
 import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
@@ -1160,6 +1161,12 @@ class SplashVC(context: Context) :
 
             is Deeplink.Market -> {
                 tabsVC?.switchToMarket()
+            }
+
+            is Deeplink.MintCard -> {
+                window.navigationControllers.lastOrNull()?.let {
+                    MintCardVC.present(it, account.accountId)
+                }
             }
 
             is Deeplink.Agent -> {

@@ -70,7 +70,10 @@ class PermissionsListVM(
         onSuccess: () -> Unit,
         onError: (String?) -> Unit
     ) {
-        val accId = accountId ?: return
+        val accId = accountId ?: run {
+            onError(null)
+            return
+        }
         val options = when (permission) {
             is MWalletPermission.Approval -> MRevokeWalletPermissionOptions.Approval(
                 accountId = accId,

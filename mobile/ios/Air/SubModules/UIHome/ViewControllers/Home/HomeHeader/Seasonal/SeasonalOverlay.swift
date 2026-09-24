@@ -1,3 +1,5 @@
+#if DEBUG
+// Pre-migration SwiftUI reference for the Home Card Content Lab.
 import WalletCore
 import WalletContext
 import SwiftUI
@@ -29,3 +31,5 @@ struct SeasonalOverlay: View {
         }
     }
 }
+
+#endif

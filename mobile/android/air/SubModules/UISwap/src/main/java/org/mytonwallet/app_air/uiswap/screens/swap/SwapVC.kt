@@ -50,8 +50,11 @@ import org.mytonwallet.app_air.uicomponents.widgets.ExpandableFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WAlertLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
+import org.mytonwallet.app_air.uicomponents.widgets.lockView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uicomponents.widgets.unlockView
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
@@ -440,8 +443,8 @@ class SwapVC(
         }
 
         collectFlow(swapViewModel.uiStatusFlow) {
-            continueButton.isLoading = it.button.status.isLoading
-            if (!it.button.status.isLoading) {
+            continueButton.isLoading = it.button.status.isLoading || isAutoConfirmSubmitting
+            if (!continueButton.isLoading) {
                 continueButton.isEnabled = it.button.status.isEnabled
                 continueButton.text = it.button.title
             }
@@ -623,7 +626,14 @@ class SwapVC(
                         }
                     }
                 } else {
-                    pop()
+                    if (isAutoConfirmSubmitting) {
+                        isAutoConfirmSubmitting = false
+                        view.unlockView()
+                        continueButton.isLoading = false
+                    }
+                    if (navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC) {
+                        pop()
+                    }
                     showError(event.error)
                 }
             }
@@ -633,6 +643,11 @@ class SwapVC(
             }
 
             is SwapViewModel.Event.MfaRequested -> {
+                if (isAutoConfirmSubmitting) {
+                    isAutoConfirmSubmitting = false
+                    view.unlockView()
+                    continueButton.isLoading = false
+                }
                 presentMfaConfirm(event)
             }
         }
@@ -689,8 +704,10 @@ class SwapVC(
                 swapViewModel.onMfaConfirmed()
             }
         )
+        val hasPasscodeScreen =
+            navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC
         navigationController?.push(mfaVC, onCompletion = {
-            navigationController?.removePrevViewControllerOnly()
+            if (hasPasscodeScreen) navigationController?.removePrevViewControllerOnly()
         })
     }
 
@@ -732,13 +749,29 @@ class SwapVC(
         }
     }
 
+    private var isAutoConfirmSubmitting = false
+
     private fun showConfirm(event: SwapViewModel.Event.ShowConfirm) {
+        if (isAutoConfirmSubmitting) return
         val request = event.request
         Logger.d(
             Logger.LogTag.SWAP,
             "showConfirm: fromToken=${request.request.tokenToSend.symbol} toToken=${request.request.tokenToReceive.symbol}"
         )
         view.hideKeyboard()
+        ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                isAutoConfirmSubmitting = true
+                view.lockView()
+                continueButton.isLoading = true
+                swapViewModel.doSend(token, request, event.addressToReceive)
+            },
+            onPasscodeRequired = { showPasscodeConfirm(event) }
+        )
+    }
+
+    private fun showPasscodeConfirm(event: SwapViewModel.Event.ShowConfirm) {
+        val request = event.request
         val confirmActionVC = PasscodeConfirmVC(
             context,
             PasscodeViewState.CustomHeader(

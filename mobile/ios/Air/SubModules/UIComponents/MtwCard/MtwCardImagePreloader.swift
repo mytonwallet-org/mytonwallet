@@ -1,34 +1,16 @@
 import Foundation
-import Kingfisher
 import WalletCore
 
 @MainActor
 public enum MtwCardImagePreloader {
-    private static var inFlightUrls: Set<URL> = []
+    private static var inFlightNumbers: Set<Int> = []
 
     public static func preload(_ nft: ApiNft?) {
-        guard let url = nft?.metadata?.mtwCardBackgroundUrl else { return }
-        preload(url)
-    }
-
-    public static func preload(_ url: URL) {
-        guard inFlightUrls.insert(url).inserted else { return }
-
-        let task = KingfisherManager.shared.retrieveImage(
-            with: url,
-            options: [
-                .backgroundDecode,
-                .cacheOriginalImage,
-                .alsoPrefetchToMemory,
-            ]
-        ) { _ in
-            Task { @MainActor in
-                inFlightUrls.remove(url)
-            }
-        }
-
-        if task == nil {
-            inFlightUrls.remove(url)
+        guard let nft, let number = nft.metadata?.mtwCardId, inFlightNumbers.insert(number).inserted else { return }
+        Task { @MainActor in
+            defer { inFlightNumbers.remove(number) }
+            guard let seed = try? await CardBackgroundNftSource.seed(for: nft) else { return }
+            _ = try? CardBackgroundRenderer.shared.image(seed: seed)
         }
     }
 }

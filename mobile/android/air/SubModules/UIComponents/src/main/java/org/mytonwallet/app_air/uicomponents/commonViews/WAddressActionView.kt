@@ -41,8 +41,15 @@ class WAddressActionView(context: Context) : WLabel(context) {
     private var data: Data? = null
     private var addressSpans: List<WTypefaceSpan> = emptyList()
     private var accentFadeProgress: Float = 0f
+    private var unbrokenText: CharSequence? = null
+    private var balancedText: CharSequence? = null
+    private var addressStart = 0
+    private var addressEnd = 0
+    private var measuredWidthSpec: Int? = null
+    private var isBalanced = false
 
     var onTap: ((WAddressActionView, Data) -> Unit)? = null
+    var balanceShortAddressLine = false
 
     init {
         layoutParams = ViewGroup.LayoutParams(
@@ -88,6 +95,44 @@ class WAddressActionView(context: Context) : WLabel(context) {
         updateContent()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val unbrokenText = unbrokenText
+        if (!balanceShortAddressLine || unbrokenText == null) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
+        }
+        if (measuredWidthSpec == widthMeasureSpec) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
+        }
+        measuredWidthSpec = widthMeasureSpec
+
+        if (isBalanced) {
+            text = unbrokenText
+            isBalanced = false
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+
+        val textLayout = layout ?: return
+        if (textLayout.lineCount != 2) return
+        val secondLineAddressCharacters =
+            (
+                minOf(textLayout.getLineEnd(1), addressEnd) -
+                    maxOf(textLayout.getLineStart(1), addressStart)
+                ).coerceAtLeast(0)
+        if (secondLineAddressCharacters >= 4) return
+
+        val balancedText = balancedText ?: return
+        text = balancedText
+        isBalanced = true
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        if (layout?.lineCount != 2) {
+            text = unbrokenText
+            isBalanced = false
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        }
+    }
+
     private fun updateContent() {
         val data = data ?: return
         val blockchain = MBlockchain.valueOfOrNull(data.chain)
@@ -96,6 +141,9 @@ class WAddressActionView(context: Context) : WLabel(context) {
         }
 
         val accentSpans = mutableListOf<WTypefaceSpan>()
+        var addressStart = 0
+        var addressEnd = 0
+        var addressMiddle = 0
         val addressText = buildSpannedString {
             if (chainIconDrawable != null) {
                 with(chainIconDrawable) {
@@ -118,9 +166,16 @@ class WAddressActionView(context: Context) : WLabel(context) {
                     append(data.addressName)
                 }
                 append(" · ")
-                append(data.address.formatStartEndAddress(6, 6)).styleDots()
+                val shortenedAddress = data.address.formatStartEndAddress(6, 6)
+                addressStart = length
+                addressMiddle = length + shortenedAddress.length / 2
+                append(shortenedAddress).styleDots()
+                addressEnd = length
             } else {
+                addressStart = length
+                addressMiddle = length + data.address.length / 2
                 appendStyledAddress(data.address, accentSpans)
+                addressEnd = length
             }
 
             val expandDrawable = context.getDrawableCompat(
@@ -146,7 +201,14 @@ class WAddressActionView(context: Context) : WLabel(context) {
         }
 
         addressSpans = accentSpans
-        text = addressText.replaceSpacesWithNbsp()
+        this.addressStart = addressStart
+        this.addressEnd = addressEnd
+        val unbrokenText = addressText.replaceSpacesWithNbsp()
+        this.unbrokenText = unbrokenText
+        balancedText = SpannableStringBuilder(unbrokenText).insert(addressMiddle, "\n")
+        measuredWidthSpec = null
+        isBalanced = false
+        text = unbrokenText
         updateAddressSpans()
     }
 

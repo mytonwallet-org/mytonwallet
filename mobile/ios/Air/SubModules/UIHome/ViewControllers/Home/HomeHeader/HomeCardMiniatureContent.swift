@@ -1,36 +1,42 @@
-
-import Foundation
 import UIKit
+import UIKitNavigation
 import UIComponents
 import WalletCore
-import WalletContext
-import SwiftUI
-import SwiftUIIntrospect
-import Perception
-import Dependencies
 
-struct HomeCardMiniatureContent: View {
-    
-    var headerViewModel: HomeHeaderViewModel
-    var accountContext: AccountContext
-    var layout: HomeCardLayoutMetrics
-    
-    var body: some View {
-        WithPerceptionTracking {
-            Color.clear
-                .overlay(alignment: .bottom) {
-                    MtwCardMiniPlaceholders()
-                        .sourceAtop {
-                            MtwCardInverseCenteredGradient(nft: accountContext.nft)
-                        }
-                        .padding(.bottom, 18)
-                        .scaleEffect(layout.itemWidth/34)
-                }
-                .opacity(headerViewModel.cardOpacity)
+final class HomeCardMiniatureContent: UIView {
+    private let content = MtwCardMiniatureContentView()
+    private var appearanceObservation: ObserveToken?
+    private var opacityObservation: ObserveToken?
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(headerViewModel: HomeHeaderViewModel, accountContext: AccountContext) {
+        prepareForReuse()
+        appearanceObservation = observe { [weak self] in
+            self?.content.configure(nft: accountContext.nft)
+        }
+        opacityObservation = observe { [weak self] in
+            self?.content.alpha = headerViewModel.cardOpacity
         }
     }
-    
-    var isCollapsed: Bool {
-        headerViewModel.isCollapsed
+
+    func prepareForReuse() {
+        appearanceObservation?.cancel()
+        appearanceObservation = nil
+        opacityObservation?.cancel()
+        opacityObservation = nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        content.frame = bounds
     }
 }

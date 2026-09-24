@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uiwalletconnectpay.viewControllers.WalletConnectPayDataCollectionVC
@@ -146,11 +147,15 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
             PasscodeViewState.CustomHeader(header, navbarTitle = navTitle, showNavbarTitle = true),
             task = { enclaveToken ->
                 confirmed = true
-                signTransaction(update, enclaveToken, passcodeVC, onSignFailed = {
+                signTransaction(update, enclaveToken, onSignFailed = {
                     confirmed = false
-                })
+                }) { error ->
+                    passcodeVC.restartAuth()
+                    passcodeVC.showError(error)
+                }
             },
-            onCancel = onCancel
+            onCancel = onCancel,
+            allowsAutoConfirm = true
         )
         present(passcodeVC)
     }
@@ -164,7 +169,8 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
         var confirmed = false
         val onCancelled = { if (!confirmed) cancel(update.promiseId) }
 
-        val signDataVC = WalletConnectPaySignDataVC(
+        lateinit var signDataVC: WalletConnectPaySignDataVC
+        signDataVC = WalletConnectPaySignDataVC(
             window,
             merchant = update.merchant,
             paymentAmount = update.paymentInfo?.amount,
@@ -173,6 +179,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                 proceedSignData(
                     update,
                     account,
+                    signDataVC,
                     header = {
                         WalletConnectPayConfirmHeaderView(
                             window,
@@ -199,6 +206,7 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
     private fun proceedSignData(
         update: ApiUpdate.ApiUpdateWalletConnectPaySignData,
         account: MAccount,
+        signDataVC: WalletConnectPaySignDataVC,
         header: () -> WalletConnectPayConfirmHeaderView,
         onConfirmed: () -> Unit,
         onSignFailed: () -> Unit
@@ -228,13 +236,39 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
             return
         }
 
+        val handled = ProtectedActionAuth.confirm(
+            onConfirmed = { token ->
+                onConfirmed()
+                signDataVC.startSubmitting()
+                signData(update, token, onSignFailed) { error ->
+                    signDataVC.stopSubmitting()
+                    signDataVC.showError(error)
+                }
+            },
+            onPasscodeRequired = {
+                showSignDataPasscode(update, header, title, onConfirmed, onSignFailed)
+            }
+        )
+        if (!handled) signDataVC.stopSubmitting()
+    }
+
+    private fun showSignDataPasscode(
+        update: ApiUpdate.ApiUpdateWalletConnectPaySignData,
+        header: () -> WalletConnectPayConfirmHeaderView,
+        title: String,
+        onConfirmed: () -> Unit,
+        onSignFailed: () -> Unit
+    ) {
         lateinit var passcodeVC: PasscodeConfirmVC
         passcodeVC = PasscodeConfirmVC(
             window,
             PasscodeViewState.CustomHeader(header(), navbarTitle = title, showNavbarTitle = false),
             task = { enclaveToken ->
                 onConfirmed()
-                signData(update, enclaveToken, passcodeVC, onSignFailed = onSignFailed)
+                signData(update, enclaveToken, onSignFailed) { error ->
+                    passcodeVC.restartAuth()
+                    passcodeVC.showError(error)
+                }
             },
             onCancel = {}
         )
@@ -345,7 +379,10 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
         }
     }
 
-    private fun presentStatus(createVC: () -> WalletConnectPayPaymentStatusVC) {
+    private fun presentStatus(
+        onPresented: (() -> Unit)? = null,
+        createVC: () -> WalletConnectPayPaymentStatusVC
+    ) {
         val signNavToDismiss = signNav?.get()
         signNav = null
 
@@ -360,7 +397,16 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
             )
             nav.setRoot(vc)
             signNav = WeakReference(nav)
-            window.presentOnWalletReady(nav)
+            if (window.presentOnWalletReady(nav)) {
+                onPresented?.invoke()
+            } else if (onPresented != null) {
+                window.doOnWalletReady {
+                    if (window.pendingPresentationNav === nav) {
+                        window.presentPendingPresentationNav()
+                    }
+                    if (nav in window.navigationControllers) onPresented()
+                }
+            }
         }
 
         if (signNavToDismiss != null && window.topNavigationController === signNavToDismiss) {
@@ -413,11 +459,16 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
     private fun signTransaction(
         update: ApiUpdate.ApiUpdateWalletConnectPaySignTransaction,
         enclaveToken: String,
-        passcodeVC: PasscodeConfirmVC,
-        onSignFailed: () -> Unit
+        onSignFailed: () -> Unit,
+        onError: (MBridgeError) -> Unit
     ) {
-        val account = AccountStore.accountById(update.accountId) ?: return
-        val dappChain = account.dappChain(update.operationChain) ?: return
+        val account = AccountStore.accountById(update.accountId)
+        val dappChain = account?.dappChain(update.operationChain)
+        if (dappChain == null) {
+            onSignFailed()
+            onError(MBridgeError.Type.UNEXPECTED_ERROR)
+            return
+        }
         window.lifecycleScope.launch {
             try {
                 val signResult = WalletCore.call(
@@ -448,7 +499,13 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                 throw t
             } catch (t: Exception) {
                 onSignFailed()
-                handleSignError("signTransaction", t, passcodeVC)
+                Logger.e(
+                    Logger.LogTag.WALLET_PAY,
+                    "WalletConnectPay signTransaction failed: ${t.message}"
+                )
+                onError(
+                    (t as? JSWebViewBridge.ApiError)?.parsed ?: MBridgeError.Type.UNEXPECTED_ERROR
+                )
             }
         }
     }
@@ -456,11 +513,16 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
     private fun signData(
         update: ApiUpdate.ApiUpdateWalletConnectPaySignData,
         enclaveToken: String,
-        passcodeVC: PasscodeConfirmVC,
-        onSignFailed: () -> Unit
+        onSignFailed: () -> Unit,
+        onError: (MBridgeError) -> Unit
     ) {
-        val account = AccountStore.accountById(update.accountId) ?: return
-        val dappChain = account.dappChain(update.operationChain) ?: return
+        val account = AccountStore.accountById(update.accountId)
+        val dappChain = account?.dappChain(update.operationChain)
+        if (dappChain == null) {
+            onSignFailed()
+            onError(MBridgeError.Type.UNEXPECTED_ERROR)
+            return
+        }
         window.lifecycleScope.launch {
             try {
                 val signedData = WalletCore.call(
@@ -482,16 +544,12 @@ class WalletConnectPayController(private val window: WWindow) : WalletCore.Updat
                 throw t
             } catch (t: Exception) {
                 onSignFailed()
-                handleSignError("signData", t, passcodeVC)
+                Logger.e(Logger.LogTag.WALLET_PAY, "WalletConnectPay signData failed: ${t.message}")
+                onError(
+                    (t as? JSWebViewBridge.ApiError)?.parsed ?: MBridgeError.Type.UNEXPECTED_ERROR
+                )
             }
         }
-    }
-
-    private fun handleSignError(operation: String, t: Throwable, passcodeVC: PasscodeConfirmVC) {
-        Logger.e(Logger.LogTag.WALLET_PAY, "WalletConnectPay $operation failed: ${t.message}")
-        val error = (t as? JSWebViewBridge.ApiError)?.parsed ?: MBridgeError.Type.UNKNOWN
-        passcodeVC.restartAuth()
-        passcodeVC.showError(error)
     }
 
     fun onCreate() {

@@ -42,6 +42,7 @@ import {
   takeAbortDappConnectWalletCreationIfRequested,
 } from '../../helpers/abortDappConnectWalletCreation';
 import {
+  dropAccountCreationSession,
   handleExplorerMode,
   handleStandardMode,
   removeTemporaryAccount,
@@ -150,6 +151,8 @@ async function rollbackDappConnectWalletCreationIfPersisted(
 }
 
 addActionHandler('resetAuth', (global) => {
+  dropAccountCreationSession();
+
   if (selectCurrentAccountId(global)) {
     global = { ...global, appState: AppState.Main };
 
@@ -489,6 +492,9 @@ addActionHandler('createAccount', async (global, actions) => {
   }
 
   setGlobal(global);
+
+  // Nothing later in the flow reads with the session. An error above keeps it, so the user can retry
+  dropAccountCreationSession();
 
   if (!isImporting && getGlobal().dappConnectRequest?.isCreatingAccount) {
     actions.skipCheckMnemonic();
@@ -1041,14 +1047,14 @@ addActionHandler('createSubWallet', withEnclaveSessionRelease(async (global, act
   });
 }));
 
-addActionHandler('upgradeMultichainAccounts', async (global, actions, { enclaveToken }) => {
+addActionHandler('upgradeMultichainAccounts', async (global, actions, { enclaveToken, accountIds }) => {
   // `PasswordForm` starts this upgrade after every authorization, so a second password entry
-  // during a running upgrade would start the same upgrade again. Clearing the count right away
-  // prevents that; putting it back on failure allows a retry on the next password entry.
-  const upgradeCount = global.multichainUpgradeCount;
-  if (!upgradeCount) return;
+  // during a running upgrade would start the same upgrade again. Clearing the list right away
+  // prevents that; filling it again when the run ends allows a retry on the next password entry.
+  const pendingAccountIds = global.multichainUpgradeAccountIds;
+  if (!pendingAccountIds?.length) return;
 
-  setGlobal({ ...global, multichainUpgradeCount: undefined });
+  setGlobal({ ...global, multichainUpgradeAccountIds: undefined });
 
   // This rides along on the operation's session rather than asking for one, so it takes a hold: the
   // operation usually finishes first, and its release would otherwise land between two of the reads
@@ -1056,22 +1062,24 @@ addActionHandler('upgradeMultichainAccounts', async (global, actions, { enclaveT
   holdEnclaveSession(enclaveToken);
 
   try {
-    const result = await callApi('upgradeMultichainAccounts', enclaveToken);
+    const result = await callApi('upgradeMultichainAccounts', enclaveToken, accountIds);
 
     if (result && 'error' in result) {
       logDebugError('upgradeMultichainAccounts', result.error);
-
-      // Asking again rather than putting back the count taken before the run: the accounts upgraded
-      // before the failure are no longer candidates, and the count becomes a secret-read budget on
-      // the next password entry, where reads granted and not taken outlive the operation. An
-      // unanswered question is not an empty answer - dropping the count there would lose the upgrade
-      // until the app starts again, so the stale count is the better of the two wrong numbers
-      const candidateIds = await callApi('getMultichainUpgradeCandidateIds');
-      setGlobal({
-        ...getGlobal(),
-        multichainUpgradeCount: candidateIds ? (candidateIds.length || undefined) : upgradeCount,
-      });
     }
+
+    // Asked again after any outcome: a success and a lost transport both answer `undefined`, and the
+    // run covers only the budgeted accounts. Putting back the list taken before the run would not do -
+    // the accounts upgraded meanwhile are no longer candidates, and the list becomes a secret-read
+    // budget on the next password entry, where reads granted and not taken outlive the operation. An
+    // unanswered question is not an empty answer - dropping the list there would lose the upgrade
+    // until the app starts again, so the stale list is the better of the two wrong answers
+    global = getGlobal();
+    const candidateIds = await callApi('getMultichainUpgradeCandidateIds', Object.keys(global.accounts?.byId ?? {}));
+    setGlobal({
+      ...getGlobal(),
+      multichainUpgradeAccountIds: candidateIds ?? pendingAccountIds,
+    });
   } finally {
     if (dropEnclaveSessionHold(enclaveToken)) {
       actions.releaseEnclaveSession({ enclaveToken });

@@ -66,6 +66,7 @@ public actor EnclaveManager {
         authType: AuthType,
         isLong: Bool,
         usageCount: Int = 1,
+        remember: Bool = false,
         passcode: String?
     ) async throws -> SessionResult? {
         try requireCurrentStorageVersion()
@@ -74,12 +75,15 @@ public actor EnclaveManager {
             throw EnclaveError.unknownAuthType(authType.rawValue)
         }
 
+        let revision = await sessionManager.revision
         do {
             let masterKey = try await auth.authorize(passcode: passcode)
             return try await sessionManager.createSession(
                 authType: authType,
                 isLong: isLong,
                 usageCount: usageCount,
+                remember: remember,
+                expectedRevision: revision,
                 masterKey: masterKey
             )
         } catch EnclaveError.invalidSessionToken where authType == .passcode {
@@ -93,7 +97,8 @@ public actor EnclaveManager {
         passcode: String?,
         shouldReplace: Bool,
         isLong: Bool = false,
-        usageCount: Int = 1
+        usageCount: Int = 1,
+        remember: Bool = false
     ) async throws -> SessionResult {
         try requireCurrentStorageVersion()
 
@@ -115,11 +120,13 @@ public actor EnclaveManager {
         if shouldReplace && currentAuthType != newAuthType, let currentAuth = auths[currentAuthType] {
             await currentAuth.destroy()
         }
+        await sessionManager.invalidateLongSessions()
 
         return try await sessionManager.createSession(
             authType: newAuthType,
             isLong: isLong,
             usageCount: usageCount,
+            remember: remember,
             masterKey: masterKey
         )
     }
@@ -129,6 +136,19 @@ public actor EnclaveManager {
             return
         }
         await auth.destroy()
+        await sessionManager.invalidateLongSessions()
+    }
+
+    public func rememberedSession() async -> SessionResult? {
+        await sessionManager.rememberedSession()
+    }
+
+    public func invalidateRememberedSessions() async {
+        await sessionManager.invalidateRememberedSessions()
+    }
+
+    public func invalidateSessions() async {
+        await sessionManager.clearAll()
     }
 
     public func ensureValidSession(token: EnclaveToken, consumeIfNeeded: Bool) async throws {

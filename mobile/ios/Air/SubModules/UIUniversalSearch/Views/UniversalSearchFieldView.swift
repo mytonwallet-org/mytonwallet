@@ -56,8 +56,12 @@ public enum UniversalSearchFieldPresentation: Equatable, Sendable {
 @MainActor
 public final class UniversalSearchFieldView: UIView {
     private struct PresentationTransition {
+        let id = UUID()
+        let navigationOperation: UINavigationController.Operation
         let source: UniversalSearchFieldPresentation
         let target: UniversalSearchFieldPresentation
+        let sourceActions: [SharedBottomToolbarAction]
+        let targetActions: [SharedBottomToolbarAction]
     }
 
     public var onActivate: (() -> Void)?
@@ -117,6 +121,8 @@ public final class UniversalSearchFieldView: UIView {
     private var compactActionButtons: [String: UniversalSearchToolbarActionButton] = [:]
     private var compactActionButtonOrder: [UniversalSearchToolbarActionButton] = []
     private var compactActionConstraints: [NSLayoutConstraint] = []
+    private var outgoingCompactActionButtons: [UniversalSearchToolbarActionButton] = []
+    private var outgoingCompactActionConstraints: [NSLayoutConstraint] = []
     private var emptyBasePresentation: UniversalSearchFieldPresentation = .homeToolbar
     private var presentationTransition: PresentationTransition?
     private var transitionDisplayLink: CADisplayLink?
@@ -224,16 +230,21 @@ public final class UniversalSearchFieldView: UIView {
         animator: UIViewPropertyAnimator,
         duration _: TimeInterval = 0.4
     ) {
-        preparePresentationTransition(to: presentation)
+        guard preparePresentationTransition(to: presentation) != nil else { return }
         applyPresentation(presentation, animator: animator)
     }
 
     /// Stages a presentation change for an externally owned transition, such as
-    /// an interactive navigation push or pop.
+    /// an interactive navigation push or pop. The returned ID binds animation
+    /// callbacks to this transition, even if another update supersedes it.
+    @discardableResult
     public func preparePresentationTransition(
-        to presentation: UniversalSearchFieldPresentation
-    ) {
-        guard presentation != self.presentation else { return }
+        to presentation: UniversalSearchFieldPresentation,
+        compactActions: [SharedBottomToolbarAction]? = nil,
+        navigationOperation: UINavigationController.Operation = .push
+    ) -> UUID? {
+        let targetActions = compactActions ?? self.compactActions
+        guard presentation != self.presentation || targetActions != self.compactActions else { return nil }
 
         if presentationTransition != nil {
             finishPresentationTransition(at: self.presentation)
@@ -241,10 +252,29 @@ public final class UniversalSearchFieldView: UIView {
         layoutIfNeeded()
         updateEmptyBasePresentation(for: presentation)
 
-        presentationTransition = PresentationTransition(
+        let transition = PresentationTransition(
+            navigationOperation: navigationOperation,
             source: self.presentation,
-            target: presentation
+            target: presentation,
+            sourceActions: self.compactActions,
+            targetActions: targetActions
         )
+        presentationTransition = transition
+        let actionsChanged = targetActions != self.compactActions
+        if actionsChanged {
+            // Keep the source controls alive until the navigation finishes or
+            // reverses. Rebuilding them now would make an interactive pop jump.
+            outgoingCompactActionButtons = compactActionButtonOrder
+            outgoingCompactActionConstraints = compactActionConstraints
+            for button in outgoingCompactActionButtons {
+                button.isUserInteractionEnabled = false
+                button.accessibilityElementsHidden = true
+            }
+            compactActionButtons = [:]
+            compactActionButtonOrder = []
+            compactActionConstraints = []
+            setCompactActions(targetActions)
+        }
         transitionProgressView.layer.removeAllAnimations()
         transitionProgressView.alpha = 0
         let sourceContentPresentation = contentPresentation(for: self.presentation)
@@ -252,27 +282,41 @@ public final class UniversalSearchFieldView: UIView {
         let transitionUsesCompactActions = sourceContentPresentation == .compactToolbar
             || targetContentPresentation == .compactToolbar
         setCompactActionsHidden(!transitionUsesCompactActions)
-        setCompactActionsTransform(compactActionsTransform(for: self.presentation))
+        let incomingTransform = navigationOperation == .pop
+            ? compactActionsOffscreenTransform.inverted()
+            : compactActionsOffscreenTransform
+        setCompactActionsTransform(actionsChanged ? incomingTransform : compactActionsTransform(for: self.presentation))
         closeButton.prepareTransition(from: sourceContentPresentation)
         startTrackingTransitionProgress()
+        return transition.id
     }
 
     /// Applies the destination state inside the animation block owned by the
     /// external transition coordinator.
-    public func applyPreparedPresentationTransition() {
-        guard let presentationTransition else { return }
+    @discardableResult
+    public func applyPreparedPresentationTransition(_ transitionID: UUID) -> Bool {
+        guard let presentationTransition, presentationTransition.id == transitionID else { return false }
         applyPresentation(
             presentationTransition.target,
             animator: nil
         )
+        return true
+    }
+
+    /// Finishes only the requested transition; superseded callbacks have no effect.
+    @discardableResult
+    public func finishPreparedPresentationTransition(_ transitionID: UUID, isCancelled: Bool) -> Bool {
+        guard let transition = presentationTransition, transition.id == transitionID else { return false }
+        setCompactActions(isCancelled ? transition.sourceActions : transition.targetActions)
+        setPresentation(isCancelled ? transition.source : transition.target, animated: false)
+        return true
     }
 
     private func applyPresentation(
         _ presentation: UniversalSearchFieldPresentation,
         animator: UIViewPropertyAnimator?
     ) {
-        guard presentation != self.presentation else { return }
-        let transition = presentationTransition
+        guard let transition = presentationTransition else { return }
         let contentPresentation = contentPresentation(for: presentation)
         self.presentation = presentation
 
@@ -284,22 +328,22 @@ public final class UniversalSearchFieldView: UIView {
         )
 
         let updates = {
+            guard self.presentationTransition?.id == transition.id else { return }
             self.transform = self.toolbarTransform(for: presentation)
             self.setCompactActionsTransform(self.compactActionsTransform(for: presentation))
-            if transition != nil {
-                self.transitionProgressView.alpha = 1
+            for button in self.outgoingCompactActionButtons {
+                let outgoingTransform = transition.navigationOperation == .push
+                    ? self.compactActionsOffscreenTransform.inverted()
+                    : self.compactActionsOffscreenTransform
+                button.transform = presentation == .empty ? .identity : outgoingTransform
             }
+            self.transitionProgressView.alpha = 1
             self.layoutIfNeeded()
         }
         if let animator {
             animator.addAnimations(updates)
             animator.addCompletion { [weak self] position in
-                guard let self, let transition else { return }
-                let finalPresentation = position == .end
-                    ? transition.target
-                    : transition.source
-                self.applyStaticPresentation(finalPresentation)
-                self.layoutIfNeeded()
+                self?.finishPreparedPresentationTransition(transition.id, isCancelled: position != .end)
             }
         } else {
             updates()
@@ -373,6 +417,10 @@ public final class UniversalSearchFieldView: UIView {
     ) {
         stopTrackingTransitionProgress()
         presentationTransition = nil
+        NSLayoutConstraint.deactivate(outgoingCompactActionConstraints)
+        outgoingCompactActionConstraints = []
+        outgoingCompactActionButtons.forEach { $0.removeFromSuperview() }
+        outgoingCompactActionButtons = []
         transitionProgressView.layer.removeAllAnimations()
         transitionProgressView.alpha = 0
 
@@ -384,6 +432,10 @@ public final class UniversalSearchFieldView: UIView {
         for presentation: UniversalSearchFieldPresentation
     ) -> CGAffineTransform {
         guard contentPresentation(for: presentation) != .compactToolbar else { return .identity }
+        return compactActionsOffscreenTransform
+    }
+
+    private var compactActionsOffscreenTransform: CGAffineTransform {
         let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -1 : 1
         return CGAffineTransform(
             translationX: direction * bounds.width,

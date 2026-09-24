@@ -80,6 +80,7 @@ export interface JettonMetadata {
 }
 
 export type ContractName = ApiTonWalletVersion
+  | 'telegram'
   | 'v4R1' | 'highloadV2' | 'multisig' | 'multisigV2' | 'multisigNew'
   | 'nominatorPool' | 'vesting'
   | 'dedustPool' | 'dedustV2Cpmm' | 'dedustV2CpmmPoolV2' | 'dedustVaultNative' | 'dedustVaultJetton'
@@ -94,7 +95,10 @@ export type ContractName = ApiTonWalletVersion
 export type ContractInfo = {
   name: ContractName;
   type?: ContractType;
+  /** Sha256 of the code BOC as the API serialized it. Two endpoints serializing the same code differently give
+   * different digests here, so a contract identified only by this hash goes unrecognized as soon as that changes. */
   oldHash?: string;
+  /** Hash of the code cell. Belongs to the code itself rather than to any encoding of it, so it survives such a change */
   hash?: string;
   isSwapAllowed?: boolean;
 };

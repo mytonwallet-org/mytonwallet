@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
+import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.moshi.WcPayAmount
 import org.mytonwallet.app_air.walletcore.moshi.WcPayMerchant
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
@@ -87,10 +88,21 @@ class WalletConnectPaySignDataVC(
         layoutParams = ViewGroup.LayoutParams(0, WRAP_CONTENT)
         text = LocaleController.getString("Sign")
         setOnClickListener {
-            if (isProceeding) return@setOnClickListener
+            if (isProceeding || !WalletCore.isBridgeReady) return@setOnClickListener
             isProceeding = true
             onProceed()
         }
+    }
+
+    fun startSubmitting() {
+        view.lockView()
+        signButton.isLoading = true
+    }
+
+    fun stopSubmitting() {
+        view.unlockView()
+        signButton.isLoading = false
+        isProceeding = false
     }
 
     override fun setupViews() {
