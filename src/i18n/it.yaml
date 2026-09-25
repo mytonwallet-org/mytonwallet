@@ -145,11 +145,11 @@ All Wallet Versions: Tutte le versioni del wallet
 Create TON-Only Wallet: Crea wallet solo TON
 Confirmation: Conferma
 Signing Data: Dati della firma
-Contract Initialization Data: Dati di inizializzazione del contratto
+Contract Initialization Data: Dati di inizializzazione dello smart contract
 $dont_have_required_token: Non hai il token richiesto da inviare, ma puoi scambiarlo.
 $unknown_token_address: Indirizzo del token sconosciuto.
 $dont_have_required_nft: Non hai l’NFT richiesto da inviare.
-$state_init_invalid: Dati di inizializzazione del contratto non validi.
+$state_init_invalid: Dati di inizializzazione dello smart contract non validi.
 $signature_warning: Firmare dati personalizzati è molto pericoloso. Procedi solo se ti fidi della fonte.
 Sign: Firma
 Done!: Fatto!
@@ -541,6 +541,7 @@ $max_balance: "Max: %balance%"
 $available_balance: "Disponibile: %balance%"
 $send_recipient_invalid: Non valido
 $send_recipient_not_compatible: Non compatibile
+$send_recipient_self_transfer: Non puoi inviare a te stesso
 $unstake_information_instantly: Riceverai il tuo deposito all'istante
 Select Token: Seleziona token
 $token_picker_hidden: Nascosti
@@ -612,7 +613,7 @@ $all_balance: "Tutto: %balance%"
 $unstaking_not_enough_balance: Devi avere %value% sul tuo saldo principale per procedere con la rimozione dallo staking.
 $ledger_verify_address_on_device: Verifica l'indirizzo sul tuo Ledger.
 Wallet Versions: Versioni del wallet
-$read_more_about_wallet_version: Scopri di più sui tipi di contratti wallet su %link%.
+$read_more_about_wallet_version: Scopri di più sui tipi di smart contract del wallet su %link%.
 $current_wallet_version: La versione attuale del tuo wallet è %version%.
 You have tokens on other versions of your wallet. You can import them from here.: Hai dei token su altre versioni del tuo wallet. Puoi importarli da qui.
 $wallet_switch_version_1: Puoi anche %action%.
@@ -639,14 +640,14 @@ $dapp_dns_delete_record_payload: Eliminazione del record "%category%" del domini
 $dapp_token_bridge_pay_swap_payload: Conferma dello scambio tramite bridge cross-chain
 $dapp_liquid_staking_deposit_payload: Deposito in liquid staking
 $dapp_liquid_staking_vote_payload: Voto "%vote%" per la proposta %votingAddress%
-$dapp_single_nominator_change_validator_payload: Modifica dell'indirizzo del validatore del contratto di staking SingleNominator in %address%
-$dapp_single_nominator_withdraw_payload: Prelievo di %amount% dal contratto di staking SingleNominator
+$dapp_single_nominator_change_validator_payload: Modifica dell'indirizzo del validatore dello smart contract di staking SingleNominator in %address%
+$dapp_single_nominator_withdraw_payload: Prelievo di %amount% dallo smart contract di staking SingleNominator
 $dapp_vesting_add_whitelist_payload: Aggiunta di %address% alla whitelist del wallet di vesting
 Time synchronization issue. Please ensure your device's time settings are correct.: Problema di sincronizzazione dell'ora. Assicurati che le impostazioni dell'ora del tuo dispositivo siano corrette.
 Data Copied: Dati copiati
 URL Copied: URL copiato
 Private Key Copied: Chiave privata copiata
-Contract Initialization Data Copied: Dati di inizializzazione del contratto copiati
+Contract Initialization Data Copied: Dati di inizializzazione dello smart contract copiati
 Open NFT Collection: Apri collezione NFT
 Previous: Precedente
 Next: Successivo
@@ -872,15 +873,15 @@ Requesting Unstake: Richiesta di rimozione dallo staking
 Requested Unstake: Rimozione dallo staking richiesta
 Unstake Requested: Rimozione dallo staking richiesta
 $request_unstake_action: Richiedi rimozione dallo staking
-Calling Contract: Chiamata contratto
-Called Contract: Contratto chiamato
-$call_contract_action: Chiama contratto
-Deploying Contract: Distribuzione contratto
-Deployed Contract: Contratto distribuito
-$deploy_contract_action: Distribuisci contratto
-Minting: Coniazione
-Minted: Coniato
-$mint_action: Conia
+Calling Contract: Chiamata smart contract
+Called Contract: Smart contract chiamato
+$call_contract_action: Chiama smart contract
+Deploying Contract: Distribuzione smart contract
+Deployed Contract: Smart contract distribuito
+$deploy_contract_action: Distribuisci smart contract
+Minting: Generazione in corso
+Minted: Generato
+$mint_action: Genera
 Burning: Bruciatura
 Burned: Bruciato
 $burn_action: Brucia
@@ -925,19 +926,23 @@ Change Palette: Cambia palette
 Palette: Palette
 Unlock New Palettes: Sblocca nuove palette
 Get a unique My Wallet Card to unlock new palettes.: Ottieni una My Wallet Card unica per sbloccare nuove palette.
-Mint Cards: Conia carte
-Card has been upgraded!: La carta è stata aggiornata!
-$mint_card_result: La carta NFT verrà **coniata** e **installata automaticamente** entro un minuto.
+Mint Cards: Genera carte
+Card has been upgraded!: La carta è stata potenziata!
+$mint_card_result: La carta NFT verrà **generata** e **installata automaticamente** entro un minuto.
 Unique: Unica
-Get a card with unique background and personalized palette for wallet interface.: Ottieni una carta con sfondo unico e una palette personalizzata per l'interfaccia del wallet.
+Get a card with unique background and personalized palette for wallet interface.: Ottieni una carta con sfondo unico e colore d'accento personalizzato per l'interfaccia del wallet.
 Transferable: Trasferibile
-Easily send your upgraded card to any of your friends.: Invia facilmente la tua carta aggiornata a qualsiasi amico.
+Easily send your upgraded card to any of your friends.: Invia facilmente la tua carta potenziata a qualsiasi amico.
 Tradable: Scambiabile
 Sell or auction your card on third-party NFT marketplaces.: Vendi o metti all'asta la tua carta sui marketplace NFT di terze parti.
-Upgrade for %amount% %currency%: Aggiorna per %amount% %currency%
+Upgrade for %amount% %currency%: Potenzia per %amount% %currency%
 "%amount% left": "%amount% rimanenti"
 "%amount% sold": "%amount% venduti"
 This card has been sold out: Questa carta è esaurita
+"Mint starts in %time%": "La generazione inizia tra %time%"
+"%amount% unique cards total":
+  oneValue: "%amount% carta unica in totale"
+  otherValue: "%amount% carte uniche in totale"
 Import Existing Wallet: Importa wallet esistente
 View Any Address: Visualizza qualsiasi indirizzo
 View Mode: Modalità visualizzazione
@@ -951,6 +956,9 @@ Remember Passcode: Ricorda passcode
 Remember Password: Ricorda password
 Not available with biometrics.: Non disponibile con i dati biometrici.
 App will not ask for signature for %minutes% minutes after last entry.: L'app non richiederà la firma per %minutes% minuti dopo l'ultimo inserimento.
+Auto-Exit: Uscita automatica
+Log out of all wallets after failed attempts.: Disconnetti tutti i wallet dopo i tentativi falliti.
+"%count% attempts": "%count% tentativi"
 Remember for %minutes% minutes: Ricorda per %minutes% minuti
 Preview: Anteprima
 $preview_not_guaranteed: Il risultato dell'anteprima **non è garantito** e **può essere falsificato** dal servizio.
@@ -1106,7 +1114,7 @@ $domain_like_scam_warning: |
   
   **Annulla** questo trasferimento e **non fidarti mai** degli sconosciuti. Scopri di più su questa e altre truffe nel nostro %help_center_link%.
 Allow Suspicious Actions: Consenti azioni sospette
-$allow_suspicious_actions_description: Consenti l'invio a indirizzi sospetti e l'interazione con contratti potenzialmente non sicuri.
+$allow_suspicious_actions_description: Consenti l'invio a indirizzi sospetti e l'interazione con smart contract potenzialmente non sicuri.
 Multisig Wallet Detected: Rilevato wallet multisig
 $multisig_warning_text: Questo wallet richiede più firme per effettuare trasferimenti. **Non puoi prelevare** fondi qui utilizzando %app_name%. Assicurati che sia tuo, altrimenti potrebbe far parte di una truffa. %multisig_warning_link%
 $multisig_warning_link: Tocca per saperne di più
@@ -1190,7 +1198,7 @@ Get First Card: Ottieni la prima card
 Palette and Card: Palette e card
 Customize the wallet’s card appearance and color accents the way you like.: Personalizza l'aspetto della card del wallet e i dettagli di colore come preferisci.
 Address doesn't exist: L'indirizzo non esiste
-The address is not a token minter address: L'indirizzo non è un indirizzo minter del token
+The address is not a token minter address: L'indirizzo non è un indirizzo di generazione del token
 $joining_comma: ", "
 $joining_and: " e "
 $joining_or: " o "
@@ -1239,7 +1247,7 @@ Night Mode, Palette, Card: Modalità notte, palette, card
 Back Up, Passcode, Auto-Lock: Backup, passcode, blocco automatico
 Back Up, Password, Auto-Lock: Backup, password, blocco automatico
 Base Currency, Token Order, Hidden NFTs: Valuta di base, ordine token, NFT nascosti
-Your assets on other contracts: I tuoi asset su altri contratti
+Your assets on other contracts: I tuoi asset su altri smart contract
 Wallets, Sounds: Wallet, suoni
 Help: Aiuto
 About: Informazioni
@@ -1504,7 +1512,7 @@ $agent_semantic_transfer: Trasferimento
 $agent_semantic_swap: Swap
 $agent_semantic_stake: Stake
 $agent_semantic_unstake: Unstake
-$agent_semantic_contract: Contratto
+$agent_semantic_contract: Smart contract
 $agent_semantic_unknown: Attività
 $agent_semantic_spam_transactions: Transazioni di spam
 $agent_semantic_spam_assets: Asset di spam
@@ -1751,7 +1759,7 @@ Show All Collectibles: Mostra tutti i collezionabili
 Show All Actions: Mostra tutte le azioni
 Show All %collection_name%: Mostra tutti i %collection_name%
 Scanning for subwallets...: Scansione dei subwallet in corso...
-Your assets on other TON contracts: I tuoi asset su altri contratti TON
+Your assets on other TON contracts: I tuoi asset su altri smart contract TON
 No existing subwallets found: Nessun subwallet esistente trovato
 You can create a new subwallet if you need another address on the same secret words.: Puoi creare un nuovo subwallet se hai bisogno di un altro indirizzo con le stesse parole segrete.
 You have tokens on other subwallets. Each subwallet has its own address.: Hai token su altri subwallet. Ciascun subwallet ha il proprio indirizzo.
@@ -1785,9 +1793,9 @@ $send_nft_action: Invia NFT
 Received NFT: NFT ricevuto
 Receiving NFT: Ricezione NFT in corso
 $receive_nft_action: Ricevi NFT
-Minted NFT: NFT coniato
-Minting NFT: Coniazione NFT in corso
-$mint_nft_action: Conia NFT
+Minted NFT: NFT generato
+Minting NFT: Generazione NFT in corso
+$mint_nft_action: Genera NFT
 Burned NFT: NFT bruciato
 Burning NFT: Bruciatura NFT in corso
 $burn_nft_action: Brucia NFT
@@ -1829,9 +1837,10 @@ Standalone: Standalone
 All Telegram Gifts: Tutti i Regali Telegram
 Add Crypto: Aggiungi cripto
 Share QR Code: Condividi codice QR
-$send_only_ton: Invia solo Gram (GRAM) o asset basati su TON a questo indirizzo. L'invio di altri token comporterà la loro perdita.
-$send_only_chain: Invia solo %chain% (%symbol%) o asset basati su %chain% a questo indirizzo. L'invio di altri token comporterà la loro perdita.
-$send_only_chain_no_tokens: Invia solo %chain% (%symbol%) a questo indirizzo. L'invio di altri token comporterà la loro perdita.
+$send_only_ton: Invia solo GRAM o asset basati su TON a questo indirizzo. L'invio di altri token comporterà la loro perdita.
+$send_only_chain: Invia solo %symbol% o asset basati su %chain% a questo indirizzo. L'invio di altri token comporterà la loro perdita.
+$send_only_token_chain: Invia solo %tokenSymbol% o altri asset basati su %chain% a questo indirizzo. L'invio di altri token comporterà la loro perdita.
+$send_only_chain_no_tokens: Invia solo %symbol% a questo indirizzo. L'invio di altri token comporterà la loro perdita.
 Buying with card is not supported for this account.: L'acquisto con carta non è supportato per questo account.
 Swapped at: Scambiato a
 Price per: Prezzo per
@@ -2098,14 +2107,14 @@ push_activity_token_sent: Inviati %amount% %symbol%
 push_activity_token_received: Ricevuti %amount% %symbol%
 push_activity_contract_called: Smart contract chiamato
 push_activity_contract_deployed: Smart contract distribuito
-push_activity_token_minted: Coniati %amount% %symbol%
+push_activity_token_minted: Generati %amount% %symbol%
 push_activity_token_burned: Bruciati %amount% %symbol%
 push_activity_nft_sent: NFT inviato
 push_activity_nft_sent_named: "NFT inviato: %name%"
 push_activity_nft_received: NFT ricevuto
 push_activity_nft_received_named: "NFT ricevuto: %name%"
-push_activity_nft_minted: NFT coniato
-push_activity_nft_minted_named: "NFT coniato: %name%"
+push_activity_nft_minted: NFT generato
+push_activity_nft_minted_named: "NFT generato: %name%"
 push_activity_liquidity_deposited: Liquidità fornita
 push_activity_liquidity_withdrawn: Liquidità ritirata
 push_activity_stake_deposit: Messi in staking %amount% %symbol%
@@ -2306,3 +2315,7 @@ Search token or stock: Cerca token o azione
 Unknown Transfer: Trasferimento sconosciuto
 # Prefix before the requesting Dapp name on the Sign Data confirmation screen.
 $dapp_sign_data_for_prefix: per
+Successfully Sent: Inviato con successo
+Successfully Signed: Firmato con successo
+3D Card: Carta 3D
+Coming soon: Prossimamente
