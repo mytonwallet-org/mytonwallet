@@ -103,9 +103,54 @@ def read_files
   $plist_data = File.read($plist_path)
 end
 
+# Restores only what was actually read. The lanes that do not build never read these files, and
+# a lane that does can still fail in before_all between the two reads - in both cases the globals
+# below are nil, and File.write(path, nil) does not raise, it truncates the file to nothing. The
+# error hook runs on exactly those failures, so the unguarded version turned any early failure
+# into two emptied tracked files.
 def restore_files
-  File.write($project_path, $project_data)
-  File.write($plist_path, $plist_data)
+  File.write($project_path, $project_data) unless $project_data.nil?
+  File.write($plist_path, $plist_data) unless $plist_data.nil?
+end
+
+# Packaging and distributing are two lanes on two runners. Everything up to the binary landing in
+# App Store Connect needs Xcode and is paid for at the macOS rate; everything after it is HTTP
+# polling that a Linux runner does for a tenth of that. The packaging lane leaves this file behind
+# and the distributing lane reads it, so the second runner is handed the version and build number
+# rather than re-deriving them - the derivation depends on GITHUB_RUN_ATTEMPT and would silently
+# name a different build the moment the two jobs disagree about which attempt they belong to.
+$handoff_path = env_value('IOS_TESTFLIGHT_HANDOFF', '../testflight-handoff.json')
+
+def write_distribution_handoff(version, build_number, changelog)
+  File.write($handoff_path, JSON.pretty_generate(
+    'version' => version,
+    'build_number' => build_number.to_s,
+    'changelog' => changelog
+  ))
+  UI.success("Wrote the distribution handoff for #{version} (#{build_number}) to #{$handoff_path}")
+end
+
+def read_distribution_handoff
+  unless File.exist?($handoff_path)
+    UI.user_error!("No distribution handoff at #{$handoff_path}: the packaging lane did not run, or its " \
+      'artifact was not downloaded into this job.')
+  end
+
+  handoff = JSON.parse(File.read($handoff_path))
+  version = handoff['version']
+  build_number = handoff['build_number']
+  UI.user_error!("Distribution handoff is missing a version or a build number: #{handoff.inspect}") if version.nil? || build_number.nil?
+
+  UI.message("Distributing #{version} (#{build_number}) from the handoff")
+  return version, build_number, handoff['changelog']
+end
+
+# The distributing lane never opens the project and never signs anything, so the signing setup
+# below is not merely unnecessary for it - it cannot run at all on the Linux runner it lives on.
+# after_all and error need no such test: restore_files restores what it read, and that lane read
+# nothing.
+def builds_an_archive?(lane)
+  lane.to_sym != :distribute
 end
 
 def update_version_and_build_number
@@ -254,8 +299,6 @@ platform :ios do
   desc "Push a new beta build to TestFlight"
 
   before_all do |lane|
-    read_files
-
     app_store_connect_api_key(
       key_id: $asc_key_id,
       issuer_id: $asc_issuer_id,
@@ -263,6 +306,10 @@ platform :ios do
       duration: 1200,
       in_house: false
     )
+
+    next unless builds_an_archive?(lane)
+
+    read_files
 
     update_code_signing_settings(
       path: "App.xcodeproj",
@@ -296,7 +343,7 @@ platform :ios do
   end
 
   lane :beta do
-    version, _build_number = update_version_and_build_number
+    version, build_number = update_version_and_build_number
 
     build_app(
       workspace: $workspace_path,
@@ -312,21 +359,55 @@ platform :ios do
       xcargs: "-skipMacroValidation",
     )
 
-    changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
+    # The provenance line is stamped here rather than in the distributing lane so it keeps naming
+    # the moment the archive was built, not the later moment the notes were written.
+    meta_line = build_meta_line(version)
 
-    distribute_external = should_distribute_external_beta?(version)
-    upload_params = {
+    # Hand the binary over and stop there. `skip_waiting_for_build_processing` only skips the wait
+    # outright when no changelog is supplied: supply one and pilot still waits for the build to
+    # appear in App Store Connect so it can write the notes, which is the several minutes of macOS
+    # idling this split exists to remove. So the notes are not passed here at all, and nothing
+    # before this point may leave FL_CHANGELOG in the lane context either - the action picks that
+    # up on its own and it would restore the wait without appearing in these arguments.
+    upload_to_testflight(
       app_identifier: $app_identifier,
-      distribute_external: distribute_external,
-      groups: distribute_external ? $testflight_group : nil,
-      beta_app_description: "Bug fixes and performance improvements",
-    }
+      skip_waiting_for_build_processing: true,
+      distribute_external: false,
+    )
+
+    changelog_from_git_commits(merge_commit_filtering: "exclude_merges", commits_count: 3)
 
     # Prepend the compact provenance line to the "What to Test" notes so a tester can pin down
     # the exact build (RC ordinal, build time, commit); the notes are the per-build field a
     # TestFlight tester sees. Applies to every build; RC builds lead with the RC label.
     base_notes = lane_context[SharedValues::FL_CHANGELOG] || ""
-    upload_params[:changelog] = "#{build_meta_line(version)}\n\n#{base_notes}"
+    write_distribution_handoff(version, build_number, "#{meta_line}\n\n#{base_notes}")
+  end
+
+  desc "Set the notes on the build the beta lane uploaded and submit it to the external beta"
+  lane :distribute do
+    version, build_number, changelog = read_distribution_handoff
+
+    distribute_external = should_distribute_external_beta?(version)
+    upload_params = {
+      app_identifier: $app_identifier,
+      distribute_only: true,
+      # There is no ipa here to read the platform out of, and pilot asks for it on stdin when it
+      # cannot infer one, which on a runner is a crash rather than a question.
+      app_platform: "ios",
+      # Named, not inferred. Left out, pilot distributes whichever build is newest for the app,
+      # which on a busy day is another run's binary rather than this run's.
+      app_version: version,
+      build_number: build_number,
+      changelog: changelog,
+      distribute_external: distribute_external,
+      groups: distribute_external ? $testflight_group : nil,
+      beta_app_description: "Bug fixes and performance improvements",
+      # App Store Connect finishes processing in minutes; a build still missing after half an hour
+      # is stuck on Apple's side. Fail here, where the message names the build being waited for,
+      # rather than hold the runner until the job timeout kills it with nothing to read.
+      wait_processing_timeout_duration: 1800,
+    }
 
     begin
       upload_to_testflight(upload_params)

@@ -105,20 +105,13 @@ public final class MintCardVC: WViewController {
             AppActions.showError(error: DisplayError(text: lang("Read-only account")))
             return
         }
-        guard let cardInfo = accountContext.config.cardsInfo?[type], cardInfo.notMinted > 0,
-              let mycoin = TokenStore.getToken(slug: MYCOIN_SLUG),
-              let tokenAddress = mycoin.tokenAddress?.nilIfEmpty,
-              cardInfo.all > 0, cardInfo.price.isFinite, cardInfo.price > 0
+        guard let mycoin = TokenStore.getToken(slug: MYCOIN_SLUG),
+              let request = MintCardMintRequest(cards: accountContext.config.fundableCardsInfo, type: type, token: mycoin)
         else {
             AppActions.showError(error: DisplayError(text: lang("Unexpected error")))
             return
         }
-
-        let amount = doubleToBigInt(cardInfo.price, decimals: mycoin.decimals)
-        guard amount > 0 else {
-            AppActions.showError(error: DisplayError(text: lang("Unexpected error")))
-            return
-        }
+        let amount = request.amount
         let mycoinBalance = accountContext.balances[MYCOIN_SLUG] ?? 0
         if mycoinBalance < amount {
             let missingAmount = amount - mycoinBalance
@@ -152,9 +145,9 @@ public final class MintCardVC: WViewController {
         let submission = MintCardSubmission(
             account: account,
             token: mycoin,
-            tokenAddress: tokenAddress,
-            cardType: type,
-            amount: amount
+            tokenAddress: request.tokenAddress,
+            cardType: request.cardType,
+            amount: request.amount
         )
         Haptics.prepare(.success)
         await executeMintCard(submission, on: self)

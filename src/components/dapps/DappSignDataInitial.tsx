@@ -3,18 +3,16 @@ import { getActions, withGlobal } from '../../global';
 
 import type { GlobalState } from '../../global/types';
 
-import { selectCurrentAccount, selectCurrentAccountId, selectHasMultipleAccounts } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getSignDataWarningKinds } from './signDataWarningPolicy';
 
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 
-import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import Button from '../ui/Button';
 import Eip712TypedDataView from '../ui/Eip712TypedDataView';
-import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
 import DappInfoWithAccount from './DappInfoWithAccount';
 import DappSignDataCellPreview from './DappSignDataCellPreview';
@@ -30,11 +28,7 @@ interface OwnProps {
 type StateProps = Pick<
   GlobalState['currentDappSignData'],
   'dapp' | 'isLoading' | 'payloadToSign' | 'parsedPayloadToSign'
-> & {
-  currentAccountId?: string;
-  accountTitle?: string;
-  hasMultipleAccounts?: boolean;
-};
+>;
 
 type RenderingSignData = Pick<StateProps, 'payloadToSign' | 'parsedPayloadToSign'>;
 
@@ -48,9 +42,6 @@ function DappSignDataInitial({
   isLoading,
   payloadToSign,
   parsedPayloadToSign,
-  currentAccountId,
-  accountTitle,
-  hasMultipleAccounts,
 }: OwnProps & StateProps) {
   const { closeDappSignData, submitDappSignDataConfirm } = getActions();
 
@@ -65,11 +56,18 @@ function DappSignDataInitial({
   const isDappLoading = dapp === undefined;
   const canSubmit = !isDappLoading && !isLoading;
 
+  const handleEnter = useLastCallback((e: KeyboardEvent) => {
+    // Enter on a focused control, such as Cancel, activates that control instead of signing
+    if ((e.target as HTMLElement).closest('button, [role="button"]')) return;
+
+    submitDappSignDataConfirm();
+  });
+
   useEffect(() => (
     isActive && canSubmit
-      ? captureKeyboardListeners({ onEnter: () => submitDappSignDataConfirm() })
+      ? captureKeyboardListeners({ onEnter: { handler: handleEnter, noStopPropagation: true } })
       : undefined
-  ), [isActive, canSubmit, submitDappSignDataConfirm]);
+  ), [isActive, canSubmit, handleEnter]);
 
   function renderContent() {
     return (
@@ -78,18 +76,34 @@ function DappSignDataInitial({
 
         {renderSignDataByType()}
         {renderSignDataWarnings()}
+        {renderButtons()}
+      </div>
+    );
+  }
 
-        <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
-          <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
-          <Button
-            isPrimary
-            isLoading={isLoading}
-            className={modalStyles.button}
-            onClick={submitDappSignDataConfirm}
-          >
-            {lang('Sign')}
-          </Button>
-        </div>
+  // The loading state has no modal header either, so Cancel is the only way to leave a request that never arrives
+  function renderSkeleton() {
+    return (
+      <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
+        <DappSkeletonWithContent rows={skeletonRows} />
+        {renderButtons()}
+      </div>
+    );
+  }
+
+  function renderButtons() {
+    return (
+      <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
+        <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
+        <Button
+          isPrimary
+          isLoading={isLoading}
+          isDisabled={isDappLoading}
+          className={modalStyles.button}
+          onClick={canSubmit ? submitDappSignDataConfirm : undefined}
+        >
+          {lang('Sign')}
+        </Button>
       </div>
     );
   }
@@ -184,19 +198,7 @@ function DappSignDataInitial({
       activeKey={isDappLoading ? 0 : 1}
       slideClassName={styles.skeletonTransitionWrapper}
     >
-      <div className={styles.headerWithPill}>
-        <ModalHeader title={lang('Sign Data')} onClose={closeDappSignData} />
-        {hasMultipleAccounts && currentAccountId && (
-          <AccountSwitcherPill
-            accountId={currentAccountId}
-            title={accountTitle}
-            className={styles.accountPill}
-          />
-        )}
-      </div>
-      {isDappLoading
-        ? <DappSkeletonWithContent rows={skeletonRows} />
-        : renderContent()}
+      {isDappLoading ? renderSkeleton() : renderContent()}
     </Transition>
   );
 }
@@ -209,8 +211,5 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isLoading,
     payloadToSign,
     parsedPayloadToSign,
-    currentAccountId: selectCurrentAccountId(global),
-    accountTitle: selectCurrentAccount(global)?.title,
-    hasMultipleAccounts: selectHasMultipleAccounts(global),
   };
 })(DappSignDataInitial));

@@ -26,3 +26,5 @@ App/*.zip
 App/*.p8
 App/fastlane/report.xml
 App/fastlane/README.md
+# Passed from the packaging job to the job that distributes the build it uploaded
+App/testflight-handoff.json

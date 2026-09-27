@@ -27,6 +27,7 @@ interface IActivityLoader {
 
     fun askForActivities()
     fun useBudgetTransactions()
+    fun setMinimumVisibleCount(count: Int)
     fun clean()
 }
 
@@ -59,7 +60,8 @@ class ActivityLoader(
     val context: Context,
     override val accountId: String,
     private val selectedSlug: String?,
-    private var delegate: WeakReference<IActivityLoader.Delegate>?
+    private var delegate: WeakReference<IActivityLoader.Delegate>?,
+    private var minimumVisibleCount: Int = 0
 ) : IActivityLoader,
     WalletCore.EventObserver {
 
@@ -141,6 +143,13 @@ class ActivityLoader(
                 return@execute
             }
             consumeBudgetTransactionsInternal()
+        }
+    }
+
+    override fun setMinimumVisibleCount(count: Int) {
+        processorQueue.execute {
+            minimumVisibleCount = count
+            ensureMinimumVisibleCount()
         }
     }
 
@@ -279,6 +288,8 @@ class ActivityLoader(
             // Check if UI is waiting for budget
             if (budgetRequestPending) {
                 consumeBudgetTransactionsInternal()
+            } else {
+                ensureMinimumVisibleCount()
             }
 
             // Continue fetching if budget is still small
@@ -323,6 +334,21 @@ class ActivityLoader(
         }
     }
 
+    private fun ensureMinimumVisibleCount() {
+        if (isCleared || minimumVisibleCount <= 0 ||
+            (showingTransactions?.size ?: 0) >= minimumVisibleCount ||
+            (loadedAll && budgetIds.isEmpty())
+        ) {
+            return
+        }
+
+        if (budgetState != BudgetState.Idle) {
+            budgetRequestPending = true
+        } else {
+            consumeBudgetTransactionsInternal()
+        }
+    }
+
     /**
      * Find the oldest activity to continue pagination from.
      *
@@ -364,6 +390,11 @@ class ActivityLoader(
      * - AND history end hasn't been reached yet
      */
     private fun shouldFetchMoreBudget(): Boolean {
+        if (minimumVisibleCount > 0 &&
+            (showingTransactions?.size ?: 0) >= minimumVisibleCount
+        ) {
+            return false
+        }
         val budgetTransactions =
             budgetIds.mapNotNull { ActivityStore.getTransaction(accountId, it) }
         val filteredBudgetSize = ActivityHelpers.filter(
@@ -538,9 +569,12 @@ class ActivityLoader(
         )?.sortedWith(ActivityHelpers::sorter)
         if (this.showingTransactions?.isChanged(filtered) == false) {
             this.showingTransactions = filtered
+            ensureMinimumVisibleCount()
             return
         }
         this.showingTransactions = filtered
+
+        ensureMinimumVisibleCount()
 
         mainHandler.post {
             delegate?.get()?.activityLoaderDataLoaded(isUpdateEvent)

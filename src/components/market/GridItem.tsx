@@ -17,7 +17,7 @@ interface OwnProps {
 }
 
 function GridItem({ token, onClick }: OwnProps) {
-  const { slug, token: apiToken, name, change } = token;
+  const { slug, token: apiToken, name, change, withChainIcon } = token;
 
   const handleClick = useLastCallback(() => {
     onClick(slug);
@@ -25,7 +25,7 @@ function GridItem({ token, onClick }: OwnProps) {
 
   return (
     <button type="button" className={buildClassName(styles.gridItem, styles.interactive)} onClick={handleClick}>
-      <TokenIcon token={apiToken} size="xx-large" withChainIcon />
+      <TokenIcon token={apiToken} size="xx-large" withChainIcon={withChainIcon} />
       <span className={styles.gridItemName}>{name}</span>
       <TokenChange change={change} />
     </button>

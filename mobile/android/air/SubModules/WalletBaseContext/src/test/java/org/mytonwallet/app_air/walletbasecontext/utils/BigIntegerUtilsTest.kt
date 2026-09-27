@@ -1,6 +1,8 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -146,5 +148,23 @@ class BigIntegerUtilsTest {
     fun maxReturnsLarger() {
         assertEquals(BigInteger.TEN, max(BigInteger.ONE, BigInteger.TEN))
         assertEquals(BigInteger.TEN, max(BigInteger.TEN, BigInteger.ONE))
+    }
+
+    @Test
+    fun doubleAbsRepresentationMatchesDecimalParsing() {
+        val random = Random(42)
+        val edges = listOf(0L, 1L, (1L shl 53) - 1, 1L shl 53, (1L shl 53) + 1, Long.MAX_VALUE)
+        val values = edges.map(BigInteger::valueOf) +
+            List(200_000) { BigInteger.valueOf(random.nextLong() shr random.nextInt(64)) }
+        for (value in values) {
+            for (decimals in listOf(0, 6, 9, 18, 22, 23, random.nextInt(0, 30))) {
+                assertEquals(
+                    "$value / 10^$decimals",
+                    BigDecimal(value.abs(), decimals).toPlainString().toDouble(),
+                    value.doubleAbsRepresentation(decimals),
+                    0.0
+                )
+            }
+        }
     }
 }

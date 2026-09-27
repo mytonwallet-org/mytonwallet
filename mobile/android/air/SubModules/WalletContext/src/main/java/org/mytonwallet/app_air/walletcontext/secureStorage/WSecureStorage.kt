@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.helpers.credentialsHelper.LegacyNativeBiometric
@@ -22,6 +23,7 @@ object WSecureStorage {
         // Cache necessary values to reduce app start-up time after splash screen
         getLastFailedAttempt()
         getFailedLoginAttempts()
+        prefetch(ACCOUNTS)
     }
 
     private val requiredStorage: WSecureStorageProvider
@@ -108,6 +110,7 @@ object WSecureStorage {
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {
+                    cachedValues.clear()
                     deleteLegacyBiometricPasscode()
                     val storage = requiredStorage
                     val walletKeys = storage.keys()
@@ -141,11 +144,37 @@ object WSecureStorage {
         }
     }
 
-    fun getSecValue(key: String): String = synchronized(storageLock) {
-        cachedValues[key] ?: run {
-            val value = requiredStorage.getStringData(key)
-            cachedValues[key] = value
-            value
+    private val prefetches = ConcurrentHashMap<String, FutureTask<Unit>>()
+
+    // Decrypts slow values early without storageLock; caches only if the value didn't change meanwhile.
+    private fun prefetch(key: String) {
+        val task = FutureTask {
+            try {
+                val storedValue = requiredStorage.getStoredValue(key) ?: return@FutureTask
+                val value = requiredStorage.getStringData(key)
+                synchronized(storageLock) {
+                    if (requiredStorage.getStoredValue(key) == storedValue) {
+                        cachedValues.putIfAbsent(key, value)
+                    }
+                }
+            } finally {
+                prefetches.remove(key)
+            }
+        }
+        prefetches[key] = task
+        Thread(task, "SecureStoragePrefetch").start()
+    }
+
+    // A cached value is returned without waiting for storageLock, which other threads hold across
+    // slow Keystore calls; clears empty the cache before deleting so this never sees removed data.
+    fun getSecValue(key: String): String = cachedValues[key] ?: run {
+        prefetches[key]?.let { runCatching { it.get() } }
+        cachedValues[key] ?: synchronized(storageLock) {
+            cachedValues[key] ?: run {
+                val value = requiredStorage.getStringData(key)
+                cachedValues[key] = value
+                value
+            }
         }
     }
 
@@ -162,8 +191,8 @@ object WSecureStorage {
         synchronized(storageOperationLock) {
             storageExecutor.submit {
                 synchronized(storageLock) {
-                    requiredStorage.clear()
                     cachedValues.clear()
+                    requiredStorage.clear()
                 }
             }.get()
         }

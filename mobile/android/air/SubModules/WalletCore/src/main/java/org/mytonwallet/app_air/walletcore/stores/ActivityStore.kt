@@ -678,9 +678,11 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         }
 
         // Merge with existing dictionary
-        val existingDict = WGlobalStorage.getActivitiesDict(accountId) ?: JSONObject()
-        existingDict.add(dict)
-        WGlobalStorage.setActivitiesDict(accountId, existingDict)
+        // Merge into a copy: the stored dictionary may be serialized by a persist at the same time.
+        val mergedDict = JSONObject()
+        WGlobalStorage.getActivitiesDict(accountId)?.let { mergedDict.add(it) }
+        mergedDict.add(dict)
+        WGlobalStorage.setActivitiesDict(accountId, mergedDict)
 
         // Update in-memory ID list
         val accountState = getOrCreateAccountState(accountId)

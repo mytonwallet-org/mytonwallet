@@ -231,9 +231,28 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
 
             isPersisting = true;
 
-            String snapshot;
+            JSONObject root;
             synchronized (this) {
-                snapshot = globalStorageJsonDict.toString();
+                root = globalStorageJsonDict;
+            }
+            String snapshot;
+            try {
+                snapshot = root.toString();
+            } catch (RuntimeException e) {
+                Logger.INSTANCE.e(Logger.LogTag.AIR_APPLICATION, "Storage persist snapshot failed: " + e.getClass().getSimpleName());
+                isPersisting = false;
+                if (mustPersist == PERSIST_INSTANT) {
+                    mainHandler.postDelayed(() -> persistChanges(PERSIST_INSTANT), 50);
+                } else {
+                    pendingPersist = true;
+                    mainHandler.postDelayed(() -> {
+                        if (pendingPersist) {
+                            pendingPersist = false;
+                            persistChanges(PERSIST_NORMAL);
+                        }
+                    }, 3000);
+                }
+                return;
             }
             String jsonString = JSONObject.quote(snapshot);
             String script = "(function() { " +
@@ -297,25 +316,41 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
         }
     }
 
+    /**
+     * Returns a new object with [value] set at [keys], sharing every untouched branch with [dict].
+     * [dict] and its nested objects are never modified, so a root captured for persisting stays a
+     * consistent snapshot while writes continue.
+     */
     private JSONObject setOnDict(JSONObject dict, List<String> keys, Object value) {
         try {
+            JSONObject copy = shallowCopy(dict);
+            String key = keys.get(0);
             if (keys.size() == 1) {
                 if (value != null) {
-                    dict.put(keys.get(0), value);
+                    copy.put(key, value);
                 } else {
-                    dict.remove(keys.get(0));
+                    copy.remove(key);
                 }
             } else {
-                JSONObject val = dict.optJSONObject(keys.get(0));
+                JSONObject val = dict.optJSONObject(key);
                 if (val == null)
                     val = new JSONObject();
-                Object res = setOnDict(val, keys.subList(1, keys.size()), value);
-                dict.put(keys.get(0), res);
+                copy.put(key, setOnDict(val, keys.subList(1, keys.size()), value));
             }
-            return dict;
+            return copy;
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private JSONObject shallowCopy(JSONObject dict) throws JSONException {
+        JSONObject copy = new JSONObject();
+        Iterator<String> names = dict.keys();
+        while (names.hasNext()) {
+            String name = names.next();
+            copy.put(name, dict.opt(name));
+        }
+        return copy;
     }
 
     private Object getValue(String key) {

@@ -112,7 +112,12 @@ function Search({ buildOptions, onTokenClick }: OwnProps) {
             clickArg={token.slug}
             onClick={handleItemClick}
           >
-            <TokenIcon token={token.token} size="middle" withChainIcon className={styles.suggestionIcon} />
+            <TokenIcon
+              token={token.token}
+              size="middle"
+              withChainIcon={token.withChainIcon}
+              className={styles.suggestionIcon}
+            />
             <span className={styles.suggestionName}>{token.name}</span>
             <span className={styles.suggestionPrice}>
               {token.priceText}

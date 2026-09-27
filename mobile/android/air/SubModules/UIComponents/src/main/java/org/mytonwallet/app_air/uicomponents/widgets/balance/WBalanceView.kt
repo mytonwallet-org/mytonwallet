@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.widget.AppCompatTextView
@@ -35,6 +36,13 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 class WBalanceView(context: Context) :
     AppCompatTextView(context),
     WThemedView {
+
+    private var drawingTypeface: Typeface? = null
+
+    override fun setTypeface(tf: Typeface?) {
+        drawingTypeface = tf
+        super.setTypeface(tf)
+    }
 
     // Properties //////////////////////////////////////////////////////////////////////////////////
     var primaryColor: Int? = null
@@ -145,7 +153,7 @@ class WBalanceView(context: Context) :
         integerPartWidth = 0f
         elapsedTime = 0
         val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = this@WBalanceView.typeface
+            typeface = drawingTypeface ?: this@WBalanceView.typeface
         }
         val str = _str ?: ""
         this._text = _str?.mapIndexed { i, character ->
@@ -190,7 +198,7 @@ class WBalanceView(context: Context) :
         } ?: emptyList()
         balanceBaseline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = primarySize.dp
-            typeface = this@WBalanceView.typeface
+            typeface = drawingTypeface ?: this@WBalanceView.typeface
         }.fontMetrics.getCenterAlignBaseline(defaultHeight / 2f)
         if (integerPartWidth == 0f) integerPartWidth = left
         prevWidth = totalWidth
@@ -562,7 +570,7 @@ class WBalanceView(context: Context) :
         val paint = paintCache.getOrPut(key) {
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textSize = characterRect.textSize
-                typeface = this@WBalanceView.typeface
+                typeface = drawingTypeface ?: this@WBalanceView.typeface
                 color = characterRect.color
             }
         }

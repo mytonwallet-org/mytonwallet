@@ -1,10 +1,11 @@
 package org.mytonwallet.app_air.native_enclave.crypto;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Arrays;
 
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class KeyDerivation {
@@ -23,13 +24,28 @@ public class KeyDerivation {
     }
 
     public static SecretKey deriveKeyFromPasscode(String passcode, byte[] salt) throws Exception {
-        PBEKeySpec spec = new PBEKeySpec(passcode.toCharArray(), salt, PBKDF2_ITERATIONS, KEY_LENGTH_BITS);
+        byte[] password = passcode.getBytes(StandardCharsets.UTF_8);
+        byte[] u = new byte[KEY_LENGTH_BITS / 8];
+        byte[] keyBytes = new byte[KEY_LENGTH_BITS / 8];
         try {
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-            byte[] keyBytes = factory.generateSecret(spec).getEncoded();
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(password, "HmacSHA256"));
+            mac.update(salt);
+            mac.update(new byte[]{0, 0, 0, 1});
+            mac.doFinal(u, 0);
+            System.arraycopy(u, 0, keyBytes, 0, u.length);
+            for (int i = 1; i < PBKDF2_ITERATIONS; i++) {
+                mac.update(u);
+                mac.doFinal(u, 0);
+                for (int j = 0; j < keyBytes.length; j++) {
+                    keyBytes[j] ^= u[j];
+                }
+            }
             return new SecretKeySpec(keyBytes, "AES");
         } finally {
-            spec.clearPassword();
+            Arrays.fill(password, (byte) 0);
+            Arrays.fill(u, (byte) 0);
+            Arrays.fill(keyBytes, (byte) 0);
         }
     }
 

@@ -31,11 +31,11 @@ struct DebugView: View {
     let onCreateTonOnlyWallet: () -> Void
 
     @AppStorage(DebugProductionMode.userDefaultsKey) private var forceProductionMode = false
-    @AppStorage(DebugPromotionPreset.cardMintingUserDefaultsKey) private var showCardMintingPromotionPreset = false
 #if DEBUG
     @AppStorage("debug_displayLogOverlay") private var displayLogOverlayEnabled = false
     @AppStorage(DebugBypassLockscreen.userDefaultsKey) private var bypassLockscreen = false
     @AppStorage(DebugPromotionPreset.userDefaultsKey) private var showAirPromotionPreset = false
+    @AppStorage(DebugPromotionPreset.cardMintingUserDefaultsKey) private var showCardMintingPromotionPreset = false
 #endif
 
     @Environment(\.dismiss) private var dismiss
@@ -193,20 +193,6 @@ struct DebugView: View {
             Text("Launches the intro flow for testing with existing accounts.")
         }
 
-        Section {
-            Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
-        } footer: {
-            Text("Overrides the current account promotion and card inventory with a mint-card sample.")
-        }
-        .onChange(of: showCardMintingPromotionPreset) { _ in
-            if showCardMintingPromotionPreset {
-                UserDefaults.standard.set(false, forKey: DebugPromotionPreset.userDefaultsKey)
-            }
-            Task { @MainActor in
-                AccountConfigStore.liveValue.refreshDebugOverrides()
-            }
-        }
-
         TestFlightConfigDebugSection()
     }
     
@@ -234,6 +220,20 @@ struct DebugView: View {
                 if DebugBypassLockscreen.isEnabledFromEnvironment {
                     Text("The current launch environment is already bypassing the lockscreen.")
                 }
+            }
+        }
+
+        Section {
+            Toggle("Show card minting promotion", isOn: $showCardMintingPromotionPreset)
+        } footer: {
+            Text("Overrides the current account promotion and card inventory with a mint-card sample.")
+        }
+        .onChange(of: showCardMintingPromotionPreset) { _ in
+            if showCardMintingPromotionPreset {
+                UserDefaults.standard.set(false, forKey: DebugPromotionPreset.userDefaultsKey)
+            }
+            Task { @MainActor in
+                AccountConfigStore.liveValue.refreshDebugOverrides()
             }
         }
 

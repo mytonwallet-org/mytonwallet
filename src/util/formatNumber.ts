@@ -100,9 +100,13 @@ export function formatCompactCurrency(value: number, currency: string) {
 }
 
 function addCurrency(value: number | string, currency: string) {
-  return SHORT_SYMBOL_POSITIONS.get(currency) === 'start'
+  return getIsCurrencySymbolAtStart(currency)
     ? `${currency}${value}`.replace(`${currency}-`, `-${currency}`)
     : `${value} ${currency}`;
+}
+
+export function getIsCurrencySymbolAtStart(currency: string) {
+  return SHORT_SYMBOL_POSITIONS.get(currency) === 'start';
 }
 
 export function getShortCurrencySymbol(currency?: ApiBaseCurrency) {

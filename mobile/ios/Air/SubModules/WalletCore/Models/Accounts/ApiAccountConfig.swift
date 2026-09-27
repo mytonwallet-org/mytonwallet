@@ -187,8 +187,18 @@ public enum DebugPromotionPreset {
         #endif
     }
 
+    /// Compiled out of release builds, exactly like `airPromotionIsEnabled`.
+    /// `IS_DEBUG_OR_TESTFLIGHT` alone is not enough: it is true for any TestFlight build, and this
+    /// preset fakes both the tier availability and the price, so a tester on a real device would
+    /// pay real MY for a tier the live campaign does not hold and get refunded minus the fee.
+    /// The mint screen stays reachable for testers without it - `showUpgradeCard` also opens on a
+    /// non-nil `cardsInfo`, which the server sends whenever a wallet has a price for the campaign.
     public static var cardMintingPromotionIsEnabled: Bool {
+        #if DEBUG
         IS_DEBUG_OR_TESTFLIGHT && cachedCardMintingPromotion.value
+        #else
+        false
+        #endif
     }
 
     public static var activePromotion: ApiPromotion? {

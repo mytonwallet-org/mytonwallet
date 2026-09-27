@@ -452,6 +452,10 @@ class HomeTabletAssetsCell(
         }
     }
 
+    override fun setAnimationsSuspended(suspended: Boolean) {
+        columns.forEach { (it.viewController as? AssetsVC)?.setAnimationsSuspended(suspended) }
+    }
+
     // Detach only: unmount the hosted column views; does NOT destroy the pooled VCs (the pool owns
     // their teardown).
     override fun onDestroy() {

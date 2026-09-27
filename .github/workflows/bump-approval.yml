@@ -30,7 +30,7 @@ permissions:
 jobs:
   approve:
     name: Approve a version bump
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
       - uses: actions/github-script@v9

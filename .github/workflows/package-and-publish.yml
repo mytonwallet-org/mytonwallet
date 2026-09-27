@@ -912,6 +912,16 @@ jobs:
       IOS_EXTERNAL_BETA_ENABLED: "true"
       IS_RELEASE_CANDIDATE: ${{ startsWith(github.ref, 'refs/heads/release/') && '1' || '' }}
       RC_NUMBER: ${{ needs.detect-changes.outputs.rc-number }}
+      # Read by gym itself (GYM_DERIVED_DATA_PATH), so the Fastfile carries no CI paths. What is
+      # cached is the resolved Swift packages under it, and the way to make that location stable is
+      # to pin the whole derived data root rather than relocate the checkouts with
+      # -clonedSourcePackagesDirPath: the Crashlytics script phase reaches for
+      # "${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run", so
+      # checkouts living anywhere else make that path vanish and the archive dies in a script phase.
+      # It sits outside mobile/ios because each checkout carries a Package.resolved of its own,
+      # twenty-two of them against the three this repository owns, and the cache key below hashes
+      # that glob - a derived data root inside it would feed the key with its own contents.
+      GYM_DERIVED_DATA_PATH: ${{ github.workspace }}/.derived-data
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -970,6 +980,53 @@ jobs:
           else
             npm run mobile:build:production
           fi
+
+      # xcodebuild resolves and checks out every Swift package before it compiles a line, and a
+      # fresh runner does that from nothing on every run. The checked-out tree is a pure function
+      # of the Package.resolved files, so it is keyed on them; both variants build the same
+      # workspace and share one entry. A partial hit is still worth taking - xcodebuild re-resolves
+      # only what moved - which is what the prefix restore-key is for.
+      - name: Restore resolved Swift packages
+        id: spm-cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.derived-data/SourcePackages
+          key: ios-spm-xcode27-${{ hashFiles('mobile/ios/**/Package.resolved') }}
+          restore-keys: |
+            ios-spm-xcode27-
+
+      # Resolving in a step of its own is what lets the cache be written before anything that can
+      # fail: the archive that follows takes a quarter of an hour and has plenty of ways to die, and
+      # with the combined cache action the save lives in a post step that runs only on a wholly
+      # successful job, so every red build threw away the packages it had just checked out and the
+      # next build paid for them again. Saving straight after the resolve also means the tree is
+      # known complete, which a post step cannot tell apart from one interrupted halfway.
+      - name: Resolve Swift packages
+        id: spm-resolve
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+
+          xcodebuild -resolvePackageDependencies \
+            -workspace mobile/ios/App/App.xcworkspace \
+            -scheme "$IOS_SCHEME" \
+            -derivedDataPath "$GYM_DERIVED_DATA_PATH"
+
+      # Neither cache step may decide whether a release gets built, which is why both tolerate
+      # their own failure. They fail differently: a failed upload is only a warning upstream, while
+      # the restore reports any error through setFailed and would take the job down with it, which
+      # is an outage of the cache service deciding that an app does not ship.
+      - name: Save resolved Swift packages
+        if: steps.spm-resolve.outcome == 'success' && steps.spm-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/.derived-data/SourcePackages
+          key: ios-spm-xcode27-${{ hashFiles('mobile/ios/**/Package.resolved') }}
 
       - name: Use Ruby and install dependencies
         uses: ruby/setup-ruby@v1
@@ -1124,6 +1181,141 @@ jobs:
           else
             bundle exec fastlane release
           fi
+
+      - name: Upload the TestFlight distribution handoff
+        if: env.PUBLISH_REPO == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-testflight-handoff-${{ matrix.app_variant }}
+          path: mobile/ios/App/testflight-handoff.json
+          if-no-files-found: error
+          # Long enough to re-run the distributing job by itself the next day, which is the whole
+          # point of it being a separate job: a failure there must not cost another macOS build.
+          retention-days: 7
+
+  # The second half of the TestFlight release. Once the binary is in App Store Connect, what is
+  # left - waiting out Apple's processing, writing the build notes, submitting to the external
+  # group, expiring the previous submission - is HTTP polling with no Xcode in it, and the macOS
+  # runner it used to run on costs ten times what this one does per minute.
+  ios-testflight-distribute:
+    name: Distribute iOS build (${{ matrix.app_variant }})
+    needs:
+      - detect-changes
+      - ios-release
+    runs-on: ubuntu-latest
+    environment: production
+    # Only has to outlast Apple's processing; the lane gives up on its own after 30 minutes.
+    timeout-minutes: 45
+    # Runs for the variants that succeeded even when the other one failed, which is what the
+    # packaging job's fail-fast: false buys: a variant whose build never happened is recognised
+    # by its missing handoff, not by the state of its sibling.
+    if: ${{ !cancelled() && needs.ios-release.result != 'skipped' && vars.PUBLISH_REPO == '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app_variant: ${{ fromJSON(needs.detect-changes.outputs.ios-variants) }}
+    env:
+      APP_VARIANT: ${{ matrix.app_variant }}
+      IOS_EXTERNAL_BETA_ENABLED: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # A variant whose packaging job failed has no handoff, and that is the expected shape rather
+      # than an error. Asking the run which artifacts it holds answers that question by itself, so
+      # the download below is left free to fail loudly: swallowing its errors instead would turn a
+      # broken artifact service or a missing permission into a quiet green job that shipped nothing.
+      - name: Look for this variant's handoff
+        id: handoff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: ios-testflight-handoff-${{ matrix.app_variant }}
+        run: |
+          set -euo pipefail
+
+          found=$(gh api --paginate \
+            "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100" \
+            --jq "[.artifacts[] | select(.name == \"$ARTIFACT_NAME\" and .expired == false)] | length" \
+            | awk '{ total += $1 } END { print total + 0 }')
+
+          if [ "$found" -gt 0 ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No handoff for $APP_VARIANT - its packaging job did not upload a build, so there is nothing to distribute."
+          fi
+
+      - name: Download the TestFlight distribution handoff
+        if: steps.handoff.outputs.present == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-testflight-handoff-${{ matrix.app_variant }}
+          path: mobile/ios/App
+
+      # Empty leaves the Fastfile's own per-variant default in place; only a configured override
+      # is passed on, so the group names live in one place rather than two.
+      - name: Select the TestFlight group
+        if: steps.handoff.outputs.present == 'true'
+        env:
+          MYTONWALLET_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
+          GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
+        run: |
+          set -euo pipefail
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            GROUP="${GRAM_TESTFLIGHT_GROUP:-}"
+          else
+            GROUP="${MYTONWALLET_TESTFLIGHT_GROUP:-}"
+          fi
+          if [ -n "$GROUP" ]; then
+            echo "IOS_TESTFLIGHT_GROUP=$GROUP" >> "$GITHUB_ENV"
+          fi
+
+      - name: Use Ruby and install dependencies
+        if: steps.handoff.outputs.present == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: "iOS: Distribute to TestFlight"
+        if: steps.handoff.outputs.present == 'true'
+        env:
+          IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
+          IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}
+          IOS_AUTH_KEY_ID: ${{ vars.IOS_AUTH_KEY_ID }}
+          IOS_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_AUTH_KEY_ISSUER_ID }}
+          IOS_GRAM_AUTH_KEY_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ID }}
+          IOS_GRAM_AUTH_KEY_ISSUER_ID: ${{ vars.IOS_GRAM_AUTH_KEY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+
+          cd mobile/ios/App
+          AUTH_KEY_BASE64="$IOS_AUTH_KEY_BASE64"
+          ASC_KEY_ID="${IOS_AUTH_KEY_ID:-}"
+          ASC_ISSUER_ID="${IOS_AUTH_KEY_ISSUER_ID:-}"
+
+          if [ "$APP_VARIANT" = "gram" ]; then
+            AUTH_KEY_BASE64="${IOS_GRAM_AUTH_KEY_BASE64:-$IOS_AUTH_KEY_BASE64}"
+            ASC_KEY_ID="${IOS_GRAM_AUTH_KEY_ID:-$ASC_KEY_ID}"
+            ASC_ISSUER_ID="${IOS_GRAM_AUTH_KEY_ISSUER_ID:-$ASC_ISSUER_ID}"
+          fi
+
+          if [ -z "$AUTH_KEY_BASE64" ]; then
+            echo "::error::Missing App Store Connect auth key for $APP_VARIANT"
+            exit 1
+          fi
+
+          echo -n "$AUTH_KEY_BASE64" | base64 --decode > ./AuthKey.p8
+          if [ -n "$ASC_KEY_ID" ]; then
+            export APP_STORE_CONNECT_KEY_ID="$ASC_KEY_ID"
+          fi
+          if [ -n "$ASC_ISSUER_ID" ]; then
+            export APP_STORE_CONNECT_ISSUER_ID="$ASC_ISSUER_ID"
+          fi
+
+          bundle exec fastlane distribute
 
   publish-release:
     name: Publish GitHub release

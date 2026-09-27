@@ -229,13 +229,12 @@ function DappConnectModal({
       {lang('Wallet to use on %host%', { host: dappHost })}
       {dapp?.urlTrustStatus !== 'verified' && (
         <DappHostWarning
-          url={dapp?.url}
           urlTrustStatus={dapp?.urlTrustStatus}
           iconClassName={styles.dappLargePreviewHostWarning}
         />
       )}
     </span>
-  ), [dapp?.url, dapp?.urlTrustStatus, dappHost, lang]);
+  ), [dapp?.urlTrustStatus, dappHost, lang]);
 
   function renderDappInfo() {
     return (
@@ -255,7 +254,6 @@ function DappConnectModal({
             {dappHost}
             {dapp?.urlTrustStatus !== 'verified' && (
               <DappHostWarning
-                url={dapp?.url}
                 urlTrustStatus={dapp?.urlTrustStatus}
                 iconClassName={styles.dappLargePreviewHostWarning}
               />

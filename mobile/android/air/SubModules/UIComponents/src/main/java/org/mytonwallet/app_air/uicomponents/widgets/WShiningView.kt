@@ -7,13 +7,19 @@ import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
+import android.os.Build
 import android.view.ViewGroup
+import androidx.core.graphics.withSave
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 
 class WShiningView(context: Context?) : ViewGroup(context) {
+    // Pre-P renderers clip without anti-aliasing, so there the ring is punched out of a software
+    // layer instead of clipped.
+    private val clipsInnerRect = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
     init {
         id = generateViewId()
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
+        if (!clipsInnerRect) setLayerType(LAYER_TYPE_SOFTWARE, null)
         setWillNotDraw(false)
     }
 
@@ -43,17 +49,30 @@ class WShiningView(context: Context?) : ViewGroup(context) {
         }
     }
 
+    override fun draw(canvas: Canvas) {
+        if (!clipsInnerRect || !updateInnerPath()) {
+            super.draw(canvas)
+            return
+        }
+        canvas.withSave {
+            clipOutPath(innerPath)
+            super.draw(this)
+        }
+    }
+
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
+        if (!clipsInnerRect && updateInnerPath()) canvas.drawPath(innerPath, clearPaint)
+    }
 
+    private fun updateInnerPath(): Boolean {
         val w = width.toFloat()
         val h = height.toFloat()
-        if (w > 0 && h > 0) {
-            innerRect.set(borderWidth, borderWidth, w - borderWidth, h - borderWidth)
-            innerPath.reset()
-            val innerRadius = maxOf(0f, radius - borderWidth)
-            innerPath.addRoundRect(innerRect, innerRadius, innerRadius, Path.Direction.CW)
-            canvas.drawPath(innerPath, clearPaint)
-        }
+        if (w <= 0 || h <= 0) return false
+        innerRect.set(borderWidth, borderWidth, w - borderWidth, h - borderWidth)
+        innerPath.reset()
+        val innerRadius = maxOf(0f, radius - borderWidth)
+        innerPath.addRoundRect(innerRect, innerRadius, innerRadius, Path.Direction.CW)
+        return true
     }
 }

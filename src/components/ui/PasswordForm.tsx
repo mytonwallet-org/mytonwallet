@@ -44,6 +44,7 @@ import Button from './Button';
 import Checkbox from './Checkbox';
 import Input from './Input';
 import PinPad from './PinPad';
+import Transition from './Transition';
 
 import modalStyles from './Modal.module.scss';
 import styles from './PasswordForm.module.scss';
@@ -474,7 +475,7 @@ function PasswordForm({
             isPrimary
             isLoading={isLoading}
             isDisabled={isLoading}
-            className={modalStyles.buttonHalfWidth}
+            className={buildClassName(modalStyles.buttonHalfWidth, styles.retryButton)}
             onClick={!isLoading
               ? (shouldMigrate && hasLegacyBiometrics ? handleLegacyBiometricsMigration : handleBiometrics)
               : undefined}
@@ -591,17 +592,18 @@ function PasswordForm({
 
   function renderBiometricPrompt() {
     const renderingError = localError || error;
-    if (renderingError) {
-      return (
-        <div className={styles.error}>{lang(renderingError)}</div>
-      );
-    }
 
     return (
-      <div className={styles.verify}>
-        {lang(operationType === 'transfer'
-          ? 'Please confirm transfer using biometrics' : 'Please confirm action using biometrics')}
-      </div>
+      <Transition name="fade" activeKey={renderingError ? 1 : 0} className={styles.biometricPrompt}>
+        {renderingError ? (
+          <div className={styles.error}>{lang(renderingError)}</div>
+        ) : (
+          <div className={styles.verify}>
+            {lang(operationType === 'transfer'
+              ? 'Please confirm transfer using biometrics' : 'Please confirm action using biometrics')}
+          </div>
+        )}
+      </Transition>
     );
   }
 

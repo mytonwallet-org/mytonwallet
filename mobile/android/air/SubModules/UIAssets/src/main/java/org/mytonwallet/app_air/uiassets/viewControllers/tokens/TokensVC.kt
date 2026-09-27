@@ -361,6 +361,10 @@ class TokensVC(
     fun configure(accountId: String) {
         if (showingAccountId == accountId) return
         scope.coroutineContext.cancelChildren()
+        synchronized(dataUpdateLock) {
+            isDataUpdateQueued = false
+            isQueuedUpdateForced = false
+        }
         walletTokens = emptyArray()
         totalVisibleTokensCount = 0
         showAllView.setCounter(null)
@@ -380,8 +384,24 @@ class TokensVC(
     }
 
     var prevSize = -1
+
+    // Updates arrive in bursts and each run reads the latest store state, so calls made while a
+    // run is still queued fold into it instead of recomputing every token list in turn.
+    private val dataUpdateLock = Any()
+    private var isDataUpdateQueued = false
+    private var isQueuedUpdateForced = false
+
     private fun dataUpdated(forceUpdate: Boolean) {
+        synchronized(dataUpdateLock) {
+            isQueuedUpdateForced = isQueuedUpdateForced || forceUpdate
+            if (isDataUpdateQueued) return
+            isDataUpdateQueued = true
+        }
         scope.launch {
+            val forceUpdate = synchronized(dataUpdateLock) {
+                isDataUpdateQueued = false
+                isQueuedUpdateForced.also { isQueuedUpdateForced = false }
+            }
             val accountId = showingAccountId
             val showingAccount = fetchAccount(accountId) ?: return@launch
             val isSingleWalletActive = MScreenMode.SingleWallet(accountId).isScreenActive

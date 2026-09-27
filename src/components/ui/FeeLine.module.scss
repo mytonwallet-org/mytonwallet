@@ -44,6 +44,15 @@
   }
 }
 
+.plainDetails {
+  cursor: var(--custom-cursor, pointer);
+}
+
+.plainDetailsIcon {
+  margin-inline-start: 0.125rem;
+  font-size: 0.875rem;
+}
+
 .detailsIcon {
   display: inline-block;
   vertical-align: middle;

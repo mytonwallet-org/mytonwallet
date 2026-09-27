@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.text.Spannable
@@ -96,6 +97,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ExplorerHelpers
 import org.mytonwallet.app_air.walletcore.isUtxoChain
+import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
@@ -815,12 +817,13 @@ class TransactionVC(
 
         val swapTransaction = transaction as? MApiTransaction.Swap
         val swapTransactionIds = getSwapTransactionIdItems(swapTransaction)
-        val swapProviderName = swapTransaction?.cex?.providerName
-        if (!swapTransaction?.cex?.transactionId.isNullOrEmpty() && swapProviderName != null) {
+        val swapProviderName = swapTransaction?.cex?.providerName?.takeIf { it.isNotEmpty() }
+        if (!swapTransaction?.cex?.transactionId.isNullOrEmpty()) {
             val providerIdRow = KeyValueRowView(
                 context,
-                LocaleController.getString("Swap ID for %provider%")
-                    .replace("%provider%", swapProviderName),
+                swapProviderName?.let {
+                    LocaleController.getString("Swap ID for %provider%").replace("%provider%", it)
+                } ?: LocaleController.getString("Swap ID"),
                 "",
                 mode = KeyValueRowView.Mode.SECONDARY,
                 isLast = false
@@ -1730,6 +1733,35 @@ class TransactionVC(
                                 }
                             }
                         )
+                        if (cexSwap != null &&
+                            (cexSwap.cexLabel == null || cexSwap.cexLabel == "changelly") &&
+                            !swapProviderId.isNullOrEmpty()
+                        ) {
+                            items.add(
+                                WMenuPopup.Item(
+                                    org.mytonwallet.app_air.icons.R.drawable.ic_world_30,
+                                    LocaleController.getString("Open in Explorer")
+                                ) {
+                                    val url = Uri.Builder()
+                                        .scheme("https")
+                                        .authority("changelly.com")
+                                        .appendPath("track")
+                                        .appendPath(swapProviderId)
+                                        .build()
+                                        .toString()
+                                    val window = window ?: return@Item
+                                    val nav = WNavigationController(window)
+                                    nav.setRoot(
+                                        InAppBrowserVC(
+                                            context,
+                                            null,
+                                            InAppBrowserConfig(url = url, injectDappConnect = true)
+                                        )
+                                    )
+                                    window.present(nav)
+                                }
+                            )
+                        }
                         WMenuPopup.present(
                             contentView,
                             items,

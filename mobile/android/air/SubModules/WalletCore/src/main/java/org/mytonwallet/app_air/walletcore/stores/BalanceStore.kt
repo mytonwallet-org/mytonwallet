@@ -89,13 +89,13 @@ object BalanceStore : IStore {
         val balances = getBalances(accountId) ?: return false
         val network = MBlockchainNetwork.ofAccountId(accountId ?: return false)
         val allDefaultTokens = ALL_DEFAULT_TOKENS[network] ?: emptyList()
-        return balances.filter { !allDefaultTokens.contains(it.key) }.isEmpty() &&
-            balances.filter {
-                if (it.value == BigInteger.ZERO) return@filter false
-                val token = TokenStore.getToken(it.key) ?: return@filter false
-                return@filter token.priceUsd *
+        return balances.keys.all { allDefaultTokens.contains(it) } &&
+            balances.none {
+                if (it.value == BigInteger.ZERO) return@none false
+                val token = TokenStore.getToken(it.key) ?: return@none false
+                return@none token.priceUsd *
                     it.value.doubleAbsRepresentation(token.decimals) >= 0.01
-            }.isEmpty()
+            }
     }
 
     fun setBalances(

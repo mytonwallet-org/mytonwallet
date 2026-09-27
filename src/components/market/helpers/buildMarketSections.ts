@@ -21,6 +21,7 @@ export interface MarketToken {
   priceText: string;
   /** Price change over the last 24 hours, in percent */
   change: number;
+  withChainIcon: boolean;
   sparkline?: number[];
   tintColor?: string;
 }
@@ -39,6 +40,7 @@ export interface BuildOptions {
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   areTokenNamesLocalized?: boolean;
+  areChainBadgesShown?: boolean;
 }
 
 export function buildMarketSections(
@@ -82,7 +84,7 @@ function buildMarketToken(
   change: number,
   options: BuildOptions,
 ): MarketToken {
-  const { baseCurrency, currencyRates, areTokenNamesLocalized } = options;
+  const { baseCurrency, currencyRates, areTokenNamesLocalized, areChainBadgesShown } = options;
   const price = calculateTokenPrice(priceUsd, baseCurrency, currencyRates);
 
   return {
@@ -91,6 +93,9 @@ function buildMarketToken(
     name: getTokenName(lang, token, areTokenNamesLocalized),
     priceText: formatCurrency(price, getShortCurrencySymbol(baseCurrency)),
     change,
+    // Unless `areChainBadgesShown` is on, only labeled tokens (stablecoins and tokenized stocks
+    // available on multiple chains) get the chain icon, as in the wallet token list
+    withChainIcon: Boolean(areChainBadgesShown || token.label),
   };
 }
 

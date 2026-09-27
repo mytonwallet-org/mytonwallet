@@ -29,6 +29,7 @@ interface IHomeAssetsCell {
     fun updateSegmentItemsTheme()
     fun scrollToFirst()
     fun setAnimations(paused: Boolean)
+    fun setAnimationsSuspended(suspended: Boolean)
 
     /** Detach/unmount only. Does NOT destroy the pooled ViewControllers. */
     fun onDestroy()

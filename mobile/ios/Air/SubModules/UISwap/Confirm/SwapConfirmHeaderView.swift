@@ -13,10 +13,10 @@ import WalletCore
 import WalletContext
 
 struct SwapConfirmHeaderView: ConfirmationContent {
-    
+
     var fromAmount: TokenAmount
     var toAmount: TokenAmount
-    
+
     var body: some View {
         SwapOverviewView(fromAmount: fromAmount, toAmount: toAmount)
             .padding(.bottom, 12)

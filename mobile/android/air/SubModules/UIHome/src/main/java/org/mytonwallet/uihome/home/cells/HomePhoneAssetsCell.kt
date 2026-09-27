@@ -522,6 +522,12 @@ class HomePhoneAssetsCell(
         }
     }
 
+    override fun setAnimationsSuspended(suspended: Boolean) {
+        segmentedController.items.forEach { item ->
+            (item.viewController as? AssetsVC)?.setAnimationsSuspended(suspended)
+        }
+    }
+
     private fun updateHeight() {
         val prevHeight = layoutParams.height
         val newHeight: Int

@@ -33,9 +33,12 @@
     }
   }
 
-  &.disabled {
-    cursor: not-allowed;
-    opacity: 0.3;
+  &.installing {
+    cursor: var(--custom-cursor, progress);
+
+    &:hover {
+      background-color: var(--color-green-button-background);
+    }
   }
 
   :global(html.is-electron.is-windows) & {
@@ -62,6 +65,13 @@
   color: var(--color-apy-text);
 
   background-color: var(--color-accent-button-text);
+}
+
+.spinner {
+  --spinner-size: 0.875rem;
+
+  margin-inline-end: 0.3125rem;
+  color: var(--color-accent-button-text);
 }
 
 .text {

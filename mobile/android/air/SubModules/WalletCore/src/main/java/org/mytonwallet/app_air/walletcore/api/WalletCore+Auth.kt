@@ -3,6 +3,7 @@
 package org.mytonwallet.app_air.walletcore.api
 
 import androidx.fragment.app.FragmentActivity
+import java.util.function.IntConsumer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -425,13 +426,29 @@ fun WalletCore.enclaveAuthorize(
     passcode: String?,
     usageCount: Int = 1,
     callback: (token: String?, validUntil: Long, MBridgeError?) -> Unit
+) = enclaveAuthorize(
+    activity,
+    authType,
+    isLong,
+    passcode,
+    { createSession -> createSession.accept(usageCount) },
+    callback
+)
+
+fun WalletCore.enclaveAuthorize(
+    activity: FragmentActivity,
+    authType: AuthType,
+    isLong: Boolean,
+    passcode: String?,
+    onAuthenticated: (createSession: IntConsumer) -> Unit,
+    callback: (token: String?, validUntil: Long, MBridgeError?) -> Unit
 ) {
     EnclaveManager.sharedInstance.authorize(
         authType,
         isLong,
-        usageCount,
         passcode,
         activity,
+        { createSession -> onAuthenticated(createSession) },
         object : EnclaveManager.SessionCallback {
             override fun onSuccess(token: String?, validUntil: Long) {
                 callback(token, validUntil, null)

@@ -55,16 +55,35 @@ extension DependencyValues {
     }
 }
 
+/// Card data exactly as the server sent it, in a type nothing outside WalletCore can build.
+/// The debug promo preset has the same shape and reaches `AccountConfig.cardsInfo`, so a money
+/// path that reads whichever card property is nearest to hand prices the transfer from invented
+/// numbers and the backend refunds the mismatch minus the fee. Keeping the server copy in its own
+/// type means the preset does not compile where an amount is computed, instead of being ruled out
+/// by a comment a later refactor is free to ignore.
+public struct FundableCardsInfo: Equatable, Sendable {
+    public let cards: ApiCardsInfo?
+
+    init(_ cards: ApiCardsInfo?) {
+        self.cards = cards
+    }
+
+    public subscript(_ type: ApiMtwCardType) -> ApiCardInfo? {
+        cards?[type]
+    }
+}
+
 @MainActor
 @Perceptible
 public final class AccountConfig: Sendable {
     public let accountId: String
     public private(set) var cardsInfo: ApiCardsInfo?
+    /// What may fund a transfer. `cardsInfo` is what the screen renders and may be the debug
+    /// preset instead; see `FundableCardsInfo` for why the two are different types.
+    public private(set) var fundableCardsInfo = FundableCardsInfo(nil)
     public private(set) var activePromotion: ApiPromotion?
     public private(set) var isMfaEnabled: Bool = false
 
-    @PerceptionIgnored
-    private var serverCardsInfo: ApiCardsInfo?
     @PerceptionIgnored
     private var serverActivePromotion: ApiPromotion?
     @PerceptionIgnored
@@ -75,7 +94,7 @@ public final class AccountConfig: Sendable {
     }
 
     fileprivate func replace(config: ApiAccountConfig?) {
-        serverCardsInfo = config?.cardsInfo
+        fundableCardsInfo = FundableCardsInfo(config?.cardsInfo)
         serverActivePromotion = config?.activePromotion
         serverIsMfaEnabled = config?.isMfaEnabled ?? false
         applyResolvedConfig()
@@ -87,7 +106,7 @@ public final class AccountConfig: Sendable {
 
     private func applyResolvedConfig() {
         isMfaEnabled = serverIsMfaEnabled || isMfaEnabledOverrideActive
-        cardsInfo = DebugPromotionPreset.cardsInfoOverride ?? serverCardsInfo
+        cardsInfo = DebugPromotionPreset.cardsInfoOverride ?? fundableCardsInfo.cards
         activePromotion = DebugPromotionPreset.activePromotion ?? serverActivePromotion
     }
 }
