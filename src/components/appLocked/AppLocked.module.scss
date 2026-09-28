@@ -43,6 +43,20 @@ $contentMaxWidth: 31.4375rem;
   }
 }
 
+// The slides crossfade with `semiFade`, which keeps the outgoing slide opaque so the logo shared by
+// both slides stays steady. Only the button has no counterpart in the incoming slide, so it fades out on its own
+.unlockButton {
+  :global(.Transition_slide-from) & {
+    animation: fade-out 250ms ease forwards;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 .title {
   font-size: 1.6875rem;
   font-weight: 400;

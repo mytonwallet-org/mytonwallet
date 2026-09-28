@@ -38,6 +38,7 @@ interface StateProps {
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   areTokenNamesLocalized?: boolean;
+  areChainBadgesShown?: boolean;
   currentTokenSlug?: string;
   marketTokenSlug?: string;
   isMarketOpen?: boolean;
@@ -56,6 +57,7 @@ function Market({
   baseCurrency,
   currencyRates,
   areTokenNamesLocalized,
+  areChainBadgesShown,
   currentTokenSlug,
   marketTokenSlug,
   isMarketOpen,
@@ -98,7 +100,8 @@ function Market({
     baseCurrency,
     currencyRates,
     areTokenNamesLocalized,
-  }), [areTokenNamesLocalized, baseCurrency, currencyRates, tokenBySlug]);
+    areChainBadgesShown,
+  }), [areChainBadgesShown, areTokenNamesLocalized, baseCurrency, currencyRates, tokenBySlug]);
 
   const sections = useMemo(
     () => (marketData ? buildMarketSections(lang, marketData, buildOptions) : undefined),
@@ -206,6 +209,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     baseCurrency: global.settings.baseCurrency,
     currencyRates: global.currencyRates,
     areTokenNamesLocalized: global.settings.areTokenNamesLocalized,
+    areChainBadgesShown: global.settings.areChainBadgesShown,
     currentTokenSlug: selectCurrentAccountState(global)?.currentTokenSlug,
     marketTokenSlug: global.marketTokenSlug,
     isMarketOpen: global.isMarketOpen,

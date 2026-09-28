@@ -81,6 +81,11 @@ class WSecureStorageProvider {
         return passwordStorage.getData(key);
     }
 
+    @Nullable
+    public String getStoredValue(String key) {
+        return passwordStorage.getStoredValue(key);
+    }
+
     public String getStringData(String key) {
         byte[] data = getData(key);
         if (data == null)
@@ -106,6 +111,8 @@ class WSecureStorageProvider {
         void setData(String key, byte[] data);
 
         byte[] getData(String key);
+
+        String getStoredValue(String key);
 
         String[] keys();
 
@@ -138,6 +145,11 @@ class WSecureStorageProvider {
             if (res == null)
                 return null;
             return Base64.decode(res, Base64.DEFAULT);
+        }
+
+        @Override
+        public String getStoredValue(String key) {
+            return preferences.getString(key, null);
         }
 
         @Override
@@ -366,6 +378,11 @@ class WSecureStorageProvider {
                     e.getClass().getSimpleName());
             }
             return null;
+        }
+
+        @Override
+        public String getStoredValue(String key) {
+            return preferences.getString(key, null);
         }
 
         @Override

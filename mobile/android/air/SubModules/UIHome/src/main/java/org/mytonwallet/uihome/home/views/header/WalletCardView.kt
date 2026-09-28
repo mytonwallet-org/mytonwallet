@@ -336,17 +336,15 @@ class WalletCardView(
         val content = object : FrameLayout(context) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-                balanceChangeBlurView?.measure(
+                balanceChangeBlurView.measure(
                     MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
                     MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
                 )
             }
         }.apply {
             minimumHeight = 28.dp
-            balanceChangeBlurView?.let {
-                addView(it, FrameLayout.LayoutParams(0, 0))
-                it.setupWith(clippedContainer)
-            }
+            addView(balanceChangeBlurView, FrameLayout.LayoutParams(0, 0))
+            balanceChangeBlurView.setupWith(clippedContainer)
             addView(
                 balanceChangeTextLabel,
                 FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
@@ -472,19 +470,15 @@ class WalletCardView(
         }
     }
 
-    private val balanceChangeBlurView: WGlassView? =
-        if (WGlobalStorage.isBlurEnabled()) {
-            WGlassView(context).apply {
-                flavor = GlassFlavor.FROSTED_PLAIN
-                liquidGlass = false
-                transparentBackstop = true
-                captureExpand = 40f.dp
-                setRadius(14f.dp)
-                setProvider(GlassProviders.legacy(WColor.Transparent))
-            }
-        } else {
-            null
-        }
+    private val balanceChangeBlurView = WGlassView(context).apply {
+        flavor = GlassFlavor.FROSTED_PLAIN
+        liquidGlass = false
+        transparentBackstop = true
+        captureExpand = 40f.dp
+        setRadius(14f.dp)
+        noBlurColor = Color.WHITE.colorWithAlpha(25)
+        setProvider(GlassProviders.legacy(WColor.Transparent))
+    }
 
     private val seasonalOverlayView = SeasonalOverlayView(context).apply {
         id = generateViewId()
@@ -505,7 +499,7 @@ class WalletCardView(
 
     private val clippedContainer = WView(context).apply {
         id = generateViewId()
-        clipChildren = true
+        clipChildren = false
         clipToPadding = true
     }
 
@@ -662,6 +656,8 @@ class WalletCardView(
 
     override fun updateTheme() {
         updateCardEffects()
+        balanceChangeBlurView.updateTheme()
+        walletTypeView.updateGlassTheme()
         cardNft?.let {
             shiningView.background =
                 nftGradientHelpers?.gradient(
@@ -677,12 +673,6 @@ class WalletCardView(
         }
         setLabelColors(Color.WHITE, Color.WHITE.colorWithAlpha(191), drawGradient = false)
 
-        if (balanceChangeBlurView == null) {
-            balanceChangeTextLabel.setBackgroundColor(
-                Color.WHITE.colorWithAlpha(25),
-                14f.dp
-            )
-        }
         if (isShowingSkeletons) {
             updateSkeletonViewColors()
         }
@@ -1266,29 +1256,16 @@ class WalletCardView(
         cardNft?.metadata?.overlayLabelBackground?.let { it ->
             balanceChangeTextLabel.setTextColor(it.colorWithAlpha(204))
             balanceChangeChevron?.setTint(it.colorWithAlpha(204))
-            balanceChangeBlurView?.setTintOverlayColor(it.colorWithAlpha(12))
-            balanceChangeTextLabel.setBackgroundColor(
-                if (balanceChangeBlurView == null || !WGlobalStorage.isBlurEnabled()) {
-                    it.colorWithAlpha(25)
-                } else {
-                    Color.TRANSPARENT
-                },
-                13f.dp
-            )
+            balanceChangeBlurView.setTintOverlayColor(it.colorWithAlpha(12))
+            balanceChangeBlurView.noBlurColor = it.colorWithAlpha(25)
         } ?: run {
             val secondaryColor = _secondaryColor ?: Color.WHITE.colorWithAlpha(191)
             balanceChangeTextLabel.setTextColor(secondaryColor.colorWithAlpha(191))
             balanceChangeChevron?.setTint(secondaryColor.colorWithAlpha(191))
-            balanceChangeBlurView?.setTintOverlayColor(secondaryColor.colorWithAlpha(20))
-            balanceChangeTextLabel.setBackgroundColor(
-                if (balanceChangeBlurView == null || !WGlobalStorage.isBlurEnabled()) {
-                    secondaryColor.colorWithAlpha(41)
-                } else {
-                    Color.TRANSPARENT
-                },
-                13f.dp
-            )
+            balanceChangeBlurView.setTintOverlayColor(secondaryColor.colorWithAlpha(20))
+            balanceChangeBlurView.noBlurColor = secondaryColor.colorWithAlpha(41)
         }
+        balanceChangeTextLabel.setBackgroundColor(Color.TRANSPARENT, 13f.dp)
         if (isBalanceChangePositive && cardNft == null) {
             val positiveColor = WColor.PositiveBalance.color
             balanceChangeTextLabel.setTextColor(positiveColor)

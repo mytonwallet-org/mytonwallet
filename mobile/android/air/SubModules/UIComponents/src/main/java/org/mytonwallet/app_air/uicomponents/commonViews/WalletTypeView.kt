@@ -24,7 +24,6 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcontext.utils.solidColorWithAlpha
 import org.mytonwallet.app_air.walletcore.models.MAccount
@@ -43,12 +42,13 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
     private var hardwareTagView: AppCompatImageView? = null
 
     private val walletTypeBlurView: WGlassView? =
-        if (WGlobalStorage.isBlurEnabled() && blurredBackground) {
+        if (blurredBackground) {
             WGlassView(context).apply {
                 flavor = GlassFlavor.FROSTED_PLAIN
                 liquidGlass = false
                 transparentBackstop = true
                 captureExpand = 40f.dp
+                noBlurColor = WColor.White.color.colorWithAlpha(41)
                 setProvider(GlassProviders.legacy(WColor.Transparent))
             }
         } else {
@@ -63,6 +63,10 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
 
     fun setupBlurWith(viewGroup: ViewGroup) {
         walletTypeBlurView?.setupWith(viewGroup)
+    }
+
+    fun updateGlassTheme() {
+        walletTypeBlurView?.updateTheme()
     }
 
     private var account: MAccount? = null
@@ -92,16 +96,10 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
 
     private var backgroundColor = WColor.White.color.colorWithAlpha(41)
     private var color = WColor.White.color.colorWithAlpha(41)
-    private var appliedBlurBackground: Boolean? = null
     fun setColor(backgroundColor: Int, newColor: Int) {
-        val blurBackground = walletTypeBlurView != null && WGlobalStorage.isBlurEnabled()
-        if (this.backgroundColor == backgroundColor &&
-            this.color == newColor &&
-            appliedBlurBackground == blurBackground
-        ) {
+        if (this.backgroundColor == backgroundColor && this.color == newColor) {
             return
         }
-        appliedBlurBackground = blurBackground
 
         val isTemporaryAccount = account?.isTemporary == true
         this.backgroundColor = backgroundColor
@@ -113,6 +111,7 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
         if (viewTagView?.isVisible == true) {
             if (isTemporaryAccount) {
                 walletTypeBlurView?.setTintOverlayColor(null)
+                walletTypeBlurView?.noBlurColor = Color.TRANSPARENT
                 (walletTypeBlurView ?: this).setBackgroundColor(
                     color = Color.TRANSPARENT,
                     radius = 14f.dp,
@@ -121,12 +120,14 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
                     strokeWidth = 1
                 )
             } else {
-                if (walletTypeBlurView == null || !WGlobalStorage.isBlurEnabled()) {
+                val blurView = walletTypeBlurView
+                if (blurView == null) {
                     setBackgroundColor(backgroundColor, 10f.dp)
                 } else {
                     background = null
-                    walletTypeBlurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
-                    walletTypeBlurView.setBackgroundColor(
+                    blurView.noBlurColor = backgroundColor
+                    blurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
+                    blurView.setBackgroundColor(
                         Color.TRANSPARENT,
                         10f.dp,
                         clipToBounds = true
@@ -201,6 +202,7 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
     private fun setupViewTagBackground(account: MAccount) {
         if (account.isTemporary) {
             walletTypeBlurView?.setTintOverlayColor(null)
+            walletTypeBlurView?.noBlurColor = Color.TRANSPARENT
             (walletTypeBlurView ?: this).setBackgroundColor(
                 color = Color.TRANSPARENT,
                 radius = 14f.dp,
@@ -212,12 +214,14 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
                 AccountStore.saveTemporaryAccount(account)
             }
         } else {
-            if (walletTypeBlurView == null || !WGlobalStorage.isBlurEnabled()) {
+            val blurView = walletTypeBlurView
+            if (blurView == null) {
                 setBackgroundColor(backgroundColor, 10f.dp)
             } else {
                 background = null
-                walletTypeBlurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
-                walletTypeBlurView.setBackgroundColor(
+                blurView.noBlurColor = backgroundColor
+                blurView.setTintOverlayColor(backgroundColor.colorWithAlpha(128))
+                blurView.setBackgroundColor(
                     Color.TRANSPARENT,
                     10f.dp,
                     clipToBounds = true

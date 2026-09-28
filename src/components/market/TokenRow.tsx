@@ -19,7 +19,7 @@ interface OwnProps {
 }
 
 function TokenRow({ token, onClick }: OwnProps) {
-  const { slug, token: apiToken, priceText, change } = token;
+  const { slug, token: apiToken, priceText, change, withChainIcon } = token;
 
   const handleClick = useLastCallback(() => {
     onClick(slug);
@@ -27,7 +27,7 @@ function TokenRow({ token, onClick }: OwnProps) {
 
   return (
     <button type="button" className={buildClassName(styles.row, styles.interactive)} onClick={handleClick}>
-      <TokenIcon token={apiToken} size="large" withChainIcon />
+      <TokenIcon token={apiToken} size="large" withChainIcon={withChainIcon} />
       <span className={styles.rowText}>
         <span className={styles.rowTitle}>
           {apiToken.symbol}

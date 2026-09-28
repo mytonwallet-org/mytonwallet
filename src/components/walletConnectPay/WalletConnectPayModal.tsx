@@ -23,6 +23,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
 import AccountSwitcherPill from '../common/AccountSwitcherPill';
+import HeroAmount from '../common/HeroAmount';
 import TransactionBanner from '../common/TransactionBanner';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import Button from '../ui/Button';
@@ -30,7 +31,6 @@ import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
 import Transition from '../ui/Transition';
-import WalletConnectPayAmount from './WalletConnectPayAmount';
 import WalletConnectPayHeader from './WalletConnectPayHeader';
 import WalletConnectPayMerchantLogo from './WalletConnectPayMerchantLogo';
 
@@ -194,7 +194,7 @@ function WalletConnectPayModal({
     if (paymentAmount) {
       const { value, display } = paymentAmount;
       amountNode = (
-        <WalletConnectPayAmount
+        <HeroAmount
           value={toDecimal(-BigInt(value), display.decimals)}
           decimals={display.decimals}
           suffix={display.assetSymbol}

@@ -18,23 +18,29 @@ import styles from './FeeLine.module.scss';
  */
 type OwnProps = Partial<Pick<FeeProps, 'terms' | 'token'>> & Pick<FeeProps, 'precision'> & {
   className?: string;
+  /** Applied to the fee value, including its precision sign, but not to the "Fee" label */
+  feeClassName?: string;
   /** Whether the component is rendered on a landscape layout (with a lighter background) */
   isStatic?: boolean;
   isError?: boolean;
   /** If true, the "Details" button will be shown even when no fee can be displayed. */
   keepDetailsButtonWithoutFee?: boolean;
+  /** If true, the whole line acts as the details button, and only a chevron is added to the fee */
+  noDetailsLabel?: boolean;
   /** If undefined, the details button is not shown */
   onDetailsClick?(): void;
 };
 
 function FeeLine({
   className,
+  feeClassName,
   isStatic,
   isError,
   terms,
   token,
   precision,
   keepDetailsButtonWithoutFee,
+  noDetailsLabel,
   onDetailsClick,
 }: OwnProps) {
   const lang = useLang();
@@ -42,8 +48,10 @@ function FeeLine({
 
   if (terms && token) {
     const langKey = precision === 'exact' ? '$fee_value_with_colon' : '$fee_value';
+    const fee = <Fee terms={terms} token={token} precision={precision} />;
+
     content = lang(langKey, {
-      fee: <Fee terms={terms} token={token} precision={precision} />,
+      fee: feeClassName ? <span className={feeClassName}>{fee}</span> : fee,
     });
   }
 
@@ -52,6 +60,7 @@ function FeeLine({
       className={className}
       isStatic={isStatic}
       isError={isError}
+      noDetailsLabel={noDetailsLabel}
       onDetailsClick={content || keepDetailsButtonWithoutFee ? onDetailsClick : undefined}
       transitionKey={content ? 1 : 0}
     >
@@ -62,7 +71,7 @@ function FeeLine({
 
 export default memo(FeeLine);
 
-type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'isError' | 'onDetailsClick'> & {
+type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'isError' | 'noDetailsLabel' | 'onDetailsClick'> & {
   children?: TeactNode;
   transitionKey?: number;
 };
@@ -74,18 +83,48 @@ export function FeeLineContainer({
   className,
   isStatic,
   isError,
+  noDetailsLabel,
   onDetailsClick,
   children,
   transitionKey = 0,
 }: ContainerProps) {
   const lang = useLang();
 
+  const fullClassName = buildClassName(
+    styles.container, className, isStatic && styles.static, isError && styles.error,
+  );
+  const activeKey = transitionKey + (onDetailsClick ? 0x10000 : 0);
+
+  function handleDetailsKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+
+    // Space would otherwise scroll the modal content
+    e.preventDefault();
+    onDetailsClick!();
+  }
+
+  if (noDetailsLabel && onDetailsClick) {
+    return (
+      <Transition name="fade" activeKey={activeKey} className={fullClassName}>
+        <span
+          role="button"
+          tabIndex={0}
+          className={styles.plainDetails}
+          onClick={() => onDetailsClick()}
+          onKeyDown={handleDetailsKeyDown}
+        >
+          {children}
+          <i
+            className={buildClassName('icon-chevron-right', styles.detailsIcon, styles.plainDetailsIcon)}
+            aria-hidden
+          />
+        </span>
+      </Transition>
+    );
+  }
+
   return (
-    <Transition
-      name="fade"
-      activeKey={transitionKey + (onDetailsClick ? 0x10000 : 0)}
-      className={buildClassName(styles.container, className, isStatic && styles.static, isError && styles.error)}
-    >
+    <Transition name="fade" activeKey={activeKey} className={fullClassName}>
       {children}
       {Boolean(children) && onDetailsClick && ' · '}
       {onDetailsClick && (
@@ -94,6 +133,7 @@ export function FeeLineContainer({
           tabIndex={0}
           className={styles.details}
           onClick={() => onDetailsClick()}
+          onKeyDown={handleDetailsKeyDown}
         >
           {lang('Details')}
           <i className={buildClassName('icon-chevron-right', styles.detailsIcon)} aria-hidden />

@@ -114,12 +114,13 @@ data class MTokenBalance(
         }
 
         fun fromParameters(token: MToken, amount: BigInteger): MTokenBalance {
+            val amountDouble = amount.doubleAbsRepresentation(token.decimals)
             val toBaseCurrency =
                 when {
                     amount == BigInteger.ZERO -> 0.0
 
                     else -> {
-                        token.price?.let { amount.doubleAbsRepresentation(token.decimals) * it }
+                        token.price?.let { amountDouble * it }
                             ?.let {
                                 if (it.isFinite()) it else null
                             }
@@ -131,14 +132,14 @@ data class MTokenBalance(
                 }
             val toBaseCurrency24h =
                 priceYesterday?.let {
-                    amount.doubleAbsRepresentation(token.decimals) *
+                    amountDouble *
                         priceYesterday
                 }
                     ?.let {
                         if (it.isFinite()) it else null
                     }
             val toUsdBaseCurrency =
-                token.priceUsd.let { amount.doubleAbsRepresentation(token.decimals) * it }.let {
+                token.priceUsd.let { amountDouble * it }.let {
                     if (it.isFinite()) it else null
                 }
             return MTokenBalance(

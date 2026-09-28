@@ -5,7 +5,6 @@ import android.os.Looper
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import org.json.JSONArray
-import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
@@ -89,7 +88,6 @@ object NftStore : IStore {
         private set
 
     fun loadCachedNfts(accountId: String) {
-        clearActiveNftData()
         nftData = NftData(
             accountId = accountId
         )
@@ -552,6 +550,7 @@ object NftStore : IStore {
     }
 
     fun removeAccount(accountId: String) {
+        pendingCacheWrites.remove(accountId)
         pendingNewMtwCardsByAccount.remove(accountId)
         mintingAccountIds.remove(accountId)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.remove(accountId) }
@@ -616,22 +615,73 @@ object NftStore : IStore {
 
     private fun clearActiveNftData() {
         nftData = null
+        cacheWriteHandler.removeCallbacksAndMessages(null)
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
+        pendingCacheWrites.clear()
     }
 
+    private class PendingCacheWrite(
+        var nftsToWrite: List<ApiNft>?,
+        var collections: List<MCollectionTabToShow>,
+        var hasHiddenNft: Boolean
+    )
+
+    // Written on cacheExecutor; read by fetchCachedNfts and cleared on reset from other threads.
+    private val pendingCacheWrites = ConcurrentHashMap<String, PendingCacheWrite>()
+
+    private const val CACHE_WRITE_DELAY_MS = 5000L
+    private val cacheWriteHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Updates the in-memory collections and hidden-NFT flag right away. Persisting serializes every
+     * NFT and rewrites the whole cache file, and updates arrive in bursts, so the disk write waits
+     * briefly and keeps only the latest state. Must run on [cacheExecutor].
+     */
     private fun writeToCache(
         accountId: String,
         cachedNfts: List<ApiNft>?,
         shouldWriteNfts: Boolean = true
     ) {
         val nfts = cachedNfts ?: return
-        if (shouldWriteNfts) {
+        val collections = getCollectionsFromNfts(nfts)
+        cachedNftCollections[accountId] = collections
+        val hasHiddenNft = nfts.hasHiddenNfts()
+        cachedHasHiddenNfts[accountId] = hasHiddenNft
+
+        val nftsToWrite = if (shouldWriteNfts) nfts.toList() else null
+        pendingCacheWrites[accountId]?.let {
+            if (nftsToWrite != null) it.nftsToWrite = nftsToWrite
+            it.collections = collections
+            it.hasHiddenNft = hasHiddenNft
+            return
+        }
+        pendingCacheWrites[accountId] = PendingCacheWrite(nftsToWrite, collections, hasHiddenNft)
+        cacheWriteHandler.postDelayed(
+            { cacheExecutor.execute { persistCache(accountId) } },
+            CACHE_WRITE_DELAY_MS
+        )
+    }
+
+    private fun persistCache(accountId: String) {
+        val pending = pendingCacheWrites[accountId] ?: return
+        // Stays readable by fetchCachedNfts until written; only cacheExecutor replaces it.
+        try {
+            writePendingCache(accountId, pending)
+        } finally {
+            pendingCacheWrites.remove(accountId, pending)
+        }
+    }
+
+    private fun writePendingCache(accountId: String, pending: PendingCacheWrite) {
+        if (WGlobalStorage.getAccount(accountId) == null) return
+        pending.nftsToWrite?.let { nfts ->
+            val adapter = WalletCore.moshi.adapter(ApiNft::class.java)
             val jsonString = try {
                 buildString {
                     append("[")
                     nfts.forEachIndexed { index, nft ->
-                        append(nft.toDictionary().toString())
+                        append(adapter.toJson(nft))
                         if (index != nfts.lastIndex) append(",")
                     }
                     append("]")
@@ -646,11 +696,8 @@ object NftStore : IStore {
             }
             WCacheStorage.setNfts(accountId, jsonString)
         }
-        val collections = getCollectionsFromNfts(nfts)
-        writeCollectionsToCache(accountId, collections)
-        val hasHiddenNft = nfts.hasHiddenNfts()
-        WCacheStorage.setHasHiddenNft(accountId, hasHiddenNft)
-        cachedHasHiddenNfts[accountId] = hasHiddenNft
+        writeCollectionsToCache(accountId, pending.collections)
+        WCacheStorage.setHasHiddenNft(accountId, pending.hasHiddenNft)
     }
 
     // NFT update events fire per-account/per-batch, causing a burst of ownership checks.
@@ -895,6 +942,7 @@ object NftStore : IStore {
     }
 
     fun fetchCachedNfts(accountId: String): List<ApiNft>? {
+        pendingCacheWrites[accountId]?.nftsToWrite?.let { return it }
         val nftsString = WCacheStorage.getNfts(accountId) ?: run {
             if (WGlobalStorage.getAccountTonAddress(accountId) == null) "[]" else null
         }

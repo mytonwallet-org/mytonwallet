@@ -34,11 +34,11 @@ import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
 import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import AccountSwitcherSlide from '../common/AccountSwitcherSlide';
+import HeroAmount from '../common/HeroAmount';
 import TokenIcon from '../common/TokenIcon';
 import Modal from '../ui/Modal';
 import Spinner from '../ui/Spinner';
 import Transition from '../ui/Transition';
-import WalletConnectPayAmount from './WalletConnectPayAmount';
 import WalletConnectPayHeader from './WalletConnectPayHeader';
 import WalletConnectPayMerchantLogo from './WalletConnectPayMerchantLogo';
 
@@ -238,7 +238,7 @@ function WalletConnectPayOptionSelectionModal({
         const value = toDecimal(BigInt(fiatAmount.value), fiatAmount.decimals);
 
         return (
-          <WalletConnectPayAmount
+          <HeroAmount
             value={value}
             decimals={fiatAmount.decimals}
             prefix={getShortCurrencySymbol(fiatAmount.slug)}
@@ -250,7 +250,7 @@ function WalletConnectPayOptionSelectionModal({
       const value = toDecimal(BigInt(paymentAmount.value), paymentAmount.display.decimals);
 
       return (
-        <WalletConnectPayAmount
+        <HeroAmount
           value={value}
           decimals={paymentAmount.display.decimals}
           suffix={paymentAmount.display.assetSymbol}

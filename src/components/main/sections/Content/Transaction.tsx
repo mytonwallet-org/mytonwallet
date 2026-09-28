@@ -508,11 +508,11 @@ function Transaction({
 
 export default memo(Transaction);
 
-export function getTransactionHeight(transaction: ApiTransactionActivity, isFuture?: boolean) {
+export function getTransactionHeight(transaction: ApiTransactionActivity) {
   return TRANSACTION_HEIGHT
     + (transaction.nft ? NFT_EXTRA_HEIGHT : 0)
     + (shouldShowTransactionComment(transaction) ? COMMENT_EXTRA_HEIGHT : 0)
-    - (shouldAttachmentTakeSubheader(transaction, isFuture) !== 'none' ? SUBHEADER_RELEASE_HEIGHT : 0);
+    - (shouldAttachmentTakeSubheader(transaction) !== 'none' ? SUBHEADER_RELEASE_HEIGHT : 0);
 }
 
 function shouldAttachmentTakeSubheader(

@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Paint.ANTI_ALIAS_FLAG
 import android.graphics.RectF
+import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.animation.DecelerateInterpolator
@@ -72,12 +73,8 @@ class WSegmentedControlGroup(context: Context) :
             flags = ANTI_ALIAS_FLAG
             style = Paint.Style.FILL
         }
-        sliderShadowPaintLeft.apply {
-            setLayerType(LAYER_TYPE_SOFTWARE, null)
-        }
-        sliderShadowPaintRight.apply {
-            setLayerType(LAYER_TYPE_SOFTWARE, null)
-        }
+        // Hardware rendering draws shape shadow layers only from P.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) setLayerType(LAYER_TYPE_SOFTWARE, null)
         dividerPaint.apply {
             flags = ANTI_ALIAS_FLAG
             style = Paint.Style.STROKE

@@ -115,6 +115,7 @@ class AssetCell(
     private val animationView: WAnimationView by lazy {
         val v = WAnimationView(context)
         v.setBackgroundColor(Color.TRANSPARENT, 16f.dp, true)
+        v.setUseCompositionFrameRate(true)
         v.visibility = GONE
         v
     }
@@ -301,6 +302,7 @@ class AssetCell(
     private var nft: ApiNft? = null
     private var interactionMode: AssetsVM.InteractionMode = AssetsVM.InteractionMode.NORMAL
     private var animationsPaused = false
+    private var isAnimationSuspended = false
     private var daysUntilExpiration: Int? = null
     private var isReadOnly = false
 
@@ -385,7 +387,7 @@ class AssetCell(
                 animationView.visibility = VISIBLE
                 animationView.playFromUrl(
                     url = lottie,
-                    play = !animationsPaused,
+                    play = !animationsPaused && !isAnimationSuspended,
                     onStart = {}
                 )
             }
@@ -409,12 +411,16 @@ class AssetCell(
         updateTheme()
     }
 
-    fun pauseAnimation() {
-        animationView.pauseAnimation()
-    }
-
-    fun resumeAnimation() {
-        animationView.resumeAnimation()
+    fun setAnimationState(paused: Boolean, suspended: Boolean) {
+        if (animationsPaused == paused && isAnimationSuspended == suspended) return
+        animationsPaused = paused
+        isAnimationSuspended = suspended
+        if (animationView.visibility != VISIBLE) return
+        if (paused || suspended) {
+            animationView.pauseAnimation()
+        } else {
+            animationView.resumeAnimation()
+        }
     }
 
     private var shakeAnimator: ObjectAnimator? = null

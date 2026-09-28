@@ -100,7 +100,7 @@ function DappSignDataModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}

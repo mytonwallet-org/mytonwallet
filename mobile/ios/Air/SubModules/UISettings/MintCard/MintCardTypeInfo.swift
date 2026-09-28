@@ -54,6 +54,16 @@ struct MintCardTypeInfo: Identifiable, Sendable {
         }
     }
 
+    /// A disabled capsule drops its accent fill and settles near `surfaceColor`, so the enabled
+    /// title color would sink into it on the tiers whose accent is the brighter of the pair.
+    @MainActor
+    func titleColor(for traits: UITraitCollection, isEnabled: Bool) -> UIColor {
+        guard isEnabled else {
+            return type == .black ? .white : .label
+        }
+        return type == .black || (type == .platinum && traits.userInterfaceStyle == .dark) ? .black : .white
+    }
+
     @MainActor var surfaceColor: UIColor {
         type == .black ? .black : .systemGroupedBackground
     }

@@ -1,0 +1,199 @@
+name: iOS signing expiry backstop
+
+# The weekly check reports by going red and says nothing at all when the signing material is sound,
+# which means a schedule that has stopped firing reads exactly like a healthy week. GitHub is
+# explicit that scheduled runs are delayed under load and that "some queued jobs may be dropped",
+# and a dropped run of that check leaves nothing behind for anyone to miss. This workflow rides on
+# the release pipeline instead, the one thing here that cannot stop running quietly, and asks the
+# check to run when nothing has run it for over a week.
+#
+# It asks rather than repeating the check, and that is what keeps this file from having to reason
+# about its own runs. The history it reads belongs to the other workflow, so the runs this one leaves
+# behind - seventeen a day, nearly all of them concluding that there is nothing to do - can never be
+# mistaken for evidence that the check itself happened.
+
+on:
+  workflow_run:
+    workflows: ["Package and publish"]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  actions: write # read the check's run history, and ask it to run
+  # Declaring any permission sets the rest to none, and the dispatch path is the one place here that
+  # would find that out days after a merge, in a red run nobody is waiting for. The endpoints it
+  # calls are both under actions, so this looks unnecessary; the reference does not say either way
+  # for a job token, and a read scope on a repository the job is already running from is not worth
+  # finding out the hard way.
+  contents: read
+
+# Releases land in bursts, and runs finishing minutes apart would each read the same stale history
+# and each ask for a check. Queueing them means the second sees what the first already asked for.
+# Nothing is cancelled in flight, because the run being replaced may be the one doing the asking,
+# and a burst is collapsed anyway by GitHub keeping a single run pending.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  stand-in:
+    name: Run the signing check if nothing else has
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the check to run when it is overdue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, json, os, subprocess, sys
+
+          CHECK = "ios-signing-expiry.yml"
+          REF = os.environ.get("REF") or "master"
+          RUNS = f"repos/{os.environ['REPO']}/actions/workflows/{CHECK}/runs"
+          MAX_AGE_DAYS = 8
+          NOW = datetime.datetime.now(datetime.timezone.utc)
+          # A run that read a certificate is one that ran, or is about to. Everything else - called
+          # off, never started - read nothing, and an accept list is what keeps a status nobody here
+          # has heard of from counting as proof by default.
+          # timed_out is not in here: the check prints its verdict at the end, so a run that ran out
+          # of time is one that read some of the material and reported on none of it.
+          RAN = {"success", "failure", "neutral"}
+          ABOUT_TO = {"queued", "in_progress", "requested", "pending", "waiting"}
+          PENDING_PATIENCE_HOURS = 24
+
+          # Only runs on the branch this backstop covers. The check can be dispatched from any
+          # branch, and off the default one it does not merely read different code: the signing
+          # secrets belong to the production environment, whose branch policy refuses most branches
+          # outright, so such a run fails without opening a single certificate. Counted unfiltered,
+          # that failure would pass for the check having happened and buy eight days of quiet.
+          done = subprocess.run(
+              ["gh", "api", f"{RUNS}?branch={REF}&per_page=20"], capture_output=True
+          )
+          try:
+              runs = json.loads(done.stdout)["workflow_runs"] if done.returncode == 0 else None
+          except (ValueError, KeyError, TypeError):
+              runs = None
+
+          if runs is None:
+              # Everything this history is read for is a saving: it decides how often the check runs,
+              # never whether the material is sound, and a run of it costs seconds. Staying quiet on
+              # an unreadable answer would trade that saving for a signal that is gone for as long as
+              # the answer stays unreadable, and a revoked permission does not heal by itself.
+              print("::warning::Could not read the run history of the check, so it is being asked to"
+                    " run rather than trusting that something else ran it recently")
+              runs = []
+
+          # GitHub's own bookends around a job, which run whatever the job itself does.
+          IMPLICIT_STEPS = {"Set up job", "Complete job"}
+
+          def executed(run_id):
+              """Whether a step of that run actually ran. Neither the run's conclusion nor the job's
+              is enough, because a job that never started - a rejected environment approval, an
+              environment a branch may not deploy to - is still reported as a failure, and that
+              would pass for a check that read a certificate. A job stopped before it began has no
+              steps of its own, so the steps are what answers this. Nothing is matched by name
+              beyond skipping GitHub's two bookends, since the check is a job with a single step:
+              if a step of its own ran, the certificates were read."""
+              done = subprocess.run(
+                  ["gh", "api", f"repos/{os.environ['REPO']}/actions/runs/{run_id}/jobs"],
+                  capture_output=True,
+              )
+              if done.returncode != 0:
+                  return False
+              try:
+                  jobs = json.loads(done.stdout)["jobs"]
+              except (ValueError, KeyError, TypeError):
+                  return False
+              return any(
+                  step.get("conclusion") in RAN
+                  for job in jobs
+                  for step in job.get("steps") or []
+                  if step.get("name") not in IMPLICIT_STEPS
+              )
+
+          stamps = []
+          stuck = []
+          for run in runs:
+              # A failure counts: that is the check working. So does a run still queued or under way,
+              # since a check about to answer needs no second copy racing it - including one held
+              # for an environment approval, which this environment does not ask for but may.
+              conclusion, status = run.get("conclusion"), run.get("status")
+              pending = conclusion is None and status in ABOUT_TO
+              if conclusion not in RAN and not pending:
+                  continue
+              try:
+                  stamp = datetime.datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+              except (KeyError, ValueError):
+                  continue
+              # Only while it is fresh, though. One sitting in a queue or on an unanswered approval
+              # for a day is not about to answer anything, and letting it count would buy a week of
+              # silence from a run that never starts - the same trade this whole file exists to
+              # refuse. It is named out loud, because a check nobody approves is worth knowing about.
+              if pending and (NOW - stamp).total_seconds() >= PENDING_PATIENCE_HOURS * 3600:
+                  stuck.append(run)
+                  continue
+              # A pending run has nothing to inspect yet and is counted on its freshness alone. A
+              # finished one is asked whether anything in it actually ran, and an unreadable answer
+              # counts as no - the cost of asking again is a run of the check, and the cost of
+              # assuming is not knowing when a certificate expires.
+              if not pending and not executed(run.get("id")):
+                  print(f"::warning::The run from {run.get('created_at')} concluded"
+                        f" {conclusion} without running anything, so it is not counted as a check")
+                  continue
+              stamps.append(stamp)
+
+          def describe(run):
+              return f"{run.get('status')} since {run.get('created_at')}"
+
+          latest = max(stamps) if stamps else None
+          if latest is not None and (NOW - latest).days < MAX_AGE_DAYS:
+              # Worth a note but not a red run: something else is checking, and one run stuck in a
+              # queue while the rest go through is an oddity rather than a monitor that has stopped.
+              for run in stuck:
+                  print(f"::warning::A run of the check has been {describe(run)} and is not counted"
+                        " as one that ran")
+              print(f"The check ran {(NOW - latest).days} days ago, so there is nothing to ask for.")
+              raise SystemExit(0)
+
+          silent = f"{(NOW - latest).days} days" if latest else "as long as it has existed"
+          print(f"::warning::The signing check has not run in {silent}, so this release run is"
+                " asking for it")
+          # --repo, because gh works out the repository from the git remotes of the directory it
+          # runs in and there is no checkout here: without it this fails at the one moment it is
+          # needed. The api calls above name the repository in their paths already.
+          done = subprocess.run(
+              ["gh", "workflow", "run", CHECK, "--repo", os.environ["REPO"], "--ref", REF],
+              capture_output=True,
+          )
+          if done.returncode != 0:
+              # Worth going red for, and worth naming which failure it is, because a workflow that
+              # has been switched off cannot be dispatched and the reason is in its state:
+              # disabled_manually is somebody's decision, disabled_inactivity is GitHub's own
+              # housekeeping on public repositories. Neither is re-enabled from here. Reversing a
+              # decision somebody made, seventeen times a day and without being asked, is not what a
+              # backstop is for, and the run going red says enough for whoever did it to decide.
+              state = subprocess.run(
+                  ["gh", "api", f"repos/{os.environ['REPO']}/actions/workflows/{CHECK}",
+                   "--jq", ".state"],
+                  capture_output=True,
+              )
+              state = state.stdout.decode().strip() if state.returncode == 0 else "unreadable"
+              print(f"::error::Could not start {CHECK}, whose state is {state}:"
+                    f" {done.stderr.decode().strip()}")
+              sys.exit(1)
+
+          # A replacement is now queued, and the run still goes red, because nothing else here would
+          # say so: a check held for a day in a queue or on an approval nobody answers is a monitor
+          # that has stopped, and an annotation on a green run is exactly the kind of silence this
+          # file exists to refuse. Only when nothing fresher is pending, so the alarm arrives about
+          # once a day while the condition holds rather than on all seventeen releases.
+          if stuck:
+              for run in stuck:
+                  print(f"::error::A run of the check has been {describe(run)}, so the expiry of the"
+                        " signing material is not being read")
+              sys.exit(1)
+          PY

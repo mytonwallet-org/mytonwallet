@@ -217,7 +217,13 @@ class ActivityListView<T>(
             homeActivitiesLimit = WGlobalStorage.getHomeActivitiesTopLimit(showingAccountId)
             refreshCollectiblesCard(showingAccountId)
             activityLoader =
-                ActivityLoader(context, showingAccountId, null, WeakReference(this))
+                ActivityLoader(
+                    context,
+                    showingAccountId,
+                    null,
+                    WeakReference(this),
+                    minimumVisibleCount = if (usesCardSections) homeActivitiesLimit + 2 else 0
+                )
             activityLoader?.askForActivities()
             tokensCell?.configure(showingAccountId)
             assetsCell?.configure(showingAccountId)
@@ -285,6 +291,7 @@ class ActivityListView<T>(
     // phone shared vs tablet per-instance actions), so cached instances are dropped and rebuilt on
     // the next bind.
     fun onWideLayoutChanged() {
+        activityLoader?.setMinimumVisibleCount(if (usesCardSections) homeActivitiesLimit + 2 else 0)
         clearRemovingActivities()
         assetsCell?.let {
             if (it.isInDragMode) it.endSorting(false)
@@ -628,6 +635,7 @@ class ActivityListView<T>(
         private var prevState = RecyclerView.SCROLL_STATE_IDLE
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
+            assetsCell?.setAnimationsSuspended(newState != RecyclerView.SCROLL_STATE_IDLE)
             val dataSource = dataSource ?: return
             if (newState == RecyclerView.SCROLL_STATE_DRAGGING &&
                 prevState == RecyclerView.SCROLL_STATE_SETTLING
@@ -1028,6 +1036,7 @@ class ActivityListView<T>(
         val isReducing = limit < homeActivitiesLimit
         homeActivitiesLimit = limit
         WGlobalStorage.setHomeActivitiesTopLimit(accountId, limit)
+        activityLoader?.setMinimumVisibleCount(if (usesCardSections) limit + 2 else 0)
         clearRemovingActivities()
         showAllRowShown = showsShowAllActivitiesRow
         oldDisplayedTransactions = showingTransactions?.take(displayedTransactionsCount)
@@ -1161,6 +1170,7 @@ class ActivityListView<T>(
             }
         }
         cell.onScrollToVisibleRequested = { scrollAssetsCellToVisible() }
+        cell.setAnimationsSuspended(recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
         return cell
     }
 

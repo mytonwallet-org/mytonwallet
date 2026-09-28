@@ -1,10 +1,13 @@
 package org.mytonwallet.app_air.walletcore.stores
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -315,17 +318,22 @@ object TokenStore : IStore {
 
     private val cacheScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private const val CACHE_WRITE_DELAY_MS = 5000
 
-    @Volatile
-    private var tokensCacheJob: Job? = null
-
-    @Volatile
-    private var swapCacheJob: Job? = null
+    // Updates arrive in bursts (several per second after unlock); each write serializes every token
+    // and rewrites the whole cache file, so a write waits briefly and persists the latest snapshot.
+    private val pendingTokensCache = AtomicReference<List<MToken>?>()
+    private val pendingSwapCache = AtomicReference<List<MToken>?>()
 
     fun updateSwapCache() {
-        val snapshot = ArrayList(swapAssetTokensBySlug?.values ?: emptyList())
-        swapCacheJob?.cancel()
-        swapCacheJob = cacheScope.launch {
+        if (pendingSwapCache.getAndSet(ArrayList(swapAssetTokensBySlug?.values ?: emptyList())) !=
+            null
+        ) {
+            return
+        }
+        cacheScope.launch {
+            delay(CACHE_WRITE_DELAY_MS.milliseconds)
+            val snapshot = pendingSwapCache.getAndSet(null) ?: return@launch
             try {
                 val json = tokensToJsonString(snapshot)
                 ensureActive()
@@ -341,9 +349,10 @@ object TokenStore : IStore {
     }
 
     fun updateTokensCache() {
-        val snapshot = ArrayList(tokens.values)
-        tokensCacheJob?.cancel()
-        tokensCacheJob = cacheScope.launch {
+        if (pendingTokensCache.getAndSet(ArrayList(tokens.values)) != null) return
+        cacheScope.launch {
+            delay(CACHE_WRITE_DELAY_MS.milliseconds)
+            val snapshot = pendingTokensCache.getAndSet(null) ?: return@launch
             try {
                 val json = tokensToJsonString(snapshot)
                 ensureActive()
@@ -455,8 +464,9 @@ object TokenStore : IStore {
     }
 
     fun clearDownloadedData() {
-        tokensCacheJob?.cancel()
-        swapCacheJob?.cancel()
+        cacheScope.coroutineContext.cancelChildren()
+        pendingTokensCache.set(null)
+        pendingSwapCache.set(null)
         clearCache()
         tokens = ConcurrentHashMap()
         _tokensFlow.value = null

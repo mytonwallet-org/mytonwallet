@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.walletcore.stores
 
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.mytonwallet.app_air.native_enclave.EnclaveManager
@@ -106,17 +107,18 @@ object AuthStore : IStore {
 
         fun performAuth() {
             WalletCore.scope.launch {
-                val upgradeAccountIds = pendingMultichainUpgradeAccountIds()
-                val usageCount = 1 + extraUsages + upgradeAccountIds.size
+                // Resolved while the passcode is verified; it only sets the session's usage count.
+                val upgradeAccountIds = async { pendingMultichainUpgradeAccountIds() }
 
                 val needsLegacyMigration = LegacyMigration.needsMigration()
                 if (needsLegacyMigration) {
+                    val accountIds = upgradeAccountIds.await()
                     withContext(Dispatchers.Main) {
                         performLegacyMigration(
                             activity,
                             passcode,
-                            usageCount,
-                            upgradeAccountIds,
+                            1 + extraUsages + accountIds.size,
+                            accountIds,
                             callback
                         )
                     }
@@ -127,7 +129,13 @@ object AuthStore : IStore {
                         AuthType.PASSCODE,
                         shouldCreateLongSession,
                         passcode,
-                        usageCount
+                        onAuthenticated = { createSession ->
+                            WalletCore.scope.launch {
+                                createSession.accept(
+                                    1 + extraUsages + upgradeAccountIds.await().size
+                                )
+                            }
+                        }
                     ) { token, validUntil, error ->
                         WalletCore.scope.launch(Dispatchers.Main) {
                             if (token != null) {
@@ -136,7 +144,7 @@ object AuthStore : IStore {
                                     longSessionValidUntil = validUntil
                                 }
                                 submitSuccessfulLogin()
-                                startMultichainUpgradeIfNeeded(token, upgradeAccountIds)
+                                startMultichainUpgradeIfNeeded(token, upgradeAccountIds.await())
                                 callback(true, token, null, null)
                             } else if (error != null) {
                                 callback(false, null, null, error)

@@ -101,6 +101,7 @@ class WSegmentedController(
 
     private var isAnimatingChangeTab = false
     private var lastFullyVisible: Int = 0
+    private var isLastFullyVisiblePartial = false
     private var lastNotifiedSelectedIndex: Int? = null
     private var isUserInteracting = false
     private var lastTargetIndex = 0
@@ -132,18 +133,29 @@ class WSegmentedController(
                         )?.viewController as? WSegmentedControllerItemVC
                         )?.onPartiallyVisible()
                     lastFullyVisible = position
+                    isLastFullyVisiblePartial = false
                     (
                         items.getOrNull(
                             lastFullyVisible
                         )?.viewController as? WSegmentedControllerItemVC
                         )?.onFullyVisible()
                     notifySelectedIndexChanged(position)
-                } else {
+                } else if (currentOffset != position.toFloat()) {
+                    if (!isLastFullyVisiblePartial) {
+                        isLastFullyVisiblePartial = true
+                        (
+                            items.getOrNull(
+                                lastFullyVisible
+                            )?.viewController as? WSegmentedControllerItemVC
+                            )?.onPartiallyVisible()
+                    }
+                } else if (isLastFullyVisiblePartial) {
+                    isLastFullyVisiblePartial = false
                     (
                         items.getOrNull(
                             lastFullyVisible
                         )?.viewController as? WSegmentedControllerItemVC
-                        )?.onPartiallyVisible()
+                        )?.onFullyVisible()
                 }
                 onOffsetChange?.invoke(position, currentOffset)
                 clearSegmentedControl.updateThumbPosition(

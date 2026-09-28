@@ -13,17 +13,33 @@ import IconWithTooltip from '../ui/IconWithTooltip';
 import styles from './Dapp.module.scss';
 
 interface OwnProps {
-  url?: string;
   iconClassName?: string;
   /** When omitted, treated as `unknown` (legacy). */
   urlTrustStatus?: ApiDappurlTrustStatusStatus;
+  isCompact?: boolean;
 }
 
-function DappHostWarning({ url, iconClassName, urlTrustStatus = 'unknown' }: OwnProps) {
+function DappHostWarning({
+  iconClassName, urlTrustStatus = 'unknown', isCompact,
+}: OwnProps) {
   const lang = useLang();
 
   if (urlTrustStatus === 'verified') {
     return;
+  }
+
+  const direction = isCompact ? 'top' : 'bottom';
+
+  if (isCompact && urlTrustStatus === 'unknown') {
+    return (
+      <IconWithTooltip
+        direction={direction}
+        message={renderText(lang('$dapp_identity_not_confirmed'))}
+        type="warning"
+        size="small"
+        iconClassName={iconClassName}
+      />
+    );
   }
 
   const reopenBody = (
@@ -68,7 +84,7 @@ function DappHostWarning({ url, iconClassName, urlTrustStatus = 'unknown' }: Own
 
   return (
     <IconWithTooltip
-      direction="bottom"
+      direction={direction}
       message={(
         <>
           <b>{title}</b>

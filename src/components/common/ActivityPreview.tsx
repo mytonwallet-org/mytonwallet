@@ -13,7 +13,6 @@ import type {
 import type { Account, AppTheme, SavedAddress } from '../../global/types';
 
 import renderText from '../../global/helpers/renderText';
-import buildClassName from '../../util/buildClassName';
 
 import useLang from '../../hooks/useLang';
 
@@ -38,7 +37,8 @@ type OwnProps = {
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
   shouldHideStakingAnnualYield?: boolean;
-  className?: string;
+  /** If undefined, the fee line is not clickable */
+  onFeeDetailsClick?: NoneToVoidFunction;
 };
 
 function ActivityPreview({
@@ -56,7 +56,7 @@ function ActivityPreview({
   baseCurrency,
   currencyRates,
   shouldHideStakingAnnualYield,
-  className,
+  onFeeDetailsClick,
 }: OwnProps) {
   const lang = useLang();
 
@@ -70,11 +70,15 @@ function ActivityPreview({
   }
 
   return (
-    <div className={className}>
+    <div className={styles.root}>
       <p className={styles.label}>
         {lang('Preview')}
         {' '}
-        <IconWithTooltip message={renderText(lang('$preview_not_guaranteed'))} type="warning" size="small" />
+        <IconWithTooltip
+          message={renderText(lang('$preview_not_guaranteed'))}
+          type="warning"
+          size="small"
+        />
       </p>
       <div className={styles.activityList}>
         {visibleActivities.map((activity, index) => (
@@ -102,7 +106,10 @@ function ActivityPreview({
           terms={{ native: realFee }}
           token={feeToken}
           precision="approximate"
-          className={buildClassName(styles.fee)}
+          className={styles.fee}
+          feeClassName={styles.feeValue}
+          noDetailsLabel
+          onDetailsClick={onFeeDetailsClick}
         />
       )}
     </div>

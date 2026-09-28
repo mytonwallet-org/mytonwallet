@@ -20,7 +20,7 @@ interface OwnProps {
 }
 
 function MoverCard({ token, onClick }: OwnProps) {
-  const { slug, token: apiToken, name, priceText, change, sparkline, tintColor } = token;
+  const { slug, token: apiToken, name, priceText, change, sparkline, tintColor, withChainIcon } = token;
 
   const handleClick = useLastCallback(() => {
     onClick(slug);
@@ -32,7 +32,7 @@ function MoverCard({ token, onClick }: OwnProps) {
   return (
     <button type="button" className={buildClassName(styles.card, styles.moverCard)} style={style} onClick={handleClick}>
       {sparkline && <Sparkline points={sparkline} />}
-      <TokenIcon token={apiToken} withChainIcon iconClassName={styles.moverIcon} />
+      <TokenIcon token={apiToken} withChainIcon={withChainIcon} iconClassName={styles.moverIcon} />
       <span className={styles.moverName}>{name}</span>
       <span className={styles.moverPrice}>
         {priceText}

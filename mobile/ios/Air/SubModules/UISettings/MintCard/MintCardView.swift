@@ -88,6 +88,7 @@ final class MintCardView: UIView {
 
     private func updateControls(animated: Bool = false) {
         let showsCountdown = cardsInfo?[info.type]?.mintCountdownDate != nil
+        let isEnabled = purchase.isEnabled && !isSubmitting
         var configuration: UIButton.Configuration
         if showsCountdown {
             configuration = .filled()
@@ -102,7 +103,7 @@ final class MintCardView: UIView {
         configuration.buttonSize = .large
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
         configuration.baseBackgroundColor = info.accentColor(for: traitCollection)
-        configuration.baseForegroundColor = info.type == .black || (info.type == .platinum && traitCollection.userInterfaceStyle == .dark) ? .black : .white
+        configuration.baseForegroundColor = info.titleColor(for: traitCollection, isEnabled: isEnabled)
         let font = WTypography.uiFont(.bodyEmphasized, scaling: .dynamic)
         var titleAttributes: [NSAttributedString.Key: Any] = [.font: font]
         if showsCountdown {
@@ -115,7 +116,7 @@ final class MintCardView: UIView {
         configuration.showsActivityIndicator = isSubmitting
         MintCardTransition.crossfade(upgradeButton, animated: animated) {
             self.upgradeButton.configuration = configuration
-            self.upgradeButton.isEnabled = self.purchase.isEnabled && !self.isSubmitting
+            self.upgradeButton.isEnabled = isEnabled
         }
         upgradeButton.accessibilityLabel = purchase.title
         upgradeButton.accessibilityValue = isSubmitting ? lang("Loading") : nil

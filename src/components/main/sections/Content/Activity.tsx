@@ -105,6 +105,6 @@ export default function Activity({
   }
 }
 
-export function getActivityHeight(activity: ApiActivity, isFuture?: boolean) {
-  return activity.kind === 'swap' ? getSwapHeight() : getTransactionHeight(activity, isFuture);
+export function getActivityHeight(activity: ApiActivity) {
+  return activity.kind === 'swap' ? getSwapHeight() : getTransactionHeight(activity);
 }

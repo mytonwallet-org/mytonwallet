@@ -60,6 +60,8 @@ class AssetsVM(
         private set
     private val selectedAssets: MutableSet<String> = LinkedHashSet()
     private var animationsPaused: Boolean? = null
+    val areAnimationsPaused: Boolean
+        get() = animationsPaused == true
     private var expiringDomains: List<ApiNft> = emptyList()
     private var expiringDomainsRefreshJob: Job? = null
 
@@ -246,7 +248,6 @@ class AssetsVM(
 
     private fun rebuildAssetRows() {
         val visibleNfts = nfts.orEmpty()
-        val areAnimationsPaused = animationsPaused == false
         val expirationByAddress = NftStore.nftData?.expirationByAddress
         val nowMs = System.currentTimeMillis()
         val dayMs = 1.days.inWholeMilliseconds

@@ -1,6 +1,8 @@
 package org.mytonwallet.app_air.walletbasecontext.utils
 
+import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.math.abs
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 
 @Suppress("PropertyName")
@@ -16,20 +18,19 @@ const val signSpace = '\u200A'
 
 fun max(a: BigInteger, b: BigInteger): BigInteger = if (a > b) a else b
 
+private val exactPowersOfTen = DoubleArray(23).also {
+    it[0] = 1.0
+    for (i in 1 until it.size) it[i] = it[i - 1] * 10
+}
+
 fun BigInteger.doubleAbsRepresentation(decimals: Int? = null): Double {
-    val absValue = this.abs()
-    var str = absValue.toString()
-    // Number of decimals to ensure (default is 9)
-    val decimalPlaces = decimals ?: 9
-    // Ensure the string has enough digits
-    while (str.length < decimalPlaces + 1) {
-        str = "0$str"
+    val scale = decimals ?: 9
+    // An integer below 2^53 and 10^scale up to 10^22 are exact doubles, so their quotient is rounded
+    // once, exactly like parsing the decimal string.
+    if (bitLength() <= 53 && scale in exactPowersOfTen.indices) {
+        return abs(toLong()).toDouble() / exactPowersOfTen[scale]
     }
-    // Insert the decimal point
-    val integerPart = str.substring(0, str.length - decimalPlaces)
-    val fractionalPart = str.substring(str.length - decimalPlaces)
-    val formattedStr = "$integerPart.$fractionalPart"
-    return formattedStr.toDouble()
+    return BigDecimal(this.abs(), scale).toPlainString().toDouble()
 }
 
 // Format amount into string with separator

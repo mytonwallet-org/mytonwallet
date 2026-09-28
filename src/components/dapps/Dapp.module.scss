@@ -7,6 +7,8 @@ $labelSkeletonHeight: 1rem;
 $labelSidePadding: 0.5rem;
 
 .modalDialog {
+  // Without this, the content sticks out past the rounded edges of the modal
+  overflow: hidden;
   height: 41rem;
 
   @supports (height: var(--safe-area-bottom)) {
@@ -15,14 +17,6 @@ $labelSidePadding: 0.5rem;
 
   @media (min-width: 416.01px) {
     max-width: 24rem;
-  }
-}
-
-.modalDialogExtraHeight {
-  height: 40.25rem;
-
-  @supports (height: var(--safe-area-bottom)) {
-    height: calc(40.25rem + var(--safe-area-bottom));
   }
 }
 
@@ -45,20 +39,154 @@ $labelSidePadding: 0.5rem;
   border-radius: var(--border-radius-default);
 
   background-color: var(--color-background-first);
+}
 
-  &_first {
-    margin-top: 0.125rem;
-  }
+// The pills stand 0.625rem from the modal edges, closer than the 1rem content padding
+.requestHeader {
+  display: flex;
+  align-items: center;
+  margin: 0.625rem -0.375rem 1.25rem;
 
-  &_push {
-    margin-bottom: 1.25rem;
+  // Toggled directly on the element by `usePillIcons`
+  &_noIcons .headerPillLeadingIcon,
+  &_noIcons .headerPillTrailingIcon {
+    display: none;
   }
+}
 
-  &_transfer {
-    z-index: 1;
-    padding: 0.75rem 0.6875rem;
-    background-color: unset;
+// The account pill cannot shrink below the balance, because the wallet name adds nothing to its minimum width (see
+// `.headerPillWalletName`). So a narrow header truncates the wallet name and the dapp pill, but never the balance.
+.headerPill {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+
+  height: 2.75rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 6.25rem;
+
+  background-color: var(--color-close-button-background);
+
+  &_dapp {
+    min-width: 0;
   }
+}
+
+// The pill padding is sized for text. Icons are pulled closer to the rounded edge, so when the icons are hidden,
+// the text still keeps its full padding. `ICON_SPACE` in `usePillIcons` mirrors these sizes.
+.headerPillLeadingIcon {
+  margin-inline-start: -0.5rem;
+}
+
+.headerPillTrailingIcon {
+  margin-inline-end: -0.5rem;
+}
+
+.headerPillAvatar {
+  flex-shrink: 0;
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: 0.6875rem !important;
+}
+
+.headerPillText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  &_dapp {
+    align-items: flex-end;
+  }
+}
+
+.headerPillTitle {
+  overflow: hidden;
+
+  max-width: 100%;
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The amount stands 3.125rem below the pills and 3rem above the first label. Padding, unlike margin, keeps
+// the own `margin-bottom` of `HeroAmount` from collapsing into this spacing.
+.totalAmount {
+  padding: 1.875rem 0 1.75rem;
+}
+
+// `SensitiveData` renders the balance as an inline block, which would otherwise sit in a line box as tall as the
+// inherited line height and push the wallet name down. With no line height of its own and top alignment, the
+// wrapper is exactly as tall as the balance.
+.headerPillSensitiveData {
+  line-height: 0;
+}
+
+.headerPillSensitiveDataContent {
+  vertical-align: top;
+}
+
+// The whole and fractional parts have their own line heights and sit on a common bottom edge
+.headerPillBalance {
+  display: flex;
+  align-items: flex-end;
+}
+
+.headerPillTitleSecondary {
+  font-size: 0.75rem;
+  line-height: 0.875rem;
+}
+
+.headerPillWarningIcon {
+  font-size: 0.75rem !important;
+}
+
+.headerPillSubtitle {
+  display: flex;
+  gap: 0.125rem;
+  align-items: center;
+
+  min-width: 0;
+  max-width: 100%;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+}
+
+.headerPillSubtitleText {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Breaking anywhere lets the name wrap down to a single character, so it never widens the account pill's minimum.
+// The one-line clamp still shows it on a single line with an ellipsis. `word-break: break-all` fills that line to
+// the edge; `overflow-wrap: anywhere` would move a long word after a space to the hidden second line whole,
+// ending the visible line early with empty space before the pill edge.
+.headerPillWalletName {
+  @supports (-webkit-line-clamp: 1) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+
+    word-break: break-all;
+    white-space: normal;
+  }
+}
+
+.headerPillLink {
+  flex: 1;
+
+  min-width: 0.5rem;
+  height: 0;
+  margin-inline: 0.375rem;
+  border-block-start: 0.0625rem dashed var(--color-gray-4);
 }
 
 .dappIcon {
@@ -111,28 +239,17 @@ $labelSidePadding: 0.5rem;
     background: var(--color-default-dapp-logo-background);
   }
 
-  .dapp_transfer & {
-    width: 2.625rem;
-    height: 2.625rem;
+  &_round {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
   }
 }
 
-.transactionAccount {
-  padding: 0.75rem 1rem;
-}
-
-.transactionAccount,
 .dappInfo {
   flex: 1;
   // Allows the flex cell to be clamped
   min-width: 0;
-
-  .dapp_transfer & {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    max-width: 100%;
-  }
 }
 
 .dappLargePreviewBlock {
@@ -220,11 +337,6 @@ $labelSidePadding: 0.5rem;
 
 .dappHostWarningIcon {
   margin-inline-end: 0.25rem;
-
-  .dapp_transfer & {
-    margin-inline-start: 0.25rem;
-    margin-inline-end: unset;
-  }
 }
 
 .dappHostWarningText {
@@ -239,13 +351,6 @@ $labelSidePadding: 0.5rem;
   font-weight: 600;
   line-height: 0.9375rem;
   color: var(--color-black);
-
-  .dapp_transfer & {
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1.25rem;
-    color: var(--color-card-text);
-  }
 }
 
 .dappHost {
@@ -256,13 +361,6 @@ $labelSidePadding: 0.5rem;
   font-weight: 600;
   line-height: 0.75rem;
   color: var(--color-gray-2);
-
-  .dapp_transfer & {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    line-height: 1rem;
-    color: var(--color-card-second-text);
-  }
 }
 
 .dappDisconnect {
@@ -297,7 +395,8 @@ $labelSidePadding: 0.5rem;
 }
 
 .rowContainerSkeleton,
-.dataField {
+.dataField,
+.transferWarning {
   margin-bottom: $fieldGap;
 }
 
@@ -436,67 +535,6 @@ $labelSidePadding: 0.5rem;
   vertical-align: bottom;
 }
 
-.transactionDirection {
-  --color-skeleton-shimmer: var(--color-card-button-shimmer);
-  --skeleton-background-color: var(--color-card-button);
-
-  position: relative;
-
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: center;
-
-  min-height: 4rem;
-  margin: 0.375rem 0 1.25rem;
-  border-radius: var(--border-radius-default);
-
-  color: var(--color-card-text);
-
-  background: #3679C0 url(../../assets/transfer_dapp_bg.jpg) no-repeat 50% 0;
-  background-size: cover;
-
-  &::after {
-    content: '';
-
-    position: absolute;
-    top: 0;
-    inset-inline-start: calc(50% - 1.5rem / 2);
-
-    width: calc(50% + 1.5rem / 2);
-    height: 100%;
-    border-start-start-radius: 0;
-    border-start-end-radius: var(--border-radius-default);
-    border-end-start-radius: 0;
-    border-end-end-radius: var(--border-radius-default);
-
-    background: url("../../assets/transfer_dapp_info_bg.svg") no-repeat 0 0;
-    background-size: cover;
-  }
-}
-
-.accountTitle {
-  margin-bottom: 0.25rem;
-
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.25rem;
-  white-space: nowrap;
-}
-
-.accountBalance {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1rem;
-  color: var(--second-text, var(--color-card-second-text));
-}
-
-.accountBalance,
-.accountTitle {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .sticker {
   margin: 0 auto 1.25rem;
 
@@ -505,75 +543,50 @@ $labelSidePadding: 0.5rem;
   }
 }
 
-.dappInfoSkeleton {
-  --skeleton-background-color: var(--color-separator-input-stroke);
+.headerPillSkeleton {
+  // The placeholders sit on the pill background, so they need a darker shade than the default one
+  --skeleton-background-color: var(--color-gray-4);
 
-  display: flex;
-  gap: 0.625rem;
-  align-items: center;
-
-  height: 4rem;
-  padding: 0.875rem 1rem;
-  border-radius: var(--border-radius-default);
-
-  background-color: var(--color-background-first);
+  width: 8.625rem;
 }
 
-.dappInfoIconSkeleton {
-  width: 2.625rem;
-  height: 2.625rem;
-  border-radius: var(--border-radius-tiny);
+.headerPillAvatarSkeleton {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
 }
 
-.nameSkeleton,
-.descSkeleton {
+// Each placeholder sits inside the 1rem line of the text it stands for, so the column keeps the text height
+.headerPillTitleSkeleton {
+  width: 5rem;
   height: 0.75rem;
+  margin-block: 0.125rem;
   border-radius: var(--border-radius-tiny);
 }
 
-.accountTitleSkeleton {
-  width: 7rem;
-  height: 0.875rem;
-}
-
-.accountBalanceSkeleton {
-  width: 4rem;
-  height: 0.6875rem;
-}
-
-.nameDappSkeleton {
+.headerPillSubtitleSkeleton {
   width: 3.5rem;
-  height: 0.875rem;
+  height: 0.625rem;
+  margin-block: 0.1875rem;
+  border-radius: var(--border-radius-tiny);
 }
 
-.descDappSkeleton {
-  width: 2.5rem;
-  height: 0.6875rem;
-}
+// The real content is laid out in a flex column, where vertical margins don't collapse. The skeleton needs the same
+// layout: in a plain block, the header and the amount placeholder would share one margin, and the content would jump.
+.skeleton {
+  --skeleton-background-color: var(--color-gray-button-background);
 
-.transactionDirectionLeftSkeleton {
   display: flex;
   flex-direction: column;
-  gap: 0.4375rem;
-  margin-inline-start: 1rem;
 }
 
-.transactionDirectionRightSkeleton {
-  display: flex;
-  flex-direction: row-reverse;
-  gap: 0.625rem;
-  align-items: center;
-  justify-self: flex-end;
-
-  width: 8.125rem;
-  margin-inline-end: 0.6875rem;
-}
-
-.dappInfoDataSkeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4375rem;
-  align-items: flex-end;
+// The placeholder is centered on where the amount appears, so it starts 0.3125rem higher and ends 0.3125rem lower
+.heroAmountSkeleton {
+  width: 7rem;
+  height: 3rem;
+  margin: 1.5625rem auto 2.6875rem;
+  border-radius: 1.5rem;
 }
 
 .rowSkeleton {
@@ -587,21 +600,21 @@ $labelSidePadding: 0.5rem;
 }
 
 .rowLabelSkeleton {
-  width: 3.0625rem;
+  width: 4rem;
   height: $labelSkeletonHeight;
-  margin-block: 0 ($labelGap + ($labelLineHeight - $labelSkeletonHeight));
+  margin-block: 0.0625rem ($labelGap + $labelLineHeight - $labelSkeletonHeight - 0.0625rem);
   margin-inline: $labelSidePadding auto;
   border-radius: var(--border-radius-tiny);
 }
 
 .rowTextLargeSkeleton {
-  width: 6.8125rem;
+  width: 7rem;
 }
 
 .rowFeeSkeleton {
-  width: 4.5rem;
+  width: 5rem;
   height: $labelSkeletonHeight;
-  margin-block: $labelGap 0;
+  margin-block: ($labelGap + 0.0625rem) 0;
   margin-inline: auto $labelSidePadding;
   border-radius: var(--border-radius-tiny);
 }
@@ -614,10 +627,6 @@ $labelSidePadding: 0.5rem;
 .skeletonBackground {
   background-color: var(--background-color); // To ensure a glitch-free "semiFade" transition
   background-clip: content-box; // To prevent the background from un-rounding the bottom corners of the modal
-}
-
-.transferWarning {
-  margin: -0.5rem 0 $fieldGap
 }
 
 .multichainWarning {
@@ -635,7 +644,7 @@ $labelSidePadding: 0.5rem;
 
   font-size: 0.8125rem;
   font-weight: 500;
-  line-height: 1.125rem;
+  line-height: 1.0625rem;
   color: var(--color-orange);
 
   background-color: var(--color-background-yellow);
@@ -666,13 +675,25 @@ $labelSidePadding: 0.5rem;
   font-weight: 700;
 }
 
-.emulation {
-  margin-bottom: 0;
+.previewUnavailable {
+  margin-bottom: $fieldGap;
+  padding: 0.875rem 1rem;
+  border-radius: var(--border-radius-default);
 
-  &Fee {
-    margin: $labelGap $labelSidePadding $fieldGap;
-    text-align: end !important;
-  }
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-gray-2);
+  text-align: center;
+
+  background: var(--color-background-first);
+}
+
+.feeDetailsText {
+  margin: 0 0.5rem;
+}
+
+.feeDetailsWarning {
+  margin: 1.1875rem 0.5rem 0;
 }
 
 .transferButtons {

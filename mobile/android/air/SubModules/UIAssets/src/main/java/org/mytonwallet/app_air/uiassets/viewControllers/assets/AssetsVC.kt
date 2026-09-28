@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.children
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
@@ -27,7 +28,6 @@ import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import kotlin.math.abs
@@ -653,11 +653,29 @@ class AssetsVC(
 
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
+            val isScrolling = newState != RecyclerView.SCROLL_STATE_IDLE
+            if (isScrollingAnimationsSuspended != isScrolling) {
+                isScrollingAnimationsSuspended = isScrolling
+                applyAnimationState()
+            }
             if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
                 updateBlurViews(recyclerView)
                 onScroll?.invoke(recyclerView)
             }
         }
+    }
+
+    private var isScrollingAnimationsSuspended = false
+    private var isHostAnimationsSuspended = false
+    private val areAnimationsSuspended
+        get() = isScrollingAnimationsSuspended || isHostAnimationsSuspended
+
+    private val childAttachListener = object : RecyclerView.OnChildAttachStateChangeListener {
+        override fun onChildViewAttachedToWindow(view: View) {
+            (view as? AssetCell)?.let(::updateAnimationState)
+        }
+
+        override fun onChildViewDetachedFromWindow(view: View) {}
     }
 
     private var activeNftMenuPopup: INavigationPopup? = null
@@ -807,6 +825,7 @@ class AssetsVC(
         }
 
         rv.addOnScrollListener(scrollListener)
+        rv.addOnChildAttachStateChangeListener(childAttachListener)
         if (!isReadOnly) {
             rv.addOnItemTouchListener(recyclerViewTouchListener)
         }
@@ -1583,20 +1602,24 @@ class AssetsVC(
         updateShowAllPosition()
     }
 
+    fun setAnimationsSuspended(suspended: Boolean) {
+        if (isHostAnimationsSuspended == suspended) return
+        isHostAnimationsSuspended = suspended
+        applyAnimationState()
+    }
+
+    private fun updateAnimationState(cell: AssetCell) {
+        cell.setAnimationState(assetsVM.areAnimationsPaused, areAnimationsSuspended)
+    }
+
+    private fun applyAnimationState() {
+        recyclerView.children.forEach { (it as? AssetCell)?.let(::updateAnimationState) }
+    }
+
     fun setAnimations(paused: Boolean) {
         if (!assetsVM.setAnimationsPaused(paused)) return
-        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
-        layoutManager?.let {
-            val firstVisible = it.findFirstVisibleItemPosition()
-            val lastVisible = it.findLastVisibleItemPosition()
-
-            for (i in firstVisible..lastVisible) {
-                val holder = recyclerView.findViewHolderForAdapterPosition(i)
-                (holder?.itemView as? AssetCell)?.apply {
-                    if (paused) pauseAnimation() else resumeAnimation()
-                }
-            }
-        }
+        displayedAssetRows = displayedAssetRows.map { it.copy(animationsPaused = paused) }
+        applyAnimationState()
     }
 
     override fun scrollToTop() {

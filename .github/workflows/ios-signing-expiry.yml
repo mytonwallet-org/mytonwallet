@@ -1,0 +1,249 @@
+name: iOS signing expiry
+
+# The signing material expires with the certificate embedded in it, and the date being written down
+# somewhere is demonstrably not a control: the 2026-09-25 cliff was recorded with its exact date two
+# and a half months ahead and still took both iOS builds down on the day. So the date is read from
+# the secrets the build actually signs with, weekly, and the run goes red while there is still time
+# to rotate.
+#
+# Reading the secrets rather than asking App Store Connect is deliberate twice over. It needs no API
+# key with Admin rights, and it describes the artefact that CI will really use: Apple kept labelling
+# the six profiles ACTIVE while the certificate inside them was already dead, so its opinion of a
+# profile is not evidence about the profile sitting in a secret.
+
+on:
+  schedule:
+    # Monday morning, off the quarter hour - GitHub drops scheduled runs from congested slots.
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check certificate and profile expiry
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Read the expiry out of every signing secret
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_GRAM_CERTIFICATE_BASE64: ${{ secrets.IOS_GRAM_CERTIFICATE_BASE64 }}
+          IOS_GRAM_CERTIFICATE_PASSWORD: ${{ secrets.IOS_GRAM_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
+          IOS_GRAM_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_BASE64 }}
+          IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64 }}
+          IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64: ${{ secrets.IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, datetime, hashlib, os, plistlib, subprocess, sys, tempfile
+
+          # Fixed, and deliberately not a dispatch input. What a green run of this means has to be
+          # one statement, because the backstop that stands in for the schedule reads a green run as
+          # evidence that the material was looked at - and a run asked for with a window of one day
+          # is green while something expires in a week, which would then buy silence for eight days.
+          # Nothing is lost by fixing it: every date is printed on every run, so a wider or narrower
+          # window is something to read off the table rather than to ask the alarm for.
+          THRESHOLD = 30
+          NOW = datetime.datetime.now(datetime.timezone.utc)
+          WORK = tempfile.mkdtemp()
+
+          PROFILES = [
+              ("IOS_PROVISION_PROFILE_BASE64", "MyTonWallet", "MyTonWallet app"),
+              ("IOS_PROVISION_PROFILE_WIDGET_BASE64", "MyTonWallet", "MyTonWallet widget"),
+              ("IOS_PROVISION_PROFILE_NOTIFICATION_BASE64", "MyTonWallet", "MyTonWallet notification"),
+              ("IOS_GRAM_PROVISION_PROFILE_BASE64", "Gram", "Gram app"),
+              ("IOS_GRAM_PROVISION_PROFILE_WIDGET_BASE64", "Gram", "Gram widget"),
+              ("IOS_GRAM_PROVISION_PROFILE_NOTIFICATION_BASE64", "Gram", "Gram notification"),
+          ]
+          # What signs a build is a pair, and the packaging step resolves its two halves
+          # independently: the Gram variant takes the Gram certificate if that secret is set and the
+          # shared one otherwise, and likewise the Gram password or the shared one. So a Gram
+          # password set against the shared certificate is a real configuration in which a stale
+          # password breaks only the Gram build. Checking the secrets one by one would miss it, so
+          # each variant's effective pair is resolved the same way and opened as a pair. The profiles
+          # carry no such fallback - the Gram ones are installed only for the Gram variant - so the
+          # variant each one belongs to is fixed by its secret name.
+          PAIRS = [
+              ("MyTonWallet", ["IOS_CERTIFICATE_BASE64"], ["IOS_CERTIFICATE_PASSWORD"]),
+              (
+                  "Gram",
+                  ["IOS_GRAM_CERTIFICATE_BASE64", "IOS_CERTIFICATE_BASE64"],
+                  ["IOS_GRAM_CERTIFICATE_PASSWORD", "IOS_CERTIFICATE_PASSWORD"],
+              ),
+          ]
+
+          findings = []   # (label, what, expiry)
+          problems = []   # what is wrong regardless of any date
+          leaves = {}     # variant -> (secret name, sha256 of the certificate DER)
+
+          def decode(name):
+              raw = os.environ.get(name, "")
+              if raw == "":
+                  return None
+              path = os.path.join(WORK, name)
+              with open(path, "wb") as handle:
+                  handle.write(base64.b64decode(raw))
+              return path
+
+          def openssl(args, **kwargs):
+              return subprocess.run(["openssl", *args], capture_output=True, **kwargs)
+
+          def cert_not_after(der):
+              # A certificate carries its own expiry, which is what a profile inherits.
+              done = openssl(["x509", "-inform", "DER", "-noout", "-enddate"], input=der)
+              if done.returncode != 0:
+                  return None
+              stamp = done.stdout.decode().strip().removeprefix("notAfter=")
+              return datetime.datetime.strptime(stamp, "%b %d %H:%M:%S %Y %Z").replace(
+                  tzinfo=datetime.timezone.utc
+              )
+
+          def first_set(names):
+              # Packaging selects with ${VAR:-fallback} and hands the bytes to security import
+              # untouched, so nothing here is stripped. A value of whitespace counts as set there and
+              # has to count as set here, or the two take different fallbacks; and a password with
+              # whitespace in it would otherwise be tested as a password nobody configured, which is
+              # a red run about a setup that works.
+              for name in names:
+                  value = os.environ.get(name, "")
+                  if value != "":
+                      return name, value
+              return None, ""
+
+          def pem_blocks(text):
+              blocks, current = [], []
+              for line in text.splitlines(True):
+                  if line.startswith(b"-----BEGIN"):
+                      current = [line]
+                  elif current:
+                      current.append(line)
+                      if line.startswith(b"-----END"):
+                          blocks.append(b"".join(current))
+                          current = []
+              return blocks
+
+          def read_p12(path, password, *args):
+              # Bundles exported by older tooling need -legacy, and telling that apart from a stale
+              # password is not a question this check is asking.
+              done = openssl(["pkcs12", "-in", path, *args, "-passin", f"pass:{password}"])
+              if done.returncode != 0:
+                  done = openssl(
+                      ["pkcs12", "-legacy", "-in", path, *args, "-passin", f"pass:{password}"]
+                  )
+              return done
+
+          # The pairs go first because the profile check needs their outcome: which certificate CI
+          # will actually import is the question a profile is then asked about.
+          for variant, cert_names, password_names in PAIRS:
+              cert_name, cert_value = first_set(cert_names)
+              password_name, password = first_set(password_names)
+              label = f"{variant} signing certificate"
+              if cert_name is None:
+                  problems.append(f"{label}: none of {', '.join(cert_names)} is set")
+                  continue
+              if not password:
+                  # Packaging refuses to run without one, so an empty password is a broken setup
+                  # rather than a certificate that happens to need none.
+                  problems.append(f"{label}: {cert_name} has no password in {' or '.join(password_names)}")
+                  continue
+              path = os.path.join(WORK, f"{variant}.p12")
+              with open(path, "wb") as handle:
+                  handle.write(base64.b64decode(cert_value))
+
+              done = read_p12(path, password, "-nokeys", "-clcerts")
+              if done.returncode != 0:
+                  problems.append(f"{label}: {cert_name} does not open with {password_name}")
+                  continue
+              # What security import has to leave behind is an identity, and an identity is this
+              # certificate together with the key that belongs to it - not a certificate and some
+              # key. So the two public keys are compared. Asking whether a key is present at all
+              # would lean on -clcerts printing only certificates that carry a localKeyID, which is
+              # openssl app behaviour rather than something this file can rely on.
+              cert_pub = openssl(["x509", "-noout", "-pubkey"], input=done.stdout).stdout
+              keys = read_p12(path, password, "-nocerts", "-nodes")
+              # A bundle holding more than one key prints them in bag order, which need not put the
+              # one belonging to this certificate first, so every key in it is a candidate.
+              key_pubs = [
+                  openssl(["pkey", "-pubout"], input=block).stdout for block in pem_blocks(keys.stdout)
+              ]
+              if not key_pubs:
+                  problems.append(
+                      f"{label}: {cert_name} carries no private key, so security import would leave"
+                      " no signing identity"
+                  )
+              elif not cert_pub or cert_pub not in key_pubs:
+                  problems.append(
+                      f"{label}: the private key in {cert_name} does not belong to its certificate"
+                  )
+              der = openssl(["x509", "-outform", "DER"], input=done.stdout).stdout
+              expiry = cert_not_after(der)
+              if expiry is None:
+                  problems.append(f"{label}: {cert_name} holds no readable certificate")
+                  continue
+              leaves[variant] = (cert_name, hashlib.sha256(der).hexdigest())
+              findings.append((label, f"{cert_name} opened with {password_name}", expiry))
+
+          for name, variant, label in PROFILES:
+              path = decode(name)
+              if path is None:
+                  problems.append(f"{label}: secret {name} is empty")
+                  continue
+              done = openssl(["cms", "-verify", "-inform", "DER", "-in", path, "-noverify"])
+              if done.returncode != 0:
+                  problems.append(f"{label}: secret {name} is not a provisioning profile")
+                  continue
+              profile = plistlib.loads(done.stdout)
+              expiry = profile.get("ExpirationDate")
+              if expiry is None:
+                  problems.append(f"{label}: profile carries no expiry date")
+              else:
+                  findings.append(
+                      (label, f"profile {profile.get('Name', '?')}",
+                       expiry.replace(tzinfo=datetime.timezone.utc))
+                  )
+              # A profile authorises a list of certificates and the build signs with exactly one of
+              # them, so dating the list is the wrong question twice over: a predecessor Apple still
+              # lists turns a perfectly signable pairing red, and a profile that does not authorise
+              # this certificate at all stays green while codesign refuses it. The list is therefore
+              # asked whether it contains the certificate the packaging step will import, whose own
+              # expiry is already in the table once, from the pair it was opened as.
+              embedded = profile.get("DeveloperCertificates") or []
+              if not embedded:
+                  problems.append(f"{label}: profile carries no certificate")
+                  continue
+              leaf = leaves.get(variant)
+              if leaf is None:
+                  # The pair for this variant did not open, which is an error in its own right, and
+                  # without its certificate there is nothing to compare the list against.
+                  continue
+              cert_name, digest = leaf
+              if not any(hashlib.sha256(bytes(der)).hexdigest() == digest for der in embedded):
+                  problems.append(
+                      f"{label}: profile does not authorise the certificate in {cert_name}"
+                  )
+
+          findings.sort(key=lambda row: row[2])
+          print(f"Threshold: {THRESHOLD} days. Checked {len(findings)} dated items.\n")
+          for label, what, expiry in findings:
+              days = (expiry - NOW).days
+              print(f"{days:>6} days  {expiry:%Y-%m-%d}  {label} - {what}")
+
+          expiring = [row for row in findings if (row[2] - NOW).days < THRESHOLD]
+          for label, what, expiry in expiring:
+              days = (expiry - NOW).days
+              print(f"::error::{label} - {what} expires in {days} days, on {expiry:%Y-%m-%d}")
+          for problem in problems:
+              print(f"::error::{problem}")
+
+          if not findings:
+              print("::error::No signing material could be read at all, so nothing was checked")
+              sys.exit(1)
+          sys.exit(1 if expiring or problems else 0)
+          PY

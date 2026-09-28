@@ -73,6 +73,18 @@ class WGlassView(context: Context) :
      */
     var transparentBackstop = false
 
+    /** Optional translucent fill to draw instead of the default opaque fill when blur is off. */
+    var noBlurColor: Int? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            colorSource?.color = fallbackSourceColor()
+            applyProvider()
+        }
+
+    override val isTinted: Boolean
+        get() = noBlurColor != null
+
     /**
      * Extra content captured around the pill, in px, so that neighbours bleed into the blur
      * instead of the blur clamping at the pill's own edge.
@@ -109,6 +121,15 @@ class WGlassView(context: Context) :
         WColor.Background
     )
     private var tintProvider: GlassProvider? = null
+    private val noBlurProvider = object : BlurredBackgroundColorProvider {
+        override fun getBackgroundColor(): Int = noBlurColor ?: Color.TRANSPARENT
+
+        override fun getShadowColor(): Int = Color.TRANSPARENT
+
+        override fun getStrokeColorTop(): Int = Color.TRANSPARENT
+
+        override fun getStrokeColorBottom(): Int = Color.TRANSPARENT
+    }
     private var pill: BlurredBackgroundDrawable? = null
     private var drawn: Drawable? = null
     private val radii = FloatArray(4)
@@ -270,10 +291,17 @@ class WGlassView(context: Context) :
         invalidate()
     }
 
-    private fun activeProvider(): BlurredBackgroundColorProvider = tintProvider ?: baseProvider
+    private fun activeProvider(): BlurredBackgroundColorProvider =
+        if (noBlurColor != null && !Blur3Settings.isBlurEnabled()) {
+            noBlurProvider
+        } else {
+            tintProvider ?: baseProvider
+        }
 
     private fun fallbackSourceColor(): Int =
-        if (Color.alpha(activeProvider().backgroundColor) == 0) {
+        if (noBlurColor != null && !Blur3Settings.isBlurEnabled()) {
+            Color.TRANSPARENT
+        } else if (Color.alpha(activeProvider().backgroundColor) == 0) {
             Color.TRANSPARENT
         } else {
             WColor.Background.color

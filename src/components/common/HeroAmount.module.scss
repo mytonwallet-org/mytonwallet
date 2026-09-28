@@ -1,0 +1,55 @@
+.block {
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+// `SensitiveData` renders inline blocks, which would otherwise sit in line boxes as tall as the inherited line height
+// and add gaps around the amount. With no line height of their own and top alignment, they match the amount exactly.
+.sensitiveData {
+  line-height: 0;
+  vertical-align: top;
+}
+
+.sensitiveDataContent {
+  vertical-align: top;
+}
+
+// Without the cap, the inline block grows with the amount, so `useFontScale` never sees an overflow
+.sensitiveData,
+.sensitiveDataContent,
+.amount {
+  max-width: 100%;
+}
+
+.amount {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  font-size: calc(2rem * var(--font-size-scale, 1));
+  font-weight: 800;
+  line-height: 2.375rem;
+  color: var(--color-black);
+  white-space: nowrap;
+}
+
+.symbol {
+  font-size: calc(1.75rem * var(--font-size-scale, 1));
+  line-height: 2.125rem;
+  color: var(--color-gray-2);
+}
+
+.fraction {
+  font-size: calc(1.5rem * var(--font-size-scale, 1));
+  line-height: 2rem;
+  color: var(--color-gray-2);
+}
+
+.secondary {
+  margin-top: 0.25rem;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+}

@@ -257,7 +257,6 @@ function Confirmation({
           <DappSkeletonWithContent
             rows={actionSkeletonRows}
             shouldRenderHeader={false}
-            shouldRenderOuterPadding={false}
           />
         ) : (
           <ActivityPreview

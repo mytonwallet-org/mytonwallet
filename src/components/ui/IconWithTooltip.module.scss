@@ -32,17 +32,17 @@
   width: max-content;
   max-width: 16rem;
   padding: 0.5rem 0.75rem;
-  border-radius: var(--border-radius-default);
+  border-radius: var(--border-radius-normal);
 
   font-weight: 500;
   color: var(--color-gray-1);
 
   background: var(--color-background-drop-down);
-  box-shadow: 0 0 1.25rem rgba(49, 61, 79, 0.12);
+  box-shadow: 0 0 1.25rem rgba(0, 0, 0, 0.12);
 
   &.small {
     font-size: 0.8125rem;
-    line-height: 1.125rem;
+    line-height: 1.0625rem;
   }
 
   &.medium {
@@ -81,7 +81,7 @@
 }
 
 .color-warning {
-  color: var(--color-orange);
+  color: var(--color-yellow);
 }
 
 .color-danger {

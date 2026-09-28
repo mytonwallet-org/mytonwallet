@@ -86,6 +86,12 @@ public class EnclaveManager {
 
     public void authorize(AuthType authType, boolean isLong, int usageCount, String passcode,
                           FragmentActivity activity, SessionCallback callback) {
+        authorize(authType, isLong, passcode, activity,
+            createSession -> createSession.accept(usageCount), callback);
+    }
+
+    public void authorize(AuthType authType, boolean isLong, String passcode, FragmentActivity activity,
+                          Consumer<IntConsumer> onAuthenticated, SessionCallback callback) {
         try {
             requireCurrentStorageVersion();
         } catch (Exception e) {
@@ -96,7 +102,8 @@ public class EnclaveManager {
         Objects.requireNonNull(auths.get(authType)).authorize(activity, passcode, new EnclaveAuth.AuthorizeCallback() {
             @Override
             public void onSuccess(byte[] masterKey) {
-                resolveWithSession(authType, isLong, usageCount, masterKey, callback);
+                onAuthenticated.accept(usageCount ->
+                    resolveWithSession(authType, isLong, usageCount, masterKey, callback));
             }
 
             @Override
@@ -369,7 +376,7 @@ public class EnclaveManager {
     private void resolveWithSession(AuthType authType, boolean isLong, int usageCount,
                                     byte[] masterKey, SessionCallback callback) {
         SessionManager.SessionResult result =
-                sessionManager.createSession(authType, isLong, usageCount, masterKey);
+            sessionManager.createSession(authType, isLong, usageCount, masterKey);
         callback.onSuccess(result.token, result.validUntil);
     }
 

@@ -162,7 +162,8 @@ class SwapHeaderView(
                 currencyDecimals = fromToken.decimals,
                 smartDecimals = true,
                 showPositiveSign = false,
-                forceCurrencyToRight = true
+                forceCurrencyToRight = true,
+                roundUp = false
             )
             tokenToSendTextView.contentView.text = sendAmount.let {
                 val ssb = SpannableStringBuilder("-$signSpace$it")
@@ -185,7 +186,8 @@ class SwapHeaderView(
                 currencyDecimals = toToken.decimals,
                 smartDecimals = true,
                 showPositiveSign = true,
-                forceCurrencyToRight = true
+                forceCurrencyToRight = true,
+                roundUp = false
             )
             tokenToReceiveTextView.contentView.text = receiveAmount.let {
                 val ssb = SpannableStringBuilder(it)

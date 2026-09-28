@@ -496,44 +496,6 @@ $labelSidePadding: 0.5rem;
   text-align: end;
 }
 
-.paymentAmountBlock {
-  margin-bottom: $fieldGap;
-  text-align: center;
-}
-
-.paymentAmount {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-
-  font-size: calc(2rem * var(--font-size-scale, 1));
-  font-weight: 800;
-  line-height: 2.375rem;
-  color: var(--color-black);
-  white-space: nowrap;
-}
-
-.paymentAmountSymbol {
-  font-size: calc(1.75rem * var(--font-size-scale, 1));
-  line-height: 2.125rem;
-  color: var(--color-gray-2);
-}
-
-.paymentAmountFraction {
-  font-size: calc(1.5rem * var(--font-size-scale, 1));
-  line-height: 2rem;
-  color: var(--color-gray-2);
-}
-
-.paymentAmountSecondary {
-  margin-top: 0.25rem;
-
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  color: var(--color-gray-2);
-}
-
 @keyframes fade-in-opacity {
   0% { opacity: 0; }
   100% { opacity: 1; }

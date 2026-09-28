@@ -22,13 +22,11 @@ const ICON_FALLBACK = (
 
 interface OwnProps {
   dapp?: StoredDappConnection;
-  variant: 'settings' | 'transfer';
   onDisconnect?: (origin: string) => void;
 }
 
 function DappInfo({
   dapp,
-  variant,
   onDisconnect,
 }: OwnProps) {
   const lang = useLang();
@@ -42,8 +40,8 @@ function DappInfo({
     onDisconnect!(url!);
   });
 
-  function renderIcon() {
-    return (
+  return (
+    <div className={styles.dapp}>
       <Image
         url={iconUrl}
         alt={name || lang('Logo')}
@@ -52,25 +50,15 @@ function DappInfo({
         imageClassName={styles.dappLogo}
         fallback={ICON_FALLBACK}
       />
-    );
-  }
-
-  const warningIconJsx = urlTrustStatus !== 'verified' && (
-    <DappHostWarning url={url} urlTrustStatus={urlTrustStatus} iconClassName={styles.dappHostWarningIcon} />
-  );
-
-  return (
-    <div className={buildClassName(styles.dapp, variant === 'transfer' && styles.dapp_transfer)}>
-      {variant === 'settings' && renderIcon()}
       <div className={styles.dappInfo}>
         <span className={styles.dappName}>{name}</span>
         <span className={styles.dappHost}>
-          {variant === 'settings' && warningIconJsx}
+          {urlTrustStatus !== 'verified' && (
+            <DappHostWarning urlTrustStatus={urlTrustStatus} iconClassName={styles.dappHostWarningIcon} />
+          )}
           <span className={styles.dappHostText}>{host}</span>
-          {variant === 'transfer' && warningIconJsx}
         </span>
       </div>
-      {variant === 'transfer' && renderIcon()}
       {shouldShowDisconnect && (
         <Button
           isSmall

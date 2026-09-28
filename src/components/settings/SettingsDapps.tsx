@@ -78,7 +78,6 @@ function SettingsDapps({
         <div className={styles.block}>
           {dapps.map((dapp) => (
             <DappInfo
-              variant="settings"
               key={`dapp-${dapp.url}-${getDappConnectionUniqueId(dapp)}`}
               dapp={dapp}
               onDisconnect={handleDisconnectDapp}

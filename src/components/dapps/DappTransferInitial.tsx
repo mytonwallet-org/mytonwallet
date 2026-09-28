@@ -3,6 +3,7 @@ import { getActions, withGlobal } from '../../global';
 
 import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 import type {
+  ApiActivity,
   ApiBaseCurrency,
   ApiChain,
   ApiCurrencyRates,
@@ -21,31 +22,31 @@ import {
   selectAccountStakingStatesByPool,
   selectCurrentAccountId,
   selectCurrentAccountState,
+  selectCurrentDappTransferTotalInBaseCurrency,
   selectCurrentDappTransferTotals,
   selectDappTransferInsufficientTokens,
-  selectHasMultipleAccounts,
   selectNetworkAccounts,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { getChainConfig } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
-import { formatCurrency } from '../../util/formatNumber';
-import isEmptyObject from '../../util/isEmptyObject';
+import { formatCurrency, getIsCurrencySymbolAtStart, getShortCurrencySymbol } from '../../util/formatNumber';
 import { shortenAddress } from '../../util/shortenAddress';
 import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/transfer';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
+import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
+import useLastCallback from '../../hooks/useLastCallback';
 import useTimeout from '../../hooks/useTimeout';
 
-import AccountSwitcherPill from '../common/AccountSwitcherPill';
 import ActivityPreview from '../common/ActivityPreview';
+import HeroAmount from '../common/HeroAmount';
 import Button from '../ui/Button';
-import ModalHeader from '../ui/ModalHeader';
 import Transition from '../ui/Transition';
-import DappAmountField from './DappAmountField';
+import DappFeeDetailsModal from './DappFeeDetailsModal';
 import DappInfoWithAccount from './DappInfoWithAccount';
 import DappSkeletonWithContent, { type DappSkeletonRow } from './DappSkeletonWithContent';
 
@@ -62,10 +63,10 @@ interface OwnProps {
 interface StateProps {
   transactions?: ApiDappTransfer[];
   totalAmountsBySlug: Record<string, bigint>;
+  totalAmountInBaseCurrency?: string;
   emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
   isScam: boolean;
   isDangerous: boolean;
-  nftCount: number;
   dapp?: StoredDappConnection;
   isLoading?: boolean;
   tokensBySlug: Record<string, ApiTokenWithPrice>;
@@ -84,7 +85,7 @@ interface StateProps {
   shouldHideTransfers: boolean;
   isWaitingForRequest?: boolean;
   returnUrl?: string;
-  hasMultipleAccounts?: boolean;
+  isSensitiveDataHidden?: true;
 }
 
 interface SortedDappTransfer extends ApiDappTransfer {
@@ -94,6 +95,7 @@ interface SortedDappTransfer extends ApiDappTransfer {
 
 const NFT_FAKE_COST_USD = 1_000_000_000;
 const NOT_RESPONDING_DELAY_MS = 7000;
+const TOTAL_AMOUNT_FRACTION_DIGITS = 2;
 
 const skeletonRows: DappSkeletonRow[] = [
   { isLarge: false, hasFee: false },
@@ -103,10 +105,10 @@ const skeletonRows: DappSkeletonRow[] = [
 function DappTransferInitial({
   transactions,
   totalAmountsBySlug,
+  totalAmountInBaseCurrency,
   emulation,
   isScam,
   isDangerous,
-  nftCount,
   dapp,
   isLoading,
   tokensBySlug,
@@ -127,14 +129,13 @@ function DappTransferInitial({
   shouldHideTransfers,
   isWaitingForRequest,
   returnUrl,
-  hasMultipleAccounts,
+  isSensitiveDataHidden,
 }: OwnProps & StateProps) {
-  const {
-    closeDappTransfer, showDappTransferTransaction, submitDappTransferConfirm, showDialog,
-  } = getActions();
+  const { showDappTransferTransaction, submitDappTransferConfirm, showDialog } = getActions();
 
   const lang = useLang();
   const appTheme = useAppTheme(theme);
+  const [isFeeDetailsOpen, openFeeDetails, closeFeeDetails] = useFlag();
   const renderingTransactions = useCurrentOrPrev(transactions, true);
   const sortedTransactions = useMemo(
     () => sortTransactions(renderingTransactions, tokensBySlug),
@@ -144,11 +145,18 @@ function DappTransferInitial({
   const hasSufficientBalance = !insufficientTokens;
   const canSubmit = !isDappLoading && !isLoading && !isScam && hasSufficientBalance;
 
+  const handleEnter = useLastCallback((e: KeyboardEvent) => {
+    // Enter on a focused control, such as Cancel or the fee line, activates that control instead of confirming
+    if ((e.target as HTMLElement).closest('button, [role="button"]')) return;
+
+    submitDappTransferConfirm();
+  });
+
   useEffect(() => (
     isActive && canSubmit
-      ? captureKeyboardListeners({ onEnter: () => submitDappTransferConfirm() })
+      ? captureKeyboardListeners({ onEnter: { handler: handleEnter, noStopPropagation: true } })
       : undefined
-  ), [isActive, canSubmit, submitDappTransferConfirm]);
+  ), [isActive, canSubmit, handleEnter]);
 
   // Placeholder modal (opened by a wake deeplink): warn if the request event never arrives.
   useTimeout(
@@ -171,6 +179,8 @@ function DappTransferInitial({
     calculateTokenToDisplay(chain || DEFAULT_CHAIN, totalAmountsBySlug, balancesBySlug, tokensBySlug)
   ), [chain, totalAmountsBySlug, balancesBySlug, tokensBySlug]);
 
+  const excess = useMemo(() => calculateExcess(emulation?.activities), [emulation]);
+
   function renderContent() {
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
@@ -181,6 +191,7 @@ function DappTransferInitial({
           customTokenSymbol={tokenToDisplay.symbol}
           customTokenDecimals={tokenToDisplay.decimals}
         />
+        {renderTotalAmount()}
         {isDangerous && (
           <div className={buildClassName(styles.transferWarning, styles.warning)}>
             {renderText(lang('$hardware_payload_warning'))}
@@ -188,25 +199,62 @@ function DappTransferInitial({
         )}
         {renderTransactions()}
         {renderEmulation()}
+        {renderFeeDetailsModal()}
+        {renderFooter()}
+      </div>
+    );
+  }
 
-        <div className={styles.footer}>
-          {!hasSufficientBalance && (
-            <div className={styles.balanceError}>
-              {lang('Not Enough %symbol%', { symbol: insufficientTokens })}
-            </div>
-          )}
-          <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
-            <Button className={modalStyles.button} onClick={onClose}>{lang('Cancel')}</Button>
-            <Button
-              isPrimary
-              isLoading={isLoading}
-              isDisabled={isScam || !hasSufficientBalance}
-              className={modalStyles.button}
-              onClick={canSubmit ? submitDappTransferConfirm : undefined}
-            >
-              {lang('Send')}
-            </Button>
+  // The loading state has no modal header either, so Cancel is the only way to leave a request that never arrives
+  function renderSkeleton() {
+    return (
+      <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
+        <DappSkeletonWithContent rows={skeletonRows} shouldRenderHeroAmount />
+        {renderFooter()}
+      </div>
+    );
+  }
+
+  function renderTotalAmount() {
+    if (totalAmountInBaseCurrency === undefined) {
+      return undefined;
+    }
+
+    const currencySymbol = getShortCurrencySymbol(baseCurrency);
+    const isSymbolAtStart = getIsCurrencySymbolAtStart(currencySymbol);
+
+    return (
+      <div className={styles.totalAmount}>
+        <HeroAmount
+          value={totalAmountInBaseCurrency}
+          decimals={TOTAL_AMOUNT_FRACTION_DIGITS}
+          prefix={isSymbolAtStart ? currencySymbol : undefined}
+          suffix={isSymbolAtStart ? undefined : currencySymbol}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+        />
+      </div>
+    );
+  }
+
+  function renderFooter() {
+    return (
+      <div className={styles.footer}>
+        {!hasSufficientBalance && (
+          <div className={styles.balanceError}>
+            {lang('Not Enough %symbol%', { symbol: insufficientTokens })}
           </div>
+        )}
+        <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
+          <Button className={modalStyles.button} onClick={onClose}>{lang('Cancel')}</Button>
+          <Button
+            isPrimary
+            isLoading={isLoading}
+            isDisabled={isDappLoading || isScam || !hasSufficientBalance}
+            className={modalStyles.button}
+            onClick={canSubmit ? submitDappTransferConfirm : undefined}
+          >
+            {lang('Send')}
+          </Button>
         </div>
       </div>
     );
@@ -248,37 +296,29 @@ function DappTransferInitial({
   }
 
   function renderTransactions() {
-    if (!renderingTransactions) {
+    if (!renderingTransactions || shouldHideTransfers) {
       return undefined;
     }
 
-    const hasAmount = nftCount > 0 || !isEmptyObject(totalAmountsBySlug);
-
     return (
       <>
-        {!shouldHideTransfers && (
-          <p className={styles.label}>{lang('$many_transactions', renderingTransactions.length, 'i')}</p>
-        )}
-        {!shouldHideTransfers && (
-          <div className={styles.transactionList}>
-            {sortedTransactions?.map(renderTransactionRow)}
-          </div>
-        )}
-        {!shouldHideTransfers && renderingTransactions.length > 1 && hasAmount && (
-          <DappAmountField label={lang('Total Amount')} amountsBySlug={totalAmountsBySlug} nftCount={nftCount} />
-        )}
+        <p className={styles.label}>{lang('$many_transactions', renderingTransactions.length, 'i')}</p>
+        <div className={styles.transactionList}>
+          {sortedTransactions?.map(renderTransactionRow)}
+        </div>
       </>
     );
   }
 
   function renderEmulation() {
     if (!emulation?.activities?.length) {
-      return undefined;
+      return (
+        <div className={styles.previewUnavailable}>{lang('Preview is currently unavailable.')}</div>
+      );
     }
 
     return (
       <ActivityPreview
-        className={styles.emulation}
         activities={emulation.activities}
         realFee={emulation.realFee}
         feeToken={getChainConfig(chain || DEFAULT_CHAIN).nativeToken}
@@ -292,32 +332,30 @@ function DappTransferInitial({
         accounts={accounts}
         baseCurrency={baseCurrency}
         currencyRates={currencyRates}
+        onFeeDetailsClick={excess === undefined ? undefined : openFeeDetails}
+      />
+    );
+  }
+
+  function renderFeeDetailsModal() {
+    if (!emulation || excess === undefined) {
+      return undefined;
+    }
+
+    return (
+      <DappFeeDetailsModal
+        isOpen={isFeeDetailsOpen}
+        chain={chain || DEFAULT_CHAIN}
+        realFee={emulation.realFee}
+        excess={excess}
+        onClose={closeFeeDetails}
       />
     );
   }
 
   return (
     <Transition name="semiFade" activeKey={isDappLoading ? 0 : 1} slideClassName={styles.skeletonTransitionWrapper}>
-      <div className={styles.headerWithPill}>
-        <ModalHeader
-          title={lang(
-            isNftTransferPayload(renderingTransactions?.[0]?.payload)
-              ? 'Send NFT'
-              : (renderingTransactions?.length ?? 0) > 1
-                ? '$classic_confirm_actions'
-                : 'Confirm Action',
-          )}
-          onClose={closeDappTransfer}
-        />
-        {hasMultipleAccounts && (
-          <AccountSwitcherPill
-            accountId={currentAccountId}
-            title={accounts?.[currentAccountId]?.title}
-            className={styles.accountPill}
-          />
-        )}
-      </div>
-      {isDappLoading ? <DappSkeletonWithContent rows={skeletonRows} /> : renderContent()}
+      {isDappLoading ? renderSkeleton() : renderContent()}
     </Transition>
   );
 }
@@ -331,20 +369,15 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const accountState = selectCurrentAccountState(global);
   const accounts = selectNetworkAccounts(global);
 
-  const {
-    amountsBySlug: totalAmountsBySlug,
-    isScam,
-    isDangerous,
-    nftCount,
-  } = selectCurrentDappTransferTotals(global);
+  const { amountsBySlug: totalAmountsBySlug, isScam, isDangerous } = selectCurrentDappTransferTotals(global);
 
   return {
     transactions,
     totalAmountsBySlug,
+    totalAmountInBaseCurrency: selectCurrentDappTransferTotalInBaseCurrency(global),
     emulation,
     isScam,
     isDangerous,
-    nftCount,
     dapp,
     isLoading,
     tokensBySlug: global.tokenInfo.bySlug,
@@ -363,9 +396,21 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     shouldHideTransfers: !!shouldHideTransfers,
     isWaitingForRequest,
     returnUrl,
-    hasMultipleAccounts: selectHasMultipleAccounts(global),
+    isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
   };
 })(DappTransferInitial));
+
+function calculateExcess(activities?: ApiActivity[]) {
+  let excess = 0n;
+
+  for (const activity of activities ?? []) {
+    if (activity.kind === 'transaction' && activity.type === 'excess') {
+      excess += activity.amount;
+    }
+  }
+
+  return excess > 0n ? excess : undefined;
+}
 
 interface TokenDisplayInfo {
   balance: bigint;

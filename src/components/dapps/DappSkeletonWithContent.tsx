@@ -4,13 +4,12 @@ import buildClassName from '../../util/buildClassName';
 
 import Skeleton from '../ui/Skeleton';
 
-import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
 interface OwnProps {
   rows?: DappSkeletonRow[];
   shouldRenderHeader?: boolean;
-  shouldRenderOuterPadding?: boolean;
+  shouldRenderHeroAmount?: boolean;
 }
 
 export type DappSkeletonRow = {
@@ -18,33 +17,36 @@ export type DappSkeletonRow = {
   hasFee?: boolean;
 };
 
+/** Only the placeholders: the caller provides the padded content around them, together with its buttons */
 function DappSkeletonWithContent({
   rows,
   shouldRenderHeader = true,
-  shouldRenderOuterPadding = true,
+  shouldRenderHeroAmount,
 }: OwnProps) {
   return (
-    <div
-      className={buildClassName(
-        shouldRenderOuterPadding && modalStyles.transitionContent,
-        styles.skeletonBackground,
-      )}
-    >
+    <div className={buildClassName(styles.skeletonBackground, styles.skeleton)}>
       {shouldRenderHeader && (
-        <div className={styles.transactionDirection}>
-          <div className={styles.transactionDirectionLeftSkeleton}>
-            <Skeleton className={buildClassName(styles.nameSkeleton, styles.accountTitleSkeleton)} />
-            <Skeleton className={buildClassName(styles.descSkeleton, styles.accountBalanceSkeleton)} />
-          </div>
-          <div className={styles.transactionDirectionRightSkeleton}>
-            <Skeleton className={styles.dappInfoIconSkeleton} />
-            <div className={styles.dappInfoDataSkeleton}>
-              <Skeleton className={buildClassName(styles.nameSkeleton, styles.nameDappSkeleton)} />
-              <Skeleton className={buildClassName(styles.descSkeleton, styles.descDappSkeleton)} />
+        <div className={styles.requestHeader}>
+          <div className={buildClassName(styles.headerPill, styles.headerPillSkeleton)}>
+            <Skeleton className={buildClassName(styles.headerPillAvatarSkeleton, styles.headerPillLeadingIcon)} />
+            <div className={styles.headerPillText}>
+              <Skeleton className={styles.headerPillTitleSkeleton} />
+              <Skeleton className={styles.headerPillSubtitleSkeleton} />
             </div>
+          </div>
+          <i className={styles.headerPillLink} aria-hidden />
+          <div
+            className={buildClassName(styles.headerPill, styles.headerPill_dapp, styles.headerPillSkeleton)}
+          >
+            <div className={buildClassName(styles.headerPillText, styles.headerPillText_dapp)}>
+              <Skeleton className={styles.headerPillTitleSkeleton} />
+              <Skeleton className={styles.headerPillSubtitleSkeleton} />
+            </div>
+            <Skeleton className={buildClassName(styles.headerPillAvatarSkeleton, styles.headerPillTrailingIcon)} />
           </div>
         </div>
       )}
+      {shouldRenderHeroAmount && <Skeleton className={styles.heroAmountSkeleton} />}
       {rows?.map(renderRow)}
     </div>
   );

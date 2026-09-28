@@ -13,6 +13,8 @@ import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useShowTransition from '../../hooks/useShowTransition';
 
+import Spinner from '../ui/Spinner';
+
 import styles from './UpdateApp.module.scss';
 
 type StateProps = {
@@ -24,11 +26,12 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
 
   const [isElectronUpdateDownloaded, setIsElectronUpdateDownloaded] = useState(false);
   const [isElectronAutoUpdateEnabled, setIsElectronAutoUpdateEnabled] = useState(false);
-  const [isDisabled, disable] = useFlag(false);
+  const [isInstalling, markInstalling, unmarkInstalling] = useFlag(false);
 
   useEffect(() => {
     const removeUpdateErrorListener = window.electron?.on?.(ElectronEvent.UPDATE_ERROR, () => {
       setIsElectronUpdateDownloaded(false);
+      unmarkInstalling();
     });
     const removeUpdateDownloadedListener = window.electron?.on?.(ElectronEvent.UPDATE_DOWNLOADED, () => {
       setIsElectronUpdateDownloaded(true);
@@ -40,10 +43,10 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
       removeUpdateErrorListener?.();
       removeUpdateDownloadedListener?.();
     };
-  }, []);
+  }, [unmarkInstalling]);
 
   const handleClick = useLastCallback(async () => {
-    if (isDisabled) {
+    if (isInstalling) {
       return;
     }
 
@@ -53,8 +56,13 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
     }
 
     if (isElectronUpdateDownloaded) {
-      disable();
-      await window.electron?.installUpdate?.();
+      // `quitAndInstall` applies the update before relaunching, which takes several seconds without any progress events
+      markInstalling();
+      try {
+        await window.electron?.installUpdate?.();
+      } catch {
+        unmarkInstalling();
+      }
       return;
     }
 
@@ -77,15 +85,22 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
       ref={ref}
       className={buildClassName(
         styles.container,
-        isDisabled && styles.disabled,
+        isInstalling && styles.installing,
       )}
+      aria-busy={isInstalling}
       onClick={handleClick}
     >
-      <div className={styles.iconWrapper}>
-        <i className={buildClassName('icon-update', styles.icon)} />
-      </div>
+      {isInstalling ? (
+        <Spinner className={styles.spinner} />
+      ) : (
+        <div className={styles.iconWrapper}>
+          <i className={buildClassName('icon-update', styles.icon)} />
+        </div>
+      )}
 
-      <div className={styles.text}>{lang('Update %app_name%', { app_name: APP_NAME })}</div>
+      <div className={styles.text}>
+        {isInstalling ? lang('Updating') : lang('Update %app_name%', { app_name: APP_NAME })}
+      </div>
     </div>
   );
 }
