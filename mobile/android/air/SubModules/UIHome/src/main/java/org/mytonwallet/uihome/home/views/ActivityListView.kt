@@ -50,6 +50,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityC
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
@@ -266,6 +267,7 @@ class ActivityListView<T>(
     }
 
     fun onDestroy() {
+        contentShownCallback = null
         activityLoader?.clean()
         activityLoader = null
         removalFallbackHandler.removeCallbacksAndMessages(null)
@@ -449,7 +451,7 @@ class ActivityListView<T>(
     private fun collapseEmptyCell(cell: EmptyCell) {
         if (emptyCellCollapseAnimation?.isRunning == true) return
         val startHeight = if (cell.height > 0) cell.height else cell.layoutParams.height
-        if (startHeight <= 0) {
+        if (startHeight <= 0 || areAnimationsSuspendedByOwner) {
             finishRemovingEmptyCell()
             return
         }
@@ -485,6 +487,22 @@ class ActivityListView<T>(
         get() = usesCardSections &&
             (showingTransactions?.size ?: 0) > 0 &&
             !allActivitiesFitCard
+
+    // Set by the owner while a screen transition runs over the list.
+    var areAnimationsSuspendedByOwner = false
+        set(value) {
+            if (field == value) return
+            field = value
+            applyAssetAnimationsSuspended()
+        }
+
+    private val areAssetAnimationsSuspended: Boolean
+        get() = areAnimationsSuspendedByOwner ||
+            recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
+
+    private fun applyAssetAnimationsSuspended() {
+        assetsCell?.setAnimationsSuspended(areAssetAnimationsSuspended)
+    }
 
     // The collectibles card is only laid out when the account has something to show in it.
     private var showsCollectiblesCard = false
@@ -635,7 +653,7 @@ class ActivityListView<T>(
         private var prevState = RecyclerView.SCROLL_STATE_IDLE
         override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
             super.onScrollStateChanged(recyclerView, newState)
-            assetsCell?.setAnimationsSuspended(newState != RecyclerView.SCROLL_STATE_IDLE)
+            applyAssetAnimationsSuspended()
             val dataSource = dataSource ?: return
             if (newState == RecyclerView.SCROLL_STATE_DRAGGING &&
                 prevState == RecyclerView.SCROLL_STATE_SETTLING
@@ -731,6 +749,23 @@ class ActivityListView<T>(
     }
 
     private var isShowingRecyclerView = false
+    private var contentShownCallback: (() -> Unit)? = null
+
+    /**
+     * Runs [callback] once the list has replaced its skeleton with cached content, or at once when
+     * the content still depends on the network.
+     */
+    fun doOnCachedContentShown(callback: () -> Unit) {
+        val accountId = showingAccountId
+        val hasCachedContent = accountId != null && isGeneralDataAvailable &&
+            WGlobalStorage.hasCachedActivities(accountId, null)
+        if (isShowingRecyclerView || !hasCachedContent) {
+            callback()
+            return
+        }
+        contentShownCallback = callback
+    }
+
     val recyclerView: WRecyclerView by lazy {
         WRecyclerView(context).apply {
             clipChildren = false
@@ -906,7 +941,7 @@ class ActivityListView<T>(
         }
     }
 
-    private val showAllActivitiesCell: WCell by lazy {
+    private val showAllActivitiesCellLazy = lazy {
         WCell(
             context,
             ViewGroup.LayoutParams(LayoutParams.MATCH_PARENT, SHOW_ALL_ROW_HEIGHT.dp)
@@ -927,6 +962,7 @@ class ActivityListView<T>(
             }
         }
     }
+    private val showAllActivitiesCell: WCell by showAllActivitiesCellLazy
 
     // The "Show All" row entered the card on the latest update (activities outgrew the card):
     // its next bind reveals it by growing from the card's corner instead of popping in.
@@ -938,7 +974,7 @@ class ActivityListView<T>(
         val targetHeight = SHOW_ALL_ROW_HEIGHT.dp
         val content = showAllActivitiesCell.getChildAt(0)
         showAllRowRevealAnimation?.cancel()
-        if (!WGlobalStorage.getAreAnimationsActive()) {
+        if (!WGlobalStorage.getAreAnimationsActive() || areAnimationsSuspendedByOwner) {
             resetShowAllActivitiesRow()
             return
         }
@@ -966,6 +1002,7 @@ class ActivityListView<T>(
     }
 
     private fun resetShowAllActivitiesRow() {
+        if (!showAllActivitiesCellLazy.isInitialized()) return
         val targetHeight = SHOW_ALL_ROW_HEIGHT.dp
         if (showAllActivitiesCell.layoutParams.height != targetHeight) {
             showAllActivitiesCell.updateLayoutParams { height = targetHeight }
@@ -975,6 +1012,7 @@ class ActivityListView<T>(
 
     private fun updateActivityCardCellsTheme() {
         activityTitleCell.updateTheme()
+        if (!showAllActivitiesCellLazy.isInitialized()) return
         showAllActivitiesCell.setBackgroundColor(
             WColor.Background.color,
             0f,
@@ -1147,7 +1185,8 @@ class ActivityListView<T>(
                 navigationController = navigationController,
                 showingAccountId = showingAccountId ?: "",
                 heightChanged = heightChanged,
-                onAssetsShown = onAssetsShown,
+                // With separate cards the tokens card decides; cached NFTs must not end the skeleton.
+                onAssetsShown = if (usesCardSections) ({}) else onAssetsShown,
                 onReorderingRequested = onReorderingRequested,
                 onForceEndReorderingRequested = onForceEndReorderingRequested,
                 onSelectionRequested = onSelectionRequested,
@@ -1170,7 +1209,7 @@ class ActivityListView<T>(
             }
         }
         cell.onScrollToVisibleRequested = { scrollAssetsCellToVisible() }
-        cell.setAnimationsSuspended(recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE)
+        cell.setAnimationsSuspended(areAssetAnimationsSuspended)
         return cell
     }
 
@@ -1308,6 +1347,7 @@ class ActivityListView<T>(
 
     private fun updateSkeletonState(animated: Boolean) {
         if (isShowingRecyclerView) return // Already shown, no skeleton processes necessary.
+        val animates = animated && !areAnimationsSuspendedByOwner
 
         val areActivitiesAvailable =
             !showingTransactions.isNullOrEmpty() || activityLoader?.loadedAll == true
@@ -1322,17 +1362,21 @@ class ActivityListView<T>(
             !isInstantSwitchingAccount && !shouldShowRecyclerView
 
         when {
-            shouldHideSkeleton -> hideSkeletons(animated)
+            shouldHideSkeleton -> hideSkeletons(animates)
             shouldShowSkeleton -> showSkeletons()
         }
 
         if (shouldShowRecyclerView) {
             isShowingRecyclerView = true
             reloadData()
-            if (animated && shouldFadeInRecyclerView && alpha >= 0.1) {
+            if (animates && shouldFadeInRecyclerView && alpha >= 0.1) {
                 fadeInChildren()
             } else {
                 setChildrenAlpha(1f)
+            }
+            contentShownCallback?.let {
+                contentShownCallback = null
+                it()
             }
         }
     }
@@ -1543,7 +1587,23 @@ class ActivityListView<T>(
         }
     }
 
+    private var hasHeldUpdateEvent = false
+
     fun transactionsUpdated(isUpdateEvent: Boolean) {
+        // The first activities replace the skeleton at once; later refreshes wait for a reveal to end.
+        if (!isShowingRecyclerView) {
+            applyTransactionsUpdate(isUpdateEvent)
+            return
+        }
+        hasHeldUpdateEvent = hasHeldUpdateEvent || isUpdateEvent
+        RevealUpdates.runOrHold(this, this) {
+            val isHeldUpdateEvent = hasHeldUpdateEvent
+            hasHeldUpdateEvent = false
+            applyTransactionsUpdate(isHeldUpdateEvent)
+        }
+    }
+
+    private fun applyTransactionsUpdate(isUpdateEvent: Boolean) {
         if (showingAccountId == null) return
         pendingTransactionsUpdate = false
         updateSkeletonState(animated = true)
@@ -1969,7 +2029,9 @@ class ActivityListView<T>(
                         val lastIndex = displayedTransactionsCount - 1
                         if (usesCardSections && cellHolder.cell !is ActivityCell) {
                             updateActivityCardCellsTheme()
-                            if (cellHolder.cell === showAllActivitiesCell) {
+                            if (showAllActivitiesCellLazy.isInitialized() &&
+                                cellHolder.cell === showAllActivitiesCell
+                            ) {
                                 if (pendingShowAllRowReveal) {
                                     pendingShowAllRowReveal = false
                                     revealShowAllActivitiesRow()

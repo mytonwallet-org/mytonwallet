@@ -30,7 +30,12 @@ open class WViewController: UIViewController {
         nil
     }
 
-    private var appliedHorizontalSafeAreaInsetForMaxContentWidth: CGFloat = 0
+    /// Prefer the view's center for a capped column, while keeping it inside the safe area.
+    open var prefersViewCenteredContent: Bool {
+        false
+    }
+
+    private var appliedSafeAreaInsetsForMaxContentWidth: UIEdgeInsets = .zero
 
     // set a view with background as UIViewController view, to do the rest, programmatically, inside the subclasses.
     open override func loadView() {
@@ -240,13 +245,13 @@ open class WViewController: UIViewController {
             self.bottomButtonConstraint = bottomConstraint
             NSLayoutConstraint.activate([
                 bottomConstraint,
-                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalInset),
-                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalInset)
+                button.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: horizontalInset),
+                button.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -horizontalInset)
             ])
         } else {
             NSLayoutConstraint.activate([
-                button.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalInset),
-                button.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalInset)
+                button.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: horizontalInset),
+                button.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -horizontalInset)
             ])
         }
         return button
@@ -259,29 +264,40 @@ open class WViewController: UIViewController {
     
     open func updateMaxContentWidthIfNeeded() {
         guard let maxContentWidth, maxContentWidth > 0 else {
-            applyMaxContentWidthHorizontalInset(0)
+            applyMaxContentWidthHorizontalInsets(left: 0, right: 0)
             return
         }
 
-        let previousInset = appliedHorizontalSafeAreaInsetForMaxContentWidth
-        let baseSafeAreaLeft = max(0, view.safeAreaInsets.left - previousInset)
-        let baseSafeAreaRight = max(0, view.safeAreaInsets.right - previousInset)
+        let previousInsets = appliedSafeAreaInsetsForMaxContentWidth
+        let baseSafeAreaLeft = max(0, view.safeAreaInsets.left - previousInsets.left)
+        let baseSafeAreaRight = max(0, view.safeAreaInsets.right - previousInsets.right)
         let availableWidth = view.bounds.width - baseSafeAreaLeft - baseSafeAreaRight
         guard availableWidth > 0 else { return }
 
-        let desiredInset = max(0, floor((availableWidth - maxContentWidth) * 0.5))
-        applyMaxContentWidthHorizontalInset(desiredInset)
+        if prefersViewCenteredContent {
+            let contentWidth = min(availableWidth, maxContentWidth)
+            let preferredLeft = (view.bounds.width - contentWidth) * 0.5
+            let contentLeft = min(max(preferredLeft, baseSafeAreaLeft), view.bounds.width - baseSafeAreaRight - contentWidth)
+            applyMaxContentWidthHorizontalInsets(
+                left: contentLeft - baseSafeAreaLeft,
+                right: view.bounds.width - baseSafeAreaRight - contentLeft - contentWidth
+            )
+        } else {
+            let desiredInset = max(0, floor((availableWidth - maxContentWidth) * 0.5))
+            applyMaxContentWidthHorizontalInsets(left: desiredInset, right: desiredInset)
+        }
     }
 
-    private func applyMaxContentWidthHorizontalInset(_ inset: CGFloat) {
-        let inset = max(0, inset)
-        guard abs(inset - appliedHorizontalSafeAreaInsetForMaxContentWidth) > 0.5 else { return }
+    private func applyMaxContentWidthHorizontalInsets(left: CGFloat, right: CGFloat) {
+        let left = max(0, left)
+        let right = max(0, right)
+        let previousInsets = appliedSafeAreaInsetsForMaxContentWidth
+        guard abs(left - previousInsets.left) > 0.5 || abs(right - previousInsets.right) > 0.5 else { return }
 
         var newInsets = additionalSafeAreaInsets
-        let previousInset = appliedHorizontalSafeAreaInsetForMaxContentWidth
-        newInsets.left = max(0, newInsets.left - previousInset + inset)
-        newInsets.right = max(0, newInsets.right - previousInset + inset)
-        appliedHorizontalSafeAreaInsetForMaxContentWidth = inset
+        newInsets.left = max(0, newInsets.left - previousInsets.left + left)
+        newInsets.right = max(0, newInsets.right - previousInsets.right + right)
+        appliedSafeAreaInsetsForMaxContentWidth = UIEdgeInsets(top: 0, left: left, bottom: 0, right: right)
         additionalSafeAreaInsets = newInsets
     }
 

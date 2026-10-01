@@ -830,17 +830,17 @@ class TonConnectRequestSendViewModel private constructor(
         }
 
         private fun formatAddressSubtitle(transaction: ApiDappTransfer): SpannableStringBuilder {
-            val payload = transaction.payload
-            val receivingAddress = when (payload) {
-                is ApiParsedPayload.ApiTokensTransferPayload -> payload.destination
-                is ApiParsedPayload.ApiTokensTransferNonStandardPayload -> payload.destination
-                is ApiParsedPayload.ApiTokensBurnPayload -> payload.address
-                is ApiParsedPayload.ApiNftTransferPayload -> payload.newOwner
-                else -> transaction.toAddress
+            val addressLines = mutableListOf(
+                LocaleController.getString("to") + " " +
+                    transaction.toAddress.formatStartEndAddress()
+            )
+            transaction.payloadRecipientAddress?.let { payloadRecipientAddress ->
+                addressLines.add(
+                    LocaleController.getString("Recipient") + " " +
+                        payloadRecipientAddress.formatStartEndAddress()
+                )
             }
-            return SpannableStringBuilder(
-                LocaleController.getString("to") + " " + receivingAddress.formatStartEndAddress()
-            ).apply {
+            return SpannableStringBuilder(addressLines.joinToString(" · ")).apply {
                 styleDots()
             }
         }
@@ -1014,28 +1014,43 @@ class TonConnectRequestSendViewModel private constructor(
                 TokenStore.getToken(token.token?.mBlockchain?.nativeSlug ?: TONCOIN_SLUG)
 
             val payload = transaction.payload
-            val receivingAddress = when (payload) {
-                is ApiParsedPayload.ApiTokensTransferPayload -> payload.destination
-                is ApiParsedPayload.ApiTokensTransferNonStandardPayload -> payload.destination
-                is ApiParsedPayload.ApiTokensBurnPayload -> payload.address
-                is ApiParsedPayload.ApiNftTransferPayload -> payload.newOwner
-                else -> transaction.toAddress
+            val addressTitle = if (transaction.payloadRecipientAddress == null) {
+                "Receiving Address"
+            } else {
+                "Contract Address"
             }
 
             uiItems.addAll(
                 listOf(
                     Item.ListTitle(
-                        LocaleController.getString("Receiving Address"),
+                        LocaleController.getString(addressTitle),
                         topRounding = HeaderCell.TopRounding.NORMAL
                     ),
                     TonConnectItem.Address(
                         accountId = accountId,
                         chain = chain,
-                        address = receivingAddress
+                        address = transaction.toAddress
                     ),
                     Item.Gap()
                 )
             )
+
+            transaction.payloadRecipientAddress?.let { payloadRecipientAddress ->
+                uiItems.addAll(
+                    listOf(
+                        Item.ListTitle(
+                            LocaleController.getString("Recipient Address"),
+                            topRounding = HeaderCell.TopRounding.NORMAL
+                        ),
+                        TonConnectItem.Address(
+                            accountId = accountId,
+                            chain = chain,
+                            address = payloadRecipientAddress
+                        ),
+                        Item.Gap()
+                    )
+                )
+            }
 
             if (payload?.payloadIsNft == true) {
                 uiItems.addAll(

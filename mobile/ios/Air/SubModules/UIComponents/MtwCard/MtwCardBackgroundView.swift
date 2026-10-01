@@ -133,9 +133,10 @@ public final class MtwCardBackgroundView: UIView {
 
     private func updateAnimation() {
         let environment = CardBackgroundAnimationEnvironment.shared
+        let animationEnabled = animationRequested && environment.cardEffectsEnabled
         let shineEnabled = shineRequested && environment.cardEffectsEnabled
         if !environment.cardEffectsEnabled { light = CardSurfaceLight() }
-        let policy = CardBackgroundMotionPolicy(requested: (animationRequested || shineEnabled) && resolution == .full,
+        let policy = CardBackgroundMotionPolicy(requested: (animationEnabled || shineEnabled) && resolution == .full,
             animationsEnabled: environment.animationsEnabled, lowPowerMode: environment.lowPowerMode,
             reduceMotion: environment.reduceMotion, applicationActive: environment.applicationActive,
             visible: window != nil && !isHidden)
@@ -153,7 +154,7 @@ public final class MtwCardBackgroundView: UIView {
             metal.frame = imageView.frame
             cardView.insertSubview(metal, aboveSubview: imageView)
         }
-        metalView?.configure(animateBackground: animationRequested, shine: shineEnabled, light: light, surface: surface)
+        metalView?.configure(animateBackground: animationEnabled, shine: shineEnabled, light: light, surface: surface)
     }
 
     private func stopAnimation(preservingSnapshot: Bool = true) {

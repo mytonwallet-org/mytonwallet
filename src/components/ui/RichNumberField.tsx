@@ -28,7 +28,6 @@ type OwnProps = {
   isSensitiveData?: true;
   isSensitiveDataHidden?: true;
   sensitiveDataMaskSkin?: SensitiveDataMaskSkin;
-  isStatic?: boolean;
   inputClassName?: string;
   labelClassName?: string;
   valueClassName?: string;
@@ -50,7 +49,6 @@ function RichNumberField({
   isSensitiveData,
   isSensitiveDataHidden,
   sensitiveDataMaskSkin,
-  isStatic,
   inputClassName,
   labelClassName,
   valueClassName,
@@ -98,7 +96,6 @@ function RichNumberField({
   const inputWrapperFullClass = buildClassName(
     styles.input__wrapper,
     styles.input__wrapper_large,
-    isStatic && styles.inputWrapperStatic,
     inputClassName,
   );
   const inputFullClass = buildClassName(

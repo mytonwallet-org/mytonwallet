@@ -52,6 +52,17 @@ public extension ApiDappTransfer {
         return nil
     }
 
+    /// The recipient declared in the payload when it differs from the address the message is sent to
+    var payloadRecipientAddress: String? {
+        let recipientAddress: String? = switch payload {
+        case .nftTransfer(let payload): payload.newOwner
+        case .tokensTransfer(let payload): payload.destination
+        case .tokensTransferNonStandard(let payload): payload.destination
+        default: nil
+        }
+        return recipientAddress != toAddress ? recipientAddress : nil
+    }
+
     var transferPayloadToken: ApiToken? {
         guard let slug = transferPayloadTokenSlug else { return nil }
         return TokenStore.getToken(slug: slug)

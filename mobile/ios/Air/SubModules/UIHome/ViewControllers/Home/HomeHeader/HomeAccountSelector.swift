@@ -47,6 +47,13 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var collectionView: _CollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
+    var contentMargins = NSDirectionalEdgeInsets(top: 0, leading: compactInsetSectionHorizontalPadding, bottom: 0, trailing: compactInsetSectionHorizontalPadding) {
+        didSet {
+            guard oldValue != contentMargins else { return }
+            setNeedsLayout()
+        }
+    }
+
     public var minimumHomeCardFontScale: CGFloat = 1 {
         didSet {
             guard oldValue != minimumHomeCardFontScale else { return }
@@ -66,6 +73,10 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     public var onSelect: (String) -> Void {
         get { viewModel.onSelect }
         set { viewModel.onSelect = newValue }
+    }
+
+    public func setCardEffectsActive(_ active: Bool) {
+        viewModel.isVisible = active
     }
 
     init(viewModel: HomeHeaderViewModel, mode: Mode = .home) {
@@ -170,10 +181,11 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
 
     private func syncSelection(with accountIds: [String]) {
-        if case .sidebar = mode,
-           let selectionOverrideAccountId,
-           !accountIds.contains(selectionOverrideAccountId) {
-            self.selectionOverrideAccountId = nil
+        if case .sidebar = mode {
+            if let selectionOverrideAccountId, !accountIds.contains(selectionOverrideAccountId) {
+                self.selectionOverrideAccountId = nil
+            }
+            viewModel.cardEffectsAccountIdOverride = selectionOverrideAccountId
         }
 
         let accountId = switch viewModel.accountSource {
@@ -218,8 +230,9 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private func makeLayout() -> UICollectionViewCompositionalLayout {
         UICollectionViewCompositionalLayout { [weak self] _, env in
             let width = env.container.effectiveContentSize.width
-            let metrics = width > 0 ? HomeCardLayoutMetrics.forContainerWidth(width) : self?.currentLayoutMetrics ?? .screen
-            return self?.makeSection(for: metrics)
+            guard let self else { return nil }
+            let metrics = width > 0 ? HomeCardLayoutMetrics.forContainerWidth(width, contentMargins: contentMargins) : currentLayoutMetrics
+            return makeSection(for: metrics)
         }
     }
 
@@ -233,7 +246,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         if #available(iOS 17.0, *) {
             section.orthogonalScrollingProperties.decelerationRate = .fast
         }
-        section.contentInsets = .init(top: 0, leading: metrics.inset, bottom: 0, trailing: metrics.inset)
+        section.contentInsets = .init(top: 0, leading: metrics.leadingInset, bottom: 0, trailing: metrics.trailingInset)
         section.interGroupSpacing = metrics.spacing
 
         section.visibleItemsInvalidationHandler = { [weak self] items, scrollOffset, env in
@@ -282,7 +295,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
 
     private func updateLayoutMetricsIfNeeded() {
-        let newMetrics = bounds.width > 0 ? HomeCardLayoutMetrics.forContainerWidth(bounds.width) : .screen
+        let newMetrics = bounds.width > 0 ? HomeCardLayoutMetrics.forContainerWidth(bounds.width, contentMargins: contentMargins) : .screen
         guard newMetrics != currentLayoutMetrics else { return }
         HomeTrace.record("cards.invalidate", "selector=\(ObjectIdentifier(self)) reason=width oldWidth=\(currentLayoutMetrics.itemWidth) newWidth=\(newMetrics.itemWidth)")
         currentLayoutMetrics = newMetrics

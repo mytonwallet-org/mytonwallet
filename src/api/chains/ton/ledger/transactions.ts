@@ -9,7 +9,7 @@ import type { ApiTonWalletVersion, PreparedTransactionToSign, TonTransferHints }
 import { ApiHardwareError } from '../../../types';
 
 import { logDebug, logDebugError } from '../../../../util/logs';
-import { resolveTokenAddress, toBase64Address } from '../util/tonCore';
+import { resolveTokenWallet, toBase64Address } from '../util/tonCore';
 import { ledgerTransport } from '../../../common/ledger';
 import { ATTEMPTS, TRANSFER_TIMEOUT_SEC, WORKCHAIN } from '../constants';
 import {
@@ -175,7 +175,7 @@ async function getPayload(
   if (ledgerPayload?.type === 'jetton-transfer' && doesSupportKnownJetton(ledgerModel, ledgerTonVersion)) {
     if (!tokenAddress) {
       const tokenWalletAddress = toBase64Address(toAddress, true, network);
-      tokenAddress = await resolveTokenAddress(network, tokenWalletAddress);
+      ({ tokenAddress } = await resolveTokenWallet(network, tokenWalletAddress));
     }
 
     if (tokenAddress) {

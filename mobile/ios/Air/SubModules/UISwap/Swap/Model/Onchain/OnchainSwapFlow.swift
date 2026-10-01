@@ -51,9 +51,6 @@ import WalletContext
             swapType: swapType,
             account: account
         )
-        if result.isRateLimited {
-            return .rateLimited(changedFrom: result.changedFrom)
-        }
         let estimatedAmounts = result.dexEstimate.map {
             SwapInputModel.Estimate(
                 changedFrom: result.changedFrom,

@@ -23,6 +23,112 @@ struct MintCardTests {
     }
 
     @Test
+    func discountDecodesOptionallyWithoutChangingTheServerPrice() throws {
+        for discountJSON in ["", #", "discount": null"#, #", "discount": {"percent": 35, "isApplied": true}"#,
+                             #", "discount": {"percent": 35, "isApplied": false}"#] {
+            let card = try JSONDecoder().decode(ApiCardInfo.self, from: Data(
+                "{\"all\":100,\"notMinted\":68,\"price\":1250\(discountJSON)}".utf8
+            ))
+            #expect(card.price == 1250)
+            #expect(card.discount?.percent == (discountJSON.contains("percent") ? 35 : nil))
+            if let discount = card.discount {
+                #expect(discount.isApplied == discountJSON.contains("true"))
+            }
+            #expect(try JSONDecoder().decode(ApiCardInfo.self, from: JSONEncoder().encode(card)) == card)
+            var withoutDiscount = card
+            withoutDiscount.discount = nil
+            #expect(MintCardPurchaseState(cardInfo: card, token: token).title == MintCardPurchaseState(cardInfo: withoutDiscount, token: token).title)
+        }
+    }
+
+    @Test
+    func discountTracksLiveConfigAndSelectionWithoutMovingTheFooter() {
+        let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
+        var cards = DebugPromotionPreset.cardMintingCardsInfo
+        view.configure(cardsInfo: cards, token: token)
+        view.layoutIfNeeded()
+        #expect(view.discountNotice.isHidden)
+        let buttonFrame = view.upgradeButton.frame
+
+        for isApplied in [true, false] {
+            cards.byType[.standard]?.discount = .init(percent: 35, isApplied: isApplied)
+            view.configure(cardsInfo: cards, token: token)
+            view.layoutIfNeeded()
+            let percent = "\(localizedIntegerString(35))%"
+            let expected = isApplied
+                ? L10n.congratsYourFirstCardComesAtPercentOff(card: lang("Standard Card"), percent: percent)
+                : L10n.mostActiveUsersGetPercentOffTheirFirstCardTradeOrStakeToQualifyForNextTime(percent: percent, card: lang("Standard Card"))
+            #expect(view.discountLabel.text == expected)
+            #expect(!view.discountNotice.isHidden)
+            #expect(view.discountLabel.isAccessibilityElement)
+            #expect(view.upgradeButton.frame == buttonFrame)
+            let scrollFrame = view.scrollView.frame
+            let benefitsFrame = view.benefits.frame
+            view.scrollView.contentOffset.y = 20
+            for _ in 0..<4 {
+                view.select(offset: 1, animated: false)
+                view.layoutIfNeeded()
+                #expect(view.discountNotice.isHidden)
+                #expect(view.scrollView.frame == scrollFrame)
+                #expect(view.scrollView.contentOffset.y == 20)
+                #expect(view.benefits.frame.origin == benefitsFrame.origin)
+            }
+            view.select(offset: 1, animated: false)
+            #expect(!view.discountNotice.isHidden)
+        }
+        cards.byType[.standard]?.discount = nil
+        view.configure(cardsInfo: cards, token: token)
+        #expect(view.discountNotice.isHidden)
+    }
+
+    @Test
+    func discountWrapsOnResizeAndReleasesSpaceWhenHidden() {
+        let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 600, height: 874))
+        var cards = DebugPromotionPreset.cardMintingCardsInfo
+        cards.byType[.standard]?.discount = .init(percent: 50, isApplied: false)
+        view.configure(cardsInfo: cards, token: token)
+        for width in [600.0, 320, 402] {
+            view.select(offset: -view.selectedPage, animated: false)
+            view.frame.size.width = width
+            view.layoutIfNeeded()
+            #expect(view.discountNotice.frame.minX >= 16)
+            #expect(view.discountNotice.frame.maxX <= width - 16)
+            #expect(view.discountNotice.frame.maxY == view.upgradeButton.frame.minY - 16)
+            #expect(view.scrollView.frame == view.bounds)
+            #expect(view.footerBackground.frame.minY == view.discountNotice.frame.minY - 48)
+            let discountInset = view.scrollView.contentInset.bottom
+            let requiredHeight = view.discountLabel.sizeThatFits(CGSize(width: view.discountLabel.bounds.width, height: .greatestFiniteMagnitude)).height
+            #expect(view.discountLabel.bounds.height >= requiredHeight)
+            view.select(offset: 1, animated: false)
+            view.layoutIfNeeded()
+            #expect(view.discountNotice.isHidden)
+            #expect(view.footerBackground.frame.minY == view.upgradeButton.frame.minY - 48)
+            #expect(view.scrollView.contentInset.bottom < discountInset)
+        }
+    }
+
+    @Test
+    func everyBenefitCanScrollAboveTheFooterWithAndWithoutDiscount() {
+        for (width, height) in [(320.0, 568.0), (393, 780), (402, 802), (600, 874)] {
+            let view = MintCardView(frame: CGRect(x: 0, y: 0, width: width, height: height))
+            var cards = DebugPromotionPreset.cardMintingCardsInfo
+            for discount in [ApiCardInfo.Discount?.none, .init(percent: 50, isApplied: true), .init(percent: 50, isApplied: false)] {
+                cards.byType[.standard]?.discount = discount
+                view.configure(cardsInfo: cards, token: token)
+                for _ in MintCardTypeInfo.ordered {
+                    view.layoutIfNeeded()
+                    let bottomOffset = max(0, view.scrollView.contentSize.height + view.scrollView.contentInset.bottom - view.scrollView.bounds.height)
+                    view.scrollView.contentOffset.y = bottomOffset
+                    let benefitsBottom = view.benefits.convert(CGPoint(x: 0, y: view.benefits.bounds.maxY), to: view).y
+                    #expect(benefitsBottom <= view.footerBackground.frame.minY - 16 + 0.5)
+                    #expect(!view.footerBackground.isUserInteractionEnabled)
+                    view.select(offset: 1, animated: false)
+                }
+            }
+        }
+    }
+
+    @Test
     func swipeRequiresIntentAndSupportsFlicksAndRTL() {
         for rtl in [false, true] {
             let forward = rtl ? -1 : 1
@@ -51,7 +157,7 @@ struct MintCardTests {
                 view.layoutIfNeeded()
                 #expect(view.benefits === benefits)
                 #expect(view.upgradeButton === button)
-                #expect(benefits.frame == benefitsFrame)
+                #expect(benefits.frame.origin == benefitsFrame.origin)
                 #expect(button.frame == buttonFrame)
                 #expect(benefits.transform == .identity)
                 #expect(view.scrollView.contentOffset == CGPoint(x: 0, y: 20))
@@ -61,6 +167,51 @@ struct MintCardTests {
             #expect(view.selectedPage == 0)
             view.select(offset: -1, animated: false)
             #expect(MintCardTypeInfo.at(page: view.selectedPage).type == .black)
+        }
+    }
+
+    @Test
+    func blackCardTitleStaysReadableAcrossPurchaseStates() throws {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            view.overrideUserInterfaceStyle = style
+            var cards = DebugPromotionPreset.cardMintingCardsInfo
+            view.configure(cardsInfo: cards, token: token)
+            view.select(offset: 4, animated: false)
+            let button = view.upgradeButton
+
+            func expectTitleBrightness(_ expected: CGFloat) throws {
+                view.layoutIfNeeded()
+                button.layoutIfNeeded()
+                let title = try #require(button.titleLabel?.attributedText)
+                #expect(title.string == button.accessibilityLabel)
+                let color = try #require(title.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor)
+                var white: CGFloat = 0
+                var alpha: CGFloat = 0
+                #expect(color.resolvedColor(with: view.traitCollection).getWhite(&white, alpha: &alpha))
+                #expect(abs(white - expected) < 0.01)
+                #expect(alpha > 0.99)
+            }
+
+            #expect(button.isEnabled)
+            try expectTitleBrightness(0)
+            cards.byType[.black]?.notMinted = 0
+            view.configure(cardsInfo: cards, token: token)
+            #expect(!button.isEnabled)
+            try expectTitleBrightness(1)
+            cards.byType[.black]?.startsAt = Date.now.addingTimeInterval(3600).formatted(.iso8601)
+            view.configure(cardsInfo: cards, token: token)
+            #expect(!button.isEnabled)
+            try expectTitleBrightness(1)
+            cards = DebugPromotionPreset.cardMintingCardsInfo
+            view.configure(cardsInfo: cards, token: token)
+            try expectTitleBrightness(0)
+            view.isSubmitting = true
+            #expect(!button.isEnabled)
+            try expectTitleBrightness(1)
+            view.isSubmitting = false
+            #expect(button.isEnabled)
+            try expectTitleBrightness(0)
         }
     }
 

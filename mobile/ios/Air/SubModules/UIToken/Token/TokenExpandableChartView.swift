@@ -100,6 +100,9 @@ final class TokenExpandableChartView: UIView {
     private var lastSelection: CompactLineChartSelection?
 
     var height: CGFloat { heightConstraint.constant }
+    var rangeInteractionBlockingGestureRecognizer: UIGestureRecognizer {
+        rangeChart.horizontalInteractionBlockingGestureRecognizer
+    }
     private var isExpanded = false
     private var isTogglingChart = false
     // MARK: - Views
@@ -185,7 +188,7 @@ final class TokenExpandableChartView: UIView {
         label.text = lang("No price data")
         label.textColor = UIColor.air.secondaryLabel
         label.applyTextStyle(.footnote)
-        label.alpha = 0
+        label.isHidden = true
         return label
     }()
 
@@ -399,37 +402,19 @@ final class TokenExpandableChartView: UIView {
             ])
             priceChangeLabel.attributedText = percent
 
-        } else if selectedRange != 0...1 {
-            let historyData = scope(data: self.historyData, range: selectedRange)
-            let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1]
-            let lastPrice: Double = historyData?.last(where: { val in val[1] != 0 })?[1] ?? tokenPrice
-            let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
-            let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
-            let attr = NSAttributedString(string: priceString, attributes: [
-                .font: WTypography.uiFont(.calloutEmphasized, content: .technical),
-                .foregroundColor: UIColor.label
-            ])
-            priceValueLabel.attributedText = attr
-            var percentChange: Double?
-            if let firstPriceInChart {
-                percentChange = (lastPrice - firstPriceInChart) / firstPriceInChart
-            }
-            if let percentChange {
-                let percent = NSAttributedString(string: formatPercent(percentChange), attributes: [
-                    .font: WTypography.uiFont(.supporting, content: .technical),
-                    .foregroundColor: percentChange > 0 ? UIColor.air.positiveAmount : (percentChange == 0 ? UIColor.air.secondaryLabel : UIColor.air.negativeAmount)
-                ])
-                priceChangeLabel.attributedText = percent
-            } else {
-                priceChangeLabel.attributedText = nil
-            }
-
         } else {
-            let lastPrice: Double = historyData?.last(where: { val in val[1] != 0 })?[1] ?? tokenPrice
-            var percentChange: Double?
-            if let firstPriceInChart = historyData?.first(where: { val in val[1] != 0 })?[1] {
-                percentChange = (lastPrice - firstPriceInChart) / firstPriceInChart
-            }
+            let lastPrice = latestTokenChartPrice(
+                historyData: historyData,
+                range: selectedRange,
+                fallbackPrice: tokenPrice
+            )
+            let percentChange = tokenChartPercentChange(
+                historyData: historyData,
+                range: selectedRange,
+                tokenPercentChange24h: token.percentChange24h,
+                shouldUseTokenPercentChange: timePeriods[timeFrameSwitcherView.selectedSegmentIndex] == .day,
+                fallbackPrice: tokenPrice
+            )
             let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(lastPrice, TokenStore.baseCurrency)
             let priceString = baseCurrencyAmount.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
             let attr = NSAttributedString(string: priceString, attributes: [
@@ -447,6 +432,7 @@ final class TokenExpandableChartView: UIView {
             } else {
                 priceChangeLabel.attributedText = nil
             }
+
         }
         UIView.animate(withDuration: 0.2) {
             self.priceChangeLabel.alpha = self.priceChangeLabel.attributedText?.string.nilIfEmpty == nil ? 0 : 1
@@ -465,14 +451,19 @@ final class TokenExpandableChartView: UIView {
             self.displayedPeriod = period
         }
 
-        if let historyData {
-            UIView.animate(withDuration: 0.2) { [self] in
-                loadingIndicator.stopAnimating(animated: true)
-                collapsedChart.alpha = 1
-                expandedChart.alpha = 1
-                noPriceDataLabel.alpha = historyData.isEmpty ? 1 : 0
-                rangeChart.alpha = !isExpanded || historyData.isEmpty ? 0 : 1
-            }
+        // Pending history (nil) and an empty response are distinct presentation states.
+        let isLoading = data == nil
+        let hasData = data?.isEmpty == false
+        noPriceDataLabel.isHidden = data?.isEmpty != true
+        if isLoading {
+            loadingIndicator.startAnimating(animated: true)
+        } else {
+            loadingIndicator.stopAnimating(animated: false)
+        }
+        UIView.animate(withDuration: 0.2) { [self] in
+            collapsedChart.alpha = hasData ? 1 : 0
+            expandedChart.alpha = hasData ? 1 : 0
+            rangeChart.alpha = isExpanded && hasData ? 1 : 0
         }
         let dateFormat: String
         switch timePeriods[timeFrameSwitcherView.selectedSegmentIndex] {
@@ -503,25 +494,11 @@ final class TokenExpandableChartView: UIView {
 
     @objc private func handlePeriodChange() {
         let period = timePeriods[timeFrameSwitcherView.selectedSegmentIndex]
-        let hasData = TokenStore.historyData(tokenSlug: token?.slug ?? "")?.data[period] != nil
+        historyData = nil
+        lastSelection = nil
         selectedRange = 0...1
-        loadingIndicator.startAnimating(animated: true)
-        UIView.animate(withDuration: 0.2) { [self] in
-            rangeChart.setRange(0...1, animated: true)
-            collapsedChart.alpha = 0
-            expandedChart.alpha = 0
-            rangeChart.alpha = 0
-            if !hasData {
-                priceChangeLabel.alpha = 0
-            }
-        } completion: { [self] ok in
-            lastSelection = nil
-            if ok, loadingIndicator.isAnimating, loadingIndicator.layer.presentation()?.opacity == 1 {
-                UIView.performWithoutAnimation {
-                    drawChart(period: period, historyData: [], range: 0...1)
-                }
-            }
-        }
+        drawChart(period: period, historyData: nil, range: selectedRange)
+        fillLabels()
         onPeriodChange?(period)
     }
 
@@ -694,4 +671,33 @@ func scope(data: [[Double]]?, range: ClosedRange<CGFloat>) -> [[Double]]? {
     let hi = ceil(range.upperBound * segmentsCount)
     let scoped = Array(data[Int(lo)...Int(hi)])
     return reduceNumberOfPoints(scoped, to: 1000)
+}
+
+func latestTokenChartPrice(
+    historyData data: [[Double]]?,
+    range: ClosedRange<CGFloat>,
+    fallbackPrice: Double
+) -> Double {
+    let chartData = range == 0...1 ? data : scope(data: data, range: range)
+    return chartData?.last(where: { $0[1] != 0 })?[1] ?? fallbackPrice
+}
+
+func tokenChartPercentChange(
+    historyData data: [[Double]]?,
+    range: ClosedRange<CGFloat>,
+    tokenPercentChange24h: Double?,
+    shouldUseTokenPercentChange: Bool,
+    fallbackPrice: Double
+) -> Double? {
+    if shouldUseTokenPercentChange, range == 0...1, let tokenPercentChange24h {
+        return tokenPercentChange24h / 100
+    }
+
+    let chartData = range == 0...1 ? data : scope(data: data, range: range)
+    guard let firstPrice = chartData?.first(where: { $0[1] != 0 })?[1] else {
+        return nil
+    }
+
+    let lastPrice = chartData?.last(where: { $0[1] != 0 })?[1] ?? fallbackPrice
+    return (lastPrice - firstPrice) / firstPrice
 }

@@ -1,101 +1,80 @@
 import Foundation
 import Testing
+import Dependencies
 @testable import UISwap
 import WalletCore
 import WalletContext
 
 @Suite("Swap Estimate Pipeline")
+@MainActor
 struct SwapEstimatePipelineTests {
     @Test
-    func `estimate accepts output amount changes from applied sell estimate`() {
-        let requested = makeInput(sellingAmount: 100, buyingAmount: 0, inputSource: .selling)
-        let current = makeInput(sellingAmount: 100, buyingAmount: 250, inputSource: .selling)
+    func `applied estimate output cannot move the request`() {
+        // The opposite-side amount is an output: it is not part of the
+        // request, so writing an estimate back cannot start another one.
+        let requested = deriveRequest(inputSource: .selling, sellingAmount: 100, buyingAmount: nil)
+        let applied = deriveRequest(inputSource: .selling, sellingAmount: 100, buyingAmount: 250)
 
-        #expect(requested.matchesCurrent(current))
+        #expect(requested == applied)
+
+        let requestedBuy = deriveRequest(inputSource: .buying, sellingAmount: nil, buyingAmount: 250)
+        let appliedBuy = deriveRequest(inputSource: .buying, sellingAmount: 100, buyingAmount: 250)
+
+        #expect(requestedBuy == appliedBuy)
     }
 
     @Test
-    func `estimate accepts output amount changes from applied buy estimate`() {
-        let requested = makeInput(sellingAmount: 0, buyingAmount: 250, inputSource: .buying)
-        let current = makeInput(sellingAmount: 100, buyingAmount: 250, inputSource: .buying)
+    func `backend max adjustment cannot move the request`() {
+        // In max mode the request keys on the balance, not the amount the
+        // backend computes from it.
+        let requested = deriveRequest(inputSource: .selling, sellingAmount: 1_000, buyingAmount: nil, isUsingMax: true, tokenBalance: 1_000)
+        let applied = deriveRequest(inputSource: .selling, sellingAmount: 900, buyingAmount: 250, isUsingMax: true, tokenBalance: 1_000)
 
-        #expect(requested.matchesCurrent(current))
+        #expect(requested == applied)
     }
 
     @Test
-    func `max amount backend adjustment does not stale estimate`() {
-        let requested = makeInput(sellingAmount: 1_000, buyingAmount: 0, inputSource: .selling, isMaxAmount: true, maxAmount: 1_000)
-        let current = makeInput(sellingAmount: 900, buyingAmount: 250, inputSource: .selling, isMaxAmount: true, maxAmount: 1_000)
+    func `balance change moves a max request`() {
+        let before = deriveRequest(inputSource: .selling, sellingAmount: 1_000, buyingAmount: nil, isUsingMax: true, tokenBalance: 1_000)
+        let after = deriveRequest(inputSource: .selling, sellingAmount: 900, buyingAmount: 250, isUsingMax: true, tokenBalance: 900)
 
-        #expect(requested.matchesCurrent(current))
+        #expect(before != after)
     }
 
     @Test
-    func `max amount balance change stales estimate`() {
-        let requested = makeInput(sellingAmount: 1_000, buyingAmount: 0, inputSource: .selling, isMaxAmount: true, maxAmount: 1_000)
-        let current = makeInput(sellingAmount: 900, buyingAmount: 250, inputSource: .selling, isMaxAmount: true, maxAmount: 900)
+    func `typed amount change moves the request`() {
+        let before = deriveRequest(inputSource: .selling, sellingAmount: 1_000, buyingAmount: nil)
+        let after = deriveRequest(inputSource: .selling, sellingAmount: 900, buyingAmount: 250)
 
-        #expect(!requested.matchesCurrent(current))
+        #expect(before != after)
     }
 
     @Test
-    func `non max input amount change stales estimate`() {
-        let requested = makeInput(sellingAmount: 1_000, buyingAmount: 0, inputSource: .selling)
-        let current = makeInput(sellingAmount: 900, buyingAmount: 250, inputSource: .selling)
+    func `token pair change moves the request`() {
+        let before = deriveRequest(inputSource: .selling, sellingAmount: 100, buyingAmount: nil)
+        let after = deriveRequest(buyingSlug: "eth", inputSource: .selling, sellingAmount: 100, buyingAmount: 250)
 
-        #expect(!requested.matchesCurrent(current))
+        #expect(before != after)
     }
 
     @Test
-    func `token pair change stales estimate`() {
-        let requested = makeInput(sellingAmount: 100, buyingAmount: 0, inputSource: .selling)
-        let current = makeInput(
-            sellingToken: token(slug: "toncoin", symbol: "TON", chain: .ton),
-            buyingToken: token(slug: "eth", symbol: "ETH", chain: .ethereum),
+    func `disabled buy side coerces the request to the sell side`() {
+        let request = deriveRequest(
+            inputSource: .buying,
+            isBuyAmountInputDisabled: true,
             sellingAmount: 100,
-            buyingAmount: 250,
-            inputSource: .selling
+            buyingAmount: 250
         )
 
-        #expect(!requested.matchesCurrent(current))
+        #expect(request?.side == .selling)
+        #expect(request?.amount == .exact(100))
     }
 
     @Test
-    func `estimate gate prevents overlap and requests one follow up`() throws {
-        var gate = SwapEstimateGate()
-        let first = makeInput(sellingAmount: 100, buyingAmount: 0, inputSource: .selling)
-        let second = makeInput(sellingAmount: 200, buyingAmount: 0, inputSource: .selling)
+    func `invalid pair produces no request`() {
+        let request = deriveRequest(inputSource: .selling, sellingAmount: 100, buyingAmount: nil, isValidPair: false)
 
-        let firstSlot = gate.start(first)
-        let secondSlot = gate.start(second)
-        #expect(firstSlot != nil)
-        #expect(secondSlot == nil)
-        #expect(gate.isInFlight)
-
-        let didRequestFollowUp = gate.finish(try #require(firstSlot))
-        #expect(didRequestFollowUp)
-        #expect(!gate.isInFlight)
-
-        let followUpSlot = gate.start(second)
-        let didRequestSecondFollowUp = gate.finish(try #require(followUpSlot))
-        #expect(followUpSlot != nil)
-        #expect(!didRequestSecondFollowUp)
-    }
-
-    @Test
-    func `estimate gate can cancel pending follow up`() throws {
-        var gate = SwapEstimateGate()
-        let first = makeInput(sellingAmount: 100, buyingAmount: 0, inputSource: .selling)
-        let second = makeInput(sellingAmount: 0, buyingAmount: 200, inputSource: .buying)
-
-        let firstSlot = gate.start(first)
-        let secondSlot = gate.start(second)
-        #expect(firstSlot != nil)
-        #expect(secondSlot == nil)
-        gate.cancelFollowUp()
-
-        let didRequestFollowUp = gate.finish(try #require(firstSlot))
-        #expect(!didRequestFollowUp)
+        #expect(request == nil)
     }
 
     @Test
@@ -558,6 +537,45 @@ private func makeInput(
         maxAmount: maxAmount,
         slippage: slippage
     )
+}
+
+@MainActor private func deriveRequest(
+    sellingSlug: String = "toncoin",
+    buyingSlug: String = "usdt",
+    inputSource: SwapSide,
+    isBuyAmountInputDisabled: Bool = false,
+    sellingAmount: BigInt?,
+    buyingAmount: BigInt?,
+    isUsingMax: Bool = false,
+    tokenBalance: BigInt? = nil,
+    isValidPair: Bool = true,
+    slippage: Double = 5
+) -> SwapEstimateRequest? {
+    return withDependencies {
+        $0[_TokenStore.self] = TokenStore
+    } operation: {
+        let input = SwapInputModel(
+            sellingTokenSlug: nil,
+            buyingTokenSlug: nil,
+            tokenBalance: tokenBalance,
+            accountContext: AccountContext(source: .constant(MAccount(
+                id: "test-mainnet", title: nil, type: .mnemonic, byChain: [:]
+            )))
+        )
+        input.sellingToken = token(slug: sellingSlug, symbol: "SELL", chain: .ton)
+        input.buyingToken = token(slug: buyingSlug, symbol: "BUY", chain: .ton)
+        input.inputSource = inputSource
+        input.buyingAmountInputDisabled = isBuyAmountInputDisabled
+        input.isUsingMax = isUsingMax
+        input.sellingAmount = sellingAmount
+        input.buyingAmount = buyingAmount
+        return SwapEstimateRequest.derive(
+            accountId: "test-mainnet",
+            input: input,
+            isValidPair: isValidPair,
+            slippage: slippage
+        )
+    }
 }
 
 private func makeCrosschainPayment(

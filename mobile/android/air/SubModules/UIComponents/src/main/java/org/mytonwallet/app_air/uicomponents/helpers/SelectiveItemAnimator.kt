@@ -26,8 +26,12 @@ class SelectiveItemAnimator : DefaultItemAnimator() {
         moveDuration = AnimationConstants.VERY_VERY_QUICK_ANIMATION
     }
 
+    // Items of a screen that is not shown yet, or is being revealed, take their final state at once.
+    private fun isSuspended(holder: RecyclerView.ViewHolder) =
+        AnimationSuspension.covers(holder.itemView)
+
     override fun animateAdd(holder: RecyclerView.ViewHolder): Boolean {
-        if (!enableAdd) {
+        if (!enableAdd || isSuspended(holder)) {
             dispatchAddFinished(holder)
             return false
         }
@@ -35,7 +39,7 @@ class SelectiveItemAnimator : DefaultItemAnimator() {
     }
 
     override fun animateRemove(holder: RecyclerView.ViewHolder): Boolean {
-        if (!enableRemove) {
+        if (!enableRemove || isSuspended(holder)) {
             dispatchRemoveFinished(holder)
             return false
         }
@@ -49,7 +53,7 @@ class SelectiveItemAnimator : DefaultItemAnimator() {
         toX: Int,
         toY: Int
     ): Boolean {
-        if (!enableMove) {
+        if (!enableMove || isSuspended(holder)) {
             dispatchMoveFinished(holder)
             return false
         }
@@ -64,7 +68,7 @@ class SelectiveItemAnimator : DefaultItemAnimator() {
         toX: Int,
         toY: Int
     ): Boolean {
-        if (!enableChange) {
+        if (!enableChange || isSuspended(oldHolder)) {
             dispatchChangeFinished(oldHolder, true)
             if (newHolder != null) {
                 dispatchChangeFinished(newHolder, false)

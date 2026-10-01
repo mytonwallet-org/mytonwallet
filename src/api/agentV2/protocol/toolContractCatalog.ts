@@ -8,14 +8,15 @@ export interface AgentV2ToolContractMetadata {
   version: AgentToolCapability['version'];
 }
 
+// The calls are marked pure so a build without Agent V2 can drop the catalog
 export const AGENT_V2_TOOL_CONTRACTS: readonly AgentV2ToolContractMetadata[] = [
-  tool('wallet.data.query', 'wallet.data.read', 5),
-  tool('wallet.directory.query', 'wallet.directory.read'),
-  tool('action.send.prepare', 'action.send.prepare'),
-  tool('action.swap.prepare', 'action.swap.prepare'),
-  tool('market.asset.quote', 'market.data.read'),
-  tool('staking.offer.read', 'staking.data.read'),
-  tool('staking.offers.list', 'staking.data.read'),
+  /* @__PURE__ */ tool('wallet.data.query', 'wallet.data.read', 5),
+  /* @__PURE__ */ tool('wallet.directory.query', 'wallet.directory.read'),
+  /* @__PURE__ */ tool('action.send.prepare', 'action.send.prepare'),
+  /* @__PURE__ */ tool('action.swap.prepare', 'action.swap.prepare'),
+  /* @__PURE__ */ tool('market.asset.quote', 'market.data.read'),
+  /* @__PURE__ */ tool('staking.offer.read', 'staking.data.read'),
+  /* @__PURE__ */ tool('staking.offers.list', 'staking.data.read'),
 ];
 
 function tool(

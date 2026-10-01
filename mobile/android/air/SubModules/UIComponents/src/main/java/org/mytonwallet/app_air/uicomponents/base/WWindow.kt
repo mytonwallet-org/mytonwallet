@@ -1081,6 +1081,11 @@ abstract class WWindow :
                 lastOverlay?.alpha = 0f
                 activeAnimator?.cancel()
                 expandOriginView?.fadeIn(AnimationConstants.QUICK_ANIMATION)
+                val layeredViews = listOfNotNull(
+                    navigationController,
+                    prevNavigationController.takeIf { !skipPrevNavAnimation }
+                ).filter { it.layerType == View.LAYER_TYPE_NONE }
+                layeredViews.forEach { it.setLayerType(View.LAYER_TYPE_HARDWARE, null) }
                 activeAnimator = ValueAnimator.ofInt(0, 1).apply {
                     duration = AnimationConstants.QUICK_ANIMATION
 
@@ -1099,14 +1104,33 @@ abstract class WWindow :
                     addListener(object : AnimatorListenerAdapter() {
                         override fun onAnimationEnd(animation: Animator) {
                             super.onAnimationEnd(animation)
+                            layeredViews.forEach { it.setLayerType(View.LAYER_TYPE_NONE, null) }
                             WGlobalStorage.decDoNotSynchronize()
                             animationEnded()
                         }
                     })
 
                     WGlobalStorage.incDoNotSynchronize()
-                    windowView.post {
-                        start()
+                    // The layers are rendered once, behind the still opaque screen, before the
+                    // first animated frame.
+                    if (layeredViews.isNotEmpty() &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ) {
+                        val animator = this
+                        var started = false
+                        val startOnce = Runnable {
+                            // Another navigation may have ended this dismiss before it started.
+                            if (!started && activeAnimator === animator) {
+                                started = true
+                                start()
+                            }
+                        }
+                        windowView.viewTreeObserver.registerFrameCommitCallback(startOnce)
+                        // A window that draws no frame must not keep the screen from leaving.
+                        windowView.postDelayed(startOnce, AnimationConstants.QUICK_ANIMATION)
+                        windowView.invalidate()
+                    } else {
+                        windowView.post { start() }
                     }
                 }
             }

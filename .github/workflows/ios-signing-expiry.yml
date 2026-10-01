@@ -44,13 +44,28 @@ jobs:
           python3 - <<'PY'
           import base64, datetime, hashlib, os, plistlib, subprocess, sys, tempfile
 
+          # A month of notice, two ticks of the cron above, and a day of slack - the arithmetic is
+          # in dev/signingExpiryScheduleTests.mjs, which derives this number from that cron and goes
+          # red if either moves without the other. The notice this actually gives is the threshold
+          # minus however long passes between two runs, never the threshold itself, because the run
+          # that still sees the threshold left stays silent and the warning waits for the next run.
+          # Two ticks of headroom rather than one since GitHub drops scheduled runs from congested
+          # slots and starts others late, which is the very reason the backstop workflow exists.
+          #
+          # So this is a target carrying margin and not a bound, and no value here could be a bound:
+          # a best-effort schedule cannot be subtracted from exactly, and the backstop that covers a
+          # longer silence answers a finished release run rather than a clock, so the moment it acts
+          # depends on when somebody next pushes to master. What keeps that from mattering is that
+          # every run prints every date, so the time actually left is read off the table rather than
+          # inferred from a run having been green.
+          #
           # Fixed, and deliberately not a dispatch input. What a green run of this means has to be
           # one statement, because the backstop that stands in for the schedule reads a green run as
           # evidence that the material was looked at - and a run asked for with a window of one day
           # is green while something expires in a week, which would then buy silence for eight days.
           # Nothing is lost by fixing it: every date is printed on every run, so a wider or narrower
           # window is something to read off the table rather than to ask the alarm for.
-          THRESHOLD = 30
+          THRESHOLD = 45
           NOW = datetime.datetime.now(datetime.timezone.utc)
           WORK = tempfile.mkdtemp()
 

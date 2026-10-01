@@ -41,10 +41,10 @@ const MIN_TOOL_TIMEOUT_MS = 100;
 
 const MAX_TOOL_TIMEOUT_MS = 30_000;
 
-const TOOL_NAMES = new Set(AGENT_V2_TOOL_CONTRACTS.map(({ name }) => name));
+const TOOL_NAMES = /* @__PURE__ */ new Set(/* @__PURE__ */ AGENT_V2_TOOL_CONTRACTS.map(({ name }) => name));
 
-const TOOL_SCOPES = Object.fromEntries(
-  AGENT_V2_TOOL_CONTRACTS.map(({ name, scopes }) => [name, scopes[0]]),
+const TOOL_SCOPES = /* @__PURE__ */ Object.fromEntries(
+  /* @__PURE__ */ AGENT_V2_TOOL_CONTRACTS.map(({ name, scopes }) => [name, scopes[0]]),
 ) as Record<AgentToolCall['name'], string>;
 
 function walletSession(value: unknown, path: string) {

@@ -2,8 +2,12 @@ package org.mytonwallet.app_air.walletcore.stores
 
 import android.os.Handler
 import android.os.Looper
+import com.squareup.moshi.JsonReader
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
+import java.util.concurrent.FutureTask
+import okio.Buffer
 import org.json.JSONArray
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletcontext.WalletContextManager
@@ -551,6 +555,7 @@ object NftStore : IStore {
 
     fun removeAccount(accountId: String) {
         pendingCacheWrites.remove(accountId)
+        cacheReads.remove(accountId)
         pendingNewMtwCardsByAccount.remove(accountId)
         mintingAccountIds.remove(accountId)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.remove(accountId) }
@@ -619,6 +624,7 @@ object NftStore : IStore {
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
         pendingCacheWrites.clear()
+        cacheReads.clear()
     }
 
     private class PendingCacheWrite(
@@ -941,20 +947,47 @@ object NftStore : IStore {
         }
     }
 
+    // Callers reading the same account's cache at the same time share one parse; the list is read-only.
+    private val cacheReads = ConcurrentHashMap<String, FutureTask<List<ApiNft>?>>()
+
     fun fetchCachedNfts(accountId: String): List<ApiNft>? {
         pendingCacheWrites[accountId]?.nftsToWrite?.let { return it }
+        val read = FutureTask { readCachedNfts(accountId) }
+        val task = cacheReads.putIfAbsent(accountId, read) ?: read.also {
+            try {
+                it.run()
+            } finally {
+                cacheReads.remove(accountId, it)
+            }
+        }
+        return try {
+            task.get()
+        } catch (_: InterruptedException) {
+            // Parse on this thread instead of failing a caller whose executor is shutting down.
+            Thread.currentThread().interrupt()
+            readCachedNfts(accountId)
+        } catch (e: ExecutionException) {
+            throw e.cause ?: e
+        }
+    }
+
+    private fun readCachedNfts(accountId: String): List<ApiNft>? {
         val nftsString = WCacheStorage.getNfts(accountId) ?: run {
             if (WGlobalStorage.getAccountTonAddress(accountId) == null) "[]" else null
         }
         if (nftsString != null) {
-            val nftsJSONArray = JSONArray(nftsString)
+            val adapter = WalletCore.moshi.adapter(ApiNft::class.java)
+            val reader = JsonReader.of(Buffer().writeUtf8(nftsString))
             val nftsArray = ArrayList<ApiNft>()
-            for (i in 0 until nftsJSONArray.length()) {
-                val nftJson = nftsJSONArray.optJSONObject(i) ?: continue
-                ApiNft.fromJson(nftJson)?.let { nft ->
-                    nftsArray.add(nft)
+            reader.beginArray()
+            while (reader.hasNext()) {
+                if (reader.peek() != JsonReader.Token.BEGIN_OBJECT) {
+                    reader.skipValue()
+                    continue
                 }
+                adapter.fromJson(reader)?.let(nftsArray::add)
             }
+            reader.endArray()
             return nftsArray
         }
         return null

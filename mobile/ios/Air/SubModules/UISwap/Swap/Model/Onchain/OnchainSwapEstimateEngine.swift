@@ -65,7 +65,8 @@ private let log = Log("OnchainSwapEstimateEngine")
 
             let response = try await fetchEstimate(account.id, request)
             try Task.checkCancellation()
-            if case .error = response {
+            if case .error(let error) = response {
+                if isSwapEstimateRateLimited(error) { throw error }
                 return SwapEstimateResult(changedFrom: input.inputSource, response: response)
             }
             guard case .dex(let swapEstimate) = response else {
@@ -81,12 +82,15 @@ private let log = Log("OnchainSwapEstimateEngine")
                 throw CancellationError()
             }
             log.error("swapEstimate error \(error, .public)")
-            let isRateLimited = isSwapEstimateRateLimited(error)
+            if isSwapEstimateRateLimited(error) {
+                // A rate-limited refresh keeps the current estimate; the
+                // periodic tick retries.
+                throw error
+            }
             return SwapEstimateResult(
                 changedFrom: changedFrom,
                 response: nil,
-                estimateIssue: isRateLimited ? nil : swapEstimateIssue(from: error),
-                isRateLimited: isRateLimited
+                estimateIssue: swapEstimateIssue(from: error)
             )
         }
     }

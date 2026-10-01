@@ -263,6 +263,38 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
     private val allActivityListViews =
         listOf(prevActivityListView, currentActivityListView, nextActivityListView)
+
+    private var areAnimationsSuspended = false
+
+    fun setAnimationsSuspended(suspended: Boolean) {
+        if (areAnimationsSuspended == suspended) return
+        areAnimationsSuspended = suspended
+        if (isViewConfigured) phoneHeaderView.setEffectsSuspended(suspended)
+        panelHeaderView?.setEffectsSuspended(suspended)
+        allActivityListViews.forEach { it.areAnimationsSuspendedByOwner = suspended }
+        if (suspended) {
+            if (swipeItemsOffset == 0) {
+                listOf(prevActivityListView, nextActivityListView).forEach {
+                    if (it.isInvisible) it.isGone = true
+                }
+            }
+        } else {
+            showOffscreenPagesWhenIdle()
+        }
+    }
+
+    // While Home is being revealed an off-screen page skips layout until it is shown.
+    private fun hideOffscreenPage(page: ActivityListView<HomeVC>) {
+        if (areAnimationsSuspended) page.isGone = true else page.isInvisible = true
+    }
+
+    private fun showOffscreenPagesWhenIdle() {
+        executeWithLowPriority {
+            if (isDestroyed || areAnimationsSuspended) return@executeWithLowPriority
+            allActivityListViews.forEach { if (it.isGone) it.isInvisible = true }
+        }
+    }
+
     private val activityListViewsContainer = object : WFrameLayout(context) {
         override fun onVisibilityAggregated(isVisible: Boolean) {
             super.onVisibilityAggregated(isVisible)
@@ -412,6 +444,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             field = value
             value?.updateMintIconVisibility()
             value?.updatePromotion()
+            if (areAnimationsSuspended) value?.setEffectsSuspended(true)
         }
 
     val overrideAccountIds: Array<String>?
@@ -764,15 +797,14 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             }
         }
 
+        if (areAnimationsSuspended) phoneHeaderView.setEffectsSuspended(true)
+
         WalletCore.doOnBridgeReady {
             homeVM.setupObservers()
             updateHeaderCards(false)
             updateBalance(false)
             configureAccountViews(shouldLoadNewWallets = true, skipSkeletonOnCache = false)
-            executeWithLowPriority {
-                if (isDestroyed) return@executeWithLowPriority
-                allActivityListViews.forEach { if (it.isGone) it.isInvisible = true }
-            }
+            showOffscreenPagesWhenIdle()
         }
 
         if (mode == MScreenMode.Default) {
@@ -1180,7 +1212,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     scheduleInitialContentRenderCallback()
                     return@post
                 }
-                callback()
+                currentActivityListView.doOnCachedContentShown(callback)
             }
         }
     }
@@ -1236,9 +1268,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     )
                 }
                 ).apply {
-                if (swipeItemsOffset == 0 && isVisible) {
-                    isInvisible = true
-                }
+                if (swipeItemsOffset == 0 && isVisible) hideOffscreenPage(this)
                 if (prevView == null || alpha == 0f) instantScrollToTop()
             }
         currentActivityListView =
@@ -1266,9 +1296,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 )
             }
             ).apply {
-            if (swipeItemsOffset == 0 && isVisible) {
-                isInvisible = true
-            }
+            if (swipeItemsOffset == 0 && isVisible) hideOffscreenPage(this)
             if (nextView == null || alpha == 0f) instantScrollToTop()
         }
     }

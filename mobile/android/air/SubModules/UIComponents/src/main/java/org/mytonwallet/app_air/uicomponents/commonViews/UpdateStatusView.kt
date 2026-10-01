@@ -99,10 +99,16 @@ class UpdateStatusView(context: Context, private val style: Style = Style.Header
         isLongClickable = isShowing
         statusReplaceableLabel.animate().cancel()
         if (!animated) {
+            statusReplaceableLabel.isProgressAnimated = isShowing
             statusReplaceableLabel.alpha = if (isShowing) 1f else 0f
             return
         }
-        if (isShowing) statusReplaceableLabel.fadeIn() else statusReplaceableLabel.fadeOut()
+        if (isShowing) {
+            statusReplaceableLabel.isProgressAnimated = true
+            statusReplaceableLabel.fadeIn()
+        } else {
+            statusReplaceableLabel.fadeOut { statusReplaceableLabel.isProgressAnimated = false }
+        }
     }
 
     @SuppressLint("SetTextI18n")

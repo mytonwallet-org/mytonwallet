@@ -25,7 +25,7 @@ public class UnstakeVC: WViewController {
     var stakingState: ApiStakingState { model.stakingState }
     
     var fakeTextField = UITextField(frame: .zero)
-    private var continueButton: WButton?
+    private var continueButtonPresenter: DraftButtonPresenter?
     private var isConfirming = false
     public init(config: StakingConfig, stakingState: ApiStakingState, accountContext: AccountContext) {
         self._account = accountContext
@@ -73,7 +73,7 @@ public class UnstakeVC: WViewController {
         hostingController.view.backgroundColor = .air.sheetBackground
         
         let continueButton = addBottomButton()
-        self.continueButton = continueButton
+        continueButtonPresenter = DraftButtonPresenter(button: continueButton)
         let title: String = L10n.unstakeAsset(symbol: model.baseToken.symbol)
         continueButton.setTitle(title, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
@@ -94,13 +94,7 @@ public class UnstakeVC: WViewController {
     }
     
     func amountChanged(amount: BigInt?) {
-        guard let continueButton else { return }
-        if isConfirming {
-            continueButton.showLoading = true
-            continueButton.isEnabled = false
-            return
-        }
-        let buttonTitle = L10n.unstakeAsset(symbol: model.baseToken.symbol)
+        guard let continueButtonPresenter else { return }
         
         let isLong = getIsLongUnstake(state: stakingState, amount: amount)
         let unlockTime = getUnstakeTime(state: stakingState)
@@ -112,64 +106,30 @@ public class UnstakeVC: WViewController {
             .instant
         }
         
-        if let amount {
-            let maxAmount = model.maxAmount
-            let calculatedFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).gas ?? 0
-            let nativeBalance = model.nativeBalance
-            let isDraftReady = model.draftPhase == .ready
-                && model.draft != nil
-            
-            if amount > maxAmount {
-                model.insufficientFunds = true
-                continueButton.showLoading = false
-                continueButton.apply(config: .insufficientStakedBalance)
-            } else if nativeBalance < calculatedFee {
-                model.insufficientFunds = true
-                continueButton.showLoading = false
-                continueButton.apply(config: .insufficientFee(minAmount: calculatedFee))
-            } else {
-                model.insufficientFunds = false
-                switch model.draftPhase {
-                case .loading:
-                    continueButton.showLoading = true
-                    continueButton.apply(
-                        config: .continue(
-                            title: buttonTitle,
-                            isEnabled: false
-                        )
-                    )
-                case .failed:
-                    continueButton.showLoading = false
-                    continueButton.apply(
-                        config: .continue(
-                            title: lang("Retry"),
-                            isEnabled: model.canRetryDraft
-                        )
-                    )
-                case .ready:
-                    continueButton.showLoading = false
-                    continueButton.apply(
-                        config: .continue(
-                            title: buttonTitle,
-                            isEnabled: amount > 0 && isDraftReady
-                        )
-                    )
-                case .idle:
-                    continueButton.showLoading = false
-                    continueButton.apply(
-                        config: .continue(
-                            title: buttonTitle,
-                            isEnabled: false
-                        )
-                    )
-                }
-            }
-        } else {
-            continueButton.showLoading = false
-            continueButton.isEnabled = false
-        }
+        continueButtonPresenter.apply(buttonConfiguration(amount: amount))
     }
-    
+
+    private func buttonConfiguration(amount: BigInt?) -> DraftButtonConfiguration {
+        let title = L10n.unstakeAsset(symbol: model.baseToken.symbol)
+        if isConfirming {
+            return .init(title: .text(title), isEnabled: false, showLoading: true)
+        }
+        model.insufficientFunds = false
+        guard let amount, amount > 0 else {
+            return .init(title: .text(title), isEnabled: false, showLoading: false)
+        }
+        let calculatedFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).gas ?? 0
+        if amount > model.maxAmount {
+            model.insufficientFunds = true
+            return .init(title: .text(lang("Insufficient Balance")), isEnabled: false, showLoading: false)
+        }
+        if model.nativeBalance < calculatedFee {
+            model.insufficientFunds = true
+            return .insufficientStakingFee(minAmount: calculatedFee)
+        }
+        return .staking(title: title, phase: model.draftPhase, canRetry: model.canRetryDraft, draftError: model.draft?.error)
+    }
+
     @objc func continuePressed() {
         guard !isConfirming else { return }
         view.endEditing(true)
@@ -177,6 +137,7 @@ public class UnstakeVC: WViewController {
             model.retryDraft()
             return
         }
+        guard model.canContinue, model.draftPhase == .ready else { return }
         isConfirming = true
         amountChanged(amount: model.amount)
         Task {

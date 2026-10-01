@@ -10,7 +10,7 @@ public class ExploreTabVC: WViewController {
     private let usesTopTabsChrome: Bool
     private let focusesSearchOnAppearance: Bool
     private let onSearchCancel: (() -> Void)?
-    private let exploreVC = ExploreVC()
+    private let exploreVC: ExploreVC
     private let searchView: ExploreSearch
     private var navBarBlurView: UIView?
     private let navigationHeader = NavigationHeader2()
@@ -50,6 +50,8 @@ public class ExploreTabVC: WViewController {
         self.usesTopTabsChrome = usesTopTabsChrome
         self.focusesSearchOnAppearance = focusesSearchOnAppearance
         self.onSearchCancel = onSearchCancel
+        // The inline search bar overlays the content and still needs its existing clearance.
+        self.exploreVC = ExploreVC(contentBottomSpacing: showsSearchBar ? 86 : 32)
         self.searchView = ExploreSearch(focusOnAppear: focusesSearchOnAppearance)
         super.init(nibName: nil, bundle: nil)
     }
@@ -61,6 +63,7 @@ public class ExploreTabVC: WViewController {
     
     public override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Explore")
         setupViews()
     }
 
@@ -165,7 +168,7 @@ public class ExploreTabVC: WViewController {
         largeExploreTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(largeExploreTitleLabel)
         NSLayoutConstraint.activate([
-            largeExploreTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            largeExploreTitleLabel.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
             largeExploreTitleLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -8),
         ])
 

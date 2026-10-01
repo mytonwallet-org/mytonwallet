@@ -112,11 +112,21 @@ public final class CompactLineChartView: UIView {
 
 public final class CompactLineChartRangeView: UIView {
     fileprivate let rangeView = RangeChartView()
+    private let horizontalInteractionBlocker = HorizontalInteractionBlockerGestureRecognizer()
+
+    public var horizontalInteractionBlockingGestureRecognizer: UIGestureRecognizer {
+        horizontalInteractionBlocker
+    }
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         addSubview(rangeView)
+        horizontalInteractionBlocker.shouldBlockTouch = { [weak self] point in
+            guard let self else { return false }
+            return self.rangeView.isEnabled && self.bounds.contains(point)
+        }
+        addGestureRecognizer(horizontalInteractionBlocker)
     }
 
     required init?(coder: NSCoder) {

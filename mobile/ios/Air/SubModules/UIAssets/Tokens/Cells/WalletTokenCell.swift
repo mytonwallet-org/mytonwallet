@@ -117,6 +117,7 @@ final class WalletTokenContentView: UIView {
     private var tokenLabelLeadingConstraint: NSLayoutConstraint!
     private var tokenNameClipTrailingConstraint: NSLayoutConstraint!
     private var tokenNameWidthConstraint: NSLayoutConstraint!
+    private var tokenNameTrailingConstraint: NSLayoutConstraint!
     private var iconView: IconView!
     private var pinIconView: UIView = configured(object: UIImageView()) {
         $0.translatesAutoresizingMaskIntoConstraints = false
@@ -200,7 +201,11 @@ final class WalletTokenContentView: UIView {
             tokenNameLabel.bottomAnchor.constraint(equalTo: tokenNameClipView.bottomAnchor),
         ])
         tokenNameWidthConstraint = tokenNameLabel.widthAnchor.constraint(equalToConstant: 0)
+        tokenNameWidthConstraint.priority = .defaultHigh
         tokenNameWidthConstraint.isActive = true
+        tokenNameTrailingConstraint = tokenNameLabel.trailingAnchor.constraint(
+            lessThanOrEqualTo: tokenNameClipView.trailingAnchor, constant: -Self.badgeTrailingSpacing
+        )
         tokenNameLabel.applyTextStyle(.calloutEmphasized)
         tokenNameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tokenNameLabel.lineBreakMode = .byTruncatingTail
@@ -270,8 +275,8 @@ final class WalletTokenContentView: UIView {
         NSLayoutConstraint.activate([
             badge.centerYAnchor.constraint(equalTo: tokenNameLabel.centerYAnchor, constant: -0.333),
         ])
-        applyBadgeLayoutMode(.inline)
         badge.alpha = 0
+        applyBadgeLayoutMode(.inline)
         badge.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         contentView.backgroundColor = .clear
@@ -446,6 +451,7 @@ final class WalletTokenContentView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        mainView.layoutIfNeeded()
         if updateBadgeLayoutModeIfNeeded() {
             mainView.layoutIfNeeded()
         }
@@ -458,9 +464,7 @@ final class WalletTokenContentView: UIView {
             return applyBadgeLayoutMode(.inline)
         }
 
-        badge.layoutIfNeeded()
-
-        let badgeWidth = ceil(badge.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width)
+        let badgeWidth = ceil(badge.intrinsicContentSize.width)
         let inlineTitleWidth: CGFloat
         if effectiveUserInterfaceLayoutDirection == .rightToLeft {
             let amountTrailing = amountLabel.frame.maxX > 0
@@ -605,12 +609,14 @@ final class WalletTokenContentView: UIView {
 
         badgeLayoutMode = nextMode
         badgeLayoutDirection = direction
-        badgeInlineLTRConstraint.isActive = nextMode == .inline && direction == .leftToRight
-        badgeInlineRTLConstraint.isActive = nextMode == .inline && direction == .rightToLeft
-        badgeOverlayLTRConstraint.isActive = nextMode == .overlay && direction == .leftToRight
-        badgeOverlayRTLConstraint.isActive = nextMode == .overlay && direction == .rightToLeft
-        badgeAmountBoundaryLTRConstraint.isActive = direction == .leftToRight
-        badgeAmountBoundaryRTLConstraint.isActive = direction == .rightToLeft
+        let showsBadge = badge.alpha > 0 && !badge.isHidden
+        tokenNameTrailingConstraint.isActive = !showsBadge
+        badgeInlineLTRConstraint.isActive = showsBadge && nextMode == .inline && direction == .leftToRight
+        badgeInlineRTLConstraint.isActive = showsBadge && nextMode == .inline && direction == .rightToLeft
+        badgeOverlayLTRConstraint.isActive = showsBadge && nextMode == .overlay && direction == .leftToRight
+        badgeOverlayRTLConstraint.isActive = showsBadge && nextMode == .overlay && direction == .rightToLeft
+        badgeAmountBoundaryLTRConstraint.isActive = showsBadge && direction == .leftToRight
+        badgeAmountBoundaryRTLConstraint.isActive = showsBadge && direction == .rightToLeft
         tokenNameClipView.layer.mask = nextMode == .overlay ? tokenNameFadeMask : nil
         return didChange
     }

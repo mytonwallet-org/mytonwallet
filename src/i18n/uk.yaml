@@ -216,6 +216,7 @@ Optional: За необхідності
 $send_token_symbol: Надіслати %symbol%
 Is it all ok?: Все вірно?
 Receiving Address: Адреса одержувача
+Contract Address: Адреса контракту
 Fee: Комісія
 Edit: Виправити
 Confirm: Підтвердити
@@ -349,6 +350,7 @@ Portfolio Share: Структура портфеля
 Current allocation across tracked assets.: Поточний розподіл відстежуваних активів.
 Deep history analysis will be available in upcoming updates.: Глибокий аналіз історії з’явиться в наступних оновленнях.
 By Chain: За мережами
+$portfolio_other_chains: Інші
 No chain balances: Немає балансів за мережами
 Native: Нативні
 Stablecoins: Стейблкоїни
@@ -939,7 +941,10 @@ Mint Cards: Створити карту
 Card has been upgraded!: Карту покращено!
 $mint_card_result: NFT-карта буде **створена** і **автоматично встановлена** протягом хвилини.
 Unique: Унікальність
-Get a card with unique background and personalized palette for wallet interface.: У карти з’явиться унікальний фон, а в гаманці розблокується нова палітра.
+Get a card with unique background and personalized palette for wallet interface.: У карти з’явиться унікальний фон, а в гаманці розблокується новий акцентний колір.
+Get custom accent color for wallet interface.: Відкрийте новий акцентний колір у гаманці.
+Easily send your upgraded card to friends.: Легко надсилайте покращену карту друзям.
+Sell or auction your card on marketplaces.: Продавайте карту на маркетплейсах і аукціонах.
 Transferable: Можна передати
 Easily send your upgraded card to any of your friends.: Покращену карту можна легко надіслати будь-якому другові.
 Tradable: Можна продати
@@ -949,6 +954,8 @@ Upgrade for %amount% %currency%: Оновлення за %amount% %currency%
 "%amount% sold": Продано %amount%
 This card has been sold out: Ця картка розпродана
 "Mint starts in %time%": "Мінт почнеться через %time%"
+"Congrats! Your first %card% comes at %percent% off.": "Вітаємо! Ваша перша %card% — зі знижкою %percent%."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Найактивніші користувачі отримують знижку %percent% на першу %card%. Торгуйте або стейкайте, щоб отримати її наступного разу!"
 "%amount% unique cards total":
   oneValue: "Усього %amount% унікальна картка"
   fewValue: "Усього %amount% унікальні картки"
@@ -2175,6 +2182,10 @@ $swap_cex_hold_support: "Зверніться до %support% і надайте �
 $swap_cex_provider_support: "підтримки %provider%"
 External Exchange ID Copied: ID зовнішнього обміну скопійовано
 Email: Email
+$swap_cex_support_footer_email: "Якщо щось пішло не так, зверніться до %support% за адресою %email% і надайте ID обміну."
+$swap_cex_hold_support_footer_email: "Щоб пройти перевірку провайдера, зверніться до %support% за адресою %email% і надайте ID обміну."
+$swap_cex_support_footer: "Якщо щось пішло не так, зверніться до %support% і надайте ID обміну."
+$swap_cex_hold_support_footer: "Щоб пройти перевірку провайдера, зверніться до %support% і надайте ID обміну."
 Choose Token: Виберіть токен
 You don't have any eligible tokens for this payment: У вас немає відповідних токенів для цього платежу
 Buy, swap, or receive a supported token to continue.: Купіть, обміняйте або отримайте підтримуваний токен, щоб продовжити.

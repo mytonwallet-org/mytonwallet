@@ -87,7 +87,7 @@ import { getMaxMessagesInTransaction } from '../../../../util/ton/transfer';
 import { tonConnectGetDeviceInfo } from '../../../../util/tonConnectEnvironment';
 import { fetchExternalMessageBocByHashNormalized } from '../../../chains/ton/toncenter/messages';
 import { checkMultiTransactionDraft, sendSignedTransactions } from '../../../chains/ton/transfer';
-import { parsePayloadBase64 } from '../../../chains/ton/util/metadata';
+import { parsePayloadBase64, preloadPayloadNfts } from '../../../chains/ton/util/metadata';
 import { getIsRawAddress, getWalletPublicKey, toBase64Address, toRawAddress } from '../../../chains/ton/util/tonCore';
 import { getContractInfo, getWalletStateInit } from '../../../chains/ton/wallet';
 import {
@@ -136,7 +136,6 @@ import {
   UnknownError,
 } from './errors';
 import {
-  getTransferActualToAddress,
   isTransferPayloadDangerous,
   isValidString,
   isValidUrl,
@@ -629,6 +628,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         network,
         messages,
         checkResult.emulation,
+        vestingAddress ?? address,
         checkResult.parsedPayloads,
       );
 
@@ -1510,12 +1510,15 @@ async function checkTransactionMessages(
   return checkResult;
 }
 
-function prepareTransactionForRequest(
+async function prepareTransactionForRequest(
   network: ApiNetwork,
   messages: TonConnectTransactionMessage[],
   emulation: ApiEmulationWithFallbackResult,
+  expectedOwnerAddress: string,
   parsedPayloads?: (ApiParsedPayload | undefined)[],
 ) {
+  const nftsByRawAddress = await preloadPayloadNfts(network, messages);
+
   return Promise.all(messages.map(
     async ({
       address,
@@ -1527,8 +1530,9 @@ function prepareTransactionForRequest(
       const toAddress = getIsRawAddress(address) ? toBase64Address(address, true, network) : address;
       // Fix address format for `waitTxComplete` to work properly
       const normalizedAddress = toBase64Address(address, undefined, network);
-      const payload = parsedPayloads?.[index]
-        ?? (rawPayload ? await parsePayloadBase64(network, toAddress, rawPayload) : undefined);
+      const payload = rawPayload
+        ? await parsePayloadBase64(network, toAddress, rawPayload, { expectedOwnerAddress, nftsByRawAddress })
+        : parsedPayloads?.[index];
       const { isScam } = getKnownAddressInfo(normalizedAddress) || {};
 
       return {
@@ -1541,7 +1545,7 @@ function prepareTransactionForRequest(
         normalizedAddress,
         isScam,
         isDangerous: isTransferPayloadDangerous(payload),
-        displayedToAddress: getTransferActualToAddress(toAddress, payload),
+        displayedToAddress: toAddress,
         networkFee: emulation.isFallback
           ? bigintDivideToNumber(emulation.networkFee, messages.length)
           : emulation.traceOutputs[index]?.networkFee ?? 0n,

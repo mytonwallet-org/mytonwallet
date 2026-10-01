@@ -57,6 +57,8 @@ public final class MtwCardContentView: UIView {
     public init(mode: Mode) {
         self.mode = mode
         super.init(frame: .zero)
+        // Home defers configuring the inactive face until it is first shown.
+        isHidden = true
         addSubview(centerContent)
         centerContent.addSubview(balance)
         centerContent.addSubview(change)
@@ -118,9 +120,11 @@ public final class MtwCardContentView: UIView {
             title.isHidden = usesTopTabs
         }
         setNeedsLayout()
+        isHidden = false
     }
 
     public func prepareForReuse() {
+        isHidden = true
         balance.prepareForReuse()
         change.prepareForReuse()
         accountLine.prepareForReuse()

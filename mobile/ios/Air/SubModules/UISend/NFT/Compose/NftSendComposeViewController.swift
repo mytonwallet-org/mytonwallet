@@ -7,6 +7,7 @@ final class NftSendComposeViewController:
     WViewController {
     private let model: NftSendModel
     private var continueButton: WButton?
+    private var continueButtonPresenter: DraftButtonPresenter?
 
     init(model: NftSendModel) {
         self.model = model
@@ -39,6 +40,7 @@ final class NftSendComposeViewController:
     private func setupContinueButton() {
         let button = addBottomButton(bottomConstraint: false)
         continueButton = button
+        continueButtonPresenter = DraftButtonPresenter(button: button)
         button.setTitle(lang("Continue"), for: .normal)
         button.isEnabled = false
         button.addTarget(
@@ -62,7 +64,7 @@ final class NftSendComposeViewController:
     private func setupObservers() {
         observe { [weak self] in
             guard let self else { return }
-            _ = model.continueState
+            _ = model.primaryAction
             updateContinueButton()
         }
         observe { [weak self] in
@@ -74,40 +76,49 @@ final class NftSendComposeViewController:
     }
 
     private func updateContinueButton() {
-        guard let continueButton else { return }
-        let state = model.continueState
+        guard let continueButton,
+              let continueButtonPresenter else {
+            return
+        }
+        continueButtonPresenter.apply(
+            buttonConfiguration(for: model.primaryAction)
+        )
+        // Visibility last: hiding disables interaction and must not be
+        // overridden by the presenter's reassertion.
         setSendContinueButtonHidden(
             continueButton,
             hidden: model.recipient.isFocused
         )
-        continueButton.showLoading = state.isDraftLoading
-        continueButton.isEnabled =
-            state.canContinue || state.canRetryDraft
-        let title: String
-        if state.canRetryDraft {
-            title = lang("Retry")
-        } else if model.recipientValidationState == .sendToSelf {
-            title = lang("$send_recipient_self_transfer")
-        } else if !state.isDraftLoading,
-           state.isDraftRejected,
-           !model.addressOrDomain.isEmpty {
-            title = lang("Invalid address")
-        } else if state.hasInsufficientBalanceError {
-            title = lang("Insufficient Balance")
-        } else {
-            title = lang("Continue")
+    }
+
+    private func buttonConfiguration(
+        for action: NftSendPrimaryAction
+    ) -> DraftButtonConfiguration {
+        let title = switch action {
+        case .retryDraft:
+            lang("Retry")
+        case .invalidAddress:
+            model.recipientValidationState == .sendToSelf
+                ? lang("$send_recipient_self_transfer")
+                : lang("Invalid address")
+        case .insufficientBalance:
+            lang("Insufficient Balance")
+        case .incomplete, .validating, .continueToReview:
+            lang("Continue")
         }
-        if continueButton.title(for: .normal) != title {
-            continueButton.setTitle(title, for: .normal)
-        }
+        return DraftButtonConfiguration(
+            title: .text(title),
+            isEnabled: action.isEnabled,
+            showLoading: action.isLoading
+        )
     }
 
     @objc private func continuePressed() {
-        if model.continueState.canRetryDraft {
+        if model.primaryAction == .retryDraft {
             model.retryDraft()
             return
         }
-        guard model.canContinue else { return }
+        guard model.primaryAction == .continueToReview else { return }
         do {
             let confirmed = try model.makeConfirmedSend()
             view.endEditing(true)

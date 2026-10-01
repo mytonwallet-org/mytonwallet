@@ -130,6 +130,8 @@ export type AppTheme = 'dark' | 'light';
 export type AppLayout = 'portrait' | 'landscape';
 export type DialogAction = 'openReturnUrl';
 export type ToastAction = 'openRenameWallet';
+// Why the running bundle needs a reload: the host serves another build, or a chunk failed to load from this one
+export type AppReloadReason = 'buildOutdated' | 'chunkLoadFailed';
 
 export type DeveloperSettingsUndefinedOverride = '__undefined';
 export type DeveloperSettingsOverrideValue<Value> = Exclude<Value, undefined> | DeveloperSettingsUndefinedOverride;
@@ -1179,6 +1181,7 @@ export type GlobalState = {
   isAppUpdateAvailable?: boolean;
   // Force show the "Update My Wallet" pop-up on all platforms
   isAppUpdateRequired?: boolean;
+  appReloadReason?: AppReloadReason;
   seasonalTheme?: ApiBackendConfig['seasonalTheme'];
   isPromotionModalOpen?: boolean;
   confettiRequestedAt?: number;
@@ -1303,6 +1306,7 @@ export interface ActionPayloads {
   afterSelectHardwareWallets: { hardwareSelectedIndices: number[] };
   resetApiSettings: { areAllDisabled?: boolean } | undefined;
   checkAppVersion: undefined;
+  checkAppBuild: undefined;
   importAccountByVersion: { version: ApiTonWalletVersion; isTestnetSubwalletId?: boolean };
   addSubWallet: { group: ApiGroupedWalletVariant };
   addAllFoundSubwallets: { foundSubwallets: ApiGroupedWalletVariant[] };

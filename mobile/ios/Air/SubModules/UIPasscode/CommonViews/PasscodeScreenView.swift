@@ -138,8 +138,8 @@ public class PasscodeScreenView: UIView {
         // placement of entire stack
         if compactLayout {
             NSLayoutConstraint.activate([
-                unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32),
-                unlockView.bottomAnchor.constraint(equalTo: bottomAnchor),
+                unlockView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 8),
+                unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32).withPriority(.init(748)),
                 unlockView.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
                 unlockView.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
                 unlockView.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
@@ -241,6 +241,8 @@ public class PasscodeScreenView: UIView {
 
         // create and add buttons
         // we have 4 rows
+        var firstKeyButton: UIButton?
+        var matchingKeyHeights: [NSLayoutConstraint] = []
         for r in 0 ... 3 {
             let rowView = UIStackView()
             rowView.translatesAutoresizingMaskIntoConstraints = false
@@ -250,10 +252,21 @@ public class PasscodeScreenView: UIView {
             for c in 1 ... 3 {
                 let button = WBaseButton(type: .system)
                 button.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    button.widthAnchor.constraint(equalToConstant: 78),
-                    button.heightAnchor.constraint(equalToConstant: 78)
-                ])
+                button.widthAnchor.constraint(equalToConstant: 78).isActive = true
+                if compactLayout {
+                    // Keep all keys equal while fitting below the setup header in short windows.
+                    if let firstKeyButton {
+                        matchingKeyHeights.append(button.heightAnchor.constraint(equalTo: firstKeyButton.heightAnchor))
+                    } else {
+                        firstKeyButton = button
+                        NSLayoutConstraint.activate([
+                            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 54),
+                            button.heightAnchor.constraint(equalToConstant: 78).withPriority(.init(749)),
+                        ])
+                    }
+                } else {
+                    button.heightAnchor.constraint(equalToConstant: 78).isActive = true
+                }
                 button.layer.cornerRadius = 39
                 button.backgroundColor = if matchHeaderColors {
                     unlockScreenTintColor.withAlphaComponent(0.12)
@@ -365,6 +378,7 @@ public class PasscodeScreenView: UIView {
             }
             unlockView.addArrangedSubview(rowView)
         }
+        NSLayoutConstraint.activate(matchingKeyHeights)
 
         if canShowSignOutWhenEmpty {
             let signOutPromptView = PasscodeSignOutPromptView(

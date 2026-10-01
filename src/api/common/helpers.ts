@@ -118,16 +118,15 @@ export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[
     return;
   }
 
-  /* eslint-disable @typescript-eslint/no-require-imports */
-  // Legacy TON storage-migration utilities, loaded via guarded `require` so that a `NO_TON` build (which has
-  // no legacy TON storage to migrate) drops `chains/ton` entirely via dead-code elimination.
+  // Legacy TON storage-migration utilities. They are imported here rather than at the top because `chains/ton`
+  // imports this module back. The flag is read inline so that a `NO_TON` build (which has no legacy TON
+  // storage to migrate) drops the import.
   const ton = (process.env.NO_TON !== '1'
-    ? require('../chains/ton')
+    ? await import('../chains/ton')
     : undefined) as typeof import('../chains/ton');
   const { toBase64Address } = (process.env.NO_TON !== '1'
-    ? require('../chains/ton/util/tonCore')
+    ? await import('../chains/ton/util/tonCore')
     : {}) as typeof import('../chains/ton/util/tonCore');
-  /* eslint-enable @typescript-eslint/no-require-imports */
 
   if (IS_AIR_APP && !version) {
     if (await storage.getItem('accounts' as StorageKey, true)) {

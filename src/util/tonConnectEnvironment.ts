@@ -5,7 +5,7 @@ import type { ApiAccountWithChain } from '../api/types';
 import {
   APP_NAME, IS_EXTENSION, IS_TELEGRAM_APP, TONCONNECT_PROTOCOL_VERSION,
 } from '../config';
-import packageJson from '../../package.json';
+import { version as appVersion } from '../../package.json';
 import { W5_MAX_MESSAGES } from '../api/chains/ton/constants';
 import { getMaxMessagesInTransaction } from './ton/transfer';
 
@@ -35,7 +35,7 @@ export function tonConnectGetDeviceInfo(account?: ApiAccountWithChain<'ton'>): D
   return {
     platform: getPlatform(),
     appName: APP_NAME === 'My Wallet' ? 'MyTonWallet' : APP_NAME,
-    appVersion: packageJson.version,
+    appVersion,
     maxProtocolVersion: TONCONNECT_PROTOCOL_VERSION,
     features,
   };

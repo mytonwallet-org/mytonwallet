@@ -4,6 +4,7 @@ import {
 } from '../../../lib/teact/teact';
 
 import { requestMeasure } from '../../../lib/fasterdom/fasterdom';
+import { handleChunkLoadError } from '../../../util/chunkLoading';
 import { ensureLovelyChart } from './lovelyChart.async';
 
 import styles from './useLovelyChart.module.scss';
@@ -29,6 +30,7 @@ export default function useLovelyChart(params?: LovelyChartParams, isZoomable = 
     let isCancelled = false;
     let swapTimerId: number | undefined;
 
+    // On a failed load the chart stays unrendered until the next `params` change retries it
     void ensureLovelyChart().then((LovelyChart) => {
       requestMeasure(() => {
         if (isCancelled) return;
@@ -56,7 +58,7 @@ export default function useLovelyChart(params?: LovelyChartParams, isZoomable = 
           }, CHART_SWAP_DURATION_MS);
         }
       });
-    });
+    }).catch(handleChunkLoadError('useLovelyChart'));
 
     return () => {
       isCancelled = true;

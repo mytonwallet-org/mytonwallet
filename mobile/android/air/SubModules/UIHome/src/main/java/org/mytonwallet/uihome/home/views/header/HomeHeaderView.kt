@@ -42,6 +42,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -446,6 +447,10 @@ open class HomeHeaderView(
 
     fun viewWillAppear() {
         cardViews.forEach { it.viewWillAppear() }
+    }
+
+    fun setEffectsSuspended(suspended: Boolean) {
+        cardViews.forEach { it.setEffectsSuspended(suspended) }
     }
 
     fun releaseCardPress() {
@@ -858,9 +863,19 @@ open class HomeHeaderView(
 
             if (activeAccountId != cardView.account?.accountId) return@launch
 
-            applyBalance(activeAccountId, activeAccount.name, balance, balance24h, animated)
+            // The first balance replaces the skeleton at once; later ones wait for a reveal to end.
+            if (prevBalance == null) {
+                applyBalance(activeAccountId, activeAccount.name, balance, balance24h, animated)
+                return@launch
+            }
+            RevealUpdates.runOrHold(this@HomeHeaderView, balanceRevealKey) {
+                if (activeAccountId != cardView.account?.accountId) return@runOrHold
+                applyBalance(activeAccountId, activeAccount.name, balance, balance24h, animated)
+            }
         }
     }
+
+    private val balanceRevealKey = Any()
 
     private fun applyBalance(
         accountId: String,
@@ -951,21 +966,24 @@ open class HomeHeaderView(
                     withContext(Dispatchers.IO) { fetchBalances() }
 
                 if (accountId != cardView.account?.accountId) return@launch
-                cardView.animateBalance(
-                    AnimateConfig(
-                        amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
-                        WalletCore.baseCurrency.decimalsCount,
-                        WalletCore.baseCurrency.sign,
-                        animated = animated && cardView.alpha > 0.05,
-                        setInstantly = false,
-                        false
+                RevealUpdates.runOrHold(cardView, balanceRevealKey to cardView) {
+                    if (accountId != cardView.account?.accountId) return@runOrHold
+                    cardView.animateBalance(
+                        AnimateConfig(
+                            amount = balance?.toBigInteger(WalletCore.baseCurrency.decimalsCount),
+                            WalletCore.baseCurrency.decimalsCount,
+                            WalletCore.baseCurrency.sign,
+                            animated = animated && cardView.alpha > 0.05,
+                            setInstantly = false,
+                            false
+                        )
                     )
-                )
-                cardView.updateBalanceChange(
-                    balance,
-                    balance24h,
-                    animated = animated && horizontalScrollOffset != 0f
-                )
+                    cardView.updateBalanceChange(
+                        balance,
+                        balance24h,
+                        animated = animated && horizontalScrollOffset != 0f
+                    )
+                }
             }
         }
     }

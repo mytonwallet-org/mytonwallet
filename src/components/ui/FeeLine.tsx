@@ -20,8 +20,6 @@ type OwnProps = Partial<Pick<FeeProps, 'terms' | 'token'>> & Pick<FeeProps, 'pre
   className?: string;
   /** Applied to the fee value, including its precision sign, but not to the "Fee" label */
   feeClassName?: string;
-  /** Whether the component is rendered on a landscape layout (with a lighter background) */
-  isStatic?: boolean;
   isError?: boolean;
   /** If true, the "Details" button will be shown even when no fee can be displayed. */
   keepDetailsButtonWithoutFee?: boolean;
@@ -34,7 +32,6 @@ type OwnProps = Partial<Pick<FeeProps, 'terms' | 'token'>> & Pick<FeeProps, 'pre
 function FeeLine({
   className,
   feeClassName,
-  isStatic,
   isError,
   terms,
   token,
@@ -58,7 +55,6 @@ function FeeLine({
   return (
     <FeeLineContainer
       className={className}
-      isStatic={isStatic}
       isError={isError}
       noDetailsLabel={noDetailsLabel}
       onDetailsClick={content || keepDetailsButtonWithoutFee ? onDetailsClick : undefined}
@@ -71,7 +67,7 @@ function FeeLine({
 
 export default memo(FeeLine);
 
-type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'isError' | 'noDetailsLabel' | 'onDetailsClick'> & {
+type ContainerProps = Pick<OwnProps, 'className' | 'isError' | 'noDetailsLabel' | 'onDetailsClick'> & {
   children?: TeactNode;
   transitionKey?: number;
 };
@@ -79,9 +75,8 @@ type ContainerProps = Pick<OwnProps, 'className' | 'isStatic' | 'isError' | 'noD
 /**
  * Use this component when you want to show a content that looks like `FeeLine`, but is not `FeeLine`.
  */
-export function FeeLineContainer({
+function FeeLineContainer({
   className,
-  isStatic,
   isError,
   noDetailsLabel,
   onDetailsClick,
@@ -90,9 +85,7 @@ export function FeeLineContainer({
 }: ContainerProps) {
   const lang = useLang();
 
-  const fullClassName = buildClassName(
-    styles.container, className, isStatic && styles.static, isError && styles.error,
-  );
+  const fullClassName = buildClassName(styles.container, className, isError && styles.error);
   const activeKey = transitionKey + (onDetailsClick ? 0x10000 : 0);
 
   function handleDetailsKeyDown(e: React.KeyboardEvent) {

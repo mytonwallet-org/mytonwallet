@@ -1,0 +1,100 @@
+name: Bundle stats
+
+on:
+  pull_request:
+    branches:
+      - '*'
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bundle_stats:
+    runs-on: ubuntu-latest
+    steps:
+      # Use the event's merge commit so the workflow and its build scripts share one source tree.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Comment pending status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { createBundleStatsPendingComment } = await import('${{ github.workspace }}/dev/createBundleStatsComment.mjs');
+            await createBundleStatsPendingComment({ github, context, core });
+      - name: Reconfigure git to use HTTPS authentication
+        uses: GuillaumeFalourd/SSH-to-HTTPS@v1
+      - name: Prepare Node
+        uses: mytonwallet-org/shared-actions/prepare_node@master
+        with:
+          node-version: ${{ vars.NODE_VERSION }}
+      # Fails rather than finding nothing while the upload workflow is missing from the base branch; either
+      # way the next step builds the reference
+      - name: Download reference stats
+        id: download-reference
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: upload-main-bundle-stats.yml
+          workflow_conclusion: success
+          name: main-bundle-stats
+          path: reference-bundle-stats
+          commit: ${{ github.event.pull_request.base.sha }}
+          if_no_artifact_found: ignore
+      # A reference commit from before the move to Vite has no `build:stats`, so the diff is skipped for it
+      - name: Build reference stats
+        if: steps.download-reference.outputs.found_artifact != 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -uo pipefail
+
+          reference_dir="$(mktemp -d)"
+          trap 'rm -rf "$reference_dir"' EXIT
+
+          git archive "$BASE_SHA" | tar -x -C "$reference_dir"
+          if (cd "$reference_dir" && npm ci && APP_COMMIT_HASH="$BASE_SHA" npm run build:stats); then
+            mkdir -p reference-bundle-stats
+            cp "$reference_dir/dist/bundle-stats/baseline.json" reference-bundle-stats/baseline.json
+          else
+            echo "Reference stats could not be built for $BASE_SHA"
+          fi
+      - name: Resolve baseline
+        id: baseline
+        run: |
+          if [ -f reference-bundle-stats/baseline.json ]; then
+            echo "path=$GITHUB_WORKSPACE/reference-bundle-stats/baseline.json" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build stats
+        env:
+          BUNDLE_STATS_BASELINE_PATH: ${{ steps.baseline.outputs.path }}
+        run: npm run build:stats
+      - name: Check Agent V2 bundle boundary
+        run: npm run bundle:agent:v2:check
+      - name: Upload comparison report
+        id: report
+        if: steps.baseline.outputs.path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bundle stats report
+          path: dist/bundle-stats/bundle-stats.html
+          retention-days: 7
+      - name: Comment PR
+        uses: actions/github-script@v7
+        env:
+          BASELINE_BUNDLE_STATS_PATH: reference-bundle-stats/baseline.json
+          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
+        with:
+          script: |
+            const { default: createBundleStatsComment } = await import('${{ github.workspace }}/dev/createBundleStatsComment.mjs');
+            await createBundleStatsComment({ github, context, core });

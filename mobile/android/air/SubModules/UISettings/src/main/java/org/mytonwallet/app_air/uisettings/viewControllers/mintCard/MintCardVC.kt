@@ -6,6 +6,9 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.text.Layout
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -20,6 +23,7 @@ import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.core.view.isGone
+import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -39,13 +43,18 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setupSpringFling
 import org.mytonwallet.app_air.uicomponents.extensions.springToItem
+import org.mytonwallet.app_air.uicomponents.glass.GlassFlavor
+import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
+import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.passcode.headers.PasscodeHeaderSendView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uipasscode.ProtectedActionAuth
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeConfirmVC
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
@@ -62,6 +71,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
+import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.DevicePerformanceClassifier
 import org.mytonwallet.app_air.walletcontext.utils.lerpColor
@@ -311,6 +321,22 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
         }
     }
 
+    private val discountNoticeLabel = WLabel(context).apply {
+        id = View.generateViewId()
+        setStyle(13f)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 18f)
+        setPaddingDp(12, 8, 12, 8)
+        setTextColor(WColor.SecondaryText)
+        gravity = Gravity.CENTER
+        breakStrategy = Layout.BREAK_STRATEGY_BALANCED
+        isGone = true
+        addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) updateScrollBottomPadding()
+        }
+    }
+
+    private var discountNoticeGlass: WGlassView? = null
+
     private val bottomSection = LinearLayout(context).apply {
         id = View.generateViewId()
         orientation = LinearLayout.VERTICAL
@@ -474,11 +500,27 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
             ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_CONSTRAINT)
         )
         view.addView(upgradeButton, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, 50.dp))
+        view.addView(
+            discountNoticeLabel,
+            ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                constrainedWidth = true
+            }
+        )
+        discountNoticeGlass = WGlassView.attachTo(
+            discountNoticeLabel,
+            24f.dp,
+            GlassProviders.legacy(WColor.SearchFieldBackground, shadow = true),
+            view,
+            flavor = GlassFlavor.FROSTED
+        ).apply {
+            liquidGlass = false
+        }
         view.addView(closeButton, ConstraintLayout.LayoutParams(40.dp, 40.dp))
 
         view.setConstraints {
             toStart(upgradeButton, 16f)
             toEnd(upgradeButton, 16f)
+            bottomToTop(discountNoticeLabel, upgradeButton, DISCOUNT_NOTICE_GAP_DP.toFloat())
 
             topToTop(
                 bottomReversedCorner,
@@ -489,6 +531,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
         }
 
         bindFixedContent(0)
+        updateDiscountNotice()
         updateTheme()
 
         // Prefetch every card's video so all tabs play instantly (and offline).
@@ -524,6 +567,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
             WalletEvent.AccountConfigReceived,
             WalletEvent.TokensChanged -> {
                 cardsInfo = MintCardHelpers.cardsInfo(displayedAccount.accountId ?: "")
+                updateDiscountNotice()
                 updateCardInfoViews(scrollPosition, scrollOffset, force = true)
                 bindButton(boundButtonIndex)
             }
@@ -555,17 +599,57 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
             toTopPx(closeButton, top + 8.dp)
             toStartPx(upgradeButton, 16.dp + systemBarStartInset)
             toEndPx(upgradeButton, 16.dp + systemBarEndInset)
+            toStartPx(discountNoticeLabel, 16.dp + systemBarStartInset)
+            toEndPx(discountNoticeLabel, 16.dp + systemBarEndInset)
             toEndPx(closeButton, 8.dp + systemBarEndInset)
+        }
+        updateScrollBottomPadding()
+        bottomReversedCorner.setSideInsets(
+            systemBarStartInset.toFloat(),
+            systemBarEndInset.toFloat()
+        )
+    }
+
+    private fun updateDiscountNotice() {
+        val info = orderedTypes[boundButtonIndex]
+        val discount = cardsInfo?.get(info.type)?.discount
+        val isVisible = discount != null
+        if (discount != null) {
+            val key = if (discount.isApplied) {
+                "Congrats! Your first %card% comes at %percent% off."
+            } else {
+                "Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!"
+            }
+            val text = LocaleController.getString(key)
+                .replace("%card%", LocaleController.getString(info.displayNameKey))
+                .replace("%percent%", "${discount.percent.withLocalizedNumbers}%")
+            if (discountNoticeLabel.text.toString() != text) discountNoticeLabel.text = text
+        }
+        if (discountNoticeLabel.isVisible == isVisible) return
+        discountNoticeLabel.isVisible = isVisible
+        view.setConstraints {
+            topToTop(
+                bottomReversedCorner,
+                if (isVisible) discountNoticeLabel else upgradeButton,
+                -ViewConstants.GAP - ViewConstants.BLOCK_RADIUS
+            )
+        }
+        updateScrollBottomPadding()
+    }
+
+    private var reservedNoticeHeight = 0
+
+    private fun updateScrollBottomPadding() {
+        val bottom = navigationController?.bottomInset ?: 0
+        if (discountNoticeLabel.isVisible) {
+            reservedNoticeHeight = discountNoticeLabel.height + DISCOUNT_NOTICE_GAP_DP.dp
         }
         scrollView.setPaddingRelative(
             0,
             0,
             0,
-            BUTTON_GAP_DP.dp + BUTTON_HEIGHT_DP.dp + BUTTON_GAP_DP.dp + bottom
-        )
-        bottomReversedCorner.setSideInsets(
-            systemBarStartInset.toFloat(),
-            systemBarEndInset.toFloat()
+            BUTTON_GAP_DP.dp + BUTTON_HEIGHT_DP.dp + BUTTON_GAP_DP.dp + reservedNoticeHeight +
+                bottom
         )
     }
 
@@ -641,7 +725,9 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
         val targetIndex = cardIndex(position + if (offset > 0.5f) 1 else 0)
         if (targetIndex != boundButtonIndex) {
             boundButtonIndex = targetIndex
+            prosView.setStandardCard(orderedTypes[targetIndex].type == ApiMtwCardType.STANDARD)
             bindButton(targetIndex)
+            updateDiscountNotice()
         }
         updateButtonTint()
     }
@@ -668,7 +754,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
     }
 
     private fun bottomSectionBaseColor(type: ApiMtwCardType): Int =
-        if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.Background.color
+        if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.SecondaryBackground.color
 
     private fun buttonTextColor(type: ApiMtwCardType): Int =
         if (type == ApiMtwCardType.BLACK) Color.BLACK else WColor.TextOnTint.color
@@ -686,6 +772,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
 
     private fun bindFixedContent(position: Int) {
         val info = orderedTypes[position]
+        prosView.setStandardCard(info.type == ApiMtwCardType.STANDARD)
         val accent = MintCardTypeInfo.accentColor(info.type)
         prosView.setAccentColor(accent)
         upgradeButton.customTint = accent
@@ -776,6 +863,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
     override fun updateTheme() {
         super.updateTheme()
         cardInfoPage = Int.MIN_VALUE
+        discountNoticeGlass?.updateTheme()
         applyScrollProgress(viewPager.currentItem, 0f)
     }
 
@@ -864,11 +952,11 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
         val missingWithReserve = missing * BigInteger.valueOf(105) / BigInteger.valueOf(100)
         val amountOut = missingWithReserve.toDouble() / 10.0.pow(mycoin.decimals.toDouble())
 
-        val receivingAsset = MApiSwapAsset.from(mycoin)
         val swapVC = SwapVC(
             context,
-            defaultReceivingToken = receivingAsset,
-            amountIn = if (amountOut > 0) amountOut else null
+            defaultSendingToken = TokenStore.getToken(TONCOIN_SLUG)?.let { MApiSwapAsset.from(it) },
+            defaultReceivingToken = MApiSwapAsset.from(mycoin),
+            amountOut = if (amountOut > 0) amountOut else null
         )
 
         val win = window ?: return
@@ -1087,6 +1175,7 @@ class MintCardVC(context: Context, accountId: String? = AccountStore.activeAccou
         private const val ARROW_FADE_DISTANCE = 0.07f
         private const val BUTTON_HEIGHT_DP = 50
         private const val BUTTON_GAP_DP = 16 // gap above and below the pinned button
+        private const val DISCOUNT_NOTICE_GAP_DP = 23
 
         fun present(
             navigationController: WNavigationController,

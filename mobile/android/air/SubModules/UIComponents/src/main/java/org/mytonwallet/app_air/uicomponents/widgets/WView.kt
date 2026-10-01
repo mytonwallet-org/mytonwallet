@@ -44,6 +44,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.extensions.animatorSet
 import org.mytonwallet.app_air.uicomponents.extensions.getLocationInWindow
 import org.mytonwallet.app_air.uicomponents.glass.GlassCaptureHost
+import org.mytonwallet.app_air.uicomponents.helpers.AnimationSuspension
 import org.mytonwallet.app_air.uicomponents.helpers.ViewHelpers
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedController
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -208,13 +209,22 @@ open class WView(
     }
 }
 
+private fun View.shouldAnimateChanges(): Boolean {
+    if (!WGlobalStorage.getAreAnimationsActive()) return false
+    if (AnimationSuspension.covers(this)) {
+        animate().cancel()
+        return false
+    }
+    return true
+}
+
 fun View.fadeOut(
     duration: Long = AnimationConstants.QUICK_ANIMATION,
     targetAlpha: Float = 0f,
     onCompletion: (() -> Unit)? = null
 ) {
     visibility = View.VISIBLE
-    if (!WGlobalStorage.getAreAnimationsActive()) {
+    if (!shouldAnimateChanges()) {
         alpha = targetAlpha
         onCompletion?.invoke()
         return
@@ -236,7 +246,7 @@ fun View.fadeIn(
         onCompletion?.invoke()
         return
     }
-    if (!WGlobalStorage.getAreAnimationsActive()) {
+    if (!shouldAnimateChanges()) {
         alpha = targetAlpha
         onCompletion?.invoke()
         return
@@ -255,7 +265,7 @@ fun View.scaleOut(
     onCompletion: (() -> Unit)? = null
 ) {
     isVisible = true
-    if (!WGlobalStorage.getAreAnimationsActive()) {
+    if (!shouldAnimateChanges()) {
         scaleX = targetScale
         scaleY = targetScale
         onCompletion?.invoke()
@@ -278,7 +288,7 @@ fun View.scaleIn(
     onCompletion: (() -> Unit)? = null
 ) {
     isVisible = true
-    if (!WGlobalStorage.getAreAnimationsActive()) {
+    if (!shouldAnimateChanges()) {
         scaleX = targetScale
         scaleY = targetScale
         onCompletion?.invoke()

@@ -5,8 +5,14 @@ $animation-time: 200ms;
 
 .root {
   unicode-bidi: inherit;
-  display: inline-flex;
   white-space: pre;
+
+  // The per-character boxes need a flex row only while they animate. Settled text stays an inline run: with
+  // `letter-spacing` a flex row lays the same text out narrower, so the text would shift whenever the counter
+  // is switched on or off (e.g. the wallet card balance while it refreshes)
+  &.animating {
+    display: inline-flex;
+  }
 
   &[dir="rtl"] {
     flex-direction: row-reverse;

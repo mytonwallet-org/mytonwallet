@@ -96,8 +96,35 @@ export async function fetchTokenWalletAddress(
   return toBase64Address(walletAddress, true, network);
 }
 
+export const resolveTokenWallet = withCacheAsync(fetchTokenWallet);
+
+/** Reads a jetton wallet and confirms that the minter it reports derives the wallet address for the reported owner */
+export async function fetchTokenWallet(network: ApiNetwork, tokenWalletAddress: string, signal?: AbortSignal) {
+  const client = getTonClient(network);
+  const tokenWallet = client.open(new JettonWallet(Address.parse(tokenWalletAddress)));
+  const data = await raceWithAbortSignal(() => tokenWallet.getWalletData(), signal);
+  const minter = client.open(new JettonMinter(data.minter));
+  const expectedTokenWalletAddress = await raceWithAbortSignal(
+    () => minter.getWalletAddress(data.owner),
+    signal,
+  );
+
+  if (!areAddressesEqual(tokenWalletAddress, expectedTokenWalletAddress)) {
+    throw new Error('Invalid jetton wallet contract');
+  }
+
+  return {
+    tokenAddress: toBase64Address(data.minter, true, network),
+    ownerAddress: toBase64Address(data.owner, undefined, network),
+  };
+}
+
 export const resolveTokenAddress = withCacheAsync(fetchTokenAddress);
 
+/**
+ * Returns the minter reported by a jetton wallet without verifying the wallet. Use it only for a wallet whose address
+ * is derived from a known minter; `fetchTokenWallet` handles a wallet address from an untrusted source.
+ */
 export async function fetchTokenAddress(network: ApiNetwork, tokenWalletAddress: string, signal?: AbortSignal) {
   const tokenWallet = getTonClient(network).open(new JettonWallet(Address.parse(tokenWalletAddress)));
   const data = await raceWithAbortSignal(() => tokenWallet.getWalletData(), signal);

@@ -1,4 +1,5 @@
 import { APP_ENV, DEBUG_ALERT_MSG } from '../config';
+import { isChunkLoadError } from './chunkLoading';
 import { SECOND } from './dateFormat';
 import { IS_EXTENSION_PAGE_SCRIPT } from './environment';
 import { logDebugError } from './logs';
@@ -36,11 +37,12 @@ export function handleError(err: Error | string) {
   const message = typeof err === 'string' ? err : err.message;
   const stack = typeof err === 'object' ? err.stack : undefined;
 
-  if (message.endsWith('Failed to import rlottie-wasm.js')) {
+  if (APP_ENV === 'staging' && message.endsWith('Failed to fetch')) {
     return;
   }
 
-  if (APP_ENV === 'staging' && message.endsWith('Failed to fetch')) {
+  // The reload prompt covers a lazy chunk that failed to load, wherever its rejection went unhandled
+  if (isChunkLoadError(err)) {
     return;
   }
 

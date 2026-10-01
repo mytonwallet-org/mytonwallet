@@ -20,6 +20,8 @@ import {
 
 import { logDebugError } from '../../util/logs';
 import { chains } from '../chains';
+import { getTonConnectAdapter } from './adapters/tonConnect';
+import { getWalletConnectAdapter } from './adapters/walletConnect';
 
 class DappProtocolManager implements AbstractDappProtocolManager {
   public adapters = new Map<DappProtocolType, DappProtocolRegistration>();
@@ -117,17 +119,15 @@ class DappProtocolManager implements AbstractDappProtocolManager {
 let protocolManager: DappProtocolManager | undefined;
 
 function ensureProtocolAdaptersRegistered(manager: DappProtocolManager) {
-  // Adapters are registered via guarded `require` (not static imports) so that, when a protocol is built
-  // out (`NO_TON` drops TonConnect + its `@ton/*` deps, `NO_EXTRA_FEATURES` drops `@reown/walletkit` etc.),
-  // Webpack dead-code elimination can remove the adapter module and its heavy dependencies entirely.
+  // The build flags are read inline, which makes a built-out protocol's branch statically false. With `NO_TON`,
+  // tree-shaking then drops TonConnect with its `@ton/*` deps. With `NO_EXTRA_FEATURES`, `plugins/disabledImports.ts`
+  // also replaces the WalletConnect adapter with a stub, which keeps `@reown/walletkit` and the rest out.
   if (process.env.NO_TON !== '1' && !manager.getAdapter(DappProtocolType.TonConnect)) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    manager.registerAdapter(require('./adapters/tonConnect').getTonConnectAdapter());
+    manager.registerAdapter(getTonConnectAdapter());
   }
 
   if (process.env.NO_EXTRA_FEATURES !== '1' && !manager.getAdapter(DappProtocolType.WalletConnect)) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    manager.registerAdapter(require('./adapters/walletConnect').getWalletConnectAdapter());
+    manager.registerAdapter(getWalletConnectAdapter());
   }
 }
 

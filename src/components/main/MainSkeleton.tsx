@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo } from '../../lib/teact/teact';
 
 import { IS_EXPLORER } from '../../config';
@@ -10,6 +11,7 @@ import Skeleton from '../ui/Skeleton';
 
 import mainStyles from './Main.module.scss';
 import styles from './MainSkeleton.module.scss';
+import bottomBarStyles from './sections/Actions/BottomBar.module.scss';
 
 interface OwnProps {
   isViewMode: boolean;
@@ -41,16 +43,23 @@ const ACTIVITY_ITEMS: ActivityItemData[][] = [
 ];
 
 const NAVIGATION_LINKS_COUNT = 4;
-const BOTTOM_BAR_BUTTONS_COUNT = 3;
+const PORTRAIT_ACTIONS_COUNT = 4;
+const PORTRAIT_TOKENS_COUNT = 2;
+// Sections of `BottomBar` in portrait and `LandscapeNavBar` in landscape
+const NAV_ITEMS_COUNT = 5;
+const TOP_ACTIONS_COUNT = 6;
+const OVERVIEW_TOKENS_COUNT = 5;
+const OVERVIEW_NFTS_COUNT = 2;
 
 function sizeVar(min: number, max: number, seed: string) {
   return `--size: ${getDeterministicRandom(min, max, seed)}`;
 }
 
-function renderHeader() {
+function renderHeader(withOpenLink?: boolean) {
   return (
     <div className={styles.header}>
       <Skeleton className={styles.headerAccount} />
+      {withOpenLink && <Skeleton className={styles.headerOpenLink} />}
     </div>
   );
 }
@@ -67,11 +76,37 @@ function renderCard() {
   );
 }
 
+function renderListItem(index: number, className?: string) {
+  return (
+    <div key={index} className={buildClassName(styles.listItem, className)}>
+      <Skeleton className={styles.listItemIcon} />
+      <Skeleton className={styles.listItemLabel} />
+    </div>
+  );
+}
+
+function renderNavBar() {
+  return (
+    <div className={styles.list}>
+      {Array.from({ length: NAV_ITEMS_COUNT }, (_, i) => renderListItem(i))}
+    </div>
+  );
+}
+
+function renderAddWallet() {
+  return (
+    <div className={styles.list}>
+      {renderListItem(0, styles.addWalletItem)}
+    </div>
+  );
+}
+
 function renderOpenInWallet() {
   return (
     <div className={styles.openInWallet}>
-      <Skeleton className={styles.openInWalletAction} />
-      <Skeleton className={styles.openInWalletActionInner} />
+      <div className={styles.openInWalletAction}>
+        <Skeleton className={styles.openInWalletActionInner} />
+      </div>
       <div className={styles.navigation}>
         {Array.from({ length: NAVIGATION_LINKS_COUNT }, (_, i) => (
           <Skeleton key={i} className={styles.navigationLink} />
@@ -95,11 +130,51 @@ function renderTokenItem(index: number) {
   );
 }
 
-function renderTokens() {
+function renderTokens(count: number) {
   return (
     <div className={styles.tokens}>
-      {renderTokenItem(0)}
-      {renderTokenItem(1)}
+      {Array.from({ length: count }, (_, i) => renderTokenItem(i))}
+    </div>
+  );
+}
+
+function renderNfts() {
+  return (
+    <div className={styles.nfts}>
+      {Array.from({ length: OVERVIEW_NFTS_COUNT }, (_, i) => (
+        <div key={i}>
+          <Skeleton className={styles.nftImage} />
+          <Skeleton className={styles.nftTitle} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function renderOverviewCell(content: TeactNode) {
+  return (
+    <div className={styles.overviewCell}>
+      <Skeleton className={styles.overviewCaption} />
+      <div className={styles.overviewCard}>
+        {content}
+        <div className={styles.showAll}>
+          <Skeleton className={styles.showAllIcon} />
+          <Skeleton className={styles.showAllLabel} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderTopActions(isViewMode: boolean) {
+  return (
+    <div className={styles.topActions}>
+      {Array.from({ length: isViewMode ? 1 : TOP_ACTIONS_COUNT }, (_, i) => (
+        <div key={i} className={styles.topAction}>
+          <Skeleton className={styles.topActionIcon} />
+          <Skeleton className={styles.topActionLabel} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -141,13 +216,15 @@ function renderActivityList() {
 
 function renderBottomBar() {
   return (
-    <div className={styles.bottomBar}>
-      {Array.from({ length: BOTTOM_BAR_BUTTONS_COUNT }, (_, index) => (
-        <div key={index} className={styles.bottomBarButton}>
-          <Skeleton className={styles.bottomBarIcon} />
-          <Skeleton className={styles.bottomBarLabel} />
-        </div>
-      ))}
+    <div className={buildClassName(bottomBarStyles.root, styles.bottomBar)} style={`--tab-count: ${NAV_ITEMS_COUNT}`}>
+      <div className={bottomBarStyles.capsule}>
+        {Array.from({ length: NAV_ITEMS_COUNT }, (_, index) => (
+          <div key={index} className={bottomBarStyles.button}>
+            <Skeleton className={styles.bottomBarIcon} />
+            <Skeleton className={styles.bottomBarLabel} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -157,8 +234,8 @@ function MainSkeleton({ isViewMode }: OwnProps) {
 
   function renderActions() {
     return (
-      <div className={buildClassName(styles.actions, isPortrait && styles.actionsPortrait)}>
-        {Array.from({ length: isPortrait ? 4 : 3 }, (_, index) => (
+      <div className={styles.actions}>
+        {Array.from({ length: PORTRAIT_ACTIONS_COUNT }, (_, index) => (
           <div key={index} className={styles.actionButton}>
             <Skeleton className={styles.actionIcon} />
             <Skeleton className={styles.actionLabel} />
@@ -170,7 +247,7 @@ function MainSkeleton({ isViewMode }: OwnProps) {
 
   function renderTabs() {
     return (
-      <div className={buildClassName(styles.tabs, isPortrait && styles.tabsPortrait)}>
+      <div className={styles.tabs}>
         <Skeleton className={styles.tab} />
         <Skeleton className={styles.tab} />
         {!isViewMode && <Skeleton className={styles.tab} />}
@@ -182,12 +259,12 @@ function MainSkeleton({ isViewMode }: OwnProps) {
     return (
       <div className={styles.portraitContainer}>
         <div className={styles.head}>
-          {renderHeader()}
+          {renderHeader(IS_EXPLORER)}
           {renderCard()}
           {!isViewMode && renderActions()}
         </div>
         <div className={styles.assets}>
-          {renderTokens()}
+          {renderTokens(PORTRAIT_TOKENS_COUNT)}
         </div>
         <div className={styles.content}>
           <div className={styles.contentInner}>
@@ -201,19 +278,24 @@ function MainSkeleton({ isViewMode }: OwnProps) {
   }
 
   return (
-    <div className={buildClassName(styles.landscapeContainer, mainStyles.landscapeContainer)}>
-      <div className={buildClassName(styles.sidebar, mainStyles.sidebar, 'custom-scroll')}>
+    <div className={mainStyles.landscapeContainer}>
+      <div className={buildClassName(mainStyles.sidebar, 'custom-scroll')}>
         {renderHeader()}
         {renderCard()}
+        {renderNavBar()}
+        {renderAddWallet()}
         {IS_EXPLORER && renderOpenInWallet()}
       </div>
-      <div className={styles.main}>
-        <div className={styles.assets}>
-          {renderTokens()}
-        </div>
-        <div className={styles.content}>
-          {renderTabs()}
-          {renderActivityList()}
+      <div className={mainStyles.main}>
+        <div className={buildClassName(styles.overview, 'custom-scroll')}>
+          {renderTopActions(isViewMode)}
+          <div className={styles.overviewRow}>
+            {renderOverviewCell(renderTokens(OVERVIEW_TOKENS_COUNT))}
+            {renderOverviewCell(renderNfts())}
+          </div>
+          <div className={styles.activities}>
+            {renderActivityList()}
+          </div>
         </div>
       </div>
     </div>

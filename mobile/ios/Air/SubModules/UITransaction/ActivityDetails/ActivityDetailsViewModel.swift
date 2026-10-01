@@ -9,8 +9,10 @@ final class ActivityDetailsViewModel {
     var activity: ApiActivity {
         didSet {
             refreshScamStatus()
+            scheduleCexDeadlineRefresh()
         }
     }
+    var currentDate: Date = .now
     var isScam: Bool = false
     var detailsExpanded: Bool
     var detailsCollapseEnabled: Bool = true
@@ -22,6 +24,8 @@ final class ActivityDetailsViewModel {
 
     @PerceptionIgnored
     private var detailsFetchTask: Task<Void, Never>?
+    @PerceptionIgnored
+    private var cexDeadlineTask: Task<Void, Never>?
     @PerceptionIgnored
     private var loadingDetailsActivityId: String?
     @PerceptionIgnored
@@ -42,10 +46,28 @@ final class ActivityDetailsViewModel {
         self.scrollingDisabled = scrollingDisabled
         self.context = context
         refreshScamStatus()
+        scheduleCexDeadlineRefresh()
     }
 
     deinit {
         detailsFetchTask?.cancel()
+        cexDeadlineTask?.cancel()
+    }
+
+    private func scheduleCexDeadlineRefresh() {
+        cexDeadlineTask?.cancel()
+        currentDate = .now
+        guard let swap = activity.swap, swap.cex != nil else { return }
+        let delay = swap.cexWaitingDeadline.timeIntervalSince(currentDate)
+        guard delay > 0 else { return }
+        cexDeadlineTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            self?.currentDate = .now
+        }
     }
     
     func onDetailsExpanded() {

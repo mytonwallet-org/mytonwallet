@@ -2,17 +2,20 @@
  * Accessors for the optional half of the API, used by the code that stays in a `NO_EXTRA_FEATURES` build
  * but can still reach into it.
  *
- * `process.env` is read inline rather than through `config`, because Webpack substitutes it before
- * dead-code elimination: that leaves each `require` in a statically false branch, so the module and its
- * dependencies drop out of the bundle. Every caller sits behind a condition that is unreachable in such a
- * build, and the throw makes it obvious if one ever is not.
+ * In such a build `plugins/disabledImports.ts` replaces every namespace below with a stub, which keeps the modules
+ * and their dependencies out of the bundle. `process.env` is read inline rather than through `config`, so the
+ * branches are statically false there and the stubs are never reached. Every caller sits behind a condition that is
+ * unreachable in such a build, and the throw makes it obvious if one ever is not.
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+import * as agentV2Lifecycle from './agentV2Lifecycle';
+import * as mfaMethods from './mfa';
+import * as stakingMethods from './staking';
+import * as swapMethods from './swap';
 
 export function requireMfaMethods() {
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    return require('./mfa') as typeof import('./mfa');
+    return mfaMethods;
   }
 
   throw new Error('MFA is not supported in this build');
@@ -20,7 +23,7 @@ export function requireMfaMethods() {
 
 export function requireSwapMethods() {
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    return require('./swap') as typeof import('./swap');
+    return swapMethods;
   }
 
   throw new Error('Swap is not supported in this build');
@@ -28,7 +31,7 @@ export function requireSwapMethods() {
 
 export function requireStakingMethods() {
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    return require('./staking') as typeof import('./staking');
+    return stakingMethods;
   }
 
   throw new Error('Staking is not supported in this build');
@@ -36,7 +39,7 @@ export function requireStakingMethods() {
 
 export function requireAgentV2Lifecycle() {
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    return require('./agentV2Lifecycle') as typeof import('./agentV2Lifecycle');
+    return agentV2Lifecycle;
   }
 
   throw new Error('Agent V2 is not supported in this build');

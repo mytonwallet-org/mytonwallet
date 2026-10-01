@@ -11,6 +11,8 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.toDrawable
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.controller.BaseControllerListener
+import com.facebook.drawee.drawable.FadeDrawable
+import com.facebook.drawee.drawable.ForwardingDrawable
 import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder
 import com.facebook.drawee.generic.RoundingParams
 import com.facebook.drawee.view.SimpleDraweeView
@@ -21,6 +23,8 @@ import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.InitialsDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setRounding
+import org.mytonwallet.app_air.uicomponents.helpers.AnimationSuspension
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -37,6 +41,26 @@ open class WCustomImageView @JvmOverloads constructor(
 
     companion object {
         const val CHAIN_SIZE = 16
+    }
+
+    private fun finishFadeIfSuppressed() {
+        if (!AnimationSuspension.covers(this)) return
+        var drawable: Drawable? = hierarchy?.topLevelDrawable
+        while (drawable != null && drawable !is FadeDrawable) {
+            drawable = (drawable as? ForwardingDrawable)?.drawable
+        }
+        drawable?.finishTransitionImmediately()
+    }
+
+    private var isImageShown = false
+
+    // Once an image is shown, its later changes wait until a reveal of the screen ends.
+    override fun invalidateDrawable(dr: Drawable) {
+        if (!isImageShown) {
+            super.invalidateDrawable(dr)
+            return
+        }
+        RevealUpdates.runOrHold(this, dr) { super.invalidateDrawable(dr) }
     }
 
     var fadeListener: OnFadeListener? = null
@@ -135,6 +159,7 @@ open class WCustomImageView @JvmOverloads constructor(
 
     fun set(content: Content, lowResUrl: String? = null) {
         if (content == this.content && lowResUrl == this.lowResUrl) return
+        isImageShown = false
         lastRatioSize = -1
         buildHierarchy(content)
         buildController(content, lowResUrl = lowResUrl)
@@ -150,6 +175,7 @@ open class WCustomImageView @JvmOverloads constructor(
     }
 
     fun clear() {
+        isImageShown = false
         buildController(null, null)
         chainDrawable = null
         content = null
@@ -184,6 +210,8 @@ open class WCustomImageView @JvmOverloads constructor(
             animatable: android.graphics.drawable.Animatable?
         ) {
             if (id != null && currentControllerId != null && id != currentControllerId) return
+            finishFadeIfSuppressed()
+            isImageShown = true
             onFinalImageSet?.invoke(imageInfo)
         }
 

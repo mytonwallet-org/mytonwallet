@@ -210,6 +210,7 @@ Optional: خياري
 $send_token_symbol: أرسل %symbol%
 Is it all ok?: هل كل شيء على ما يرام؟
 Receiving Address: عنوان الاستلام
+Contract Address: عنوان العقد
 Fee: مصاريف
 Edit: يحرر
 Confirm: يتأكد
@@ -344,6 +345,7 @@ Portfolio Share: حصة المحفظة
 Current allocation across tracked assets.: التخصيص الحالي عبر الأصول المتعقبة.
 Deep history analysis will be available in upcoming updates.: سيكون تحليل التاريخ العميق متاحًا في التحديثات القادمة.
 By Chain: بواسطة السلسلة
+$portfolio_other_chains: أخرى
 No chain balances: لا أرصدة السلسلة
 Native: محلي
 Stablecoins: العملات المستقرة
@@ -913,7 +915,10 @@ Mint Cards: بطاقات النعناع
 Card has been upgraded!: تمت ترقية البطاقة!
 $mint_card_result: سيتم **سك** بطاقة NFT و **تثبيتها تلقائيًا** خلال دقيقة واحدة.
 Unique: فريد
-Get a card with unique background and personalized palette for wallet interface.: احصل على بطاقة ذات خلفية فريدة ولوحة مخصصة لواجهة المحفظة.
+Get a card with unique background and personalized palette for wallet interface.: احصل على بطاقة ذات خلفية فريدة ولون مميز مخصص لواجهة المحفظة.
+Get custom accent color for wallet interface.: احصل على لون مميز لواجهة المحفظة.
+Easily send your upgraded card to friends.: أرسل بطاقتك المطوّرة إلى أصدقائك بسهولة.
+Sell or auction your card on marketplaces.: بع بطاقتك أو اعرضها في مزاد على الأسواق.
 Transferable: قابلة للتحويل
 Easily send your upgraded card to any of your friends.: أرسل بطاقتك التي تمت ترقيتها بسهولة إلى أي من أصدقائك.
 Tradable: قابلة للتداول
@@ -923,6 +928,8 @@ Upgrade for %amount% %currency%: الترقية إلى %amount% %currency%
 "%amount% sold": تم بيع %amount%
 This card has been sold out: لقد تم بيع هذه البطاقة
 "Mint starts in %time%": "يبدأ السكّ خلال %time%"
+"Congrats! Your first %card% comes at %percent% off.": "تهانينا! تحصل على أول %card% بخصم %percent%."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "يحصل المستخدمون الأكثر نشاطًا على خصم %percent% على أول %card%. تداول أو قم بالتخزين لتتأهل في المرة القادمة!"
 "%amount% unique cards total":
   zeroValue: "إجمالي البطاقات الفريدة: %amount%"
   oneValue: "إجمالي البطاقات الفريدة: %amount%"
@@ -2079,6 +2086,10 @@ $swap_cex_support: "إذا حدث خطأ ما، تواصل مع %support% وقد
 $swap_cex_hold_support: "يرجى التواصل مع %support% وتقديم **معرّف المنصة الخارجية** هذا لاجتياز مراجعة المزوّد:"
 $swap_cex_provider_support: دعم %provider%
 Email: البريد الإلكتروني
+$swap_cex_support_footer_email: "إذا حدث خطأ ما، تواصل مع %support% عبر %email% وقدّم معرّف المبادلة."
+$swap_cex_hold_support_footer_email: "لاجتياز مراجعة المزوّد، تواصل مع %support% عبر %email% وقدّم معرّف المبادلة."
+$swap_cex_support_footer: "إذا حدث خطأ ما، تواصل مع %support% وقدّم معرّف المبادلة."
+$swap_cex_hold_support_footer: "لاجتياز مراجعة المزوّد، تواصل مع %support% وقدّم معرّف المبادلة."
 The NFT has been hidden: تم إخفاء NFT
 The NFT is no longer hidden: لم يعد NFT مخفيًا
 Outgoing Transaction ID: معرّف المعاملة الصادرة

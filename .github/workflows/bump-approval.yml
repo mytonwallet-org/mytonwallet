@@ -83,7 +83,7 @@ jobs:
             // and every touched line in it being a version line - the one introduced or the one it
             // replaces. A bump smuggling a code change alongside fails one of these.
             //
-            // The served `version.txt` is absent from this set by design: the webpack build emits it
+            // The served `version.txt` is absent from this set by design: the web build emits it
             // from the same `package.json` version, so no checked-in copy of it exists for a bump to
             // touch, and listing it here would decline every bump for being a file short.
             const expectedFiles = new Map([

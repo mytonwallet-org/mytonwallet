@@ -41,15 +41,18 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         public let id: String
         public let dequeueCell: @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell
         private let onWillDisplay: (@MainActor (UICollectionViewCell) -> Void)?
+        private let appearance: UICollectionLayoutListConfiguration.Appearance?
 
         public var itemIdentifiers: [String] { [id] }
 
         public init(
             id: String,
+            appearance: UICollectionLayoutListConfiguration.Appearance? = nil,
             dequeueCell: @escaping @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell,
             willDisplay: (@MainActor (UICollectionViewCell) -> Void)? = nil
         ) {
             self.id = id
+            self.appearance = appearance
             self.dequeueCell = dequeueCell
             self.onWillDisplay = willDisplay
         }
@@ -64,6 +67,17 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 
         public func willDisplay(_ cell: UICollectionViewCell, itemIdentifier: String) {
             onWillDisplay?(cell)
+        }
+
+        public func makeLayoutSection(layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
+            guard let appearance else { return nil }
+            var configuration = UICollectionLayoutListConfiguration(appearance: appearance)
+            configuration.backgroundColor = .clear
+            configuration.showsSeparators = false
+            let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+            section.contentInsets.top = 0
+            section.contentInsets.bottom = 16
+            return section
         }
     }
 
@@ -140,7 +154,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         if case .swap(let swap) = transaction,
            swap.status == .pending || swap.status == .pendingTrusted,
            getSwapType(from: swap.from, to: swap.to, accountChains: account.supportedChains) == .crosschainToWallet,
-           swap.cex?.status.uiStatus == .pending {
+           case let displayStatus = swap.displayStatus(accountChains: account.supportedChains),
+           (swap.cex?.status == .new && displayStatus == .pending) || displayStatus == .waitingForPayment {
             AppActions.showCrossChainSwapVC(transaction, accountId: account.id)
         } else {
             AppActions.showActivityDetails(accountId: account.id, activity: transaction, context: .normal)

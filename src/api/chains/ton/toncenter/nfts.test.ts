@@ -1,4 +1,4 @@
-import { fetchNftByAddress, fetchNftItems, fetchNftTransfers } from './nfts';
+import { fetchNftByAddress, fetchNftItems, fetchNftsByAddresses, fetchNftTransfers } from './nfts';
 import { callToncenterV3 } from './other';
 
 // Toncenter answers 200 and silently ignores unknown query params, so a typo in a param name
@@ -119,6 +119,38 @@ describe('fetchNftByAddress', () => {
     mockedCall.mockResolvedValueOnce({ nft_items: [], metadata: {} });
 
     expect(await fetchNftByAddress('mainnet', NFT_ADDRESS)).toBeFalsy();
+  });
+});
+
+describe('fetchNftsByAddresses', () => {
+  it('requests every NFT at once and indexes the found ones by the raw address', async () => {
+    mockedCall.mockResolvedValueOnce({
+      nft_items: [{ address: RAW_NFT_ADDRESS, index: '7', on_sale: false }],
+      metadata: {
+        [RAW_NFT_ADDRESS]: {
+          is_indexed: true,
+          token_info: [{ type: 'nft_items', name: 'Requested NFT' }],
+        },
+      },
+    });
+
+    const nftsByRawAddress = await fetchNftsByAddresses('mainnet', [NFT_ADDRESS, WALLET_ADDRESS]);
+
+    expect(mockedCall).toHaveBeenCalledTimes(1);
+    expect(getRequest().params).toMatchObject({ address: [RAW_NFT_ADDRESS, RAW_WALLET_ADDRESS], limit: 2 });
+    expect(Object.keys(nftsByRawAddress)).toEqual([RAW_NFT_ADDRESS]);
+    expect(nftsByRawAddress[RAW_NFT_ADDRESS]).toMatchObject({ address: NFT_ADDRESS, name: 'Requested NFT' });
+  });
+
+  it('splits a long list into several requests', async () => {
+    mockedCall
+      .mockResolvedValueOnce({ nft_items: [], metadata: {} })
+      .mockResolvedValueOnce({ nft_items: [], metadata: {} });
+    const addresses = Array.from({ length: 150 }, (_, i) => `0:${i.toString(16).padStart(64, '0')}`);
+
+    await fetchNftsByAddresses('mainnet', addresses);
+
+    expect(mockedCall.mock.calls.map(([, , params]) => params!.limit)).toEqual([100, 50]);
   });
 });
 

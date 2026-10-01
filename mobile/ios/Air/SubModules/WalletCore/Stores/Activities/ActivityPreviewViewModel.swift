@@ -284,11 +284,12 @@ public final class ActivityPreviewViewModel: WalletCoreData.EventsObserver, Send
             accountId: accountId,
             token: nil,
             poisoningCache: poisoningCache,
-            hideTinyTransfers: AppStorageHelper.hideTinyTransfers
+            hideTinyTransfers: AppStorageHelper.hideTinyTransfers,
+            limit: requestedCount
         )
 
         activitiesById = accountState.byId
-        activityIDs = visibleIDs.map { Array($0.prefix(requestedCount)) }
+        activityIDs = visibleIDs
         isEndReached = accountState.isMainHistoryEndReached
         loadState = Self.resolveLoadState(
             visibleCount: visibleIDs?.count,

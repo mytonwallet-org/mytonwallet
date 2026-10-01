@@ -4,20 +4,7 @@ import { ungzip } from '../../util/compression';
 import { createPostMessageInterface } from '../../util/createPostMessageInterface';
 import { fetchWithTimeout } from '../../util/fetch';
 import { logDebugError } from '../../util/logs';
-
-declare const Module: any;
-
-declare function allocate(...args: any[]): string;
-
-declare function intArrayFromString(str: string): string;
-
-declare const self: WorkerGlobalScope;
-
-try {
-  self.importScripts('rlottie-wasm.js');
-} catch (err) {
-  throw new Error('Failed to import rlottie-wasm.js');
-}
+import Module, { allocate, intArrayFromString } from './rlottie-wasm';
 
 let rLottieApi: Record<string, AnyFunction>;
 const rLottieApiPromise = new Promise<void>((resolve) => {

@@ -162,6 +162,9 @@ jobs:
       - name: Test extension license distribution
         run: npm run test:extension-licenses
 
+      - name: Test iOS signing expiry schedule
+        run: npm run test:signing-schedule
+
       - name: Test
         run: npm test
 

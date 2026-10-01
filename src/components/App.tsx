@@ -73,6 +73,7 @@ import TransferModal from './transfer/TransferModal';
 import ConfettiContainer from './ui/ConfettiContainer';
 import LoadingOverlay from './ui/LoadingOverlay';
 import Transition from './ui/Transition';
+import UpdateAvailable from './ui/UpdateAvailable';
 import WalletConnectPayDataCollectionModal from './walletConnectPay/WalletConnectPayDataCollectionModal';
 import WalletConnectPayModal from './walletConnectPay/WalletConnectPayModal';
 import WalletConnectPayOptionSelectionModal from './walletConnectPay/WalletConnectPayOptionSelectionModal';
@@ -308,6 +309,9 @@ function App({
           <ConfettiContainer />
           <IFrameBrowser />
           <LoadingOverlay />
+          {/* Outside `Main`, which portrait screens such as Portfolio and Agent replace. It stays off Auth, whose
+          controls sit where the button floats. */}
+          {!IS_ELECTRON && renderingKey !== AppState.Auth && <UpdateAvailable />}
         </>
       )}
       {withBottomBar && <BottomBar />}

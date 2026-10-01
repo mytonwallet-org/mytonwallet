@@ -98,12 +98,13 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         }
         cachedAccountOrder = Array(cachedAccountOrder.suffix(3))
         let retainedAccounts = Set(cachedAccountOrder)
+        // Eviction must also run when a new swipe cancels preparation.
+        cachedContent = cachedContent.filter { retainedAccounts.contains($0.value.accountId) }
         guard rowWidth > 0, visibleRowCount > 0 else { return }
         preloadTask = Task { @MainActor [weak self] in
             // Let the account animation finish before preparing neighboring rows.
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            self?.cachedContent = self?.cachedContent.filter { retainedAccounts.contains($0.value.accountId) } ?? [:]
             for accountId in accountIds.prefix(2) {
                 guard !Task.isCancelled, let self else { return }
                 let context = AccountContext(source: .accountId(accountId))
@@ -274,7 +275,8 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
             }
             return separatorConfiguration
         }
-        return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        return section
     }
 
     public func dequeueCell(
@@ -473,10 +475,15 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         // Preloading must not replace an unchanged view that UIKit retains in its reuse pool.
         if host == nil, let cached, cached.presentation == item.presentation { return cached.view }
         // Offscreen and prefetched cells still own their content until reuse.
-        let owned = existing.flatMap { $0.preparedItemIdentifier == identifier && $0.superview === host ? $0 : nil }
+        let owned = existing.flatMap { $0.superview === host ? $0 : nil }
         let available = cached.flatMap { $0.view.superview == nil || $0.view.superview === host ? $0.view : nil }
         let reusable = owned ?? available
         let content = reusable ?? WalletTokenContentView(frame: .zero)
+        let isSameItem = content.preparedItemIdentifier == identifier
+        if !isSameItem, let previousIdentifier = content.preparedItemIdentifier,
+           cachedContent[previousIdentifier]?.view === content {
+            cachedContent.removeValue(forKey: previousIdentifier)
+        }
         #if DEBUG || HOME_FRAME_PROBE
         HomeFrameProbe.shared.event(reusable != nil ? "token.content.reuse" : "token.content.create")
         #endif
@@ -484,7 +491,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
             content.tintColor = item.presentation.accentColor
             content.configure(
                 with: item.tokenBalance,
-                animated: item.animatedAmounts && content.superview === host && host != nil,
+                animated: isSameItem && item.animatedAmounts && content.superview === host && host != nil,
                 badgeContent: item.presentation.badgeContent,
                 stakingAccessoryContent: item.presentation.stakingAccessory,
                 isMultichain: item.presentation.isMultichain,
@@ -501,7 +508,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
         let token = item.tokenBalance
         cell.baseBackgroundColor = .air.groupedItem
         cell.host(content(for: item, identifier: identifier, accountId: accountId, host: cell.contentView,
-                          existing: cell.tokenContent))
+                          existing: cell.tokenContent), releasesOnReuse: false)
 
         let interaction = ContextMenuInteraction(
             triggers: [.longPress],

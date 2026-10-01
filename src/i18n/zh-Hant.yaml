@@ -210,6 +210,7 @@ Optional: 選項
 $send_token_symbol: 發送 %symbol%
 Is it all ok?: 全部確認都 OK?
 Receiving Address: 接收地址
+Contract Address: 合約地址
 Fee: 手續費
 Edit: 編輯
 Confirm: 確認
@@ -342,6 +343,7 @@ Portfolio Share: 投資組合佔比
 Current allocation across tracked assets.: 目前追蹤資產的配置情況。
 Deep history analysis will be available in upcoming updates.: 深度歷史分析將在後續更新中提供。
 By Chain: 按鏈
+$portfolio_other_chains: 其他
 No chain balances: 暫無鏈餘額
 Native: 原生
 Stablecoins: 穩定幣
@@ -920,7 +922,10 @@ Mint Cards: 鑄造卡片
 Card has been upgraded!: 卡片已升級！
 $mint_card_result: NFT 卡片將在一分鐘內**鑄造**並**自動安裝**。
 Unique: 獨特
-Get a card with unique background and personalized palette for wallet interface.: 獲取具有獨特背景和個性化調色板的卡片，用於錢包界面。
+Get a card with unique background and personalized palette for wallet interface.: 取得具有獨特背景和個人化主題色的卡片，用於錢包介面。
+Get custom accent color for wallet interface.: 取得錢包介面的專屬主題色。
+Easily send your upgraded card to friends.: 輕鬆將升級後的卡片傳送給好友。
+Sell or auction your card on marketplaces.: 在交易市場出售或拍賣您的卡片。
 Transferable: 可轉讓
 Easily send your upgraded card to any of your friends.: 輕鬆將您的升級卡片發送給任何朋友。
 Tradable: 可交易
@@ -930,6 +935,8 @@ Upgrade for %amount% %currency%: 升級需 %amount% %currency%
 "%amount% sold": 已售 %amount%
 This card has been sold out: 此卡片已售罄
 "Mint starts in %time%": "鑄造將於 %time% 後開始"
+"Congrats! Your first %card% comes at %percent% off.": "恭喜！您的首張 %card% 立減 %percent%。"
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "最活躍的用戶首張 %card% 可立減 %percent%。進行交易或質押，下次即可獲得資格！"
 "%amount% unique cards total":
   otherValue: "共 %amount% 張獨特卡片"
 Import Existing Wallet: 導入現有錢包
@@ -2119,6 +2126,10 @@ $swap_cex_hold_support: "請聯絡 %support% 並提供此**外部兌換 ID**以�
 $swap_cex_provider_support: "%provider% 支援"
 External Exchange ID Copied: 已複製外部兌換 ID
 Email: 電子郵件
+$swap_cex_support_footer_email: "如果出現問題，請透過 %email% 聯絡 %support% 並提供兌換 ID。"
+$swap_cex_hold_support_footer_email: "請透過 %email% 聯絡 %support% 並提供兌換 ID，以通過供應商審核。"
+$swap_cex_support_footer: "如果出現問題，請聯絡 %support% 並提供兌換 ID。"
+$swap_cex_hold_support_footer: "請聯絡 %support% 並提供兌換 ID，以通過供應商審核。"
 Choose Token: 選擇代幣
 You don't have any eligible tokens for this payment: 您沒有適用於此次付款的代幣
 Buy, swap, or receive a supported token to continue.: 購買、兌換或接收支援的代幣以繼續。

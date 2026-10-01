@@ -161,8 +161,8 @@ type PendingReturnRequest = {
 // Derive the EVM chain name set from the same EVM_CHAIN_IDS map the rest of the
 // adapter uses; hardcoding here would silently drift when a new chain joins the
 // CAIP map (multichain rule §7: chain enumerations live in declared points only).
-const EVM_CHAIN_NAMES: ReadonlySet<ApiChain> = new Set(
-  Object.values(EVM_CHAIN_IDS).map((entry) => entry.chain),
+const EVM_CHAIN_NAMES: ReadonlySet<ApiChain> = /* @__PURE__ */ new Set(
+  /* @__PURE__ */ Object.values(EVM_CHAIN_IDS).map((entry) => entry.chain),
 );
 
 /**

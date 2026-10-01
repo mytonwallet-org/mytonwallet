@@ -115,7 +115,7 @@ log "Workdir:      $WORKDIR"
 
 # --- 1b. Build-env hygiene: refuse an environment that can poison the artifact
 #
-# webpack imports dev/loadEnv.ts (dotenv) and EnvironmentPlugin bakes
+# vite.config.ts imports dev/loadEnv.ts (dotenv) and bakes
 # process.env into the bundle and its CSP. A developer's .env or exported app
 # env vars therefore ship inside the PUBLIC production artifact -- e.g. a beta
 # BRILLIANT_API_BASE_URL lands in the SDK worker chunk and in connect-src, and
@@ -164,11 +164,11 @@ else
     log "Build env: CI detected -- trusting the pinned CI environment (secret-bearing vars checked)."
   else
     [ ! -s "$DEV_REPO_ROOT/.env" ] \
-      || fail "$DEV_REPO_ROOT/.env exists and is non-empty. webpack (dev/loadEnv.ts) bakes it into the production artifact and its CSP -- this is how a beta API URL or a personal key leaks into wallet.ton.org. The intended deploy path is CI (no .env there). To build locally anyway, move it aside first: mv .env .env.local-backup. Bypass (dangerous): ALLOW_TAINTED_BUILD_ENV=1."
+      || fail "$DEV_REPO_ROOT/.env exists and is non-empty. The build (dev/loadEnv.ts) bakes it into the production artifact and its CSP -- this is how a beta API URL or a personal key leaks into wallet.ton.org. The intended deploy path is CI (no .env there). To build locally anyway, move it aside first: mv .env .env.local-backup. Bypass (dangerous): ALLOW_TAINTED_BUILD_ENV=1."
 
     for key in "${ENV_SURFACE_KEYS[@]}" APP_ENV BASE_URL APP_NAME; do
       [ -z "${!key:-}" ] \
-        || fail "Env var $key is set in the ambient environment. webpack would bake it into the production artifact. Unset it (unset $key) and re-run, or deploy from CI. Bypass (dangerous): ALLOW_TAINTED_BUILD_ENV=1."
+        || fail "Env var $key is set in the ambient environment. The build would bake it into the production artifact. Unset it (unset $key) and re-run, or deploy from CI. Bypass (dangerous): ALLOW_TAINTED_BUILD_ENV=1."
     done
     log "Build env OK: no local .env, no ambient app env."
   fi
@@ -240,19 +240,17 @@ grep -q "Gram Wallet" "$DIST_DIR/index.html" \
 ! grep -q "TON Wallet" "$DIST_DIR/index.html" \
   || fail "$DIST_DIR/index.html contains 'TON Wallet' -- legacy branding leaked into the Gram build. Aborting."
 
-MAIN_JS_FILES=("$DIST_DIR"/main.*.js)
-if [ ! -e "${MAIN_JS_FILES[0]}" ]; then
-  MAIN_JS_FILES=("$DIST_DIR"/*.js)
-fi
-grep -rq "tonwallet-global-state" "${MAIN_JS_FILES[@]}" \
+# The config module that holds the key may land in any chunk. The quotes keep `mytonwallet-global-state` from
+# matching; the minifier may print the string in any of the three
+grep -qE "[\"'\`]tonwallet-global-state[\"'\`]" "$DIST_DIR"/*.js \
   || fail "'tonwallet-global-state' storage key not found in the bundle -- the build would orphan the wallet.ton.org users' state. Aborting."
 
 [ -f "$DIST_DIR/gramWallet/site.webmanifest" ] \
   || fail "$DIST_DIR/gramWallet/site.webmanifest is missing -- manifest not laid out for the Gram profile. Aborting."
 
 # Environment gate (positive): every connect-src token must be on the
-# production allowlist. webpack assembles connect-src from ALL env-configurable
-# backend URLs (webpack.config.ts, cspConnectSrcHosts), so ANY environment
+# production allowlist. The build assembles connect-src from ALL env-configurable
+# backend URLs (vite.config.ts, cspConnectSrcHosts), so ANY environment
 # poisoning -- beta/staging/localhost/personal endpoints, via .env or ambient
 # env -- surfaces here no matter how it got in. The list below is the exact
 # token set of a clean production combo build (src/config.ts defaults). It

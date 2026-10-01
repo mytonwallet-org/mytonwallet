@@ -31,4 +31,18 @@ class TokenUpdateMergeTest {
 
         assertEquals(mapOf("retained" to 2, "protected" to 1), result)
     }
+
+    @Test
+    fun `incomplete full update keeps omitted tokens`() {
+        val result = mergeTokenUpdateMaps(
+            current = mapOf("retained" to 1, "omitted" to 1),
+            incoming = mapOf("retained" to 2),
+            presentSlugs = setOf("retained"),
+            kind = ApiTokenUpdateKind.FULL,
+            removedSlugs = emptyList(),
+            isIncomplete = true
+        )
+
+        assertEquals(mapOf("retained" to 2, "omitted" to 1), result)
+    }
 }

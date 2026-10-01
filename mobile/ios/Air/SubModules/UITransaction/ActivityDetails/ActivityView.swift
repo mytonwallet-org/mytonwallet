@@ -226,6 +226,7 @@ struct ActivityView: View {
                     amountCell
                 }
                 cexPaymentAddress
+                cexMemo
                 swapRate
                 estimatedTime
                 fee
@@ -235,6 +236,10 @@ struct ActivityView: View {
             } header: {
                 Text(lang("Details"))
                     .padding(.bottom, 1)
+            } footer: {
+                if let swap = activity.swap, swap.cex != nil {
+                    CexActivityDetailsFooter(swap: swap, date: model.currentDate)
+                }
             }
             .padding(.bottom, 5 + 16)
             .fixedSize(horizontal: false, vertical: true)
@@ -330,20 +335,54 @@ struct ActivityView: View {
     var cexPaymentAddress: some View {
         if let swap = activity.swap,
            let cex = swap.cex,
-           let fromToken = swap.fromToken,
-           !fromToken.isOnChain,
-           let payinAddress = cex.payinAddress.nilIfEmpty {
-            InsetDetailCell {
-                Text(lang("Payment Address"))
-                    .font17h22()
-                    .foregroundStyle(Color.air.secondaryLabel)
-            } value: {
-                CopyableAddressText(
-                    address: payinAddress,
-                    copyToastMessage: L10n.chainAddressCopied(chain: fromToken.chain.title)
-                )
+           !isInternalSwap(swap) {
+            let isToWallet = getSwapType(from: swap.from, to: swap.to, accountChains: model.accountContext.account.supportedChains) == .crosschainToWallet
+            let token = isToWallet ? swap.displayFromToken : swap.displayToToken
+            let address = isToWallet ? cex.payinAddress : cex.payoutAddress
+            if !address.isEmpty {
+                InsetDetailCell {
+                    Text(isToWallet ? lang("Payment Address") : L10n.yourBlockchainAddress(blockchain: token.name))
+                        .foregroundStyle(Color.air.secondaryLabel)
+                } value: {
+                    CopyableAddressText(
+                        address: address,
+                        copyToastMessage: L10n.chainAddressCopied(chain: token.chain.title)
+                    )
+                }
             }
         }
+    }
+
+    @ViewBuilder
+    var cexMemo: some View {
+        if let swap = activity.swap,
+           !isInternalSwap(swap),
+           getSwapType(from: swap.from, to: swap.to, accountChains: model.accountContext.account.supportedChains) == .crosschainToWallet,
+           let memo = swap.cex?.payinExtraId?.nilIfEmpty {
+            InsetDetailCell {
+                Text(lang("Memo"))
+                    .foregroundStyle(Color.air.secondaryLabel)
+            } value: {
+                Button {
+                    UIPasteboard.general.string = memo
+                    AppActions.showToast(icon: .animatedCopy, message: lang("Memo Copied"))
+                    Haptics.play(.lightTap)
+                } label: {
+                    Text(memo)
+                        .textStyle(.body, content: .technical)
+                }
+            }
+        }
+    }
+
+    private func isInternalSwap(_ swap: ApiSwapActivity) -> Bool {
+        let fromChain = swap.displayFromToken.chain
+        let toChain = swap.displayToToken.chain
+        if fromChain == toChain && fromChain.isOnchainSwapSupported { return true }
+        let account = model.accountContext.account
+        return account.supports(chain: fromChain)
+            && swap.cex?.payoutAddress.nilIfEmpty != nil
+            && account.getAddress(chain: toChain) == swap.cex?.payoutAddress
     }
 
     @ViewBuilder

@@ -21,6 +21,8 @@ import {
   type ApiNftSuperCollection,
   type ApiParsedPayload,
   ApiTokenImportError,
+  type ApiTokensTransferNonStandardPayload,
+  type ApiTokensTransferPayload,
 } from '../../../types';
 
 import {
@@ -30,6 +32,7 @@ import {
   NFT_FRAGMENT_COLLECTIONS,
   NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX,
   NOTCOIN_VOUCHERS_ADDRESS,
+  STON_PTON_ADDRESS,
   TELEGRAM_GIFTS_SUPER_COLLECTION,
   TON_DNS_ZONES,
 } from '../../../../config';
@@ -56,14 +59,21 @@ import {
   SingleNominatorOpCode,
   VestingV1OpCode,
 } from '../constants';
-import { fetchNftByAddress } from '../toncenter/nfts';
+import { fetchNftByAddress, fetchNftsByAddresses } from '../toncenter/nfts';
 import { fixAddressFormat } from '../toncenter/other';
 import {
-  getDnsItemDomain, getJettonMinterData, resolveTokenAddress, toBase64Address,
+  areAddressesEqual,
+  getDnsItemDomain,
+  getJettonMinterData,
+  resolveTokenWallet,
+  toBase64Address,
+  toRawAddress,
 } from './tonCore';
 
 type OpCodes = OpCode | JettonOpCode | NftOpCode | LiquidStakingOpCode | VestingV1OpCode | SingleNominatorOpCode
   | DnsOpCode | OtherOpCode | JettonStakingOpCode;
+
+const NFT_PAYLOAD_OP_CODES = new Set<number>([NftOpCode.TransferOwnership, NftOpCode.OwnershipAssigned]);
 
 const OFFCHAIN_CONTENT_PREFIX = 0x01;
 const SNAKE_PREFIX = 0x00;
@@ -183,22 +193,74 @@ export async function parsePayloadBase64(
   network: ApiNetwork,
   address: string,
   base64: string,
+  options?: {
+    expectedOwnerAddress?: string;
+    nftsByRawAddress?: Record<string, ApiNft>;
+  },
 ): Promise<ApiParsedPayload> {
   const slice = dataToSlice(base64);
   const result: ApiParsedPayload = { type: 'unknown', base64 };
 
   if (!slice) return result;
 
-  return await parsePayloadSlice(network, address, slice, true) ?? result;
+  return await parsePayloadSlice(network, address, slice, {
+    ...options,
+    shouldLoadItems: true,
+  }) ?? result;
+}
+
+/**
+ * Loads the NFTs of the messages with NFT payloads, so that `parsePayloadBase64` doesn't load them one by one.
+ * Returns `undefined` when the NFTs can't be loaded, leaving the loading to `parsePayloadBase64`.
+ */
+export async function preloadPayloadNfts(network: ApiNetwork, messages: { address: string; payload?: string }[]) {
+  const nftAddresses = messages
+    .filter(({ payload }) => payload && isNftPayload(payload))
+    .map(({ address }) => address);
+
+  if (!nftAddresses.length) return undefined;
+
+  try {
+    return await fetchNftsByAddresses(network, nftAddresses);
+  } catch (err) {
+    logDebugError('preloadPayloadNfts', err);
+    return undefined;
+  }
+}
+
+export function parseKnownTokenTransferPayloadSlice(
+  network: ApiNetwork,
+  slice: Slice,
+  tokenAddress: string,
+): ApiTokensTransferPayload | ApiTokensTransferNonStandardPayload | undefined {
+  try {
+    const opCode = slice.loadUint(32) as OpCodes;
+    if (opCode !== JettonOpCode.Transfer || slice.remainingBits < 64) {
+      return undefined;
+    }
+
+    const queryId = slice.loadUintBig(64);
+    return parseTokenTransferPayloadBody(network, slice, queryId, tokenAddress);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function parsePayloadSlice(
   network: ApiNetwork,
   address: string,
   slice: Slice,
-  shouldLoadItems?: boolean,
-  transactionDebug?: ApiActivity,
+  options?: {
+    shouldLoadItems?: boolean;
+    transactionDebug?: ApiActivity;
+    expectedOwnerAddress?: string;
+    /** NFTs loaded in advance. When set, an NFT missing from it is treated as not found */
+    nftsByRawAddress?: Record<string, ApiNft>;
+  },
 ): Promise<ApiParsedPayload | undefined> {
+  const {
+    shouldLoadItems, transactionDebug, expectedOwnerAddress, nftsByRawAddress,
+  } = options ?? {};
   let opCode: OpCodes | undefined;
   try {
     opCode = slice.loadUint(32);
@@ -219,56 +281,18 @@ export async function parsePayloadSlice(
 
     switch (opCode) {
       case JettonOpCode.Transfer: {
-        const tokenAddress = await resolveTokenAddress(network, address).catch(() => '');
-        const slug = buildTokenSlug('ton', tokenAddress);
+        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address);
+        const payload = parseTokenTransferPayloadBody(network, slice, queryId, tokenAddress);
 
-        const amount = slice.loadCoins();
-        const destination = slice.loadAddress();
-        const responseDestination = slice.loadMaybeAddress();
-
-        if (!responseDestination) {
-          return {
-            type: 'tokens:transfer-non-standard',
-            queryId,
-            destination: toBase64Address(destination, undefined, network),
-            amount,
-            slug,
-          };
+        if (
+          expectedOwnerAddress
+          && !areAddressesEqual(ownerAddress, expectedOwnerAddress)
+          && !isProxyTonDeposit(tokenAddress, ownerAddress, payload.destination)
+        ) {
+          return undefined;
         }
 
-        const customPayload = slice.loadMaybeRef();
-        const forwardAmount = slice.loadCoins();
-        let forwardPayload = slice.loadMaybeRef();
-        let forwardPayloadOpCode: number | undefined;
-
-        if (!forwardPayload && slice.remainingBits) {
-          const builder = new Builder().storeBits(slice.loadBits(slice.remainingBits));
-          range(0, slice.remainingRefs).forEach(() => {
-            builder.storeRef(slice.loadRef());
-          });
-          forwardPayload = builder.endCell();
-        }
-
-        if (forwardPayload) {
-          const forwardPayloadSlice = forwardPayload.beginParse();
-          if (forwardPayloadSlice.remainingBits > 32) {
-            forwardPayloadOpCode = forwardPayloadSlice.loadUint(32);
-          }
-        }
-
-        return {
-          type: 'tokens:transfer',
-          queryId,
-          amount,
-          destination: toBase64Address(destination, undefined, network),
-          responseDestination: toBase64Address(responseDestination, undefined, network),
-          customPayload: customPayload?.toBoc().toString('base64'),
-          forwardAmount,
-          forwardPayload: forwardPayload?.toBoc().toString('base64'),
-          forwardPayloadOpCode,
-          slug,
-          tokenAddress,
-        };
+        return payload;
       }
       case NftOpCode.TransferOwnership: {
         const newOwner = slice.loadAddress();
@@ -278,7 +302,12 @@ export async function parsePayloadSlice(
         const forwardPayload = readForwardPayloadCell(slice);
         const comment = forwardPayload ? readComment(forwardPayload.asSlice()) : undefined;
 
-        const nft = shouldLoadItems ? await fetchNftByAddress(network, address) : undefined;
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress) : undefined;
+
+        if (shouldLoadItems && (!nft || (expectedOwnerAddress
+          && (!nft.ownerAddress || !areAddressesEqual(nft.ownerAddress, expectedOwnerAddress))))) {
+          return undefined;
+        }
 
         return {
           type: 'nft:transfer',
@@ -299,7 +328,7 @@ export async function parsePayloadSlice(
         const forwardPayload = readForwardPayloadCell(slice);
         const comment = forwardPayload ? readComment(forwardPayload.asSlice()) : undefined;
 
-        const nft = shouldLoadItems ? await fetchNftByAddress(network, address) : undefined;
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress) : undefined;
 
         return {
           type: 'nft:ownership-assigned',
@@ -311,7 +340,11 @@ export async function parsePayloadSlice(
         };
       }
       case JettonOpCode.Burn: {
-        const tokenAddress = await resolveTokenAddress(network, address);
+        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address);
+        if (expectedOwnerAddress && !areAddressesEqual(ownerAddress, expectedOwnerAddress)) {
+          return undefined;
+        }
+
         const slug = buildTokenSlug('ton', tokenAddress);
 
         const amount = slice.loadCoins();
@@ -499,6 +532,83 @@ export async function parsePayloadSlice(
   }
 
   return undefined;
+}
+
+function isNftPayload(base64: string) {
+  try {
+    const slice = dataToSlice(base64);
+    return slice.remainingBits >= 32 && NFT_PAYLOAD_OP_CODES.has(slice.loadUint(32));
+  } catch {
+    return false;
+  }
+}
+
+async function loadPayloadNft(network: ApiNetwork, address: string, nftsByRawAddress?: Record<string, ApiNft>) {
+  return nftsByRawAddress ? nftsByRawAddress[toRawAddress(address)] : fetchNftByAddress(network, address);
+}
+
+/**
+ * A STON.fi v1 proxy TON wallet accepts a jetton transfer from any sender and forwards the attached TON to its owner,
+ * so such a transfer is sound when the payload sends it to that owner.
+ */
+function isProxyTonDeposit(tokenAddress: string, walletOwnerAddress: string, destination: string) {
+  return tokenAddress === STON_PTON_ADDRESS && areAddressesEqual(destination, walletOwnerAddress);
+}
+
+function parseTokenTransferPayloadBody(
+  network: ApiNetwork,
+  slice: Slice,
+  queryId: bigint,
+  tokenAddress: string,
+): ApiTokensTransferPayload | ApiTokensTransferNonStandardPayload {
+  const slug = buildTokenSlug('ton', tokenAddress);
+  const amount = slice.loadCoins();
+  const destination = slice.loadAddress();
+  const responseDestination = slice.loadMaybeAddress();
+
+  if (!responseDestination) {
+    return {
+      type: 'tokens:transfer-non-standard',
+      queryId,
+      destination: toBase64Address(destination, undefined, network),
+      amount,
+      slug,
+    };
+  }
+
+  const customPayload = slice.loadMaybeRef();
+  const forwardAmount = slice.loadCoins();
+  let forwardPayload = slice.loadMaybeRef();
+  let forwardPayloadOpCode: number | undefined;
+
+  if (!forwardPayload && slice.remainingBits) {
+    const builder = new Builder().storeBits(slice.loadBits(slice.remainingBits));
+    range(0, slice.remainingRefs).forEach(() => {
+      builder.storeRef(slice.loadRef());
+    });
+    forwardPayload = builder.endCell();
+  }
+
+  if (forwardPayload) {
+    const forwardPayloadSlice = forwardPayload.beginParse();
+    if (forwardPayloadSlice.remainingBits > 32) {
+      forwardPayloadOpCode = forwardPayloadSlice.loadUint(32);
+    }
+  }
+
+  return {
+    type: 'tokens:transfer',
+    queryId,
+    amount,
+    destination: toBase64Address(destination, undefined, network),
+    responseDestination: toBase64Address(responseDestination, undefined, network),
+    customPayload: customPayload?.toBoc().toString('base64'),
+    forwardAmount,
+    forwardPayload: forwardPayload?.toBoc().toString('base64'),
+    forwardPayloadOpCode,
+    slug,
+    tokenAddress,
+  };
 }
 
 export function parseBidaskPayload(base64: string) {

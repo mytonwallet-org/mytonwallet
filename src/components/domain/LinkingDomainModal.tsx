@@ -94,7 +94,8 @@ function LinkingDomainModal({
   const isAddressValid = isValidAddressOrDomain(walletAddress, 'ton');
 
   const handleWalletAddressInput = useLastCallback((newToAddress?: string) => {
-    setDomainLinkingWalletAddress({ address: newToAddress });
+    // The controlled input drops keystrokes while its re-render waits for a heavy animation to end
+    setDomainLinkingWalletAddress({ address: newToAddress }, { forceOnHeavyAnimation: true });
   });
 
   const canSubmit = isAddressValid && walletAddress !== currentLinkedWalletAddress

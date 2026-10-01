@@ -7,6 +7,7 @@ final class TokenSendComposeViewController:
     WViewController {
     private let model: TokenSendModel
     private var continueButton: WButton?
+    private var continueButtonPresenter: DraftButtonPresenter?
 
     private lazy var accountSwitcher = AccountSwitcher(
         configuration: .init(accountSupport: .send)
@@ -72,6 +73,7 @@ final class TokenSendComposeViewController:
     private func setupContinueButton() {
         let button = addBottomButton(bottomConstraint: false)
         continueButton = button
+        continueButtonPresenter = DraftButtonPresenter(button: button)
         button.setTitle(lang("Continue"), for: .normal)
         button.isEnabled = false
         button.addTarget(
@@ -118,14 +120,24 @@ final class TokenSendComposeViewController:
     }
 
     private func updateContinueButton() {
-        guard let continueButton else { return }
-        let action = model.primaryAction
+        guard let continueButton,
+              let continueButtonPresenter else {
+            return
+        }
+        continueButtonPresenter.apply(
+            buttonConfiguration(for: model.primaryAction)
+        )
+        // Visibility last: hiding disables interaction and must not be
+        // overridden by the presenter's reassertion.
         setSendContinueButtonHidden(
             continueButton,
             hidden: model.recipient.isFocused
         )
-        continueButton.showLoading = action.isLoading
-        continueButton.isEnabled = action.isEnabled
+    }
+
+    private func buttonConfiguration(
+        for action: TokenSendPrimaryAction
+    ) -> DraftButtonConfiguration {
         let title = switch action {
         case .unavailable(.invalidRecipient):
             model.recipientValidationState == .sendToSelf
@@ -144,9 +156,11 @@ final class TokenSendComposeViewController:
         case .unavailable, .validating, .continueToReview:
             lang("Continue")
         }
-        if continueButton.title(for: .normal) != title {
-            continueButton.setTitle(title, for: .normal)
-        }
+        return DraftButtonConfiguration(
+            title: .text(title),
+            isEnabled: action.isEnabled,
+            showLoading: action.isLoading
+        )
     }
 
     @objc private func continuePressed() {

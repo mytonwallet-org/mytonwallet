@@ -9,6 +9,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Region
+import android.os.Build
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -149,7 +151,7 @@ class WClearSegmentedControl(
     private val rect = RectF()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val thumbPath = Path()
-    private val fullPath = Path()
+    private val fullRect = RectF()
     private val rvAdapter = WRecyclerViewAdapter(WeakReference(this), arrayOf(ITEM_CELL))
 
     private val positionHolder = FloatValueHolder(0f)
@@ -390,7 +392,14 @@ class WClearSegmentedControl(
 
         private fun drawOutOfThumb(canvas: Canvas) {
             isDrawThumb = false
-            canvas.withClip(fullPath) {
+            // A rect clip minus a rounded-rect clip stays on the GPU; one combined path does not.
+            canvas.withClip(fullRect) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    clipOutPath(thumbPath)
+                } else {
+                    @Suppress("DEPRECATION")
+                    clipPath(thumbPath, Region.Op.DIFFERENCE)
+                }
                 super.dispatchDraw(this)
             }
         }
@@ -662,7 +671,9 @@ class WClearSegmentedControl(
     fun updateOnMenuPressed(index: Int, onMenuPressed: ((v: View) -> Unit)?) {
         if (!isEnabled) return
         if (isValidIndex(index)) {
+            val hadMenu = items[index].onClick != null
             items[index].onClick = onMenuPressed
+            if (hadMenu == (onMenuPressed != null)) return
             updateThumbPosition(
                 position = currentPosition,
                 targetPosition = currentPosition.toInt(),
@@ -1021,9 +1032,7 @@ class WClearSegmentedControl(
         thumbPath.reset()
         thumbPath.addRoundRect(rect, thumbRadius, thumbRadius, Path.Direction.CW)
 
-        fullPath.reset()
-        fullPath.addRect(0f, 0f, width.toFloat(), height.toFloat(), Path.Direction.CW)
-        fullPath.addRoundRect(rect, thumbRadius, thumbRadius, Path.Direction.CCW)
+        fullRect.set(0f, 0f, width.toFloat(), height.toFloat())
     }
 
     private fun updateItemArrowVisibility(

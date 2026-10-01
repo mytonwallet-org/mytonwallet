@@ -60,6 +60,7 @@ import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
 import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.helpers.CubicBezierInterpolator
 import org.mytonwallet.app_air.uicomponents.helpers.HomeStatusController
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.helpers.ToastHelper
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
@@ -409,7 +410,9 @@ class PhoneTabsVC(context: Context) :
     }
     private var topAvatarStatus: UpdateStatusView.State? = null
     private val topAvatarStatusListener = HomeStatusController.Listener { state, animated ->
-        applyTopAvatarStatus(state, animated)
+        RevealUpdates.runOrHold(topAvatarRingView, topAvatarRingView) {
+            applyTopAvatarStatus(state, animated)
+        }
     }
     private var topAvatarAccountId: String? = null
     private val topAvatarView by lazy {

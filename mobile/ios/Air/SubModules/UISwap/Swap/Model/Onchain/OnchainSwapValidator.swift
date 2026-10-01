@@ -13,9 +13,6 @@ struct OnchainSwapFeeStatus {
         swapEstimate: ApiSwapDexEstimateResponse?,
         account: SwapAccountSnapshot
     ) -> SwapIssue? {
-        guard let swapEstimate else {
-            return nil
-        }
         let sellingToken = input.sellingToken
         let sellingAmount = input.sellingAmount ?? 0
         let balanceIn = account.balances[sellingToken.slug] ?? 0
@@ -25,6 +22,7 @@ struct OnchainSwapFeeStatus {
             }
         }
 
+        guard let swapEstimate else { return nil }
         let feeStatus = feeStatus(input: input, swapEstimate: swapEstimate, account: account)
         let notEnoughForFee = swapEstimate.toAmount.value == 0 && !feeStatus.isNativeFeeCovered
         if notEnoughForFee {

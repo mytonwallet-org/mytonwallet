@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.view.ViewGroup
 import androidx.core.net.toUri
+import androidx.core.view.doOnPreDraw
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
@@ -80,7 +81,9 @@ abstract class BaseTabsVC(context: Context) :
         configureNavigationStack(id, nav)
         nav.setRoot(
             when (id) {
-                AppTabsManager.ID_HOME -> HomeVC(context, MScreenMode.Default)
+                AppTabsManager.ID_HOME -> HomeVC(context, MScreenMode.Default).also {
+                    if (areHomeAnimationsSuspended) it.setAnimationsSuspended(true)
+                }
 
                 AppTabsManager.ID_MARKET -> MarketVC(context)
 
@@ -103,6 +106,12 @@ abstract class BaseTabsVC(context: Context) :
     }
 
     protected fun navForOrNull(id: Int): WNavigationController? = stackNavigationControllers[id]
+
+    /** Creates the Home stack ahead of its first layout; it stays detached until the tabs show it. */
+    fun prepareHomeStack() {
+        if (window == null) return
+        getNavigationStack(AppTabsManager.ID_HOME)
+    }
 
     protected fun WNavigationController.popToRootUnlessDisplaying(accountId: String?) {
         val displayedAccountIds = viewControllers.map { it.displayedAccount?.accountId }
@@ -132,12 +141,25 @@ abstract class BaseTabsVC(context: Context) :
 
     fun doOnHomeInitialContentRendered(callback: () -> Unit): Boolean {
         if (mainNavigationController?.viewControllers?.size != 1) return false
-        val homeVC = activeNavigationController
-            ?.viewControllers
-            ?.singleOrNull() as? HomeVC ?: return false
-        homeVC.doOnInitialContentRendered(callback)
+        initialHomeVC()?.let {
+            it.doOnInitialContentRendered(callback)
+            return true
+        }
+        view.doOnPreDraw {
+            initialHomeVC()?.doOnInitialContentRendered(callback) ?: callback()
+        }
         return true
     }
+
+    private var areHomeAnimationsSuspended = false
+
+    fun setHomeAnimationsSuspended(suspended: Boolean) {
+        areHomeAnimationsSuspended = suspended
+        initialHomeVC()?.setAnimationsSuspended(suspended)
+    }
+
+    private fun initialHomeVC(): HomeVC? =
+        activeNavigationController?.viewControllers?.singleOrNull() as? HomeVC
 
     protected fun submitAgentPrompt(prompt: String?) {
         if (prompt.isNullOrBlank()) return

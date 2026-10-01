@@ -9,7 +9,7 @@ import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
 import chains from '../chains';
-import { BACKEND_AUTH_SIGN_MESSAGE, buildBackendAuthToken } from '../chains/ton';
+import { BACKEND_AUTH_SIGN_MESSAGE, buildBackendAuthToken } from '../chains/ton/backendAuth';
 import { fetchStoredAccounts, fetchStoredWallet, updateStoredWallet } from '../common/accounts';
 import { callBackendGet } from '../common/backend';
 import { hexToBytes } from '../common/utils';
@@ -17,16 +17,17 @@ import { SEC } from '../constants';
 import { handleServerError } from '../errors';
 import { storage } from '../storages';
 
+import RECEIVE_GRADIENT_SVGS from '../../assets/receiveGradientSvgs';
+
 /**
- * Loaded lazily so a `NO_EXTRA_FEATURES` build drops the inlined SVG set, which is presentation data
- * that headless embedders with their own receive screen do not use.
+ * A `NO_EXTRA_FEATURES` build leaves out the inlined SVG set, which is presentation data that headless
+ * embedders with their own receive screen do not use.
  */
 function requireReceiveGradientSvgs() {
-  // Inline `process.env` so the `require` lands in a statically false branch and Webpack drops the asset.
+  // Inline `process.env` makes the branch statically false in that build, where `plugins/disabledImports.ts`
+  // replaces the SVG set with a stub
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const module = require('../../assets/receiveGradientSvgs') as typeof import('../../assets/receiveGradientSvgs');
-    return module.default;
+    return RECEIVE_GRADIENT_SVGS;
   }
 
   throw new Error('Receive backgrounds are not supported in this build');

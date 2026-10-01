@@ -5,7 +5,6 @@ import WalletContext
 import WalletCore
 
 final class TokenInfoCell: FirstRowCell {
-    private let horizontalInset = CGFloat(16)
     private let clippingView = UIView()
     private var model: TokenInfoModel?
     private var hostingView: HostingView?
@@ -33,8 +32,8 @@ final class TokenInfoCell: FirstRowCell {
         contentView.addSubview(clippingView)
         NSLayoutConstraint.activate([
             clippingView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            clippingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
-            clippingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
+            clippingView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            clippingView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             clippingView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
         ])
     }

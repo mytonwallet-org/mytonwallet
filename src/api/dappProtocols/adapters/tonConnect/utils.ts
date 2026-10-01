@@ -9,8 +9,6 @@ import type {
   DappTransactionRequest,
 } from '../../types';
 
-import { isNftTransferPayload, isTokenTransferPayload } from '../../../../util/ton/transfer';
-
 // https://stackoverflow.com/a/417184
 const URL_MAX_LENGTH = 2000;
 
@@ -28,17 +26,6 @@ export function isValidUrl(url: string) {
   } catch (err) {
     return false;
   }
-}
-
-export function getTransferActualToAddress(toAddress: string, payload: ApiParsedPayload | undefined) {
-  // This function implementation is not complete. That is, other transfer types may have another actual "to" address.
-  if (isNftTransferPayload(payload)) {
-    return payload.newOwner;
-  }
-  if (isTokenTransferPayload(payload)) {
-    return payload.destination;
-  }
-  return toAddress;
 }
 
 export function isTransferPayloadDangerous(payload: ApiParsedPayload | undefined) {

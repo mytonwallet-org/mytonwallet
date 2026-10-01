@@ -1,8 +1,75 @@
-import { Builder, Cell } from '@ton/core';
+import { Address, Builder, Cell } from '@ton/core';
 
-import { packBytesAsSnakeCell, packBytesAsSnakeForEncryptedData } from './tonCore';
+import {
+  fetchTokenAddress,
+  fetchTokenWallet,
+  packBytesAsSnakeCell,
+  packBytesAsSnakeForEncryptedData,
+  toBase64Address,
+} from './tonCore';
+
+const mockOpen = jest.fn();
+
+jest.mock('../../../environment', () => ({
+  getEnvironment: () => ({
+    apiHeaders: undefined,
+    byNetwork: {
+      mainnet: { toncenterUrl: 'https://toncenter.example/' },
+      testnet: { toncenterUrl: 'https://toncenter.example/' },
+    },
+  }),
+}));
+
+jest.mock('./TonClient', () => ({
+  TonClient: jest.fn().mockImplementation(() => ({
+    open: (contract: unknown) => mockOpen(contract),
+  })),
+}));
 
 const CELL_CAPACITY = 127;
+const TOKEN_WALLET_ADDRESS = `0:${'1'.repeat(64)}`;
+const OTHER_TOKEN_WALLET_ADDRESS = `0:${'2'.repeat(64)}`;
+const OWNER_ADDRESS = `0:${'3'.repeat(64)}`;
+const MINTER_ADDRESS = `0:${'5'.repeat(64)}`;
+
+describe('fetchTokenWallet', () => {
+  beforeEach(() => {
+    mockOpen.mockReset();
+  });
+
+  it('returns the minter and owner of a wallet derived by that minter for the reported owner', async () => {
+    mockTokenWalletContracts(TOKEN_WALLET_ADDRESS);
+
+    const result = await fetchTokenWallet('mainnet', TOKEN_WALLET_ADDRESS);
+
+    expect(result).toEqual({
+      tokenAddress: toBase64Address(MINTER_ADDRESS, true, 'mainnet'),
+      ownerAddress: toBase64Address(OWNER_ADDRESS, undefined, 'mainnet'),
+    });
+  });
+
+  it('rejects a wallet that reports a minter which derives a different address', async () => {
+    mockTokenWalletContracts(OTHER_TOKEN_WALLET_ADDRESS);
+
+    await expect(fetchTokenWallet('mainnet', TOKEN_WALLET_ADDRESS))
+      .rejects.toThrow('Invalid jetton wallet contract');
+  });
+});
+
+describe('fetchTokenAddress', () => {
+  beforeEach(() => {
+    mockOpen.mockReset();
+  });
+
+  it('returns the reported minter with a single request to the wallet', async () => {
+    mockTokenWalletContracts(TOKEN_WALLET_ADDRESS);
+
+    const result = await fetchTokenAddress('mainnet', TOKEN_WALLET_ADDRESS);
+
+    expect(result).toBe(toBase64Address(MINTER_ADDRESS, true, 'mainnet'));
+    expect(mockOpen).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('packBytesAsSnakeCell', () => {
   it('turns empty bytes into an empty cell', () => {
@@ -92,4 +159,19 @@ function createCell(payload: string, tail?: Cell) {
     builder.storeRef(tail);
   }
   return builder.endCell();
+}
+
+function mockTokenWalletContracts(derivedWalletAddress: string) {
+  mockOpen
+    .mockReturnValueOnce({
+      getWalletData: jest.fn().mockResolvedValue({
+        balance: 1n,
+        owner: Address.parse(OWNER_ADDRESS),
+        minter: Address.parse(MINTER_ADDRESS),
+        code: Cell.EMPTY,
+      }),
+    })
+    .mockReturnValueOnce({
+      getWalletAddress: jest.fn().mockResolvedValue(Address.parse(derivedWalletAddress)),
+    });
 }

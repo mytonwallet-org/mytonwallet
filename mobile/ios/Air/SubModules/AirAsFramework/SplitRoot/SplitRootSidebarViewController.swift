@@ -69,6 +69,16 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         super.viewDidLayoutSubviews()
         updateAccountSelectorHeightIfNeeded()
     }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        accountSelector.setCardEffectsActive(true)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        accountSelector.setCardEffectsActive(false)
+    }
     
     private func updateTheme() {
         view.backgroundColor = .air.sidebarBackground

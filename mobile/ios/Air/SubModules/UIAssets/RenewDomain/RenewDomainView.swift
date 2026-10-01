@@ -40,19 +40,17 @@ struct RenewDomainView: View {
             .safeAreaInset(edge: .bottom) {
                 bottomBar
             }
-            .task(id: viewModel.nfts.count) {
-                await viewModel.loadDraft()
-            }
         }
     }
 
     private var bottomBar: some View {
-        Button(action: { viewModel.onRenew?() }) {
-            Text(viewModel.renewButtonTitle)
+        DraftButton(configuration: .init(
+            title: .text(viewModel.renewButtonTitle),
+            isEnabled: viewModel.canRenew,
+            showLoading: viewModel.isButtonLoading
+        )) {
+            viewModel.onRenew?()
         }
-        .buttonStyle(.airPrimary)
-        .disabled(!viewModel.canRenew)
-        .environment(\.isLoading, viewModel.isButtonLoading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(Color.air.sheetBackground)

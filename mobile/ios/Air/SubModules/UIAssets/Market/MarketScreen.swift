@@ -127,12 +127,12 @@ struct MarketScreen: View {
                         )
                         .id(section.id)
                     }
-
-                    Color.clear.frame(height: 86)
                 }
                 .padding(.top, 14)
+                .padding(.bottom, 32)
                 .scrollPosition(ns: scrollCoordinateSpace, callback: onScrollOffsetChange)
             }
+            .backportScrollClipDisabled()
             .coordinateSpace(name: scrollCoordinateSpace)
             .background(Color.air.groupedBackground)
             .onChange(of: model.scrollToTopRequest) { _ in
@@ -147,6 +147,7 @@ struct MarketScreen: View {
 }
 
 private struct MarketSectionView: View {
+    @Environment(\.horizontalContentMargins) private var contentMargins
     let section: MarketSection
     let onSeeAll: () -> Void
     let onSelectToken: (MarketToken) -> Void
@@ -165,17 +166,18 @@ private struct MarketSectionView: View {
 
             case .grid:
                 MarketGrid(tokens: section.visibleTokens, onSelectToken: onSelectToken)
-                    .padding(.horizontal, 16)
+                    .padding(contentMargins)
 
             case .rows:
                 MarketRows(tokens: section.visibleTokens, onSelectToken: onSelectToken)
-                    .padding(.horizontal, 16)
+                    .padding(contentMargins)
             }
         }
     }
 }
 
 private struct MarketMoverCarousel: View {
+    @Environment(\.horizontalContentMargins) private var contentMargins
     let tokens: [MarketToken]
     let onSelectToken: (MarketToken) -> Void
 
@@ -203,11 +205,12 @@ private struct MarketMoverCarousel: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(contentMargins)
     }
 }
 
 private struct MarketSectionHeader: View {
+    @Environment(\.horizontalContentMargins) private var contentMargins
     let title: String
     let showsSeeAll: Bool
     let onSeeAll: () -> Void
@@ -229,7 +232,8 @@ private struct MarketSectionHeader: View {
                 .foregroundStyle(Color.air.tint)
             }
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 16)
+        .padding(contentMargins)
         .frame(minHeight: 39)
     }
 }

@@ -56,6 +56,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         ($account.balances[token.slug] ?? 0) > 0
     }
     private var isSharedBottomToolbarHosted = false
+    private let registeredRangeInteractionBlockers = NSHashTable<UIGestureRecognizer>.weakObjects()
 
     public var onSharedBottomToolbarActionsChange: (() -> Void)?
 
@@ -213,14 +214,9 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
 
     public override var activeCustomSectionIDs: [String] {
         if isLpToken {
-            return tokenVM.tokenInfoState.isSectionVisible
-                ? [actionsCustomSectionID, infoCustomSectionID]
-                : [actionsCustomSectionID]
+            return [actionsCustomSectionID, infoCustomSectionID]
         }
-        if tokenVM.tokenInfoState.isSectionVisible {
-            return [actionsCustomSectionID, chartCustomSectionID, infoCustomSectionID]
-        }
-        return [actionsCustomSectionID, chartCustomSectionID]
+        return [actionsCustomSectionID, chartCustomSectionID, infoCustomSectionID]
     }
 
     private func configureActionsCustomSection(cell: TokenActionsCell) {
@@ -238,12 +234,31 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             guard let self else { return }
             updateCustomSectionHeight(id: chartCustomSectionID)
         })
-        cell.configure(token: token,
-                       historyData: tokenVM.historyData) { [weak self] period in
-            guard let self else { return }
-            tokenVM.selectedPeriod = period
-        }
+        registerRangeGestureDependencies(for: cell)
+        cell.configure(
+            token: token,
+            historyData: tokenVM.historyData,
+            onPeriodChange: { [weak self] period in
+                guard let self else { return }
+                tokenVM.selectedPeriod = period
+            }
+        )
     }
+
+    private func registerRangeGestureDependencies(for cell: TokenChartCell) {
+        guard let navigationController,
+              let blocker = cell.rangeInteractionBlockingGestureRecognizer,
+              !registeredRangeInteractionBlockers.contains(blocker) else { return }
+
+        registeredRangeInteractionBlockers.add(blocker)
+        collectionView.panGestureRecognizer.require(toFail: blocker)
+        navigationController.interactivePopGestureRecognizer?.require(toFail: blocker)
+        if #available(iOS 26.0, *) {
+            navigationController.interactiveContentPopGestureRecognizer?.require(toFail: blocker)
+        }
+        (navigationController as? WNavigationController)?.fullWidthBackGestureRecognizerRequireToFail(blocker)
+    }
+
     private func configureInfoCustomSection(cell: TokenInfoCell) {
         tokenInfoModel.configure(state: tokenVM.tokenInfoState)
         cell.configure(
@@ -262,7 +277,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureActionsCustomSection(cell: cell)
         }
-        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID) { [unowned self] collectionView, indexPath in
+        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
         }
 
@@ -270,7 +285,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureChartCustomSection(cell: cell)
         }
-        chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID) { [unowned self] collectionView, indexPath in
+        chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: chartCustomSectionCellRegistration, for: indexPath, item: .custom(chartCustomSectionID))
         }
 
@@ -278,7 +293,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureInfoCustomSection(cell: cell)
         }
-        infoCustomSectionDescriptor = CustomSectionDescriptor(id: infoCustomSectionID) { [unowned self] collectionView, indexPath in
+        infoCustomSectionDescriptor = CustomSectionDescriptor(id: infoCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: infoCustomSectionCellRegistration, for: indexPath, item: .custom(infoCustomSectionID))
         }
     }
@@ -367,6 +382,9 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
 
     public override func viewIsAppearing(_ animated: Bool) {
         super.viewIsAppearing(animated)
+        for case let cell as TokenChartCell in collectionView.visibleCells {
+            registerRangeGestureDependencies(for: cell)
+        }
         updateSafeAreaInsets()
         // The title view can join the bar after the native push has started.
         UIView.performWithoutAnimation {
@@ -651,14 +669,9 @@ extension TokenVC: TokenVMDelegate {
         updateTradeActions()
     }
     func tokenDetailsUpdated() {
-        let wasSectionVisible = tokenInfoModel.state.isSectionVisible
         tokenInfoModel.configure(state: tokenVM.tokenInfoState)
         updateNavigationMenu()
-        if wasSectionVisible != tokenVM.tokenInfoState.isSectionVisible {
-            applySnapshot(makeSnapshot(), animatingDifferences: true)
-        } else {
-            (visibleCustomSectionCell(id: infoCustomSectionID) as? TokenInfoCell)?.modelStateDidChange()
-        }
+        (visibleCustomSectionCell(id: infoCustomSectionID) as? TokenInfoCell)?.modelStateDidChange()
     }
     func accountChanged() {
         guard accountContext.source == .current else { return }

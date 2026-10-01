@@ -289,6 +289,8 @@ private struct AdaptiveRootNavigationState {
         let replacesNavigationRoots = sourceUsesTopTabs != (destinationTopTabsRootViewController != nil)
 
         if let topTabsRootViewController = destinationTopTabsRootViewController {
+            // Loading the navigation container does not guarantee its root view is loaded.
+            topTabsRootViewController.loadViewIfNeeded()
             if let homeStack = homeStack(for: layout) {
                 topTabsRootViewController.setNavigationStack(homeStack, for: .wallet)
             }

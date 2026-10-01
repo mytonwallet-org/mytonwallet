@@ -252,8 +252,8 @@ $signSizeDiff: 0.375rem;
   font-size: calc((#{v.$cardPortraitBaseBalanceSize} - $signSizeDiff) * var(--font-size-scale, 1));
   color: var(--second-text);
 
-  :global(.glare-text) & {
-    color: transparent;
+  :global(.glare-mask) & {
+    color: inherit;
   }
 
   @include mixins.transition($color-transition);
@@ -282,8 +282,8 @@ $signSizeDiff: 0.375rem;
   font-weight: 800;
   color: var(--second-text);
 
-  :global(.glare-text) & {
-    color: transparent;
+  :global(.glare-mask) & {
+    color: inherit;
   }
 
   @include mixins.transition($color-transition);
@@ -847,15 +847,15 @@ $signSizeDiff: 0.375rem;
   display: inline-flex;
   gap: 0.25rem;
   align-items: center;
+
+  &:global(.glare-mask) {
+    color: var(--main-text);
+  }
 }
 
 .changeChevron {
   margin-inline-start: -0.125rem;
   font-size: 0.875rem;
-
-  :global(.glare-text) & {
-    color: transparent;
-  }
 
   @include mixins.rtl-mirror();
 }
@@ -864,10 +864,6 @@ $signSizeDiff: 0.375rem;
   margin-inline-end: -0.125rem;
   font-size: 1.25rem;
   line-height: 1rem;
-
-  :global(.glare-text) & {
-    color: transparent;
-  }
 }
 
 .chainIcon,

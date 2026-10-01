@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    // We don't care about this since Webpack runs Babel after TypeScript
+    // We don't care about this since the bundler compiles for the browser targets itself
     "target": "esnext",
     "lib": ["dom", "dom.iterable", "webworker", "es2021", "es2022"],
     "allowJs": true,
@@ -10,16 +10,16 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react"
   },
   "include": [
-    "src", "tests", "plugins", "webpack.config.ts", "webpack-electron.config.ts",
-    "webpack-multisend.config.ts", "webpack-portfolio.config.ts", "webpack-air.config.ts",
-    "webpack-push.config.ts", "webpack-mfa.config.ts", "eslint.config.mjs", ".fantasticonrc.js", "svgo.config.mjs"
+    "src", "tests", "plugins", "vite.config.ts", "vite-electron.config.ts",
+    "vite-multisend.config.ts", "vite-portfolio.config.ts", "vite-air.config.ts",
+    "vite-push.config.ts", "vite-mfa.config.ts", "eslint.config.mjs", ".fantasticonrc.js", "svgo.config.mjs"
   ],
   "exclude": ["trash"]
 }

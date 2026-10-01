@@ -1,33 +1,33 @@
 import WalletCore
 
-struct SwapEstimateResult {
+struct SwapEstimateResult: Sendable {
     let changedFrom: SwapSide
     let response: ApiSwapEstimateResponse?
     let estimateIssue: SwapIssue?
-    let isRateLimited: Bool
 
     init(
         changedFrom: SwapSide,
         response: ApiSwapEstimateResponse?,
-        estimateIssue: SwapIssue?,
-        isRateLimited: Bool = false
+        estimateIssue: SwapIssue?
     ) {
         self.changedFrom = changedFrom
         self.response = response
         self.estimateIssue = estimateIssue
-        self.isRateLimited = isRateLimited
     }
 
     init(changedFrom: SwapSide, response: ApiSwapEstimateResponse) {
         self.changedFrom = changedFrom
         self.response = response
         if case .error(let error) = response {
-            isRateLimited = isSwapEstimateRateLimited(error)
-            estimateIssue = isRateLimited ? nil : swapEstimateIssue(from: error)
+            estimateIssue = isSwapEstimateRateLimited(error) ? nil : swapEstimateIssue(from: error)
         } else {
-            isRateLimited = false
             estimateIssue = nil
         }
+    }
+
+    var isRateLimited: Bool {
+        guard case .error(let error) = response else { return false }
+        return isSwapEstimateRateLimited(error)
     }
 
     var dexEstimate: ApiSwapDexEstimateResponse? {
@@ -46,6 +46,12 @@ struct SwapEstimateModel {
     private(set) var estimateIssue: SwapIssue?
     private(set) var swapMode: ApiSwapMode?
     private var estimatedInput: SwapEstimateInput?
+
+    init(_ result: SwapEstimateResult? = nil) {
+        if let result {
+            apply(result)
+        }
+    }
 
     func response(for input: SwapEstimateInput?) -> ApiSwapEstimateResponse? {
         guard estimatedInput?.matchesCurrent(input) == true else { return nil }

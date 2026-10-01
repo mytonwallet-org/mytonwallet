@@ -144,10 +144,11 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
             }
             return separatorConfiguration
         }
-        return NSCollectionLayoutSection.list(
+        let section = NSCollectionLayoutSection.list(
             using: configuration,
             layoutEnvironment: layoutEnvironment
         )
+        return section
     }
 
     func dequeueCell(

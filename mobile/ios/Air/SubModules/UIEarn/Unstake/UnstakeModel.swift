@@ -38,37 +38,38 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         self.config = config
         self.stakingState = stakingState
         self._account = accountContext
-        self.draftCoordinator = OperationDraftCoordinator(
+        self.draftEngine = DraftEngine(
             debounce: .milliseconds(250),
-            load: draftClient.checkUnstake
+            load: { request, _ in
+                try await draftClient.checkUnstake(request)
+            }
         )
-        draftCoordinator.didFailRequest = { [weak self] _, error in
+        draftEngine.onFailure = { [weak self] _, error in
             self?.onDraftFailure?(error)
         }
         updateAccountBalances()
         WalletCoreData.add(eventObserver: self)
+        draftEngine.start { [weak self] in
+            self?.currentDraftRequest
+        }
     }
     
     // MARK: External dependencies
     
-    var stakingState: ApiStakingState {
-        didSet {
-            if oldValue != stakingState {
-                synchronizeDraftRequest()
-            }
-        }
-    }
+    var stakingState: ApiStakingState
+    // Wallet state is an event: balance changes revalidate the current
+    // request silently instead of forming a new draft identity.
     var nativeBalance: BigInt = 0 {
         didSet {
             if oldValue != nativeBalance {
-                synchronizeDraftRequest()
+                draftEngine.refresh()
             }
         }
     }
     var stakedTokenBalance: BigInt = 0 {
         didSet {
             if oldValue != stakedTokenBalance {
-                synchronizeDraftRequest()
+                draftEngine.refresh()
             }
         }
     }
@@ -82,7 +83,6 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
             guard $account.source == .current,
                   accountId == $account.accountId else { return }
             updateAccountBalances()
-            synchronizeDraftRequest()
         case .stakingAccountData(let data):
             guard data.accountId == $account.accountId else { return }
             if let stakingState = config.stakingState(
@@ -122,13 +122,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
     // User input
     
     var switchedToBaseCurrencyInput: Bool = false
-    var amount: BigInt? = nil {
-        didSet {
-            if oldValue != amount {
-                synchronizeDraftRequest()
-            }
-        }
-    }
+    var amount: BigInt? = nil
     var amountInBaseCurrency: BigInt? = nil
     var isAmountFieldFocused: Bool = false
     
@@ -140,7 +134,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
     var stakedTokenSlug: String { config.stakedTokenSlug }
 
     @PerceptionIgnored
-    let draftCoordinator: OperationDraftCoordinator<
+    let draftEngine: DraftEngine<
         UnstakeDraftRequest,
         ApiCheckTransactionDraftResult
     >
@@ -150,9 +144,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         return UnstakeDraftRequest(
             accountId: $account.accountId,
             amount: amount,
-            stakingState: stakingState,
-            nativeBalance: nativeBalance,
-            stakedTokenBalance: stakedTokenBalance
+            stakingState: stakingState
         )
     }
 
@@ -160,7 +152,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         UnstakeDraftRequest,
         ApiCheckTransactionDraftResult
     >? {
-        draftCoordinator.snapshot(for: currentDraftRequest)
+        draftEngine.current
     }
 
     var draft: ApiCheckTransactionDraftResult? {
@@ -168,11 +160,14 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
     }
 
     var draftPhase: OperationDraftPhase {
-        draftCoordinator.phase
+        if draftEngine.current != nil { return .ready }
+        if draftEngine.canRetry { return .failed }
+        if draftEngine.isLoading { return .loading }
+        return .idle
     }
 
     var canRetryDraft: Bool {
-        draftCoordinator.hasFailed(currentDraftRequest)
+        draftEngine.canRetry
     }
     
     var fee: MFee? {
@@ -234,10 +229,6 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
     }
 
     func retryDraft() {
-        draftCoordinator.retry()
-    }
-
-    private func synchronizeDraftRequest() {
-        draftCoordinator.setRequest(currentDraftRequest)
+        draftEngine.retry()
     }
 }

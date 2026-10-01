@@ -1,22 +1,22 @@
+import { createChunkLoader, handleChunkLoadError } from '../../util/chunkLoading';
+
 type RLottieClass = typeof import('./RLottie').default;
 
-let promise: Promise<RLottieClass> | undefined;
 let RLottie: RLottieClass;
 
 // Time for the main interface to completely load
 const LOTTIE_LOAD_DELAY = 3000;
 
-export async function ensureRLottie() {
-  if (!promise) {
-    promise = import('./RLottie').then((module) => module.default);
-    RLottie = await promise;
-  }
-
-  return promise;
-}
+export const ensureRLottie = createChunkLoader(async () => {
+  RLottie = (await import('./RLottie')).default;
+  return RLottie;
+});
 
 export function getRLottie() {
   return RLottie;
 }
 
-setTimeout(ensureRLottie, LOTTIE_LOAD_DELAY);
+setTimeout(() => {
+  // A failed warm-up is retried by the first sticker that needs the module
+  void ensureRLottie().catch(handleChunkLoadError('ensureRLottie'));
+}, LOTTIE_LOAD_DELAY);

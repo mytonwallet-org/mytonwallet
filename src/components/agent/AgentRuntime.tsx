@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useState } from '../../lib/teact/teact';
 
+import { handleChunkLoadError } from '../../util/chunkLoading';
 import { loadAgentV2Classic } from './agentV2RuntimeLoader';
 import useAgentProtocolVersion from './useAgentProtocolVersion';
 
@@ -26,9 +27,10 @@ function AgentV2Runtime(props: OwnProps) {
 
   useEffect(() => {
     let isActive = true;
+    // On a failed load the screen stays empty; mounting it again retries the load
     void loadAgentV2Classic().then((Component) => {
       if (isActive) setAgentV2Classic(() => Component);
-    });
+    }, handleChunkLoadError('AgentRuntime'));
 
     return () => {
       isActive = false;

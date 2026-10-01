@@ -286,6 +286,12 @@ class WBalanceView(context: Context) :
         private set
 
     fun setScale(scale1: Float, scale2: Float, offset2: Float) {
+        if ((candidateScale1 ?: this.scale1) == scale1 &&
+            (candidateScale2 ?: this.scale2) == scale2 &&
+            (candidateOffset2 ?: this.offset2) == offset2
+        ) {
+            return
+        }
         candidateScale1 = scale1
         candidateScale2 = scale2
         candidateOffset2 = offset2
@@ -625,7 +631,7 @@ class WBalanceView(context: Context) :
                 canvas.withTranslation(0f, offsetY) {
                     withScale(scale, scale, pivotX, pivotY) {
                         val characterBaseline =
-                            balanceBaseline + charRect.yOffsetPercent * charRect.textSize * 1.05f
+                            balanceBaseline + charRect.yOffsetPercent * charRect.textSize * 0.5f
                         drawText(
                             char.toString(),
                             charRect.leftOffset - _widthOffset,

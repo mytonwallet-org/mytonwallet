@@ -108,6 +108,29 @@ final class HomeWalletTokenReuseTests: XCTestCase {
         try fixture.assertContent()
     }
 
+    func testReusedCellsKeepTheirContentHierarchyAcrossAccounts() async throws {
+        try await prepareAccounts()
+        let provider = makeProvider()
+        let fixture = Fixture(provider: provider, visible: true)
+        defer { fixture.window?.isHidden = true }
+        var contentByCell: [WalletTokenCell: WalletTokenContentView] = [:]
+        var reusedCount = 0
+        for account in accountIDs + accountIDs.reversed() {
+            provider.switchAccountTo(account)
+            await fixture.apply(provider.itemIdentifiers)
+            try fixture.assertContent()
+            for cell in fixture.collection.visibleCells.compactMap({ $0 as? WalletTokenCell }) {
+                let content = try XCTUnwrap(cell.tokenContent)
+                if let previous = contentByCell[cell] {
+                    XCTAssertTrue(content === previous, "A warm cell must not detach its constraint hierarchy")
+                    reusedCount += 1
+                }
+                contentByCell[cell] = content
+            }
+        }
+        XCTAssertGreaterThan(reusedCount, 0)
+    }
+
     func testAccountBalancesStayCorrectWhenNeighborPreloadingEvictsEarlierAccounts() async throws {
         try await prepareAccounts()
         let provider = makeProvider()

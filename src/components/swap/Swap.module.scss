@@ -95,10 +95,6 @@
   background-color: var(--color-background-window);
 }
 
-.swapButtonWrapperStatic {
-  background-color: var(--color-background-first);
-}
-
 .swapButton {
   overflow: hidden;
   display: flex;
@@ -132,12 +128,6 @@
   align-items: center;
 
   margin-top: auto;
-}
-
-.footerBlockStatic {
-  --background-color: var(--color-background-first);
-
-  margin-top: 2.75rem;
 }
 
 .dot {
@@ -418,13 +408,6 @@
   }
 }
 
-.swapCornerStaticTop,
-.swapCornerStaticBottom {
-  &::before {
-    box-shadow: 0 0 0 0.0625rem var(--color-separator-input-stroke);
-  }
-}
-
 .selectBlockchainBlock {
   align-items: center;
 }
@@ -502,15 +485,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.providerInfoStatic,
-.priceImpactStatic {
-  padding: 0;
-
-  .feeLine + & {
-    margin-top: 0.5rem;
-  }
 }
 
 .providerInfoTitle {

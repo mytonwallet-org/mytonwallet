@@ -166,6 +166,7 @@ function Card({
   const amountRef = useRef<HTMLDivElement>();
   const cardRef = useRef<HTMLDivElement>();
   const fontScaleSignatureRef = useRef<string>();
+  const isBalanceFadingRef = useRef(false);
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
   const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
@@ -248,29 +249,40 @@ function Card({
     : values?.changePrefix;
   const hasChangePercent = !!changePrefix && changePercent !== undefined;
 
-  useLayoutEffect(() => {
-    // The balance node is unmounted while the loader shows, so its inline scale is gone on remount
-    if (primaryValue === undefined) {
-      fontScaleSignatureRef.current = undefined;
-      return;
-    }
-
-    // Measure only after the balance-update animation (`Transition` fade + `AnimatedCounter`) settles,
-    // otherwise the transient DOM yields a wrong scale that then sticks
-    if (isUpdating) return;
-
-    // Re-fit the balance font only when something width-affecting changes: the rendered text, the currency
-    // symbol or the available width. Re-renders that touch none of them (e.g. a sub-cent price tick that
-    // leaves the displayed value intact) are skipped
+  // Re-fit the balance font only when something width-affecting changes: the rendered text, the currency
+  // symbol or the available width. Re-renders that touch none of them (e.g. a sub-cent price tick that
+  // leaves the displayed value intact) are skipped.
+  const fitBalanceFont = useLastCallback(() => {
     const signature = `${primaryWholePart}.${primaryFractionPart ?? ''}|${shortBaseSymbol}|${screenWidthDep}`;
     if (fontScaleSignatureRef.current === signature) return;
     fontScaleSignatureRef.current = signature;
 
     updateFontScale();
-  }, [
-    primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol,
-    updateFontScale, screenWidthDep, isUpdating,
-  ]);
+  });
+
+  useLayoutEffect(() => {
+    // The balance node is unmounted while the loader shows, so its inline scale is gone on remount
+    if (primaryValue === undefined) {
+      fontScaleSignatureRef.current = undefined;
+      isBalanceFadingRef.current = false;
+      return;
+    }
+
+    // While the balance `Transition` fades, the DOM holds both slides and yields a wrong scale that then sticks,
+    // so the fit is left to `handleBalanceFadeStop`
+    if (isBalanceFadingRef.current) return;
+
+    fitBalanceFont();
+  }, [primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol, screenWidthDep, fitBalanceFont]);
+
+  const handleBalanceFadeStart = useLastCallback(() => {
+    isBalanceFadingRef.current = true;
+  });
+
+  const handleBalanceFadeStop = useLastCallback(() => {
+    isBalanceFadingRef.current = false;
+    fitBalanceFont();
+  });
 
   function renderLoader() {
     return (
@@ -296,6 +308,8 @@ function Card({
           shouldCleanup
           className={styles.balanceTransition}
           slideClassName={styles.balanceSlide}
+          onStart={handleBalanceFadeStart}
+          onStop={handleBalanceFadeStop}
         >
           <SensitiveData
             isActive={isSensitiveDataHidden}
@@ -312,7 +326,7 @@ function Card({
               <span
                 className={buildClassName(
                   styles.currencySwitcher,
-                  isUpdating && 'glare-text',
+                  isUpdating && 'glare-mask',
                   !isUpdating && withTextGradient && 'gradientText',
                 )}
                 role="button"
@@ -364,7 +378,7 @@ function Card({
               tabIndex={0}
               onClick={() => switchToPortfolio()}
             >
-              <span className={buildClassName(styles.changeValue, isPnlChangeUpdating && 'glare-text')}>
+              <span className={buildClassName(styles.changeValue, isPnlChangeUpdating && 'glare-mask')}>
                 {hasChangePercent && (
                   <>
                     <i

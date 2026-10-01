@@ -4,11 +4,15 @@ package org.mytonwallet.uihome.home.views.header
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.os.Handler
+import android.os.Looper
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
@@ -28,6 +32,7 @@ import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import java.math.BigInteger
+import kotlin.concurrent.thread
 import kotlin.math.absoluteValue
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -119,6 +124,36 @@ class WalletCardView(
     companion object {
         const val EXPANDED_RADIUS = 26
         const val COLLAPSED_RADIUS = 4.5f
+
+        // Every card shows the same placeholder; one decode serves all of them.
+        private var cardPlaceholderState: Drawable.ConstantState? = null
+
+        /** Decodes the placeholder off the main thread when the active card will need it. */
+        fun prefetchCardPlaceholder(context: Context) {
+            val accountId = WGlobalStorage.getActiveAccountId() ?: return
+            if (cardPlaceholderState != null ||
+                WGlobalStorage.getCardBackgroundNft(accountId) == null
+            ) {
+                return
+            }
+            val appContext = context.applicationContext
+            thread(name = "CardPlaceholder") {
+                val state = appContext
+                    .getDrawableCompat(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)
+                    ?.constantState ?: return@thread
+                Handler(Looper.getMainLooper()).post {
+                    if (cardPlaceholderState == null) cardPlaceholderState = state
+                }
+            }
+        }
+    }
+
+    private fun cardPlaceholder(): Drawable? {
+        val state = cardPlaceholderState
+            ?: context.getDrawableCompat(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)
+                ?.constantState
+                ?.also { cardPlaceholderState = it }
+        return state?.newDrawable(resources)?.mutate()
     }
 
     data class BalanceChange(val text: String?, val isPositive: Boolean)
@@ -156,6 +191,7 @@ class WalletCardView(
         }
 
     private var isHomeVisible = true
+    private var areEffectsSuspended = false
     private var isReparenting = false
 
     fun setReparenting(reparenting: Boolean) {
@@ -690,7 +726,7 @@ class WalletCardView(
             headerMode != HomeHeaderView.Mode.Expanded ||
             mode != HomeHeaderView.Mode.Expanded ||
             isInGoneState || isOffScreen || isBalanceCollapsed || isAccountScrolling ||
-            !isHomeVisible ||
+            !isHomeVisible || areEffectsSuspended ||
             account == null
         ) {
             return
@@ -717,7 +753,7 @@ class WalletCardView(
 
     private fun updateCardEffects() {
         if (isAttachedToWindow && !isInGoneState && !isOffScreen && !isBalanceCollapsed &&
-            !isAccountScrolling && isHomeVisible &&
+            !isAccountScrolling && isHomeVisible && !areEffectsSuspended &&
             account != null && headerMode == HomeHeaderView.Mode.Expanded &&
             mode == HomeHeaderView.Mode.Expanded
         ) {
@@ -848,7 +884,15 @@ class WalletCardView(
         }
     }
 
+    private var appliedBalanceChangePositive: Boolean? = null
+
     fun updateBalanceChange(balanceChangeString: String?, animated: Boolean) {
+        if (balanceChangeTextLabel.text.toString() == balanceChangeString.orEmpty() &&
+            appliedBalanceChangePositive == isBalanceChangePositive
+        ) {
+            return
+        }
+        appliedBalanceChangePositive = isBalanceChangePositive
         if (balanceChangeTextLabel.text.isEmpty() && animated) {
             balanceChangeLabel.alpha = 0f
             balanceChangeLabel.fadeIn()
@@ -993,11 +1037,7 @@ class WalletCardView(
         }
         img.isVisible = true
         shiningView.visibility = VISIBLE
-        img.hierarchy.setPlaceholderImage(
-            context.getDrawableCompat(
-                org.mytonwallet.app_air.uicomponents.R.drawable.img_card
-            )
-        )
+        img.hierarchy.setPlaceholderImage(cardPlaceholder())
         img.set(Content.ofUrl(cardNft?.metadata?.cardImageUrl(false) ?: ""))
     }
 
@@ -1171,6 +1211,13 @@ class WalletCardView(
         updateCardEffects()
     }
 
+    fun setEffectsSuspended(suspended: Boolean) {
+        if (areEffectsSuspended == suspended) return
+        areEffectsSuspended = suspended
+        updateCardEffects()
+        updateGlareState()
+    }
+
     fun updateActionsTransformProgress(progress: Float) {
         updateActionsAlpha(progress)
     }
@@ -1299,7 +1346,7 @@ class WalletCardView(
     private fun updateGlareState() {
         if (!::balanceViewMaskWrapper.isInitialized) return
         balanceViewMaskWrapper.isAnimationAllowed =
-            !isGone && !isOffScreen && !isBalanceCollapsed
+            !isGone && !isOffScreen && !isBalanceCollapsed && !areEffectsSuspended
     }
 
     private var currentAlpha = 1f

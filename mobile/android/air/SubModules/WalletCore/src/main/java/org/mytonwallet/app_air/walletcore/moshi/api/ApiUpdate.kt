@@ -140,6 +140,8 @@ sealed class ApiUpdate {
     data class ApiUpdateTokens(
         val kind: ApiTokenUpdateKind,
         val tokens: Map<String, ApiTokenWithPrice>,
+        val isIncomplete: Boolean? = null,
+        val unpricedSlugs: List<String>? = null,
         val removedSlugs: List<String>? = null
     ) : ApiUpdate()
 

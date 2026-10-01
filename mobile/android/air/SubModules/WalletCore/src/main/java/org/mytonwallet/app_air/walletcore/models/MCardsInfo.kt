@@ -9,8 +9,11 @@ data class MCardInfo(
     val all: Int,
     val notMinted: Int,
     val price: Double,
-    val startsAt: String? = null
+    val startsAt: String? = null,
+    val discount: Discount? = null
 ) {
+    data class Discount(val percent: Int, val isApplied: Boolean)
+
     val isAvailable: Boolean
         get() = notMinted > 0
 
@@ -56,7 +59,13 @@ class MCardsInfo(private val byType: Map<ApiMtwCardType, MCardInfo>) {
                     all = cardJson.optInt("all"),
                     notMinted = cardJson.optInt("notMinted"),
                     price = cardJson.optDouble("price", 0.0),
-                    startsAt = cardJson.optString("startsAt").takeIf { it.isNotEmpty() }
+                    startsAt = cardJson.optString("startsAt").takeIf { it.isNotEmpty() },
+                    discount = cardJson.optJSONObject("discount")?.let {
+                        MCardInfo.Discount(
+                            percent = it.optInt("percent"),
+                            isApplied = it.optBoolean("isApplied")
+                        )
+                    }
                 )
             }
             if (byType.isEmpty()) return null

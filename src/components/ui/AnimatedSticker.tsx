@@ -8,6 +8,7 @@ import type RLottieInstance from '../../lib/rlottie/RLottie';
 import { requestMeasure } from '../../lib/fasterdom/fasterdom';
 import { ensureRLottie, getRLottie } from '../../lib/rlottie/RLottie.async';
 import buildStyle from '../../util/buildStyle';
+import { handleChunkLoadError } from '../../util/chunkLoading';
 import { hex2rgb } from '../../util/colors';
 import generateUniqueId from '../../util/generateUniqueId';
 import { IS_ELECTRON, IS_IOS } from '../../util/windowEnvironment';
@@ -153,7 +154,8 @@ const AnimatedSticker: FC<OwnProps> = ({
     if (getRLottie()) {
       init();
     } else {
-      void ensureRLottie().then(init);
+      // The sticker stays blank; the next run of this effect retries the load
+      void ensureRLottie().then(init, handleChunkLoadError('AnimatedSticker'));
     }
   }, [init, tgsUrl, sharedCanvas, sharedCanvasCoords]);
 

@@ -657,6 +657,17 @@ let package = Package(
             ]
         ),
         airTestTarget(
+            "AirAsFrameworkTests",
+            dependencies: [
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
+                "AirAsFramework",
+                "UIComponents",
+                "WalletContext",
+                "WalletResources",
+            ]
+        ),
+        airTestTarget(
             "UniversalSearchCoreTests",
             dependencies: [
                 "UniversalSearchCore",
@@ -693,6 +704,7 @@ let package = Package(
         airTestTarget(
             "WalletCoreTests",
             dependencies: [
+                .product(name: "Perception", package: "swift-perception"),
                 "NativeEnclave",
                 "WalletCore",
                 "WalletContext",
@@ -703,14 +715,17 @@ let package = Package(
             "UISwapTests",
             dependencies: [
                 "UISwap",
+                "UIComponents",
                 "WalletCore",
                 "WalletContext",
+                "WalletResources",
             ]
         ),
         airTestTarget(
             "UISendTests",
             dependencies: [
                 "UISend",
+                "UIComponents",
                 "WalletCore",
                 "WalletContext",
                 "WalletResources",
@@ -740,10 +755,16 @@ let package = Package(
             ]
         ),
         airTestTarget(
+            "UICreateWalletTests",
+            dependencies: ["UICreateWallet", "UIPasscode", "UIComponents", "UISettings", "Ledger", "WalletResources"]
+        ),
+        airTestTarget(
             "UIHomeTests",
             dependencies: [
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "UIHome",
                 "UIComponents",
+                "UIActivityList",
                 "WalletCore",
                 "WalletContext",
                 "WalletResources",

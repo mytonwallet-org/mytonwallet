@@ -145,6 +145,16 @@ public class JSWebViewBridge: UIViewController {
     }
 
     private var onBridgeReady: (() -> Void)? = nil
+    /// `MyWallet/26.9.9 (66330)` - the marketing version a person reads and the build number
+    /// that identifies one archive, in the shape the native requests already use.
+    static let clientUserAgentToken: String = {
+        let info = Bundle.main.infoDictionary
+        let name = (info?["CFBundleName"] as? String ?? "App").replacingOccurrences(of: " ", with: "")
+        let version = info?["CFBundleShortVersionString"] as? String ?? "0"
+        let build = info?["CFBundleVersion"] as? String ?? "0"
+        return name + "/" + version + " (" + build + ")"
+    }()
+
     func recreateWebView(onCompletion: (() -> Void)? = nil) {
         StartupTrace.markOnce("bridge.recreateWebView")
         onBridgeReady = onCompletion
@@ -169,6 +179,12 @@ public class JSWebViewBridge: UIViewController {
 //        userContentController.addUserScript(logFetchScript)
 
         webViewConfiguration.userContentController = userContentController
+        // Every request the SDK makes says which app made it. The web view's default agent
+        // string names WebKit and the OS and nothing else, so a request arriving at our own
+        // logs could not be told from any other iPhone's, and answering "which build is this
+        // device running" took a device log export. The native side already identifies itself
+        // this way through URLSession; this puts the web view on the same footing.
+        webViewConfiguration.applicationNameForUserAgent = Self.clientUserAgentToken
         // create web view
         webView = WKWebView(
             frame: CGRect(x: 0, y: 0, width: 1, height: 1),

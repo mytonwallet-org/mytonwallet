@@ -97,10 +97,9 @@ final class TokenActionsCell: FirstRowCell {
         if usesSplitHomeActionStyle {
             constraints.append(actionsHostView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor))
         } else {
-            let horizontalInset = S.insetSectionHorizontalMargin
             constraints.append(contentsOf: [
-                actionsHostView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
-                actionsHostView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
+                actionsHostView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+                actionsHostView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             ])
         }
         

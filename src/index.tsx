@@ -15,6 +15,7 @@ import { enableStrict } from './lib/fasterdom/stricterdom';
 import { initAgentProtocolVersion } from './util/agent/agentProtocolVersion';
 import { initAgentWriterPrompt } from './util/agent/agentWriterPromptState';
 import { betterView } from './util/betterView';
+import { addChunkLoadErrorListener } from './util/chunkLoading';
 import { initElectron } from './util/electron';
 import { initFocusScrollController } from './util/focusScroll';
 import { forceLoadFonts } from './util/fonts';
@@ -44,6 +45,10 @@ if (IS_TELEGRAM_APP) {
 }
 
 initFocusScrollController();
+
+addChunkLoadErrorListener(() => {
+  getActions().checkAppBuild();
+});
 
 void (async () => {
   await window.electron?.restoreStorage?.();

@@ -3,6 +3,7 @@ import React, {
 } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
+import type { AppReloadReason } from '../../global/types';
 import { ElectronEvent } from '../../electron/types';
 
 import { APP_NAME, PRODUCTION_URL } from '../../config';
@@ -19,9 +20,10 @@ import styles from './UpdateApp.module.scss';
 
 type StateProps = {
   isAppUpdateAvailable?: boolean;
+  appReloadReason?: AppReloadReason;
 };
 
-function UpdateApp({ isAppUpdateAvailable }: StateProps) {
+function UpdateApp({ isAppUpdateAvailable, appReloadReason }: StateProps) {
   const lang = useLang();
 
   const [isElectronUpdateDownloaded, setIsElectronUpdateDownloaded] = useState(false);
@@ -50,6 +52,13 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
       return;
     }
 
+    // The running bundle has lost its chunks, which a reload fixes whatever the auto-update setting is.
+    // A downloaded update relaunches the app, which fixes it too.
+    if (appReloadReason && !isElectronUpdateDownloaded) {
+      window.location.reload();
+      return;
+    }
+
     if (!isElectronAutoUpdateEnabled) {
       window.open(`${PRODUCTION_URL}/get`, '_blank', 'noopener');
       return;
@@ -72,9 +81,11 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
   });
 
   const { ref, shouldRender } = useShowTransition({
-    isOpen: isElectronUpdateDownloaded || isAppUpdateAvailable,
+    isOpen: Boolean(isElectronUpdateDownloaded || isAppUpdateAvailable || appReloadReason),
     withShouldRender: true,
   });
+
+  const isReloadOnly = appReloadReason === 'chunkLoadFailed' && !isElectronUpdateDownloaded && !isAppUpdateAvailable;
 
   if (!shouldRender) {
     return null; // eslint-disable-line no-null/no-null
@@ -99,14 +110,16 @@ function UpdateApp({ isAppUpdateAvailable }: StateProps) {
       )}
 
       <div className={styles.text}>
-        {isInstalling ? lang('Updating') : lang('Update %app_name%', { app_name: APP_NAME })}
+        {isInstalling
+          ? lang('Updating')
+          : isReloadOnly ? lang('Reload App') : lang('Update %app_name%', { app_name: APP_NAME })}
       </div>
     </div>
   );
 }
 
 export default memo(withGlobal((global): StateProps => {
-  const { isAppUpdateAvailable } = global;
+  const { isAppUpdateAvailable, appReloadReason } = global;
 
-  return { isAppUpdateAvailable };
+  return { isAppUpdateAvailable, appReloadReason };
 })(UpdateApp));

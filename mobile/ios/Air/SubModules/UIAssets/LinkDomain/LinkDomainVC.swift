@@ -42,27 +42,19 @@ public final class LinkDomainVC: WViewController {
     }
 
     private func linkPressed() {
-        guard !viewModel.isSubmitting else { return }
-        Task {
-            do {
-                guard let snapshot = try await viewModel.makeConfirmationSnapshot() else {
-                    return
+        guard let snapshot = viewModel.makeConfirmationSnapshot() else { return }
+        let protectedAction = ProtectedAction.linkDomain(
+            snapshot: snapshot,
+            onCommitted: { [weak self] in
+                self?.dismiss(animated: true) {
+                    AppActions.showToast(message: lang("Domain Linked"))
                 }
-                viewModel.isSubmitting = true
-                defer { viewModel.isSubmitting = false }
-                let protectedAction = ProtectedAction.linkDomain(
-                    snapshot: snapshot,
-                    onCommitted: { [weak self] in
-                        self?.dismiss(animated: true) {
-                            AppActions.showToast(message: lang("Domain Linked"))
-                        }
-                    }
-                )
-                _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
-            } catch {
-                viewModel.errorMessage = (error as? LocalizedError)?.errorDescription
-                    ?? error.localizedDescription
             }
+        )
+        viewModel.isSubmitting = true
+        Task {
+            defer { viewModel.isSubmitting = false }
+            _ = await ProtectedActionExecutor.execute(protectedAction, on: self)
         }
     }
 }

@@ -31,17 +31,31 @@ struct DappSendTransactionDetailView: View {
                 }
             }
             
-            if !message.displayedToAddress.isEmpty {
+            if !message.toAddress.isEmpty {
                 InsetSection {
                     InsetCell {
-                        TappableAddressFull(accountContext: accountContext, model: .init(chain: chain, apiAddress: message.displayedToAddress))
+                        TappableAddressFull(accountContext: accountContext, model: .init(chain: chain, apiAddress: message.toAddress))
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.vertical, 3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 } header: {
-                    Text(lang("Receiving Address"))
+                    Text(lang(message.payloadRecipientAddress == nil ? "Receiving Address" : "Contract Address"))
+                }
+            }
+
+            if let payloadRecipientAddress = message.payloadRecipientAddress {
+                InsetSection {
+                    InsetCell {
+                        TappableAddressFull(accountContext: accountContext, model: .init(chain: chain, apiAddress: payloadRecipientAddress))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } header: {
+                    Text(lang("Recipient Address"))
                 }
             }
 

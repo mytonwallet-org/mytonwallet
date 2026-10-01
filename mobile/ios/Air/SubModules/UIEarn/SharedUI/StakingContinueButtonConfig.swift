@@ -1,29 +1,24 @@
-//
-//  StakingContinueButtonConfig.swift
-//  UIEarn
-//
-//  Created by nikstar on 28.07.2025.
-//
-
-import UIKit
 import UIComponents
 import WalletContext
+import WalletCore
 
-@MainActor extension WButtonConfig {
-    static let insufficientStakedBalance: WButtonConfig = .init(
-        title: lang("Insufficient Balance"),
-        isEnabled: false
-    )
-    static func insufficientFee(minAmount: BigInt) -> WButtonConfig {
-        .init(
-            title: L10n.insufficientFee(fee: "\(minAmount.doubleAbsRepresentation(decimals: 9)) GRAM"),
-            isEnabled: false
+extension DraftButtonConfiguration {
+    static func staking(title: String, phase: OperationDraftPhase, canRetry: Bool, draftError: ApiAnyDisplayError?) -> Self {
+        if let draftError {
+            return .init(title: .text(draftError.toLocalized), isEnabled: false, showLoading: false)
+        }
+        return .init(
+            title: .text(phase == .failed ? lang("Retry") : title),
+            isEnabled: phase == .ready || (phase == .failed && canRetry),
+            showLoading: phase == .loading
         )
     }
-    static func `continue`(title: String?, isEnabled: Bool) -> WButtonConfig {
+
+    static func insufficientStakingFee(minAmount: BigInt) -> Self {
         .init(
-            title: title ?? "",
-            isEnabled: isEnabled
+            title: .text(L10n.insufficientFee(fee: "\(minAmount.doubleAbsRepresentation(decimals: 9)) GRAM")),
+            isEnabled: false,
+            showLoading: false
         )
     }
 }

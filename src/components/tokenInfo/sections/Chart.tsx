@@ -45,6 +45,7 @@ interface OwnProps {
 interface StateProps {
   period: ApiPriceHistoryPeriod;
   baseCurrency: ApiBaseCurrency;
+  backendPercentChange24h?: number;
   historyPeriods?: PriceHistoryPeriods;
   netWorthHistoryPeriods?: PriceHistoryPeriods;
 }
@@ -68,6 +69,7 @@ function Chart({
   className,
   period,
   baseCurrency,
+  backendPercentChange24h,
   historyPeriods,
   netWorthHistoryPeriods,
   onChartModeChange,
@@ -118,16 +120,25 @@ function Chart({
   // The caption on the left shows that same point.
   const initialPoint = useMemo(() => history?.find(([, value]) => Boolean(value)), [history]);
   const initialPrice = initialPoint?.[1];
-  const changePercent = initialPrice && shownPoint ? (shownPoint[1] / initialPrice - 1) * 100 : undefined;
+  const historyChangePercent = initialPrice && shownPoint ? (shownPoint[1] / initialPrice - 1) * 100 : undefined;
+  const shouldUseTokenChange24h = (
+    !isNetWorthMode
+    && period === '1D'
+    && !selectedPoint
+    && backendPercentChange24h !== undefined
+  );
+  const changePercent = shouldUseTokenChange24h
+    ? backendPercentChange24h
+    : historyChangePercent;
 
   // A price quoted in another currency would make the balance above jump between currencies
   const shownPrice = isNetWorthMode || chartCurrency !== baseCurrency ? undefined : shownPoint?.[1];
 
   useEffect(() => {
-    onPricePointChange(shownPrice !== undefined && initialPrice
+    onPricePointChange(!shouldUseTokenChange24h && shownPrice !== undefined && initialPrice
       ? { price: shownPrice, initialPrice }
       : undefined);
-  }, [shownPrice, initialPrice, onPricePointChange]);
+  }, [shouldUseTokenChange24h, shownPrice, initialPrice, onPricePointChange]);
 
   const axisLabels = useMemo(() => buildAxisLabels(lang.code!, period, history), [lang.code, period, history]);
 
@@ -252,10 +263,15 @@ function buildAxisLabels(langCode: LangCode, period: ApiPriceHistoryPeriod, hist
 export default memo(
   withGlobal<OwnProps>((global, { token }): StateProps => {
     const accountState = selectCurrentAccountState(global);
+    const apiToken = global.tokenInfo.bySlug[token.slug];
+    const backendPercentChange24h = apiToken?.isPriceFromBackend && Number.isFinite(apiToken.percentChange24h)
+      ? apiToken.percentChange24h
+      : undefined;
 
     return {
       period: accountState?.currentTokenPeriod ?? DEFAULT_PERIOD,
       baseCurrency: global.settings.baseCurrency,
+      backendPercentChange24h,
       historyPeriods: global.tokenPriceHistory.bySlug[token.slug],
       netWorthHistoryPeriods: accountState?.tokenNetWorthHistory?.[token.slug],
     };

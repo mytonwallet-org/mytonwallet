@@ -45,9 +45,6 @@ struct LinkDomainView: View {
                 }
             }
             .animation(.default, value: shouldShowBottomBar)
-            .task(id: viewModel.nft?.id) {
-                await viewModel.loadDraft()
-            }
         }
     }
 
@@ -83,12 +80,13 @@ struct LinkDomainView: View {
                 .foregroundStyle(Color.air.secondaryLabel)
                 .transition(.opacity.animation(.default))
             }
-            Button(action: { viewModel.onLink?() }) {
-                Text(viewModel.linkButtonTitle)
+            DraftButton(configuration: .init(
+                title: .text(viewModel.linkButtonTitle),
+                isEnabled: viewModel.canLink,
+                showLoading: viewModel.isButtonLoading
+            )) {
+                viewModel.onLink?()
             }
-            .buttonStyle(.airPrimary)
-            .disabled(!viewModel.canLink)
-            .environment(\.isLoading, viewModel.isButtonLoading)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -182,9 +180,6 @@ private struct LinkDomainAddressInput: View {
 
     private func onClear() {
         viewModel.walletAddress = ""
-        viewModel.selectedWalletAccount = nil
-        viewModel.walletAddressName = nil
-        viewModel.resolvedWalletAddress = nil
     }
 }
 

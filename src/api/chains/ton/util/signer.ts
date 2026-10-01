@@ -21,6 +21,7 @@ import { hexToBytes } from '../../../common/utils';
 import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../dappProtocols/adapters/tonConnect/signing';
 import { fetchPrivateKey } from '../auth';
 import { getTonWallet } from '../wallet';
+import * as encryption from './encryption';
 
 type ErrorResult = { error: ApiAnyDisplayError };
 
@@ -190,16 +191,15 @@ abstract class PrivateKeySigner implements Signer {
 }
 
 /**
- * Loaded lazily so a `NO_EXTRA_FEATURES` build drops the module together with its aes-js and
- * noble-ed25519 dependencies, which exist only for this feature.
+ * A `NO_EXTRA_FEATURES` build leaves the module out together with its aes-js and noble-ed25519 dependencies,
+ * which exist only for this feature.
  */
 function requireEncryption() {
-  // `process.env` is read inline, not through the `config` re-exports: Webpack substitutes it before
-  // dead-code elimination, so the `require` below sits in a statically false branch and the module — with
-  // its aes-js and noble-ed25519 dependencies — is dropped from the bundle entirely.
+  // `process.env` is read inline, not through the `config` re-exports. In a `NO_EXTRA_FEATURES` build
+  // `plugins/disabledImports.ts` replaces the module with a stub, and only an inline read makes this branch
+  // statically false there.
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('./encryption') as typeof import('./encryption');
+    return encryption;
   }
 
   throw new Error('Encrypted comments are not supported in this build');

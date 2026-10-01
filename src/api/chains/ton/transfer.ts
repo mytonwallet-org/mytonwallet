@@ -45,7 +45,7 @@ import { omit, pick, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { randomBytes } from '../../../util/random';
 import { getNativeToken } from '../../../util/tokens';
-import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
+import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
 import { parsePayloadSlice } from './util/metadata';
 import { waitUntilWalletSeqnoChanges } from './util/sendBocRetry';
 import { sendExternal } from './util/sendExternal';
@@ -74,7 +74,9 @@ import { MINUTE, SEC } from '../../constants';
 import { ApiServerError, handleServerError } from '../../errors';
 import { checkHasTransaction, fetchHasTransaction } from './activities';
 import { resolveAddress } from './address';
-import { ATTEMPTS, FEE_FACTOR, LEDGER_VESTING_SUBWALLET_ID, TRANSFER_TIMEOUT_SEC } from './constants';
+import {
+  ATTEMPTS, FEE_FACTOR, JettonOpCode, LEDGER_VESTING_SUBWALLET_ID, TRANSFER_TIMEOUT_SEC,
+} from './constants';
 import { emulateExternalMessage, emulateTransaction } from './emulation';
 import {
   buildTokenTransfer,
@@ -892,7 +894,7 @@ export async function checkMultiTransactionDraft(
   }
 }
 
-async function isTokenBalanceInsufficient(
+export async function isTokenBalanceInsufficient(
   network: ApiNetwork,
   walletAddress: string,
   messages: TonTransferParams[],
@@ -905,7 +907,9 @@ async function isTokenBalanceInsufficient(
       if (!payload) return { tokenResult: undefined, parsedPayload: undefined };
 
       try {
-        const parsedPayload = await parsePayloadSlice(network, toAddress, payload.beginParse());
+        const parsedPayload = await parsePayloadSlice(network, toAddress, payload.beginParse(), {
+          expectedOwnerAddress: walletAddress,
+        });
 
         if (parsedPayload?.type === 'tokens:transfer') {
           return {
@@ -917,7 +921,11 @@ async function isTokenBalanceInsufficient(
           };
         }
 
-        return { tokenResult: undefined, parsedPayload };
+        return {
+          tokenResult: undefined,
+          parsedPayload: isTokenTransferPayload(parsedPayload) ? parsedPayload : undefined,
+          isUnverifiedTokenTransfer: !parsedPayload && isJettonTransferBody(payload),
+        };
       } catch (e) {
         // If payload parsing fails, treat as regular TON transfer
         logDebugError('isTokenBalanceInsufficient', 'Error parsing payload', e);
@@ -930,18 +938,10 @@ async function isTokenBalanceInsufficient(
   // Accumulate token amounts by address
   const tokenAmountsByAddress: Record<string, bigint> = {};
   const parsedPayloads = payloadParsingResults.map((result) => result?.parsedPayload);
-  let hasUnknownToken = false;
 
   for (const result of payloadParsingResults) {
     if (result?.tokenResult) {
       const { tokenAddress, amount } = result.tokenResult;
-
-      if (!tokenAddress) {
-        // Possible when the jetton wallet is not deployed, therefore the minter address is unknown and set to "".
-        // This is handled in `parsePayloadSlice`. If the sender jetton wallet is not deployed, assuming the balance is 0.
-        hasUnknownToken = true;
-        continue;
-      }
 
       if (!tokenAmountsByAddress[tokenAddress]) {
         tokenAmountsByAddress[tokenAddress] = 0n;
@@ -950,7 +950,8 @@ async function isTokenBalanceInsufficient(
     }
   }
 
-  if (hasUnknownToken) {
+  // The balance of a sender jetton wallet that can't be verified (e.g. it's not deployed) is assumed to be 0
+  if (payloadParsingResults.some((result) => result.isUnverifiedTokenTransfer)) {
     return { hasInsufficientTokenBalance: true, parsedPayloads };
   }
 
@@ -983,6 +984,11 @@ async function isTokenBalanceInsufficient(
   }
 
   return { hasInsufficientTokenBalance: false, parsedPayloads };
+}
+
+function isJettonTransferBody(body: Cell) {
+  const slice = body.beginParse();
+  return slice.remainingBits >= 32 && (slice.loadUint(32) as JettonOpCode) === JettonOpCode.Transfer;
 }
 
 export type GaslessType = 'diesel' | 'w5';

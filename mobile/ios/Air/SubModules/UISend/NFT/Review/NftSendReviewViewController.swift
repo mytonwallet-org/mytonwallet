@@ -68,7 +68,7 @@ final class NftSendReviewViewController: WViewController {
         if confirmed == nil {
             observe { [weak self] in
                 guard let self else { return }
-                _ = model.continueState
+                _ = model.primaryAction
                 updateConfirmButton()
             }
             updateConfirmButton()
@@ -139,7 +139,7 @@ final class NftSendReviewViewController: WViewController {
     @objc private func confirmPressed() {
         guard !isConfirming else { return }
         view.endEditing(true)
-        if confirmed == nil, model.continueState.canRetryDraft {
+        if confirmed == nil, model.primaryAction == .retryDraft {
             model.retryDraft()
             return
         }
@@ -177,11 +177,10 @@ final class NftSendReviewViewController: WViewController {
             confirmButton.isEnabled = !isConfirming
             return
         }
-        let state = model.continueState
-        confirmButton.showLoading = state.isDraftLoading
-        confirmButton.isEnabled =
-            state.canContinue || state.canRetryDraft
-        let title = state.canRetryDraft
+        let action = model.primaryAction
+        confirmButton.showLoading = action.isLoading
+        confirmButton.isEnabled = action.isEnabled
+        let title = action == .retryDraft
             ? lang("Retry")
             : defaultConfirmButtonTitle
         if confirmButton.title(for: .normal) != title {

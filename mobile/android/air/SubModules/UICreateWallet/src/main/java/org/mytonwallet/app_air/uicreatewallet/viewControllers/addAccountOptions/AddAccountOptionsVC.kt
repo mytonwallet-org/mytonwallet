@@ -5,7 +5,6 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
-import android.widget.ProgressBar
 import androidx.constraintlayout.widget.ConstraintLayout
 import java.lang.ref.WeakReference
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
@@ -293,11 +292,6 @@ class AddAccountOptionsVC(
         }
     }
 
-    private val subwalletProgressView = ProgressBar(context).apply {
-        id = View.generateViewId()
-        visibility = View.GONE
-    }
-
     override fun setupViews() {
         super.setupViews()
 
@@ -313,11 +307,8 @@ class AddAccountOptionsVC(
             scrollView,
             ConstraintLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         )
-        view.addView(subwalletProgressView, ConstraintLayout.LayoutParams(40.dp, 40.dp))
         view.setConstraints {
             allEdges(scrollView)
-            toCenterX(subwalletProgressView)
-            toCenterY(subwalletProgressView)
         }
         view.post {
             calculatedHeight = view.measuredHeight
@@ -440,12 +431,7 @@ class AddAccountOptionsVC(
     }
 
     private fun createSubwallet(passcodeConfirmVC: PasscodeConfirmVC?, enclaveToken: String) {
-        if (passcodeConfirmVC != null) {
-            passcodeConfirmVC.view.lockView()
-        } else {
-            view.lockView()
-            subwalletProgressView.visibility = View.VISIBLE
-        }
+        (passcodeConfirmVC?.view ?: view).lockView()
         WalletCore.call(
             ApiMethod.Settings.CreateSubWallet(accountId, enclaveToken)
         ) { result, error ->
@@ -528,7 +514,6 @@ class AddAccountOptionsVC(
             passcodeConfirmVC.restartAuth()
             if (error != null) passcodeConfirmVC.showError(error)
         } else {
-            subwalletProgressView.visibility = View.GONE
             view.unlockView()
             if (error != null) showError(error)
         }

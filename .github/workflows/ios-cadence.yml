@@ -1,0 +1,307 @@
+name: Build cadence
+
+# A master push cuts two TestFlight builds and two Android packages, and commits arrive spread out
+# rather than in bursts, so the gate builds the first after a quiet window and folds the rest in.
+
+# It never waits: a run decides on the state it finds and exits in seconds, and the schedule below
+# is what comes back once a window has closed.
+
+# Every uncertainty here resolves towards building: an unreadable window, an unrecorded anchor and a
+# baseline that cannot be fetched all end in a build, because one costs a fraction of a day.
+
+on:
+  push:
+    branches:
+      - master
+  # A push that lands mid-window leaves nothing running to notice the window close, and the next
+  # push may be hours away, so the closing is watched from here at a quarter of the shortest window.
+  schedule:
+    - cron: '*/15 * * * *'
+
+# Nothing is checked out here; the gate reads one tag per app and asks for a release run.
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  # Its own group on purpose: the release workflow's group spans every platform and never cancels,
+  # so a gate sharing it would queue Android and the extensions behind this decision.
+  group: ios-cadence
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Ask for a build when a window has closed
+    # Suppression belongs to development only; a publishing repo owes every push a build of both
+    # platforms, which is what its own path in the release workflow already does.
+    if: vars.PUBLISH_REPO == ''
+    # A single-CPU runner terminates any job at 15 minutes, which is why nothing here waits.
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Ask for a build
+        env:
+          # Repository variable IOS_BUILD_WINDOW_MINUTES is the knob and the kill switch at once:
+          # set it to exactly 0 and every push builds both platforms at once, without a revert.
+          WINDOW: ${{ vars.IOS_BUILD_WINDOW_MINUTES }}
+          # Gram goes to its testers once a day rather than once a window, on both platforms. The
+          # variable keeps the name it was created under, when only iOS was asked for here.
+          GRAM_WINDOW: ${{ vars.IOS_GRAM_BUILD_WINDOW_MINUTES }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const DEFAULT_WINDOW_MINUTES = 90;
+            const DEFAULT_GRAM_WINDOW_MINUTES = 1440;
+            const ANCHOR_PREFIX = 'cadence-anchor-';
+            // Every state a run can sit in before it reaches a conclusion; production is an
+            // environment with a gate, so a run of this workflow can also be waiting on approval.
+            const UNFINISHED = ['queued', 'in_progress', 'waiting', 'requested', 'pending'];
+            // Dispatching with the job's own token names the bot, and this gate is the only thing
+            // in the repository that asks the release workflow for a run. Read from the creating
+            // actor rather than the triggering one, which a human rerunning the run would replace.
+            const GATE_ACTOR = 'github-actions[bot]';
+            const repo = { owner: context.repo.owner, repo: context.repo.repo };
+
+            // A held build shows up in the release run as a bare `skipped` job, and a skip is the
+            // one status that cannot explain itself: the `if:` that produced it is nowhere in the
+            // UI. So the gate says out loud what it found and what it did about it, from the same
+            // numbers the decision used rather than a second reading of them.
+            //
+            // Every line here reports state or an action already taken, and none predicts one. A
+            // window closing is not a build happening: a later push supersedes the commit, a
+            // cron tick lands where it lands, and a path filter can still leave a platform with
+            // nothing to do. Seven drafts of these sentences each promised something the gate
+            // only approximates, which is what this rule exists to stop.
+            const shown = { rows: [], note: '' };
+            const summarize = async () => {
+              core.summary.addHeading('Mobile build cadence', 3).addRaw(shown.note, true);
+              if (shown.rows.length > 0) {
+                core.summary.addTable([
+                  // The anchor moves for a range that held nothing for its platform as readily as
+                  // for a build, so the column is what the window is measured from, not proof
+                  // that an app shipped at that moment.
+                  ['App', 'Window', 'Window anchor', 'Carries this commit', 'Window state'].map((data) => ({ data, header: true })),
+                  ...shown.rows,
+                ]);
+                // Only where something is actually held: with a window of zero this gate asks for
+                // nothing, and the sentence would contradict the line above it.
+                  core.summary.addRaw('Mobile builds are asked for from this gate and run as a separate dispatch of Package and publish, which is why the mobile jobs of an ordinary master push are skipped.', true);
+              }
+              await core.summary.write();
+            };
+
+            // Only the literal zero turns the gate off, because that is the same value the release
+            // workflow's push path tests for, and that path builds every variant at once.
+            const raw = process.env.WINDOW ?? '';
+            if (raw === '0') {
+              core.info('window is zero, master pushes build directly');
+              shown.note = 'The window is 0, so this gate asks for nothing and the release workflow handles each push on its own path.';
+              await summarize();
+              return;
+            }
+            const readWindow = (value, fallback, variant) => {
+              if (value === '') return fallback;
+              const parsed = Number(value);
+              if (!Number.isFinite(parsed) || parsed <= 0) {
+                core.warning(`window "${value}" for ${variant} is not a positive number, using ${fallback} min`);
+                return fallback;
+              }
+              return parsed;
+            };
+            // One key per app. The release workflow still names this one by the identifier the
+            // stores hold, which carries the former brand and cannot move; the anchor need not.
+            const APPS = {
+              'ios-mywallet': { platform: 'ios', variant: 'mytonwallet', window: readWindow(raw, DEFAULT_WINDOW_MINUTES, 'ios mywallet') },
+              'ios-gram': { platform: 'ios', variant: 'gram', window: readWindow(process.env.GRAM_WINDOW ?? '', DEFAULT_GRAM_WINDOW_MINUTES, 'ios gram') },
+              'android-mywallet': { platform: 'android', variant: 'mytonwallet', window: readWindow(raw, DEFAULT_WINDOW_MINUTES, 'android mywallet') },
+              'android-gram': { platform: 'android', variant: 'gram', window: readWindow(process.env.GRAM_WINDOW ?? '', DEFAULT_GRAM_WINDOW_MINUTES, 'android gram') },
+            };
+            const VARIANTS = Object.keys(APPS);
+            const windows = Object.fromEntries(VARIANTS.map((key) => [key, APPS[key].window]));
+
+            // The release workflow moves one of these per variant it uploaded, so both facts a
+            // window needs are in one object and neither has to be inferred from run history.
+            const readAnchor = async (variant) => {
+              const name = `${ANCHOR_PREFIX}${variant}`;
+              try {
+                const ref = await github.rest.git.getRef({ ...repo, ref: `tags/${name}` });
+                if (ref.data.object.type !== 'tag') throw new Error('anchor is not an annotated tag');
+                const tag = await github.rest.git.getTag({ ...repo, tag_sha: ref.data.object.sha });
+                return { at: new Date(tag.data.tagger.date).getTime(), sha: tag.data.object.sha };
+              } catch (error) {
+                core.warning(`anchor ${name} unreadable (${error.status ?? error.message})`);
+                // A 404 is the app having never shipped; anything else is this call failing, and
+                // the two must not print the same, because one of them is a fact about the app
+                // and the other is a fact about this run.
+                return { missing: error.status === 404 };
+              }
+            };
+
+            // A build carries the commit it was dispatched for and nothing later, so only an anchor
+            // at or past this push proves there is no build left to ask for.
+            const anchorCarriesThisCommit = async (sha) => {
+              if (!sha) return false;
+              try {
+                const diff = await github.rest.repos.compareCommits({ ...repo, base: context.sha, head: sha });
+                return diff.data.status === 'identical' || diff.data.status === 'ahead';
+              } catch (error) {
+                core.warning(`could not compare the anchor with this push (${error.status ?? error.message})`);
+                // Not false: a comparison that did not happen is not a comparison that said no.
+                // Falsy either way, so the build still goes ahead, and the table can say which.
+                return undefined;
+              }
+            };
+
+            // A run that has not finished has not written its tag, and its own age says nothing about
+            // how long it still needs, so it blocks on being unfinished rather than on the clock.
+            const runInFlight = async () => {
+              try {
+                // Asked for by status rather than read off the newest few: a run that waits long
+                // enough leaves any page, and a query for the unfinished ones cannot lose it.
+                for (const status of UNFINISHED) {
+                  const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                    ...repo,
+                    workflow_id: 'package-and-publish.yml',
+                    branch: 'master',
+                    event: 'workflow_dispatch',
+                    status,
+                    per_page: 100,
+                  });
+                  // Only a run this gate asked for carries the input that lets the release workflow
+                  // move an anchor, so a manual dispatch is never what these variants are waiting on.
+                  const going = runs.find((run) => run.actor?.login === GATE_ACTOR);
+                  if (going) {
+                    core.info(`cadence run ${going.id} is ${going.status}`);
+                    return true;
+                  }
+                }
+                return false;
+              } catch (error) {
+                core.warning(`could not ask for runs in flight (${error.status ?? error.message})`);
+                return false;
+              }
+            };
+
+            const anchors = {};
+            for (const variant of VARIANTS) anchors[variant] = await readAnchor(variant);
+            const owed = [];
+            const carries = {};
+            for (const variant of VARIANTS) {
+              const anchor = anchors[variant];
+              // A 404 is an app with no anchor at all, which genuinely does not carry this commit.
+              // Any other unreadable anchor is this run failing, and it knows nothing either way.
+              carries[variant] = anchor.sha === undefined
+                ? (anchor.missing ? false : undefined)
+                : await anchorCarriesThisCommit(anchor.sha);
+              if (!carries[variant]) owed.push(variant);
+            }
+            // Read once: the table, the choice of what is due and the closest-window note are three
+            // readings of the same moment, and a minute boundary crossed between them would have
+            // the summary describe a decision other than the one taken beside it.
+            const now = Date.now();
+            const leftFor = (variant) => anchors[variant].at === undefined
+              ? 0
+              : Math.max(0, Math.ceil(windows[variant] - (now - anchors[variant].at) / 60000));
+            const lastBuildOf = (variant) => anchors[variant].at !== undefined
+              ? new Date(anchors[variant].at).toISOString().replace('T', ' ').slice(0, 16) + 'Z'
+              : anchors[variant].missing ? 'none yet' : 'unknown';
+            // An anchor nobody could read leaves the window with no start, and a window with no
+            // start has no state to report. The build goes ahead regardless, which is the point
+            // of resolving uncertainty towards building, but the table does not call it open.
+            const windowStateOf = (variant) => {
+              if (!owed.includes(variant)) return 'nothing owed';
+              const anchor = anchors[variant];
+              if (anchor.at === undefined && !anchor.missing) return 'unknown';
+              return leftFor(variant) === 0 ? 'open' : `opens in ${leftFor(variant)} min`;
+            };
+            shown.rows = VARIANTS.map((variant) => [
+              variant,
+              `${windows[variant]} min`,
+              lastBuildOf(variant),
+              carries[variant] === undefined ? 'unknown' : carries[variant] ? 'yes' : 'no',
+              // The window being open is a fact about the clock; whether a build follows depends on
+              // what else this run finds, so the cell names the window and not a departure time.
+              windowStateOf(variant),
+            ]);
+            if (owed.length === 0) {
+              core.info('every variant has already built this commit, nothing to ask for');
+              shown.note = 'Every app has an anchor that already carries this commit.';
+              await summarize();
+              return;
+            }
+            const chosen = owed.filter((variant) => leftFor(variant) === 0);
+            if (chosen.length === 0) {
+              core.info(`nothing is due, the closest window closes in ${Math.min(...owed.map(leftFor))} min`);
+              shown.note = `Nothing is due. The closest window has ${Math.min(...owed.map(leftFor))} min left.`;
+              await summarize();
+              return;
+            }
+            // A build on its way will move the anchors of everything it carries, so a due variant
+            // leaves the commit to that run rather than asking for a second one beside it.
+            if (await runInFlight()) {
+              core.info('a build is already on its way, leaving these variants to it');
+              shown.note = 'A build is in flight, so nothing was asked for here. It carries the commit it was dispatched for, which may be an earlier one.';
+              await summarize();
+              return;
+            }
+
+            // A tag date orders uploads rather than commits, and a variant can finish later on an
+            // older commit, so the baseline of the set is found by ancestry and not by time.
+            const olderOf = async (a, b) => {
+              if (!a || !b) return '';
+              if (a === b) return a;
+              try {
+                const diff = await github.rest.repos.compareCommits({ ...repo, base: a, head: b });
+                if (diff.data.status === 'ahead' || diff.data.status === 'identical') return a;
+                return diff.data.status === 'behind' ? b : '';
+              } catch (error) {
+                core.warning(`could not order the anchors (${error.status ?? error.message})`);
+                return '';
+              }
+            };
+            // The range the release workflow reads has to cover every commit any of these variants
+            // still owes a build for, and an unknown baseline means it reads the whole tip commit.
+            let baseline = anchors[chosen[0]].sha ?? '';
+            for (const variant of chosen.slice(1)) baseline = await olderOf(baseline, anchors[variant].sha ?? '');
+            // The release workflow takes one name per platform, so the chosen keys are folded back
+            // into that shape; a platform nobody owes a build for is asked for by name as none.
+            const pick = (platform) => {
+              const all = VARIANTS.filter((key) => APPS[key].platform === platform);
+              const some = chosen.filter((key) => APPS[key].platform === platform);
+              if (some.length === 0) return 'none';
+              return some.length === all.length ? 'both' : APPS[some[0]].variant;
+            };
+            const inputs = {
+              android_variant: pick('android'),
+              ios_variant: pick('ios'),
+              since_sha: baseline,
+              cadence: 'true',
+            };
+            // Nothing in a run's metadata says which request created it, so a run appearing after a
+            // failed call is not proof that the call landed, and asking again is the cheaper error.
+            const pause = (seconds) => new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+            // Only the dispatch belongs in this try. Saying what happened is not part of asking,
+            // and a failure to say it inside the retry would read as a dispatch that did not land
+            // and send a second one - two builds for one commit out of a summary that hiccuped.
+            let asked = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  ...repo,
+                  workflow_id: 'package-and-publish.yml',
+                  ref: 'master',
+                  inputs,
+                });
+                core.info(`asked for ios ${inputs.ios_variant} and android ${inputs.android_variant} since ${baseline || 'the last build'}`);
+                asked = true;
+                break;
+              } catch (error) {
+                core.warning(`dispatch attempt ${attempt} failed (${error.status ?? error.message})`);
+                await pause(15);
+              }
+            }
+            shown.note = asked
+              ? `Asked for a build: iOS ${inputs.ios_variant}, Android ${inputs.android_variant}.`
+              : 'Could not ask for a build. The next run of this gate tries again.';
+            await summarize();
+            if (!asked) core.setFailed('could not ask for a build; the next run of this gate will try again');

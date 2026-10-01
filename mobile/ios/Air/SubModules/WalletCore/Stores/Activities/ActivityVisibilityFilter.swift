@@ -7,9 +7,12 @@ struct ActivityVisibilityFilter {
         accountId: String,
         token: ApiToken?,
         poisoningCache: PoisoningCache,
-        hideTinyTransfers: Bool
+        hideTinyTransfers: Bool,
+        limit: Int? = nil
     ) -> [String]? {
-        ids?.filter { id in
+        guard let ids else { return nil }
+        if let limit, limit <= 0 { return [] }
+        let visible = ids.lazy.filter { id in
             guard let activity = activitiesById?[id] else { return false }
 
             switch activity {
@@ -37,5 +40,6 @@ struct ActivityVisibilityFilter {
                 return activity.shouldHide != true
             }
         }
+        return Array(visible.prefix(limit ?? ids.count))
     }
 }

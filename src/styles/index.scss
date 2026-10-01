@@ -362,11 +362,14 @@ a {
   }
 }
 
-.glare-image {
+// Unlike `.glare-text`, whose `background-clip: text` ignores the opacity and transforms of animated descendants
+// (e.g. `AnimatedCounter` digits), the mask applies to the rendered element, so descendant animations stay intact.
+// Only the alpha of `--glare-main` and `--glare-accent` is used; the element's own colors stay visible.
+.glare-mask {
   --glare-main: rgba(255, 255, 255, 0.3);
   --glare-accent: rgba(255, 255, 255, 0.7);
 
-  animation: glare-mask-image 2s ease-in-out infinite;
+  animation: glare-mask 2s ease-in-out infinite;
 
   mask-image: linear-gradient(
                   45deg,
@@ -379,7 +382,7 @@ a {
   mask-size: 200% 100%;
 }
 
-@keyframes glare-mask-image {
+@keyframes glare-mask {
   0% {
     mask-position: -50% 0;
   }

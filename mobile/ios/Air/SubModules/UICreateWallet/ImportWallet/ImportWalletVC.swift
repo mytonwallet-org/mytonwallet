@@ -134,10 +134,10 @@ public class ImportWalletVC: CreateWalletBaseVC {
             // scrollView
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             // contentLayout
-            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
+            scrollView.contentLayoutGuide.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
         ])
 
         headerView.isUserInteractionEnabled = true
@@ -158,8 +158,8 @@ public class ImportWalletVC: CreateWalletBaseVC {
         scrollView.addSubview(pasteButton)
         NSLayoutConstraint.activate([
             pasteButton.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 12),
-            pasteButton.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 48),
-            pasteButton.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -48)
+            pasteButton.leadingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leadingAnchor, constant: 48),
+            pasteButton.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -48)
         ])
 
         wordsStackView1.translatesAutoresizingMaskIntoConstraints = false
@@ -177,16 +177,16 @@ public class ImportWalletVC: CreateWalletBaseVC {
         scrollView.addSubview(wordsStackView2)
         NSLayoutConstraint.activate([
             wordsModeSegmentedControl.topAnchor.constraint(equalTo: pasteButton.bottomAnchor, constant: 16),
-            wordsModeSegmentedControl.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 32),
-            wordsModeSegmentedControl.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -32),
+            wordsModeSegmentedControl.leadingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leadingAnchor, constant: 32),
+            wordsModeSegmentedControl.trailingAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.trailingAnchor, constant: -32),
             wordsModeSegmentedControl.heightAnchor.constraint(equalToConstant: 36),
 
             wordsStackView1.topAnchor.constraint(equalTo: wordsModeSegmentedControl.bottomAnchor, constant: 24),
             wordsStackView2.topAnchor.constraint(equalTo: wordsStackView1.topAnchor),
             
-            wordsStackView1.leftAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leftAnchor, constant: 32),
+            wordsStackView1.leftAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.leftAnchor, constant: 32),
             wordsStackView2.leftAnchor.constraint(equalTo: wordsStackView1.rightAnchor, constant: 16),
-            wordsStackView2.rightAnchor.constraint(equalTo: scrollView.contentLayoutGuide.rightAnchor, constant: -32),
+            wordsStackView2.rightAnchor.constraint(equalTo: scrollView.safeAreaLayoutGuide.rightAnchor, constant: -32),
             wordsStackView1.widthAnchor.constraint(equalTo: wordsStackView2.widthAnchor),
             wordsStackView2.bottomAnchor.constraint(equalTo: wordsStackView1.bottomAnchor),
         ])

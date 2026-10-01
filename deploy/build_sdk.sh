@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Without this the script keeps going after a failed webpack run and copies whatever `dist-air`
+# Without this the script keeps going after a failed build and copies whatever `dist-air`
 # happened to hold, which reaches the mobile asset dirs as a silently stale SDK.
 set -euo pipefail
 
 # Build SDKs
 rm -rf dist-air
-SDK_OUTPUT_CLEAN=1 IS_GRAM_WALLET=0 webpack --config webpack-air.config.ts
-SDK_OUTPUT_CLEAN=0 IS_GRAM_WALLET=1 webpack --config webpack-air.config.ts
+SDK_OUTPUT_CLEAN=1 IS_GRAM_WALLET=0 vite build --config vite-air.config.ts
+SDK_OUTPUT_CLEAN=0 IS_GRAM_WALLET=1 vite build --config vite-air.config.ts
 
 for sdk in dist-air/mytonwallet-sdk.js dist-air/gramwallet-sdk.js; do
   if [ ! -s "$sdk" ]; then
@@ -63,7 +63,6 @@ rm -f \
   "$IOS_MYTONWALLET_TARGET"/*-sdk.js.LICENSE.txt \
   "$IOS_MYTONWALLET_TARGET"/agent-*-config.json
 cp dist-air/mytonwallet-sdk.js "$IOS_MYTONWALLET_TARGET/"
-cp dist-air/mytonwallet-sdk.js.LICENSE.txt "$IOS_MYTONWALLET_TARGET/" 2>/dev/null || true
 cp dist-air/agent-override-config.json "$IOS_MYTONWALLET_TARGET/"
 
 rm -f \
@@ -71,17 +70,14 @@ rm -f \
   "$IOS_GRAM_TARGET"/*-sdk.js.LICENSE.txt \
   "$IOS_GRAM_TARGET"/agent-*-config.json
 cp dist-air/gramwallet-sdk.js "$IOS_GRAM_TARGET/"
-cp dist-air/gramwallet-sdk.js.LICENSE.txt "$IOS_GRAM_TARGET/" 2>/dev/null || true
 cp dist-air/agent-override-config.json "$IOS_GRAM_TARGET/"
 
 # Copy SDKs to Android flavor-specific asset dirs
 rm -f "$ANDROID_MYTONWALLET_TARGET"/*-sdk.js "$ANDROID_MYTONWALLET_TARGET"/*-sdk.js.LICENSE.txt
 cp dist-air/mytonwallet-sdk.js "$ANDROID_MYTONWALLET_TARGET/"
-cp dist-air/mytonwallet-sdk.js.LICENSE.txt "$ANDROID_MYTONWALLET_TARGET/" 2>/dev/null || true
 
 rm -f "$ANDROID_GRAM_TARGET"/*-sdk.js "$ANDROID_GRAM_TARGET"/*-sdk.js.LICENSE.txt
 cp dist-air/gramwallet-sdk.js "$ANDROID_GRAM_TARGET/"
-cp dist-air/gramwallet-sdk.js.LICENSE.txt "$ANDROID_GRAM_TARGET/" 2>/dev/null || true
 
 # Build .xcstrings from YAML locale files when Xcode is available. Local Agent launchers reuse the
 # checked-in compiled strings so the acceptance cycle stays offline.

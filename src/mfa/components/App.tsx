@@ -89,7 +89,7 @@ function App() {
       // eslint-disable-next-line no-console
       console.error(err);
       if (isTelegramAccountMismatchError(err)) {
-        setTransactionError(lang('This wallet is not linked to the current Telegram account.'));
+        setTransactionError(lang('Please switch to the Telegram account connected to your wallet.'));
         setLoading(false);
         return;
       }

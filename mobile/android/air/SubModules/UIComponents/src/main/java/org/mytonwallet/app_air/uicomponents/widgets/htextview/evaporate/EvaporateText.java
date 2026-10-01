@@ -41,6 +41,7 @@ public class EvaporateText extends HText {
     // their position by shifting with the moving edge.
     private int mResizeAnchor = RESIZE_ANCHOR_START;
     private int mOldViewWidth;
+    private Runnable pendingAnimate;
 
     public void setResizeAnchor(int anchor) {
         mResizeAnchor = anchor;
@@ -88,8 +89,13 @@ public class EvaporateText extends HText {
         if (mHTextView == null) {
             return;
         }
+        if (pendingAnimate != null) {
+            mHTextView.removeCallbacks(pendingAnimate);
+            pendingAnimate = null;
+        }
 
         Runnable animate = () -> {
+            pendingAnimate = null;
             if (mHTextView.getLayout() == null) {
                 return;
             }
@@ -100,7 +106,12 @@ public class EvaporateText extends HText {
 
         if (mHTextView.getLayout() != null) {
             animate.run();
+        } else if (!animated) {
+            // Nothing is animated from the old layout, so the text applies now instead of on attach.
+            mOldViewWidth = mHTextView.getWidth();
+            EvaporateText.super.animateText(text, false);
         } else {
+            pendingAnimate = animate;
             mHTextView.post(animate);
         }
     }

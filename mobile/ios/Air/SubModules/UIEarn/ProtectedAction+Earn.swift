@@ -5,6 +5,7 @@ import WalletCore
 extension ProtectedAction where HeaderView == StakingConfirmHeaderView, Result == ApiMfaProtectedResult {
     static func stake(model: AddStakeModel, account: MAccount) throws -> Self {
         guard let snapshot = model.currentDraftSnapshot,
+              snapshot.draft.error == nil,
               snapshot.request.accountId == account.id else {
             throw DisplayError(text: lang("Transaction is not ready"))
         }
@@ -45,6 +46,7 @@ extension ProtectedAction where HeaderView == StakingConfirmHeaderView, Result =
 
     static func unstake(model: UnstakeModel, account: MAccount) throws -> Self {
         guard let snapshot = model.currentDraftSnapshot,
+              snapshot.draft.error == nil,
               snapshot.request.accountId == account.id else {
             throw DisplayError(text: lang("Transaction is not ready"))
         }

@@ -118,6 +118,23 @@
   }
 }
 
+// Background of a bar with actions at the bottom of a scrolling area. The consumer positions the bar and adds
+// `$separatedSelector` while content is scrolled under it: the bar then turns translucent, blurs that content and
+// gets a top separator
+
+@mixin footerBar($separatedSelector) {
+  background-color: var(--color-background-window);
+
+  @include t.transition(background-color 300ms);
+
+  &#{$separatedSelector} {
+    background-color: var(--color-background-tab-bar);
+    backdrop-filter: var(--filter-blur-bar);
+
+    @include separator();
+  }
+}
+
 // Quiet "frosted glass" look used by the bottom bar and adjacent floating
 // surfaces (agent input pill, explore search). Skipped on Android, where
 // the effect looks out of place visually.

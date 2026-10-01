@@ -51,7 +51,6 @@ import nearIntentsLogoDark from '../../assets/swap_provider_near_dark.svg';
 import nearIntentsLogoLight from '../../assets/swap_provider_near_light.svg';
 
 interface OwnProps {
-  isStatic?: boolean;
   isActive?: boolean;
 }
 
@@ -106,7 +105,6 @@ function SwapInitial({
   },
   tokens,
   isActive,
-  isStatic,
   isComplete,
   swapType,
   isSensitiveDataHidden,
@@ -418,7 +416,6 @@ function SwapInitial({
 
     return (
       <FeeLine
-        isStatic={isStatic}
         terms={terms}
         token={tokenIn}
         precision={precision}
@@ -435,10 +432,7 @@ function SwapInitial({
     }
 
     return (
-      <div
-        className={buildClassName(styles.priceImpact, isStatic && styles.priceImpactStatic)}
-        onClick={openSettingsModal}
-      >
+      <div className={styles.priceImpact} onClick={openSettingsModal}>
         <AnimatedIconWithPreview
           play={isActive}
           tgsUrl={ANIMATED_STICKERS_PATHS.run}
@@ -524,7 +518,7 @@ function SwapInitial({
     ) : providerName;
 
     return (
-      <div className={buildClassName(styles.providerInfo, isStatic && styles.providerInfoStatic)}>
+      <div className={styles.providerInfo}>
         <span className={styles.providerInfoTitle}>
           {lang('Cross-chain exchange provided by %provider%', { provider })}
         </span>
@@ -565,7 +559,7 @@ function SwapInitial({
 
   return (
     <>
-      <form className={isStatic ? undefined : modalStyles.transitionContent} onSubmit={handleSubmit}>
+      <form className={modalStyles.transitionContent} onSubmit={handleSubmit}>
         <div className={styles.content}>
           <div ref={inputInRef} className={styles.inputContainer}>
             {renderBalance()}
@@ -580,14 +574,13 @@ function SwapInitial({
               onPressEnter={handleSubmit}
               decimals={tokenIn?.decimals}
               labelClassName={styles.inputLabel}
-              cornerClassName={buildClassName(styles.swapCornerTop, isStatic && styles.swapCornerStaticTop)}
-              isStatic={isStatic}
+              cornerClassName={styles.swapCornerTop}
             >
               <SelectTokenButton token={tokenIn as ApiToken} onClick={handleSelectTokenInModalOpen} />
             </RichNumberInput>
           </div>
 
-          <div className={buildClassName(styles.swapButtonWrapper, isStatic && styles.swapButtonWrapperStatic)}>
+          <div className={styles.swapButtonWrapper}>
             <AnimatedArrows onClick={handleSwitchTokens} />
           </div>
 
@@ -604,14 +597,13 @@ function SwapInitial({
               onInputClick={handleBuyAmountInputClick}
               decimals={tokenOut?.decimals}
               labelClassName={styles.inputLabel}
-              cornerClassName={buildClassName(styles.swapCornerBottom, isStatic && styles.swapCornerStaticBottom)}
-              isStatic={isStatic}
+              cornerClassName={styles.swapCornerBottom}
             >
               <SelectTokenButton token={tokenOut as ApiToken} onClick={handleSelectTokenOutModalOpen} />
             </RichNumberInput>
           </div>
         </div>
-        <div className={buildClassName(styles.footerBlock, isStatic && styles.footerBlockStatic)}>
+        <div className={styles.footerBlock}>
           {renderFee()}
           {renderPriceImpactWarning()}
           {renderSwapHint()}

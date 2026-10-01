@@ -2,16 +2,20 @@ import Dependencies
 import Testing
 @testable import UISwap
 import WalletCore
+import WalletResources
 
 @Suite("Swap Button Configuration")
+@MainActor
 struct SwapButtonConfigurationTests {
-    @Test @MainActor
+    init() { _ = WalletResourcesBundle.bundle.load() }
+
+    @Test
     func `submission stays busy through balance updates and restores editing afterward`() {
         withDependencies {
             $0[_TokenStore.self] = TokenStore
             $0[_BalancesStore.self] = .liveValue
         } operation: {
-            let delegate = ButtonRecorder()
+            let delegate = Delegate()
             let account = MAccount(id: "swap-progress-mainnet", title: nil, type: .mnemonic,
                                    byChain: [.ton: .init(address: "sender")])
             let model = SwapModel(
@@ -21,22 +25,21 @@ struct SwapButtonConfigurationTests {
                 accountContext: AccountContext(source: .constant(account))
             )
             model.refreshBalances()
-            let editing = delegate.configuration
-            #expect(editing != nil)
+            let editing = model.currentButtonConfiguration
 
             model.setStage(.confirming)
-            #expect(delegate.configuration?.showLoading == true)
-            #expect(delegate.configuration?.isEnabled == false)
+            #expect(model.currentButtonConfiguration.showLoading)
+            #expect(!model.currentButtonConfiguration.isEnabled)
             #expect(model.continueRoute() == nil)
 
             model.refreshBalances()
-            #expect(delegate.configuration?.showLoading == true)
-            #expect(delegate.configuration?.isEnabled == false)
+            #expect(model.currentButtonConfiguration.showLoading)
+            #expect(!model.currentButtonConfiguration.isEnabled)
 
             model.setStage(.editing)
             model.refreshBalances()
-            #expect(delegate.configuration?.showLoading == false)
-            #expect(delegate.configuration?.isEnabled == editing?.isEnabled)
+            #expect(!model.currentButtonConfiguration.showLoading)
+            #expect(model.currentButtonConfiguration.isEnabled == editing.isEnabled)
         }
     }
 
@@ -48,18 +51,10 @@ struct SwapButtonConfigurationTests {
         sellingWithUpdatedPrice.percentChange24h = -1.5
         let buying = token(slug: "tether-usdt", symbol: "USDT", chain: .ton)
 
-        let first = SwapButtonConfiguration(
-            title: .swap(selling, buying),
-            isEnabled: false,
-            showLoading: false
-        )
-        let second = SwapButtonConfiguration(
-            title: .swap(sellingWithUpdatedPrice, buying),
-            isEnabled: false,
-            showLoading: false
-        )
+        let first = SwapButtonModel().configuration(for: .waitingForEstimate, sellingToken: selling, buyingToken: buying)
+        let second = SwapButtonModel().configuration(for: .waitingForEstimate, sellingToken: sellingWithUpdatedPrice, buyingToken: buying)
 
-        #expect(first.hasSamePresentation(as: second))
+        #expect(first == second)
     }
 
     @Test
@@ -68,26 +63,15 @@ struct SwapButtonConfigurationTests {
         let buying = token(slug: "tether-usdt", symbol: "USDT", chain: .ton)
         let nextBuying = token(slug: "ethereum-eth", symbol: "ETH", chain: .ethereum)
 
-        let first = SwapButtonConfiguration(
-            title: .swap(selling, buying),
-            isEnabled: false,
-            showLoading: false
-        )
-        let second = SwapButtonConfiguration(
-            title: .swap(selling, nextBuying),
-            isEnabled: false,
-            showLoading: false
-        )
+        let first = SwapButtonModel().configuration(for: .waitingForEstimate, sellingToken: selling, buyingToken: buying)
+        let second = SwapButtonModel().configuration(for: .waitingForEstimate, sellingToken: selling, buyingToken: nextBuying)
 
-        #expect(!first.hasSamePresentation(as: second))
+        #expect(first != second)
     }
 
 }
 
-@MainActor
-private final class ButtonRecorder: SwapModelDelegate {
-    var configuration: SwapButtonConfiguration?
-    func applyButtonConfiguration(_ config: SwapButtonConfiguration) { configuration = config }
+@MainActor private final class Delegate: SwapModelDelegate {
     func executeSwapCommand(_ command: SwapCommand) {}
 }
 
