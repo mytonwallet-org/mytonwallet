@@ -90,7 +90,8 @@ class SwapVC(
     context: Context,
     defaultSendingToken: MApiSwapAsset? = null,
     defaultReceivingToken: MApiSwapAsset? = null,
-    amountIn: Double? = null
+    amountIn: Double? = null,
+    amountOut: Double? = null
 ) : WViewControllerWithModelStore(context) {
     @Suppress("PropertyName")
     override val TAG = "Swap"
@@ -190,6 +191,7 @@ class SwapVC(
             estLayout.setEstimated(null, toToken = defaultReceivingToken)
         }
         if (amountIn != null) swapViewModel.setAmount(amountIn)
+        if (amountOut != null) swapViewModel.setBuyingAmount(amountOut)
     }
 
     override fun setupViews() {

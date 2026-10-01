@@ -259,7 +259,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-360';
+export const LANG_CACHE_NAME = 'mtw-lang-365';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -323,9 +323,9 @@ export const LANG_LIST: LangItem[] = [{
   rtl: true,
 }];
 
-// Blacklist-style feature flags (default unset = feature ON). Each is substituted at build time by
-// `EnvironmentPlugin`, so it both drives Webpack dead-code elimination (drops code + npm deps) and is
-// readable at runtime to silence behaviour/network for anything still bundled.
+// Blacklist-style feature flags (default unset = feature ON). Each is substituted at build time, so it both
+// drives dead-code elimination (drops code + npm deps) and is readable at runtime to silence
+// behaviour/network for anything still bundled.
 export const NO_TON = process.env.NO_TON === '1';
 export const NO_TRON = process.env.NO_TRON === '1';
 export const NO_SOLANA = process.env.NO_SOLANA === '1';

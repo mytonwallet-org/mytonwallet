@@ -153,8 +153,20 @@ public extension ApiSwapActivity {
         return .init(outgoing: .init(hash: hash, chain: chain))
     }
 
-    func displayStatus(accountChains: Set<ApiChain>? = nil) -> SwapDisplayStatus {
+    var cexWaitingDeadline: Date {
+        Date(timeIntervalSince1970: Double(timestamp) / 1000 + 3 * 60 * 60)
+    }
+
+    func shouldShowCexSupport(at date: Date = .now) -> Bool {
+        guard let cex, cex.status != .finished, cex.status != .confirmed else { return false }
+        return cex.status == .hold || date >= cexWaitingDeadline
+    }
+
+    func displayStatus(accountChains: Set<ApiChain>? = nil, at date: Date = .now) -> SwapDisplayStatus {
         if let cexStatus = cex?.status {
+            if (cexStatus == .new || cexStatus == .waiting), date >= cexWaitingDeadline {
+                return .expired
+            }
             switch cexStatus {
             case .expired, .overdue:
                 return .expired

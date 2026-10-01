@@ -37,7 +37,6 @@ type OwnProps = {
   onInputClick?: NoneToVoidFunction;
   decimals?: number;
   disabled?: boolean;
-  isStatic?: boolean;
   size?: 'large' | 'normal';
 };
 
@@ -65,7 +64,6 @@ function RichNumberInput({
   onInputClick,
   decimals = FRACTION_DIGITS,
   disabled = false,
-  isStatic = false,
   size = 'large',
 }: OwnProps) {
   const inputRef = useRef<HTMLInputElement>();
@@ -149,7 +147,6 @@ function RichNumberInput({
   const inputWrapperFullClass = buildClassName(
     styles.input__wrapper,
     size === 'large' && styles.input__wrapper_large,
-    isStatic && styles.inputWrapperStatic,
     hasError && styles.error,
     hasFocus && styles.input__wrapper_hasFocus,
     inputClassName,

@@ -38,7 +38,7 @@ final class HomeCard: UICollectionViewCell {
     private let cardBackground = HomeCardBackground()
     private let cardPromotion = HomeCardPromotionView()
     var cardContentMaskingContainer: UIView!
-    var cardContentMask: UIView!
+    private var cardContentClipTransform = CGAffineTransform.identity
     private let cardContent = HomeCardContentView(mode: .expanded)
     private let collapsedContent = HomeCardContentView(mode: .collapsed)
     private let miniatureContent = HomeCardMiniatureContent()
@@ -115,30 +115,14 @@ final class HomeCard: UICollectionViewCell {
         ])
 
         cardContentMaskingContainer = UIView()
-        cardContentMaskingContainer.translatesAutoresizingMaskIntoConstraints = false
+        cardContentMaskingContainer.layer.cornerRadius = 26
+        cardContentMaskingContainer.layer.cornerCurve = .continuous
+        cardContentMaskingContainer.clipsToBounds = true
         cardSurface.addSubview(cardContentMaskingContainer)
-        NSLayoutConstraint.activate([
-             cardContentMaskingContainer.topAnchor.constraint(equalTo: cardSurface.topAnchor),
-             cardContentMaskingContainer.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
-             cardContentMaskingContainer.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
-             cardContentMaskingContainer.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
-        ])
-
-        cardContentMask = UIView()
-        cardContentMask.backgroundColor = .white
-        cardContentMask.translatesAutoresizingMaskIntoConstraints = false
-        cardContentMask.layer.cornerRadius = 26
-        cardContentMask.layer.cornerCurve = .continuous
-        cardContentMask.layer.masksToBounds = true
 
         cardContent.isAccessibilityElement = false
+        cardContent.translatesAutoresizingMaskIntoConstraints = true
         cardContentMaskingContainer.addSubview(cardContent)
-        NSLayoutConstraint.activate([
-            cardContent.topAnchor.constraint(equalTo: cardSurface.topAnchor),
-            cardContent.leadingAnchor.constraint(equalTo: cardSurface.leadingAnchor),
-            cardContent.trailingAnchor.constraint(equalTo: cardSurface.trailingAnchor),
-            cardContent.bottomAnchor.constraint(equalTo: cardSurface.bottomAnchor),
-        ])
 
         miniatureContent.isAccessibilityElement = false
         miniatureContent.accessibilityElementsHidden = true
@@ -155,9 +139,6 @@ final class HomeCard: UICollectionViewCell {
         miniatureTapButton.isHidden = true
         miniatureTapButton.addTarget(self, action: #selector(expandFromMiniature), for: .touchUpInside)
         contentView.addSubview(miniatureTapButton)
-
-        cardContentMaskingContainer.mask = cardContentMask
-//        cardBackground.alpha = 0.1
     }
 
     func configure(
@@ -166,6 +147,10 @@ final class HomeCard: UICollectionViewCell {
         layout: HomeCardLayoutMetrics = .screen,
         minimumHomeCardFontScale: CGFloat = 1
     ) {
+        if observeToken != nil, container.headerViewModel === headerViewModel, container.accountContext === accountContext {
+            applyLayoutMetrics(layout, minimumHomeCardFontScale: minimumHomeCardFontScale)
+            return
+        }
         HomeTrace.record("card.configure", "card=\(ObjectIdentifier(self)) state=\(headerViewModel.state)")
         observeToken?.cancel()
         observeToken = nil
@@ -202,6 +187,7 @@ final class HomeCard: UICollectionViewCell {
 
     private func applyTransform(headerViewModel: HomeHeaderViewModel) {
         let layout = container.layout
+        guard layout.itemWidth > 0, layout.itemHeight > 0 else { return }
         let usesNavigationBarTopTabs = headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs
         let miniatureCardWidth: CGFloat = usesNavigationBarTopTabs ? 40.5 : 34
         // background
@@ -223,7 +209,7 @@ final class HomeCard: UICollectionViewCell {
         case .expanded:
             self.cardBackground.transform = .identity
             self.cardPromotion.transform = .identity
-            self.cardContentMask.transform = .identity
+            self.cardContentClipTransform = .identity
             self.miniatureContent.transform = .identity
             self.cardContent.transform = .identity
             self.collapsedContent.transform = .identity
@@ -235,13 +221,14 @@ final class HomeCard: UICollectionViewCell {
                 .scaledBy(x: scale, y: scale)
             self.cardBackground.transform = t
             self.cardPromotion.transform = t
-            self.cardContentMask.transform = t
+            self.cardContentClipTransform = t
             self.miniatureContent.transform = t
             self.cardContent.transform = .identity
                 .translatedBy(x: dx, y: dy)
                 .scaledBy(x: 1/r, y: 1/r)
             self.collapsedContent.transform = .identity
         }
+        updateCardContentClip(layout)
         updateMiniatureTapButtonFrame()
     }
 
@@ -268,7 +255,7 @@ final class HomeCard: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateCardContentMask(container.layout)
+        updateCardContentClip(container.layout)
         updateMiniatureTapButtonFrame()
     }
 
@@ -298,7 +285,7 @@ final class HomeCard: UICollectionViewCell {
         cardContent.updateLayout(layout, minimumFontScale: minimumHomeCardFontScale)
         collapsedContent.updateLayout(layout, minimumFontScale: minimumHomeCardFontScale)
         updateLayout(layout)
-        updateCardContentMask(layout)
+        updateCardContentClip(layout)
         guard let headerViewModel = container.headerViewModel else { return }
         UIView.performWithoutAnimation {
             applyTransform(headerViewModel: headerViewModel)
@@ -307,9 +294,15 @@ final class HomeCard: UICollectionViewCell {
         }
     }
 
-    private func updateCardContentMask(_ layout: HomeCardLayoutMetrics) {
-        cardContentMask.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
-        cardContentMask.center = CGPoint(x: layout.itemWidth/2, y: layout.itemHeight/2)
+    private func updateCardContentClip(_ layout: HomeCardLayoutMetrics) {
+        let t = cardContentClipTransform
+        let size = CGSize(width: layout.itemWidth * t.a, height: layout.itemHeight * t.d)
+        cardContentMaskingContainer.bounds = CGRect(origin: .zero, size: size)
+        cardContentMaskingContainer.center = CGPoint(x: layout.itemWidth / 2 + t.tx, y: layout.itemHeight / 2 + t.ty)
+        cardContentMaskingContainer.layer.cornerRadius = 26 * t.a
+        // Move the clip independently while the content keeps its original animation coordinates.
+        cardContent.bounds = CGRect(x: 0, y: 0, width: layout.itemWidth, height: layout.itemHeight)
+        cardContent.center = CGPoint(x: size.width / 2 - t.tx, y: size.height / 2 - t.ty)
     }
 
     private func updateMiniatureTapButtonFrame() {

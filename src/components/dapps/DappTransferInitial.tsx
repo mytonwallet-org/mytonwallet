@@ -33,7 +33,11 @@ import { getChainConfig } from '../../util/chain';
 import { toBig, toDecimal } from '../../util/decimals';
 import { formatCurrency, getIsCurrencySymbolAtStart, getShortCurrencySymbol } from '../../util/formatNumber';
 import { shortenAddress } from '../../util/shortenAddress';
-import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/transfer';
+import {
+  getPayloadRecipientAddress,
+  isNftTransferPayload,
+  isTokenTransferPayload,
+} from '../../util/ton/transfer';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
@@ -45,6 +49,7 @@ import useTimeout from '../../hooks/useTimeout';
 import ActivityPreview from '../common/ActivityPreview';
 import HeroAmount from '../common/HeroAmount';
 import Button from '../ui/Button';
+import ModalFooter from '../ui/ModalFooter';
 import Transition from '../ui/Transition';
 import DappFeeDetailsModal from './DappFeeDetailsModal';
 import DappInfoWithAccount from './DappInfoWithAccount';
@@ -238,13 +243,13 @@ function DappTransferInitial({
 
   function renderFooter() {
     return (
-      <div className={styles.footer}>
+      <ModalFooter>
         {!hasSufficientBalance && (
           <div className={styles.balanceError}>
             {lang('Not Enough %symbol%', { symbol: insufficientTokens })}
           </div>
         )}
-        <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
+        <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>
           <Button className={modalStyles.button} onClick={onClose}>{lang('Cancel')}</Button>
           <Button
             isPrimary
@@ -256,12 +261,13 @@ function DappTransferInitial({
             {lang('Send')}
           </Button>
         </div>
-      </div>
+      </ModalFooter>
     );
   }
 
   function renderTransactionRow(transaction: SortedDappTransfer) {
     const { payload } = transaction;
+    const payloadRecipientAddress = getPayloadRecipientAddress(transaction);
 
     const amountText: string[] = [];
     if (isNftTransferPayload(payload)) {
@@ -287,8 +293,11 @@ function DappTransferInitial({
         {' '}
         <span className={buildClassName(styles.transactionRowAddress, transaction.isScam && styles.scam)}>
           {lang('$transaction_to', {
-            address: shortenAddress(transaction.displayedToAddress),
+            address: shortenAddress(transaction.toAddress),
           })}
+          {payloadRecipientAddress && (
+            <> · {lang('Recipient')}: {shortenAddress(payloadRecipientAddress)}</>
+          )}
         </span>
         <i className={buildClassName(styles.transactionRowChevron, 'icon-chevron-right')} aria-hidden />
       </div>

@@ -6,6 +6,9 @@ import SwiftUI
 
 
 public final class LedgerAddAccountVC: WViewController {
+
+    public override var maxContentWidth: CGFloat? { 560 }
+    public override var prefersViewCenteredContent: Bool { true }
     
     public var onDone: ((LedgerAddAccountVC) -> ())?
     

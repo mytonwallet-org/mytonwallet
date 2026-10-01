@@ -2,12 +2,14 @@ package org.mytonwallet.app_air.uicomponents.widgets
 
 import android.animation.Animator
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.airbnb.lottie.LottieAnimationView
 import com.airbnb.lottie.LottieDrawable
 import com.airbnb.lottie.RenderMode
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 
 open class WAnimationView(context: Context) : LottieAnimationView(context) {
     companion object {
@@ -30,6 +32,11 @@ open class WAnimationView(context: Context) : LottieAnimationView(context) {
             firePendingOnStart()
             visibility = GONE
         }
+    }
+
+    // Frames of an animation shown while the screen is revealed wait until the reveal ends.
+    override fun invalidateDrawable(dr: Drawable) {
+        RevealUpdates.runOrHold(this, dr) { super.invalidateDrawable(dr) }
     }
 
     fun play(animation: Int, repeat: Boolean = true, onStart: (() -> Unit)?) {

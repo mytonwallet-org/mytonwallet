@@ -1,5 +1,6 @@
 import type {
   ApiAccountWithChain,
+  ApiDappTransfer,
   ApiNftTransferPayload,
   ApiParsedPayload,
   ApiTokensTransferNonStandardPayload,
@@ -16,6 +17,17 @@ export function isTokenTransferPayload(
   payload: ApiParsedPayload | undefined,
 ): payload is ApiTokensTransferPayload | ApiTokensTransferNonStandardPayload {
   return payload?.type === 'tokens:transfer' || payload?.type === 'tokens:transfer-non-standard';
+}
+
+/** Returns the recipient declared in the payload when it differs from the address the message is sent to */
+export function getPayloadRecipientAddress({ toAddress, payload }: Pick<ApiDappTransfer, 'toAddress' | 'payload'>) {
+  let recipientAddress: string | undefined;
+  if (isNftTransferPayload(payload)) {
+    recipientAddress = payload.newOwner;
+  } else if (isTokenTransferPayload(payload)) {
+    recipientAddress = payload.destination;
+  }
+  return recipientAddress !== toAddress ? recipientAddress : undefined;
 }
 
 /** How many messages can be sent in a single transaction */

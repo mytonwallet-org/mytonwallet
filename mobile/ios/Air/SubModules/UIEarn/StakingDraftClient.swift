@@ -5,18 +5,12 @@ struct AddStakeDraftRequest: Equatable, Sendable {
     let accountId: String
     let amount: BigInt
     let stakingState: ApiStakingState
-    // Balances participate in identity even though the SDK reads wallet state.
-    let nativeBalance: BigInt
-    let baseTokenBalance: BigInt
 }
 
 struct UnstakeDraftRequest: Equatable, Sendable {
     let accountId: String
     let amount: BigInt
     let stakingState: ApiStakingState
-    // Balances participate in identity even though the SDK reads wallet state.
-    let nativeBalance: BigInt
-    let stakedTokenBalance: BigInt
 }
 
 struct StakingDraftClient: Sendable {

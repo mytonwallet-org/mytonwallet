@@ -48,6 +48,22 @@ val INIT_SCRIPT
     get() =
         "window.airBridge.initApi((data) => {androidApp.onUpdate(data.type, JSON.stringify(data))}, {isAndroidApp: true, langCode: '${LocaleController.activeLanguage.langCode}'})"
 
+/**
+ * `MyWallet/26.9.9 (66330)` - the version name a person reads and the version code that
+ * identifies one build, in the same shape the iOS web view appends.
+ */
+private fun clientUserAgentToken(context: Context): String {
+    val packages = context.packageManager
+    val info = packages.getPackageInfo(context.packageName, 0)
+    val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        info.longVersionCode
+    } else {
+        info.versionCode.toLong()
+    }
+    val name = context.applicationInfo.loadLabel(packages).toString().replace(" ", "")
+    return name + "/" + (info.versionName ?: "0") + " (" + code + ")"
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 class JSWebViewBridge(context: Context) : WebView(context) {
 
@@ -64,6 +80,11 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
         settings.setRenderPriority(WebSettings.RenderPriority.LOW)
+        // Every request the SDK makes says which app made it. The web view's default agent
+        // string names Chrome and the device and nothing else, so a request arriving at our own
+        // logs could not be told from any other Android phone's, and answering "which build is
+        // this device running" took a device log export.
+        settings.userAgentString = settings.userAgentString + " " + clientUserAgentToken(context)
         val webViewVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WebViewCompat.getCurrentWebViewPackage(context)?.versionName
         } else {
@@ -288,11 +309,29 @@ class JSWebViewBridge(context: Context) : WebView(context) {
             }
         }
 
+        private fun readSlugs(reader: JsonReader, into: MutableCollection<String>) {
+            if (reader.peek() != JsonReader.Token.BEGIN_ARRAY) {
+                reader.skipValue()
+                return
+            }
+            reader.beginArray()
+            while (reader.hasNext()) {
+                if (reader.peek() == JsonReader.Token.STRING) {
+                    into.add(reader.nextString())
+                } else {
+                    reader.skipValue()
+                }
+            }
+            reader.endArray()
+        }
+
         private fun streamUpdateTokens(updateString: String) {
             val reader = JsonReader.of(Buffer().writeUtf8(updateString))
             val tokens = LinkedHashMap<String, MToken>()
             val presentSlugs = HashSet<String>()
             val removedSlugs = ArrayList<String>()
+            val unpricedSlugs = HashSet<String>()
+            var isIncomplete = false
             var kind: ApiTokenUpdateKind? = null
             var hasTokens = false
             try {
@@ -337,20 +376,17 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                             reader.endObject()
                         }
 
-                        "removedSlugs" -> {
-                            if (reader.peek() != JsonReader.Token.BEGIN_ARRAY) {
+                        "removedSlugs" -> readSlugs(reader, removedSlugs)
+
+                        "unpricedSlugs" -> readSlugs(reader, unpricedSlugs)
+
+                        "isIncomplete" -> {
+                            isIncomplete = if (reader.peek() == JsonReader.Token.BOOLEAN) {
+                                reader.nextBoolean()
+                            } else {
                                 reader.skipValue()
-                                continue
+                                false
                             }
-                            reader.beginArray()
-                            while (reader.hasNext()) {
-                                if (reader.peek() == JsonReader.Token.STRING) {
-                                    removedSlugs.add(reader.nextString())
-                                } else {
-                                    reader.skipValue()
-                                }
-                            }
-                            reader.endArray()
                         }
 
                         else -> reader.skipValue()
@@ -382,7 +418,14 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 } catch (_: Exception) {
                 }
             }
-            TokenStore.applyTokenUpdate(tokens, presentSlugs, kind, removedSlugs)
+            TokenStore.applyTokenUpdate(
+                tokens,
+                presentSlugs,
+                kind,
+                removedSlugs,
+                isIncomplete,
+                unpricedSlugs
+            )
             TokenStore.updateTokensCache()
             BalanceStore.resetBalanceInBaseCurrency()
             Handler(Looper.getMainLooper()).post {

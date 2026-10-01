@@ -1,6 +1,12 @@
 import type { ApiChain } from '../types';
 import type { ChainSdk } from '../types/chains';
 
+import EVMSdk from './evm';
+import solanaSdk from './solana';
+import tonSdk from './ton';
+import tronSdk from './tron';
+import UTXOSdk from './utxo';
+
 /**
  * This dictionary contains only universal chain methods, i.e. the methods having the same interface in all the chains.
  *
@@ -8,28 +14,28 @@ import type { ChainSdk } from '../types/chains';
  * all chain methods should be universal. If a chain doesn't support some functionality yet, the corresponding methods
  * should simply throw an error.
  *
- * Every chain is registered behind a `process.env.NO_*` build flag, letting Webpack dead-code elimination drop unused
- * chain modules and their heavy npm dependencies. The exported type is intentionally the full `Record<ApiChain, ...>`
- * (not `Partial`): a disabled chain is simply absent at runtime, but it is never indexed because polling iterates
- * `Object.keys(chains)` and the UI never initiates actions for a chain the account doesn't have.
+ * Every chain is registered behind a `process.env.NO_*` build flag. For a disabled chain, `plugins/disabledImports.ts`
+ * replaces the `./<chain>` import below with a stub, so neither the SDK nor its heavy npm dependencies reach the
+ * bundle. Keep importing each SDK as `./<chain>`: the build fails otherwise when its flag is on. The exported type
+ * is intentionally the full `Record<ApiChain, ...>` (not `Partial`): a disabled chain is simply absent at runtime, but
+ * it is never indexed because polling iterates `Object.keys(chains)` and the UI never initiates actions for a chain the
+ * account doesn't have.
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
 export const chains = {} as { [K in ApiChain]: ChainSdk<K> };
 
 if (process.env.NO_TON !== '1') {
-  chains.ton = require('./ton').default;
+  chains.ton = tonSdk;
 }
 
 if (process.env.NO_TRON !== '1') {
-  chains.tron = require('./tron').default;
+  chains.tron = tronSdk;
 }
 
 if (process.env.NO_SOLANA !== '1') {
-  chains.solana = require('./solana').default;
+  chains.solana = solanaSdk;
 }
 
 if (process.env.NO_UTXO !== '1') {
-  const UTXOSdk = require('./utxo').default;
   Object.assign(chains, {
     bitcoin: new UTXOSdk('bitcoin'),
     litecoin: new UTXOSdk('litecoin'),
@@ -39,7 +45,6 @@ if (process.env.NO_UTXO !== '1') {
 }
 
 if (process.env.NO_EVM !== '1') {
-  const EVMSdk = require('./evm').default;
   Object.assign(chains, {
     ethereum: new EVMSdk('ethereum'),
     base: new EVMSdk('base'),
@@ -53,6 +58,5 @@ if (process.env.NO_EVM !== '1') {
     arc: new EVMSdk('arc'),
   });
 }
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 export default chains;

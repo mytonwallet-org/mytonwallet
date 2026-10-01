@@ -5,7 +5,8 @@ import WalletContext
 public struct HomeCardLayoutMetrics: Equatable {
     public let itemWidth: CGFloat
     public let itemHeight: CGFloat
-    public let inset: CGFloat
+    public let leadingInset: CGFloat
+    public let trailingInset: CGFloat
     public let spacing: CGFloat
     
     public var itemWidthWithSpacing: CGFloat { spacing + itemWidth }
@@ -14,15 +15,22 @@ public struct HomeCardLayoutMetrics: Equatable {
         forContainerWidth(screenWidth)
     }
     
-    public static func forContainerWidth(_ containerWidth: CGFloat) -> HomeCardLayoutMetrics {
+    public static func forContainerWidth(
+        _ containerWidth: CGFloat,
+        contentMargins: NSDirectionalEdgeInsets = .init(top: 0, leading: compactInsetSectionHorizontalPadding, bottom: 0, trailing: compactInsetSectionHorizontalPadding)
+    ) -> HomeCardLayoutMetrics {
         let width = max(containerWidth, 1)
-        let itemWidth = min(max(width - 2 * compactInsetSectionHorizontalPadding, 0), homeCardMaxWidth)
-        let inset = max(0, (width - itemWidth) / 2)
-        let spacing = max(homeCardMinSpacing, (width - itemWidth) / 2 - homeCardMaxVisibleInactiveCard)
+        let availableWidth = max(0, width - contentMargins.leading - contentMargins.trailing)
+        let itemWidth = min(availableWidth, homeCardMaxWidth)
+        let centeringInset = (availableWidth - itemWidth) / 2
+        let leadingInset = contentMargins.leading + centeringInset
+        let trailingInset = contentMargins.trailing + centeringInset
+        let spacing = max(homeCardMinSpacing, min(leadingInset, trailingInset) - homeCardMaxVisibleInactiveCard)
         return HomeCardLayoutMetrics(
             itemWidth: itemWidth,
             itemHeight: round(itemWidth * CARD_RATIO),
-            inset: inset,
+            leadingInset: leadingInset,
+            trailingInset: trailingInset,
             spacing: spacing
         )
     }

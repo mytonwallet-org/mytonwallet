@@ -32,7 +32,6 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
 
     private val bgImageView = AppCompatImageView(context).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
-        setImageResource(R.drawable.promo_card_bg)
     }
 
     private val mascotView = WCustomImageView(context).apply {
@@ -42,7 +41,6 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
 
     private val overlayImageView = AppCompatImageView(context).apply {
         scaleType = ImageView.ScaleType.CENTER_CROP
-        setImageResource(R.drawable.promo_card_overlay)
     }
 
     init {
@@ -82,6 +80,10 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
         }
 
         currentPromotion = promo
+        if (bgImageView.drawable == null) {
+            bgImageView.setImageResource(R.drawable.promo_card_bg)
+            overlayImageView.setImageResource(R.drawable.promo_card_overlay)
+        }
         visibility = VISIBLE
         updateMascot(promo.cardOverlay.mascotIcon)
     }

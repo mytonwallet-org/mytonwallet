@@ -13,6 +13,9 @@ import WalletCore
 public typealias SetPasscodeCompletion = @MainActor (_ enclaveToken: EnclaveToken) async throws -> Void
 
 public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
+    public override var maxContentWidth: CGFloat? { 560 }
+    public override var prefersViewCenteredContent: Bool { true }
+
     func animateSuccess() {
         
     }
@@ -77,6 +80,8 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         NSLayoutConstraint.activate([
             headerView.topAnchor.constraint(equalTo: topView.topAnchor, constant: -10),
             headerView.centerXAnchor.constraint(equalTo: topView.centerXAnchor),
+            headerView.leadingAnchor.constraint(greaterThanOrEqualTo: topView.leadingAnchor, constant: 32),
+            headerView.trailingAnchor.constraint(lessThanOrEqualTo: topView.trailingAnchor, constant: -32),
             headerView.bottomAnchor.constraint(equalTo: topView.bottomAnchor)
         ])
 
@@ -85,7 +90,7 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(passcodeInputView)
         NSLayoutConstraint.activate([
             passcodeInputView.topAnchor.constraint(equalTo: topView.bottomAnchor, constant: 40),
-            passcodeInputView.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            passcodeInputView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor)
         ])
         passcodeInputView.isHidden = true
 
@@ -95,6 +100,7 @@ public class SetPasscodeVC: WViewController, PasscodeScreenViewDelegate {
         view.addSubview(passcodeScreenView)
         passcodeScreenView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
+            passcodeScreenView.topAnchor.constraint(greaterThanOrEqualTo: topView.bottomAnchor, constant: 16),
             passcodeScreenView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             passcodeScreenView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             passcodeScreenView.bottomAnchor.constraint(equalTo: view.bottomAnchor)

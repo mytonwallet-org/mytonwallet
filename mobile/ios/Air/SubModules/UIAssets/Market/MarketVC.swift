@@ -29,6 +29,7 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Market")
         WalletCoreData.add(eventObserver: self)
         model.start()
         view.backgroundColor = .air.groupedBackground
@@ -45,9 +46,8 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
                 AppActions.showTokenBySlug(token.token.slug)
             }
         )
-        let hostingController = UIHostingController(rootView: screen)
+        let hostingController = LayoutMarginsHostingController(rootView: screen)
         hostingController.view.backgroundColor = .clear
-        hostingController.view.insetsLayoutMarginsFromSafeArea = false
         addChild(hostingController)
         view.addStretchedToBounds(subview: hostingController.view)
         hostingController.didMove(toParent: self)
@@ -98,7 +98,7 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
         largeTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(largeTitleLabel)
         NSLayoutConstraint.activate([
-            largeTitleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            largeTitleLabel.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
             largeTitleLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: -8),
         ])
         syncNavigationHeader(animated: false)

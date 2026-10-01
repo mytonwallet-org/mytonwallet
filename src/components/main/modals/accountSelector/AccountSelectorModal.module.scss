@@ -106,10 +106,7 @@ $footerPaddingBottom: 1rem;
   height: $footerButtonHeight;
   padding: $footerPaddingTop 1rem $footerPaddingBottom;
 
-  background-color: var(--color-background-window);
-  backdrop-filter: var(--filter-blur-bar);
-
-  @include mixins.transition('background-color 300ms');
+  @include mixins.footerBar('.withBorder');
 
   @include mixins.respond-above(xs) {
     border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
@@ -119,12 +116,6 @@ $footerPaddingBottom: 1rem;
     padding-bottom: max(var(--safe-area-bottom), $footerPaddingBottom);
 
     @include mixins.backdropPatch();
-  }
-
-  &.withBorder {
-    background-color: var(--color-background-tab-bar);
-
-    @include mixins.separator();
   }
 }
 

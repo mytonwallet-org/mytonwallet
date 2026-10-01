@@ -33,4 +33,60 @@ struct TokenChartDataTests {
 
         #expect(result.count == data.count)
     }
+
+    @Test
+    func `full range percent change uses token metadata`() throws {
+        let data = [
+            [1.0, 100.0],
+            [2.0, 101.68],
+        ]
+
+        let result = tokenChartPercentChange(
+            historyData: data,
+            range: 0...1,
+            tokenPercentChange24h: 4.3,
+            shouldUseTokenPercentChange: true,
+            fallbackPrice: 101.68
+        )
+
+        #expect(abs(try #require(result) - 0.043) < 0.000001)
+    }
+
+    @Test
+    func `non-day full range percent change uses chart data`() throws {
+        let data = [
+            [1.0, 100.0],
+            [2.0, 101.68],
+        ]
+
+        let result = tokenChartPercentChange(
+            historyData: data,
+            range: 0...1,
+            tokenPercentChange24h: 4.3,
+            shouldUseTokenPercentChange: false,
+            fallbackPrice: 101.68
+        )
+
+        #expect(abs(try #require(result) - 0.0168) < 0.000001)
+    }
+
+    @Test
+    func `scoped range percent change uses chart data`() throws {
+        let data = [
+            [0.0, 50.0],
+            [1.0, 100.0],
+            [2.0, 110.0],
+            [3.0, 200.0],
+        ]
+
+        let result = tokenChartPercentChange(
+            historyData: data,
+            range: 0.25...0.75,
+            tokenPercentChange24h: 4.3,
+            shouldUseTokenPercentChange: true,
+            fallbackPrice: 110.0
+        )
+
+        #expect(abs(try #require(result) - 0.1) < 0.000001)
+    }
 }

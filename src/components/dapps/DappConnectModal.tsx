@@ -32,6 +32,7 @@ import AddAccountPasswordModal from '../main/modals/accountSelector/AddAccountPa
 import Button from '../ui/Button';
 import Image from '../ui/Image';
 import Modal from '../ui/Modal';
+import ModalFooter from '../ui/ModalFooter';
 import ModalHeader from '../ui/ModalHeader';
 import Skeleton from '../ui/Skeleton';
 import Transition from '../ui/Transition';
@@ -272,7 +273,7 @@ function DappConnectModal({
           </div>
         )}
 
-        <div className={styles.footer}>
+        <ModalFooter>
           {multichainResolution === 'needs-new-wallet' ? (
             <Button
               isPrimary
@@ -294,7 +295,7 @@ function DappConnectModal({
               {lang(dapp?.urlTrustStatus === 'dangerous' ? 'Connect Anyway' : 'Connect Wallet')}
             </Button>
           )}
-        </div>
+        </ModalFooter>
       </div>
     );
   }

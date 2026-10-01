@@ -471,6 +471,13 @@ class SwapViewModel :
         )
     }
 
+    fun setBuyingAmount(amount: Double) {
+        _inputStateFlow.value = _inputStateFlow.value.copy(
+            amount = BigDecimal.valueOf(amount).toPlainString(),
+            reverse = true
+        )
+    }
+
     fun swapTokens() {
         cancelScheduledSelectorOpen()
 

@@ -36,5 +36,8 @@ export default tseslint.config(
     'dist-electron',
     'dist-air',
     'dist-push',
+    'dist-mfa',
+    'dist-multisend',
+    'dist-portfolio',
   ]),
 );

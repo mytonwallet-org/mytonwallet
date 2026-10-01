@@ -20,7 +20,7 @@ import {
 import { useAccentColor } from '../../util/accentColor';
 import buildClassName from '../../util/buildClassName';
 import { getStakingStateStatus } from '../../util/staking';
-import { IS_ELECTRON, REM } from '../../util/windowEnvironment';
+import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 
 import useAppTheme from '../../hooks/useAppTheme';
@@ -44,7 +44,6 @@ import StakingClaimModal from '../staking/StakingClaimModal';
 import StakingInfoModal from '../staking/StakingInfoModal';
 import UnstakeModal from '../staking/UnstakeModal';
 import Transition from '../ui/Transition';
-import UpdateAvailable from '../ui/UpdateAvailable';
 import VestingModal from '../vesting/VestingModal';
 import VestingPasswordModal from '../vesting/VestingPasswordModal';
 import MainSkeleton from './MainSkeleton';
@@ -249,7 +248,6 @@ function Main({
       <RenewDomainModal />
       <LinkingDomainModal />
       <PromotionModal />
-      {!IS_ELECTRON && <UpdateAvailable />}
       <AccountSelectorModal />
     </>
   );

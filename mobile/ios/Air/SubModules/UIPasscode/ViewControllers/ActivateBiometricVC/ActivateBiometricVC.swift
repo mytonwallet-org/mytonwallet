@@ -14,6 +14,9 @@ import WalletContext
 
 public class ActivateBiometricVC: WViewController {
 
+    public override var maxContentWidth: CGFloat? { 560 }
+    public override var prefersViewCenteredContent: Bool { true }
+
     private let viewModel: ActivateBiometricViewModel
     private let authorizationToken: EnclaveToken
 

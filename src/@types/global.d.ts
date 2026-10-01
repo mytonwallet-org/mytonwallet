@@ -84,13 +84,17 @@ declare module '*.jpg';
 declare module '*.avif';
 declare module '*.svg';
 declare module '*.tgs';
-declare module '*.wasm';
 declare module '*.mp3';
 declare module '*.mp4';
 
-declare module '*.txt' {
-  const content: string;
-  export default content;
+declare module '*?url' {
+  const url: string;
+  export default url;
+}
+
+declare module '*?worker' {
+  const WorkerConstructor: new (options?: { name?: string }) => Worker;
+  export default WorkerConstructor;
 }
 
 declare module 'opus-recorder' {

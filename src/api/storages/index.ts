@@ -262,7 +262,7 @@ function getOptionalRequire() {
   return undefined;
 }
 
-// Webpack rewrites `require` references into its own runtime stub, which can't resolve Node
+// A bundler may rewrite `require` references into its own runtime stub, which can't resolve Node
 // built-ins (e.g. `node:async_hooks`). When the bundle runs under Node, `process.mainModule.require`
 // is the real Node CommonJS require; prefer it so built-ins remain reachable.
 function getNodeBuiltinRequire() {

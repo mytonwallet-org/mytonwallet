@@ -46,7 +46,7 @@ struct TransferRow: View {
                 icon
                 VStack(alignment: .leading, spacing: 0) {
                     text
-                    subtitle
+                    addressLines
                 }
                 Spacer()
                 Image.airBundle("RightArrowIcon")
@@ -101,13 +101,24 @@ struct TransferRow: View {
     }
     
     @ViewBuilder
-    var subtitle: some View {
-        let to = Text(lang("to")).textStyle(.supporting)
-        let addr = Text(formatStartEndAddress(transfer.displayedToAddress))
+    var addressLines: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            makeAddressLine(label: lang("to"), address: transfer.toAddress)
+            if let payloadRecipientAddress = transfer.payloadRecipientAddress {
+                makeAddressLine(label: lang("Recipient"), address: payloadRecipientAddress)
+            }
+        }
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 1)
+        .foregroundStyle(Color.air.secondaryLabel)
+    }
+
+    private func makeAddressLine(label: String, address: String) -> some View {
+        let labelText = Text(label).textStyle(.supporting)
+        let addressText = Text(formatStartEndAddress(address))
             .textStyle(.supportingStrong, content: .technical)
-        Text("\(to) \(addr)")
+        return Text("\(labelText) \(addressText)")
             .lineSpacing(2)
-            .padding(.top, 1)
-            .foregroundStyle(Color.air.secondaryLabel)
     }
 }

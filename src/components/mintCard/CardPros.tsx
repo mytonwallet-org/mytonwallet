@@ -117,20 +117,30 @@ function CardPros({
           <i className={buildClassName(styles.icon, 'icon-diamond')} aria-hidden />
         </dt>
         <dd className={styles.data}>
-          {lang('Get a card with unique background and personalized palette for wallet interface.')}
+          {type === 'standard'
+            ? lang('Get custom accent color for wallet interface.')
+            : lang('Get a card with unique background and personalized palette for wallet interface.')}
         </dd>
 
         <dt className={styles.term}>
           {lang('Transferable')}
           <i className={buildClassName(styles.icon, 'icon-swap')} aria-hidden />
         </dt>
-        <dd className={styles.data}>{lang('Easily send your upgraded card to any of your friends.')}</dd>
+        <dd className={styles.data}>
+          {type === 'standard'
+            ? lang('Easily send your upgraded card to friends.')
+            : lang('Easily send your upgraded card to any of your friends.')}
+        </dd>
 
         <dt className={styles.term}>
           {lang('Tradable')}
           <i className={buildClassName(styles.icon, 'icon-auction')} aria-hidden />
         </dt>
-        <dd className={styles.data}>{lang('Sell or auction your card on third-party NFT marketplaces.')}</dd>
+        <dd className={styles.data}>
+          {type === 'standard'
+            ? lang('Sell or auction your card on marketplaces.')
+            : lang('Sell or auction your card on third-party NFT marketplaces.')}
+        </dd>
       </dl>
 
       {(!!price || isComingSoon || mintSecondsLeft !== undefined) && (

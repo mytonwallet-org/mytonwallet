@@ -54,9 +54,10 @@ import {
 import { sendUpdateTokens } from '../common/tokens';
 import { tokenRepository } from '../db';
 import { getEnvironment } from '../environment';
-import { handleServerError } from '../errors';
+import { ApiServerError, handleServerError } from '../errors';
 import { storage } from '../storages';
 import { activateAccount, deactivateAllAccounts } from './accounts';
+import { resetAgentV2 } from './agentV2Lifecycle';
 import { removeAccountDapps, removeAllDapps, removeNetworkDapps } from './dapps';
 import { isBackendAuthTokenValid } from './other';
 import {
@@ -92,16 +93,20 @@ async function buildTonBackendAuthToken(mnemonic: string[], account: ApiAccountW
   const tonWallet = account.byChain.ton;
   if (!tonWallet?.publicKey || tonWallet.authToken) return undefined;
 
-  try {
-    const keyPair = await ton.getKeyPairFromStoredMnemonic(mnemonic, account);
-    const authToken = ton.buildBackendAuthToken(keyPair.secretKey);
+  // A `NO_TON` build has no TON wallets and leaves `chains/ton` out through `plugins/disabledImports.ts`, which
+  // needs the flag read inline, as here
+  if (process.env.NO_TON !== '1') {
+    try {
+      const keyPair = await ton.getKeyPairFromStoredMnemonic(mnemonic, account);
+      const authToken = ton.buildBackendAuthToken(keyPair.secretKey);
 
-    return isBackendAuthTokenValid(authToken, tonWallet.publicKey) ? authToken : undefined;
-  } catch (err) {
-    logDebugError('buildTonBackendAuthToken', err);
-
-    return undefined;
+      return isBackendAuthTokenValid(authToken, tonWallet.publicKey) ? authToken : undefined;
+    } catch (err) {
+      logDebugError('buildTonBackendAuthToken', err);
+    }
   }
+
+  return undefined;
 }
 
 export function initAuth(_onUpdate: OnApiUpdate) {
@@ -229,7 +234,10 @@ export async function importMnemonic(
 
     return imported;
   } catch (err) {
-    return handleServerError(err);
+    logDebugError('importMnemonic', err);
+
+    // Provider exceptions can contain technical diagnostics that must not reach the import UI.
+    return { error: err instanceof ApiServerError ? ApiCommonError.ServerError : ApiCommonError.Unexpected };
   }
 }
 
@@ -522,8 +530,6 @@ export async function resetAccounts() {
 
   let agentV2Reset: Promise<void> | undefined;
   if (process.env.NO_EXTRA_FEATURES !== '1') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { resetAgentV2 } = require('./agentV2Lifecycle') as typeof import('./agentV2Lifecycle');
     agentV2Reset = resetAgentV2();
   }
 

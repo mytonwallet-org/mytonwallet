@@ -27,6 +27,8 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setDefaultAccentColor
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager.setNftAccentColor
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
+import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.decodeUrlOrNull
 import org.mytonwallet.app_air.walletbasecontext.utils.takeIfNotBlank
@@ -353,6 +355,39 @@ object WalletCore {
         }
     }
 
+    private var preloadedAccountId: String? = null
+
+    // Makes the stored active account current before the SDK activates it, so screens built at
+    // startup show its cached data; activating the same account then keeps what is loaded.
+    fun preloadAccount(accountId: String) {
+        val globalJSON = WGlobalStorage.getAccount(accountId) ?: return
+        val account = try {
+            MAccount(accountId, globalJSON)
+        } catch (_: Exception) {
+            return
+        }
+        val prevAccentColor = WColor.Tint.color
+        updateAccentColor(accountId)
+        if (WColor.Tint.color != prevAccentColor) {
+            WalletContextManager.delegate?.get()?.themeChanged(animated = false)
+        }
+        AccountStore.activeAccount = account
+        loadAccountCaches(accountId)
+        preloadedAccountId = accountId
+    }
+
+    private fun loadAccountCaches(accountId: String) {
+        AccountStore.updateActiveAccount(accountId)
+        AddressStore.loadFromCache(accountId)
+        NftStore.loadCachedNfts(accountId)
+        ExploreHistoryStore.loadBrowserHistory(accountId)
+        AccountStore.updateAssetsAndActivityData(
+            MAssetsAndActivityData(accountId),
+            notify = false,
+            saveToStorage = false
+        )
+    }
+
     fun notifyAccountChanged(activeAccount: MAccount, fromHome: Boolean) {
         val accountId = activeAccount.accountId
         if (nextAccountIsPushedTemporary == true) {
@@ -362,16 +397,9 @@ object WalletCore {
         }
         nextAccountIsPushedTemporary = null
         nextAccountId = null
-        AccountStore.updateActiveAccount(accountId)
-        AddressStore.loadFromCache(accountId)
-        NftStore.loadCachedNfts(accountId)
-        ExploreHistoryStore.loadBrowserHistory(accountId)
+        if (preloadedAccountId != accountId) loadAccountCaches(accountId)
+        preloadedAccountId = null
         AccountStore.walletVersionsData = null
-        AccountStore.updateAssetsAndActivityData(
-            MAssetsAndActivityData(accountId),
-            notify = false,
-            saveToStorage = false
-        )
         DappsStore.refresh(accountId)
         // WalletContextManager.delegate?.protectedModeChanged()
         notifyEvent(
@@ -754,7 +782,9 @@ object WalletCore {
                 TokenStore.setFlowValue(
                     TokenStore.Tokens(update.tokens),
                     update.kind,
-                    update.removedSlugs.orEmpty()
+                    update.removedSlugs.orEmpty(),
+                    isIncomplete = update.isIncomplete == true,
+                    unpricedSlugs = update.unpricedSlugs.orEmpty().toSet()
                 )
             }
 

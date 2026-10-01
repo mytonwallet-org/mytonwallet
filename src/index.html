@@ -1,53 +1,50 @@
 <!DOCTYPE html>
-<html lang="en" translate="no" class="notranslate" data-global-state-key="<%= htmlWebpackPlugin.options.cache_key %>">
+<html lang="en" translate="no" class="notranslate" data-global-state-key="%CACHE_KEY%">
 <head>
   <meta charset="UTF-8">
 
-  <title><%= htmlWebpackPlugin.options.title %></title>
+  <title>%TITLE%</title>
 
-  <meta name="title" content="<%= htmlWebpackPlugin.options.title %>">
-  <meta name="description" content="<%= htmlWebpackPlugin.options.title %> is a next-generation crypto wallet.">
+  <meta name="title" content="%TITLE%">
+  <meta name="description" content="%TITLE% is a next-generation crypto wallet.">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-title" content="<%= htmlWebpackPlugin.options.title %>">
+  <meta name="mobile-web-app-title" content="%TITLE%">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="<%= htmlWebpackPlugin.options.title %>">
-  <meta name="application-name" content="<%= htmlWebpackPlugin.options.title %>">
+  <meta name="apple-mobile-web-app-title" content="%TITLE%">
+  <meta name="application-name" content="%TITLE%">
   <meta name="msapplication-TileColor" content="#2b5797">
-  <meta name="msapplication-config" content="./<%= htmlWebpackPlugin.options.assets_prefix %>browserconfig.xml">
+  <meta name="msapplication-config" content="./%ASSETS_PREFIX%browserconfig.xml">
   <meta name="google" content="notranslate">
   <meta name="theme-color" content="#F1F5FA"/>
-  <meta http-equiv="Content-Security-Policy" content="<%= htmlWebpackPlugin.options.csp %>">
+  <meta http-equiv="Content-Security-Policy" content="%CSP%">
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="<%= htmlWebpackPlugin.options.homepage %>">
-  <meta property="og:title" content="<%= htmlWebpackPlugin.options.title %>">
-  <meta property="og:description" content="<%= htmlWebpackPlugin.options.title %> is a next-generation crypto wallet.">
-  <meta property="og:image" content="./<%= htmlWebpackPlugin.options.assets_prefix %>icon-192x192.png">
+  <meta property="og:url" content="%HOMEPAGE%">
+  <meta property="og:title" content="%TITLE%">
+  <meta property="og:description" content="%TITLE% is a next-generation crypto wallet.">
+  <meta property="og:image" content="./%ASSETS_PREFIX%icon-192x192.png">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="<%= htmlWebpackPlugin.options.homepage %>">
-  <meta property="twitter:title" content="<%= htmlWebpackPlugin.options.title %>">
-  <meta property="twitter:description" content="<%= htmlWebpackPlugin.options.title %> is a next-generation crypto wallet.">
-  <meta property="twitter:image" content="./<%= htmlWebpackPlugin.options.assets_prefix %>icon-192x192.png">
+  <meta property="twitter:url" content="%HOMEPAGE%">
+  <meta property="twitter:title" content="%TITLE%">
+  <meta property="twitter:description" content="%TITLE% is a next-generation crypto wallet.">
+  <meta property="twitter:image" content="./%ASSETS_PREFIX%icon-192x192.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;750;800;850&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@600;700;800;850&display=swap" rel="stylesheet">
-  <link rel="apple-touch-icon" sizes="180x180" href="./<%= htmlWebpackPlugin.options.assets_prefix %>apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="./<%= htmlWebpackPlugin.options.assets_prefix %>icon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="./<%= htmlWebpackPlugin.options.assets_prefix %>icon-16x16.png">
-  <link rel="alternate icon" href="./<%= htmlWebpackPlugin.options.assets_prefix %>favicon.ico" type="image/x-icon">
-  <% if (process.env.IS_EXTENSION !== '1') { %>
-      <link rel="manifest" href="./<%= htmlWebpackPlugin.options.assets_prefix %>site.webmanifest">
-  <% } %>
-  <% if (process.env.IS_TELEGRAM_APP === '1') { %>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <% } %>
+  <link rel="apple-touch-icon" sizes="180x180" href="./%ASSETS_PREFIX%apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./%ASSETS_PREFIX%icon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./%ASSETS_PREFIX%icon-16x16.png">
+  <link rel="alternate icon" href="./%ASSETS_PREFIX%favicon.ico" type="image/x-icon">
+  %MANIFEST_LINK%
+  %TELEGRAM_SCRIPT%
   <script src="./fallbackScript.js"></script>
+  <script type="module" src="./index.tsx"></script>
 </head>
 
 <body id="root">

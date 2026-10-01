@@ -2,6 +2,7 @@ import type { MediaWorkerApi } from '../lib/mediaWorker/index.worker';
 import type { Connector } from './PostMessageConnector';
 
 import { IS_TEST } from '../config';
+import MediaWorker from '../lib/mediaWorker/index.worker?worker';
 
 import { createConnector } from './PostMessageConnector';
 
@@ -17,7 +18,7 @@ export default function launchMediaWorkers() {
   if (!instances) {
     instances = new Array(MAX_WORKERS).fill(undefined).map(
       () => {
-        const worker = new Worker(new URL('../lib/mediaWorker/index.worker.ts', import.meta.url));
+        const worker = new MediaWorker();
         const connector = createConnector<MediaWorkerApi>(worker);
         return { worker, connector };
       },

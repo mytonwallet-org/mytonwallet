@@ -19,7 +19,7 @@ import {
   commentToBytes,
   packBytesAsSnakeCell,
   packBytesAsSnakeForEncryptedData,
-  resolveTokenAddress,
+  resolveTokenWallet,
 } from '../util/tonCore';
 import { DnsItem } from '../contracts/DnsItem';
 import { TsUSDeWallet } from '../contracts/Ethena/TsUSDeWallet';
@@ -53,19 +53,19 @@ const sampleKnownJettons = [
 jest.mock('../../../../util/logs');
 jest.mock('../util/tonCore', () => ({
   ...jest.requireActual('../util/tonCore'),
-  resolveTokenAddress: jest.fn().mockImplementation((network, jettonWallet) => {
+  resolveTokenWallet: jest.fn().mockImplementation((network, jettonWallet) => {
     const sampleToken = sampleKnownJettons.find((jetton) => jetton.tokenWalletAddress === jettonWallet);
     if (network !== 'mainnet' || !sampleToken) {
       throw new Error(`${jettonWallet} is not a jetton wallet`);
     }
-    return sampleToken.tokenAddress;
+    return { tokenAddress: sampleToken.tokenAddress };
   }),
 }));
 
 afterEach(() => {
   (logDebug as jest.Mock).mockReset();
   (logDebugError as jest.Mock).mockReset();
-  (resolveTokenAddress as jest.Mock).mockClear();
+  (resolveTokenWallet as jest.Mock).mockClear();
 });
 
 describe('tonTransactionToLedgerTransaction', () => {
@@ -282,10 +282,10 @@ describe('tonTransactionToLedgerTransaction', () => {
     ))[ledgerTransaction instanceof Error ? 'rejects' : 'resolves'].toEqual(ledgerTransaction);
 
     if (expectResolvedTokenWallet) {
-      expect(resolveTokenAddress).toHaveBeenCalledTimes(1);
-      expect(resolveTokenAddress).toHaveBeenCalledWith(network, expectResolvedTokenWallet);
+      expect(resolveTokenWallet).toHaveBeenCalledTimes(1);
+      expect(resolveTokenWallet).toHaveBeenCalledWith(network, expectResolvedTokenWallet);
     } else {
-      expect(resolveTokenAddress).not.toHaveBeenCalled();
+      expect(resolveTokenWallet).not.toHaveBeenCalled();
     }
 
     expect(logDebugError).not.toHaveBeenCalled();

@@ -161,7 +161,7 @@ function Confirmation({
       }).catch(() => {
         if (!isCanceled) {
           setState(States.UNINSTALLED);
-          setError(lang('This wallet is not linked to the current Telegram account.'));
+          setError(lang('Please switch to the Telegram account connected to your wallet.'));
         }
       });
     };

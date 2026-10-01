@@ -8,6 +8,7 @@ import type { Connector } from '../../util/PostMessageConnector';
 
 import { logDebugApi, logDebugError } from '../../util/logs';
 import { createConnector } from '../../util/PostMessageConnector';
+import MfaApiWorker from './provider?worker';
 
 type MfaApiMethods = {
   ping: () => boolean;
@@ -24,9 +25,7 @@ let initPromise: Promise<void> | undefined;
 
 export function initMfaApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
   if (!connector) {
-    worker = new Worker(
-      /* webpackChunkName: "mfa-api-worker" */ new URL('./provider.ts', import.meta.url),
-    );
+    worker = new MfaApiWorker();
     connector = createConnector<MfaApiMethods>(worker, onUpdate);
   }
 

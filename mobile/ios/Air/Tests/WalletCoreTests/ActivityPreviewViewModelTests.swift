@@ -54,6 +54,24 @@ struct ActivityPreviewViewModelTests {
         #expect(old != presentation([activity(id: "visible", comment: "updated")]))
     }
 
+    @Test
+    func `bounded previews count visible activities and preserve unknown history`() {
+        let activities = [activity(id: "hidden", shouldHide: true), activity(id: "first"),
+                          activity(id: "tiny", isIncoming: true), activity(id: "second"), activity(id: "third")]
+        let byId = Dictionary(uniqueKeysWithValues: activities.map { ($0.id, $0) })
+        for limit in [0, 1, 2, 3, 10] {
+            let result = ActivityVisibilityFilter.visibleIDs(
+                activities.map(\.id), activitiesById: byId, accountId: "0-mainnet", token: nil,
+                poisoningCache: PoisoningCache(), hideTinyTransfers: true, limit: limit
+            )
+            #expect(result == Array(["first", "second", "third"].prefix(limit)))
+        }
+        #expect(ActivityVisibilityFilter.visibleIDs(
+            nil, activitiesById: nil, accountId: "0-mainnet", token: nil,
+            poisoningCache: PoisoningCache(), hideTinyTransfers: true, limit: 2
+        ) == nil)
+    }
+
     @Test @MainActor
     func `only metadata for displayed activity tokens changes the presentation`() {
         let visible = activity(id: "visible")

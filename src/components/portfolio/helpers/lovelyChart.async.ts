@@ -1,11 +1,5 @@
-type LovelyChartModule = typeof import('./lovelyChartWithStyles').default;
+import { createChunkLoader } from '../../../util/chunkLoading';
 
-let promise: Promise<LovelyChartModule> | undefined;
-
-export function ensureLovelyChart() {
-  if (!promise) {
-    promise = import('./lovelyChartWithStyles').then((module) => module.default);
-  }
-
-  return promise;
-}
+export const ensureLovelyChart = createChunkLoader(
+  () => import('./lovelyChartWithStyles').then((module) => module.default),
+);

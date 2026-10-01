@@ -540,10 +540,6 @@
   max-width: 100% !important;
 }
 
-.shortButton {
-  min-width: 6rem !important;
-}
-
 .transition {
   overflow-x: hidden;
   flex: 1 1 auto;
@@ -556,8 +552,14 @@
     @include mixins.adapt-padding-to-scrollbar(1rem, !important);
   }
 
-  .transitionContent {
+  .transitionContent,
+  .footer {
     @include mixins.adapt-padding-to-scrollbar(1rem);
+  }
+
+  .footer {
+    // Matches the reduced end padding of `.transitionContent`, so the background reaches the scrollbar
+    margin-inline-end: min(0px, calc(var(--scrollbar-width) - 1rem));
   }
 }
 
@@ -578,6 +580,8 @@
 }
 
 .transitionContent {
+  --transition-content-padding-bottom: max(var(--safe-area-bottom, 1rem), 1rem);
+
   display: flex;
   flex-direction: column;
   flex-grow: 1;
@@ -586,7 +590,7 @@
   min-width: 0;
   min-height: 0;
   padding: 0 1rem 1rem;
-  padding-bottom: max(var(--safe-area-bottom, 1rem), 1rem);
+  padding-bottom: var(--transition-content-padding-bottom);
 
   background-color: inherit;
 
@@ -595,6 +599,27 @@
   }
 
   :global(html.with-safe-area-bottom.is-telegram-app) & {
-    padding-bottom: var(--safe-area-bottom) !important;
+    --transition-content-padding-bottom: var(--safe-area-bottom);
+
+    padding-bottom: var(--transition-content-padding-bottom) !important;
+  }
+}
+
+// Stays at the bottom of the scroll container while the content scrolls under it. A sticky element cannot leave
+// the content box of its parent, so without the negative bottom margin it would rise by the bottom padding of
+// `.transitionContent` as the content reaches its end. The footer takes that padding over instead, and the negative
+// side margins stretch its background across the whole slide.
+.footer {
+  position: sticky;
+  z-index: 1;
+  bottom: 0;
+
+  margin: auto -1rem calc(-1 * var(--transition-content-padding-bottom));
+  padding: 0.875rem 1rem var(--transition-content-padding-bottom);
+
+  @include mixins.footerBar('_separated');
+
+  @include mixins.respond-above(xs) {
+    border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
   }
 }

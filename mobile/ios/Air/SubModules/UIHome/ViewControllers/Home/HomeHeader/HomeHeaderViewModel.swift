@@ -28,6 +28,7 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     var height: CGFloat = 0
     var state: HomeHeaderState = .expanded
     var isVisible = false
+    var cardEffectsAccountIdOverride: String?
     private var cardFadeOpacity: Double = 1
     var _collapseProgress: CGFloat = 0
     var seasonalThemingVersion: Int = 0
@@ -91,7 +92,7 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     func allowsCardEffects(for accountId: String) -> Bool {
         guard isVisible, !isCollapsed, !isCardHidden, !isAccountScrolling else { return false }
         switch accountSource {
-        case .current: return accountId == currentAccountId
+        case .current: return accountId == (cardEffectsAccountIdOverride ?? currentAccountId)
         case .accountId(let selected): return accountId == selected
         case .constant(let account): return accountId == account.id
         }

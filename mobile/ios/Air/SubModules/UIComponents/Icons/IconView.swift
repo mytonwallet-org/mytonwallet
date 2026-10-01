@@ -118,7 +118,7 @@ public class IconView: UIView {
     
     private var largeLabel: UILabel!
     private var tokenPlaceholderLabel: UILabel!
-    private var tokenPlaceholderBorderLayer: CAShapeLayer!
+    private var tokenPlaceholderBorderLayer: CALayer!
     
     private var smallLabelTop: UILabel!
     private var smallLabelBottom: UILabel!
@@ -203,8 +203,7 @@ public class IconView: UIView {
         gradientLayer.masksToBounds = true
         layer.insertSublayer(gradientLayer, at: 0)
 
-        tokenPlaceholderBorderLayer = CAShapeLayer()
-        tokenPlaceholderBorderLayer.fillColor = UIColor.clear.cgColor
+        tokenPlaceholderBorderLayer = CALayer()
         tokenPlaceholderBorderLayer.isHidden = true
         layer.addSublayer(tokenPlaceholderBorderLayer)
         
@@ -282,7 +281,7 @@ public class IconView: UIView {
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         gradientLayer.colors = resolveGradientColors?()
         tokenPlaceholderLabel.textColor = Self.tokenPlaceholderTextColor
-        tokenPlaceholderBorderLayer.strokeColor = Self.tokenPlaceholderBorderColor.cgColor
+        tokenPlaceholderBorderLayer.borderColor = Self.tokenPlaceholderBorderColor.cgColor
         if tokenImageState == .loading {
             imageView.backgroundColor = Self.tokenLoadingPlaceholderColor
         }
@@ -986,13 +985,11 @@ public class IconView: UIView {
 
     private func updateTokenPlaceholderAppearance() {
         tokenPlaceholderLabel.font = UIFont.roundedNative(ofSize: max(10, size * 0.45), weight: .bold)
-        tokenPlaceholderBorderLayer.lineWidth = max(1, size * 0.025)
-        tokenPlaceholderBorderLayer.strokeColor = Self.tokenPlaceholderBorderColor.cgColor
-        let lineInset = tokenPlaceholderBorderLayer.lineWidth / 2
-        tokenPlaceholderBorderLayer.path = iconShape.maskPath(
-            in: bounds.insetBy(dx: lineInset, dy: lineInset),
-            cornerRadius: max(0, iconCornerRadius - lineInset)
-        )
+        tokenPlaceholderBorderLayer.frame = bounds
+        tokenPlaceholderBorderLayer.borderWidth = max(1, size * 0.025)
+        tokenPlaceholderBorderLayer.borderColor = Self.tokenPlaceholderBorderColor.cgColor
+        tokenPlaceholderBorderLayer.cornerRadius = iconCornerRadius
+        tokenPlaceholderBorderLayer.cornerCurve = iconShape == .roundedSquare ? .continuous : .circular
     }
 
     private static func validTokenImageURL(from string: String?) -> URL? {

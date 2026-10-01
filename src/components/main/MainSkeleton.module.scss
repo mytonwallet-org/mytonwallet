@@ -67,49 +67,14 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   }
 }
 
-// Landscape Layout
-.landscapeContainer {
-  --app-padding-top: 1rem;
-
-  display: grid;
-  grid-template-columns: 22.3125rem 1fr;
-
-  max-width: 61.25rem;
-  height: 100%;
-  max-height: calc(var(--vh, 1vh) * 100);
-  margin: auto;
-  padding: 0 1rem;
-
-  :global(html.is-electron) & {
-    --app-padding-top: 0;
-
-    height: calc(100vh - var(--electron-header-height));
-  }
-
-  :global(html.is-ios) & {
-    max-width: none;
-
-    @media (min-width: 1100px) and (min-height: 700px) {
-      grid-template-columns: 24.5rem 1fr;
-    }
-  }
-}
-
-.sidebar {
-  scrollbar-gutter: stable;
-
-  overflow: hidden !important;
+// Landscape Layout, mirrors `LandscapeWalletOverview`
+.overview {
+  // Always reserves the scrollbar gutter, as the long activity list of the loaded page does
+  overflow-y: scroll;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-
-  height: 100%;
-  min-height: 0;
-}
-
-.main {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  gap: 1rem;
 
   height: 100%;
   min-height: 0;
@@ -143,8 +108,13 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   @include skeleton-box(6rem, 1.25rem);
 }
 
-.headerActions {
-  @include skeleton-box(3rem, 1.25rem);
+.headerOpenLink {
+  @include skeleton-box(7.125rem, 2rem);
+
+  position: absolute;
+  top: 0.5rem;
+  inset-inline-end: 1rem;
+  background-color: var(--color-accent-10o);
 }
 
 // Card Skeleton
@@ -163,6 +133,10 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   background-size: cover, cover;
 
   @include mixins.card-image("../../assets/cards/", "card", v.$defaultCardGradient);
+
+  @include mixins.respond-above(xs) {
+    padding-top: v.$cardAspectRatioLandscape;
+  }
 }
 
 .cardInner {
@@ -209,21 +183,51 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   background-color: $card-overlay-secondary !important;
 }
 
-.openInWallet {
-  position: relative;
+// Sidebar lists, mirror `LandscapeNavBar` and `LandscapeWalletList`
+.list {
+  display: flex;
+  flex-direction: column;
 
-  margin-top: 0.75rem;
-  padding: 1rem;
+  margin-top: 1rem;
   border-radius: var(--border-radius-default);
 
   background-color: var(--color-background-first);
 }
 
+.listItem {
+  display: flex;
+  flex-shrink: 0;
+  gap: 1.1875rem;
+  align-items: center;
+
+  height: 3rem;
+  padding-inline-start: 1.1875rem;
+}
+
+.addWalletItem {
+  height: 3.125rem;
+}
+
+.listItemIcon {
+  @include skeleton-circle(1.5rem);
+}
+
+.listItemLabel {
+  @include skeleton-box(5rem, 1rem);
+}
+
+// Mirrors `PromoteWallet`
+.openInWallet {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+}
+
 .openInWalletAction {
-  position: absolute;
-  top: 1rem;
-  inset-inline-start: 1rem;
-  inset-inline-end: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   height: 3rem;
   border-radius: var(--border-radius-buttons);
@@ -234,11 +238,6 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 .openInWalletActionInner {
   @include skeleton-box(12rem, 1rem);
 
-  position: relative;
-  z-index: 1;
-
-  margin: 1rem auto 2.25rem;
-
   opacity: 0.12;
   background-color: var(--color-secondary-button-text);
 }
@@ -248,6 +247,9 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   gap: 1rem;
   align-items: center;
   justify-content: center;
+
+  height: 1rem;
+  margin: 1.25rem 0 0.25rem;
 }
 
 .navigationLink {
@@ -257,14 +259,124 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   background-color: var(--color-gray-2);
 }
 
-// Tokens
-.assets {
-  @include mixins.respond-above(xs) {
-    max-width: 100% !important;
-    margin-bottom: 0.75rem;
-  }
+// Top actions, mirror `TopActions`
+.topActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
 }
 
+.topAction {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  width: 5.5rem;
+  height: 5.5rem;
+  padding: 0.4375rem 0.75rem 0.75rem;
+  border-radius: 1.25rem;
+
+  background-color: var(--color-background-first);
+}
+
+.topActionIcon {
+  @include skeleton-circle(2rem);
+
+  margin-inline-start: -0.25rem;
+}
+
+.topActionLabel {
+  @include skeleton-box(3.5rem, 0.75rem);
+}
+
+// Overview cells, mirror `OverviewCell`
+.overviewRow {
+  overflow: hidden;
+  display: flex;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.overviewCell {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.375rem;
+
+  width: calc((#{v.$landscapeMainContentMaxWidth} - 2rem) / 2);
+}
+
+.overviewCaption {
+  @include skeleton-box(4rem, 1.25rem);
+
+  margin-inline-start: 1rem;
+}
+
+.overviewCard {
+  overflow: hidden;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+
+  border-radius: var(--border-radius-default);
+
+  background: var(--color-background-first);
+}
+
+.showAll {
+  display: flex;
+  flex-shrink: 0;
+  gap: 1rem;
+  align-items: center;
+
+  height: 3rem;
+  margin-top: auto;
+  padding: 0 1.25rem;
+}
+
+.showAllIcon {
+  @include skeleton-circle(1.5rem);
+}
+
+.showAllLabel {
+  @include skeleton-box(8rem, 1rem);
+}
+
+.nfts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.nftImage {
+  height: 0;
+  padding-top: 100%;
+  border-radius: var(--border-radius-default);
+}
+
+.nftTitle {
+  @include skeleton-box(6rem, 0.75rem);
+
+  margin: 0.75rem 0.25rem 1rem;
+}
+
+// Mirrors the `Activities` widget in `LandscapeWalletOverview`
+.activities {
+  overflow: hidden;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+
+  max-width: calc(#{v.$landscapeMainContentMaxWidth} - 1rem);
+  margin-inline-end: 1rem;
+  padding-top: 1rem;
+  border-radius: var(--border-radius-default);
+
+  background-color: var(--color-background-first);
+}
+
+// Tokens
 .tokens {
   width: 100%;
   margin: 0 auto;
@@ -336,23 +448,18 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   inset-inline-end: 0;
 }
 
-// Actions Skeleton
+// Actions Skeleton (portrait only)
 .actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.actionsPortrait {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
+  gap: 0.5rem;
+
   margin-top: 1rem;
 }
 
 .actionButton {
   display: flex;
-  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -362,10 +469,6 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   border-radius: var(--border-radius-content);
 
   background: var(--color-background-first);
-
-  @include mixins.respond-above(xs) {
-    height: 3rem;
-  }
 }
 
 .actionIcon {
@@ -379,19 +482,11 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   @include skeleton-box(4rem, 0.625rem);
 }
 
-// Tabs
+// Tabs (portrait only)
 .tabs {
   display: flex;
   gap: 1.5rem;
   justify-content: center;
-  padding: 0.625rem;
-
-  @include mixins.respond-above(xs) {
-    justify-content: flex-start;
-  }
-}
-
-.tabsPortrait {
   padding: 0.75rem 1.5rem 0.25rem;
 }
 
@@ -518,8 +613,8 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 }
 
 .activityComment {
-  width: 128px;
-  height: 32px;
+  width: 8rem;
+  height: 2rem;
   margin-top: 0.5625rem;
   margin-inline-start: auto;
   border-start-start-radius: var(--border-radius-default);
@@ -542,41 +637,17 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 
 // BottomBar Skeleton (portrait only)
 .bottomBar {
-  position: fixed;
-  z-index: 2;
-  bottom: 0;
-  inset-inline-start: 0;
-
-  display: grid;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
-
-  width: 100%;
-  padding-bottom: max(0.25rem, var(--safe-area-bottom));
-
-  background-color: var(--color-app-background);
-  box-shadow: inset 0 0.025rem 0 0 var(--color-separator);
-
-  @supports (backdrop-filter: saturate(180%) blur(20px)) {
-    background-color: var(--color-background-tab-bar);
-    backdrop-filter: var(--filter-blur-bar);
-  }
-}
-
-.bottomBarButton {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1875rem;
-  align-items: center;
-  justify-content: center;
-
-  height: 3.125rem;
+  // `App` marks the page `with-bottombar` only after the account loads, which leaves the global
+  // `--bottombar-height` at zero while the skeleton is shown, so the bar sizes its fade itself
+  --bottombar-height: calc(3.5rem + max(0.75rem, var(--safe-area-bottom)));
 }
 
 .bottomBarIcon {
-  @include skeleton-circle(2rem);
+  @include skeleton-circle(1.75rem);
 }
 
 .bottomBarLabel {
   @include skeleton-box(2.5rem, 0.625rem);
+
+  margin-top: 0.25rem;
 }

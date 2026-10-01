@@ -25,7 +25,7 @@ import { assert as originalAssert } from '../../../util/assert';
 import { fromDecimal } from '../../../util/decimals';
 import { omitUndefined } from '../../../util/iteratees';
 import { getMaxMessagesInTransaction, isTokenTransferPayload } from '../../../util/ton/transfer';
-import { parsePayloadSlice } from './util/metadata';
+import { parseKnownTokenTransferPayloadSlice } from './util/metadata';
 import { getSigner } from './util/signer';
 import { resolveTokenWalletAddress, toBase64Address } from './util/tonCore';
 import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
@@ -103,15 +103,21 @@ export async function validateDexSwapTransfers(
 
     const maxAmount = fromDecimal(request.fromAmount, token.decimals);
     const maxTonAmount = MAX_NETWORK_FEE;
+    const tokenAddress = token.tokenAddress!;
 
-    const walletAddress = await resolveTokenWalletAddress(network, address, token.tokenAddress!);
+    const walletAddress = await resolveTokenWalletAddress(network, address, tokenAddress);
     let sumTokenAmount = 0n;
     let sumTonAmount = 0n;
 
-    const parsedPayloads = await Promise.all(mainTransfers.map(
-      async (transfer) => transfer.payload
-        && parsePayloadSlice(network, transfer.toAddress, transfer.payload.beginParse()),
-    ));
+    mainTransfers.forEach((mainTransfer, index) => {
+      assert(
+        mainTransfer.toAddress === walletAddress,
+        `Main transfer ${index + 1}/${mainTransfers.length} address is not the token wallet address`,
+      );
+    });
+
+    const parsedPayloads = mainTransfers.map((transfer) => transfer.payload
+      && parseKnownTokenTransferPayloadSlice(network, transfer.payload.beginParse(), tokenAddress));
     const contractInfos = await getContractInfos(
       network,
       parsedPayloads.filter(isTokenTransferPayload).map((payload) => payload.destination),
@@ -120,10 +126,6 @@ export async function validateDexSwapTransfers(
       const mainTransfer = mainTransfers[i];
       const parsedPayload = parsedPayloads[i];
 
-      assert(
-        mainTransfer.toAddress === walletAddress,
-        `Main transfer ${i + 1}/${mainTransfers.length} address is not the token wallet address`,
-      );
       assert(
         isTokenTransferPayload(parsedPayload),
         `Main transfer ${i + 1}/${mainTransfers.length} payload is not a token transfer`,
@@ -145,11 +147,12 @@ export async function validateDexSwapTransfers(
     assert(sumTonAmount <= maxTonAmount, 'Main transfers TON amount is too big');
 
     if (feeTransfer) {
+      assert(feeTransfer.toAddress === walletAddress, 'Fee transfer address is not the token wallet address');
+
       const feePayload = feeTransfer.payload
-        && await parsePayloadSlice(network, feeTransfer.toAddress, feeTransfer.payload.beginParse());
+        && parseKnownTokenTransferPayloadSlice(network, feeTransfer.payload.beginParse(), tokenAddress);
 
       assert(feeTransfer.amount + sumTonAmount < maxTonAmount, 'Total TON amount is too big');
-      assert(feeTransfer.toAddress === walletAddress, 'Fee transfer address is not the token wallet address');
       assert(isTokenTransferPayload(feePayload), 'Fee transfer payload is not a token transfer');
 
       const { amount: tokenFeeAmount, destination: feeDestination } = feePayload as ApiTokensTransferPayload;

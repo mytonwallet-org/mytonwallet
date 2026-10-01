@@ -35,6 +35,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.DatasetHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.TokenPriceInsight
+import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.resolveTokenChartPercentChange
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.drawable.RoundProgressDrawable
@@ -878,11 +879,7 @@ class TokenChartCell(
         val highlight = highlight
         if (highlight == null) {
             if (token?.price != null) {
-                percentChange = firstPrice?.let { firstPriceInChart ->
-                    price?.let { (it - firstPriceInChart) / firstPriceInChart * 10000 }
-                }?.let {
-                    kotlin.math.round(it) / 100
-                }
+                percentChange = resolvePercentChange(price, firstPrice)
                 val percentChange = percentChange
                 if (percentChange != null) {
                     if (priceChangeLabel.alpha == 0f) priceChangeLabel.fadeIn()
@@ -951,6 +948,16 @@ class TokenChartCell(
         }
         updatePriceChangeLabelColor()
     }
+
+    private fun resolvePercentChange(price: Double?, firstPrice: Double?): Double? =
+        resolveTokenChartPercentChange(
+            activePeriod,
+            startPercentage,
+            endPercentage,
+            token?.percentChange24h,
+            price,
+            firstPrice
+        )
 
     private fun setupLineChart() {
         val entries = mutableListOf<Entry>()

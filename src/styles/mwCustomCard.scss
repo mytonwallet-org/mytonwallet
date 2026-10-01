@@ -6,7 +6,7 @@
   --color-card-change-text: #00000099;
   --color-card-button: rgba(211, 211, 211, 0.35);
 
-  .glare-text {
+  .glare-mask {
     --glare-main: #000;
     --glare-accent: rgba(0, 0, 0, 0.3);
   }
@@ -59,8 +59,8 @@
   --color-card-change-text: rgba(68, 68, 68, 0.8);
 }
 
-.MwCard__gold .glare-text,
-.MwCard__silver .glare-text {
+.MwCard__gold .glare-mask,
+.MwCard__silver .glare-mask {
   --glare-main: rgba(39, 39, 39, 0.7);
   --glare-accent: rgba(160, 160, 160, 0.3);
 }

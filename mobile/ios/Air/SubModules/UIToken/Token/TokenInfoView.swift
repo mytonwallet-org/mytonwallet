@@ -6,17 +6,16 @@ import WalletContext
 import WalletCore
 
 enum TokenInfoState: Equatable {
-    case hidden
     case loading
     case details(ApiTokenDetails)
     case fallback(String)
     case error
 
     static func resolved(details: ApiTokenDetails?) -> Self {
-        guard let details else { return .hidden }
-        return details.hasPublicInformation
-            ? .details(details)
-            : .fallback(lang("$token_info_fallback_description"))
+        guard let details, details.hasPublicInformation else {
+            return .fallback(lang("$token_info_fallback_description"))
+        }
+        return .details(details)
     }
 
     var details: ApiTokenDetails? {
@@ -26,7 +25,7 @@ enum TokenInfoState: Equatable {
 
     var description: String? {
         switch self {
-        case .hidden, .loading, .error:
+        case .loading, .error:
             nil
         case .details(let details):
             details.displayDescriptionText ?? lang("$token_info_no_description")
@@ -42,10 +41,6 @@ enum TokenInfoState: Equatable {
 
     var isLoading: Bool {
         self == .loading
-    }
-
-    var isSectionVisible: Bool {
-        self != .hidden
     }
 }
 
@@ -453,8 +448,6 @@ struct TokenInfoView: View {
         expansionProgress: CGFloat
     ) -> some View {
         switch state {
-        case .hidden:
-            EmptyView()
         case .loading:
             Color.clear.frame(height: 19)
         case .details(let details):

@@ -1,6 +1,8 @@
 import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
+import type { AppReloadReason } from '../../global/types';
+
 import {
   APP_INSTALL_URL,
   APP_NAME,
@@ -24,19 +26,25 @@ import styles from './UpdateAvailable.module.scss';
 interface StateProps {
   isAppUpdateAvailable?: boolean;
   isAppUpdateRequired?: boolean;
+  appReloadReason?: AppReloadReason;
   newAppVersion?: string;
 }
 
-function UpdateAvailable({ isAppUpdateAvailable, newAppVersion, isAppUpdateRequired }: StateProps) {
+function UpdateAvailable({
+  isAppUpdateAvailable, newAppVersion, isAppUpdateRequired, appReloadReason,
+}: StateProps) {
   const lang = useLang();
 
+  const isUpdate = (IS_ANDROID_DIRECT && isAppUpdateAvailable) || isAppUpdateRequired
+    || appReloadReason === 'buildOutdated';
+
   const { shouldRender, ref } = useShowTransition<HTMLButtonElement>({
-    isOpen: (IS_ANDROID_DIRECT && isAppUpdateAvailable) || isAppUpdateRequired,
+    isOpen: Boolean(isUpdate || appReloadReason),
     withShouldRender: true,
   });
 
   const handleClick = () => {
-    if (IS_WEB) {
+    if (IS_WEB || appReloadReason) {
       window.location.reload();
       return;
     }
@@ -51,7 +59,7 @@ function UpdateAvailable({ isAppUpdateAvailable, newAppVersion, isAppUpdateRequi
   return (
     <button ref={ref} type="button" className={styles.wrapper} onClick={handleClick}>
       <i className={buildClassName('icon icon-download-filled', styles.icon)} aria-hidden />
-      {lang('Update %app_name%', { app_name: APP_NAME })}
+      {isUpdate ? lang('Update %app_name%', { app_name: APP_NAME }) : lang('Reload App')}
     </button>
   );
 }
@@ -60,6 +68,7 @@ export default memo(withGlobal((global): StateProps => ({
   isAppUpdateAvailable: global.isAppUpdateAvailable,
   newAppVersion: global.latestAppVersion,
   isAppUpdateRequired: global.isAppUpdateRequired,
+  appReloadReason: global.appReloadReason,
 }))(UpdateAvailable));
 
 function getUrl(appVersion?: string) {

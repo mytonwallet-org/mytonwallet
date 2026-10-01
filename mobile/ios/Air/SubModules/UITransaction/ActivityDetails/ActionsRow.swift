@@ -24,7 +24,8 @@ struct ActionsRow: View {
             }
             return account.supportsSend
         case .swap(let swap):
-            return account.supportsSwap && swap.cex?.status.uiStatus != .pending
+            let status = swap.displayStatus(at: model.currentDate)
+            return account.supportsSwap && (swap.cex == nil || (!status.isPending && status != .hold))
         }
     }
 

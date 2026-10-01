@@ -218,19 +218,6 @@
   border-radius: 1.5rem !important;
 }
 
-.stakingInfoModal {
-  overflow: hidden;
-  max-height: 19.875rem !important;
-
-  &_withHistory {
-    max-height: calc(95 * var(--vh, 1vh)) !important;
-
-    @media (min-width: 600.01px) {
-      max-height: 100% !important;
-    }
-  }
-}
-
 .stakingInfo {
   --color-accent-button-text: var(--color-purple-button-text);
   --color-accent-button-text-hover: var(--color-purple-button-text-hover);
@@ -267,28 +254,6 @@
         margin-top: calc(-1 * var(--tg-content-safe-area-inset-top));
         padding-top: var(--tg-content-safe-area-inset-top);
       }
-    }
-  }
-
-  &:global(.staking-info) {
-    position: relative;
-    background: none;
-
-    &::before {
-      content: '';
-
-      position: absolute;
-      top: -1rem;
-      bottom: -1rem;
-      inset-inline-start: -1rem;
-      inset-inline-end: -1rem;
-
-      border-start-start-radius: var(--border-radius-default);
-      border-start-end-radius: 0;
-      border-end-start-radius: var(--border-radius-default);
-      border-end-end-radius: var(--border-radius-default);
-
-      background: var(--color-background-purple-2);
     }
   }
 }
@@ -480,10 +445,6 @@
 
   min-height: 0;
   padding: 1.25rem 1rem 1rem;
-
-  &_static {
-    padding: 2.25rem 0 0;
-  }
 }
 
 .historyTotal {
@@ -494,11 +455,6 @@
   font-size: 0.8125rem;
   line-height: 0.8125rem;
   color: var(--color-gray-2);
-
-  .history_static & {
-    top: 2.25rem;
-    inset-inline-end: 0;
-  }
 }
 
 .historyTitle {
@@ -508,10 +464,6 @@
   font-weight: 700;
   line-height: 0.8125rem;
   color: var(--color-gray-2);
-
-  .history_static & {
-    margin-inline-start: 0;
-  }
 }
 
 .historyList {
@@ -519,12 +471,6 @@
   margin-top: 0.5rem;
   border-radius: var(--border-radius-default);
   background: var(--color-background-first);
-
-  &_static {
-    margin-bottom: -1rem;
-    margin-inline-start: -1rem;
-    margin-inline-end: -1rem;
-  }
 }
 
 .transactionBanner {

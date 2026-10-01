@@ -7,10 +7,12 @@ import android.graphics.Paint.Style
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
+import android.view.View
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.extensions.dp
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 
 class RoundProgressDrawable(
     private val sizeDp: Float = 16f,
@@ -48,7 +50,15 @@ class RoundProgressDrawable(
         }
 
         canvas.drawArc(left, top, right, bottom, angle, angle2, false, paint)
-        invalidateSelf()
+        var host = callback
+        while (host is Drawable) host = host.callback
+        if (host is View) {
+            RevealUpdates.runOrHold(host, this) {
+                invalidateSelf()
+            }
+        } else {
+            invalidateSelf()
+        }
 
         lastFrameTime = t
     }

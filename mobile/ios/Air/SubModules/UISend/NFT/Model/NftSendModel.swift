@@ -5,14 +5,6 @@ import UIComponents
 import WalletContext
 import WalletCore
 
-struct NftSendContinueState {
-    let canContinue: Bool
-    let canRetryDraft: Bool
-    let isDraftLoading: Bool
-    let hasInsufficientBalanceError: Bool
-    let isDraftRejected: Bool
-}
-
 typealias NftSendDraftSnapshot = OperationDraftSnapshot<
     NftSendDraftRequest,
     NftSendValidatedDraft
@@ -43,10 +35,7 @@ final class NftSendModel: Sendable {
     @PerceptionIgnored
     var onDraftFailure: ((any Error) -> Void)?
     @PerceptionIgnored
-    let draftCoordinator: OperationDraftCoordinator<
-        NftSendDraftRequest,
-        NftSendValidatedDraft
-    >
+    let draft: DraftEngine<NftSendDraftRequest, NftSendValidatedDraft>
 
     var didConfirmDomainScamWarning = false
 
@@ -59,9 +48,25 @@ final class NftSendModel: Sendable {
         self._account = accountContext
         self.configuration = configuration
         self.flow = flow
-        self.draftCoordinator = OperationDraftCoordinator(
-            debounce: .milliseconds(250),
-            load: flow.validateDraft
+        self.draft = DraftEngine(
+            debounce: { from, to in
+                // Typed address and comment transitions debounce; the
+                // first request and account switches load immediately.
+                guard let from,
+                      from.accountId == to.accountId else {
+                    return .zero
+                }
+                return .milliseconds(250)
+            },
+            sameScope: { lhs, rhs in
+                lhs.accountId == rhs.accountId
+                    && lhs.chain == rhs.chain
+                    && lhs.nfts == rhs.nfts
+                    && lhs.mode == rhs.mode
+            },
+            load: { [flow] request, _ in
+                try await flow.validateDraft(request)
+            }
         )
 
         self.sanitizedComment = TransferPayloadPolicy.sanitizeComment(
@@ -84,11 +89,14 @@ final class NftSendModel: Sendable {
         recipient.onScanResult = { [weak self] result in
             self?.applyScanResult(result)
         }
-        draftCoordinator.didFailRequest = { [weak self] _, error in
+        draft.onFailure = { [weak self] _, error in
             self?.onDraftFailure?(error)
         }
 
         setupObservers()
+        draft.start { [weak self] in
+            self?.currentDraftRequest
+        }
     }
 
     var comment: String {
@@ -98,7 +106,6 @@ final class NftSendModel: Sendable {
             guard value != sanitizedComment else { return }
             sanitizedComment = value
             didConfirmDomainScamWarning = false
-            refreshDraft()
         }
     }
 
@@ -127,19 +134,15 @@ final class NftSendModel: Sendable {
     }
 
     var currentDraftSnapshot: NftSendDraftSnapshot? {
-        draftCoordinator.snapshot(for: currentDraftRequest)
+        draft.current
     }
 
     var currentValidatedDraft: NftSendValidatedDraft? {
-        currentDraftSnapshot?.draft
-    }
-
-    var hasCurrentDraftFailure: Bool {
-        draftCoordinator.hasFailed(currentDraftRequest)
+        draft.current?.draft
     }
 
     var isDraftLoading: Bool {
-        draftCoordinator.isLoading(currentDraftRequest)
+        draft.isLoading
     }
 
     var addressViewModel: AddressViewModel {
@@ -208,15 +211,26 @@ final class NftSendModel: Sendable {
             && !shouldShowMultisigWarning
     }
 
-    var continueState: NftSendContinueState {
-        NftSendContinueState(
-            canContinue: canContinue,
-            canRetryDraft: hasCurrentDraftFailure,
-            isDraftLoading: isDraftLoading,
-            hasInsufficientBalanceError:
-                hasInsufficientBalanceError,
-            isDraftRejected: isRecipientInvalid
-        )
+    var primaryAction: NftSendPrimaryAction {
+        if draft.canRetry {
+            return .retryDraft
+        }
+        if recipientValidationState == .sendToSelf {
+            return .invalidAddress
+        }
+        if (isRecipientInvalid || !isRecipientCompatible), !addressOrDomain.isEmpty {
+            return .invalidAddress
+        }
+        if hasInsufficientBalanceError {
+            return .insufficientBalance
+        }
+        if isDraftLoading {
+            return .validating
+        }
+        if canContinue {
+            return .continueToReview
+        }
+        return .incomplete
     }
 
     var isAllowSuspiciousActions: Bool {
@@ -242,7 +256,7 @@ final class NftSendModel: Sendable {
     }
 
     var showingFee: MFee? {
-        let explainedFee = displayedDraft?.explainedFee
+        let explainedFee = draft.displayed?.explainedFee
         let fullFee = explainedFee?.fullFee
         let fullNativeFee = fullFee?.nativeSum
         let nativeBalance = $account.balances[feeToken.slug] ?? 0
@@ -261,7 +275,7 @@ final class NftSendModel: Sendable {
     }
 
     func retryDraft() {
-        draftCoordinator.retry()
+        draft.retry()
     }
 
     func makeConfirmedSend() throws -> ConfirmedNftSend {
@@ -283,17 +297,6 @@ final class NftSendModel: Sendable {
                 isTransferPayloadAvailable,
             flow: flow
         )
-    }
-
-    private var displayedDraft: NftSendValidatedDraft? {
-        guard let snapshot = draftCoordinator.lastSnapshot,
-              snapshot.request.accountId == account.id,
-              snapshot.request.chain == configuration.chain,
-              snapshot.request.nfts == configuration.nfts,
-              snapshot.request.mode == configuration.mode else {
-            return nil
-        }
-        return snapshot.draft
     }
 
     private var isRequiredCommentMissing: Bool {
@@ -318,34 +321,18 @@ final class NftSendModel: Sendable {
     }
 
     private func setupObservers() {
+        // Wallet-state events revalidate the same request silently; the
+        // request itself is observed by the draft engine.
         observers += observe { [weak self] in
             guard let self else { return }
-            _ = (
-                self.account.id,
-                self.addressOrDomain,
-                self.$account.balances[self.feeToken.slug]
-            )
-            // Keep coordinator state outside this observation scope. Otherwise
-            // every loading transition would retrigger and restart the draft.
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.didConfirmDomainScamWarning = false
-                self.refreshDraft(
-                    force: !self.hasCurrentDraftFailure
-                )
-            }
+            _ = $account.balances[feeToken.slug]
+            draft.refresh()
         }
-    }
-
-    private func refreshDraft(
-        debounce: Bool = true,
-        force: Bool = false
-    ) {
-        draftCoordinator.setRequest(
-            currentDraftRequest,
-            debounce: debounce ? nil : .zero,
-            refreshIfUnchanged: force
-        )
+        observers += observe { [weak self] in
+            guard let self else { return }
+            _ = (account.id, addressOrDomain)
+            didConfirmDomainScamWarning = false
+        }
     }
 
     private func applyScanResult(_ result: ScanResult) {

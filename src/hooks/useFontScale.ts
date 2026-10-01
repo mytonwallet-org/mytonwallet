@@ -29,6 +29,13 @@ function useFontScale(inputRef: ElementRef<HTMLElement>, shouldGetParentWidth?: 
       measureEl.current.style.width = `${width}px`;
       measureEl.current.innerHTML = ''; // `measureEl.current.innerHTML = input.innerHTML` is not used, because it violates the CSP
       measureEl.current.append(...input.cloneNode(true).childNodes);
+      // While animating, `AnimatedCounter` splits its text into a flex row of characters that is a few percent
+      // narrower, and their perspective transforms inflate `scrollWidth`. Elements declaring `data-measure-text`
+      // are measured as that text in one plain inline run, so the scale does not depend on their state
+      measureEl.current.querySelectorAll<HTMLElement>('[data-measure-text]').forEach((el) => {
+        el.textContent = el.dataset.measureText!;
+        el.style.display = 'inline';
+      });
       document.body.appendChild(measureEl.current);
 
       // Every `scrollWidth` read below forces a synchronous layout, so the largest fitting step is found by

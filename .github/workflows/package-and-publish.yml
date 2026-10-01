@@ -1,5 +1,5 @@
 # Terms:
-# "build" - Compile web project using webpack.
+# "build" - Compile web project using Vite.
 # "package" - Produce a distributive package for a specific platform as a workflow artifact.
 # "publish" - Send a package to corresponding store and GitHub release page.
 # "release" - build + package + publish
@@ -36,6 +36,16 @@ on:
         required: false
         type: string
         default: "0.1"
+      since_sha:
+        description: Build everything that landed after this commit, not just the tip commit
+        required: false
+        type: string
+        default: ""
+      cadence:
+        description: Set to true when the iOS build cadence is asking for this run
+        required: false
+        type: string
+        default: ""
   push:
     branches:
       - master
@@ -46,11 +56,11 @@ permissions:
   actions: read # read this workflow's own run history to derive the RC ordinal
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # The active run finishes and the newest waiting run supersedes any queued between them, so
-  # frequent pushes cannot starve the pipeline of completed builds. The group deliberately spans
-  # pushes and manual dispatches on a ref (two runs must not publish to the stores concurrently),
-  # so a waiting dispatch can itself be superseded by a later push - re-dispatch if it vanishes
+  # A cadence dispatch takes a lane of its own: the shared one holds one waiting run per ref, so a
+  # dispatch queued there would replace a waiting push and drop its Android and Electron work.
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && github.event.inputs.cadence == 'true' && '-cadence' || '' }}
+  # The newest waiting run supersedes any queued between them, so frequent pushes cannot starve the
+  # pipeline. Android and Electron publish from the shared lane alone; the iOS job guards itself.
   cancel-in-progress: false
 
 env:
@@ -105,7 +115,31 @@ jobs:
 
       - name: Check changed paths
         id: filter
+        env:
+          SINCE_SHA: ${{ inputs.since_sha }}
+          CADENCE: ${{ inputs.cadence }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # The one place that decides what a range of commits ships, so a folded window and an
+          # ordinary push cannot disagree about it.
+          classify_range() {
+            CHANGED=$(git diff --name-only "$1" "$2")
+            ANDROID_ONLY="true"
+            IOS_ONLY="true"
+            ELECTRON_CHANGED="false"
+            while IFS= read -r file; do
+              if [[ ! "$file" =~ ^mobile/android/ ]]; then
+                ANDROID_ONLY="false"
+              fi
+              if [[ ! "$file" =~ ^mobile/ios/ ]]; then
+                IOS_ONLY="false"
+              fi
+              if [[ "$file" =~ ^src/electron/ ]]; then
+                ELECTRON_CHANGED="true"
+              fi
+            done <<< "$CHANGED"
+          }
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ANDROID_SELECTED=true
             IOS_SELECTED=true
@@ -141,6 +175,36 @@ jobs:
                 ;;
             esac
 
+            if [ "$CADENCE" = "true" ]; then
+              # The gate folds several commits into one build per platform, so the open question
+              # is which of the two ships anything at all from the folded range.
+              ANDROID_ONLY="false"
+              IOS_ONLY="false"
+              # No baseline means no range to judge, and a publishing repo owes every push a build
+              # of both platforms, so either way the answer stays yes.
+              if [ -n "$SINCE_SHA" ] && [ -z "$PUBLISH_REPO" ]; then
+                # This checkout is shallow, so its histories do not connect and git cannot answer
+                # ancestry at all; the API knows the whole graph and answers it in one call.
+                STATUS=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SINCE_SHA...$GITHUB_SHA" --jq .status 2>/dev/null || true)
+                if [ "$STATUS" = "ahead" ] || [ "$STATUS" = "identical" ]; then
+                  if git fetch --quiet --depth=1 origin "$SINCE_SHA"; then
+                    classify_range "$SINCE_SHA" HEAD
+                  else
+                    echo "::warning::baseline $SINCE_SHA is unreachable, building both variants"
+                  fi
+                else
+                  echo "::warning::baseline $SINCE_SHA does not precede this commit (status=${STATUS:-unknown}), building both variants"
+                fi
+              fi
+              {
+                echo "android-only=$ANDROID_ONLY"
+                echo "ios-only=$IOS_ONLY"
+                echo "electron-changed=false"
+              } >> "$GITHUB_OUTPUT"
+              echo "Cadence dispatch - range ${SINCE_SHA:-none}..HEAD, android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY"
+              exit 0
+            fi
+
             if [ "$ANDROID_SELECTED" = "true" ] && [ "$IOS_SELECTED" = "false" ]; then
               echo "android-only=true" >> "$GITHUB_OUTPUT"
               echo "ios-only=false" >> "$GITHUB_OUTPUT"
@@ -169,23 +233,7 @@ jobs:
             exit 0
           fi
 
-          CHANGED=$(git diff --name-only HEAD~1 HEAD)
-
-          # Check if ALL changes are exclusively in mobile/android/ or mobile/ios/
-          ANDROID_ONLY="true"
-          IOS_ONLY="true"
-          ELECTRON_CHANGED="false"
-          while IFS= read -r file; do
-            if [[ ! "$file" =~ ^mobile/android/ ]]; then
-              ANDROID_ONLY="false"
-            fi
-            if [[ ! "$file" =~ ^mobile/ios/ ]]; then
-              IOS_ONLY="false"
-            fi
-            if [[ "$file" =~ ^src/electron/ ]]; then
-              ELECTRON_CHANGED="true"
-            fi
-          done <<< "$CHANGED"
+          classify_range HEAD~1 HEAD
 
           # A release branch is a release candidate, so every push off it owes testers a build of
           # each mobile platform regardless of what the tip commit happens to touch. The filter
@@ -205,6 +253,25 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED"
           echo "android-only=$ANDROID_ONLY, ios-only=$IOS_ONLY, electron-changed=$ELECTRON_CHANGED"
+
+      # The mobile jobs of a master push are skipped whenever the cadence holds them, and a skip
+      # carries no reason of its own: the expression that produced it is not shown anywhere. An
+      # Android developer reading the run for their own commit sees a build that was turned off
+      # rather than one that arrives shortly, which is exactly how it was read. No number is
+      # quoted here: the gate validates the windows, holds the anchors and runs on its own
+      # schedule, so a deadline read off the variables a second time would be one nobody owes.
+      - name: Say where the mobile builds went
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO == '' && format('window {0}', vars.IOS_BUILD_WINDOW_MINUTES) != 'window 0'
+        env:
+          CADENCE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/ios-cadence.yml
+        run: |
+          {
+            echo "### Android and iOS are not built by this run"
+            echo
+            echo "They are batched: the first commit after a quiet window starts a build and the rest fold into it, so the mobile jobs here are skipped by design rather than turned off. The Build cadence gate asks for that build, and it runs as a separate dispatch of this same workflow."
+            echo
+            echo "[The Build cadence workflow](${CADENCE_URL}) records each decision it makes, including which apps still owe this commit a build and where their windows stand. Its runs supersede one another, so read the newest one at or after this push."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   electron-release:
     name: Build, package and publish Electron
@@ -756,7 +823,9 @@ jobs:
     # setup-gradle's Post step, which a job killed by the cap never reaches - so the cap kept feeding
     # the cold build that made the job slow. The warm variant finishes the same work in 25.
     timeout-minutes: 45
-    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
+    # A master push arrives here as the dispatch the cadence gate sends once its window closes, and
+    # a window of zero hands the push path back. Read as text: an unset variable equals any number.
+    if: (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master' && (vars.PUBLISH_REPO != '' || format('window {0}', vars.IOS_BUILD_WINDOW_MINUTES) == 'window 0')) || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.ios-only != 'true' && needs.detect-changes.outputs.android-variants != '[]'
     strategy:
       fail-fast: false
       matrix:
@@ -827,6 +896,26 @@ jobs:
         if: env.PUBLISH_REPO == ''
         uses: gradle/actions/setup-gradle@v4
 
+      # The project gives the Gradle daemon a 4 GB heap, and the Kotlin daemon inherits the same
+      # setting. R8 and lintVital run inside the Gradle daemon while the Kotlin daemon still holds its
+      # heap, which is more than the 7.9 GB of RAM and 3 GB of swap a private-repo runner has: a build
+      # at that peak thrashes swap until the runner is shut down with "The runner has received a
+      # shutdown signal". User-home properties override the project's, so on a small runner this caps
+      # both daemons below the machine without touching developer builds or the larger runner of the
+      # public repository. A heap that is too small fails loudly as an OutOfMemoryError instead.
+      - name: Fit the Gradle JVMs into the runner's memory
+        run: |
+          mem_total_mb=$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)
+          echo "Runner memory: ${mem_total_mb} MB"
+          if [ "$mem_total_mb" -lt 12000 ]; then
+            mkdir -p ~/.gradle
+            {
+              echo 'org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError'
+              echo 'kotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m'
+            } >> ~/.gradle/gradle.properties
+            cat ~/.gradle/gradle.properties
+          fi
+
       - name: Run Android JVM tests
         working-directory: mobile/android
         run: ./gradlew testDebugUnitTest
@@ -847,15 +936,25 @@ jobs:
           echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > ./android.keystore
           echo -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > ./firebase-service-account.json
 
+          # One memory reading every 30 seconds in this step's own log. A build the runner shuts down
+          # keeps its last readings here, where an artifact upload after the build would never run.
+          (
+            while sleep 30; do
+              echo "[mem $(date -u +%H:%M:%S)] $(free -m | awk 'NR==2 { printf "used=%s avail=%s", $3, $7 } NR==3 { printf " swap=%s/%s", $3, $2 }')"
+            done
+          ) &
+          mem_probe_pid=$!
+          trap 'kill "$mem_probe_pid" 2>/dev/null' EXIT
+
           if [ -z "$PUBLISH_REPO" ]; then
             bundle exec fastlane beta
           else
             bundle exec fastlane release
           fi
 
-      # Fastlane leaves the Gradle and Kotlin daemons resident with a 4 GB heap each, and the next step
-      # runs two more unminified webpack builds on the same 7 GB runner. That overlap is what killed the
-      # gram job on every run since 2026-08-29: the runner is shot down mid-webpack, so setup-gradle's
+      # Fastlane leaves the Gradle and Kotlin daemons resident with their heaps, and the next step
+      # runs two more unminified web builds on the same 7 GB runner. That overlap is what killed the
+      # gram job on every run since 2026-08-29: the runner is shot down mid-build, so setup-gradle's
       # Post step never runs, so the Gradle cache is never refreshed, so the next run compiles cold, holds
       # even more heap and dies the same way. Reclaiming the JVM memory here breaks that loop; the
       # following step starts a fresh daemon in a few seconds and reads the same on-disk build cache.
@@ -897,11 +996,23 @@ jobs:
   ios-release:
     name: Release iOS app (${{ matrix.app_variant }})
     needs: detect-changes
-    runs-on: xcode-27
+    # The archive is the job and it scales with cores; the TestFlight upload that follows it does
+    # not. On the 3-core M1 tier the split was 399s of archive against 89s of upload inside a 633s
+    # run, so the ceiling on any core upgrade is the archive alone. An xlarge minute costs $0.102
+    # against $0.062, which means this tier only pays for itself below ~61% of the old wall time;
+    # above that it is buying latency, not saving money.
+    runs-on: xcode-27-xlarge
     environment: production
     # The mytonwallet variant takes 30+ minutes on slow runners; v26.7.1 needed 3 attempts against a 30-minute cap
     timeout-minutes: 45
-    if: (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-variants != '[]'
+    # A master push arrives here as the dispatch `ios-cadence.yml` sends once its window closes, and
+    # a window of zero hands the push path back. Read as text: an unset variable equals any number.
+    if: (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master' && (vars.PUBLISH_REPO != '' || format('window {0}', vars.IOS_BUILD_WINDOW_MINUTES) == 'window 0')) || (startsWith(github.ref, 'refs/heads/release/') && vars.PUBLISH_REPO == '')) && needs.detect-changes.outputs.android-only != 'true' && needs.detect-changes.outputs.ios-variants != '[]'
+    # Two runs must never reach App Store Connect with one variant at once, and the cadence lane
+    # means the workflow group no longer keeps them apart, so the iOS jobs hold that line themselves.
+    concurrency:
+      group: ios-release-${{ github.ref }}-${{ matrix.app_variant }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -922,9 +1033,69 @@ jobs:
       # twenty-two of them against the three this repository owns, and the cache key below hashes
       # that glob - a derived data root inside it would feed the key with its own contents.
       GYM_DERIVED_DATA_PATH: ${{ github.workspace }}/.derived-data
+      # Keep production on the released SDK. Xcode 27.1-only Duo work lives on
+      # ios/duo-development; runtime availability checks cannot hide missing SDK declarations.
+      IOS_REQUIRED_SDK: "27.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # The image's default Xcode is the newest one RELEASED when the image was built, so code
+      # written against a beta SDK cannot be built by it. Naming the SDK and looking for it turns
+      # that into one legible failure here instead of a wall of "has no member" deep in a Swift
+      # compile, and it keeps working when the image renames or re-dates its bundles.
+      - name: Select an Xcode carrying the required iOS SDK
+        env:
+          # Named here or the escape hatch the error below offers does not exist: a repository
+          # variable reaches a step only through an explicit mapping.
+          IOS_ALLOW_PRERELEASE_TOOLCHAIN: ${{ vars.IOS_ALLOW_PRERELEASE_TOOLCHAIN }}
+        run: |
+          set -euo pipefail
+
+          # The OLDEST toolchain that satisfies the requirement: anything newer is a further beta
+          # that nothing here asked for, and each step away from the released Xcode is a step
+          # further from the one an App Store build is allowed to use.
+          chosen=""
+          chosen_sdk=""
+          installed=""
+          for app in /Applications/Xcode*.app; do
+            developer_dir="$app/Contents/Developer"
+            [ -d "$developer_dir" ] || continue
+            sdk=$(DEVELOPER_DIR="$developer_dir" xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || true)
+            [ -n "$sdk" ] || continue
+            installed="$installed$app iphoneos$sdk"$'\n'
+            # sort -V puts the smaller version first, so the requirement leading the pair means
+            # this SDK is at least the requirement.
+            [ "$(printf '%s\n%s\n' "$sdk" "$IOS_REQUIRED_SDK" | sort -V | head -1)" = "$IOS_REQUIRED_SDK" ] || continue
+            if [ -z "$chosen" ] || [ "$(printf '%s\n%s\n' "$sdk" "$chosen_sdk" | sort -V | head -1)" = "$sdk" ]; then
+              chosen="$developer_dir"
+              chosen_sdk="$sdk"
+            fi
+          done
+
+          if [ -z "$chosen" ]; then
+            echo "::error::No installed Xcode carries iOS SDK $IOS_REQUIRED_SDK. Installed:"
+            printf '%s' "$installed"
+            exit 1
+          fi
+
+          default_sdk=$(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun --sdk iphoneos --show-sdk-version)
+          # App Store Connect accepts a binary built with a beta toolchain for TestFlight and
+          # refuses it for review, and the refusal arrives after the upload, at the end of a
+          # release. The image's default is its newest RELEASED Xcode, so needing more than that
+          # is exactly the case Apple will not take - said here, before the build, rather than by
+          # Apple after it. It falls silent by itself once the SDK ships and the default moves.
+          if [ "$chosen_sdk" != "$default_sdk" ] \
+            && [ "$(printf '%s\n%s\n' "$chosen_sdk" "$default_sdk" | sort -V | head -1)" = "$default_sdk" ]; then
+            if [ -n "$PUBLISH_REPO" ] && [ -z "${IOS_ALLOW_PRERELEASE_TOOLCHAIN:-}" ]; then
+              echo "::error::iOS SDK $IOS_REQUIRED_SDK is only in a pre-release Xcode (default is $default_sdk); App Store Connect rejects builds made with one. Wait for the SDK to ship, or set IOS_ALLOW_PRERELEASE_TOOLCHAIN=1 to upload anyway."
+              exit 1
+            fi
+            echo "::warning::Building with a pre-release Xcode (iOS SDK $chosen_sdk, default $default_sdk). Fine for TestFlight, not for App Store review."
+          fi
+
+          echo "Using $chosen (iphoneos$chosen_sdk)"
+          echo "DEVELOPER_DIR=$chosen" >> "$GITHUB_ENV"
 
       - name: Configure iOS variant
         env:
@@ -1008,8 +1179,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+          sudo xcode-select --switch "$DEVELOPER_DIR"
 
           xcodebuild -resolvePackageDependencies \
             -workspace mobile/ios/App/App.xcworkspace \
@@ -1136,8 +1306,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-          export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+          sudo xcode-select --switch "$DEVELOPER_DIR"
           xcodebuild -version
           xcodebuild -showsdks
           xcodebuild -downloadPlatform iOS || true
@@ -1197,23 +1366,206 @@ jobs:
   # left - waiting out Apple's processing, writing the build notes, submitting to the external
   # group, expiring the previous submission - is HTTP polling with no Xcode in it, and the macOS
   # runner it used to run on costs ten times what this one does per minute.
-  ios-testflight-distribute:
-    name: Distribute iOS build (${{ matrix.app_variant }})
+  cadence-anchor-plan:
+    name: Find the builds to anchor
+    needs:
+      - detect-changes
+      - ios-distribute-plan
+      - android-release
+    # Reads the run whatever its jobs did, because a platform that shipped nothing is a normal
+    # outcome here and is recognised by its own evidence rather than by a sibling's state.
+    if: ${{ !cancelled() && github.event.inputs.cadence == 'true' && github.ref == 'refs/heads/master' && vars.PUBLISH_REPO == '' }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      keys: ${{ steps.plan.outputs.keys }}
+    steps:
+      # An anchor moves for a build that shipped, so iOS is taken from the handoffs this run holds
+      # and Android from the conclusion of its own matrix rows.
+      - name: List the apps this run accounted for
+        id: plan
+        uses: actions/github-script@v9
+        env:
+          IOS_SHIPPED: ${{ needs.ios-distribute-plan.outputs.variants }}
+          IOS_ASKED: ${{ needs.detect-changes.outputs.ios-variants }}
+          ANDROID_ASKED: ${{ needs.detect-changes.outputs.android-variants }}
+          IOS_ONLY: ${{ needs.detect-changes.outputs.ios-only }}
+          ANDROID_ONLY: ${{ needs.detect-changes.outputs.android-only }}
+        with:
+          script: |
+            // The stores hold this app under the identifier the former brand gave it, and moving
+            // that would orphan installed data, so only the anchor takes the name we use now.
+            const named = (variant) => (variant === 'mytonwallet' ? 'mywallet' : variant);
+            const parse = (value) => JSON.parse(value || '[]');
+            const keys = new Set(parse(process.env.IOS_SHIPPED).map((variant) => `ios-${named(variant)}`));
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              ...context.repo,
+              run_id: context.runId,
+              per_page: 100,
+            });
+            for (const job of jobs) {
+              const android = /^Release Android app \((.+)\)$/.exec(job.name);
+              if (android && job.conclusion === 'success') keys.add(`android-${named(android[1])}`);
+            }
+            // A range holding nothing for a platform leaves it nothing to build, and that accounts
+            // for those commits as surely as a build would, so its anchor moves with them.
+            if (process.env.ANDROID_ONLY === 'true') {
+              for (const variant of parse(process.env.IOS_ASKED)) keys.add(`ios-${named(variant)}`);
+            }
+            if (process.env.IOS_ONLY === 'true') {
+              for (const variant of parse(process.env.ANDROID_ASKED)) keys.add(`android-${named(variant)}`);
+            }
+            core.setOutput('keys', JSON.stringify([...keys]));
+            core.info(`anchoring ${[...keys].join(', ') || 'nothing'}`);
+
+  cadence-anchor:
+    name: Record the build anchor (${{ matrix.key }})
+    needs: cadence-anchor-plan
+    # A condition holding no status function inherits an implicit success() over every ancestor,
+    # including the ones the planner above exists to stop caring about.
+    if: ${{ !cancelled() && needs.cadence-anchor-plan.result == 'success' && needs.cadence-anchor-plan.outputs.keys != '[]' }}
+    # Two writers that read the tag before either writes it would overwrite each other, so they
+    # take turns; a waiting write that a newer one supersedes is one the guard below would refuse.
+    concurrency:
+      group: cadence-anchor-${{ github.ref }}-${{ matrix.key }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        key: ${{ fromJSON(needs.cadence-anchor-plan.outputs.keys) }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Move the anchor tag
+        uses: actions/github-script@v9
+        env:
+          ANCHOR_KEY: ${{ matrix.key }}
+        with:
+          script: |
+            // The gate reads this tag rather than reconstructing the same fact from run history:
+            // the commit it points at is what shipped, and the tagger date is when it shipped.
+            const tag = `cadence-anchor-${process.env.ANCHOR_KEY}`;
+            // Every commit master still holds answers this, and a rerun of a run whose commit the
+            // branch has since dropped does not, which is what separates the two refusals below.
+            const stillOnMaster = async (sha) => {
+              const tip = await github.rest.repos.getBranch({ ...context.repo, branch: 'master' });
+              const diff = await github.rest.repos.compareCommits({
+                ...context.repo,
+                base: sha,
+                head: tip.data.commit.sha,
+              });
+              return diff.data.status === 'ahead' || diff.data.status === 'identical';
+            };
+            // A rerun of an older run arrives with that run's own commit, and moving the anchor back
+            // would put already-built commits outside the next window and buy a second build.
+            try {
+              const ref = await github.rest.git.getRef({ ...context.repo, ref: `tags/${tag}` });
+              const current = await github.rest.git.getTag({ ...context.repo, tag_sha: ref.data.object.sha });
+              const diff = await github.rest.repos.compareCommits({
+                ...context.repo,
+                base: current.data.object.sha,
+                head: context.sha,
+              });
+              // A rewritten master leaves the anchor on a line of its own, where no later push can
+              // ever be ahead of it, so refusing on that alone would retire the window for good.
+              if (diff.data.status === 'diverged' && await stillOnMaster(context.sha)) {
+                core.warning(`anchor ${current.data.object.sha.slice(0, 10)} is not on master any more, adopting this run`);
+              } else if (diff.data.status !== 'ahead') {
+                core.warning(`anchor already at ${current.data.object.sha.slice(0, 10)}, which is not behind this run`);
+                return;
+              }
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const object = await github.rest.git.createTag({
+              ...context.repo,
+              tag,
+              message: `iOS build uploaded from ${context.sha}`,
+              object: context.sha,
+              type: 'commit',
+              tagger: {
+                name: 'github-actions[bot]',
+                email: '41898282+github-actions[bot]@users.noreply.github.com',
+                date: new Date().toISOString(),
+              },
+            });
+            try {
+              await github.rest.git.updateRef({
+                ...context.repo,
+                ref: `tags/${tag}`,
+                sha: object.data.sha,
+                force: true,
+              });
+            } catch (error) {
+              if (error.status !== 404 && error.status !== 422) throw error;
+              await github.rest.git.createRef({
+                ...context.repo,
+                ref: `refs/tags/${tag}`,
+                sha: object.data.sha,
+              });
+            }
+
+  ios-distribute-plan:
+    name: Find the iOS builds to distribute
     needs:
       - detect-changes
       - ios-release
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    # Reads the run even when a variant failed, which is what the packaging job's fail-fast: false
+    # buys: a variant whose build never happened is recognised by its missing handoff.
+    if: ${{ !cancelled() && needs.ios-release.result != 'skipped' && vars.PUBLISH_REPO == '' }}
+    outputs:
+      variants: ${{ steps.plan.outputs.variants }}
+    steps:
+      # Deciding this here rather than inside the distribution job is what keeps a variant with
+      # nothing to upload out of that job's queue, where it would supersede a real handoff.
+      - name: List the variants that uploaded a build
+        id: plan
+        uses: actions/github-script@v9
+        env:
+          VARIANTS: ${{ needs.detect-changes.outputs.ios-variants }}
+        with:
+          script: |
+            const names = new Set();
+            const pages = github.paginate.iterator(github.rest.actions.listWorkflowRunArtifacts, {
+              ...context.repo,
+              run_id: context.runId,
+              per_page: 100,
+            });
+            for await (const page of pages) {
+              for (const artifact of page.data) {
+                if (!artifact.expired) names.add(artifact.name);
+              }
+            }
+            const asked = JSON.parse(process.env.VARIANTS);
+            const variants = asked.filter((variant) => names.has(`ios-testflight-handoff-${variant}`));
+            for (const variant of asked) {
+              if (!variants.includes(variant)) {
+                core.notice(`no handoff for ${variant}, its packaging job uploaded no build`);
+              }
+            }
+            core.setOutput('variants', JSON.stringify(variants));
+
+  ios-testflight-distribute:
+    name: Distribute iOS build (${{ matrix.app_variant }})
+    needs: ios-distribute-plan
     runs-on: ubuntu-latest
     environment: production
     # Only has to outlast Apple's processing; the lane gives up on its own after 30 minutes.
     timeout-minutes: 45
-    # Runs for the variants that succeeded even when the other one failed, which is what the
-    # packaging job's fail-fast: false buys: a variant whose build never happened is recognised
-    # by its missing handoff, not by the state of its sibling.
-    if: ${{ !cancelled() && needs.ios-release.result != 'skipped' && vars.PUBLISH_REPO == '' }}
+    # Same reason as the anchor below: without the status function a variant that built beside a
+    # failing sibling would inherit that failure and never reach TestFlight.
+    if: ${{ !cancelled() && needs.ios-distribute-plan.result == 'success' && needs.ios-distribute-plan.outputs.variants != '[]' }}
+    # Its own scope rather than the build's: a group holds one waiting item, so sharing one would
+    # let a queued handoff evict a queued build of the next run and lose it entirely.
+    concurrency:
+      group: ios-distribute-${{ github.ref }}-${{ matrix.app_variant }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
-        app_variant: ${{ fromJSON(needs.detect-changes.outputs.ios-variants) }}
+        app_variant: ${{ fromJSON(needs.ios-distribute-plan.outputs.variants) }}
     env:
       APP_VARIANT: ${{ matrix.app_variant }}
       IOS_EXTERNAL_BETA_ENABLED: "true"
@@ -1221,32 +1573,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # A variant whose packaging job failed has no handoff, and that is the expected shape rather
-      # than an error. Asking the run which artifacts it holds answers that question by itself, so
-      # the download below is left free to fail loudly: swallowing its errors instead would turn a
-      # broken artifact service or a missing permission into a quiet green job that shipped nothing.
-      - name: Look for this variant's handoff
-        id: handoff
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT_NAME: ios-testflight-handoff-${{ matrix.app_variant }}
-        run: |
-          set -euo pipefail
-
-          found=$(gh api --paginate \
-            "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100" \
-            --jq "[.artifacts[] | select(.name == \"$ARTIFACT_NAME\" and .expired == false)] | length" \
-            | awk '{ total += $1 } END { print total + 0 }')
-
-          if [ "$found" -gt 0 ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No handoff for $APP_VARIANT - its packaging job did not upload a build, so there is nothing to distribute."
-          fi
-
+      # Left free to fail loudly: swallowing its errors would turn a broken artifact service or a
+      # missing permission into a quiet green job that shipped nothing.
       - name: Download the TestFlight distribution handoff
-        if: steps.handoff.outputs.present == 'true'
         uses: actions/download-artifact@v4
         with:
           name: ios-testflight-handoff-${{ matrix.app_variant }}
@@ -1255,7 +1584,6 @@ jobs:
       # Empty leaves the Fastfile's own per-variant default in place; only a configured override
       # is passed on, so the group names live in one place rather than two.
       - name: Select the TestFlight group
-        if: steps.handoff.outputs.present == 'true'
         env:
           MYTONWALLET_TESTFLIGHT_GROUP: ${{ vars.IOS_TESTFLIGHT_GROUP }}
           GRAM_TESTFLIGHT_GROUP: ${{ vars.IOS_GRAM_TESTFLIGHT_GROUP }}
@@ -1272,7 +1600,6 @@ jobs:
           fi
 
       - name: Use Ruby and install dependencies
-        if: steps.handoff.outputs.present == 'true'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
@@ -1280,7 +1607,6 @@ jobs:
           working-directory: mobile
 
       - name: "iOS: Distribute to TestFlight"
-        if: steps.handoff.outputs.present == 'true'
         env:
           IOS_AUTH_KEY_BASE64: ${{ secrets.IOS_AUTH_KEY_BASE64 }}
           IOS_GRAM_AUTH_KEY_BASE64: ${{ secrets.IOS_GRAM_AUTH_KEY_BASE64 }}

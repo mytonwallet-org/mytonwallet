@@ -69,7 +69,8 @@ const ACCOUNT_TYPES = new Set<AgentV2HostAccount['accountType']>([
   'unknown',
 ]);
 
-const TOOL_CAPABILITIES: AgentToolCapability[] = AGENT_V2_TOOL_CONTRACTS.map(({
+// Marked pure so a build without Agent V2 can drop the module
+const TOOL_CAPABILITIES: AgentToolCapability[] = /* @__PURE__ */ AGENT_V2_TOOL_CONTRACTS.map(({
   name, version, scopes, timeoutMs, maxResultBytes,
 }) => ({ name, version, scopes, timeoutMs, maxResultBytes }));
 

@@ -57,7 +57,10 @@ const AnimatedCounter: FC<OwnProps> = ({
   }, [shouldAnimate, text]);
 
   return (
-    <span className={buildClassName(!isDisabled && styles.root, className)}>
+    <span
+      className={buildClassName(!isDisabled && styles.root, shouldAnimate && styles.animating, className)}
+      data-measure-text={text}
+    >
       {characters}
     </span>
   );

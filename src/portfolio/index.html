@@ -9,7 +9,7 @@
   <meta name="description" content="My Wallet Portfolio is a free version of My Wallet with advanced features.">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
 
-  <meta http-equiv="Content-Security-Policy" content="<%= htmlWebpackPlugin.options.csp %>">
+  <meta http-equiv="Content-Security-Policy" content="%CSP%">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +21,7 @@
   <link rel="alternate icon" href="./favicon.ico" type="image/x-icon">
   <link rel="manifest" href="./site.webmanifest">
   <script src="./fallbackScript.js"></script>
+  <script type="module" src="./index.tsx"></script>
 </head>
 
 <body id="root" class="app-container">

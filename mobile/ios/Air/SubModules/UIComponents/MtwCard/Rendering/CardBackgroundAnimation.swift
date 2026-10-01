@@ -89,7 +89,7 @@ public struct AnimatedCardBackground: View {
     private var active: Bool {
         guard #available(iOS 17, *) else { return false }
         return CardBackgroundMotionPolicy(
-            requested: isAnimationEnabled && resolution == .full,
+            requested: isAnimationEnabled && environment.cardEffectsEnabled && resolution == .full,
             animationsEnabled: environment.animationsEnabled, lowPowerMode: environment.lowPowerMode,
             reduceMotion: environment.reduceMotion, applicationActive: environment.applicationActive, visible: visible
         ).canAnimate

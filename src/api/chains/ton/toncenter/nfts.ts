@@ -1,10 +1,13 @@
 import type { ApiNetwork, ApiNft, ApiNftSuperCollection } from '../../../types';
 import type { MetadataMap, NftItemsResponse, NftItemState, NftTransfersResponse } from './types';
 
+import { split } from '../../../../util/iteratees';
 import { toBase64Address, toRawAddress } from '../util/tonCore';
 import { getNftSuperCollectionsByCollectionAddress } from '../../../common/addresses';
 import { parseToncenterNft } from './actions';
 import { callToncenterV3 } from './other';
+
+const NFT_ITEMS_CHUNK_SIZE = 100;
 
 export function fetchNftItems(network: ApiNetwork, options: {
   addresses?: string[];
@@ -51,6 +54,26 @@ export async function fetchNftByAddress(network: ApiNetwork, nftAddress: string)
   const { nft_items: items, metadata } = await fetchNftItems(network, { addresses: [nftAddress] });
 
   return items[0] && parseNftItem(network, items[0], metadata, nftSuperCollectionsByCollectionAddress);
+}
+
+/** Loads NFT items in chunks rather than one request per item. The result is indexed by raw NFT addresses. */
+export async function fetchNftsByAddresses(network: ApiNetwork, nftAddresses: string[]) {
+  const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
+  const responses = await Promise.all(split(nftAddresses, NFT_ITEMS_CHUNK_SIZE).map((chunk) => {
+    return fetchNftItems(network, { addresses: chunk, limit: chunk.length });
+  }));
+
+  const nftsByRawAddress: Record<string, ApiNft> = {};
+  for (const { nft_items: items, metadata } of responses) {
+    for (const item of items) {
+      const nft = parseNftItem(network, item, metadata, nftSuperCollectionsByCollectionAddress);
+      if (nft) {
+        nftsByRawAddress[toRawAddress(item.address)] = nft;
+      }
+    }
+  }
+
+  return nftsByRawAddress;
 }
 
 /**

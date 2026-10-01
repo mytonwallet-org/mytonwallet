@@ -7,9 +7,7 @@ type SignDataCellPreviewModule = Pick<
 
 export type SignDataCellPreviewModuleLoader = () => Promise<SignDataCellPreviewModule>;
 
-const loadPreviewModule: SignDataCellPreviewModuleLoader = () => import(
-  /* webpackChunkName: "signDataCellPreview" */ './signDataCellPreview',
-);
+const loadPreviewModule: SignDataCellPreviewModuleLoader = () => import('./signDataCellPreview');
 
 export async function loadSignDataCellPreview(
   cellBase64: string,

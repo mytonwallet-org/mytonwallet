@@ -175,7 +175,8 @@ function TransferInitial({
       isDisabledDebounce.current = true;
     }
 
-    setTransferToAddress({ toAddress: newToAddress });
+    // The controlled input drops keystrokes while its re-render waits for a heavy animation to end
+    setTransferToAddress({ toAddress: newToAddress }, { forceOnHeavyAnimation: true });
   });
 
   const handleAddressPaste = useLastCallback(() => {

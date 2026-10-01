@@ -23,6 +23,7 @@ import {
   submitDnsChangeWallet,
   submitDnsRenewal,
 } from './domains';
+import * as mfa from './mfa';
 import {
   checkNftOwnership,
   checkNftTransferDraft,
@@ -32,6 +33,7 @@ import {
 } from './nfts';
 import { getIsLedgerAppOpen } from './other';
 import { setupActivePolling, setupInactivePolling } from './polling';
+import * as staking from './staking';
 import { buildOnchainSwapTransfer, submitOnchainSwapTransfer } from './swap';
 import { fetchToken, importToken } from './tokens';
 import { fetchTransactionById } from './transactionInfo';
@@ -110,14 +112,9 @@ const tonSdk: ChainSdk<'ton'> = {
   getOtherVersionWallet,
 };
 
-// Staking and MFA reach the SDK through guarded `require`s so a `NO_EXTRA_FEATURES` build drops both
-// modules — and with them the jetton-staking, Ethena and MFA-extension contracts — from the bundle.
+// Staking and MFA are wired only when extra features are on. A `NO_EXTRA_FEATURES` build leaves both modules and
+// their contracts out through `plugins/disabledImports.ts`, which needs the flag read inline, as here.
 if (process.env.NO_EXTRA_FEATURES !== '1') {
-  /* eslint-disable @typescript-eslint/no-require-imports */
-  const staking = require('./staking') as typeof import('./staking');
-  const mfa = require('./mfa') as typeof import('./mfa');
-  /* eslint-enable @typescript-eslint/no-require-imports */
-
   tonSdk.staking = {
     checkStakeDraft: staking.checkStakeDraft,
     checkUnstakeDraft: staking.checkUnstakeDraft,

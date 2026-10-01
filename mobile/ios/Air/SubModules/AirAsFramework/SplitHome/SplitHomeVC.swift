@@ -68,6 +68,8 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Wallet")
+        navigationItem.titleView = UIView()
         StartupTrace.markOnce("home.viewDidLoad", details: "layout=split")
         setupViews()
         registerForOtherViewControllerAppearNotifications()
@@ -113,14 +115,14 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         let actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row> { cell, _, _ in
             cell.backgroundColor = .clear
         }
-        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID) { [unowned self] collectionView, indexPath in
+        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
         }
         let assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row> { [unowned self] cell, _, _ in
             cell.backgroundColor = .clear
             configureAssetsCustomSection(cell: cell)
         }
-        assetsCustomSectionDescriptor = CustomSectionDescriptor(id: assetsCustomSectionID) { [unowned self] collectionView, indexPath in
+        assetsCustomSectionDescriptor = CustomSectionDescriptor(id: assetsCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
         }
     }

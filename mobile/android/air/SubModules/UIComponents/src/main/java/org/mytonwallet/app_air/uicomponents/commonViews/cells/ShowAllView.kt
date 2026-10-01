@@ -38,7 +38,9 @@ class ShowAllView(context: Context) :
     var onMenuTap: ((anchorView: WImageButton) -> Unit)? = null
         set(value) {
             field = value
-            menuButton.visibility = if (value != null) VISIBLE else GONE
+            val visibility = if (value != null) VISIBLE else GONE
+            if (menuButton.visibility == visibility) return
+            menuButton.visibility = visibility
             updateTrailingViewsLayout()
         }
 
@@ -108,6 +110,19 @@ class ShowAllView(context: Context) :
         foreground = ripple
     }
 
+    // Without the glass, the row is filled with the background color it would blur.
+    fun setBlurBackgroundEnabled(enabled: Boolean) {
+        val blurView = blurView ?: return
+        if (blurView.isVisible == enabled) return
+        blurView.isVisible = enabled
+        updateBackground()
+    }
+
+    private fun updateBackground() {
+        val blurView = blurView ?: return
+        if (blurView.isVisible) background = null else setBackgroundColor(WColor.Background.color)
+    }
+
     fun configure(icon: Int, text: String) {
         iconDrawable = context.getDrawableCompat(icon)?.apply {
             setTint(WColor.SecondaryText.color)
@@ -122,8 +137,12 @@ class ShowAllView(context: Context) :
         titleLabel.text = text
     }
 
+    private var counter: Int? = null
+
     fun setCounter(value: Int?) {
         val count = value ?: 0
+        if (counter == count) return
+        counter = count
         val shouldShow = count > 0
         if (shouldShow) {
             counterLabel.setAmount(count.withLocalizedNumbers)
@@ -174,6 +193,7 @@ class ShowAllView(context: Context) :
 
     override fun updateTheme() {
         blurView?.updateTheme()
+        updateBackground()
         ripple.rippleColor = WColor.BackgroundRipple.color
         iconDrawable?.setTint(WColor.SecondaryText.color)
         menuDrawable?.setTint(WColor.SecondaryText.color)

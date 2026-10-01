@@ -38,7 +38,6 @@ import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useShowTransition from '../../hooks/useShowTransition';
-import { useTransitionActiveKey } from '../../hooks/useTransitionActiveKey';
 import useWindowSize from '../../hooks/useWindowSize';
 import { useTokenDropdown } from './hooks/useTokenDropdown';
 
@@ -55,7 +54,6 @@ import styles from './Staking.module.scss';
 
 interface OwnProps {
   isActive?: boolean;
-  isStatic?: boolean;
   onClose?: NoneToVoidFunction;
 }
 
@@ -82,7 +80,6 @@ function StakingInfoContent({
   states,
   stakingState,
   isActive,
-  isStatic,
   totalProfit,
   stakingHistory,
   tokens,
@@ -248,7 +245,7 @@ function StakingInfoContent({
 
   function renderHistory() {
     return (
-      <div className={buildClassName(styles.history, isStatic && styles.history_static)}>
+      <div className={styles.history}>
         {shouldRenderTotalAmount && (
           <div ref={totalAmountRef} className={styles.historyTotal}>
             {lang('$total', {
@@ -263,9 +260,7 @@ function StakingInfoContent({
         <div className={styles.historyTitle}>{lang('Earning History')}</div>
         <div className={buildClassName(
           styles.historyList,
-          isStatic && styles.historyList_static,
-          isStatic && 'custom-scroll',
-          !isStatic && height >= HISTORY_SCROLL_APPEARANCE_HEIGHT_PX && 'custom-scroll',
+          height >= HISTORY_SCROLL_APPEARANCE_HEIGHT_PX && 'custom-scroll',
         )}
         >
           {stakingHistory?.map((record) => (
@@ -284,15 +279,14 @@ function StakingInfoContent({
 
   const fullClassName = buildClassName(
     styles.stakingInfo,
-    !isStatic && styles.stakingInfo_modal,
+    styles.stakingInfo_modal,
     !hasHistory && styles.stakingInfoNoHistory,
-    isStatic && 'staking-info',
   );
 
   const handleChangeStaking = useLastCallback((id: string) => {
     onClose?.();
 
-    changeCurrentStaking({ stakingId: id, shouldReopenModal: !isStatic });
+    changeCurrentStaking({ stakingId: id, shouldReopenModal: true });
   });
 
   function renderRewards() {
@@ -330,13 +324,11 @@ function StakingInfoContent({
     return (
       <>
         <div className={fullClassName}>
-          {!isStatic && (
-            <ModalHeader
-              title={lang('Staking')}
-              closeClassName={styles.stakingInfoClose}
-              onClose={onClose}
-            />
-          )}
+          <ModalHeader
+            title={lang('Staking')}
+            closeClassName={styles.stakingInfoClose}
+            onClose={onClose}
+          />
 
           <RichNumberField
             isSensitiveData
@@ -435,17 +427,8 @@ function StakingInfoContent({
     );
   }
 
-  // No need to animate if it's in modal (`!isStatic`), because the modal is animated itself
-  const activeKey = useTransitionActiveKey([isStatic, stakingId], !isStatic);
-
   return (
-    <Transition
-      name="fade"
-      activeKey={activeKey}
-      shouldCleanup
-      className={styles.stakingTransition}
-      slideClassName={isStatic ? 'staking-info' : undefined}
-    >
+    <Transition name="fade" activeKey={0} shouldCleanup>
       {render()}
     </Transition>
   );

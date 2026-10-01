@@ -268,8 +268,16 @@ class WReplaceableLabel(
         }
     }
 
+    var isProgressAnimated = true
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) invalidate()
+        }
+
     private fun drawProgress(canvas: Canvas, widthValue: Int, progressVisibility: Float) {
-        if (progressVisibility > 0f) invalidate() else return
+        if (progressVisibility == 0f) return
+        if (isProgressAnimated) invalidate()
 
         val top = 7f.dp.roundToInt() + (13.dp - drawableSize) / 2
         val indicatorLeft = indicatorOnLeft()

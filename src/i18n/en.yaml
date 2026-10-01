@@ -208,6 +208,7 @@ Optional: Optional
 $send_token_symbol: Send %symbol%
 Is it all ok?: Is it all ok?
 Receiving Address: Receiving Address
+Contract Address: Contract Address
 Fee: Fee
 Edit: Edit
 Confirm: Confirm
@@ -342,6 +343,8 @@ Portfolio Share: Portfolio Share
 Current allocation across tracked assets.: Current allocation across tracked assets.
 Deep history analysis will be available in upcoming updates.: Deep history analysis will be available in upcoming updates.
 By Chain: By Chain
+# Other blockchain networks grouped in the portfolio; plural chains.
+$portfolio_other_chains: Other
 No chain balances: No chain balances
 Native: Native
 Stablecoins: Stablecoins
@@ -721,6 +724,10 @@ $swap_cex_support: "If something went wrong, contact %support% and provide this 
 $swap_cex_hold_support: "Please contact %support% and provide this **external exchange ID** to pass provider review:"
 $swap_cex_provider_support: "%provider% support"
 Email: Email
+$swap_cex_support_footer_email: "If something went wrong, contact %support% at %email% and provide the swap ID."
+$swap_cex_hold_support_footer_email: "Contact %support% at %email% and provide the swap ID to pass provider review."
+$swap_cex_support_footer: "If something went wrong, contact %support% and provide the swap ID."
+$swap_cex_hold_support_footer: "Contact %support% and provide the swap ID to pass provider review."
 Your %blockchain% Address: Your %blockchain% Address
 My %blockchain% Address: My %blockchain% Address
 "%blockchain% Address": "%blockchain% Address"
@@ -931,6 +938,9 @@ Card has been upgraded!: Card has been upgraded!
 $mint_card_result: NFT Card will be **minted** and **installed automatically** within a minute.
 Unique: Unique
 Get a card with unique background and personalized palette for wallet interface.: Get a card with unique background and personalized accent color for wallet interface.
+Get custom accent color for wallet interface.: Get custom accent color for wallet interface.
+Easily send your upgraded card to friends.: Easily send your upgraded card to friends.
+Sell or auction your card on marketplaces.: Sell or auction your card on marketplaces.
 Transferable: Transferable
 Easily send your upgraded card to any of your friends.: Easily send your upgraded card to any of your friends.
 Tradable: Tradable
@@ -940,6 +950,8 @@ Upgrade for %amount% %currency%: Upgrade for %amount% %currency%
 "%amount% sold": "%amount% sold"
 This card has been sold out: This card has been sold out
 "Mint starts in %time%": "Mint starts in %time%"
+"Congrats! Your first %card% comes at %percent% off.": "Congrats! Your first %card% comes at %percent% off."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!"
 "%amount% unique cards total":
   oneValue: "%amount% unique card total"
   otherValue: "%amount% unique cards total"

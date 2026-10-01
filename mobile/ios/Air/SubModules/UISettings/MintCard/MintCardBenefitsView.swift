@@ -21,12 +21,23 @@ final class MintCardBenefitsView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(_ info: MintCardTypeInfo) {
+        let isStandard = info.type == .standard
+        rows[0].setDetail(isStandard
+            ? "Get custom accent color for wallet interface."
+            : "Get a card with unique background and personalized palette for wallet interface.")
+        rows[1].setDetail(isStandard
+            ? "Easily send your upgraded card to friends."
+            : "Easily send your upgraded card to any of your friends.")
+        rows[2].setDetail(isStandard
+            ? "Sell or auction your card on marketplaces."
+            : "Sell or auction your card on third-party NFT marketplaces.")
         let isBlack = info.type == .black
         for row in rows {
             row.icon.tintColor = info.accentColor(for: traitCollection)
             row.title.textColor = isBlack ? .white : .label
             row.detail.textColor = isBlack ? UIColor.white.withAlphaComponent(0.75) : .air.secondaryLabel
         }
+        setNeedsLayout()
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {
@@ -65,9 +76,15 @@ private final class MintCardBenefitView: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    func setDetail(_ key: String) {
+        detail.text = lang(key)
+        accessibilityLabel = "\(title.text ?? ""), \(lang(key))"
+        setNeedsLayout()
+    }
+
     override func sizeThatFits(_ size: CGSize) -> CGSize {
         let textSize = CGSize(width: max(0, size.width - 70), height: .greatestFiniteMagnitude)
-        return CGSize(width: size.width, height: max(90, 15 + max(22, title.sizeThatFits(textSize).height) + 3 + detail.sizeThatFits(textSize).height + 14))
+        return CGSize(width: size.width, height: max(72, 15 + max(22, title.sizeThatFits(textSize).height) + 3 + detail.sizeThatFits(textSize).height + 14))
     }
 
     override func layoutSubviews() {

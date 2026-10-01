@@ -2,11 +2,22 @@ import Foundation
 import WalletContext
 
 public struct ApiCardInfo: Equatable, Hashable, Codable, Sendable {
+    public struct Discount: Equatable, Hashable, Codable, Sendable {
+        public var percent: Int
+        public var isApplied: Bool
+
+        public init(percent: Int, isApplied: Bool) {
+            self.percent = percent
+            self.isApplied = isApplied
+        }
+    }
+
     public var all: Int
     public var notMinted: Int
     public var price: Double
     /// Mint start time as an ISO 8601 UTC date-time string.
     public var startsAt: String? = nil
+    public var discount: Discount? = nil
 }
 
 public struct ApiCardsInfo: Equatable, Hashable, Codable, Sendable {

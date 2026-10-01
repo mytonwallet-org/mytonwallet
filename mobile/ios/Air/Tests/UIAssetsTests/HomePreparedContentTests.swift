@@ -8,6 +8,21 @@ import UIComponents
 
 @MainActor
 final class HomePreparedContentTests: XCTestCase {
+    func testRetainedTokenContentKeepsBadgeReadableAfterWidthChanges() throws {
+        let content = WalletTokenContentView(frame: CGRect(x: 0, y: 0, width: 400, height: 60))
+        let balance = MTokenBalance(tokenSlug: "Ethena USDe Staking", balance: 7, isStaking: false)
+        for width in [400.0, 240.0, 400.0] {
+            content.frame.size.width = width
+            content.configure(with: balance, animated: false,
+                              badgeContent: .tokenLabel(text: "4.76%", style: .regular),
+                              stakingAccessoryContent: nil, isMultichain: false, isPinned: true)
+            content.layoutIfNeeded()
+            let badge = try XCTUnwrap(content.subviews.flatMap(\.subviews).compactMap { $0 as? BadgeView }.first)
+            XCTAssertGreaterThanOrEqual(badge.bounds.width, badge.intrinsicContentSize.width,
+                                        "The badge must fit on the first layout without reattaching the content")
+        }
+    }
+
     func testAccountRefreshResetsLocalRevealAndPrivacyTogglesStillApply() throws {
         let db = try DatabaseQueue()
         try makeMigrator().migrate(db)

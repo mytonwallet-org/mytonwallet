@@ -37,7 +37,6 @@ final class TokenSpotlightIndexer: WalletCoreData.EventsObserver, @unchecked Sen
         case .balanceChanged,
              .tokensChanged,
              .baseCurrencyChanged,
-             .accountChanged,
              .accountNameChanged,
              .accountDeleted,
              .accountsReset,

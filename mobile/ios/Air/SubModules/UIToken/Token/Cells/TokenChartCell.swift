@@ -11,7 +11,6 @@ import WalletCore
 import WalletContext
 
 final class TokenChartCell: FirstRowCell {
-    private let horizontalInset = CGFloat(16)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -22,6 +21,9 @@ final class TokenChartCell: FirstRowCell {
     required init?(coder: NSCoder) { nil }
 
     private lazy var chartContainerView: TokenExpandableChartView? = nil
+    var rangeInteractionBlockingGestureRecognizer: UIGestureRecognizer? {
+        chartContainerView?.rangeInteractionBlockingGestureRecognizer
+    }
     override var height: CGFloat? {
         get { chartContainerView?.height }
         set {}
@@ -40,8 +42,8 @@ final class TokenChartCell: FirstRowCell {
         contentView.addSubview(chartContainerView!)
         NSLayoutConstraint.activate([
             chartContainerView!.topAnchor.constraint(equalTo: contentView.topAnchor),
-            chartContainerView!.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: horizontalInset),
-            chartContainerView!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -horizontalInset),
+            chartContainerView!.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            chartContainerView!.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
         ])
     }
 

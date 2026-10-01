@@ -37,11 +37,12 @@ internal fun <T> mergeTokenUpdateMaps(
     presentSlugs: Set<String>,
     kind: ApiTokenUpdateKind,
     removedSlugs: Collection<String>,
-    protectedSlugs: Set<String> = emptySet()
+    protectedSlugs: Set<String> = emptySet(),
+    isIncomplete: Boolean = false
 ): Map<String, T> {
     val result = current.toMutableMap()
 
-    if (kind.isFull) {
+    if (kind.isFull && !isIncomplete) {
         result.keys.removeAll { it !in presentSlugs && it !in protectedSlugs }
     }
     result.keys.removeAll { it in removedSlugs && it !in protectedSlugs }
@@ -59,20 +60,19 @@ object TokenStore : IStore {
     fun setFlowValue(
         tokens: Tokens,
         kind: ApiTokenUpdateKind = ApiTokenUpdateKind.FULL,
-        removedSlugs: List<String> = emptyList()
+        removedSlugs: List<String> = emptyList(),
+        isIncomplete: Boolean = false,
+        unpricedSlugs: Set<String> = emptySet()
     ) {
-        val incoming = if (kind.arePricesFresh) {
-            tokens.tokens
-        } else {
-            tokens.tokens.mapValues { (slug, incoming) ->
-                val cached = this.tokens[slug]
-                incoming.copy(
-                    priceUsd = cached?.priceUsd?.takeIf { it.isFinite() }
-                        ?: incoming.priceUsd,
-                    percentChange24h = cached?.percentChange24hReal?.takeIf { it.isFinite() }
-                        ?: incoming.percentChange24h
-                )
-            }
+        val incoming = tokens.tokens.mapValues { (slug, incoming) ->
+            if (kind.arePricesFresh && slug !in unpricedSlugs) return@mapValues incoming
+            val cached = this.tokens[slug]
+            incoming.copy(
+                priceUsd = cached?.priceUsd?.takeIf { it.isFinite() }
+                    ?: incoming.priceUsd,
+                percentChange24h = cached?.percentChange24hReal?.takeIf { it.isFinite() }
+                    ?: incoming.percentChange24h
+            )
         }
         val merged = mergeTokenUpdateMaps(
             current = _tokensFlow.value?.tokens.orEmpty(),
@@ -80,7 +80,8 @@ object TokenStore : IStore {
             presentSlugs = incoming.keys,
             kind = kind,
             removedSlugs = removedSlugs,
-            protectedSlugs = DefaultTokens.tokens.keys
+            protectedSlugs = DefaultTokens.tokens.keys,
+            isIncomplete = isIncomplete
         )
         _tokensFlow.value = Tokens(merged)
     }
@@ -228,11 +229,17 @@ object TokenStore : IStore {
         incomingTokens: Map<String, MToken>,
         presentSlugs: Set<String>,
         kind: ApiTokenUpdateKind,
-        removedSlugs: List<String>
+        removedSlugs: List<String>,
+        isIncomplete: Boolean,
+        unpricedSlugs: Set<String>
     ) {
         val current = tokens
         for ((slug, token) in incomingTokens) {
-            mergeTokenPrices(token, current[slug], kind.arePricesFresh)
+            mergeTokenPrices(
+                token,
+                current[slug],
+                kind.arePricesFresh && slug !in unpricedSlugs
+            )
         }
         tokens = ConcurrentHashMap(
             mergeTokenUpdateMaps(
@@ -241,25 +248,22 @@ object TokenStore : IStore {
                 presentSlugs = presentSlugs,
                 kind = kind,
                 removedSlugs = removedSlugs,
-                protectedSlugs = DefaultTokens.tokens.keys
+                protectedSlugs = DefaultTokens.tokens.keys,
+                isIncomplete = isIncomplete
             )
         )
     }
 
     private fun mergeTokenPrices(token: MToken, cached: MToken?, arePricesFresh: Boolean) {
-        if (!arePricesFresh) {
-            cached?.let {
-                if (cached.priceUsd.isFinite()) {
-                    token.priceUsd = cached.priceUsd
-                }
-                if (cached.percentChange24hReal.isFinite()) {
-                    token.percentChange24hReal = cached.percentChange24hReal
-                    token.percentChange24h = cached.percentChange24h
-                }
-            }
+        if (cached == null) return
+        if ((!arePricesFresh || !token.priceUsd.isFinite()) && cached.priceUsd.isFinite()) {
+            token.priceUsd = cached.priceUsd
         }
-        if (!token.priceUsd.isFinite()) {
-            cached?.priceUsd?.let { token.priceUsd = it }
+        if ((!arePricesFresh || !token.percentChange24hReal.isFinite()) &&
+            cached.percentChange24hReal.isFinite()
+        ) {
+            token.percentChange24hReal = cached.percentChange24hReal
+            token.percentChange24h = cached.percentChange24h
         }
     }
 

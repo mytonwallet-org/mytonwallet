@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "%%SET BY WEBPACK%%",
-  "description": "%%SET BY WEBPACK%%",
-  "version": "%%SET BY WEBPACK%%",
-  "icons": "%%SET BY WEBPACK%%",
+  "name": "%%SET BY BUILD%%",
+  "description": "%%SET BY BUILD%%",
+  "version": "%%SET BY BUILD%%",
+  "icons": "%%SET BY BUILD%%",
   "action": {
-    "default_title": "%%SET BY WEBPACK%%"
+    "default_title": "%%SET BY BUILD%%"
   },
   "permissions": [
     "webRequest",
@@ -43,5 +43,5 @@
       ]
     }
   ],
-  "content_security_policy": "%%SET BY WEBPACK%%"
+  "content_security_policy": "%%SET BY BUILD%%"
 }

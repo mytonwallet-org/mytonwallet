@@ -155,7 +155,6 @@ private class Layer: CALayer {
 final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
     static let rowHeight: CGFloat = WActionTileButton.sideLength
     static let itemSpacing: CGFloat = 16
-    static let horizontalInset: CGFloat = S.insetSectionHorizontalMargin
     
     private enum Section: Hashable {
         case main
@@ -241,7 +240,7 @@ final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
         layout.itemSize = CGSize(width: WActionTileButton.sideLength, height: WActionTileButton.sideLength)
         layout.minimumInteritemSpacing = Self.itemSpacing
         layout.minimumLineSpacing = Self.itemSpacing
-        layout.sectionInset = UIEdgeInsets(top: 0, left: Self.horizontalInset, bottom: 0, right: Self.horizontalInset)
+        layout.sectionInset = .zero
         return layout
     }
 }

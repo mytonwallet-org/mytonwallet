@@ -1,10 +1,16 @@
+import { ApiCommonError } from '../types';
+
 import { ApiServerError } from '../errors';
+import { activateAccount } from './accounts';
 import { resetAgentV2 } from './agentV2Lifecycle';
 import { importMnemonic, resetAccounts } from './auth';
 
 jest.mock('../chains', () => ({
   __esModule: true,
   default: {
+    solana: {
+      getWalletFromBip39Mnemonic: jest.fn(),
+    },
     ton: {
       getWalletFromBip39Mnemonic: jest.fn(),
       // The native-mnemonic group proxies the same module the `../chains/ton` mock below provides, so the
@@ -74,7 +80,10 @@ const ton = require('../chains/ton') as {
   getWalletFromMnemonic: jest.Mock;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const chains = require('../chains').default as { ton: { getWalletFromBip39Mnemonic: jest.Mock } };
+const chains = require('../chains').default as {
+  ton: { getWalletFromBip39Mnemonic: jest.Mock };
+  solana: { getWalletFromBip39Mnemonic: jest.Mock };
+};
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { validateBip39Mnemonic } = require('../common/mnemonic') as { validateBip39Mnemonic: jest.Mock };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -101,6 +110,9 @@ describe('importMnemonic', () => {
     chains.ton.getWalletFromBip39Mnemonic.mockResolvedValue([
       { address: 'EQ-bip39', publicKey: 'pk', version: 'W5', index: 0 },
     ]);
+    chains.solana.getWalletFromBip39Mnemonic.mockResolvedValue([
+      { address: 'solana-address', publicKey: 'solana-pk', index: 0 },
+    ]);
     getNewAccountId.mockImplementation((network: string) => Promise.resolve(`0-${network}`));
     setAccountValue.mockResolvedValue(undefined);
   });
@@ -112,7 +124,7 @@ describe('importMnemonic', () => {
 
     // A failed probe must surface as a retriable error, never fall through to a silent BIP39 import at a
     // different address than the user's funded TON wallet.
-    expect(result).toEqual({ error: expect.any(String) });
+    expect(result).toEqual({ error: ApiCommonError.ServerError });
     expect(setAccountValue).not.toHaveBeenCalled();
     expect(ton.getWalletFromMnemonic).toHaveBeenCalledWith('mainnet', DUAL_VALID, false);
   });
@@ -130,7 +142,7 @@ describe('importMnemonic', () => {
     // The multi-network import derives every network before writing, so a transient failure on one network
     // cannot leave a ghost account behind on the other (which a retry would duplicate). Flushing first defeats
     // the version where the surviving branch persists after the error.
-    expect(result).toEqual({ error: expect.any(String) });
+    expect(result).toEqual({ error: ApiCommonError.ServerError });
     expect(setAccountValue).not.toHaveBeenCalled();
   });
 
@@ -142,6 +154,29 @@ describe('importMnemonic', () => {
     await importMnemonic(['mainnet'], DUAL_VALID);
 
     expect(setAccountValue).toHaveBeenCalledWith('0-mainnet', 'accounts', expect.objectContaining({ type: 'ton' }));
+  });
+
+  it.each([
+    {
+      name: 'Solana diagnostic',
+      error: new Error('Solana error #8100002; Decode this error by running `npx @solana/errors decode -- 8100002`'),
+    },
+    { name: 'fetch failure', error: new TypeError('Load failed') },
+    { name: 'non-Error exception', error: 'Unexpected provider response' },
+  ])('hides $name without importing partial accounts', async ({ error }) => {
+    ton.validateMnemonic.mockResolvedValue(false);
+    chains.solana.getWalletFromBip39Mnemonic.mockImplementation((network: string) => (
+      network === 'testnet'
+        ? Promise.reject(error)
+        : Promise.resolve([{ address: 'solana-address', publicKey: 'solana-pk', index: 0 }])
+    ));
+
+    const result = await importMnemonic(['mainnet', 'testnet'], DUAL_VALID);
+    await flushPromises();
+
+    expect(result).toEqual({ error: ApiCommonError.Unexpected });
+    expect(setAccountValue).not.toHaveBeenCalled();
+    expect(activateAccount).not.toHaveBeenCalled();
   });
 });
 

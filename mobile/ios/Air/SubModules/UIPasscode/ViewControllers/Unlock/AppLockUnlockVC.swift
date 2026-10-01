@@ -4,6 +4,9 @@ import WalletContext
 
 @MainActor
 public final class AppLockUnlockVC: UnlockVC {
+    public override var maxContentWidth: CGFloat? { 560 }
+    public override var prefersViewCenteredContent: Bool { true }
+
     public enum Mode {
         case launch
         case app

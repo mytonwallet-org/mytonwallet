@@ -32,7 +32,6 @@ interface OwnProps extends AmountInputStateOutput {
   maxAmount?: bigint;
   token: AmountInputToken | undefined;
   allTokens?: AmountInputToken[];
-  isStatic?: boolean;
   hasError: boolean;
   withChainIcon?: boolean;
   isSensitiveDataHidden?: true;
@@ -54,7 +53,6 @@ function AmountInput({
   maxAmount,
   token,
   allTokens,
-  isStatic,
   hasError,
   withChainIcon,
   isSensitiveDataHidden,
@@ -122,7 +120,6 @@ function AmountInput({
         decimals={isBaseCurrency ? CURRENCIES[baseCurrency].decimals : token?.decimals}
         className={styles.input}
         labelClassName={styles.label}
-        isStatic={isStatic}
         prefix={prefix}
         suffix={suffix}
         disabled={isAmountReadonly}

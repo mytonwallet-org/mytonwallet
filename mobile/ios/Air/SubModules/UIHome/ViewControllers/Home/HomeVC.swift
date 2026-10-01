@@ -106,6 +106,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var headerContainerHeightConstraint: NSLayoutConstraint?
     private var headerGradientLeading = EdgeGradientView()
     private var headerGradientTrailing = EdgeGradientView()
+    private var accountSelector: HomeAccountSelector?
     private var headerGradientLeadingWidthConstraint: NSLayoutConstraint?
     private var headerGradientTrailingWidthConstraint: NSLayoutConstraint?
 
@@ -203,6 +204,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Wallet")
         StartupTrace.markOnce("home.viewDidLoad", details: "layout=tab")
         registerForOtherViewControllerAppearNotifications()
     }
@@ -305,8 +307,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         headerContainerView.addSubview(balanceHeaderView)
         NSLayoutConstraint.activate([
             balanceHeaderView.topAnchor.constraint(equalTo: windowSafeAreaGuide.topAnchor),
-            balanceHeaderView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            balanceHeaderView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            balanceHeaderView.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            balanceHeaderView.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
             balanceHeaderView.bottomAnchor.constraint(equalTo: headerContainerView.bottomAnchor).withPriority(.defaultHigh)
         ])
 
@@ -341,8 +343,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         let actionsBottomConstraint = actionsHostView.bottomAnchor.constraint(equalTo: collectionView.contentLayoutGuide.topAnchor, constant: headerPlaceholderHeight).withPriority(.init(950))
         self.actionsBottomConstraint = actionsBottomConstraint
         NSLayoutConstraint.activate([
-            actionsHostView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: compactInsetSectionHorizontalPadding),
-            actionsHostView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -compactInsetSectionHorizontalPadding),
+            actionsHostView.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            actionsHostView.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
             actionsBottomConstraint,
             actionsView.topAnchor.constraint(greaterThanOrEqualTo: windowSafeAreaGuide.topAnchor,
                                              constant: 50).withPriority(.init(900)), // will be broken when assets push it from below and out of frame; button height constrain has priority = 800
@@ -351,7 +353,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
         let spacing: CGFloat = IOS_26_MODE_ENABLED ? -112 : -100
         NSLayoutConstraint.activate([
-            balanceHeaderView.updateStatusView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor,
+            balanceHeaderView.updateStatusView.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor,
                                                 constant: spacing)
         ])
         balanceHeaderView.updateStatusView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -373,8 +375,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
         NSLayoutConstraint.activate([
             headerContainerHeightConstraint,
-            headerContainer.leadingAnchor.constraint(equalTo: collectionView.frameLayoutGuide.leadingAnchor),
-            headerContainer.trailingAnchor.constraint(equalTo: collectionView.frameLayoutGuide.trailingAnchor),
+            headerContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
             headerBottomConstraint,
             rootNavigationStyle.usesNavigationBarTopTabs
@@ -385,6 +387,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         ])
 
         let accountSelector = HomeAccountSelector(viewModel: headerViewModel)
+        self.accountSelector = accountSelector
         headerContainer.addSubview(accountSelector)
         accountSelector.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -604,18 +607,22 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private func updateHeaderCardLayout() {
         let width = headerContainer.bounds.width > 0 ? headerContainer.bounds.width : view.bounds.width
         guard width > 0 else { return }
-        let metrics = HomeCardLayoutMetrics.forContainerWidth(width)
+        let margins = view.directionalLayoutMargins
+        accountSelector?.contentMargins = margins
+        let metrics = HomeCardLayoutMetrics.forContainerWidth(width, contentMargins: margins)
         let metricsChanged = balanceHeaderView.cardLayoutMetrics != metrics
         balanceHeaderView.cardLayoutMetrics = metrics
         if headerContainerHeightConstraint?.constant != metrics.itemHeight {
             headerContainerHeightConstraint?.constant = metrics.itemHeight
         }
-        let gradientWidth = metrics.inset
-        if headerGradientLeadingWidthConstraint?.constant != gradientWidth {
-            headerGradientLeadingWidthConstraint?.constant = gradientWidth
+        let fadeWidth = min(metrics.leadingInset, metrics.trailingInset)
+        headerGradientLeading.solidEdgeLength = metrics.leadingInset - fadeWidth
+        headerGradientTrailing.solidEdgeLength = metrics.trailingInset - fadeWidth
+        if headerGradientLeadingWidthConstraint?.constant != metrics.leadingInset {
+            headerGradientLeadingWidthConstraint?.constant = metrics.leadingInset
         }
-        if headerGradientTrailingWidthConstraint?.constant != gradientWidth {
-            headerGradientTrailingWidthConstraint?.constant = gradientWidth
+        if headerGradientTrailingWidthConstraint?.constant != metrics.trailingInset {
+            headerGradientTrailingWidthConstraint?.constant = metrics.trailingInset
         }
         if metricsChanged, view.window != nil {
             contentOffsetChanged()
@@ -752,6 +759,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
         assetsCustomSectionDescriptor = CustomSectionDescriptor(
             id: assetsCustomSectionID,
+            appearance: .insetGrouped,
             dequeueCell: { [unowned self] collectionView, indexPath in
                 collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
             },
@@ -1184,8 +1192,8 @@ private final class HomeAssetsRowCell: FirstRowCell {
             contentView.addSubview(assetsView)
             NSLayoutConstraint.activate([
                 assetsView.topAnchor.constraint(equalTo: contentView.topAnchor),
-                assetsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: compactInsetSectionHorizontalPadding),
-                assetsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -compactInsetSectionHorizontalPadding),
+                assetsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+                assetsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
                 assetsView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             ])
         }

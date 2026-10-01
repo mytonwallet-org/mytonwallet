@@ -213,6 +213,7 @@ Optional: Opcional
 $send_token_symbol: Enviar %symbol%
 Is it all ok?: ¿Está todo bien?
 Receiving Address: Dirección del receptor
+Contract Address: Dirección del contrato
 Fee: Comisión
 Edit: Editar
 Confirm: Confirmar
@@ -349,6 +350,7 @@ Portfolio Share: Distribución del portafolio
 Current allocation across tracked assets.: Distribución actual entre los activos seguidos.
 Deep history analysis will be available in upcoming updates.: El análisis profundo del historial estará disponible en próximas actualizaciones.
 By Chain: Por red
+$portfolio_other_chains: Otras
 No chain balances: Sin balances por red
 Native: Nativo
 Stablecoins: Stablecoins
@@ -929,7 +931,10 @@ Mint Cards: Crear tarjetas
 Card has been upgraded!: ¡La tarjeta ha sido mejorada!
 $mint_card_result: La tarjeta NFT será **creada** y **instalada automáticamente** en un minuto.
 Unique: Única
-Get a card with unique background and personalized palette for wallet interface.: Obtén una tarjeta con fondo único y paleta personalizada para la interfaz de la billetera.
+Get a card with unique background and personalized palette for wallet interface.: Obtén una tarjeta con fondo único y color de acento personalizado para la interfaz de la billetera.
+Get custom accent color for wallet interface.: Obtén un color de acento para tu billetera.
+Easily send your upgraded card to friends.: Envía fácilmente tu tarjeta mejorada a tus amigos.
+Sell or auction your card on marketplaces.: Vende o subasta tu tarjeta en mercados.
 Transferable: Transferible
 Easily send your upgraded card to any of your friends.: Envía fácilmente tu tarjeta mejorada a cualquiera de tus amigos.
 Tradable: Comercializable
@@ -939,6 +944,8 @@ Upgrade for %amount% %currency%: Actualización por %amount% %currency%
 "%amount% sold": "%amount% vendidos"
 This card has been sold out: Esta tarjeta está agotada
 "Mint starts in %time%": "La acuñación comienza en %time%"
+"Congrats! Your first %card% comes at %percent% off.": "¡Felicidades! Tu primera %card% tiene un %percent% de descuento."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Los usuarios más activos obtienen un %percent% de descuento en su primera %card%. ¡Haz trading o staking para calificar la próxima vez!"
 "%amount% unique cards total":
   oneValue: "%amount% tarjeta única en total"
   otherValue: "%amount% tarjetas únicas en total"
@@ -2141,6 +2148,10 @@ $swap_cex_hold_support: "Contacta con %support% y proporciona este **ID de inter
 $swap_cex_provider_support: "soporte de %provider%"
 External Exchange ID Copied: ID de intercambio externo copiado
 Email: Correo electrónico
+$swap_cex_support_footer_email: "Si algo salió mal, contacta con %support% en %email% y proporciona el ID del intercambio."
+$swap_cex_hold_support_footer_email: "Contacta con %support% en %email% y proporciona el ID del intercambio para pasar la revisión del proveedor."
+$swap_cex_support_footer: "Si algo salió mal, contacta con %support% y proporciona el ID del intercambio."
+$swap_cex_hold_support_footer: "Contacta con %support% y proporciona el ID del intercambio para pasar la revisión del proveedor."
 Choose Token: Elegir token
 You don't have any eligible tokens for this payment: No tienes tokens válidos para este pago
 Buy, swap, or receive a supported token to continue.: Compra, intercambia o recibe un token compatible para continuar.

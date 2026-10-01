@@ -112,6 +112,25 @@ class MintCardProsView(context: Context) : LinearLayout(context) {
         prosIcons.forEach { it.setColorFilter(color) }
     }
 
+    fun setStandardCard(isStandard: Boolean) {
+        val descriptions = if (isStandard) {
+            listOf(
+                "Get custom accent color for wallet interface.",
+                "Easily send your upgraded card to friends.",
+                "Sell or auction your card on marketplaces."
+            )
+        } else {
+            listOf(
+                "Get a card with unique background and personalized palette for wallet interface.",
+                "Easily send your upgraded card to any of your friends.",
+                "Sell or auction your card on third-party NFT marketplaces."
+            )
+        }
+        descLabels.forEachIndexed { index, label ->
+            label.text = LocaleController.getString(descriptions[index])
+        }
+    }
+
     fun setBlackProgress(blackProgress: Float) {
         val t = blackProgress.coerceIn(0f, 1f)
         val titleColor = lerpColor(WColor.PrimaryText.color, ON_BLACK_TITLE, t)

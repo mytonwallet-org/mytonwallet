@@ -18,6 +18,7 @@ public final class ExploreVC: WViewController {
     private let viewOutput = ViewOutput()
     private let externalEvents = ExternalEvents()
     private let observedViewState = ObservedViewState()
+    private let contentBottomSpacing: CGFloat
 
     private var trimmedSearchString: String = ""
     private var isSearchActive: Bool = false
@@ -28,7 +29,8 @@ public final class ExploreVC: WViewController {
 
     private var cancelBag = Set<AnyCancellable>()
 
-    public init() {
+    public init(contentBottomSpacing: CGFloat = 32) {
+        self.contentBottomSpacing = contentBottomSpacing
         super.init(nibName: nil, bundle: nil)
         exploreVM.delegate = self
 
@@ -57,10 +59,9 @@ public final class ExploreVC: WViewController {
     }
 
     private func initialSetup() {
-        let rootView = ScreenView(viewState: observedViewState, viewOutput: viewOutput)
-        let hostingController = UIHostingController(rootView: rootView)
+        let rootView = ScreenView(viewState: observedViewState, viewOutput: viewOutput, contentBottomSpacing: contentBottomSpacing)
+        let hostingController = LayoutMarginsHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
-        hostingController.view.insetsLayoutMarginsFromSafeArea = false
 
         view.addStretchedToBounds(subview: hostingController.view)
         addChild(hostingController)

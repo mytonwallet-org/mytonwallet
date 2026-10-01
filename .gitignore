@@ -5,6 +5,7 @@ dist-multisend
 dist-push
 dist-air
 dist-mfa
+dist-portfolio
 dist-agent
 *.LICENSE.txt
 MyTonWallet-chrome.zip
@@ -30,7 +31,7 @@ coverage/
 src/i18n/en.json
 notarization-error.log
 .patch-version
-statoscope-reference.json
+bundle-stats-reference.json
 mobile/ios/buildServer.json
 mobile/ios/Air/scripts/strings/.venv
 mobile/ios/App/App/Resources/Localizable.xcstrings

@@ -48,6 +48,13 @@ export class ApiDb extends Dexie {
   }
 }
 
-export const apiDb = new ApiDb();
+// Air never reads this cache, and its build must be able to drop this module together with the `dexie`
+// package. `/* @__PURE__ */` lets the bundler delete the call below when `tokenRepository` is unused, but
+// only the call itself: its arguments would still run. Written inline as
+// `new DbRepository(new ApiDb().tokens)`, the database construction would stay in the bundle, so it lives
+// inside a function that takes no arguments.
+export const tokenRepository = /* @__PURE__ */ createTokenRepository();
 
-export const tokenRepository = new DbRepository(apiDb.tokens);
+function createTokenRepository() {
+  return new DbRepository(new ApiDb().tokens);
+}

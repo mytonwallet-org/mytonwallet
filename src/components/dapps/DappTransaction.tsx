@@ -6,7 +6,11 @@ import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
 import isEmptyObject from '../../util/isEmptyObject';
-import { isNftTransferPayload, isTokenTransferPayload } from '../../util/ton/transfer';
+import {
+  getPayloadRecipientAddress,
+  isNftTransferPayload,
+  isTokenTransferPayload,
+} from '../../util/ton/transfer';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -79,18 +83,30 @@ function DappTransactionContent({
     () => ({ [TONCOIN.slug]: transaction.networkFee }),
     [transaction.networkFee],
   );
+  const payloadRecipientAddress = getPayloadRecipientAddress(transaction);
 
   return (
     <>
       {isNftTransferPayload(transaction.payload) && <NftInfo nft={transaction.payload.nft} />}
-      <p className={styles.label}>{lang('Receiving Address')}</p>
+      <p className={styles.label}>{lang(payloadRecipientAddress ? 'Contract Address' : 'Receiving Address')}</p>
       <InteractiveTextField
         chain={TONCOIN.chain}
-        address={transaction.displayedToAddress}
+        address={transaction.toAddress}
         isScam={transaction.isScam}
         className={buildClassName(styles.dataField, styles.receivingAddress)}
         copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(TONCOIN.chain) }) as string}
       />
+      {payloadRecipientAddress && (
+        <>
+          <p className={styles.label}>{lang('Recipient Address')}</p>
+          <InteractiveTextField
+            chain={TONCOIN.chain}
+            address={payloadRecipientAddress}
+            className={buildClassName(styles.dataField, styles.receivingAddress)}
+            copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(TONCOIN.chain) }) as string}
+          />
+        </>
+      )}
       {!isEmptyObject(amountBySlug) && (
         <DappAmountField
           label={isNftTransferPayload(transaction.payload) ? lang('Additional Amount Sent') : lang('Amount')}

@@ -32,7 +32,7 @@ stop_existing_frontend() {
     local working_directory=""
     command="$(ps -p "$listener_pid" -o command= 2>/dev/null || true)"
     working_directory="$(lsof -a -p "$listener_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-    if [[ "$working_directory" != "$ROOT_DIR" || "$command" != *webpack* ]]; then
+    if [[ "$working_directory" != "$ROOT_DIR" || "$command" != *vite* ]]; then
       echo "Frontend port $FRONTEND_PORT is used by another process: PID $listener_pid ($command)" >&2
       exit 1
     fi

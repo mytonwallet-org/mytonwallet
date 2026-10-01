@@ -11,6 +11,7 @@ import java.math.BigInteger
 import org.mytonwallet.app_air.uicomponents.drawable.counter.Counter
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
@@ -71,7 +72,7 @@ class WCounterLabel(context: Context) :
     }
 
     override fun onCounterAppearanceChanged(counter: Counter, sizeChanged: Boolean) {
-        invalidate()
+        RevealUpdates.runOrHold(this, this) { invalidate() }
     }
 
     override fun onCounterRequiredWidthChanged(counter: Counter) {

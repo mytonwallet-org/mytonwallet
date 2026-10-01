@@ -359,7 +359,11 @@ class TokensVC(
     }
 
     fun configure(accountId: String) {
-        if (showingAccountId == accountId) return
+        if (showingAccountId == accountId) {
+            // The initial unforced update skips inactive accounts; the host still needs a first result.
+            if (prevSize == -1) dataUpdated(forceUpdate = true)
+            return
+        }
         scope.coroutineContext.cancelChildren()
         synchronized(dataUpdateLock) {
             isDataUpdateQueued = false
@@ -425,11 +429,13 @@ class TokensVC(
                 isTokenVisible(it, showingAccount, assetsAndActivityData)
             }
             withContext(Dispatchers.Main) {
+                val prevDisplayedRows = displayedRowKeys()
                 pinnedSlugs = newPinnedSlugs
                 totalVisibleTokensCount = filteredWalletTokens.size
                 val limit = calculateEffectiveHomeLimit(totalVisibleTokensCount)
                 val limitChanged = effectiveHomeLimit != limit
                 effectiveHomeLimit = limit
+                val hadTokens = walletTokens.isNotEmpty()
                 walletTokens = filteredWalletTokens.toTypedArray()
                 val moreToShow = shouldShowAllRow(totalVisibleTokensCount, limit)
                 val moreToShowChanged = thereAreMoreToShow != moreToShow
@@ -453,12 +459,39 @@ class TokensVC(
                         onHeightChanged?.invoke()
                     }
                 }
-                itemAnimator.with(recyclerView) {
-                    rvAdapter.reloadData()
+                if (prevDisplayedRows == displayedRowKeys()) {
+                    if (!reconfigureAttachedRows()) rvAdapter.reloadRange(0, displayedTokensCount)
+                } else {
+                    itemAnimator.with(recyclerView, add = itemAnimator.enableAdd && hadTokens) {
+                        rvAdapter.reloadData()
+                    }
                 }
                 onAssetsShown?.invoke()
             }
         }
+    }
+
+    // Rows keep their cells when the same tokens stay in the same places.
+    private fun displayedRowKeys(): List<String?> =
+        List(displayedTokensCount) { walletTokens[it].virtualStakingToken }
+
+    // Configures the bound cells in place; a layout pass would re-record every row.
+    private fun reconfigureAttachedRows(): Boolean {
+        val count = displayedTokensCount
+        if (recyclerView.childCount != count || recyclerView.isComputingLayout ||
+            recyclerView.hasPendingAdapterUpdates()
+        ) {
+            return false
+        }
+        val holders = List(count) {
+            val holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(it))
+            if (holder.bindingAdapterPosition != it) return false
+            holder as? WCell.Holder ?: return false
+        }
+        holders.forEachIndexed { row, holder ->
+            recyclerViewConfigureCell(recyclerView, holder, IndexPath(0, row))
+        }
+        return true
     }
 
     val calculatedHeight: Int
@@ -529,6 +562,7 @@ class TokensVC(
             return
         }
         if (showAllView.parent !== view) return
+        showAllView.setBlurBackgroundEnabled(window?.isWideLayout == true)
         if (window?.isWideLayout == true) {
             if (prevShowAllViewToTop == -2) return
             prevShowAllViewToTop = -2

@@ -4,49 +4,112 @@ import WalletCore
 import Perception
 import SwiftNavigation
 
+struct LinkDomainDraftRequest: Equatable, Sendable {
+    let accountId: String
+    let nftAddress: String
+    let walletAddress: String
+}
+
+/// Resolution and fee for one (domain, destination address) pair, loaded
+/// as a single draft so display and confirmation read the same values.
+struct LinkDomainValidatedDraft: Sendable {
+    let realFee: BigInt
+    let resolvedAddress: String
+    let addressName: String?
+}
+
 @Perceptible
 @MainActor final class LinkDomainViewModel {
     let nftAddress: String
     let initialNft: ApiNft?
     @PerceptionIgnored
     @AccountContext var account: MAccount
-
     @PerceptionIgnored
-    private var resolveObserver: ObserveToken?
+    let draft: DraftEngine<LinkDomainDraftRequest, LinkDomainValidatedDraft>
     @PerceptionIgnored
-    private var resolveTask: Task<Void, any Error>?
+    private var initialAddressObserver: ObserveToken?
+    @PerceptionIgnored
+    private var didFillInitialWalletAddress = false
 
     var walletAddress: String = ""
-    var selectedWalletAccount: MAccount?
-    var walletAddressName: String?
-    var resolvedWalletAddress: String?
     var isAddressFocused = false
-
-    var realFee: BigInt?
-    var isLoadingDraft = false
-    var isPreparingAction = false
     var isSubmitting = false
-    var isResolvingAddress = false
-    var errorMessage: String?
 
     var onLink: (() -> Void)?
 
     init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
-        self._account = AccountContext(source: accountSource)
+        let accountContext = AccountContext(source: accountSource)
+        self._account = accountContext
         self.nftAddress = nftAddress
         self.initialNft = nft
-        let linkedAddress = $account.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
-        self.walletAddress = linkedAddress ?? account.getAddress(chain: nft?.chain) ?? ""
-        self.selectedWalletAccount = matchingImportedWallet(for: self.walletAddress, chain: nft?.chain)
-        resolveObserver = observe { [weak self] in
-            guard let self else { return }
-            _ = (self.walletAddress, self.account.network)
-            self.resolveAddress()
-        }
-    }
+        let initialNft = nft
+        self.draft = DraftEngine(
+            debounce: { from, to in
+                // Typed address transitions debounce; the first request and
+                // account changes load immediately.
+                guard let from,
+                      from.accountId == to.accountId,
+                      from.nftAddress == to.nftAddress else {
+                    return .zero
+                }
+                return .milliseconds(250)
+            },
+            sameScope: {
+                // The fee keeps showing while the address is retyped.
+                $0.accountId == $1.accountId
+                    && $0.nftAddress == $1.nftAddress
+            },
+            load: { request, _ in
+                let nft = accountContext.domains.nftsByAddress[request.nftAddress]
+                    ?? initialNft
+                    ?? NftStore.getNft(accountId: request.accountId, nftId: request.nftAddress)?.nft
+                guard let nft else {
+                    throw DisplayError(text: lang("Unexpected error"))
+                }
+                let info = try await Api.getAddressInfo(
+                    chain: nft.chain,
+                    network: accountContext.account.network,
+                    address: request.walletAddress
+                )
+                if let error = info.error?.nilIfEmpty {
+                    throw SdkError.apiReturnedError(error: error, context: nil)
+                }
+                let resolvedAddress = info.resolvedAddress?.nilIfEmpty
+                    ?? request.walletAddress
+                // The fee emulation builds the same change message as the
+                // submission, which requires a parseable blockchain
+                // address — never a domain name.
+                let feeDraft = try await Api.checkDnsChangeWalletDraft(
+                    accountId: request.accountId,
+                    nft: nft,
+                    address: resolvedAddress
+                )
+                return LinkDomainValidatedDraft(
+                    realFee: feeDraft.realFee,
+                    resolvedAddress: resolvedAddress,
+                    addressName: info.addressName?.nilIfEmpty
+                )
+            }
+        )
 
-    deinit {
-        resolveTask?.cancel()
+        let linkedAddress = accountContext.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
+        self.walletAddress = linkedAddress
+            ?? accountContext.account.getAddress(chain: nft?.chain)
+            ?? ""
+        if walletAddress.isEmpty {
+            // The chain is unknown until the NFT arrives; fill the default
+            // destination once it does, without ever overriding a field
+            // the user has touched or cleared.
+            initialAddressObserver = observe { [weak self] in
+                guard let self else { return }
+                fillInitialWalletAddressIfNeeded()
+            }
+        } else {
+            didFillInitialWalletAddress = true
+        }
+        draft.start { [weak self] in
+            self?.draftRequest
+        }
     }
 
     var title: String {
@@ -67,13 +130,33 @@ import SwiftNavigation
         $account.domains.linkedAddressByAddress[nftAddress]?.nilIfEmpty
     }
 
+    private var draftRequest: LinkDomainDraftRequest? {
+        let address = normalizedWalletAddress
+        guard let chain = nft?.chain,
+              !address.isEmpty,
+              chain.isValidAddressOrDomain(address) else {
+            return nil
+        }
+        return LinkDomainDraftRequest(
+            accountId: account.id,
+            nftAddress: nftAddress,
+            walletAddress: address
+        )
+    }
+
     var fee: MFee? {
-        guard let realFee else { return nil }
+        guard let realFee = draft.displayed?.realFee else { return nil }
         return MFee(
             precision: .exact,
             terms: .init(token: nil, native: realFee, stars: nil),
             nativeSum: realFee
         )
+    }
+
+    var errorMessage: String? {
+        guard let failure = draft.failure else { return nil }
+        return (failure as? LocalizedError)?.errorDescription
+            ?? failure.localizedDescription
     }
 
     var isAddressValid: Bool {
@@ -83,7 +166,7 @@ import SwiftNavigation
     }
 
     var isInsufficientBalance: Bool {
-        guard let realFee else { return false }
+        guard let realFee = draft.displayed?.realFee else { return false }
         let tonBalance = $account.balances[TONCOIN_SLUG] ?? 0
         return tonBalance < realFee
     }
@@ -96,9 +179,13 @@ import SwiftNavigation
     }
 
     var canLink: Bool {
-        guard isAddressValid else { return false }
+        guard !isSubmitting, isAddressValid else { return false }
         if let linkedWalletAddress, linkedWalletAddress == normalizedWalletAddress { return false }
-        return !isSubmitting && !isPreparingAction && !isLoadingDraft && realFee != nil && !isInsufficientBalance
+        return draft.current != nil && !isInsufficientBalance
+    }
+
+    var selectedWalletAccount: MAccount? {
+        matchingImportedWallet(for: normalizedWalletAddress, chain: nft?.chain)
     }
 
     private var normalizedWalletAddress: String {
@@ -106,7 +193,11 @@ import SwiftNavigation
     }
 
     var isButtonLoading: Bool {
-        isSubmitting || isPreparingAction || isLoadingDraft || realFee == nil
+        if isSubmitting { return true }
+        guard !isInsufficientBalance else { return false }
+        if nft == nil { return true }
+        guard isAddressValid, normalizedWalletAddress != linkedWalletAddress else { return false }
+        return draft.isLoading
     }
 
     func displayComponents() -> (primary: String?, secondary: String?) {
@@ -117,8 +208,10 @@ import SwiftNavigation
             return (selectedWalletAccount.displayName, formatStartEndAddress(selectedWalletAccount.getAddress(chain: chain) ?? input))
         }
 
-        let resolved = resolvedWalletAddress?.nilIfEmpty
-        let name = walletAddressName?.nilIfEmpty
+        // Resolution shows only for the exact live request — never a stale
+        // answer for a previous input.
+        let resolved = draft.current?.draft.resolvedAddress
+        let name = draft.current?.draft.addressName
 
         if let resolved {
             if let name {
@@ -133,53 +226,22 @@ import SwiftNavigation
         return (input, nil)
     }
 
-    func loadDraft() async {
-        guard !isLoadingDraft, let nft else { return }
-        setInitialWalletAddressIfNeeded(for: nft)
-        isLoadingDraft = true
-        errorMessage = nil
-        do {
-            let address = normalizedWalletAddress.nilIfEmpty ?? account.getAddress(chain: nft.chain) ?? ""
-            let result = try await Api.checkDnsChangeWalletDraft(accountId: account.id, nft: nft, address: address)
-            realFee = result.realFee
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            realFee = nil
-        }
-        isLoadingDraft = false
-    }
-
     func selectWalletAccount(_ account: MAccount) {
         guard let chain = nft?.chain, let address = account.getAddress(chain: chain) else { return }
-        selectedWalletAccount = account
         walletAddress = address
     }
 
-    func makeConfirmationSnapshot() async throws -> LinkDomainConfirmationSnapshot? {
-        guard !isPreparingAction else { return nil }
-        guard canLink, let nft, let realFee else {
-            throw LinkDomainSubmissionError.invalidConfirmationState
+    func makeConfirmationSnapshot() -> LinkDomainConfirmationSnapshot? {
+        guard canLink, let nft, let current = draft.current else {
+            return nil
         }
-        isPreparingAction = true
-        defer { isPreparingAction = false }
-
-        let account = account
-        let inputAddress = normalizedWalletAddress
-        let selectedWalletAccount = selectedWalletAccount
-        let info = try await Api.getAddressInfo(
-            chain: nft.chain,
-            network: account.network,
-            address: inputAddress
-        )
-        if let error = info.error?.nilIfEmpty {
-            throw SdkError.apiReturnedError(error: error, context: nil)
-        }
-        let resolvedAddress = info.resolvedAddress?.nilIfEmpty ?? inputAddress
+        let inputAddress = current.request.walletAddress
+        let resolvedAddress = current.draft.resolvedAddress
         let destinationName: String?
         if let selectedWalletAccount,
            importedWallet(selectedWalletAccount, matches: inputAddress, chain: nft.chain) {
             destinationName = selectedWalletAccount.displayName
-        } else if let name = info.addressName?.nilIfEmpty {
+        } else if let name = current.draft.addressName {
             destinationName = name
         } else if resolvedAddress != inputAddress {
             destinationName = inputAddress
@@ -191,7 +253,7 @@ import SwiftNavigation
             nft: nft,
             destinationAddress: resolvedAddress,
             destinationName: destinationName,
-            realFee: realFee
+            realFee: current.draft.realFee
         )
     }
 
@@ -208,56 +270,19 @@ import SwiftNavigation
         }
     }
 
-    private func resolveAddress() {
-        resolveTask?.cancel()
-        let address = normalizedWalletAddress
-        selectedWalletAccount = matchingImportedWallet(for: address, chain: nft?.chain)
-        guard !address.isEmpty else {
-            walletAddressName = nil
-            resolvedWalletAddress = nil
-            isResolvingAddress = false
-            return
-        }
-        if selectedWalletAccount != nil {
-            walletAddressName = nil
-            resolvedWalletAddress = nil
-            isResolvingAddress = false
-            return
-        }
-        guard let chain = nft?.chain, chain.isValidAddressOrDomain(address) else {
-            walletAddressName = nil
-            resolvedWalletAddress = nil
-            isResolvingAddress = false
-            return
-        }
-        isResolvingAddress = true
-        resolveTask = Task {
-            do {
-                try await Task.sleep(for: .milliseconds(250))
-                let info = try await Api.getAddressInfo(chain: chain, network: account.network, address: address)
-                if let error = info.error?.nilIfEmpty {
-                    throw SdkError.apiReturnedError(error: error, context: nil)
-                }
-                walletAddressName = info.addressName
-                resolvedWalletAddress = info.resolvedAddress
-                isResolvingAddress = false
-            } catch {
-                if !Task.isCancelled {
-                    walletAddressName = nil
-                    resolvedWalletAddress = nil
-                    isResolvingAddress = false
-                }
-            }
-        }
-    }
-
-    private func setInitialWalletAddressIfNeeded(for nft: ApiNft) {
+    private func fillInitialWalletAddressIfNeeded() {
+        guard !didFillInitialWalletAddress else { return }
         guard normalizedWalletAddress.isEmpty else {
-            selectedWalletAccount = matchingImportedWallet(for: normalizedWalletAddress, chain: nft.chain)
+            didFillInitialWalletAddress = true
+            initialAddressObserver = nil
             return
         }
-        walletAddress = linkedWalletAddress ?? account.getAddress(chain: nft.chain) ?? ""
-        selectedWalletAccount = matchingImportedWallet(for: walletAddress, chain: nft.chain)
+        guard let nft else { return }
+        didFillInitialWalletAddress = true
+        initialAddressObserver = nil
+        walletAddress = linkedWalletAddress
+            ?? account.getAddress(chain: nft.chain)
+            ?? ""
     }
 
     private func matchingImportedWallet(for value: String, chain: ApiChain?) -> MAccount? {
@@ -276,12 +301,4 @@ import SwiftNavigation
         return false
     }
 
-}
-
-private enum LinkDomainSubmissionError: Error, LocalizedError {
-    case invalidConfirmationState
-
-    var errorDescription: String? {
-        lang("Unexpected error")
-    }
 }

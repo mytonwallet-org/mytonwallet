@@ -53,10 +53,6 @@ import StakingDetails from './StakingDetails';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Staking.module.scss';
 
-interface OwnProps {
-  isStatic?: boolean;
-}
-
 interface StateProps {
   isLoading?: boolean;
   isComplete?: boolean;
@@ -86,7 +82,6 @@ const ACTIVE_STATES = new Set([StakingState.StakeInitial, StakingState.None]);
 const runThrottled = throttle((cb) => cb(), 1500, true);
 
 function StakingInitial({
-  isStatic,
   isLoading,
   isComplete,
   isViewMode,
@@ -100,7 +95,7 @@ function StakingInitial({
   isSensitiveDataHidden,
   baseCurrency,
   currencyRates,
-}: OwnProps & StateProps) {
+}: StateProps) {
   const {
     submitStakingInitial, fetchStakingFee, cancelStaking, changeCurrentStaking,
   } = getActions();
@@ -390,7 +385,7 @@ function StakingInitial({
   const handleChangeStaking = useLastCallback((id: string) => {
     cancelStaking();
 
-    changeCurrentStaking({ stakingId: id, shouldReopenModal: !isStatic });
+    changeCurrentStaking({ stakingId: id, shouldReopenModal: true });
   });
 
   const amountInputProps = useAmountInputState({
@@ -402,17 +397,13 @@ function StakingInitial({
   });
 
   return (
-    <form
-      className={isStatic ? undefined : modalStyles.transitionContent}
-      onSubmit={handleSubmit}
-    >
+    <form className={modalStyles.transitionContent} onSubmit={handleSubmit}>
       <AmountInput
         {...amountInputProps}
         containerClassName={styles.amountInputContainer}
         maxAmount={maxAmount}
         token={selectedToken}
         allTokens={selectableTokens}
-        isStatic={isStatic}
         hasError={isIncorrectAmount || isInsufficientBalance}
         isMaxAmountLoading={!selectedToken}
         isSensitiveDataHidden={isSensitiveDataHidden}
@@ -453,7 +444,7 @@ function StakingInitial({
 }
 
 export default memo(
-  withGlobal<OwnProps>(
+  withGlobal(
     (global): StateProps => {
       const currentAccountId = selectCurrentAccountId(global);
       const accountState = selectCurrentAccountState(global);

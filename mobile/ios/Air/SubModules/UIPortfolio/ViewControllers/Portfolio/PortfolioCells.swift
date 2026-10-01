@@ -302,7 +302,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         panelContainer.directionalLayoutMargins = .init(
             top: portfolioChartPanelInset,
             leading: portfolioChartPanelHorizontalInset,
-            bottom: 0,
+            bottom: portfolioChartPanelInset,
             trailing: portfolioChartPanelHorizontalInset
         )
 

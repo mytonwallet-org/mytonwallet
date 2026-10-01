@@ -24,11 +24,11 @@ struct SwapPresentationContext {
         guard context.hasEnteredAmount else {
             return .emptyAmount
         }
-        if context.isEstimating {
-            return .estimating(showContinue: false)
-        }
         if let issue = blockingIssue(context: context, state: state) {
             return .blocked(issue)
+        }
+        if context.isEstimating {
+            return .estimating(showContinue: false)
         }
         guard state.dexEstimate != nil else {
             return .waitingForEstimate
@@ -44,17 +44,14 @@ struct SwapPresentationContext {
     }
 
     func route(context: SwapPresentationContext, state: SwapEstimateModel) -> SwapRoute? {
-        guard state.dexEstimate != nil else {
+        switch buttonState(context: context, state: state) {
+        case .authorizeDiesel:
+            return .authorizeDiesel
+        case .readyToSwap:
+            return .confirmSwap(presentCrosschainResult: false)
+        default:
             return nil
         }
-        if validator.requiresDieselAuthorization(
-            input: context.validationInput,
-            swapEstimate: state.dexEstimate,
-            account: context.account
-        ) {
-            return .authorizeDiesel
-        }
-        return .confirmSwap(presentCrosschainResult: false)
     }
 
     private func blockingIssue(context: SwapPresentationContext, state: SwapEstimateModel) -> SwapIssue? {
@@ -84,11 +81,11 @@ struct SwapPresentationContext {
             return .emptyAmount
         }
         let shouldShowContinue = shouldShowContinue(context: context)
-        if context.isEstimating {
-            return .estimating(showContinue: shouldShowContinue)
-        }
         if let issue = blockingIssue(context: context, state: state) {
             return .blocked(issue)
+        }
+        if context.isEstimating {
+            return .estimating(showContinue: shouldShowContinue)
         }
         guard state.cexEstimate != nil else {
             return .waitingForEstimate
@@ -97,7 +94,10 @@ struct SwapPresentationContext {
     }
 
     func route(context: SwapPresentationContext, state: SwapEstimateModel) -> SwapRoute? {
-        guard state.cexEstimate != nil else {
+        switch buttonState(context: context, state: state) {
+        case .readyToSwap, .readyToContinue:
+            break
+        default:
             return nil
         }
         switch context.swapType.cexTopology {

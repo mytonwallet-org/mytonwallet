@@ -212,6 +212,7 @@ Optional: Opsiyonel
 $send_token_symbol: "%symbol% gönder"
 Is it all ok?: Herşey tamam mı?
 Receiving Address: Alıcı adresi
+Contract Address: Sözleşme adresi
 Fee: Ücret
 Edit: Düzenle
 Confirm: Onayla
@@ -345,6 +346,7 @@ Portfolio Share: Portföy dağılımı
 Current allocation across tracked assets.: İzlenen varlıklar arasındaki mevcut dağılım.
 Deep history analysis will be available in upcoming updates.: Derin geçmiş analizi gelecek güncellemelerde kullanıma sunulacak.
 By Chain: Ağa göre
+$portfolio_other_chains: Diğer
 No chain balances: Ağ bakiyesi yok
 Native: Yerel
 Stablecoins: Stablecoinler
@@ -925,7 +927,10 @@ Mint Cards: Kart Bas
 Card has been upgraded!: Kart yükseltildi!
 $mint_card_result: NFT kartı **basılacak** ve **bir dakika içinde otomatik olarak yüklenecektir**.
 Unique: Benzersiz
-Get a card with unique background and personalized palette for wallet interface.: Cüzdan arayüzü için benzersiz bir arka plan ve kişiselleştirilmiş palete sahip bir kart edinin.
+Get a card with unique background and personalized palette for wallet interface.: Cüzdan arayüzü için benzersiz bir arka plan ve kişiselleştirilmiş vurgu rengine sahip bir kart edinin.
+Get custom accent color for wallet interface.: Cüzdan arayüzü için özel bir vurgu rengi edinin.
+Easily send your upgraded card to friends.: Yükseltilmiş kartınızı arkadaşlarınıza kolayca gönderin.
+Sell or auction your card on marketplaces.: Kartınızı pazar yerlerinde satın veya açık artırmaya çıkarın.
 Transferable: Aktarılabilir
 Easily send your upgraded card to any of your friends.: Yükseltilmiş kartınızı kolayca herhangi bir arkadaşınıza gönderin.
 Tradable: Ticaret Yapılabilir
@@ -935,6 +940,8 @@ Upgrade for %amount% %currency%: "%amount% %currency% karşılığında yükselt
 "%amount% sold": "%amount% satıldı"
 This card has been sold out: Bu kart tükendi
 "Mint starts in %time%": "Mint işlemi %time% sonra başlayacak"
+"Congrats! Your first %card% comes at %percent% off.": "Tebrikler! İlk %card% için %percent% indirim kazandınız."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "En aktif kullanıcılar ilk %card% için %percent% indirim kazanır. Bir dahaki sefere hak kazanmak için işlem yapın veya stake edin!"
 "%amount% unique cards total":
   otherValue: "Toplam %amount% benzersiz kart"
 Import Existing Wallet: Mevcut Cüzdanı İçe Aktar
@@ -2133,6 +2140,10 @@ $swap_cex_hold_support: "Sağlayıcı incelemesini geçmek için lütfen %suppor
 $swap_cex_provider_support: "%provider% desteği"
 External Exchange ID Copied: Harici takas ID’si kopyalandı
 Email: E-posta
+$swap_cex_support_footer_email: "Bir şeyler ters giderse %support% ile %email% adresinden iletişime geçin ve takas ID’sini sağlayın."
+$swap_cex_hold_support_footer_email: "Sağlayıcı incelemesini geçmek için %support% ile %email% adresinden iletişime geçin ve takas ID’sini sağlayın."
+$swap_cex_support_footer: "Bir şeyler ters giderse %support% ile iletişime geçin ve takas ID’sini sağlayın."
+$swap_cex_hold_support_footer: "Sağlayıcı incelemesini geçmek için %support% ile iletişime geçin ve takas ID’sini sağlayın."
 Choose Token: Token seçin
 You don't have any eligible tokens for this payment: Bu ödeme için uygun token'ınız yok
 Buy, swap, or receive a supported token to continue.: Devam etmek için desteklenen bir token satın alın, takas edin veya alın.

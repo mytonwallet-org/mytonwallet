@@ -462,7 +462,19 @@ final class PortfolioVM: Sendable {
             }
             .sorted { $0.value > $1.value }
 
-        let visibleSegments = segments.filter { $0.value > 0 }
+        var visibleSegments = segments.filter { $0.value > 0 }
+        if visibleSegments.count > 10 {
+            let otherValue = visibleSegments.dropFirst(9).reduce(0) { $0 + $1.value }
+            visibleSegments = Array(visibleSegments.prefix(9)) + [
+                PortfolioInsightSegment(
+                    id: "other",
+                    title: lang("$portfolio_other_chains"),
+                    value: otherValue,
+                    valueText: formatBaseValue(otherValue),
+                    colorHex: PortfolioPalette.barrelOther
+                ),
+            ]
+        }
 
         return PortfolioInsightCardModel(
             id: .chainSplit,

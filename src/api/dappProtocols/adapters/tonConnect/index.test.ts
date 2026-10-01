@@ -1,3 +1,6 @@
+import { beginCell } from '@ton/core';
+
+import type { ApiUpdateDappSendTransactions } from '../../../types';
 import { DappProtocolType } from '../../types';
 
 import { SEND_TRANSACTION_ERROR_CODES } from './errors';
@@ -8,9 +11,12 @@ const mockFetchStoredChainAccount = jest.fn();
 const mockGetCurrentAccountId = jest.fn();
 const mockCreateDappPromise = jest.fn();
 const mockAddDapp = jest.fn();
+const mockGetDapp = jest.fn();
+const mockCheckMultiTransactionDraft = jest.fn();
 const mockTonConnectGetDeviceInfo = jest.fn();
 const mockGetWalletStateInit = jest.fn();
 const mockToRawAddress = jest.fn();
+const mockParsePayloadBase64 = jest.fn();
 
 jest.mock('../../../../config', () => ({
   ...jest.requireActual('../../../../config'),
@@ -50,7 +56,7 @@ jest.mock('../../../methods/dapps', () => ({
   addDapp: (...args: unknown[]) => mockAddDapp(...args),
   deleteDapp: jest.fn(),
   findLastConnectedAccount: jest.fn(),
-  getDapp: jest.fn(),
+  getDapp: (...args: unknown[]) => mockGetDapp(...args),
   getDappsState: jest.fn(),
   getSseLastEventId: jest.fn(),
   setSseLastEventId: jest.fn(),
@@ -68,12 +74,13 @@ jest.mock('../../../chains', () => ({
 }));
 
 jest.mock('../../../chains/ton/transfer', () => ({
-  checkMultiTransactionDraft: jest.fn(),
+  checkMultiTransactionDraft: (...args: unknown[]) => mockCheckMultiTransactionDraft(...args),
   sendSignedTransactions: jest.fn(),
 }));
 
 jest.mock('../../../chains/ton/util/metadata', () => ({
-  parsePayloadBase64: jest.fn(),
+  parsePayloadBase64: (...args: unknown[]) => mockParsePayloadBase64(...args),
+  preloadPayloadNfts: jest.fn(() => Promise.resolve(undefined)),
 }));
 
 jest.mock('../../../chains/ton/util/tonCore', () => ({
@@ -241,5 +248,106 @@ describe('TonConnectAdapter.connect', () => {
     if (result.success) return;
 
     expect(result.error.code).toBe(SEND_TRANSACTION_ERROR_CODES.BAD_REQUEST_ERROR);
+  });
+});
+
+describe('TonConnectAdapter.sendTransaction', () => {
+  const accountId = '0-mainnet';
+  const walletAddress = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+  const contractAddress = 'EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+  const payloadRecipientAddress = 'EQCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetDapp.mockResolvedValue({
+      url: 'https://example.com',
+      name: 'Example',
+      iconUrl: 'https://example.com/icon.png',
+      manifestUrl: 'https://example.com/tonconnect-manifest.json',
+    });
+    mockFetchStoredChainAccount.mockResolvedValue({
+      type: 'mnemonic',
+      byChain: {
+        ton: {
+          address: walletAddress,
+          publicKey: '00'.repeat(32),
+          version: 'W5',
+        },
+      },
+    });
+    mockCheckMultiTransactionDraft.mockResolvedValue({
+      emulation: {
+        isFallback: true,
+        networkFee: 1n,
+      },
+      parsedPayloads: [{
+        type: 'tokens:transfer',
+        queryId: 1n,
+        amount: 2n,
+        destination: 'unvalidated-recipient',
+        responseDestination: walletAddress,
+        forwardAmount: 0n,
+        slug: 'ton-token',
+        tokenAddress: 'token-address',
+      }],
+    });
+    mockParsePayloadBase64.mockResolvedValue({
+      type: 'tokens:transfer',
+      queryId: 1n,
+      amount: 2n,
+      destination: payloadRecipientAddress,
+      responseDestination: walletAddress,
+      forwardAmount: 0n,
+      slug: 'ton-token',
+      tokenAddress: 'token-address',
+    });
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: new Promise(() => {}),
+    });
+  });
+
+  it('revalidates the raw payload and keeps the message destination as the primary address', async () => {
+    let resolveUpdate!: (update: ApiUpdateDappSendTransactions) => void;
+    const updatePromise = new Promise<ApiUpdateDappSendTransactions>((resolve) => {
+      resolveUpdate = resolve;
+    });
+    const adapter = createTonConnectAdapter();
+    await adapter.init({
+      onUpdate: (update) => {
+        if (update.type === 'dappSendTransactions') {
+          resolveUpdate(update);
+        }
+      },
+      env: {
+        agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false, byNetwork: { mainnet: {}, testnet: {} },
+      },
+      chainDappSupports: {},
+    });
+
+    void adapter.sendTransaction(
+      { url: 'https://example.com', accountId },
+      {
+        id: 'request-1',
+        chain: 'ton',
+        payload: {
+          messages: [{
+            address: contractAddress,
+            amount: '1',
+            payload: beginCell().endCell().toBoc().toString('base64'),
+          }],
+        },
+      },
+    );
+
+    const update = await updatePromise;
+    expect(update.transactions[0]).toMatchObject({
+      toAddress: contractAddress,
+      displayedToAddress: contractAddress,
+      payload: { destination: payloadRecipientAddress },
+    });
+    expect(mockParsePayloadBase64).toHaveBeenCalledWith(
+      'mainnet', contractAddress, expect.any(String), { expectedOwnerAddress: walletAddress },
+    );
   });
 });

@@ -28,9 +28,8 @@ files:
   - "public/icon-electron-windows.ico"
   - "public/icon-electron-macos.icns"
   - "!dist/get"
-  - "!dist/**/statoscope-build-statistics.json"
-  - "!dist/**/statoscope-report.html"
-  - "!dist/**/statoscope-reference.json"
+  - "!dist/bundle-stats"
+  - "!dist/bundle-manifest.json"
   - "!node_modules"
 directories:
   buildResources: "./public"

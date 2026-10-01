@@ -210,6 +210,7 @@ Optional: 选项
 $send_token_symbol: 发送 %symbol%
 Is it all ok?: 确认全部正确?
 Receiving Address: 接收地址
+Contract Address: 合约地址
 Fee: 手续费
 Edit: 编辑
 Confirm: 确认
@@ -342,6 +343,7 @@ Portfolio Share: 投资组合占比
 Current allocation across tracked assets.: 当前跟踪资产的分配情况。
 Deep history analysis will be available in upcoming updates.: 深度历史分析将在后续更新中提供。
 By Chain: 按链
+$portfolio_other_chains: 其他
 No chain balances: 暂无链余额
 Native: 原生
 Stablecoins: 稳定币
@@ -920,7 +922,10 @@ Mint Cards: 铸造卡片
 Card has been upgraded!: 卡片已升级！
 $mint_card_result: NFT 卡片将在一分钟内**铸造**并**自动安装**。
 Unique: 独特
-Get a card with unique background and personalized palette for wallet interface.: 获取具有独特背景和个性化调色板的卡片，用于钱包界面。
+Get a card with unique background and personalized palette for wallet interface.: 获取具有独特背景和个性化主题色的卡片，用于钱包界面。
+Get custom accent color for wallet interface.: 获取钱包界面的专属主题色。
+Easily send your upgraded card to friends.: 轻松将升级后的卡片发送给好友。
+Sell or auction your card on marketplaces.: 在交易市场出售或拍卖您的卡片。
 Transferable: 可转让
 Easily send your upgraded card to any of your friends.: 轻松将您的升级卡片发送给任何朋友。
 Tradable: 可交易
@@ -930,6 +935,8 @@ Upgrade for %amount% %currency%: 升级需 %amount% %currency%
 "%amount% sold": 已售 %amount%
 This card has been sold out: 此卡片已售罄
 "Mint starts in %time%": "铸造将在 %time% 后开始"
+"Congrats! Your first %card% comes at %percent% off.": "恭喜！您的首张 %card% 立减 %percent%。"
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "最活跃的用户首张 %card% 可立减 %percent%。进行交易或质押，下次即可获得资格！"
 "%amount% unique cards total":
   otherValue: "共 %amount% 张独特卡片"
 Import Existing Wallet: 导入现有钱包
@@ -2126,6 +2133,10 @@ $swap_cex_hold_support: "请联系 %support% 并提供此**外部兑换 ID**以�
 $swap_cex_provider_support: "%provider% 支持"
 External Exchange ID Copied: 已复制外部兑换 ID
 Email: 电子邮件
+$swap_cex_support_footer_email: "如果出现问题，请通过 %email% 联系 %support% 并提供兑换 ID。"
+$swap_cex_hold_support_footer_email: "请通过 %email% 联系 %support% 并提供兑换 ID，以通过提供商审核。"
+$swap_cex_support_footer: "如果出现问题，请联系 %support% 并提供兑换 ID。"
+$swap_cex_hold_support_footer: "请联系 %support% 并提供兑换 ID，以通过提供商审核。"
 Choose Token: 选择代币
 You don't have any eligible tokens for this payment: 您没有适用于此次支付的代币
 Buy, swap, or receive a supported token to continue.: 购买、兑换或接收受支持的代币以继续。

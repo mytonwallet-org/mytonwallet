@@ -28,9 +28,12 @@ import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController.PresentationConfig
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.WWindow
+import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.extensions.startActivityCatching
+import org.mytonwallet.app_air.uicomponents.helpers.AnimationSuspension
 import org.mytonwallet.app_air.uicomponents.helpers.PopupHelpers
+import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicreatewallet.viewControllers.addAccountOptions.AddAccountOptionsVC
@@ -112,6 +115,7 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.app_air.walletcore.utils.jsonObject
 import org.mytonwallet.uihome.home.HomeVC
+import org.mytonwallet.uihome.home.views.header.WalletCardView
 import org.mytonwallet.uihome.tabletTabs.TabletTabsVC
 import org.mytonwallet.uihome.tabs.BaseTabsVC
 import org.mytonwallet.uihome.tabs.PhoneTabsVC
@@ -193,7 +197,11 @@ class SplashVC(context: Context) :
                     }
 
                     WCacheStorage.InitialScreen.LOCK -> {
-                        if (WGlobalStorage.accountIds().isEmpty()) return@post
+                        val accountIds = WGlobalStorage.accountIds()
+                        if (accountIds.isEmpty()) return@post
+                        WalletCore.preloadAccount(
+                            WGlobalStorage.getActiveAccountId() ?: accountIds.first()
+                        )
                         presentTabsAndLockScreen()
                         preloadedScreen = WCacheStorage.InitialScreen.LOCK
                     }
@@ -416,6 +424,7 @@ class SplashVC(context: Context) :
 
     private fun presentLockScreen(startWithBiometrics: Boolean = true) {
         val window = window ?: return
+        WalletCardView.prefetchCardPlaceholder(window)
         // To prevent ui glitches, make sure window has background
         if (tabsVC?.view?.isVisible != true) {
             window.window?.decorView?.setBackgroundColor(WColor.Background.color)
@@ -453,6 +462,8 @@ class SplashVC(context: Context) :
                 window.forceStatusBarLight = null
                 window.forceBottomBarLight = null
                 val tabsVC = tabsVC
+                tabsVC?.setHomeAnimationsSuspended(true)
+                tabsVC?.view?.let { AnimationSuspension.suspend(it) }
                 window.preparePreviousNavigationControllerForDisplay()
                 tabsVC?.view?.isVisible = true
                 var dismissalRequested = false
@@ -461,14 +472,20 @@ class SplashVC(context: Context) :
                     if (!dismissalRequested) {
                         dismissalRequested = true
                         window.windowView.removeCallbacks(renderTimeout)
-                        window.dismissLastNav(
+                        val revealedView = tabsVC?.navigationController ?: tabsVC?.view
+                        revealedView?.let { RevealUpdates.hold(it) }
+                        val isDismissing = window.dismissLastNav(
                             WWindow.DismissAnimation.SCALE_OUT,
                             onCompletion = {
+                                tabsVC?.setHomeAnimationsSuspended(false)
+                                tabsVC?.view?.let { AnimationSuspension.resume(it) }
+                                revealedView?.let { RevealUpdates.release(it) }
                                 appIsUnlocked = true
                                 handleDeeplinkIfRequired()
                                 window.doPendingTasks()
                             }
                         )
+                        if (!isDismissing) revealedView?.let { RevealUpdates.release(it) }
                     }
                     Unit
                 }
@@ -494,6 +511,7 @@ class SplashVC(context: Context) :
             onCompletion = {
                 // Lock-screen is on, remove unnecessary window background
                 window.window?.decorView?.background = null
+                executeWithLowPriority { tabsVC?.prepareHomeStack() }
             }
         )
     }

@@ -17,9 +17,9 @@ Where <error> is an error string from a log file exported by the application,
 and <dist-directory> is the path to a directory with the application's sourcemaps (default: dist).
 Examples:
 
-  npm run resolve-stacktrace ${JSON.stringify('{"name":"Error","message":"Test","stack":"Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:26382)"}')}
+  npm run resolve-stacktrace ${JSON.stringify('{"name":"Error","message":"Test","stack":"Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/provider.DEsYVXnw.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/provider.DEsYVXnw.js:2:26382)"}')}
 
-  npm run resolve-stacktrace "Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:26382)"`;
+  npm run resolve-stacktrace "Error: Test\n    at t.BitBuilder.writeVarUint (https://mytonwallet.local/provider.DEsYVXnw.js:2:25840)\n    at t.BitBuilder.writeCoins (https://mytonwallet.local/provider.DEsYVXnw.js:2:26382)"`;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -123,13 +123,13 @@ async function resolveStackTraceLine(mapDirectory, consumerCache, line) {
 }
 
 function parseStackTraceLine(line) {
-  // Example: at t.BitBuilder.writeCoins (https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:26382)
+  // Example: at t.BitBuilder.writeCoins (https://mytonwallet.local/provider.DEsYVXnw.js:2:26382)
   const chromeRegex1 = /^(\s*)at\s.+\((.+):(\d+):(\d+)\)\s*$/;
-  // Example: at async https://mytonwallet.local/941.c17ba5754ec7f174fec2.js:2:1906473
+  // Example: at async https://mytonwallet.local/provider.DEsYVXnw.js:2:1906473
   const chromeRegex2 = /^(\s*)at(?:\sasync)?\s(.+):(\d+):(\d+)\s*$/;
-  // Example: safeExec@http://localhost:4321/main.0f90301c98b9aa1b7228.js:55739:14
-  // Example: @http://localhost:4321/main.0f90301c98b9aa1b7228.js:49974:25
-  // Example: ./src/lib/teact/teact.ts/runUpdatePassOnRaf</<@http://localhost:4321/main.0f90301c98b9aa1b7228.js:49974:32
+  // Example: safeExec@http://localhost:4321/main.Di-2oIXE.js:55739:14
+  // Example: @http://localhost:4321/main.Di-2oIXE.js:49974:25
+  // Example: runUpdatePassOnRaf</<@http://localhost:4321/main.Di-2oIXE.js:49974:32
   const safariAndFirefoxRegex = /^(\s*)\S*@(.+):(\d+):(\d+)\s*$/;
 
   const match = chromeRegex1.exec(line) || chromeRegex2.exec(line) || safariAndFirefoxRegex.exec(line);
@@ -167,16 +167,22 @@ async function resolveTrace(mapDirectory, consumerCache, fileUrl, lineNumber, co
   };
 }
 
+// A build of the same revision reproduces the file names, so the map is looked up by name first. Otherwise a
+// map is matched by the name without its hash, which several chunks may share, so only a single match counts.
 function findSourceMapFile(mapDirectory, fileUrl) {
   const filePath = extractFilePathFromUrl(fileUrl);
+  const directoryContent = fs.readdirSync(mapDirectory, { withFileTypes: true }).filter((item) => item.isFile());
+  if (directoryContent.some((item) => item.name === `${filePath}.map`)) {
+    return `${filePath}.map`;
+  }
+
   const bundleId = extractBundleIdFromFilePath(filePath, '.js');
   if (bundleId === null) {
     return null;
   }
 
-  const directoryContent = fs.readdirSync(mapDirectory, { withFileTypes: true });
-  const isDesiredMap = (item) => item.isFile() && extractBundleIdFromFilePath(item.name, '.js.map') === bundleId;
-  return directoryContent.find(isDesiredMap)?.name ?? null;
+  const candidates = directoryContent.filter((item) => extractBundleIdFromFilePath(item.name, '.js.map') === bundleId);
+  return candidates.length === 1 ? candidates[0].name : null;
 }
 
 function extractFilePathFromUrl(fileUrl) {
@@ -188,7 +194,7 @@ function extractBundleIdFromFilePath(filePath, extension) {
     return null;
   }
 
-  const match = /^([\w.-]*)\.[\w]{16,}$/.exec(filePath.slice(0, filePath.length - extension.length));
+  const match = /^([\w.-]*?)\.[\w-]{8,}$/.exec(filePath.slice(0, filePath.length - extension.length));
   if (!match) {
     return null;
   }
@@ -196,6 +202,7 @@ function extractBundleIdFromFilePath(filePath, extension) {
   return match[1];
 }
 
+// Source paths in the maps are relative to `dist`
 function resolveSourceFilePath(sourceFileUrl) {
-  return sourceFileUrl.replace(/^webpack:\/\/[^\/]*\//, '');
+  return sourceFileUrl.replace(/^(\.\.\/)+/, '');
 }

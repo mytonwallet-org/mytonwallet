@@ -205,7 +205,7 @@ public func createChartController(
     return resultController
 }
 
-private final class HorizontalInteractionBlockerGestureRecognizer: UIGestureRecognizer {
+final class HorizontalInteractionBlockerGestureRecognizer: UIGestureRecognizer {
     var shouldBlockTouch: ((CGPoint) -> Bool)?
     private var firstLocation = CGPoint.zero
 

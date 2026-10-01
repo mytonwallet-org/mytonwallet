@@ -26,28 +26,45 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     private var settingsHeaderView = SettingsHeaderView()
     private var navBarBlurView: UIView?
     private var pauseReloadData: Bool = false
+    private var isVisible = false
+    private var shouldShowPortfolio = false
     private var isExpandedSplitLayout: Bool {
         splitViewController?.isCollapsed == false
     }
         
     @Dependency(\.accountStore.currentAccountId) private var currentAccountId
+    @AccountContext(source: .current) private var account: MAccount
         
     public override func viewDidLoad() {
         super.viewDidLoad()
+        title = lang("Settings")
 
         setupViews()
         WalletCoreData.add(eventObserver: self)
         observe { [weak self] in
             self?.setUpdateStatus(WalletUpdateStatusModel.shared.state)
         }
+        observe { [weak self] in
+            guard let self else { return }
+            let shouldShowPortfolio = ($account.balanceUsd ?? 0) > 0
+            guard self.shouldShowPortfolio != shouldShowPortfolio else { return }
+            self.shouldShowPortfolio = shouldShowPortfolio
+            reloadData(animated: true)
+        }
     }
     
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        isVisible = true
         pauseReloadData = false
         updateHeader()
         reloadData(animated: false)
         syncScrollDrivenChrome()
+    }
+
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        isVisible = false
     }
 
     private func setupViews() {
@@ -361,8 +378,10 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         }
 
         // Tabs & Modules
-        snapshot.appendSections([.tabsAndModules])
-        snapshot.appendItems([.portfolio])
+        if shouldShowPortfolio {
+            snapshot.appendSections([.tabsAndModules])
+            snapshot.appendItems([.portfolio])
+        }
 
         // General section
         snapshot.appendSections([.general])
@@ -523,18 +542,20 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     }
     
     private func updateHeader() {
-        if !pauseReloadData {
+        if isVisible && !pauseReloadData {
             settingsHeaderView.updateAll()
         }
     }
     
     private func updateHeaderBalance() {
-        if !pauseReloadData {
+        if isVisible && !pauseReloadData {
             settingsHeaderView.updateBalance()
         }
     }
     
     private func reloadData(animated: Bool) {
+        // viewWillAppear always refreshes the complete presentation.
+        guard isVisible else { return }
         if animated {
             if !pauseReloadData {
                 dataSource.apply(makeSnapshot(), animatingDifferences: animated)

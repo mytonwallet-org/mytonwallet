@@ -7,6 +7,8 @@ import Perception
 
 
 public final class LedgerSelectWalletsVC: WViewController {
+    public override var maxContentWidth: CGFloat? { 560 }
+    public override var prefersViewCenteredContent: Bool { true }
     
     var hostingController: UIHostingController<LedgerSelectWalletsView>? = nil
     var model: LedgerAddAccountModel

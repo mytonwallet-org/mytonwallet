@@ -21,8 +21,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private var isSheetPresentationInFlight = false
     private var continueButton: WButton?
     private var continueButtonConstraint: NSLayoutConstraint?
-    private var pendingButtonConfiguration: SwapButtonConfiguration?
-    private var buttonPresentationController: SwapButtonPresentationController?
+    private var buttonPresentationController: DraftButtonPresenter?
     private lazy var accountSwitcher = AccountSwitcher(configuration: .init(accountSupport: .swap)) { [weak self] accountId in
         self?.selectAccount(accountId: accountId)
     }
@@ -218,16 +217,15 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             continueButton.leadingAnchor.constraint(equalTo: bottomButtonContainer.leadingAnchor, constant: horizontalInset),
             continueButton.trailingAnchor.constraint(equalTo: bottomButtonContainer.trailingAnchor, constant: -horizontalInset),
         ])
-        let buttonPresentationController = SwapButtonPresentationController(button: continueButton)
+        let buttonPresentationController = DraftButtonPresenter(button: continueButton)
         self.buttonPresentationController = buttonPresentationController
         setupBottomButtonBackground(continueButton: continueButton)
         continueButton.isEnabled = false
         continueButton.isUserInteractionEnabled = false
-        continueButton.configureTitle(sellingToken: swapModel.input.sellingToken, buyingToken: swapModel.input.buyingToken)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
-        if let pendingButtonConfiguration {
-            buttonPresentationController.apply(pendingButtonConfiguration)
-            self.pendingButtonConfiguration = nil
+        observe { [weak self] in
+            guard let self, let buttonPresentationController = self.buttonPresentationController else { return }
+            buttonPresentationController.apply(swapModel.currentButtonConfiguration)
         }
         
         let constraint = continueButton.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
@@ -350,8 +348,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             presentCrosschainResult: presentCrosschain,
             payoutAddress: payoutAddress
         ) else {
-            swapLog.fault("Missing confirmation state while starting protected swap")
-            assertionFailure("Missing confirmation state while starting protected swap")
+            swapLog.info("Swap confirmation is no longer available")
             return
         }
         swapModel.setStage(.confirming)
@@ -432,17 +429,6 @@ extension SwapVC: WalletCoreData.EventsObserver {
 }
 
 extension SwapVC: SwapModelDelegate {
-    func applyButtonConfiguration(_ config: SwapButtonConfiguration) {
-        guard let buttonPresentationController else {
-            if pendingButtonConfiguration?.hasSamePresentation(as: config) == true {
-                return
-            }
-            pendingButtonConfiguration = config
-            return
-        }
-        buttonPresentationController.apply(config)
-    }
-
     func executeSwapCommand(_ command: SwapCommand) {
         switch command {
         case .dismissKeyboard:

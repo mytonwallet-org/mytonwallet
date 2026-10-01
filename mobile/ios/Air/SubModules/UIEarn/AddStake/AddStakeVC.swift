@@ -24,7 +24,7 @@ public class AddStakeVC: WViewController {
     private var stakeTitle: String { L10n.stakeAsset(symbol: model.baseToken.symbol) }
 
     var fakeTextField = UITextField(frame: .zero)
-    private var continueButton: WButton?
+    private var continueButtonPresenter: DraftButtonPresenter?
     private var isConfirming = false
     public init(
         config: StakingConfig,
@@ -84,7 +84,7 @@ public class AddStakeVC: WViewController {
         hostingController.view.backgroundColor = .air.sheetBackground
 
         let continueButton = addBottomButton()
-        self.continueButton = continueButton
+        continueButtonPresenter = DraftButtonPresenter(button: continueButton)
         continueButton.setTitle(stakeTitle, for: .normal)
         continueButton.addTarget(self, action: #selector(continuePressed), for: .touchUpInside)
         continueButton.isEnabled = false
@@ -103,69 +103,33 @@ public class AddStakeVC: WViewController {
     }
 
     func amountChanged(amount: BigInt?) {
-        guard let continueButton else { return }
+        guard let continueButtonPresenter else { return }
+        continueButtonPresenter.apply(buttonConfiguration(amount: amount))
+    }
+
+    private func buttonConfiguration(amount: BigInt?) -> DraftButtonConfiguration {
         if isConfirming {
-            continueButton.showLoading = true
-            continueButton.isEnabled = false
-            return
+            return .init(title: .text(stakeTitle), isEnabled: false, showLoading: true)
         }
-
-        guard account.supportsEarn else {
-            continueButton.showLoading = false
-            continueButton.isEnabled = false
-            return
-        }
-
-        guard let amount else {
-            continueButton.showLoading = false
-            continueButton.isEnabled = false
-            return
+        model.insufficientFunds = false
+        guard account.supportsEarn, let amount, amount > 0 else {
+            return .init(title: .text(stakeTitle), isEnabled: false, showLoading: false)
         }
         let minAmount = getStakingMinAmount(type: stakingState.type)
-        let maxAmount = model.maxAmount
         let calculatedFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).gas ?? 0
-        let isNativeToken = model.isNativeToken
-        let toncoinBalance = model.nativeBalance
-        let isDraftReady = model.draftPhase == .ready
-            && model.draft != nil
-
-        if amount < minAmount { // Insufficient min amount for staking
+        if amount < minAmount {
             model.insufficientFunds = true
-            let symbol = model.baseToken.symbol
-            continueButton.showLoading = false
-            continueButton.setTitle("Minimum 1 \(symbol)", for: .normal)
-            continueButton.isEnabled = false
-        } else if amount > maxAmount {
-            model.insufficientFunds = true
-            let symbol = model.baseToken.symbol
-            continueButton.showLoading = false
-            continueButton.setTitle("Insufficient \(symbol) Balance", for: .normal)
-            continueButton.isEnabled = false
-        } else if !isNativeToken, toncoinBalance < calculatedFee {
-            model.insufficientFunds = true
-            continueButton.showLoading = false
-            continueButton.apply(config: .insufficientFee(minAmount: minAmount))
-        } else {
-            model.insufficientFunds = false
-            switch model.draftPhase {
-            case .loading:
-                continueButton.showLoading = true
-                continueButton.setTitle(stakeTitle, for: .normal)
-                continueButton.isEnabled = false
-            case .failed:
-                continueButton.showLoading = false
-                continueButton.setTitle(lang("Retry"), for: .normal)
-                continueButton.isEnabled = model.canRetryDraft
-            case .ready:
-                continueButton.showLoading = false
-                continueButton.setTitle(stakeTitle, for: .normal)
-                continueButton.isEnabled = amount > 0 && isDraftReady
-            case .idle:
-                continueButton.showLoading = false
-                continueButton.setTitle(stakeTitle, for: .normal)
-                continueButton.isEnabled = false
-            }
+            return .init(title: .text("Minimum 1 \(model.baseToken.symbol)"), isEnabled: false, showLoading: false)
         }
+        if amount > model.maxAmount {
+            model.insufficientFunds = true
+            return .init(title: .text("Insufficient \(model.baseToken.symbol) Balance"), isEnabled: false, showLoading: false)
+        }
+        if !model.isNativeToken, model.nativeBalance < calculatedFee {
+            model.insufficientFunds = true
+            return .insufficientStakingFee(minAmount: minAmount)
+        }
+        return .staking(title: stakeTitle, phase: model.draftPhase, canRetry: model.canRetryDraft, draftError: model.draft?.error)
     }
 
     @objc func continuePressed() {
@@ -175,6 +139,7 @@ public class AddStakeVC: WViewController {
             model.retryDraft()
             return
         }
+        guard model.canContinue, model.draftPhase == .ready else { return }
         isConfirming = true
         amountChanged(amount: model.amount)
         Task {

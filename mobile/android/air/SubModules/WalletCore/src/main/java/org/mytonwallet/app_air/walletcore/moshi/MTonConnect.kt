@@ -110,7 +110,16 @@ data class ApiDappTransfer(
     val normalizedAddress: String,
     val displayedToAddress: String,
     val networkFee: BigInteger
-)
+) {
+    /** The recipient declared in the payload when it differs from the address the message is sent to */
+    val payloadRecipientAddress: String?
+        get() = when (val payload = payload) {
+            is ApiParsedPayload.ApiNftTransferPayload -> payload.newOwner
+            is ApiParsedPayload.ApiTokensTransferPayload -> payload.destination
+            is ApiParsedPayload.ApiTokensTransferNonStandardPayload -> payload.destination
+            else -> null
+        }?.takeIf { it != toAddress }
+}
 
 @JsonClass(generateAdapter = true)
 data class ApiTonConnectProof(val timestamp: Long, val domain: String, val payload: String)

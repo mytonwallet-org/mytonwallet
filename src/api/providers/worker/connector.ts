@@ -6,12 +6,14 @@ import type {
   MethodResponseWithMaybePrefix,
 } from '../../types/methods';
 
+import { reportApiChunkLoadError } from '../../../util/chunkLoading';
 import { logDebugApi, logDebugError } from '../../../util/logs';
 import { createConnector, createExtensionConnector } from '../../../util/PostMessageConnector';
 import { pause } from '../../../util/schedulers';
 import { IS_IOS } from '../../../util/windowEnvironment';
 import { createWindowProvider, createWindowProviderForExtension } from '../../../util/windowProvider';
 import { POPUP_PORT } from '../extension/config';
+import ApiWorker from './provider?worker';
 
 const HEALTH_CHECK_TIMEOUT = 150;
 // How long a worker is allowed to spend booting before silence counts as death rather than
@@ -48,9 +50,7 @@ export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
 
       createWindowProviderForExtension();
     } else {
-      worker = new Worker(
-        /* webpackChunkName: "worker" */ new URL('./provider.ts', import.meta.url),
-      );
+      worker = new ApiWorker();
       workerState = { createdAt: Date.now(), isReady: false };
       connector = createConnector(worker, onUpdate);
 
@@ -111,6 +111,7 @@ export async function callApi<T extends keyof AllMethods>(
     // Callers treat `undefined` as a transport failure, so record the swallowed cause for support logs.
     // Args are deliberately not logged: they may carry sensitive payloads.
     logDebugError(`callApi: ${fnName}`, err);
+    reportApiChunkLoadError(err);
     return undefined;
   }
 }
@@ -125,10 +126,13 @@ export async function callApiWithThrow<T extends keyof AllMethods>(
 ) {
   await initPromise!;
 
-  return (connector!.request({
+  const response = connector!.request({
     name: fnName,
     args,
-  }) as MethodResponseWithMaybePrefix<T>);
+  });
+  void response.catch(reportApiChunkLoadError);
+
+  return response as MethodResponseWithMaybePrefix<T>;
 }
 
 /**

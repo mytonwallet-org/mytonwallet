@@ -385,15 +385,6 @@ $labelSidePadding: 0.5rem;
   color: var(--color-gray-2);
 }
 
-.footer {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  margin-top: auto;
-  padding-top: 1rem;
-}
-
 .rowContainerSkeleton,
 .dataField,
 .transferWarning {
@@ -694,10 +685,6 @@ $labelSidePadding: 0.5rem;
 
 .feeDetailsWarning {
   margin: 1.1875rem 0.5rem 0;
-}
-
-.transferButtons {
-  padding-top: 0.875rem;
 }
 
 .transactionContent {

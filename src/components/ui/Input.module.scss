@@ -210,10 +210,6 @@ textarea.input {
   line-height: 1.3125rem;
 }
 
-.inputWrapperStatic {
-  box-shadow: inset 0 0 0 0.0625rem var(--color-separator-input-stroke);
-}
-
 .input__wrapper {
   display: flex;
 
@@ -228,14 +224,10 @@ textarea.input {
 
   &.error,
   &_hasFocus.error {
-    --color-separator-input-stroke: transparent;
-
     box-shadow: inset 0 0 0 0.125rem var(--color-red);
   }
 
   &_hasFocus {
-    --color-separator-input-stroke: transparent;
-
     box-shadow: inset 0 0 0 0.125rem var(--color-accent);
   }
 }

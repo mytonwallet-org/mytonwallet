@@ -5,6 +5,7 @@ import Kingfisher
 public enum NftDetailsCache {
     static let processedImages: ImageCache = {
         let cache = ImageCache(name: "NftDetails.processed")
+        cache.memoryStorage.config.totalCostLimit = min(64 * 1024 * 1024, Int(ProcessInfo.processInfo.physicalMemory / 64))
         cache.diskStorage.config.expiration = .days(7)
         cache.diskStorage.config.sizeLimit = 500 * 1024 * 1024
         cache.diskStorage.config.pathExtension = "png"

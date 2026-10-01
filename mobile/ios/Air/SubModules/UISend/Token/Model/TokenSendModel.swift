@@ -73,21 +73,20 @@ final class TokenSendModel: Sendable {
     @PerceptionIgnored
     private var observers: [ObserveToken] = []
     @PerceptionIgnored
-    private var feeQuoteTask: Task<Void, Never>?
-    @PerceptionIgnored
-    private var feeQuoteRevision: UInt64 = 0
-    @PerceptionIgnored
-    private var loadingFeeRequest: TokenSendFeeQuoteRequest?
-    @PerceptionIgnored
     private var maximumCandidates: [BigInt] = []
     @PerceptionIgnored
     private var isReconcilingMaximum = false
     @PerceptionIgnored
     var onDraftFailure: ((any Error) -> Void)?
     @PerceptionIgnored
-    let draftCoordinator: OperationDraftCoordinator<
+    let draft: DraftEngine<
         TokenSendDraftRequest,
         TokenSendValidatedDraft
+    >
+    @PerceptionIgnored
+    let feeQuote: DraftEngine<
+        TokenSendFeeQuoteRequest,
+        ExplainedTransferFee?
     >
 
     private var environment: TokenSendEnvironment
@@ -97,7 +96,6 @@ final class TokenSendModel: Sendable {
     private var memoRequirement: TokenSendMemoRequirement?
 
     private(set) var binaryPayload: String?
-    private(set) var feeQuote: TokenSendFeeQuote?
     private(set) var maximumAmount: BigInt?
     private(set) var maximumFailure: TokenSendMaxFailure?
     private(set) var tokenSelectionSource: TokenSelectionSource
@@ -115,9 +113,31 @@ final class TokenSendModel: Sendable {
         self._account = accountContext
         self.configuration = configuration
         self.flow = flow
-        self.draftCoordinator = OperationDraftCoordinator(
-            debounce: .milliseconds(250),
-            load: flow.validateDraft
+        self.draft = DraftEngine(
+            debounce: { from, to in
+                // Typed transitions (amount, address, payload) debounce;
+                // the first request and account or asset switches load
+                // immediately.
+                guard let from,
+                      from.accountId == to.accountId,
+                      from.asset == to.asset else {
+                    return .zero
+                }
+                return .milliseconds(250)
+            },
+            sameScope: {
+                // The fee keeps showing while inputs are retyped for the
+                // same account and asset.
+                $0.accountId == $1.accountId && $0.asset == $1.asset
+            },
+            load: { [flow] request, _ in
+                try await flow.validateDraft(request)
+            }
+        )
+        self.feeQuote = DraftEngine(
+            load: { [flow] request, _ in
+                try await flow.estimateFee(request)
+            }
         )
 
         let tokenSlug: String
@@ -189,33 +209,31 @@ final class TokenSendModel: Sendable {
         recipient.onCompatibleChainsDetected = { [weak self] chains in
             self?.switchToCompatibleTokenIfNeeded(chains)
         }
-        draftCoordinator.didPublishSnapshot = { [weak self] snapshot in
-            guard let self else { return }
-            guard currentDraftRequest == snapshot.request else {
-                refreshDraft()
-                return
-            }
-            applyDraftDerivedState(
+        draft.onLoad = { [weak self] snapshot in
+            self?.applyDraftDerivedState(
                 snapshot.draft,
                 request: snapshot.request
             )
         }
-        draftCoordinator.didFailRequest = { [weak self] request, error in
+        draft.onFailure = { [weak self] _, error in
+            self?.onDraftFailure?(error)
+        }
+        feeQuote.onLoad = { [weak self] snapshot in
             guard let self else { return }
-            guard currentDraftRequest == request else {
-                refreshDraft()
-                return
+            if updateMaximum(using: snapshot.draft) {
+                // Programmatic amount adjustment: reload the draft now
+                // instead of waiting out the typing debounce.
+                draft.synchronize()
             }
-            onDraftFailure?(error)
         }
 
         setupObservers()
-        refreshFeeQuote()
-        refreshDraft()
-    }
-
-    deinit {
-        feeQuoteTask?.cancel()
+        draft.start { [weak self] in
+            self?.currentDraftRequest
+        }
+        feeQuote.start { [weak self] in
+            self?.currentFeeQuoteRequest
+        }
     }
 
     var amount: BigInt? {
@@ -278,7 +296,7 @@ final class TokenSendModel: Sendable {
     }
 
     var currentDraftSnapshot: TokenSendDraftSnapshot? {
-        draftCoordinator.snapshot(for: currentDraftRequest)
+        draft.current
     }
 
     var currentDraft: TokenSendValidatedDraft? {
@@ -286,11 +304,11 @@ final class TokenSendModel: Sendable {
     }
 
     var hasCurrentDraftFailure: Bool {
-        draftCoordinator.hasFailed(currentDraftRequest)
+        draft.canRetry
     }
 
     var isDraftLoading: Bool {
-        draftCoordinator.isLoading(currentDraftRequest)
+        draft.isLoading
     }
 
     var addressViewModel: AddressViewModel {
@@ -364,7 +382,15 @@ final class TokenSendModel: Sendable {
         if balanceStatus == .insufficientAmount {
             return .unavailable(.insufficientAmount)
         }
+        if isCommentRequired && commentInput.isEmpty {
+            return .unavailable(.requiredCommentMissing)
+        }
+        if recipientValidationState != nil {
+            return .unavailable(.invalidRecipient)
+        }
         if isDraftLoading {
+            // The generic fee quote excludes gasless transfers, so it cannot
+            // reject a plausible replacement while its actual fee is pending.
             return .validating
         }
         if hasCurrentDraftFailure {
@@ -404,9 +430,6 @@ final class TokenSendModel: Sendable {
         }
         if balanceStatus == .insufficientFee {
             return .unavailable(.insufficientFee)
-        }
-        if isCommentRequired && commentInput.isEmpty {
-            return .unavailable(.requiredCommentMissing)
         }
         guard snapshot.isAccepted else {
             return .unavailable(.draftRejected)
@@ -490,8 +513,8 @@ final class TokenSendModel: Sendable {
     }
 
     func retryDraft() {
-        refreshFeeQuote(force: true)
-        draftCoordinator.retry()
+        feeQuote.refresh()
+        draft.retry()
     }
 
     func retryMaximum() {
@@ -501,18 +524,17 @@ final class TokenSendModel: Sendable {
         let amountChanged = updateMaximum(
             using: computationalFee ?? displayedExplainedFee
         )
-        refreshDraft(
-            debounce: false,
-            force: !amountChanged
-        )
+        if amountChanged {
+            draft.synchronize()
+        } else {
+            draft.refresh()
+        }
     }
 
     func refreshWalletState() {
         synchronizeEnvironment()
-        refreshFeeQuote(force: true)
-        if !hasCurrentDraftFailure {
-            refreshDraft(force: true)
-        }
+        feeQuote.refresh()
+        draft.refresh()
     }
 
     func selectAccount(accountId: String) async throws {
@@ -551,7 +573,7 @@ final class TokenSendModel: Sendable {
             baseCurrencyDecimals: environment.baseCurrencyDecimals
         )
         didConfirmDomainScamWarning = false
-        refreshDraft()
+        draft.synchronize()
     }
 
     func setTokenAmount(_ amount: BigInt?) {
@@ -595,7 +617,6 @@ final class TokenSendModel: Sendable {
         guard newEnvironment != environment else { return }
 
         let oldEnvironment = environment
-        let hadDraftFailure = hasCurrentDraftFailure
         let identityChanged =
             oldEnvironment.accountId != newEnvironment.accountId
             || oldEnvironment.asset != newEnvironment.asset
@@ -636,10 +657,6 @@ final class TokenSendModel: Sendable {
 
         if identityChanged {
             invalidateDraftIdentity()
-            feeQuote = nil
-            loadingFeeRequest = nil
-            feeQuoteTask?.cancel()
-            feeQuoteRevision &+= 1
             memoRequirement = nil
         }
         if amountInput.intent == .all
@@ -648,20 +665,20 @@ final class TokenSendModel: Sendable {
             maximumFailure = nil
             isReconcilingMaximum = true
         }
-        let amountChanged = updateMaximum(
-            using: displayedExplainedFee
-        )
+        _ = updateMaximum(using: displayedExplainedFee)
         if normalizeEncryption() {
             didConfirmDomainScamWarning = false
         }
 
-        refreshFeeQuote(force: identityChanged)
-        refreshDraft(
-            force: identityChanged
-                || amountChanged
-                || hardwareChanged
-                || (walletChanged && !hadDraftFailure)
-        )
+        // Identity, amount, and payload changes reach the engines through
+        // request observation; wallet-state changes revalidate silently.
+        // During an identity switch the observed requests still point at
+        // the old scope, so refreshing would queue obsolete loads ahead of
+        // the new identity's.
+        if !identityChanged, walletChanged || hardwareChanged {
+            feeQuote.refresh()
+            draft.refresh()
+        }
     }
 
     func makeConfirmedSend() throws -> ConfirmedTokenSend {
@@ -705,26 +722,17 @@ final class TokenSendModel: Sendable {
     }
 
     private var displayedDraftForFee: TokenSendValidatedDraft? {
-        guard let snapshot = draftCoordinator.lastSnapshot,
-              snapshot.request.accountId == environment.accountId,
-              snapshot.request.asset == environment.asset else {
-            return nil
-        }
-        return snapshot.draft
+        draft.displayed
     }
 
     private var displayedExplainedFee: ExplainedTransferFee? {
-        displayedDraftForFee?.explainedFee
-            ?? feeQuote.flatMap {
-                $0.request == currentFeeQuoteRequest ? $0.fee : nil
-            }
+        draft.displayed?.explainedFee
+            ?? feeQuote.displayed.flatMap { $0 }
     }
 
     private var computationalFee: ExplainedTransferFee? {
         currentDraft?.explainedFee
-            ?? feeQuote.flatMap {
-                $0.request == currentFeeQuoteRequest ? $0.fee : nil
-            }
+            ?? feeQuote.current.flatMap { $0.draft }
     }
 
     private var payloadPolicy: TransferPayloadPolicy {
@@ -740,7 +748,6 @@ final class TokenSendModel: Sendable {
     private func inputDidChange() {
         didConfirmDomainScamWarning = false
         _ = normalizeEncryption()
-        refreshDraft()
     }
 
     private func setupObservers() {
@@ -767,60 +774,6 @@ final class TokenSendModel: Sendable {
         }
     }
 
-    private func refreshFeeQuote(force: Bool = false) {
-        let request = currentFeeQuoteRequest
-        if !force {
-            if loadingFeeRequest == request {
-                return
-            }
-            if feeQuote?.request == request {
-                return
-            }
-        }
-
-        feeQuoteRevision &+= 1
-        let revision = feeQuoteRevision
-        loadingFeeRequest = request
-        feeQuoteTask?.cancel()
-        feeQuoteTask = Task { [weak self, flow] in
-            do {
-                let fee = try await flow.estimateFee(request)
-                try Task.checkCancellation()
-                guard let self,
-                      feeQuoteRevision == revision,
-                      currentFeeQuoteRequest == request else {
-                    return
-                }
-                loadingFeeRequest = nil
-                feeQuote = TokenSendFeeQuote(
-                    request: request,
-                    fee: fee
-                )
-                if updateMaximum(using: fee) {
-                    refreshDraft(debounce: false)
-                }
-            } catch {
-                guard let self, !Task.isCancelled,
-                      feeQuoteRevision == revision,
-                      currentFeeQuoteRequest == request else {
-                    return
-                }
-                loadingFeeRequest = nil
-            }
-        }
-    }
-
-    private func refreshDraft(
-        debounce: Bool = true,
-        force: Bool = false
-    ) {
-        draftCoordinator.setRequest(
-            currentDraftRequest,
-            debounce: debounce ? nil : .zero,
-            refreshIfUnchanged: force
-        )
-    }
-
     private func applyDraftDerivedState(
         _ draft: TokenSendValidatedDraft,
         request: TokenSendDraftRequest
@@ -831,13 +784,10 @@ final class TokenSendModel: Sendable {
             recipient: request.address,
             isRequired: draft.requiresMemo
         )
-        let normalizedEncryption = normalizeEncryption()
-        let amountChanged = updateMaximum(
-            using: draft.explainedFee
-        )
-        if normalizedEncryption || amountChanged {
-            refreshDraft(debounce: false)
-        }
+        _ = normalizeEncryption()
+        _ = updateMaximum(using: draft.explainedFee)
+        // The engine re-derives the request after this handler and reloads
+        // immediately if these normalizations moved it.
     }
 
     @discardableResult
@@ -937,7 +887,6 @@ final class TokenSendModel: Sendable {
     }
 
     private func invalidateDraftIdentity() {
-        draftCoordinator.reset()
         maximumCandidates = []
         maximumFailure = nil
         isReconcilingMaximum = false

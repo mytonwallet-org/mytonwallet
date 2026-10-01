@@ -50,6 +50,7 @@ public class AirLauncher {
     }
 
     public static func launch(window: WWindow) {
+        WalletCoreData.configureImageCache()
         WTypography.configureDependentComponents()
         AirLauncher.window = window
         StartupTrace.mark("airLauncher.window.set")

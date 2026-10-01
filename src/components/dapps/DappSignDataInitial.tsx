@@ -13,6 +13,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 
 import Button from '../ui/Button';
 import Eip712TypedDataView from '../ui/Eip712TypedDataView';
+import ModalFooter from '../ui/ModalFooter';
 import Transition from '../ui/Transition';
 import DappInfoWithAccount from './DappInfoWithAccount';
 import DappSignDataCellPreview from './DappSignDataCellPreview';
@@ -76,7 +77,7 @@ function DappSignDataInitial({
 
         {renderSignDataByType()}
         {renderSignDataWarnings()}
-        {renderButtons()}
+        {renderFooter()}
       </div>
     );
   }
@@ -86,25 +87,27 @@ function DappSignDataInitial({
     return (
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
         <DappSkeletonWithContent rows={skeletonRows} />
-        {renderButtons()}
+        {renderFooter()}
       </div>
     );
   }
 
-  function renderButtons() {
+  function renderFooter() {
     return (
-      <div className={buildClassName(modalStyles.buttons, styles.transferButtons)}>
-        <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
-        <Button
-          isPrimary
-          isLoading={isLoading}
-          isDisabled={isDappLoading}
-          className={modalStyles.button}
-          onClick={canSubmit ? submitDappSignDataConfirm : undefined}
-        >
-          {lang('Sign')}
-        </Button>
-      </div>
+      <ModalFooter>
+        <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>
+          <Button className={modalStyles.button} onClick={closeDappSignData}>{lang('Cancel')}</Button>
+          <Button
+            isPrimary
+            isLoading={isLoading}
+            isDisabled={isDappLoading}
+            className={modalStyles.button}
+            onClick={canSubmit ? submitDappSignDataConfirm : undefined}
+          >
+            {lang('Sign')}
+          </Button>
+        </div>
+      </ModalFooter>
     );
   }
 

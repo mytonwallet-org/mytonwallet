@@ -3,11 +3,13 @@ const babelConfig = require('./babel.config');
 module.exports = {
   setupFilesAfterEnv: ['./tests/init.ts'],
   moduleNameMapper: {
-    // Match the webpack production alias: TL-B preview bundles @ton-community/tlb-runtime
+    // Match the production build alias: TL-B preview bundles @ton-community/tlb-runtime
     // against the app's top-level @ton/core instead of its nested copy.
     '^@ton/core(.*)$': '<rootDir>/node_modules/@ton/core$1',
     '\\.(css|scss|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|tgs)$':
       '<rootDir>/tests/staticFileMock.js',
+    // Vite import suffixes for bundled workers and asset URLs
+    '\\?(worker|url)$': '<rootDir>/tests/staticFileMock.js',
   },
   testPathIgnorePatterns: [
     '<rootDir>/tests/playwright/',
@@ -32,9 +34,9 @@ module.exports = {
       ...babelConfig,
       plugins: [...babelConfig.plugins, 'babel-plugin-transform-import-meta'],
     }],
-    '\\.txt$': 'jest-raw-loader',
   },
+  // ESM-only packages: `uint8arrays` and `multiformats` come with the WalletConnect SDK
   transformIgnorePatterns: [
-    '/node_modules/(?!(axios)/)',
+    '/node_modules/(?!(axios|uint8arrays|multiformats)/)',
   ],
 };

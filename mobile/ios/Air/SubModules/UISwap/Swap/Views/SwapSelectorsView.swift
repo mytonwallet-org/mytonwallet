@@ -23,6 +23,7 @@ struct SwapSelectorsView: View {
                 sellingFocused: $model.sellingFocused,
                 buyingFocused: $model.buyingFocused,
                 buyingAmountInputDisabled: model.buyingAmountInputDisabled,
+                onAppear: model.focusInitialInput,
                 onUseAll: model.userTappedUseAll,
                 onReverse: model.userTappedReverse,
                 onSellingTokenPicker: { model.userTappedTokenPicker(side: .selling) },
@@ -50,6 +51,8 @@ fileprivate struct _SwapSelectorsView: View {
     @Binding var sellingFocused: Bool
     @Binding var buyingFocused: Bool
     var buyingAmountInputDisabled: Bool
+
+    var onAppear: () -> Void
 
     var onUseAll: () -> ()
     var onReverse: () -> ()
@@ -88,7 +91,7 @@ fileprivate struct _SwapSelectorsView: View {
             .padding(.horizontal, -16)
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                    sellingFocused = sellingToken != nil
+                    onAppear()
                 }
             }
     }

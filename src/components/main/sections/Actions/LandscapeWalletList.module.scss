@@ -32,6 +32,10 @@
     border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
   }
 
+  &:only-child {
+    border-radius: var(--border-radius-default);
+  }
+
   @include mixins.transition('background-color 200ms');
 
   @media (hover: hover) {

@@ -186,6 +186,30 @@ struct SwapBackendHintTests {
     }
 
     @Test
+    func `rate limited responses throw so the draft engine retains the previous quote`() async throws {
+        let response = try decodeHintResponse(["error": "requests limit exceeded"])
+        let input = hintInput()
+        let account = SwapAccountSnapshot(account: MAccount(
+            id: input.accountId, title: nil, type: .mnemonic,
+            byChain: [.ton: AccountChain(address: "ton-address"), .ethereum: AccountChain(address: "eth-address")]
+        ), balances: [:])
+        let fetch: (String, ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse = { _, _ in response }
+        let flows: [(any SwapFlow, SwapType)] = [
+            (OnchainSwapFlow(validator: OnchainSwapValidator(), estimateEngine: OnchainSwapEstimateEngine(fetchEstimate: fetch)), .onChain),
+            (CrosschainSwapFlow(validator: CrosschainSwapValidator(), estimateEngine: CrosschainSwapEstimateEngine(fetchEstimate: fetch)), .crosschainInsideWallet)
+        ]
+
+        for (flow, swapType) in flows {
+            do {
+                _ = try await flow.estimate(input, changedFrom: .selling, swapType: swapType, account: account)
+                Issue.record("A rate-limited estimate must not replace the previous quote")
+            } catch {
+                #expect(isSwapEstimateRateLimited(error))
+            }
+        }
+    }
+
+    @Test
     func `a pair absent from the catalog remains eligible for a backend estimate`() async throws {
         let selling = ApiChain.ethereum.nativeToken
         let buying = ApiChain.solana.nativeToken

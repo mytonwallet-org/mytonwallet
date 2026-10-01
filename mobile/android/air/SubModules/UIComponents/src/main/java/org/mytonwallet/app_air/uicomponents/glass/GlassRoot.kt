@@ -346,8 +346,8 @@ class GlassRoot private constructor(root: ViewGroup) :
 /**
  * Offset of [view]'s origin into [out], in [root]'s content coordinates. The capture draws in
  * those coordinates, so the offset must not include transforms applied above the root (window
- * locations bake in an ancestor's scale, sampling a shifted region). Only works for descendants
- * of the root; returns false otherwise.
+ * locations bake in an ancestor's scale, sampling a shifted region). Works for any [view] that
+ * shares an ancestor with [root]; returns false otherwise.
  */
 internal fun resolveGlassLocalOffset(root: ViewGroup, view: View, out: FloatArray): Boolean {
     var x = 0f
@@ -362,8 +362,29 @@ internal fun resolveGlassLocalOffset(root: ViewGroup, view: View, out: FloatArra
             out[1] = y
             return true
         }
+        if (offsetInAncestor(root, parent, out)) {
+            out[0] = x - out[0]
+            out[1] = y - out[1]
+            return true
+        }
         current = parent
     }
+}
+
+/** Offset of [view]'s origin in [ancestor]'s content coordinates, if [ancestor] contains it. */
+private fun offsetInAncestor(view: View, ancestor: View, out: FloatArray): Boolean {
+    var x = 0f
+    var y = 0f
+    var current: View = view
+    while (current !== ancestor) {
+        val parent = current.parent as? View ?: return false
+        x += current.x - parent.scrollX
+        y += current.y - parent.scrollY
+        current = parent
+    }
+    out[0] = x
+    out[1] = y
+    return true
 }
 
 /** Marks the direct child of [root] that contains [view], so capture never draws it. */

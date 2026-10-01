@@ -61,7 +61,7 @@ struct ActivityNavigationHeader: View {
                 return .failed
             }
         case .swap(let swap):
-            switch swap.displayStatus(accountChains: viewModel.accountContext.account.supportedChains) {
+            switch swap.displayStatus(accountChains: viewModel.accountContext.account.supportedChains, at: viewModel.currentDate) {
             case .hold:
                 return .hold
             case .expired:

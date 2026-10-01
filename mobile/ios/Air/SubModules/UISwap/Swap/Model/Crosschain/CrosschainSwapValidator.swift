@@ -7,9 +7,6 @@ import WalletContext
         swapEstimate: ApiSwapCexEstimateResponse?,
         account: SwapAccountSnapshot
     ) -> SwapIssue? {
-        guard let swapEstimate else {
-            return nil
-        }
         var issue: SwapIssue?
         let sellingToken = input.sellingToken
         let balanceIn = account.balances[sellingToken.slug] ?? 0
@@ -18,6 +15,7 @@ import WalletContext
                 issue = .insufficientBalance
             }
         }
+        guard let swapEstimate else { return issue }
         if swapEstimate.isEnoughNative == false {
             issue = sellingToken.isNative ? .insufficientBalance : .notEnoughToken(nativeToken(for: sellingToken))
         }

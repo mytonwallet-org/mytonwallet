@@ -39,6 +39,14 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         case wallet
         case market
         case explore
+
+        var navigationTitle: String {
+            switch self {
+            case .wallet: lang("Wallet")
+            case .market: lang("Market")
+            case .explore: lang("Explore")
+            }
+        }
     }
 
     private(set) var homeVC: HomeVC {
@@ -85,7 +93,11 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     private var baseAdditionalSafeAreaInsets: [ObjectIdentifier: UIEdgeInsets] = [:]
     private var accountObservation: ObserveToken?
     private var sharedNavigationPaths: [Page: [UIViewController]] = [:]
-    private var activePage: Page = .wallet
+    private var activePage: Page = .wallet {
+        didSet {
+            title = activePage.navigationTitle
+        }
+    }
     private var isPaging = false
     private var standardSettingsRootViewController: SettingsVC?
     private var pendingStandardSettingsStack: [UIViewController]?
@@ -167,6 +179,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        title = activePage.navigationTitle
         view.backgroundColor = .air.groupedBackground
 
         let pages = [walletPage, marketPage, explorePage]
@@ -186,6 +199,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updatePageSafeAreas()
         let availableWidth = max(0, view.bounds.width - 32)
         if navigationBarTitleWidthConstraint?.constant != availableWidth {
             navigationBarTitleWidthConstraint?.constant = availableWidth
@@ -194,8 +208,15 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
+        updatePageSafeAreas()
         if !isSearchVisible {
             bottomBarBottomConstraint?.constant = homeToolbarBottomInset
+        }
+    }
+
+    private func updatePageSafeAreas() {
+        [walletPage, marketPage, explorePage].forEach {
+            $0.setHorizontalLayout(safeAreaInsets: view.safeAreaInsets, minimumMargins: systemMinimumLayoutMargins)
         }
     }
 
@@ -225,12 +246,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return detachedStandardSettingsStackForMigration
         }
         guard let page = page(for: id), let pageValue = pageValue(for: id) else { return nil }
-        if pageValue == activePage, let sharedMainNavigationController {
-            sharedNavigationPaths[pageValue] = Array(
-                sharedMainNavigationController.viewControllers.dropFirst()
-            )
-            sharedMainNavigationController.setViewControllers([self], animated: false)
-        }
         let stack = [page.contentViewController] + (sharedNavigationPaths[pageValue] ?? [])
         stack.forEach(removeChrome)
         return stack
@@ -275,6 +290,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     @discardableResult
     func selectTab(_ id: AppTabId, popToRoot: Bool = false) -> Bool {
+        loadViewIfNeeded()
+
         if id == .settings {
             return showStandardSettings(
                 path: nil,
@@ -295,11 +312,12 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             captureSharedNavigationPath(for: activePage)
             sharedMainNavigationController?.setViewControllers([self], animated: false)
         }
-        segmentedController.setSelectedIndex(to: page.rawValue, animated: true)
+        // The pager can call its completion delegate synchronously.
         activePage = page
         if popToRoot {
             sharedNavigationPaths[page] = []
         }
+        segmentedController.setSelectedIndex(to: page.rawValue, animated: true)
         installSharedNavigationPath(for: page)
         return true
     }
@@ -553,9 +571,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
         prepareBottomChromeVisibilityForTransition()
         navigationController.view.layoutIfNeeded()
-        updateSearchToolbarGeometry(for: targetPresentation)
 
         guard let coordinator else {
+            updateSearchToolbarGeometry(for: targetPresentation)
             searchToolbar.setCompactActions(targetActions)
             searchToolbar.setPresentation(targetPresentation, animated: false)
             navigationController.view.layoutIfNeeded()
@@ -576,9 +594,16 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             compactActions: targetActions,
             navigationOperation: isPop ? .pop : .push
         ) else { return }
+        let keyboardAnimationID = targetPresentation == .search
+            && !coordinator.isInteractive
+            && universalSearchViewController?.restoresKeyboard == true
+            && !searchToolbar.isEditing
+            ? prepareSearchToolbarKeyboardAnimation()
+            : nil
         let accepted = coordinator.animateAlongsideTransition(in: searchToolbarHostView) { [weak self, weak navigationController] _ in
             guard let self, let navigationController else { return }
             guard searchToolbar.applyPreparedPresentationTransition(transitionID) else { return }
+            updateSearchToolbarGeometry(for: targetPresentation)
             if targetPresentation == .search, !coordinator.isInteractive,
                universalSearchViewController?.restoresKeyboard == true {
                 _ = searchToolbar.focus()
@@ -586,6 +611,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             bottomGradientView.alpha = targetPresentation == .empty ? 0 : 1
             navigationController.view.layoutIfNeeded()
         } completion: { [weak self, weak navigationController] context in
+            if let keyboardAnimationID {
+                self?.finishSearchToolbarKeyboardAnimation(keyboardAnimationID)
+            }
             guard let self,
                   searchToolbar.finishPreparedPresentationTransition(transitionID, isCancelled: context.isCancelled) else { return }
             let finalPresentation = context.isCancelled ? sourcePresentation : targetPresentation
@@ -601,7 +629,11 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             )
         }
 
+        if !accepted, let keyboardAnimationID {
+            finishSearchToolbarKeyboardAnimation(keyboardAnimationID)
+        }
         if !accepted, searchToolbar.finishPreparedPresentationTransition(transitionID, isCancelled: false) {
+            updateSearchToolbarGeometry(for: targetPresentation)
             navigationController.view.layoutIfNeeded()
             finishBottomChromeVisibility(at: targetPresentation)
             finishSharedBottomToolbarPresentation(
@@ -699,7 +731,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         let editingState = navigator?.state.editingState
 
         segmentedController?.scrollView.isScrollEnabled = editingState == nil
-        navigationItem.titleView = editingState == nil ? tabControlContainer : nil
+        navigationItem.titleView = editingState == nil ? tabControlContainer : UIView()
 
         switch editingState {
         case .reordering:
@@ -925,6 +957,28 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }, isEnabled: isPagingEnabled)
     }
 
+    private func prepareSearchToolbarKeyboardAnimation() -> UUID {
+        let hostView = searchToolbarHostView
+        let animationID = UUID()
+        searchToolbarKeyboardAnimationID = animationID
+        // The live guide can move before UIKit posts the keyboard notification.
+        // Pin the starting position before becoming first responder.
+        searchToolbarKeyboardConstraint?.constant = (searchToolbarContainerView.layer.presentation()?.frame.maxY
+            ?? searchToolbarContainerView.frame.maxY) - hostView.safeAreaLayoutGuide.layoutFrame.maxY
+        searchToolbarKeyboardConstraint?.isActive = true
+        return animationID
+    }
+
+    private func finishSearchToolbarKeyboardAnimation(_ animationID: UUID) {
+        guard searchToolbarKeyboardAnimationID == animationID else { return }
+        searchToolbarKeyboardAnimationID = nil
+        // A missed hide notification must not leave a cached keyboard offset.
+        UIView.performWithoutAnimation {
+            searchToolbarKeyboardConstraint?.isActive = false
+            searchToolbarHostView.layoutIfNeeded()
+        }
+    }
+
     @objc private func updateToolbarKeyboard(_ notification: Notification) {
         let hostView = searchToolbarHostView
         guard let constraint = searchToolbarKeyboardConstraint else { return }
@@ -940,13 +994,15 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 ? max(0, hostView.bounds.maxY - frame.minY - hostView.safeAreaInsets.bottom)
                 : 0
         }
+        guard !constraint.isActive || constraint.constant != -overlap else { return }
         let animationID = UUID()
         searchToolbarKeyboardAnimationID = animationID
-        // The keyboard guide jumps to its destination during the navigation
-        // crossfade. Freeze the current position before laying out its new frame.
-        constraint.constant = (searchToolbarContainerView.layer.presentation()?.frame.maxY
-            ?? searchToolbarContainerView.frame.maxY) - hostView.safeAreaLayoutGuide.layoutFrame.maxY
-        constraint.isActive = true
+        if !constraint.isActive {
+            // Keep the live guide from consuming the keyboard's animation delta.
+            constraint.constant = (searchToolbarContainerView.layer.presentation()?.frame.maxY
+                ?? searchToolbarContainerView.frame.maxY) - hostView.safeAreaLayoutGuide.layoutFrame.maxY
+            constraint.isActive = true
+        }
         hostView.layoutIfNeeded()
         constraint.constant = -overlap
         let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey]
@@ -961,13 +1017,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         ) {
             hostView.layoutIfNeeded()
         } completion: { [weak self] _ in
-            guard let self, searchToolbarKeyboardAnimationID == animationID else { return }
-            searchToolbarKeyboardAnimationID = nil
-            // A missed hide notification must not leave a cached keyboard offset.
-            UIView.performWithoutAnimation {
-                constraint.isActive = false
-                hostView.layoutIfNeeded()
-            }
+            self?.finishSearchToolbarKeyboardAnimation(animationID)
         }
     }
 
@@ -1549,9 +1599,7 @@ private final class TopTabsAccountButton: UIControl {
             let effect = UIGlassEffect(style: .regular)
             effect.isInteractive = true
             view = UIVisualEffectView(effect: effect)
-            view.cornerConfiguration = .corners(
-                radius: UICornerRadius(floatLiteral: topTabsNavigationBarHeight / 2)
-            )
+            view.cornerConfiguration = .capsule()
         } else {
             view = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
             view.layer.cornerRadius = topTabsNavigationBarHeight / 2
@@ -1567,6 +1615,7 @@ private final class TopTabsAccountButton: UIControl {
         translatesAutoresizingMaskIntoConstraints = false
         isAccessibilityElement = true
         accessibilityTraits = .button
+        accessibilityIdentifier = "top-tabs.account"
 
         glassView.translatesAutoresizingMaskIntoConstraints = false
         glassView.isAccessibilityElement = false
@@ -1698,6 +1747,11 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
     var scrollingView: UIScrollView? { nil }
 
     private(set) var contentViewController: UIViewController
+    private var horizontalSafeAreaInsets = UIEdgeInsets.zero
+    private var minimumMargins: NSDirectionalEdgeInsets?
+    private var originalContentMargins: NSDirectionalEdgeInsets?
+    private var originalContentRespectsMinimumMargins = true
+    private var isUpdatingSafeArea = false
     private var isContentMounted: Bool
 
     init(contentViewController: UIViewController, isContentMounted: Bool = true) {
@@ -1731,6 +1785,47 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
         }
     }
 
+    func setHorizontalLayout(safeAreaInsets: UIEdgeInsets, minimumMargins: NSDirectionalEdgeInsets) {
+        horizontalSafeAreaInsets = safeAreaInsets
+        self.minimumMargins = minimumMargins
+        updateHorizontalSafeArea()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateHorizontalSafeArea()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateHorizontalSafeArea()
+    }
+
+    private func updateHorizontalSafeArea() {
+        guard isViewLoaded, !isUpdatingSafeArea else { return }
+        isUpdatingSafeArea = true
+        defer { isUpdatingSafeArea = false }
+        // Offscreen pages also lose the system's reduced margin beside the vertical bar.
+        // Forward the container's minimums so the reserved area does not gain another gutter.
+        if let minimumMargins {
+            for controller in [self, contentViewController] where controller.isViewLoaded && (controller === self || controller.parent === self) {
+                controller.viewRespectsSystemMinimumLayoutMargins = false
+                controller.view.directionalLayoutMargins = minimumMargins
+            }
+        }
+        // UIKit's inherited insets change as pages move outside the scroll viewport.
+        // Keep each page's content safe area equal to the container's, without clipping overflow.
+        let inheritedLeft = max(0, view.safeAreaInsets.left - additionalSafeAreaInsets.left)
+        let inheritedRight = max(0, view.safeAreaInsets.right - additionalSafeAreaInsets.right)
+        let left = max(0, horizontalSafeAreaInsets.left - inheritedLeft)
+        let right = max(0, horizontalSafeAreaInsets.right - inheritedRight)
+        guard additionalSafeAreaInsets.left != left || additionalSafeAreaInsets.right != right else { return }
+        var insets = additionalSafeAreaInsets
+        insets.left = left
+        insets.right = right
+        additionalSafeAreaInsets = insets
+    }
+
     func setContentViewController(_ viewController: UIViewController) {
         guard contentViewController !== viewController else { return }
         uninstallContentViewController()
@@ -1742,12 +1837,19 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
 
     private func uninstallContentViewController() {
         guard contentViewController.parent === self else { return }
+        if let originalContentMargins {
+            contentViewController.view.directionalLayoutMargins = originalContentMargins
+            contentViewController.viewRespectsSystemMinimumLayoutMargins = originalContentRespectsMinimumMargins
+        }
+        originalContentMargins = nil
         contentViewController.willMove(toParent: nil)
         contentViewController.view.removeFromSuperview()
         contentViewController.removeFromParent()
     }
 
     private func installContentViewController() {
+        originalContentMargins = contentViewController.view.directionalLayoutMargins
+        originalContentRespectsMinimumMargins = contentViewController.viewRespectsSystemMinimumLayoutMargins
         addChild(contentViewController)
         contentViewController.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(contentViewController.view)
@@ -1758,6 +1860,7 @@ private final class TopTabsPageViewController: UIViewController, WSegmentedContr
             contentViewController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         contentViewController.didMove(toParent: self)
+        updateHorizontalSafeArea()
     }
 
     func scrollToTop(animated: Bool) {

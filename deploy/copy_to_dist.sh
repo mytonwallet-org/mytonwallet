@@ -5,9 +5,6 @@ SOURCE=${2:-"public"}
 
 cp -R ./$SOURCE/* "$DESTINATION/"
 
-cp ./src/lib/rlottie/rlottie-wasm.js "$DESTINATION/"
-cp ./src/lib/rlottie/rlottie-wasm.wasm "$DESTINATION/"
-
 FILES_TO_REMOVE=("static-sites")
 
 if [ "$IS_EXTENSION" = "1" ] || [ "$IS_PACKAGED_ELECTRON" = "1" ]; then
@@ -37,7 +34,7 @@ for FILE in "${FILES_TO_REMOVE[@]}"; do
 done
 
 # Both Telegram Mini App hosts (production tma.* and staging tma-beta.*) stay out of search: a TMA
-# opens inside Telegram, not via crawlers. Telegram builds ship their webpack headers as
+# opens inside Telegram, not via crawlers. Telegram builds ship their generated headers as
 # `_headers_telegram`, a name Netlify does not process, so this `_headers` is the only header file
 # Netlify applies. The default `dist` destination is the TMA build; the push and mfa bundles pass
 # their own dist-push and dist-mfa destinations, so they are left untouched.

@@ -216,6 +216,7 @@ Optional: При необходимости
 $send_token_symbol: Отправить %symbol%
 Is it all ok?: Всё верно?
 Receiving Address: Адрес получателя
+Contract Address: Адрес контракта
 Fee: Комиссия
 Edit: Исправить
 Confirm: Подтвердить
@@ -351,6 +352,7 @@ Portfolio Share: Структура портфеля
 Current allocation across tracked assets.: Текущее распределение отслеживаемых активов.
 Deep history analysis will be available in upcoming updates.: Глубокий анализ истории появится в следующих обновлениях.
 By Chain: По сетям
+$portfolio_other_chains: Другие
 No chain balances: Нет балансов по сетям
 Native: Нативные
 Stablecoins: Стейблкоины
@@ -734,6 +736,10 @@ $swap_cex_support: "Если что-то пошло не так, обратит�
 $swap_cex_hold_support: "Пожалуйста, обратитесь в %support% и сообщите этот **ID внешнего обмена**, чтобы пройти проверку провайдера:"
 $swap_cex_provider_support: "поддержку %provider%"
 Email: Email
+$swap_cex_support_footer_email: "Если что-то пошло не так, обратитесь в %support% по адресу %email% и сообщите ID обмена."
+$swap_cex_hold_support_footer_email: "Для прохождения проверки провайдера обратитесь в %support% по адресу %email% и сообщите ID обмена."
+$swap_cex_support_footer: "Если что-то пошло не так, обратитесь в %support% и сообщите ID обмена."
+$swap_cex_hold_support_footer: "Для прохождения проверки провайдера обратитесь в %support% и сообщите ID обмена."
 Your %blockchain% Address: Ваш адрес %blockchain%
 My %blockchain% Address: Мой адрес %blockchain%
 "%blockchain% Address": "Адрес %blockchain%"
@@ -942,7 +948,10 @@ Mint Cards: Создать карту
 Card has been upgraded!: Карта улучшена!
 $mint_card_result: NFT-карта будет **создана** и **автоматически установлена** в течение минуты.
 Unique: Уникальность
-Get a card with unique background and personalized palette for wallet interface.: У карты появится уникальный фон, а в кошельке разблокируется новая палитра.
+Get a card with unique background and personalized palette for wallet interface.: У карты появится уникальный фон, а в кошельке разблокируется новый акцентный цвет.
+Get custom accent color for wallet interface.: Откройте новый акцентный цвет в кошельке.
+Easily send your upgraded card to friends.: Легко отправляйте улучшенную карту друзьям.
+Sell or auction your card on marketplaces.: Продавайте карту на маркетплейсах и аукционах.
 Transferable: Можно передать
 Easily send your upgraded card to any of your friends.: Улучшенную карту можно легко отправить любому другу.
 Tradable: Можно продать
@@ -952,6 +961,8 @@ Upgrade for %amount% %currency%: Улучшить за %amount% %currency%
 "%amount% sold": Продано %amount%
 This card has been sold out: Эта карта распродана
 "Mint starts in %time%": "Минт начнётся через %time%"
+"Congrats! Your first %card% comes at %percent% off.": "Поздравляем! Ваша первая %card% — со скидкой %percent%."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Самые активные пользователи получают скидку %percent% на первую %card%. Торгуйте или стейкайте, чтобы получить её в следующий раз!"
 "%amount% unique cards total":
   oneValue: "Всего %amount% уникальная карта"
   fewValue: "Всего %amount% уникальные карты"

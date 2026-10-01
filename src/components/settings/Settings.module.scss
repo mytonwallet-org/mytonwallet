@@ -1613,17 +1613,10 @@ $externalRadius: $internalRadius + $borderWidth;
   height: $createSubwalletButtonHeight;
   padding: $createSubwalletPaddingTop 1rem $createSubwalletPaddingBottom;
 
-  background-color: var(--color-background-window);
-  backdrop-filter: var(--filter-blur-bar);
+  @include mixins.footerBar('.createSubwalletWithBorder');
 
   @include mixins.respond-below(xs) {
     padding-bottom: max(var(--safe-area-bottom), $createSubwalletPaddingBottom);
-  }
-
-  &.createSubwalletWithBorder {
-    background-color: var(--color-background-tab-bar);
-
-    @include mixins.separator();
   }
 }
 

@@ -2,7 +2,7 @@ import WalletCore
 import WalletContext
 import Perception
 
-enum SwapSide: Sendable {
+enum SwapSide: Equatable, Sendable {
     case selling
     case buying
 
@@ -54,7 +54,6 @@ enum SwapCommand {
         }
     }
     
-    @PerceptionIgnored
     var isUsingMax: Bool = false
     
     var buyingAmount: BigInt?
@@ -82,7 +81,13 @@ enum SwapCommand {
 
     var tokenBalance: BigInt?
     var maxAmount: BigInt?
-    var isEstimating = false
+    /// Provided by the owner; reads through to the estimate engine so the
+    /// views' observation follows the live loading state.
+    @PerceptionIgnored
+    var isEstimatingProvider: (@MainActor () -> Bool)?
+    var isEstimating: Bool {
+        isEstimatingProvider?() ?? false
+    }
     var inputSource: SwapSide = .selling
     var staleAmountSide: SwapSide? {
         guard isEstimating else { return nil }
@@ -120,6 +125,11 @@ enum SwapCommand {
         sellingAmount = amount
         updateLocal(amount: amount, side: .selling)
         delegate?.swapCommandRequested(.dismissKeyboard)
+    }
+
+    func focusInitialInput() {
+        sellingFocused = inputSource == .selling && sellingToken != nil
+        buyingFocused = false
     }
 
     func userTappedReverse() {
@@ -229,19 +239,10 @@ enum SwapCommand {
         }
     }
     
-    struct Estimate {
+    struct Estimate: Equatable, Sendable {
         var changedFrom: SwapSide
         var fromAmount: Double
         var toAmount: Double
-    }
-    
-    func startEstimating(changedFrom: SwapSide) {
-        inputSource = changedFrom
-        isEstimating = true
-    }
-
-    func finishEstimating() {
-        isEstimating = false
     }
 
     func updateWithEstimate(_ swapEstimate: Estimate) {

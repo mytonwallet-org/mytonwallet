@@ -308,13 +308,14 @@ extension ExploreVC {
     struct ScreenView: View {
         let viewState: ObservedViewState
         let viewOutput: ViewOutput
+        var contentBottomSpacing: CGFloat = 32
 
         private let trendingDappsInterItemHSpacing: Double = 16
 
         @Environment(\.horizontalSizeClass)
         private var horizontalSizeClass: UserInterfaceSizeClass?
 
-        private let screenEdgesHSpacing: Double = 20
+        @Environment(\.horizontalContentMargins) private var contentMargins
 
         private static let screenSafeAreaCoordinateSpaceName = "ExploreScreenCoordinateSpace"
 
@@ -329,10 +330,10 @@ extension ExploreVC {
                             .backportScrollEdgeEffectHidden(viewState.content.isBrowsing, for: .top)
                             .backportScrollClipDisabled()
                             .scrollDismissesKeyboard(.immediately)
-                            .safeAreaInset(edge: .leading, spacing: screenEdgesHSpacing) {
+                            .safeAreaInset(edge: .leading, spacing: contentMargins.leading) {
                                 Color.clear.frame(width: 0, height: 1)
                             }
-                            .safeAreaInset(edge: .trailing, spacing: screenEdgesHSpacing) {
+                            .safeAreaInset(edge: .trailing, spacing: contentMargins.trailing) {
                                 Color.clear.frame(width: 0, height: 1)
                             }
                             .background(viewState.shouldShowWhiteBackground ? Color.air.background : Color.air.groupedBackground)
@@ -370,8 +371,6 @@ extension ExploreVC {
                 .onFrameChange(inCoordinateSpace: Self.screenSafeAreaCoordinateSpaceName) { frame in
                     viewOutput.scrollOffsetDidChange.send(-frame.origin.y)
                 }
-
-                Color.clear.frame(height: 70 + 16) // content inset imitation / overScroll
             }
 
             @ViewBuilder var stack: some View {
@@ -390,6 +389,7 @@ extension ExploreVC {
                 }
             }
             return stack
+                .padding(.bottom, contentBottomSpacing)
         }
 
         @ViewBuilder private func viewForSection(_ sectionItem: SectionItem, screenGeometryProxy: GeometryProxy) -> some View {
@@ -516,7 +516,7 @@ extension ExploreVC {
 
         private func trendingDappView_below_iOS17(site: ApiSite, screenGeometryProxy: GeometryProxy) -> some View {
             let safeAreaWidth = screenGeometryProxy.size.width
-            let hScrollWidth = safeAreaWidth - screenEdgesHSpacing - screenEdgesHSpacing
+            let hScrollWidth = safeAreaWidth - contentMargins.leading - contentMargins.trailing
 
             return ExploreScreenFeaturedDappView(site: site, onTap: {
                 viewOutput.trendingDappDidTap.send(site)

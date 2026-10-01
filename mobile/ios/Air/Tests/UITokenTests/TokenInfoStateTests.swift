@@ -32,9 +32,9 @@ struct TokenInfoStateTests {
         #expect(state.description == lang("$token_info_no_description"))
     }
 
-    @Test
-    func `empty details use no public information fallback`() {
-        let state = TokenInfoState.resolved(details: makeDetails())
+    @Test(arguments: [true, false])
+    func `missing or empty details use no public information fallback`(hasDetails: Bool) {
+        let state = TokenInfoState.resolved(details: hasDetails ? makeDetails() : nil)
 
         #expect(state == .fallback(lang("$token_info_fallback_description")))
         #expect(!state.canExpand)

@@ -12,7 +12,7 @@ import type {
   OnUpdatingStatusChange,
 } from '../../types';
 
-import { NO_EXTRA_FEATURES, POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
+import { POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs } from '../../../util/activities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
@@ -44,6 +44,7 @@ import { LEDGER_WALLET_VERSIONS } from './constants';
 import { fetchDomains } from './domains';
 import { getNftUpdates, streamAllAccountNfts } from './nfts';
 import { RichActivityStream } from './richActivityStream';
+import * as staking from './staking';
 import { importUnknownTokens } from './tokens';
 import { ActivityStream } from './toncenter';
 import { fetchVestings } from './vesting';
@@ -89,7 +90,11 @@ export function setupActivePolling(
   const walletInitializationPolling = setupWalletInitializationPolling(accountId);
   const stopWalletVersionPolling = setupWalletVersionsPolling(accountId, onUpdate);
   const stopTonDnsPolling = setupTonDnsPolling(accountId, nftPolling.firstFullLoadPromise, onUpdate);
-  const stopStakingPolling = setupStakingPolling(accountId, balancePolling.getBalances, onUpdate);
+  // Staking is an extra feature. A `NO_EXTRA_FEATURES` build leaves it out through `plugins/disabledImports.ts`,
+  // which needs the flag read inline, as here
+  const stopStakingPolling = process.env.NO_EXTRA_FEATURES !== '1'
+    ? setupStakingPolling(accountId, balancePolling.getBalances, onUpdate)
+    : () => {};
   const stopVestingPolling = setupVestingPolling(accountId, onUpdate);
 
   async function handleWalletUpdate() {
@@ -377,7 +382,7 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
 }
 
 function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBalanceBySlug>, onUpdate: OnApiUpdate) {
-  if (NO_EXTRA_FEATURES || parseAccountId(accountId).network !== 'mainnet') {
+  if (parseAccountId(accountId).network !== 'mainnet') {
     return () => {};
   }
 
@@ -387,8 +392,6 @@ function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBa
     period: STAKING_INTERVAL,
     async poll() {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const staking = require('./staking') as typeof import('./staking');
         const [common, balances, backendState] = await Promise.all([
           getStakingCommonCache('ton'),
           getBalances(),

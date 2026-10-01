@@ -7,6 +7,7 @@ import WalletContext
 import WalletCore
 
 final class HomeCardContentView: UIView {
+    @Dependency(\.sensitiveData) private var sensitiveData
     private let mode: MtwCardContentView.Mode
     private let content: MtwCardContentView
     private var headerViewModel: HomeHeaderViewModel?
@@ -14,6 +15,8 @@ final class HomeCardContentView: UIView {
     private var layout: HomeCardLayoutMetrics = .screen
     private var minimumFontScale: CGFloat = 1
     private var observation: ObserveToken?
+    private var addressObservation: ObserveToken?
+    private var addressLine: MAccount.AddressLine?
     private var addressMenu: ContextMenuInteraction!
     private var balanceMenu: ContextMenuInteraction!
     private var renderState: RenderState?
@@ -66,6 +69,16 @@ final class HomeCardContentView: UIView {
             guard let accountContext else { return }
             AppActions.showPortfolio(accountContext: accountContext)
         }
+        addressObservation = observe { [weak self] in
+            guard let self else { return }
+            let address = accountContext.addressLine
+            guard addressLine != address else { return }
+            addressLine = address
+            if renderState != nil {
+                renderState?.data.addressLine = address
+                render()
+            }
+        }
         observation = observe { [weak self] in self?.updateState() }
     }
 
@@ -85,9 +98,9 @@ final class HomeCardContentView: UIView {
         wasVisible = visibleBalance
         // Retain the outgoing face for expansion/collapse, but only prepare the face being shown.
         guard visibleBalance else { return }
-        @Dependency(\.sensitiveData.isHidden) var isSensitiveDataHidden
+        let isSensitiveDataHidden = sensitiveData.isHidden
         let data = MtwCardContentData(
-            account: accountContext.account, addressLine: accountContext.addressLine,
+            account: accountContext.account, addressLine: addressLine ?? accountContext.addressLine,
             balance: accountContext.balance, previousBalance: accountContext.balance24h,
             balanceChange: accountContext.balanceChange, nft: accountContext.nft,
             showsWalletName: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs && headerViewModel.walletCardTopLine == .walletName,
@@ -117,6 +130,9 @@ final class HomeCardContentView: UIView {
     func prepareForReuse() {
         observation?.cancel()
         observation = nil
+        addressObservation?.cancel()
+        addressObservation = nil
+        addressLine = nil
         accountContext = nil
         headerViewModel = nil
         renderState = nil
@@ -137,8 +153,7 @@ final class HomeCardContentView: UIView {
     }
 
     @objc private func toggleBalancePrivacy() {
-        @Dependency(\.sensitiveData.isHidden) var isHidden
-        AppActions.setSensitiveDataIsHidden(!isHidden)
+        AppActions.setSensitiveDataIsHidden(!sensitiveData.isHidden)
     }
 
     @objc private func openPromotion() {

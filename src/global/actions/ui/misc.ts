@@ -9,6 +9,7 @@ import {
 
 import {
   ANIMATION_LEVEL_MIN,
+  APP_COMMIT_HASH,
   APP_VERSION,
   BOT_USERNAME,
   DEBUG,
@@ -19,6 +20,7 @@ import {
   openDeeplinkOrUrl,
   processDeeplink,
 } from '../../../util/deeplink';
+import getAppReloadReason from '../../../util/getAppReloadReason';
 import getIsAppUpdateNeeded from '../../../util/getIsAppUpdateNeeded';
 import { vibrate, vibrateOnSuccess } from '../../../util/haptics';
 import { omit } from '../../../util/iteratees';
@@ -60,9 +62,14 @@ import {
 } from '../../selectors';
 import { switchAccount } from '../api/auth';
 
+import { getIsPortrait } from '../../../hooks/useDeviceScreen';
+
 import { closeModal } from '../../../components/ui/Modal';
 
 const APP_VERSION_URL = 'version.txt';
+const APP_BUILD_INFO_URL = 'build.txt';
+
+let appBuildCheck: Promise<void> | undefined;
 
 addActionHandler('showActivityInfo', (global, actions, { id }) => {
   const currentActivityId = resolveReplacedActivityId(selectCurrentAccountState(global)?.activities, id);
@@ -540,6 +547,27 @@ addActionHandler('checkAppVersion', (global) => {
     });
 });
 
+// A failed lazy chunk is usually one that a newer deploy has removed. The semver in `version.txt` stays the same
+// between staging deploys, so the build commit is what tells a new build from a chunk that failed on its own.
+addActionHandler('checkAppBuild', (global) => {
+  if (global.appReloadReason === 'buildOutdated' || appBuildCheck) return;
+
+  appBuildCheck = fetch(`${APP_BUILD_INFO_URL}?${Date.now()}`)
+    .then((response) => response.text())
+    .then((buildInfo) => {
+      const appReloadReason = getAppReloadReason(buildInfo, APP_COMMIT_HASH);
+      if (!appReloadReason) return;
+
+      setGlobal({ ...getGlobal(), appReloadReason });
+    })
+    .catch((err) => {
+      logDebugError('checkAppBuild', err);
+    })
+    .finally(() => {
+      appBuildCheck = undefined;
+    });
+});
+
 addActionHandler('requestConfetti', (global) => {
   if (global.settings.animationLevel === ANIMATION_LEVEL_MIN) return global;
 
@@ -808,8 +836,9 @@ addActionHandler('switchToWallet', (global: GlobalState, actions) => {
   const {
     areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
   } = global;
-  const accountState = selectCurrentAccountState(global);
-  const areAssetsActive = accountState?.activeContentTab === ContentTab.Assets;
+  // Desktop opens the wallet on `Overview`; there `Assets` is a full-list page behind a back button
+  const homeTab = getIsPortrait() ? ContentTab.Assets : ContentTab.Overview;
+  const isHomeTabActive = selectCurrentAccountState(global)?.activeContentTab === homeTab;
   const isWalletTabActive = !isAgentOpen && !isExploreOpen && !isMarketOpen && !areSettingsOpen && !isPortfolioOpen;
 
   setGlobal({ ...global, portfolioReturnTo: undefined });
@@ -820,9 +849,9 @@ addActionHandler('switchToWallet', (global: GlobalState, actions) => {
   actions.closeSettings(undefined, { forceOnHeavyAnimation: true });
   actions.closePortfolio(undefined, { forceOnHeavyAnimation: true });
 
-  if (!areAssetsActive && isWalletTabActive) {
+  if (!isHomeTabActive && isWalletTabActive) {
     actions.selectToken({ slug: undefined }, { forceOnHeavyAnimation: true });
-    actions.setActiveContentTab({ tab: ContentTab.Assets }, { forceOnHeavyAnimation: true });
+    actions.setActiveContentTab({ tab: homeTab }, { forceOnHeavyAnimation: true });
   }
 });
 

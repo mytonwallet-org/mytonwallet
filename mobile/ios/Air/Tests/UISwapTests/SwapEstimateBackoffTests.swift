@@ -1,8 +1,5 @@
-import Foundation
 import Testing
 @testable import UISwap
-import WalletCore
-import WalletContext
 
 @Suite("Swap Estimate Backoff")
 struct SwapEstimateBackoffTests {
@@ -22,66 +19,4 @@ struct SwapEstimateBackoffTests {
         #expect(estimateTicksToWait(failedAttempts: 10_000) == maxEstimateBackoffTicks)
     }
 
-    @Test
-    func `a request for the inputs in flight is owed no follow up`() throws {
-        var gate = SwapEstimateGate()
-
-        let slot = gate.start(makeGateInput(sellingAmount: 100))
-        let repeated = gate.start(makeGateInput(sellingAmount: 100))
-        let didRequestFollowUp = gate.finish(try #require(slot))
-
-        #expect(repeated == nil)
-        #expect(!didRequestFollowUp)
-    }
-
-    @Test
-    func `returning to the inputs in flight takes the follow up back`() throws {
-        var gate = SwapEstimateGate()
-
-        let slot = gate.start(makeGateInput(sellingAmount: 100))
-        _ = gate.start(makeGateInput(sellingAmount: 200))
-        _ = gate.start(makeGateInput(sellingAmount: 100))
-        let didRequestFollowUp = gate.finish(try #require(slot))
-
-        #expect(!didRequestFollowUp)
-    }
-
-    @Test
-    func `identical inputs do not let a cancelled estimate release its successor`() throws {
-        var gate = SwapEstimateGate()
-
-        let cancelled = gate.start(makeGateInput(sellingAmount: 100))
-        gate.reset()
-        let running = gate.start(makeGateInput(sellingAmount: 100))
-        let staleRelease = gate.finish(try #require(cancelled))
-        let stillHeld = gate.isInFlight
-        let properRelease = gate.finish(try #require(running))
-
-        #expect(!staleRelease)
-        #expect(stillHeld)
-        #expect(!properRelease)
-        #expect(!gate.isInFlight)
-    }
-}
-
-private func makeGateInput(sellingAmount: BigInt) -> SwapEstimateInput {
-    SwapEstimateInput(
-        accountId: "test-mainnet",
-        selling: TokenAmount(sellingAmount, token(slug: "toncoin", symbol: "TON", chain: .ton)),
-        buying: TokenAmount(0, token(slug: "usdt", symbol: "USDT", chain: .ton)),
-        inputSource: .selling,
-        isMaxAmount: false,
-        maxAmount: nil,
-        slippage: 5
-    )
-}
-
-private func token(slug: String, symbol: String, chain: ApiChain, decimals: Int = 9) -> ApiToken {
-    ApiToken(
-        slug: slug,
-        name: symbol,
-        symbol: symbol,
-        decimals: decimals,
-        chain: chain
-    )
 }
