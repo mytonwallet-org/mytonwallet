@@ -208,6 +208,7 @@ Optional: Opzionale
 $send_token_symbol: Invia %symbol%
 Is it all ok?: È tutto corretto?
 Receiving Address: Indirizzo di ricezione
+Contract Address: Indirizzo contract
 Fee: Commissione
 Edit: Modifica
 Confirm: Conferma
@@ -342,6 +343,8 @@ Portfolio Share: Quota del portafoglio
 Current allocation across tracked assets.: Allocazione attuale tra gli asset monitorati.
 Deep history analysis will be available in upcoming updates.: L'analisi approfondita dello storico sarà disponibile nei prossimi aggiornamenti.
 By Chain: Per blockchain
+# Other blockchain networks grouped in the portfolio; plural chains.
+$portfolio_other_chains: Altre
 No chain balances: Nessun saldo su blockchain
 Native: Nativi
 Stablecoins: Stablecoin
@@ -721,6 +724,10 @@ $swap_cex_support: "Se qualcosa è andato storto, contatta %support% e fornisci 
 $swap_cex_hold_support: "Contatta %support% e fornisci questo **ID exchange esterno** per superare la verifica del provider:"
 $swap_cex_provider_support: "Assistenza %provider%"
 Email: Email
+$swap_cex_support_footer_email: "Se qualcosa è andato storto, contatta il %support% all'indirizzo %email% e fornisci l'ID dello swap."
+$swap_cex_hold_support_footer_email: "Contatta il %support% all'indirizzo %email% e fornisci l'ID dello swap per superare la verifica del provider."
+$swap_cex_support_footer: "Se qualcosa è andato storto, contatta il %support% e fornisci l'ID dello swap."
+$swap_cex_hold_support_footer: "Contatta il %support% e fornisci l'ID dello swap per superare la verifica del provider."
 Your %blockchain% Address: Il tuo indirizzo %blockchain%
 My %blockchain% Address: Il mio indirizzo %blockchain%
 "%blockchain% Address": "Indirizzo %blockchain%"
@@ -930,7 +937,10 @@ Mint Cards: Genera carte
 Card has been upgraded!: La carta è stata potenziata!
 $mint_card_result: La carta NFT verrà **generata** e **installata automaticamente** entro un minuto.
 Unique: Unica
-Get a card with unique background and personalized palette for wallet interface.: Ottieni una carta con sfondo unico e colore d'accento personalizzato per l'interfaccia del wallet.
+Get a card with unique background and personalized palette for wallet interface.: Ottieni una carta con sfondo unico e colore principale personalizzato per l'interfaccia del wallet.
+Get custom accent color for wallet interface.: Ottieni un colore principale personalizzato per l'interfaccia del wallet.
+Easily send your upgraded card to friends.: Invia facilmente la tua carta potenziata agli amici.
+Sell or auction your card on marketplaces.: Vendi o metti all'asta la tua carta sui marketplace.
 Transferable: Trasferibile
 Easily send your upgraded card to any of your friends.: Invia facilmente la tua carta potenziata a qualsiasi amico.
 Tradable: Scambiabile
@@ -940,6 +950,8 @@ Upgrade for %amount% %currency%: Potenzia per %amount% %currency%
 "%amount% sold": "%amount% venduti"
 This card has been sold out: Questa carta è esaurita
 "Mint starts in %time%": "La generazione inizia tra %time%"
+"Congrats! Your first %card% comes at %percent% off.": "Congratulazioni! La tua prima %card% ha uno sconto del %percent%."
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Gli utenti più attivi ottengono il %percent% di sconto sulla loro prima %card%. Fai trading o staking per qualificarti la prossima volta!"
 "%amount% unique cards total":
   oneValue: "%amount% carta unica in totale"
   otherValue: "%amount% carte uniche in totale"
