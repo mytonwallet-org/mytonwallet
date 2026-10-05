@@ -143,6 +143,7 @@ abstract class WViewController(val context: Context) :
 
     open val protectFromScreenRecord = false
     open val shouldHideKeyboardOnDisappear = true
+    open val shouldKeepWalletEventSubscription = false
 
     // App will switch to displayed account id whenever screen is appeared
     data class DisplayedAccount(val accountId: String?, val isPushedTemporary: Boolean) {
@@ -593,7 +594,9 @@ abstract class WViewController(val context: Context) :
         isDestroyed = true
         frameMonitor?.stopMonitoring()
         dismissActiveDialogs()
-        if (this is WalletCore.EventObserver) WalletCore.unregisterObserver(this)
+        if (this is WalletCore.EventObserver && !shouldKeepWalletEventSubscription) {
+            WalletCore.unregisterObserver(this)
+        }
         view.removeAllViews()
     }
     // ////////////////////////////////////////////////

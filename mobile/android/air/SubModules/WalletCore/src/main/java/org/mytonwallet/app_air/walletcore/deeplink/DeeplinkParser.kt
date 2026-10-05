@@ -259,6 +259,7 @@ class DeeplinkParser {
                 val requestLink = encodedValue.decodeUrlOrNull() ?: encodedValue
                 return if (requestLink.lowercase().startsWith("wc:")) requestLink else null
             }
+            if (!uri.isHierarchical) return null
             val requestLink = uri.getQueryParameter("uri") ?: return null
             return if (requestLink.lowercase().startsWith("wc:")) requestLink else null
         }

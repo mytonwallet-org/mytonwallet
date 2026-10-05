@@ -210,8 +210,8 @@ class MainWindow : WWindow() {
     }
 
     override fun onResume() {
-        super.onResume()
         AutoLockHelper.appResumed()
+        super.onResume()
         if (WGlobalStorage.getIsShakeToDebugEnabled()) {
             ShakeDetector.onAppResume()
         }
@@ -231,6 +231,7 @@ class MainWindow : WWindow() {
     }
 
     override fun onDestroy() {
+        WalletCore.unregisterObserver(splashVC)
         super.onDestroy()
         ShakeDetector.onShake = null
         if (isBridgeUser) {
