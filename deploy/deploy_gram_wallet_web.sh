@@ -288,6 +288,8 @@ ALLOWED_CONNECT_SRC=(
   "https://toncenter.mytonwallet.org"
   "https://tonconnectbridge.mytonwallet.org/bridge/"
   "https://tronapi.mytonwallet.org"
+  "https://utxoapi-testnet.mytonwallet.org"
+  "https://utxoapi.mytonwallet.org"
   "wss://*.walletconnect.com"
   "wss://*.walletconnect.org"
   "wss://api.mywallet.io"
@@ -297,6 +299,8 @@ ALLOWED_CONNECT_SRC=(
   "wss://solanaapi.mytonwallet.org"
   "wss://toncenter-testnet.mytonwallet.org"
   "wss://toncenter.mytonwallet.org"
+  "wss://utxoapi-testnet.mytonwallet.org"
+  "wss://utxoapi.mytonwallet.org"
 )
 
 CSP_CONNECT_SRC="$(grep -oE 'connect-src[^;]*' "$DIST_DIR/index.html" || true)"
