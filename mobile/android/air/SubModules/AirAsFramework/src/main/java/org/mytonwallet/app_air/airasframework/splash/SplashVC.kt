@@ -131,6 +131,7 @@ class SplashVC(context: Context) :
     override val TAG = "Splash"
 
     override val shouldDisplayTopBar = false
+    override val shouldKeepWalletEventSubscription = true
 
     private data class PendingDeeplink(val deeplink: Deeplink, val source: DeeplinkOpenSource)
 

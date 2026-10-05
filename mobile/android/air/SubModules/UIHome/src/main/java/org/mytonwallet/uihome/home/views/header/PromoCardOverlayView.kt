@@ -9,6 +9,7 @@ import androidx.appcompat.widget.AppCompatImageView
 import androidx.core.view.doOnPreDraw
 import com.facebook.drawee.drawable.ScalingUtils
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
+import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
@@ -25,6 +26,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
     companion object {
         private const val CARD_REF_WIDTH = 345.0
         private const val CARD_REF_HEIGHT = 200.0
+        private const val DEFAULT_HIT_AREA_SIZE = 64
     }
 
     private var currentPromotion: ApiPromotion? = null
@@ -90,14 +92,23 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        currentPromotion?.cardOverlay?.mascotIcon?.let { mascotIcon ->
+        currentPromotion?.cardOverlay?.mascotIcon?.takeIf {
+            it.url.isNotBlank()
+        }?.let { mascotIcon ->
             doOnPreDraw { updateMascotLayout(mascotIcon, w, h) }
         }
     }
 
     private fun updateMascot(mascotIcon: ApiPromotion.CardOverlay.MascotIcon?) {
         if (mascotIcon == null || mascotIcon.url.isBlank()) {
-            mascotView.visibility = GONE
+            mascotView.clear()
+            mascotView.rotation = 0f
+            mascotView.layoutParams = LayoutParams(
+                DEFAULT_HIT_AREA_SIZE.dp,
+                DEFAULT_HIT_AREA_SIZE.dp,
+                Gravity.TOP or Gravity.END
+            )
+            mascotView.visibility = VISIBLE
             return
         }
 

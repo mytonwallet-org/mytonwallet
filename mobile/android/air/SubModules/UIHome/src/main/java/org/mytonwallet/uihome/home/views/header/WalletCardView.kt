@@ -1084,9 +1084,9 @@ class WalletCardView(
     private fun animatePress(x: Float, y: Float, depth: Float, immediate: Boolean = false) {
         pressAnimator?.cancel()
         pressAnimator = null
-        val startX = clippedContainer.rotationX
-        val startY = clippedContainer.rotationY
-        val startScale = clippedContainer.scaleX
+        val startX = contentView.rotationX
+        val startY = contentView.rotationY
+        val startScale = contentView.scaleX
         val startLightX = pressTiltX
         val startLightY = pressTiltY
         val startPress = pressStrength
@@ -1097,10 +1097,10 @@ class WalletCardView(
         val targetLightX = if (gramDefaultCard) x * depth else targetY / 12f
         val targetLightY = if (gramDefaultCard) y * depth else -targetX / 12f
         fun apply(progress: Float) {
-            clippedContainer.rotationX = startX + (targetX - startX) * progress
-            clippedContainer.rotationY = startY + (targetY - startY) * progress
-            clippedContainer.scaleX = startScale + (targetScale - startScale) * progress
-            clippedContainer.scaleY = clippedContainer.scaleX
+            contentView.rotationX = startX + (targetX - startX) * progress
+            contentView.rotationY = startY + (targetY - startY) * progress
+            contentView.scaleX = startScale + (targetScale - startScale) * progress
+            contentView.scaleY = contentView.scaleX
             pressTiltX = startLightX + (targetLightX - startLightX) * progress
             pressTiltY = startLightY + (targetLightY - startLightY) * progress
             pressStrength = startPress + (depth - startPress) * progress
@@ -1122,8 +1122,8 @@ class WalletCardView(
     }
 
     internal fun releasePress(immediate: Boolean = false) {
-        if (clippedContainer.rotationX == 0f && clippedContainer.rotationY == 0f &&
-            clippedContainer.scaleX == 1f && clippedContainer.scaleY == 1f && pressStrength == 0f
+        if (contentView.rotationX == 0f && contentView.rotationY == 0f &&
+            contentView.scaleX == 1f && contentView.scaleY == 1f && pressStrength == 0f
         ) {
             pressAnimator?.cancel()
             pressAnimator = null
