@@ -11,5 +11,7 @@ import android.view.View
  * without re-recording the capture.
  */
 interface GlassCaptureHost {
+    fun glassDrawBackground(canvas: Canvas) {}
+
     fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean
 }

@@ -56,7 +56,7 @@ export interface ApiTokenVolume {
   change?: number;
 }
 
-export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter';
+export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter' | 'uniswap';
 
 export type ApiSwapDexLabel = 'dedust' | 'ston';
 export type ApiSwapCexLabel = 'changelly' | 'near-intents';
@@ -119,6 +119,7 @@ export type ApiSwapEstimateVariant = {
 
 export type ApiSwapDexEstimateResponse = {
   route: 'dex';
+  chain?: ApiChain;
   from: string;
   to: string;
   fromAmount: string;
@@ -141,6 +142,8 @@ export type ApiSwapDexEstimateResponse = {
   ourFee: string;
   ourFeePercent: number;
   dieselFee?: string;
+  /** EVM: Uniswap allowance is insufficient and approve is required before swap. */
+  needsApprove?: boolean;
 };
 
 export type ApiSwapCexEstimateResponse = {
@@ -202,12 +205,20 @@ export type ApiSwapBuildTransactionRequest = {
   swapFee?: string;
   /** Client-side only: used by validateDexSwapTransfers, not consumed by the backend */
   ourFee?: string;
+  /** Client-side only: from estimate; gates EIP-7702 approve+swap batching on EVM. */
+  needsApprove?: boolean;
 };
 
 export type ApiSwapTransfer = {
   toAddress: string;
   amount: string;
   payload: string;
+};
+
+export type ApiEvmSwapCall = {
+  to: string;
+  value?: string;
+  data: string;
 };
 
 export type ApiSwapBuildTransferResponse = {
@@ -217,6 +228,8 @@ export type ApiSwapBuildTransferResponse = {
   withDiesel?: boolean;
   // Solana specific
   transaction?: string;
+  /** EVM EIP-7702 batch calls (approve + swap) */
+  evmCalls?: ApiEvmSwapCall[];
 };
 
 export type ApiSwapBuildTransactionResponse =
@@ -449,6 +462,11 @@ export type ApiCardInfo = {
   price: number;
   /** Mint start time as an ISO 8601 UTC date-time string. */
   startsAt?: string;
+  discount?: {
+    percent: number;
+    /** Whether the current account gets the discount on its first card of this type */
+    isApplied: boolean;
+  };
 };
 
 export type ApiCardsInfo = Record<ApiMtwCardType, ApiCardInfo>;

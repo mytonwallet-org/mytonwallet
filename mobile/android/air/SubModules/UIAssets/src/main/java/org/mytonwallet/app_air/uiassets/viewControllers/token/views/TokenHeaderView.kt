@@ -82,7 +82,8 @@ class TokenHeaderView(
             WMenuPopup.present(
                 btn,
                 items,
-                positioning = WMenuPopup.Positioning.ALIGNED
+                positioning = WMenuPopup.Positioning.ALIGNED,
+                backdropStyle = WMenuPopup.BackdropStyle.Transparent
             )
         }
         btn

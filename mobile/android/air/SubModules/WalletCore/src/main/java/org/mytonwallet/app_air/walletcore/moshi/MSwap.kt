@@ -127,6 +127,7 @@ data class MApiSwapEstimateResponse(
     val from: String,
     val to: String,
     val slippage: Double?,
+    val needsApprove: Boolean? = null,
 
     // only in v3
     val routes: List<List<JSONObject>>?
@@ -151,8 +152,12 @@ data class MApiSwapBuildRequest(
     val dexRouterLabel: String? = null,
     val dieselFee: String?,
     val shouldTryDiesel: Boolean,
-    val routes: List<List<JSONObject>>?
+    val routes: List<List<JSONObject>>?,
+    val needsApprove: Boolean? = null
 )
+
+@JsonClass(generateAdapter = true)
+data class MApiEvmSwapCall(val to: String, val value: String? = null, val data: String)
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapBuildResponse(
@@ -160,6 +165,7 @@ data class MApiSwapBuildResponse(
     val transfers: List<MApiSwapTransfer>? = null,
     val chain: MBlockchain? = null,
     val transaction: String? = null,
+    val calls: List<MApiEvmSwapCall>? = null,
     val error: String? = null
 )
 

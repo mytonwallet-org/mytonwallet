@@ -58,7 +58,7 @@ public final class SegmentedControlModel {
     
     internal var elementSizes: [String: CGSize] = [:]
     
-    init(
+    public init(
         items: [SegmentedControlItem],
         selection: SegmentedControlSelection? = nil,
         primaryColor: UIColor = UIColor.label,

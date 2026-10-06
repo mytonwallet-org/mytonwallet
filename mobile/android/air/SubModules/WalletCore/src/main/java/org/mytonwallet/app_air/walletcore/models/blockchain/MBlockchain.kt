@@ -132,6 +132,22 @@ enum class MBlockchain(
         isSupported = true
     ),
 
+    optimism(
+        R.drawable.ic_blockchain_optimism_128,
+        "op",
+        "Optimism",
+        OptimismConfig,
+        isSupported = true
+    ),
+
+    zcash(
+        R.drawable.ic_blockchain_zcash_128,
+        "zec",
+        "Zcash",
+        ZcashConfig,
+        isSupported = true
+    ),
+
     dogecoin(
         R.drawable.ic_blockchain_doge_128,
         "doge",
@@ -158,7 +174,6 @@ enum class MBlockchain(
 
     // unsupported examples (data only, no config yet)
     polkadot(R.drawable.ic_blockchain_polkadot_128, "dot", "Polkadot"),
-    zcash(R.drawable.ic_blockchain_zcash_128, "zec", "Zcash"),
     internet_computer(R.drawable.ic_blockchain_internet_computer_40, "icp", "Internet Computer"),
     cosmos(R.drawable.ic_blockchain_cosmos_128, "atom", "Cosmos"),
     ripple(R.drawable.ic_blockchain_ripple_128, "xrp", "Ripple"),
@@ -187,6 +202,7 @@ enum class MBlockchain(
     val isEncryptedCommentSupported get() = config?.isEncryptedCommentSupported
     val isOnchainSwapSupported get() = config?.isOnchainSwapSupported ?: false
     val canSwapByBuyAmount get() = config?.canSwapByBuyAmount ?: false
+    val canTransferFullNativeBalance get() = config?.canTransferFullNativeBalance ?: false
     val multiWalletSupport get() = config?.multiWalletSupport
 
     fun isValidAddress(address: String) = config?.isValidAddress(address) ?: false
@@ -229,7 +245,7 @@ enum class MBlockchain(
 
         private val GRAM_CHAIN_ORDER = listOf(
             ton, bitcoin, ethereum, solana, hyperliquid, tron, bnb, base, arc, robinhood,
-            monad, arbitrum, polygon, avalanche, dogecoin, litecoin, bitcoincash
+            monad, arbitrum, optimism, polygon, avalanche, dogecoin, litecoin, bitcoincash, zcash
         )
 
         val supportedChains: List<MBlockchain> by lazy {

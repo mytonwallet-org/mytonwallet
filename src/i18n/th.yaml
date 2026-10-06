@@ -398,6 +398,7 @@ Encrypted Message: ข้อความที่ถูกเข้ารหั�
 Message is encrypted: ข้อความถูกเข้ารหัสแล้ว
 Agree: ยอมรับ
 $swap_action: สับเปลี่ยน
+$swap_batch_tx_duration_hint: การส่งอาจใช้เวลาถึง 1 นาที
 $swap_activity_title: การสับเปลี่ยน
 Swap: สับเปลี่ยน
 You Sell: การขายของคุณ
@@ -470,12 +471,12 @@ Cross-chain exchange provided by %provider%: การแลกเปลี่�
 $swap_cex_terms_of_use: ข้อกำหนดการใช้งาน
 $swap_cex_privacy_policy: นโยบายความเป็นส่วนตัว
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: นโยบาย AML/KYC
 $swap_cex_legal_message: "โดยการดำเนินการต่อ คุณตกลงตาม %terms% และ %policy%"
 $swap_cex_legal_message_with_aml: โดยการดำเนินการต่อ คุณตกลงตาม %terms% และ %policy% และเข้าใจว่าการโอนอาจกระตุ้นการตรวจสอบตาม %aml%
 Password must contain %length% digits.: รหัสผ่านต้องมีอย่างน้อย %length% หลัก.
 Deposit Link: ลิงก์การฝาก
 $swap_cex_from_wallet_description: "โทเค็นจะถูกส่งไปยังที่อยู่ %blockchain% ของคุณเร็วๆ นี้:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: โปรดทราบว่าอาจใช้เวลาสองสามชั่วโมงก่อนที่โทเค็นจะปรากฏในวอลเล็ตของคุณ.
 Minimum amount: ขั้นต่ำที่ %value%
 Maximum amount: สูงสุดที่ %value%
 Display Tray Icon: แสดงไอคอนของแถบเมนู
@@ -580,7 +581,6 @@ Scan your fingerprint: สแกนลายนิ้วมือของคุ
 Incorrect code, please try again.: รหัสผ่านไม่ถูกต้อง, โปรดลองใหม่อีกครั้ง.
 Correct: ถูกต้อง
 Confirm Action: ยืนยันการดำเนินการ
-$classic_confirm_actions: ยืนยันการดำเนินการทั้งหมด
 Confirm Swap: ยืนยันการสับเปลี่ยน
 Confirm Rewards Claim: ยืนยันการถอนรางวัล
 "%amount% to %address%": "%amount% ไปที่ %address%"
@@ -599,6 +599,8 @@ Buy with Card: ซื้อด้วยบัตร
 Buy with Crypto: ซื้อด้วยคริปโต
 Add funds to swap: เติมเงินเพื่อสับเปลี่ยน
 Direct swap unavailable: ไม่สามารถสับเปลี่ยนโดยตรงได้
+"Direct exchange unavailable": "ไม่สามารถแลกเปลี่ยนโดยตรงได้"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "หากต้องการรับ %buy_token% ให้รับ %token% ก่อน แล้วแลกเปลี่ยนเป็น %buy_token%"
 Swap on an external service: สับเปลี่ยนผ่านบริการภายนอก
 Buy with a card or receive crypto to fund this swap.: ซื้อคริปโตด้วยบัตรหรือรับคริปโตเพื่อเติมเงินสำหรับการสับเปลี่ยนนี้
 Buy crypto or choose another token to sell.: ซื้อคริปโตหรือเลือกโทเค็นอื่นเพื่อขาย
@@ -955,12 +957,10 @@ Import Wallet: นำเข้าข้อมูลกระเป๋าเง�
 Please top up your %token% balance.: กรุณาเติมเงินในบัญชี %token% ของคุณ.
 Remember Passcode: จดจำรหัส
 Remember Password: จดจำรหัสผ่าน
-Not available with biometrics.: ไม่สามารถใช้งานได้กับไบโอเมตริกซ์.
 App will not ask for signature for %minutes% minutes after last entry.: แอปจะไม่ขอให้เซ็นชื่อเป็นเวลา %minutes% นาทีหลังจากการป้อนครั้งล่าสุด
 Auto-Exit: ออกจากระบบอัตโนมัติ
 Log out of all wallets after failed attempts.: ออกจากระบบวอลเล็ตทั้งหมดหลังจากพยายามไม่สำเร็จ
 "%count% attempts": "%count% ครั้ง"
-Remember for %minutes% minutes: จำไว้เป็นเวลา %minutes% นาที
 Preview: แสดงตัวอย่าง
 $preview_not_guaranteed: ผลลัพธ์ของการแสดงตัวอย่าง **ไม่ได้รับการรับประกัน** และ **อาจถูกปลอมแปลง** โดยบริการ
 Unverified Source: แหล่งที่มาไม่ได้รับการยืนยัน
@@ -2256,6 +2256,8 @@ See All: ดูทั้งหมด
 Add an **extra layer of security** for your wallet in TON network.: เพิ่ม **ชั้นความปลอดภัยพิเศษ** ให้วอลเล็ตของคุณบนเครือข่าย TON
 Agent is unavailable: ผู้ช่วยไม่พร้อมใช้งาน
 Another transaction was sent from this wallet simultaneously. Please try again.: มีการส่งธุรกรรมอื่นจากวอลเล็ตนี้พร้อมกัน โปรดลองอีกครั้ง
+Telegram Wallet contract was not found at this address.: ไม่พบสัญญา Telegram Wallet ที่ที่อยู่นี้
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: กุญแจสาธารณะของ Telegram Wallet ไม่ตรงกับ seed นี้ วอลเล็ตอาจเปลี่ยนกุญแจแล้ว
 Buying with card is not supported for this chain.: เครือข่ายนี้ไม่รองรับการซื้อด้วยบัตร
 Confirm with Telegram: ยืนยันด้วย Telegram
 Couldn't open support chat. Please try again.: ไม่สามารถเปิดแชทช่วยเหลือได้ โปรดลองอีกครั้ง
@@ -2319,8 +2321,33 @@ Search token or stock: ค้นหาโทเค็นหรือหุ้น
 
 Unknown Transfer: การโอนที่ไม่รู้จัก
 $dapp_sign_data_for_prefix: สำหรับ
+
+# Token Buy / Sell
+"Pay %value%": "จ่าย %value%"
+"Receive %value%": "รับ %value%"
+"Buy %token% via %provider%": "ซื้อ %token% ผ่าน %provider%"
+"Sell %token% via %provider%": "ขาย %token% ผ่าน %provider%"
+"Switch Amount Currency": "เปลี่ยนสกุลเงินของจำนวน"
+"Pay With": "ชำระด้วย"
+"Receive in": "รับเป็น"
+"You Pay": "คุณจ่าย"
+"You Receive": "คุณได้รับ"
+"You pay": "คุณจ่าย"
 Successfully Sent: ส่งสำเร็จแล้ว
 Successfully Signed: ลงนามสำเร็จแล้ว
 3D Card: การ์ด 3 มิติ
 Coming soon: เร็ว ๆ นี้
 $dapp_identity_not_confirmed: ตัวตนของแอป **ไม่ได้รับการยืนยัน**
+
+# Token trade asset browser and details
+"Choose Asset": "เลือกสินทรัพย์"
+"Asset to Buy": "สินทรัพย์ที่จะซื้อ"
+"Asset to Sell": "สินทรัพย์ที่จะขาย"
+"Fiat": "เงินตรา"
+"Stocks": "หุ้น"
+"Popular Currencies": "สกุลเงินยอดนิยม"
+"Cross-chain Provider": "ผู้ให้บริการข้ามเชน"
+"Min": "ต่ำสุด"
+Ruble: รูเบิล
+$token_price_value: "ราคา: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: การสับเปลี่ยนลักษณะนี้มักใช้เวลาไม่กี่นาที ในกรณีที่พบได้น้อยอาจใช้เวลาถึงสองชั่วโมง

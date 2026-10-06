@@ -28,6 +28,8 @@ class MBlockchainTest {
                 MBlockchain.arbitrum,
                 MBlockchain.polygon,
                 MBlockchain.avalanche,
+                MBlockchain.optimism,
+                MBlockchain.zcash,
                 MBlockchain.dogecoin,
                 MBlockchain.litecoin,
                 MBlockchain.bitcoincash

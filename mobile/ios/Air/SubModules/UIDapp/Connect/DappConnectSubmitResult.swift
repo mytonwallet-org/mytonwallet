@@ -6,15 +6,18 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
 
     private let accountId: String
     private let proofSignatures: [String]?
+    private let proofPublicKeys: [String]?
     private let resolver: ConnectRequestResolver
 
     init(
         accountId: String,
         proofSignatures: [String]?,
+        proofPublicKeys: [String]? = nil,
         resolver: ConnectRequestResolver
     ) {
         self.accountId = accountId
         self.proofSignatures = proofSignatures
+        self.proofPublicKeys = proofPublicKeys
         self.resolver = resolver
     }
 
@@ -22,7 +25,8 @@ struct DappConnectSubmitResult: Sendable, MfaProtectedActionResult {
     func resolveConfirmation() async -> ActionSubmissionResult<Self> {
         switch await resolver.confirm(
             accountId: accountId,
-            proofSignatures: proofSignatures
+            proofSignatures: proofSignatures,
+            proofPublicKeys: proofPublicKeys
         ) {
         case .confirmed:
             return .committed(ActionSubmissionReceipt(payload: self))

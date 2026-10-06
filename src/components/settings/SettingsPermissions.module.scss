@@ -1,9 +1,9 @@
 .itemContent {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.125rem;
 
-  width: 100%;
   min-width: 0;
 }
 

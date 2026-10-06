@@ -17,10 +17,15 @@ struct TransactionActivityHeader: View {
     private var amount: TokenAmount {
         TokenAmount(transaction.amount, token)
     }
+
+    private var showsDiamond: Bool {
+        IS_DEBUG_OR_TESTFLIGHT && transaction.slug == TONCOIN_SLUG && transaction.type == nil && transaction.nft == nil
+    }
     
     var body: some View {
         VStack(spacing: 12) {
             iconView
+                .padding(.bottom, showsDiamond ? -20 : 0)
             if amountDisplayMode != .hide {
                 amountView
             }
@@ -30,8 +35,16 @@ struct TransactionActivityHeader: View {
     
     @ViewBuilder
     var iconView: some View {
-        ActivityIconView(activity: .transaction(transaction), size: 80, accessorySize: 30, isTransactionConfirmation: isTransactionConfirmation)
-            .frame(width: 80, height: 80)
+        ZStack {
+            if showsDiamond {
+                BlueDiamondView()
+                    .frame(width: 120, height: 120)
+            }
+            ActivityIconView(activity: .transaction(transaction), size: 80, accessorySize: 30,
+                             isTransactionConfirmation: isTransactionConfirmation, hideMainIcon: showsDiamond)
+                .frame(width: 80, height: 80)
+                .allowsHitTesting(false)
+        }
     }
     
     @ViewBuilder
@@ -44,7 +57,7 @@ struct TransactionActivityHeader: View {
         Button {
             onTokenTapped?(token)
         } label: {
-            AmountIconRow {
+            AmountIconRow(showsIcon: !showsDiamond) {
                 Group {
                     if amountDisplayMode == .approval, transaction.isApprovalUnlimited == true {
                         unlimitedApprovalAmountText(

@@ -415,7 +415,8 @@ open class HomeHeaderView(
                     windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout.fromView(
                         balanceAutoScaleView,
                         roundRadius = 16f.dp
-                    )
+                    ),
+                    backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
                 )
                 true
             }

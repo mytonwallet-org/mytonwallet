@@ -35,7 +35,7 @@ public final class MtwCardChangeView: MtwCardTapView {
         blur.layer.cornerCurve = .continuous
         fill.layer.cornerRadius = 13
         fill.layer.cornerCurve = .continuous
-        label.font = UIFont(name: "SFCompactDisplay-Medium", size: 17)!
+        label.font = UIFont.compactDisplay(ofSize: 17, weight: .medium)
         label.semanticContentAttribute = .forceLeftToRight
         chevron.image = UIImage(systemName: "chevron.forward", withConfiguration: UIImage.SymbolConfiguration(font: WTypography.uiFont(.caption2Strong, content: .technical)))
         chevron.contentMode = .center

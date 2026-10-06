@@ -92,6 +92,11 @@ declare module '*?url' {
   export default url;
 }
 
+declare module '*.glsl?raw' {
+  const source: string;
+  export default source;
+}
+
 declare module '*?worker' {
   const WorkerConstructor: new (options?: { name?: string }) => Worker;
   export default WorkerConstructor;

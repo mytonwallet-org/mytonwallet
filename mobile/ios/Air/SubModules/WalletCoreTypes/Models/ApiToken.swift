@@ -357,6 +357,15 @@ extension ApiToken {
         cmcSlug: "dogecoin"
     )
 
+    public static let ZCASH = ApiToken(
+        slug: ZCASH_SLUG,
+        name: "Zcash",
+        symbol: "ZEC",
+        decimals: 8,
+        chain: .zcash,
+        cmcSlug: "zcash"
+    )
+
     public static let ETH = ApiToken(
         slug: ETH_SLUG,
         name: "Ethereum",
@@ -397,6 +406,15 @@ extension ApiToken {
         decimals: 18,
         chain: .arbitrum,
         label: "Arbitrum"
+    )
+
+    public static let OPTIMISM = ApiToken(
+        slug: OPTIMISM_SLUG,
+        name: "Optimism",
+        symbol: "ETH",
+        decimals: 18,
+        chain: .optimism,
+        label: "Optimism"
     )
 
    public static let MONAD = ApiToken(
@@ -647,6 +665,7 @@ extension ApiToken {
         LITECOIN_SLUG: .LITECOIN,
         BITCOINCASH_SLUG: .BITCOINCASH,
         DOGECOIN_SLUG: .DOGECOIN,
+        ZCASH_SLUG: .ZCASH,
         MYCOIN_SLUG: .MYCOIN,
         TON_USDE_SLUG: .TON_USDE,
         STAKED_TON_SLUG: .STAKED_TON,

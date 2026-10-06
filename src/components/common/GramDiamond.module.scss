@@ -1,0 +1,46 @@
+@use "../../styles/mixins";
+
+.root {
+  position: relative;
+
+  flex-shrink: 0;
+
+  width: 7.5rem;
+  height: 7.5rem;
+  margin: 0 auto;
+}
+
+// The still lies under the canvas and never takes the pointer, which the model is dragged with
+.preview {
+  pointer-events: none;
+
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  @include mixins.transition(opacity 220ms linear);
+}
+
+.hidden {
+  opacity: 0;
+}
+
+.canvas {
+  touch-action: none;
+  cursor: var(--custom-cursor, pointer);
+
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  opacity: 0;
+
+  @include mixins.transition(opacity 220ms linear);
+}
+
+.ready {
+  opacity: 1;
+}

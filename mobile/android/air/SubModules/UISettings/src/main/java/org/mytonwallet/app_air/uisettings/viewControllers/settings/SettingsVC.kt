@@ -253,7 +253,8 @@ class SettingsVC(context: Context) :
                     }
                 ),
                 popupWidth = WRAP_CONTENT,
-                positioning = WMenuPopup.Positioning.ALIGNED
+                positioning = WMenuPopup.Positioning.ALIGNED,
+                backdropStyle = WMenuPopup.BackdropStyle.Transparent
             )
         }
         btn

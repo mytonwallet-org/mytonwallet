@@ -179,7 +179,8 @@ export type MigrationErrorPresentation =
   | { kind: 'inline'; text: string }
   | { kind: 'dialog'; titleKey: string; messageKey: string; errorCode?: string };
 
-export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl' | 'ar' | 'fa';
+export type LangCode = 'en' | 'es' | 'ru' | 'zh-Hant' | 'zh-Hans' | 'tr' | 'de' | 'th' | 'uk' | 'pl' | 'ar' | 'fa'
+  | 'it';
 export type LanguageSource = 'system' | 'user';
 
 export interface LangItem {
@@ -531,6 +532,8 @@ export interface AccountChain {
   derivation?: ApiDerivation;
   /** Is set only in hardware accounts */
   ledgerIndex?: number;
+  /** Is set only in TON wallets */
+  version?: ApiTonWalletVersion;
   mfa?: {
     address: string;
     user?: {
@@ -845,6 +848,9 @@ export type GlobalState = {
     scamWarningType?: ScamWarningType;
     isTransferReadonly?: boolean;
     isOfframp?: boolean;
+    // Set for a transfer opened from a deeplink, a QR code or the agent rather than the app's own controls.
+    // Such a transfer asks for the passcode even while the Remember Passcode window is open.
+    shouldRequireFreshAuth?: boolean;
     isNftBurn?: boolean;
     /**
      * Normalized explanation of the fee and gasless parameters for the current draft, ready for UI consumption.
@@ -896,6 +902,10 @@ export type GlobalState = {
     dieselStatus?: DieselStatus;
     dexLabel?: ApiSwapDexLabel;
     dexRouterLabel?: ApiSwapDexRouterLabel;
+    /** EVM Only: allowance is insufficient; EIP-7702 batching applies when supported. */
+    needsApprove?: boolean;
+    /** EVM Only: approve, delegation setup, and swap run as one batch user operation. */
+    isBatchTx?: boolean;
     routes?: ApiSwapRoute[][];
     currentCexLabel?: ApiSwapCexLabel;
     currentCexProviderName?: string;
@@ -1135,7 +1145,7 @@ export type GlobalState = {
     baseCurrency: ApiBaseCurrency;
     isAppLockEnabled?: boolean;
     autolockValue?: AutolockValueType;
-    isAutoConfirmEnabled?: boolean;
+    isAutoConfirmEnabled: boolean;
     isSensitiveDataHidden?: true;
     orderedAccountIds?: string[];
     selectedExplorerIds?: Partial<Record<ApiChain, string>>;
@@ -1148,6 +1158,8 @@ export type GlobalState = {
         avatarUrl?: string;
       };
       error?: string;
+      /** Grows with every failed install attempt, so the screen can tell a new failure from the previous one */
+      failedAttemptCount?: number;
     };
 
     removeMfa?: {
@@ -1359,6 +1371,7 @@ export interface ActionPayloads {
     stateInit?: string;
     isTransferReadonly?: boolean;
     isOfframp?: boolean;
+    shouldRequireFreshAuth?: boolean;
   } | undefined;
   changeTransferToken: { tokenSlug: string; withResetAmount?: boolean };
   fetchTransferFee: {

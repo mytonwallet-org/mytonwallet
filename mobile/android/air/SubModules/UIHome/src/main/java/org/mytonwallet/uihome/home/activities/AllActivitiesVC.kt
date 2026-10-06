@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.util.Date
@@ -16,6 +15,8 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.ActivitySectionBackgroundDecoration
+import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -46,6 +47,7 @@ class AllActivitiesVC(
         val TRANSACTION_SMALL_FIRST_IN_DAY_CELL = WCell.Type(3)
         val EMPTY_VIEW_CELL = WCell.Type(4)
         val SKELETON_CELL = WCell.Type(5)
+        val BLACK_CELL = WCell.Type(6)
 
         const val TRANSACTION_SECTION = 0
         const val EMPTY_VIEW_SECTION = 1
@@ -56,12 +58,10 @@ class AllActivitiesVC(
 
     private val isMultichain = WGlobalStorage.isMultichain(accountId)
     private var activityLoader: IActivityLoader? = null
-    private val showingTransactions: List<MApiTransaction>?
-        get() = activityLoader?.showingTransactions
+    private var showingTransactions: List<MApiTransaction>? = null
 
     private var oldTransactions: Set<String>? = null
     private var oldTransactionsFirstDt: Date? = null
-    private var oldShowingTransactions: List<MApiTransaction>? = null
     private var isApplyingUpdate = false
 
     private val rvAdapter =
@@ -72,7 +72,8 @@ class AllActivitiesVC(
                 TRANSACTION_SMALL_CELL,
                 TRANSACTION_SMALL_FIRST_IN_DAY_CELL,
                 EMPTY_VIEW_CELL,
-                SKELETON_CELL
+                SKELETON_CELL,
+                BLACK_CELL
             )
         ).apply {
             setHasStableIds(true)
@@ -93,13 +94,22 @@ class AllActivitiesVC(
         }
     }
 
+    private val activitySectionBackgroundDecoration = ActivitySectionBackgroundDecoration(
+        firstPosition = { recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) },
+        rowCount = {
+            (showingTransactions?.size ?: 0) +
+                if (showingTransactions != null && activityLoader?.loadedAll != true) 1 else 0
+        }
+    )
+
     private val recyclerView: WRecyclerView by lazy {
         val rv = WRecyclerView(this)
         rv.adapter = rvAdapter
-        val layoutManager = LinearLayoutManager(context)
+        val layoutManager = LinearLayoutManagerAccurateOffset(context)
         layoutManager.isSmoothScrollbarEnabled = true
         rv.setLayoutManager(layoutManager)
         rv.setItemAnimator(null)
+        rv.addItemDecoration(activitySectionBackgroundDecoration)
         rv.clipToPadding = false
         rv.addOnScrollListener(scrollListener)
         rv
@@ -127,6 +137,7 @@ class AllActivitiesVC(
         super.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         rvAdapter.reloadData()
+        recyclerView.invalidate()
     }
 
     override fun insetsUpdated() {
@@ -149,15 +160,14 @@ class AllActivitiesVC(
 
     // ACTIVITY LOADER /////////////////////////////////////////////////////////////////////////////
     override fun activityLoaderDataLoaded(isUpdateEvent: Boolean) {
-        isApplyingUpdate = isUpdateEvent && oldTransactions != null
-        val old = oldShowingTransactions
-        val new = showingTransactions
-        if (old.isNullOrEmpty() || new.isNullOrEmpty()) {
-            rvAdapter.reloadData()
-        } else {
-            rvAdapter.applyChanges(old, new, TRANSACTION_SECTION, true)
+        if (isDestroyed) return
+        if (recyclerView.isComputingLayout) {
+            recyclerView.post { activityLoaderDataLoaded(isUpdateEvent) }
+            return
         }
-        oldShowingTransactions = new?.toList()
+        isApplyingUpdate = isUpdateEvent && oldTransactions != null
+        showingTransactions = activityLoader?.showingTransactions?.toList()
+        rvAdapter.reloadData()
         recyclerView.post {
             isApplyingUpdate = false
             oldTransactions = showingTransactions?.map { it.getStableId() }?.toSet()
@@ -190,8 +200,8 @@ class AllActivitiesVC(
             LOADING_SECTION -> SKELETON_CELL
 
             else -> {
-                val transactions = showingTransactions ?: return SKELETON_CELL
-                val transaction = transactions[indexPath.row]
+                val transactions = showingTransactions ?: return BLACK_CELL
+                val transaction = transactions.getOrNull(indexPath.row) ?: return BLACK_CELL
                 if (transaction.isNft ||
                     (transaction as? MApiTransaction.Transaction)?.hasComment == true
                 ) {
@@ -220,11 +230,18 @@ class AllActivitiesVC(
 
             EMPTY_VIEW_CELL -> EmptyCell(context)
 
-            else -> SkeletonCell(context)
+            BLACK_CELL -> WCell(context)
+
+            else -> SkeletonCell(context, drawsBackground = false)
         }
 
     private fun activityCell(withoutTagAndComment: Boolean, isFirstInDay: Boolean?): ActivityCell =
-        ActivityCell(recyclerView, withoutTagAndComment, isFirstInDay).apply {
+        ActivityCell(
+            recyclerView,
+            withoutTagAndComment,
+            isFirstInDay,
+            drawsBackground = false
+        ).apply {
             allowNftMenu = true
             onTap = { transaction -> onTransactionTap(transaction) }
         }
@@ -243,11 +260,12 @@ class AllActivitiesVC(
         when (indexPath.section) {
             TRANSACTION_SECTION -> {
                 val transactions = showingTransactions ?: return
-                val transaction = transactions[indexPath.row]
+                val transaction = transactions.getOrNull(indexPath.row) ?: return
+                val transactionCell = cellHolder.cell as? ActivityCell ?: return
                 val isFirstInDay = indexPath.row == 0 ||
                     !transaction.dt.isSameDayAs(transactions[indexPath.row - 1].dt)
                 val isLastRow = indexPath.row == transactions.size - 1
-                (cellHolder.cell as ActivityCell).configure(
+                transactionCell.configure(
                     transaction = transaction,
                     accountId = accountId,
                     isMultichain = isMultichain,

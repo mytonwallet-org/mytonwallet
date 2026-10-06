@@ -17,7 +17,7 @@ import Perception
 import WalletCoreTypes
 
 private let log = Log("AccountStore")
-private let _popularWalletVersionTitles: Set<String> = ["v3R1", "v3R2", "v4R2", "W5"]
+private let _popularWalletVersionTitles: Set<String> = ["v3R1", "v3R2", "v4R2", "W5", "telegram"]
 
 /// Sends account activation to the SDK: redirects polling and updates the SDK-side current account
 private func sendSdkActivation(accountId: String) async throws {
@@ -463,34 +463,39 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
         let originalAccount = try accountsById[accountId].orThrow("Can't find the original account")
 
         let result = try await Api.importNewWalletVersion(accountId: accountId, version: version)
+        if let error = result.error {
+            throw error
+        }
+        let resultAccountId = try result.accountId.orThrow("Missing account id for imported wallet version")
+        let isNew = try result.isNew.orThrow("Missing isNew for imported wallet version")
 
-        if result.isNew {
+        if isNew {
             let byChain = try result.byChain.orThrow("Missing chain data for new wallet version")
             try await _duplicateEnclaveSecretIfNeeded(
                 from: originalAccount,
-                to: [result.accountId]
+                to: [resultAccountId]
             )
             let account = MAccount(
-                id: result.accountId,
+                id: resultAccountId,
                 title: walletVersionTitle(originalTitle: originalAccount.title, version: version),
                 type: originalAccount.type,
                 byChain: byChain,
             )
             try await _storeAccount(account: account)
             await refreshStoredMfaIfPossible(accountIds: [account.id], enclaveToken: nil)
-            _ = try await self.activateAccount(accountId: result.accountId, isNew: true)
+            _ = try await self.activateAccount(accountId: resultAccountId, isNew: true)
             await subscribeNotificationsIfAvailable(account: account)
             return self.accountsById[account.id] ?? account
             
         } else {
-            if accountsById[result.accountId] == nil {
+            if accountsById[resultAccountId] == nil {
                 try await _duplicateEnclaveSecretIfNeeded(
                     from: originalAccount,
-                    to: [result.accountId]
+                    to: [resultAccountId]
                 )
-                let summary = try await Api.fetchStoredAccountSummary(accountId: result.accountId)
+                let summary = try await Api.fetchStoredAccountSummary(accountId: resultAccountId)
                 let recoveredAccount = MAccount(
-                    id: result.accountId,
+                    id: resultAccountId,
                     title: walletVersionTitle(originalTitle: originalAccount.title, version: version),
                     type: originalAccount.type,
                     byChain: summary.byChain
@@ -499,7 +504,7 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
                 await refreshStoredMfaIfPossible(accountIds: [recoveredAccount.id], enclaveToken: nil)
                 await subscribeNotificationsIfAvailable(account: recoveredAccount)
             }
-            let account = try await self.activateAccount(accountId: result.accountId)
+            let account = try await self.activateAccount(accountId: resultAccountId)
             return account
         }
     }
@@ -1145,8 +1150,20 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
             return
         }
 
-        let chain = update.chain.rawValue
         var didChange = false
+
+        if let accountType = update.accountType, account.type != accountType {
+            account.type = accountType
+            didChange = true
+        }
+
+        guard let chain = update.chain?.rawValue else {
+            if didChange {
+                accountsById[update.accountId] = account
+                try? await _storeAccount(account: account)
+            }
+            return
+        }
 
         if let address = update.address {
             if account.byChain[chain] == nil {

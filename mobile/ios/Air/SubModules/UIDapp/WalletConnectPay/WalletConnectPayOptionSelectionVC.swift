@@ -511,6 +511,8 @@ private let walletConnectPayCaip2Chains: [String: ApiChain] = [
     "eip155:80002": .polygon,
     "eip155:42161": .arbitrum,
     "eip155:421614": .arbitrum,
+    "eip155:10": .optimism,
+    "eip155:11155420": .optimism,
     "eip155:56": .bnb,
     "eip155:97": .bnb,
     "eip155:43114": .avalanche,

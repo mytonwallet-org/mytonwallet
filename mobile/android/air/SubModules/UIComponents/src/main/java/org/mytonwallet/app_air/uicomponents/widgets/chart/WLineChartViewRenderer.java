@@ -28,6 +28,17 @@ public class WLineChartViewRenderer extends LineChartRenderer {
     }
 
     @Override
+    public void drawData(Canvas c) {
+        // Draw datasets in drawExtras, after the chart restores its content clip.
+    }
+
+    @Override
+    public void drawExtras(Canvas c) {
+        super.drawData(c);
+        super.drawExtras(c);
+    }
+
+    @Override
     protected void drawCubicBezier(ILineDataSet dataSet) {
         Highlight[] highlights = lineChart.getHighlighted();
         boolean isHighlighted = highlights != null && highlights.length > 0;
@@ -43,6 +54,8 @@ public class WLineChartViewRenderer extends LineChartRenderer {
         mXBounds.set(mChart, dataSet);
 
         float intensity = dataSet.getCubicIntensity();
+        float minY = dataSet.getYMin();
+        float maxY = dataSet.getYMax();
 
         cubicPath.reset();
         cubicPathRight.reset();
@@ -93,9 +106,12 @@ public class WLineChartViewRenderer extends LineChartRenderer {
                 curDx = (next.getX() - prev.getX()) * intensity;
                 curDy = (next.getY() - prev.getY()) * intensity;
 
-                currentPath.cubicTo(prev.getX() + prevDx, (prev.getY() + prevDy) * phaseY,
+                float prevControlY = Math.max(minY, Math.min(maxY, prev.getY() + prevDy));
+                float curControlY = Math.max(minY, Math.min(maxY, cur.getY() - curDy));
+
+                currentPath.cubicTo(prev.getX() + prevDx, prevControlY * phaseY,
                     cur.getX() - curDx,
-                    (cur.getY() - curDy) * phaseY, cur.getX(), cur.getY() * phaseY);
+                    curControlY * phaseY, cur.getX(), cur.getY() * phaseY);
             }
         }
 

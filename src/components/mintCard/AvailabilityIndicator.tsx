@@ -35,9 +35,9 @@ function AvailabilityIndicator({
     );
   }
 
-  // A tier the current campaign does not carry arrives as `all: 0`, and its share of minted cards
-  // is undefined rather than zero, so it falls through to the sold-out text below.
-  if (all !== undefined && notMinted !== undefined && all > 0) {
+  // A fully minted tier and a tier the current campaign does not carry (`all: 0`) both fall through
+  // to the sold-out text below
+  if (all !== undefined && notMinted !== undefined && all > 0 && notMinted > 0) {
     const sold = all - notMinted;
     const leftAmount = lang('%amount% left', { amount: formatNumber(notMinted) });
     const soldAmount = lang('%amount% sold', { amount: formatNumber(sold) });

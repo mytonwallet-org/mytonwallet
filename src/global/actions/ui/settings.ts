@@ -72,7 +72,7 @@ addActionHandler('setIsAutoConfirmEnabled', (global, actions, { isEnabled }) => 
     ...(!isEnabled && { enclaveSession: undefined }),
     settings: {
       ...global.settings,
-      isAutoConfirmEnabled: isEnabled || undefined,
+      isAutoConfirmEnabled: isEnabled,
     },
   };
 });

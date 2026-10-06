@@ -392,7 +392,11 @@ object CollectionsMenuHelpers {
             xOffset = xOffset,
             yOffset = (-46).dp,
             positioning = WMenuPopup.Positioning.ALIGNED,
-            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = roundRadius)
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
+                view,
+                roundRadius = roundRadius
+            )
         )
     }
 

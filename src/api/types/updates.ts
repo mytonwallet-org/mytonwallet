@@ -1,4 +1,4 @@
-import type { GlobalState } from '../../global/types';
+import type { AccountType, GlobalState } from '../../global/types';
 import type { ApiUpdateAgentV2, ApiUpdateAgentV2PortfolioHistory } from '../agentV2/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { TonConnectProof } from '../dappProtocols/adapters';
@@ -378,12 +378,14 @@ export type ApiNftUpdate = ApiUpdateNftReceived | ApiUpdateNftSent | ApiUpdateNf
 export type ApiUpdateAccount = {
   type: 'updateAccount';
   accountId: string;
-  chain: ApiChain;
+  chain?: ApiChain;
+  accountType?: AccountType;
   address?: string;
   /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
   domain?: string | false;
   isMultisig?: boolean;
   derivation?: ApiDerivation;
+  version?: ApiTonWalletVersion;
   mfa?: ApiTonWallet['mfa'] | false;
 };
 

@@ -1100,6 +1100,7 @@ class PhoneTabsVC(context: Context) :
             items = menuItems,
             yOffset = (-3).dp,
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             centerHorizontally = true,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                 anchorView,
@@ -1107,6 +1108,7 @@ class PhoneTabsVC(context: Context) :
                 horizontalOffset = 0,
                 verticalOffset = 0
             )
+
         )
         return true
     }
@@ -1754,23 +1756,28 @@ class PhoneTabsVC(context: Context) :
     private val minimizedBrowser by lazy {
         MinimizedBrowserPresenter(object : MinimizedBrowserPresenter.Host {
             override val container get() = view
-            override val availableHeight get() = view.height.takeIf { it > 0 }
-                ?: (window?.windowView?.height ?: 0)
+            override val availableHeight
+                get() = view.height.takeIf { it > 0 }
+                    ?: (window?.windowView?.height ?: 0)
             override val animationsEnabled get() = WGlobalStorage.getAreAnimationsActive()
             override val bottomInset get() = bottomBarHeight + bottomOverlayExtraGap
             override fun canMinimize(nav: WNavigationController) =
                 window?.navigationControllers?.lastOrNull() === nav
+
             override fun detach(nav: WNavigationController) {
                 nav.window.detachLastNav()
             }
+
             override fun attach(nav: WNavigationController) {
                 window?.attachNavigationController(nav)
             }
+
             override fun destroy(nav: WNavigationController) {
                 nav.willBeDismissed()
                 view.removeView(nav)
                 nav.onDestroy()
             }
+
             override fun render() = this@PhoneTabsVC.render()
             override fun restack() = restackChromeAboveGradient()
         })

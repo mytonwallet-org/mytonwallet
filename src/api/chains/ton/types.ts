@@ -21,6 +21,7 @@ export type ApiTonWalletVersion = 'simpleR1'
   | 'v3R1'
   | 'v3R2'
   | 'v4R2'
+  | 'telegram'
   | 'W5';
 
 export type AnyTonTransferPayload = ApiTransferPayload | Cell;

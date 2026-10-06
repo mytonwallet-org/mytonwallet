@@ -444,8 +444,9 @@ class TonConnectRequestConnectVC(
                         ApiMethod.DApp.ConfirmDappRequestConnect(
                             promiseId,
                             ApiMethod.DApp.ConfirmDappRequestConnect.Request(
-                                account.accountId,
-                                signResult?.signatures
+                                accountId = account.accountId,
+                                proofSignatures = signResult?.signatures,
+                                proofPublicKeys = signResult?.publicKeys
                             )
                         )
                     )

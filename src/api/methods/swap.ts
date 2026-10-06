@@ -1,6 +1,7 @@
 import type {
   ApiActivity,
   ApiChain,
+  ApiEvmSwapCall,
   ApiSubmitGasfullTransferOptions,
   ApiSwapActivity,
   ApiSwapAsset,
@@ -40,7 +41,7 @@ import {
 } from '../common/swap';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
-import { publishSignedMfaRequest } from './mfa';
+import { publishSignedMfaRequest, registerMfaConfirmationHandler } from './mfa';
 import { getBackendAuthToken, getStoredBackendAuthToken } from './other';
 
 export { resolveSwapDefaults } from '../common/swapDefaults';
@@ -82,6 +83,7 @@ export async function swapBuildTransfer(
     transaction,
     swapId: id,
     authToken,
+    enclaveToken,
   });
 
   return result;
@@ -95,6 +97,8 @@ export async function swapSubmit(
   historyItem: ApiSwapHistoryItem,
   isGasless?: boolean,
   transaction?: string,
+  calls?: ApiEvmSwapCall[],
+  needsApprove?: boolean,
 ): Promise<{ activityId?: string; mfaRequestHash?: string; swapId: string } | { error: string }> {
   const swapId = historyItem.id;
 
@@ -125,6 +129,8 @@ export async function swapSubmit(
     enclaveToken,
     transfers,
     transaction,
+    calls,
+    needsApprove,
     historyItem,
     isGasless,
     authToken,
@@ -138,9 +144,24 @@ export async function swapSubmit(
   }
 
   if ('mfaRequest' in result) {
-    const { mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
+    let mfaRequestHash: string;
+    try {
+      ({ mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest));
+    } catch (err) {
+      await patchMfaPublishError(accountId, swapId, authToken, errorToString(err));
+      throw err;
+    }
 
-    return { swapId, mfaRequestHash };
+    // Nothing is sent until the request is confirmed in Telegram, so the local activity appears only then
+    registerMfaConfirmationHandler(mfaRequestHash, (txHash) => {
+      onUpdate({
+        type: 'newLocalActivities',
+        accountId,
+        activities: [{ ...localSwap, externalMsgHashNorm: txHash }],
+      });
+    });
+
+    return { activityId: localActivityId, swapId, mfaRequestHash };
   }
 
   return { activityId: result.activityId, swapId };
@@ -384,12 +405,19 @@ export async function swapCexSubmit(chain: ApiChain, transferOptions: ApiSubmitG
     return result;
   }
 
+  let mfaRequestHash: string | undefined;
+  if (result.mfaRequest) {
+    try {
+      ({ mfaRequestHash } = await publishSignedMfaRequest(transferOptions.accountId, chain, result.mfaRequest));
+    } catch (err) {
+      await patchSwapSubmitError(transferOptions, swapId, errorToString(err));
+      throw err;
+    }
+  }
+
   createdCexSwaps.delete(`${transferOptions.accountId}:${swapId}`);
 
-  if (result.mfaRequest) {
-    const { accountId } = transferOptions;
-    const { mfaRequestHash } = await publishSignedMfaRequest(accountId, chain, result.mfaRequest);
-
+  if (mfaRequestHash) {
     return { swapId, mfaRequestHash };
   }
 
@@ -456,6 +484,17 @@ async function patchSwapSubmitError(
     }
   } catch (err) {
     logDebugError('patchSwapSubmitError: failed to patch swap item', err);
+  }
+}
+
+/** Without a published MFA request the swap is never sent, so its backend row is closed with the error */
+async function patchMfaPublishError(accountId: string, swapId: string, authToken: string, error: string) {
+  // We already know why the swap failed - if the backend call also fails, keep the real reason
+  try {
+    const { address } = await fetchStoredWallet(accountId, 'ton');
+    await patchSwapItem({ address, swapId, authToken, error });
+  } catch (err) {
+    logDebugError('patchMfaPublishError: failed to patch swap item', err);
   }
 }
 

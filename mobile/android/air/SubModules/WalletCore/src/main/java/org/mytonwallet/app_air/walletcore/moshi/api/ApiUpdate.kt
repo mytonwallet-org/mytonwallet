@@ -277,7 +277,8 @@ sealed class ApiUpdate {
     @JsonClass(generateAdapter = true)
     data class ApiUpdateUpdateAccount(
         val accountId: String,
-        val chain: MBlockchain,
+        val chain: MBlockchain?,
+        val accountType: String?,
         val address: String?,
         /** `false` means that the account has no domain; `undefined` means that the domain has not changed */
         val domain: AccountDomainUpdate?,

@@ -32,25 +32,6 @@ func lang(_ keyAndDefault: String) -> String {
     NSLocalizedString(keyAndDefault, bundle: widgetLocalizationBundle, comment: "")
 }
 
-public enum CompactRoundedWeight {
-    case bold
-}
-
-public extension UIFont {
-    class func compactRounded(ofSize size: CGFloat, weight: CompactRoundedWeight) -> UIFont {
-        switch weight {
-        case .bold:
-            UIFont(name: "SFCompactRounded-Bold", size: size)!
-        }
-    }
-}
-
-public extension Font {
-    static func compactRounded(size: CGFloat, weight: CompactRoundedWeight) -> Font {
-        Font(UIFont.compactRounded(ofSize: size, weight: weight))
-    }
-}
-
 func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
     let value = (value * 100).rounded(decimals: decimals)
     let number = abs(value)

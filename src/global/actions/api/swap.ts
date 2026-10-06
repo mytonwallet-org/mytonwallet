@@ -96,6 +96,7 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
   const {
     dexLabel,
     dexRouterLabel,
+    needsApprove,
     amountIn,
     amountOut,
     quotedAmountOut,
@@ -138,6 +139,7 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
     historyAddress,
     shouldTryDiesel: shouldSwapBeGasless({ ...global.currentSwap, swapType, nativeTokenInBalance }),
     dexRouterLabel: dexRouterLabel || undefined,
+    needsApprove,
     dexLabel,
     networkFee: realNetworkFee ?? networkFee,
     swapFee: swapFee!,
@@ -314,7 +316,10 @@ addActionHandler('submitSwap', withEnclaveSessionRelease(async (global, actions,
 
   // `handleTransferResult` reset the loading state, but `swapSubmit` still runs before the slide changes -
   // keep it on so the confirm button doesn't flash the Back button
-  setGlobal(updateCurrentSwap(getGlobal(), { isLoading: true }));
+  setGlobal(updateCurrentSwap(getGlobal(), {
+    isLoading: true,
+    ...(buildResult.isBatchTx ? { isBatchTx: true } : undefined),
+  }));
 
   const swapHistoryItem: ApiSwapHistoryItem = {
     id: buildResult.id,
@@ -341,6 +346,8 @@ addActionHandler('submitSwap', withEnclaveSessionRelease(async (global, actions,
     swapHistoryItem,
     swapBuildRequest.shouldTryDiesel,
     buildResult.transaction,
+    buildResult.calls,
+    swapBuildRequest.needsApprove,
   );
 
   if (isErrorTransferResult(result)) {
@@ -434,10 +441,15 @@ addActionHandler('submitSwapCex', withEnclaveSessionRelease(async (global, actio
 
   const canAutoSubmit = isFromWallet && canAutoSubmitCexDeposit(tokenIn.chain, memo);
   const isManualDepositRequired = isFromWallet && !canAutoSubmit;
+  // A deposit from an MFA account is sent only after Telegram confirmation, so keep loading instead of showing Complete
+  // until `swapCexSubmit` tells which screen comes next
+  const shouldAwaitDepositSubmit = canAutoSubmit && Boolean(account?.byChain[tokenIn.chain as ApiChain]?.mfa);
 
   global = getGlobal();
   global = updateCurrentSwap(global, {
-    state: canAutoSubmit ? SwapState.Complete : SwapState.WaitTokens,
+    ...(shouldAwaitDepositSubmit
+      ? { isLoading: true }
+      : { state: canAutoSubmit ? SwapState.Complete : SwapState.WaitTokens }),
     activityId: swapItem.activity.id,
     payinAddress: swapItem.swap.cex!.payinAddress,
     payoutAddress: swapItem.swap.cex!.payoutAddress,
@@ -470,11 +482,17 @@ addActionHandler('submitSwapCex', withEnclaveSessionRelease(async (global, actio
     if ('mfaRequestHash' in transferResult && transferResult.mfaRequestHash) {
       global = getGlobal();
       global = updateCurrentSwap(global, {
+        isLoading: undefined,
         state: SwapState.ConfirmMfa,
         swapId: 'swapId' in transferResult ? transferResult.swapId : swapItem.swap.id,
         mfaRequestHash: transferResult.mfaRequestHash,
       });
       setGlobal(global);
+    } else if (shouldAwaitDepositSubmit) {
+      setGlobal(updateCurrentSwap(getGlobal(), {
+        isLoading: undefined,
+        state: SwapState.Complete,
+      }));
     }
   }
 }));
@@ -787,6 +805,8 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       amountOutMin: currentEstimate.toMinAmount,
       priceImpact: currentEstimate.impact,
       dexRouterLabel: dexEstimate.dexRouterLabel || undefined,
+      needsApprove: dexEstimate.needsApprove,
+      isBatchTx: !!dexEstimate.needsApprove,
       errorType,
       dieselStatus: dexEstimate.dieselStatus,
       dexLabel: currentEstimate.dexLabel,

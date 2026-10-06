@@ -62,6 +62,14 @@ export function getIsRwaStockToken(token?: ApiToken | UserToken | UserSwapToken 
   return token?.keywords?.includes(RWA_STOCK_KEYWORD) ?? false;
 }
 
+/**
+ * Whether a token icon shows a network badge: for every token when the user turned the badges on, otherwise only
+ * for labeled tokens such as USDT that exist on several networks. A token showing a yield badge gets none.
+ */
+export function getIsChainBadgeShown(token: { label?: string }, areChainBadgesShown?: boolean, hasYield?: boolean) {
+  return Boolean(areChainBadgesShown || (token.label && !hasYield));
+}
+
 export function getTokenName(
   lang: LangFn, token: UserSwapToken | ApiSwapAsset | ApiToken, areTokenNamesLocalized?: boolean,
 ): string;

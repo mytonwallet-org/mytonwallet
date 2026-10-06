@@ -16,7 +16,7 @@ const EMPTY_CHAIN_SET: ReadonlySet<ApiChain> = new Set();
 export interface AccountChainSummary {
   /** The account chains sorted by their full USD balance (staking included) descending; ties keep the default order */
   valueOrder: ApiChain[];
-  /** Chains holding a non-zero amount of any token, staked balances included */
+  /** Chains holding a non-zero amount of any shown token, staked balances included */
   chainsWithBalance: ReadonlySet<ApiChain>;
   /** Whether every shown token belongs to the TON chain; undefined while the balances are not known yet */
   hasOnlyTonTokens?: boolean;
@@ -48,8 +48,10 @@ export function getDefaultVisibleChains(accountChains: ApiChain[], chainsWithBal
 /**
  * Sums up what the chain display needs straight from the raw balances, without building the account token list.
  *
- * The token set mirrors the token list: unknown and deleted tokens are skipped. `STAKED_TOKEN_SLUGS` still count as
- * funding but are not valued, because the staking state of the underlying token already carries their value.
+ * The token set mirrors the token list: unknown and deleted tokens are skipped, and a token hidden from the list
+ * (a spam airdrop, dust, a token the user hid) does not fund its chain, matching `automaticallyVisibleChains` on iOS.
+ * `STAKED_TOKEN_SLUGS` still count as funding but are not valued, because the staking state of the underlying token
+ * already carries their value.
  */
 export function buildAccountChainSummary(
   defaultOrder: ApiChain[],
@@ -79,10 +81,11 @@ export function buildAccountChainSummary(
       stakedBalance += getFullStakingBalance(stakingState);
     }
 
-    if (balance > 0n || stakedBalance > 0n) {
+    const isShown = !getIsTokenDisabled(slug, balance, token, visibility);
+    if ((isShown && balance > 0n) || stakedBalance > 0n) {
       chainsWithBalance.add(chain);
     }
-    if (hasOnlyTonTokens && chain !== TONCOIN.chain && !getIsTokenDisabled(slug, balance, token, visibility)) {
+    if (hasOnlyTonTokens && chain !== TONCOIN.chain && isShown) {
       hasOnlyTonTokens = false;
     }
     if (!priceUsd || STAKED_TOKEN_SLUGS.has(slug)) continue;

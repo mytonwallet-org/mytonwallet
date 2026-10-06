@@ -165,6 +165,7 @@ class AccountSelectorView(
                 this,
                 roundRadius = 24f.dp
             )
+
         )
     }
 }

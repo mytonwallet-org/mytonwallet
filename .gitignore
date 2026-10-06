@@ -43,4 +43,5 @@ AGENTS.md
 .xcodebuildmcp/
 .build
 /worktrees/
+/.local/
 /.derived-data/

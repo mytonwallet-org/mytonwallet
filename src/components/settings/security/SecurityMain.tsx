@@ -40,7 +40,7 @@ interface OwnProps {
   isBiometricAuthEnabled: boolean;
   isAppLockEnabled?: boolean;
   autolockValue: AutolockValueType;
-  isAutoConfirmEnabled?: boolean;
+  isAutoConfirmEnabled: boolean;
   isAllowSuspiciousActions?: boolean;
   isAutoUpdateEnabled: boolean;
   shouldShowBackup: boolean;
@@ -92,8 +92,6 @@ function SecurityMain({
   const isTouchId = getIsTouchIdAvailable();
   const biometricLabel = isFaceId ? 'Face ID' : (isTouchId ? 'Touch ID' : lang('Biometric Authentication'));
   const biometricIcon = isFaceId ? faceIdImg : biometricsImg;
-
-  const isAutoConfirmAvailable = !isBiometricAuthEnabled;
 
   const biometricDescription = lang(getDoesUsePinPad()
     ? 'To avoid entering the passcode every time, you can use biometrics.'
@@ -225,14 +223,7 @@ function SecurityMain({
           <p className={styles.blockDescription}>{lang('$app_lock_description', { app_name: APP_NAME })}</p>
 
           <div className={buildClassName(styles.block, styles.settingsBlockWithDescription)}>
-            <div
-              className={buildClassName(
-                styles.item,
-                styles.itemSmall,
-                !isAutoConfirmAvailable && styles.itemDisabled,
-              )}
-              onClick={isAutoConfirmAvailable ? onAutoConfirmToggle : undefined}
-            >
+            <div className={buildClassName(styles.item, styles.itemSmall)} onClick={onAutoConfirmToggle}>
               <span className={styles.itemTitle}>
                 {getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
               </span>
@@ -240,7 +231,7 @@ function SecurityMain({
               <Switcher
                 className={styles.menuSwitcher}
                 label={getDoesUsePinPad() ? lang('Remember Passcode') : lang('Remember Password')}
-                checked={isAutoConfirmAvailable && isAutoConfirmEnabled}
+                checked={isAutoConfirmEnabled}
               />
             </div>
           </div>
@@ -251,7 +242,6 @@ function SecurityMain({
                 AUTO_CONFIRM_DURATION_MINUTES,
               )
             }
-            {!isAutoConfirmAvailable && ` ${lang('Not available with biometrics.')}`}
           </p>
         </>
 

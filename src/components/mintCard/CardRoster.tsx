@@ -254,7 +254,9 @@ function renderMediaCard({
         </div>
         <CardPros
           type={type}
+          cardName={title}
           price={cardInfo?.price}
+          discount={cardInfo?.discount}
           mycoinBalance={mycoinBalance}
           toncoinBalance={toncoinBalance}
           mycoin={mycoin}

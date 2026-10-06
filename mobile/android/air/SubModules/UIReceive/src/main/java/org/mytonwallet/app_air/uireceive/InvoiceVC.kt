@@ -394,6 +394,7 @@ class InvoiceVC(context: Context) : WViewController(context) {
                         linkLabel,
                         roundRadius = 16f.dp
                     )
+
                 )
             }
 

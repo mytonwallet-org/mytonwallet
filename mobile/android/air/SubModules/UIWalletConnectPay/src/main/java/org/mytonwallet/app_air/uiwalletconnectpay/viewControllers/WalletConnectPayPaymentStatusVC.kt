@@ -113,14 +113,6 @@ class WalletConnectPayPaymentStatusVC(
         minPadding = 16.dp
     }
 
-    private val subtitlePrefixLabel = WLabel(context).apply {
-        setStyle(17f, WFont.Medium)
-        gravity = Gravity.CENTER
-        maxLines = 1
-        ellipsize = TextUtils.TruncateAt.END
-        text = LocaleController.getString("Send to")
-    }
-
     private val subtitleIconView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(4f.dp)
         defaultPlaceholder = Content.Placeholder.Color(WColor.SecondaryBackground)
@@ -141,10 +133,6 @@ class WalletConnectPayPaymentStatusVC(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         clipChildren = false
-        addView(
-            subtitlePrefixLabel,
-            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = 4.dp }
-        )
         addView(
             subtitleIconView,
             LinearLayout.LayoutParams(SUBTITLE_ICON_SIZE.dp, SUBTITLE_ICON_SIZE.dp).apply {
@@ -370,7 +358,6 @@ class WalletConnectPayPaymentStatusVC(
             secondaryColor = WColor.PrimaryText.color,
             drawGradient = false
         )
-        subtitlePrefixLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
     }
 

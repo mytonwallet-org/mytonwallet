@@ -1,0 +1,188 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  margin: 0.5rem 0 2rem;
+
+  text-align: center;
+
+  &_noIcon {
+    margin-top: 1.5rem;
+  }
+
+  // The pinpad header spaces its children with its own gap
+  &_pinPad {
+    margin: 0;
+  }
+}
+
+.icon {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 1rem;
+
+  &_pinPad {
+    @media (max-height: 43.5rem) {
+      display: none;
+    }
+  }
+}
+
+.nftImage {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1rem;
+  background-color: var(--color-background-first);
+}
+
+// The diamond canvas is 7.5rem with transparent padding around the gem, which itself is about the size of
+// a token icon. The negative margins keep the header as tall as with a token icon. The selector is doubled
+// to outweigh the component's own margin.
+.diamond.diamond {
+  margin-block: -1.25rem;
+}
+
+/*
+ * Every icon but the last sits in a slot narrower than the icon and overflows into the next slot, so the icons
+ * overlap. When the stack is wider than the dialog, the slots shrink down to zero width and the overlap grows.
+ */
+.stack {
+  --stack-step: 3.5rem;
+
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+
+  &_dense {
+    --stack-step: 1.75rem;
+  }
+}
+
+// Positioning puts every slot on its own layer, so the next icon with its ring is painted over the previous one
+.stackSlot {
+  position: relative;
+  flex: 0 1 var(--stack-step);
+  min-width: 0;
+
+  &:last-child {
+    flex: none;
+  }
+}
+
+.stackIcon {
+  box-shadow: 0 0 0 0.125rem var(--color-background-window);
+}
+
+.title {
+  overflow: hidden;
+
+  max-width: 100%;
+
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 2.375rem;
+  color: var(--color-black);
+  overflow-wrap: anywhere;
+
+  @supports (-webkit-line-clamp: 2) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+.secondary {
+  font-size: 1.125rem;
+  color: var(--color-gray-2);
+}
+
+.countValue {
+  font-size: 1.5rem;
+  color: var(--color-black);
+}
+
+// `HeroAmount` adds its own bottom margin, so the selector is doubled to outweigh it. The amount takes the full
+// width, so `useFontScale` shrinks a long amount to the dialog instead of letting it overflow.
+.amount.amount {
+  align-self: stretch;
+  margin-bottom: 0;
+}
+
+.subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  max-width: 100%;
+  margin-top: 0.75rem;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+}
+
+.subtitlePrefix {
+  flex-shrink: 0;
+  margin-inline-end: 0.375rem;
+  color: var(--color-black);
+}
+
+.subtitleText {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+  margin-inline-end: 0.25rem;
+  padding-top: 0 !important;
+
+  font-size: 0.5rem !important;
+}
+
+.dappIcon {
+  overflow: hidden;
+  flex-shrink: 0;
+
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-inline-end: 0.25rem;
+  border-radius: 0.375rem;
+}
+
+.dappIconImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dappIconFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  font-size: 0.75rem;
+  color: var(--color-default-dapp-logo);
+
+  background: var(--color-default-dapp-logo-background);
+}
+
+.dappName {
+  display: flex;
+  min-width: 0;
+}
+
+.dappNameTail {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

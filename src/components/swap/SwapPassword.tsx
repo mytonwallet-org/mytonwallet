@@ -12,6 +12,7 @@ import PasswordForm from '../ui/PasswordForm';
 interface OwnProps {
   isActive: boolean;
   isLoading?: boolean;
+  isBatchTx?: boolean;
   error?: string;
   children?: TeactNode;
   onAuthorize: (enclaveToken: string) => void;
@@ -21,6 +22,7 @@ interface OwnProps {
 function SwapPassword({
   isActive,
   isLoading,
+  isBatchTx,
   error,
   children,
   onAuthorize,
@@ -45,6 +47,7 @@ function SwapPassword({
         operationType="swap"
         submitLabel={lang('Swap')}
         cancelLabel={lang('Back')}
+        footerNotice={isBatchTx ? lang('$swap_batch_tx_duration_hint') : undefined}
         // A swap builds the transfer and submits it in two separate API calls. The first one derives
         // the backend auth token from the private key until it is cached, so the very first swap of
         // an account reads the secret twice and would otherwise fail on a single-use session. Later

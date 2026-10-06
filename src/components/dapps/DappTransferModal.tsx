@@ -1,4 +1,4 @@
-import React, { memo } from '../../lib/teact/teact';
+import React, { memo, useMemo } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiToken } from '../../api/types';
@@ -8,11 +8,13 @@ import { TransferState } from '../../global/types';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
+import { getDappTransferAssets } from '../common/helpers/confirmationHeader';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import ConfirmationHeader from '../common/ConfirmationHeader';
 import LedgerConfirmOperation from '../ledger/LedgerConfirmOperation';
 import LedgerConnect from '../ledger/LedgerConnect';
 import Modal from '../ui/Modal';
@@ -38,6 +40,8 @@ function DappTransferModal({
     viewTransactionOnIdx,
     state,
     transactions,
+    dapp,
+    shouldHideTransfers,
     error,
   },
   tokensBySlug,
@@ -56,6 +60,11 @@ function DappTransferModal({
   const isOpen = state !== TransferState.None;
 
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
+
+  const confirmationAssets = useMemo(
+    () => getDappTransferAssets(transactions ?? [], shouldHideTransfers, tokensBySlug),
+    [shouldHideTransfers, tokensBySlug, transactions],
+  );
 
   const handleBackClick = useLastCallback(() => {
     if (state === TransferState.Confirm || state === TransferState.Password) {
@@ -77,18 +86,16 @@ function DappTransferModal({
   });
 
   function renderPassword(isActive: boolean) {
-    const title = (transactions?.length ?? 0) > 1
-      ? '$classic_confirm_actions'
-      : 'Confirm Action';
-
     return (
       <>
         {!getDoesUsePinPad() && (
-          <ModalHeader title={lang(title)} onClose={closeDappTransfer} />
+          <ModalHeader title={lang('Confirm')} onClose={closeDappTransfer} />
         )}
         <PasswordForm
           isActive={isActive}
           isLoading={isLoading}
+          operationTitle="Confirm"
+          noAnimatedIcon
           error={error}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
@@ -96,7 +103,15 @@ function DappTransferModal({
           onAuthorize={handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearDappTransferError}
-        />
+        >
+          <ConfirmationHeader
+            assets={confirmationAssets}
+            title={confirmationAssets.length ? undefined : lang('Unknown Transfer')}
+            countLangKey="$many_transactions"
+            subtitlePrefix={(transactions?.length ?? 0) > 1 ? lang('to') : undefined}
+            dapp={dapp}
+          />
+        </PasswordForm>
       </>
     );
   }

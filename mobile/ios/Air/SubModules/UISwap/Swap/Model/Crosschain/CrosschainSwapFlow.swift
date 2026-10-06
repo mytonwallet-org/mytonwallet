@@ -51,8 +51,8 @@ import WalletContext
         let estimatedAmounts = result.cexEstimate.map {
             SwapInputModel.Estimate(
                 changedFrom: result.changedFrom,
-                fromAmount: $0.fromAmount.value,
-                toAmount: $0.toAmount.value
+                fromAmount: $0.fromAmount,
+                toAmount: $0.toAmount
             )
         }
         return SwapEstimateUpdate(

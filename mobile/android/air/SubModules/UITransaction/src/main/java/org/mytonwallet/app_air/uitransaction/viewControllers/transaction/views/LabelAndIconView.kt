@@ -2,6 +2,8 @@ package org.mytonwallet.app_air.uitransaction.viewControllers.transaction.views
 
 import android.content.Context
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.isGone
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
@@ -27,14 +29,25 @@ class LabelAndIconView(context: Context) : WView(context) {
         setConstraints {
             toStart(lbl)
             toCenterY(lbl)
-            startToEnd(img, lbl, 8f)
+            if (img.isGone) toEnd(lbl) else startToEnd(img, lbl, 8f)
             centerYToCenterY(img, lbl)
             toEnd(img)
         }
     }
 
-    fun configure(text: CharSequence, content: Content) {
+    fun configure(text: CharSequence, content: Content?) {
         lbl.text = text
-        img.set(content)
+        img.isGone = content == null
+        if (content == null) img.clear() else img.set(content)
+        if (lbl.parent != null) {
+            setConstraints {
+                clear(lbl.id, ConstraintSet.END)
+                if (content == null) {
+                    toEnd(lbl)
+                } else {
+                    startToEnd(img, lbl, 8f)
+                }
+            }
+        }
     }
 }

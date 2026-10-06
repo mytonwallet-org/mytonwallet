@@ -11,6 +11,7 @@ import { fetchStoredChainAccount } from '../../common/accounts';
 import { fetchStoredWallet } from '../../common/accounts';
 import { createMfaRequest } from '../../common/mfa';
 import { getTokenBySlug } from '../../common/tokens';
+import { bytesToHex } from '../../common/utils';
 import { signTransfers } from './transfer';
 
 export async function signConnectionProof(accountId: string, proof: TonConnectProof, enclaveToken?: string) {
@@ -18,8 +19,10 @@ export async function signConnectionProof(accountId: string, proof: TonConnectPr
   const signer = getSigner(accountId, account, enclaveToken);
   const signature = await signer.signTonProof(proof);
   if ('error' in signature) return signature;
+  const publicKey = await signer.getSigningPublicKey();
+  if ('error' in publicKey) return publicKey;
 
-  return { signature: signature.toString('base64') };
+  return { signature: signature.toString('base64'), publicKey: bytesToHex(publicKey) };
 }
 
 export async function signDappTransfers(

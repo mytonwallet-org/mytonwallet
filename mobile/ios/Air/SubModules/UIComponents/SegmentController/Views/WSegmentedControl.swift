@@ -224,6 +224,14 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         }
     }
 
+    /// The pager supplies each animation frame in logical tab coordinates.
+    public func setPagingProgress(_ progress: CGFloat) {
+        guard model.rawProgress != progress else { return }
+        autoScrollWorkItem?.cancel()
+        model.setRawProgress(progress)
+        applyPendingModelChangesWithoutAnimation()
+    }
+
     internal func applyPendingModelChangesWithoutAnimation() {
         UIView.performWithoutAnimation {
             syncFromModel()
@@ -697,9 +705,9 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
     }
 }
 
-private final class WCapsuleGlassBackgroundView: UIView {
+public final class WCapsuleGlassBackgroundView: UIView {
 
-    enum Style {
+    public enum Style {
         case colorHeader
         case header
     }
@@ -711,7 +719,7 @@ private final class WCapsuleGlassBackgroundView: UIView {
     private var glassView: UIView?
     private var overlayView: UIView?
 
-    init(style: Style, cornerRadius: CGFloat, isInteractive: Bool) {
+    public init(style: Style, cornerRadius: CGFloat, isInteractive: Bool = false) {
         self.style = style
         self.cornerRadius = cornerRadius
         self.isInteractive = isInteractive
@@ -721,7 +729,7 @@ private final class WCapsuleGlassBackgroundView: UIView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    public required init?(coder: NSCoder) { fatalError() }
 
     func updateCornerRadius(_ radius: CGFloat) {
         guard abs(radius - cornerRadius) > 0.5 else { return }
@@ -805,7 +813,7 @@ private final class WCapsuleGlassBackgroundView: UIView {
         }
     }
 
-    override func layoutSubviews() {
+    public override func layoutSubviews() {
         super.layoutSubviews()
         for subview in subviews {
             subview.frame = bounds

@@ -151,12 +151,9 @@ struct SwapDetailsView: View {
                     Spacer()
                     
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        slippageChoice(value: BigInt(2))
-                        slippageChoice(value: BigInt(5))
-                        slippageChoice(value: BigInt(10))
-                        slippageChoice(value: BigInt(20))
-                        slippageChoice(value: BigInt(50))
-                        slippageChoice(value: BigInt(100))
+                        ForEach(SWAP_SLIPPAGE_PRESETS, id: \.self) { value in
+                            slippageChoice(value: value)
+                        }
                     }
                     .fixedSize()
                     .textStyle(.footnoteEmphasized, content: .technical)

@@ -380,6 +380,19 @@ class AppearanceVC(context: Context) :
         onChange = { isChecked ->
             Logger.d(Logger.LogTag.SETTINGS, "animationsRow: isChecked=$isChecked")
             WGlobalStorage.setAreAnimationsActive(isChecked)
+            cardEffectsRow.isEnabled = isChecked
+            WalletCore.notifyEvent(WalletEvent.CardEffectsChanged)
+        }
+    )
+
+    private val cardEffectsRow = SwitchCell(
+        context,
+        title = LocaleController.getString("3D Card"),
+        isChecked = !WGlobalStorage.getIs3dCardDisabled(),
+        onChange = { isChecked ->
+            Logger.d(Logger.LogTag.SETTINGS, "cardEffectsRow: isChecked=$isChecked")
+            WGlobalStorage.setIs3dCardDisabled(!isChecked)
+            WalletCore.notifyEvent(WalletEvent.CardEffectsChanged)
         }
     )
 
@@ -408,6 +421,7 @@ class AppearanceVC(context: Context) :
         v.addView(liquidGlassRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(blurRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(animationsRow, ConstraintLayout.LayoutParams(0, 50.dp))
+        v.addView(cardEffectsRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(seasonalThemingRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(gradientNavigationBarRow, ConstraintLayout.LayoutParams(0, 50.dp))
         v.addView(roundedCornersRow, ConstraintLayout.LayoutParams(0, 50.dp))
@@ -419,6 +433,7 @@ class AppearanceVC(context: Context) :
             sideGuttersRow.isEnabled = false
         }
         liquidGlassRow.isEnabled = blurRow.isChecked
+        cardEffectsRow.isEnabled = animationsRow.isChecked
         v.setConstraints {
             toTop(appThemeView)
             toCenterX(appThemeView)
@@ -438,14 +453,16 @@ class AppearanceVC(context: Context) :
             toCenterX(appFontView)
             topToBottom(roundedBalanceFontRow, appFontView)
             toCenterX(roundedBalanceFontRow)
-            // Group 3: Enable Liquid Glass, Enable Blur, Enable Animations, Seasonal Theming
+            // Group 3: Enable Liquid Glass, Enable Blur, Enable Animations, 3D Card, Seasonal Theming
             topToBottom(liquidGlassRow, roundedBalanceFontRow, ViewConstants.GAP.toFloat())
             toCenterX(liquidGlassRow)
             topToBottom(blurRow, liquidGlassRow)
             toCenterX(blurRow)
             topToBottom(animationsRow, blurRow)
             toCenterX(animationsRow)
-            topToBottom(seasonalThemingRow, animationsRow)
+            topToBottom(cardEffectsRow, animationsRow)
+            toCenterX(cardEffectsRow)
+            topToBottom(seasonalThemingRow, cardEffectsRow)
             toCenterX(seasonalThemingRow)
             // Group 4: Gradient Navigation Bar, Rounded Corners, Rounded Toolbars, Side Gutters
             topToBottom(gradientNavigationBarRow, seasonalThemingRow, ViewConstants.GAP.toFloat())

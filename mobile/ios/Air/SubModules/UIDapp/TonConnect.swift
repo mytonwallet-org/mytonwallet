@@ -239,6 +239,7 @@ private final class DappRequestNavigationController: WNavigationController {
     ) async throws -> DappConnectSubmitResult {
         Api.recordTonConnectEvent(eventName: "wallet-connect-accepted", promiseId: request.promiseId)
         var signatures: [String]? = nil
+        var publicKeys: [String]? = nil
         let account = AccountStore.get(accountId: accountId)
         if let proof = request.proof {
             guard let tonAddress = account.getAddress(chain: .ton) else {
@@ -254,10 +255,12 @@ private final class DappRequestNavigationController: WNavigationController {
                 enclaveToken: enclaveToken
             )
             signatures = result.signatures
+            publicKeys = result.publicKeys
         }
         return DappConnectSubmitResult(
             accountId: accountId,
             proofSignatures: signatures,
+            proofPublicKeys: publicKeys,
             resolver: resolver
         )
     }

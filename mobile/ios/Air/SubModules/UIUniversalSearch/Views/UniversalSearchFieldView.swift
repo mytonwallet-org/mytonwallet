@@ -66,6 +66,7 @@ public final class UniversalSearchFieldView: UIView {
 
     public var onActivate: (() -> Void)?
     public var onTextChange: ((String) -> Void)?
+    public var onEditingChange: ((Bool) -> Void)?
     public var onReturn: ((String) -> Void)?
     public var onMicrophoneTap: (() -> Void)?
     public var onActionsTap: (() -> Void)?
@@ -74,6 +75,12 @@ public final class UniversalSearchFieldView: UIView {
 
     /// Extra space below the root toolbar that accepts toolbar gestures.
     public var bottomHitAreaExtension: CGFloat = 0
+
+    /// The host's visible panel, independent of the toolbar's maximum width.
+    /// Hosts should clip at this boundary, leaving the toolbar's glass unclipped.
+    public weak var transitionViewportView: UIView? {
+        didSet { setNeedsLayout() }
+    }
 
     public var configuration: UniversalSearchFieldConfiguration {
         get { storedConfiguration }
@@ -159,6 +166,13 @@ public final class UniversalSearchFieldView: UIView {
 
     public override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: 48)
+    }
+
+    public override var center: CGPoint {
+        didSet {
+            // A capped toolbar can move during a resize without changing bounds.
+            if center != oldValue { setNeedsLayout() }
+        }
     }
 
     public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -282,9 +296,19 @@ public final class UniversalSearchFieldView: UIView {
         let transitionUsesCompactActions = sourceContentPresentation == .compactToolbar
             || targetContentPresentation == .compactToolbar
         setCompactActionsHidden(!transitionUsesCompactActions)
-        let incomingTransform = navigationOperation == .pop
-            ? compactActionsOffscreenTransform.inverted()
-            : compactActionsOffscreenTransform
+        let incomingTransform: CGAffineTransform
+        if self.presentation == .empty {
+            // The whole toolbar slides back in; its actions must not slide a second time.
+            incomingTransform = compactActionsTransform(for: presentation)
+        } else if sourceContentPresentation != .compactToolbar {
+            // Presentation changes hide actions at the trailing edge in either navigation direction.
+            incomingTransform = compactActionsOffscreenTransform(for: compactActionButtonOrder, toward: .trailing)
+        } else {
+            incomingTransform = compactActionsOffscreenTransform(
+                for: compactActionButtonOrder,
+                toward: navigationOperation == .pop ? .leading : .trailing
+            )
+        }
         setCompactActionsTransform(actionsChanged ? incomingTransform : compactActionsTransform(for: self.presentation))
         closeButton.prepareTransition(from: sourceContentPresentation)
         startTrackingTransitionProgress()
@@ -331,10 +355,11 @@ public final class UniversalSearchFieldView: UIView {
             guard self.presentationTransition?.id == transition.id else { return }
             self.transform = self.toolbarTransform(for: presentation)
             self.setCompactActionsTransform(self.compactActionsTransform(for: presentation))
+            let outgoingTransform = self.compactActionsOffscreenTransform(
+                for: self.outgoingCompactActionButtons,
+                toward: transition.navigationOperation == .push ? .leading : .trailing
+            )
             for button in self.outgoingCompactActionButtons {
-                let outgoingTransform = transition.navigationOperation == .push
-                    ? self.compactActionsOffscreenTransform.inverted()
-                    : self.compactActionsOffscreenTransform
                 button.transform = presentation == .empty ? .identity : outgoingTransform
             }
             self.transitionProgressView.alpha = 1
@@ -432,13 +457,48 @@ public final class UniversalSearchFieldView: UIView {
         for presentation: UniversalSearchFieldPresentation
     ) -> CGAffineTransform {
         guard contentPresentation(for: presentation) != .compactToolbar else { return .identity }
-        return compactActionsOffscreenTransform
+        return compactActionsOffscreenTransform(for: compactActionButtonOrder, toward: .trailing)
     }
 
-    private var compactActionsOffscreenTransform: CGAffineTransform {
-        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -1 : 1
+    private enum HorizontalEdge {
+        case leading, trailing
+    }
+
+    private func compactActionsOffscreenTransform(
+        for buttons: [UniversalSearchToolbarActionButton],
+        toward edge: HorizontalEdge
+    ) -> CGAffineTransform {
+        let contentBounds = buttons.reduce(CGRect.null) { result, button in
+            // Ignore the previous transition's transform when measuring the group.
+            let frame = button.bounds.offsetBy(
+                dx: button.center.x - button.bounds.midX,
+                dy: button.center.y - button.bounds.midY
+            )
+            return result.union(contentView.convert(frame, to: self))
+        }
+        guard !contentBounds.isNull else { return .identity }
+        return offscreenTransform(for: contentBounds, toward: edge)
+    }
+
+    private func offscreenTransform(for contentBounds: CGRect, toward edge: HorizontalEdge) -> CGAffineTransform {
+        let viewportBounds: CGRect
+        if let superview {
+            let viewport = transitionViewportView ?? window ?? superview
+            // Convert through the parent so an already hidden toolbar does not
+            // feed its own translation back into the next layout calculation.
+            viewportBounds = superview.convert(viewport.bounds, from: viewport).offsetBy(
+                dx: bounds.midX - center.x,
+                dy: bounds.midY - center.y
+            )
+        } else {
+            viewportBounds = bounds
+        }
+        let exitsLeft = (edge == .leading) != (effectiveUserInterfaceLayoutDirection == .rightToLeft)
+        let shadowClearance: CGFloat = 32
         return CGAffineTransform(
-            translationX: direction * bounds.width,
+            translationX: exitsLeft
+                ? viewportBounds.minX - contentBounds.maxX - shadowClearance
+                : viewportBounds.maxX - contentBounds.minX + shadowClearance,
             y: 0
         )
     }
@@ -460,11 +520,7 @@ public final class UniversalSearchFieldView: UIView {
         for presentation: UniversalSearchFieldPresentation
     ) -> CGAffineTransform {
         guard presentation == .empty else { return .identity }
-        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? 1 : -1
-        return CGAffineTransform(
-            translationX: direction * (bounds.width + 64),
-            y: 0
-        )
+        return offscreenTransform(for: bounds, toward: .leading)
     }
 
     private func setCompactActionsTransform(_ transform: CGAffineTransform) {
@@ -609,6 +665,9 @@ public final class UniversalSearchFieldView: UIView {
         fieldView.onReturn = { [weak self] text in
             self?.onReturn?(text)
         }
+        fieldView.onEditingChange = { [weak self] isEditing in
+            self?.onEditingChange?(isEditing)
+        }
         fieldView.onMicrophoneTap = { [weak self] in
             self?.onMicrophoneTap?()
         }
@@ -711,6 +770,7 @@ public final class UniversalSearchFieldView: UIView {
 private final class UniversalSearchFieldCapsuleView: UIView, UITextFieldDelegate {
     var onActivate: (() -> Void)?
     var onTextChange: ((String) -> Void)?
+    var onEditingChange: ((Bool) -> Void)?
     var onReturn: ((String) -> Void)?
     var onMicrophoneTap: (() -> Void)?
 
@@ -1102,6 +1162,14 @@ private final class UniversalSearchFieldCapsuleView: UIView, UITextFieldDelegate
         clearButton.isAccessibilityElement = isSearch && !clearButton.isHidden
         microphoneButton.isUserInteractionEnabled = isSearch && !microphoneButton.isHidden
         clearButton.isUserInteractionEnabled = isSearch && !clearButton.isHidden
+    }
+
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        onEditingChange?(true)
+    }
+
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        onEditingChange?(false)
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

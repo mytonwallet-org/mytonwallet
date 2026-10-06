@@ -915,13 +915,13 @@ class TabletSidePanelView(
             xOffset = 72.dp,
             yOffset = (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             centerHorizontally = true,
             windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
                 Path().apply {
                     addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
                 }
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true,
             onWillDismiss = {
                 highlightOverlayView?.let { overlayView ->

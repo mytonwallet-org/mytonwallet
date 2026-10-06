@@ -98,3 +98,17 @@ object DogecoinConfig : MBlockchainConfig by UtxoConfig(
     addressRegex = Regex("""^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$"""),
     explorer = MBlockchainExplorer.BLOCKCHAIR_DOGECOIN
 )
+
+object ZcashConfig : MBlockchainConfig by UtxoConfig(
+    symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_zcash,
+    symbolIconPadded = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_zcash_15,
+    receiveOrnamentImage =
+        org.mytonwallet.app_air.icons.R.drawable.receive_ornament_zcash_light,
+    displayColor = "#D89E0D",
+    feeCheckAddress = "t1HxutHFt2Sejz7fs92wFVAbsFM7NDjsBG6",
+    defaultDerivationPath = "m/44'/133'/0'/0/{index}",
+    addressRegex = Regex(
+        """^t[13][a-km-zA-HJ-NP-Z1-9]{33}$|^tm[a-km-zA-HJ-NP-Z1-9]{33}$|^t2[a-km-zA-HJ-NP-Z1-9]{33}$"""
+    ),
+    explorer = MBlockchainExplorer.BLOCKCHAIR_ZCASH
+)

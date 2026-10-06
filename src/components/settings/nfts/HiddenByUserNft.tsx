@@ -3,7 +3,7 @@ import React from '../../../lib/teact/teactn';
 import { getActions } from '../../../global';
 
 import { type ApiNft } from '../../../api/types';
-import { type AppTheme, MediaType } from '../../../global/types';
+import { MediaType } from '../../../global/types';
 
 import { stopEvent } from '../../../util/domEvents';
 
@@ -12,26 +12,21 @@ import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 import useShowTransition from '../../../hooks/useShowTransition';
 
+import NftImage from '../../common/NftImage';
 import Button from '../../ui/Button';
-import Image from '../../ui/Image';
 
 import styles from '../Settings.module.scss';
 
-import noImageSrcDark from '../../../assets/nftNoImageDark.svg';
-import noImageSrcLight from '../../../assets/nftNoImageLight.svg';
-
 interface OwnProps {
   nft: ApiNft;
-  appTheme: AppTheme;
   style?: string;
 }
 
-function HiddenByUserNft({ nft, appTheme, style }: OwnProps) {
+function HiddenByUserNft({ nft, style }: OwnProps) {
   const { openMediaViewer, removeNftSpecialStatus } = getActions();
   const lang = useLang();
 
   const [isNftHidden, , unmarkNftHidden] = useFlag(true);
-  const [isImageBroken, markImageBroken] = useFlag();
 
   const handleUnhide = useLastCallback(() => {
     removeNftSpecialStatus({ address: nft.address });
@@ -68,25 +63,7 @@ function HiddenByUserNft({ nft, appTheme, style }: OwnProps) {
       tabIndex={0}
       data-nft-address={nft.address}
     >
-      {/* The static wrapper keeps the grid cell in place while the inner image is hidden during loading */}
-      <div className={styles.nftImage}>
-        {nft.thumbnail && !isImageBroken ? (
-          <Image
-            url={nft.thumbnail}
-            className={styles.nftImageFill}
-            imageClassName={styles.nftImageContent}
-            onError={markImageBroken}
-          />
-        ) : (
-          <div className={styles.nftImageNoData}>
-            <img
-              src={appTheme === 'dark' ? noImageSrcDark : noImageSrcLight}
-              alt=""
-              className={styles.nftNoImageIcon}
-            />
-          </div>
-        )}
-      </div>
+      <NftImage url={nft.thumbnail} className={styles.nftImage} />
       <div className={styles.nftPrimaryCell}>
         <span className={styles.nftName}>{nft.name || lang('Untitled')}</span>
         {

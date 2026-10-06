@@ -12,6 +12,34 @@ struct UniversalSearchToolbarTransitionTests {
         .init(id: "sell", title: "Sell", style: .negative),
     ]
 
+    @Test
+    func `editing changes follow focus transfers to and from another field`() {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        window.makeKeyAndVisible()
+        toolbar.setPresentation(.search, animated: false)
+        let otherField = UITextField(frame: CGRect(x: 20, y: 100, width: 200, height: 44))
+        window.rootViewController?.view.addSubview(otherField)
+        var editingChanges: [Bool] = []
+        toolbar.onEditingChange = { editingChanges.append($0) }
+
+        #expect(toolbar.focus())
+        #expect(toolbar.isEditing)
+        #expect(editingChanges == [true])
+
+        #expect(otherField.becomeFirstResponder())
+        #expect(!toolbar.isEditing)
+        #expect(editingChanges == [true, false])
+
+        #expect(toolbar.focus())
+        #expect(toolbar.isEditing)
+        #expect(editingChanges == [true, false, true])
+
+        #expect(toolbar.endEditing())
+        #expect(!toolbar.isEditing)
+        #expect(editingChanges == [true, false, true, false])
+    }
+
     @Test(arguments: [false, true])
     func `actions slide in when the toolbar stays compact`(isRTL: Bool) throws {
         let (window, toolbar) = makeToolbar(isRTL: isRTL)
@@ -123,6 +151,40 @@ struct UniversalSearchToolbarTransitionTests {
         #expect(incoming.allSatisfy { toolbar.bounds.contains($0.convert($0.bounds, to: toolbar)) })
     }
 
+    @Test(arguments: [UniversalSearchFieldPresentation.homeToolbar, .search, .empty], [false, true])
+    func `actions retrace their outgoing path when returning to a compact toolbar`(
+        hiddenPresentation: UniversalSearchFieldPresentation,
+        isRTL: Bool
+    ) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL)
+        defer { window.isHidden = true }
+        toolbar.setCompactActions(tradeActions)
+
+        let push = try #require(toolbar.preparePresentationTransition(to: hiddenPresentation))
+        toolbar.applyPreparedPresentationTransition(push)
+        let outgoingFrames = actionFrames(in: toolbar, relativeTo: window)
+        toolbar.finishPreparedPresentationTransition(push, isCancelled: false)
+        // The navigation host releases actions once their provider leaves the screen.
+        toolbar.setCompactActions([])
+
+        for isCancelled in [true, false] {
+            let pop = try #require(toolbar.preparePresentationTransition(
+                to: .compactToolbar,
+                compactActions: tradeActions,
+                navigationOperation: .pop
+            ))
+            #expect(actionFrames(in: toolbar, relativeTo: window) == outgoingFrames)
+            toolbar.applyPreparedPresentationTransition(pop)
+            toolbar.finishPreparedPresentationTransition(pop, isCancelled: isCancelled)
+            if isCancelled {
+                #expect(toolbar.presentation == hiddenPresentation)
+                #expect(actionButtons(in: toolbar).isEmpty)
+            } else {
+                expectVisibleActions(in: toolbar)
+            }
+        }
+    }
+
     @Test(arguments: [false, true])
     func `superseded callbacks cannot apply or finish a newer transition`(isCancelled: Bool) throws {
         let (window, toolbar) = makeToolbar()
@@ -164,17 +226,91 @@ struct UniversalSearchToolbarTransitionTests {
         expectVisibleActions(in: toolbar)
     }
 
-    private func makeToolbar(isRTL: Bool = false) -> (UIWindow, UniversalSearchFieldView) {
+    @Test(arguments: [CGFloat(402), 845, 1400], [false, true])
+    func `incoming and outgoing actions sit just beyond the visible panel`(panelWidth: CGFloat, isRTL: Bool) throws {
+        for isPop in [false, true] {
+            let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: panelWidth)
+            defer { window.isHidden = true }
+            toolbar.setCompactActions(tradeActions)
+            let outgoing = actionButtons(in: toolbar)
+            let transition = try #require(toolbar.preparePresentationTransition(
+                to: .compactToolbar,
+                compactActions: [tradeActions[0]],
+                navigationOperation: isPop ? .pop : .push
+            ))
+            let incoming = actionButtons(in: toolbar).filter { !outgoing.contains($0) }
+            let viewport = try #require(toolbar.transitionViewportView)
+            let entersFromLeft = isPop != isRTL
+            expectJustOutside(incoming, viewport: viewport, left: entersFromLeft)
+
+            toolbar.applyPreparedPresentationTransition(transition)
+            expectJustOutside(outgoing, viewport: viewport, left: !entersFromLeft)
+            toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
+            expectVisibleActions(in: toolbar)
+        }
+    }
+
+    @Test(arguments: [CGFloat(402), 845, 1400], [false, true])
+    func `hidden search clears the panel and returns in place on cancellation`(panelWidth: CGFloat, isRTL: Bool) throws {
+        let (window, toolbar) = makeToolbar(isRTL: isRTL, panelWidth: panelWidth)
+        defer { window.isHidden = true }
+        toolbar.configuration.text = "gram"
+        toolbar.setPresentation(.search, animated: false)
+        let viewport = try #require(toolbar.transitionViewportView)
+        let visibleFrame = toolbar.convert(toolbar.bounds, to: viewport)
+        let transition = try #require(toolbar.preparePresentationTransition(to: .empty))
+        toolbar.applyPreparedPresentationTransition(transition)
+        expectJustOutside([toolbar], viewport: viewport, left: !isRTL)
+        toolbar.finishPreparedPresentationTransition(transition, isCancelled: true)
+        #expect(toolbar.convert(toolbar.bounds, to: viewport) == visibleFrame)
+        #expect(toolbar.text == "gram")
+
+        toolbar.setPresentation(.empty, animated: false)
+        for _ in 0..<3 {
+            toolbar.setNeedsLayout()
+            toolbar.layoutIfNeeded()
+            expectJustOutside([toolbar], viewport: viewport, left: !isRTL)
+        }
+        window.frame.size.width += 500
+        window.setNeedsLayout()
+        window.layoutIfNeeded()
+        expectJustOutside([toolbar], viewport: viewport, left: !isRTL)
+        toolbar.setPresentation(.search, animated: false)
+        #expect(viewport.bounds.contains(toolbar.convert(toolbar.bounds, to: viewport)))
+    }
+
+    private func expectJustOutside(_ controls: [UIView], viewport: UIView, left: Bool) {
+        let frame = controls.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: viewport)) }
+        #expect(!frame.isNull)
+        let clearance = left ? viewport.bounds.minX - frame.maxX : frame.minX - viewport.bounds.maxX
+        // Enough room for the glass shadow, with no device-sized extra travel.
+        #expect(clearance >= 31.5 && clearance <= 32.5)
+    }
+
+    private func makeToolbar(isRTL: Bool = false, panelWidth: CGFloat = 402) -> (UIWindow, UniversalSearchFieldView) {
         _ = WalletResourcesBundle.bundle.load()
         let toolbar = UniversalSearchFieldView(configuration: .init(placeholder: "Search"))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let sidebarWidth: CGFloat = panelWidth > 402 ? 334 : 0
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: panelWidth + sidebarWidth, height: 874))
         let controller = UIViewController()
         window.rootViewController = controller
-        controller.view.addSubview(toolbar)
+        let viewport = UIView()
+        viewport.translatesAutoresizingMaskIntoConstraints = false
+        viewport.clipsToBounds = true
+        controller.view.addSubview(viewport)
+        viewport.addSubview(toolbar)
+        toolbar.transitionViewportView = viewport
+        let width = toolbar.widthAnchor.constraint(equalTo: viewport.widthAnchor, constant: -56)
+        width.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            toolbar.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor, constant: 28),
-            toolbar.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor, constant: -28),
-            toolbar.bottomAnchor.constraint(equalTo: controller.view.bottomAnchor, constant: -32),
+            viewport.leadingAnchor.constraint(equalTo: controller.view.leadingAnchor, constant: sidebarWidth),
+            viewport.trailingAnchor.constraint(equalTo: controller.view.trailingAnchor),
+            viewport.topAnchor.constraint(equalTo: controller.view.topAnchor),
+            viewport.bottomAnchor.constraint(equalTo: controller.view.bottomAnchor),
+            toolbar.centerXAnchor.constraint(equalTo: viewport.centerXAnchor),
+            width,
+            toolbar.widthAnchor.constraint(lessThanOrEqualToConstant: 600),
+            toolbar.bottomAnchor.constraint(equalTo: viewport.bottomAnchor, constant: -32),
             toolbar.heightAnchor.constraint(equalToConstant: 48),
         ])
         window.isHidden = false
@@ -189,6 +325,12 @@ struct UniversalSearchToolbarTransitionTests {
             return [control]
         }
         return view.subviews.flatMap { actionButtons(in: $0) }
+    }
+
+    private func actionFrames(in toolbar: UniversalSearchFieldView, relativeTo view: UIView) -> [String: CGRect] {
+        Dictionary(uniqueKeysWithValues: actionButtons(in: toolbar).map {
+            ($0.accessibilityLabel!, $0.convert($0.bounds, to: view))
+        })
     }
 
     private func expectVisibleActions(in toolbar: UniversalSearchFieldView) {

@@ -3,9 +3,6 @@ package org.mytonwallet.app_air.uiassets.viewControllers.token
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -58,6 +55,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.ActivitySectionBackgroundDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -65,7 +63,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.MultisendLauncher
 import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
@@ -73,7 +70,8 @@ import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
-import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeDirection
+import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
@@ -313,59 +311,22 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
     private var headerCell: HeaderSpaceCell? = null
 
-    // Paints the card's bottom corners over whatever row currently ends the card, so they
-    // follow height animations instead of jumping with cell rebinds.
-    private val activityCardBottomCornerDecoration = object : RecyclerView.ItemDecoration() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val stripPath = Path()
-        private val cardPath = Path()
-
-        override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-            super.onDrawOver(canvas, parent, state)
-            val cardRowCount = recyclerViewNumberOfItems(parent, TRANSACTION_SECTION) +
-                recyclerViewNumberOfItems(parent, EMPTY_VIEW_SECTION)
-            if (cardRowCount == 0) return
-            val firstCardPosition = tokenInfoRow + 1
-            val lastCardPosition = firstCardPosition + cardRowCount
-            var lastCardChild: View? = null
-            var lastCardChildPosition = -1
-            for (i in 0 until parent.childCount) {
-                val child = parent.getChildAt(i)
-                val position = parent.getChildAdapterPosition(child)
-                if (position in firstCardPosition..lastCardPosition &&
-                    position > lastCardChildPosition
-                ) {
-                    lastCardChild = child
-                    lastCardChildPosition = position
+    private val activitySectionBackgroundDecoration = ActivitySectionBackgroundDecoration(
+        firstPosition = { tokenInfoRow + 1 },
+        rowCount = {
+            recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
+                if (showingTransactions != null && tokenVM.activityLoader?.loadedAll != true) {
+                    1
+                } else {
+                    0
                 }
-            }
-            if (lastCardChild == null) return
-            val radius = ViewConstants.BLOCK_RADIUS.dp
-            val bottom = lastCardChild.bottom + lastCardChild.translationY
-            val left = lastCardChild.left.toFloat()
-            val right = lastCardChild.right.toFloat()
-            if (bottom - radius >= parent.height || right <= left) return
-            stripPath.reset()
-            stripPath.addRect(left, bottom - radius, right, bottom, Path.Direction.CW)
-            cardPath.reset()
-            cardPath.addRoundRect(
-                left,
-                bottom - 2 * radius,
-                right,
-                bottom,
-                radius,
-                radius,
-                Path.Direction.CW
-            )
-            stripPath.op(cardPath, Path.Op.DIFFERENCE)
-            paint.color = WColor.SecondaryBackground.color
-            canvas.drawPath(stripPath, paint)
         }
-    }
+    )
 
-    private val recyclerView = WRecyclerView(context).apply {
+    private val recyclerView: WRecyclerView = WRecyclerView(context).apply {
         adapter = rvAdapter
-        addItemDecoration(activityCardBottomCornerDecoration)
+        addItemDecoration(activitySectionBackgroundDecoration)
         val layoutManager = object : LinearLayoutManagerAccurateOffset(context) {
             override fun canScrollVertically(): Boolean = !skeletonView.isVisible
 
@@ -666,10 +627,10 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             WNavigationController.PresentationConfig.PreferredFullScreen
         )
         navVC.setRoot(
-            SwapVC(
+            TokenTradeVC(
                 context,
-                defaultSendingToken = selectedAsset.takeUnless { isBuying },
-                defaultReceivingToken = selectedAsset.takeIf { isBuying }
+                selectedAsset,
+                if (isBuying) TokenTradeDirection.BUY else TokenTradeDirection.SELL
             )
         )
         window.present(navVC)
@@ -872,7 +833,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
             TRANSACTION_CELL -> {
                 val cell =
-                    ActivityCell(recyclerView, withoutTagAndComment = false, isFirstInDay = null)
+                    ActivityCell(
+                        recyclerView,
+                        withoutTagAndComment = false,
+                        isFirstInDay = null,
+                        drawsBackground = false
+                    )
                 cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
@@ -882,7 +848,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
             TRANSACTION_SMALL_CELL -> {
                 val cell =
-                    ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = false)
+                    ActivityCell(
+                        recyclerView,
+                        withoutTagAndComment = true,
+                        isFirstInDay = false,
+                        drawsBackground = false
+                    )
                 cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
@@ -892,7 +863,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
 
             TRANSACTION_SMALL_FIRST_IN_DAY_CELL -> {
                 val cell =
-                    ActivityCell(recyclerView, withoutTagAndComment = true, isFirstInDay = true)
+                    ActivityCell(
+                        recyclerView,
+                        withoutTagAndComment = true,
+                        isFirstInDay = true,
+                        drawsBackground = false
+                    )
                 cell.allowNftMenu = true
                 cell.onTap = { transaction ->
                     onTransactionTap(transaction)
@@ -905,7 +881,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             }
 
             SKELETON_CELL -> {
-                SkeletonCell(context)
+                SkeletonCell(context, drawsBackground = false)
             }
 
             else -> {
@@ -960,29 +936,28 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     val nextTransaction = transactions.getOrNull(indexPath.row + 1)
                     val previousTransaction = transactions.getOrNull(indexPath.row - 1)
                     val isFirstInDay =
+                        previousTransaction == null ||
+                            !transaction.dt.isSameDayAs(previousTransaction.dt)
+                    val isLastInDay =
                         nextTransaction == null ||
                             (
                                 !transaction.dt.isSameDayAs(nextTransaction.dt) &&
                                     tokenVM.activityLoader?.loadedAll != false
                                 )
+                    val isAddedAsNewDay = isFirstInDay &&
+                        oldTransactionsFirstDt?.let { !transaction.dt.isSameDayAs(it) } != false
                     homeTransactionCell.configure(
                         transaction,
                         account.accountId,
                         account.isMultichain,
                         ActivityCell.Positioning(
                             isFirst = indexPath.row == 0,
-                            isFirstInDay = previousTransaction == null ||
-                                !transaction.dt.isSameDayAs(previousTransaction.dt),
-                            isLastInDay = isFirstInDay,
+                            isFirstInDay = isFirstInDay,
+                            isLastInDay = isLastInDay,
                             isLast = false,
                             isAdded = isApplyingUpdate &&
                                 oldTransactions?.contains(transaction.getStableId()) == false,
-                            isAddedAsNewDay =
-                                isFirstInDay &&
-                                    oldTransactionsFirstDt?.let {
-                                        !transaction.dt.isSameDayAs(it)
-                                    } != false,
-                            revealsFromZero = true
+                            isAddedAsNewDay = isAddedAsNewDay
                         )
                     )
                 } else {
@@ -996,16 +971,6 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             EMPTY_VIEW_SECTION -> {
                 (cellHolder.cell as EmptyCell).let { cell ->
                     cell.updateTheme()
-                    cell.setBackgroundColor(
-                        WColor.Background.color,
-                        if ((showingTransactions?.size ?: 0) > 0) {
-                            0f
-                        } else {
-                            ViewConstants.BLOCK_RADIUS.dp
-                        },
-                        ViewConstants.BLOCK_RADIUS.dp,
-                        true
-                    )
                     if (removingEmptyCell) {
                         collapseEmptyCell(cell)
                         return@let
@@ -1022,7 +987,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 (cellHolder.cell as SkeletonCell).apply {
                     configure(indexPath.row, false, isLast = true)
                     updateTheme()
-                    val isHidden = tokenVM.activityLoader?.showingTransactions == null ||
+                    val isHidden = showingTransactions == null ||
                         tokenVM.activityLoader?.loadedAll == true
                     visibility = if (isHidden) INVISIBLE else VISIBLE
                     layoutParams = layoutParams.apply {
@@ -1045,6 +1010,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     override fun updateTheme() {
         super.updateTheme()
         recyclerView.setBackgroundColor(WColor.SecondaryBackground.color)
+        recyclerView.invalidate()
         updateSkeletonState()
         headerView.updateTheme()
         actionsView?.updateTheme()
@@ -1235,7 +1201,12 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
     private var isApplyingUpdate = false
 
     override fun dataUpdated(isUpdateEvent: Boolean) {
-        showingTransactions = tokenVM.showingTransactions
+        if (isDestroyed) return
+        if (recyclerView.isComputingLayout) {
+            recyclerView.post { dataUpdated(isUpdateEvent) }
+            return
+        }
+        showingTransactions = tokenVM.showingTransactions?.toList()
         updateSkeletonState()
         if (isUpdateEvent &&
             oldTransactions?.isEmpty() == true &&

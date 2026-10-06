@@ -62,6 +62,10 @@ const TON_DNS_INTERVAL = { focused: 15 * SEC, notFocused: 2 * MINUTE };
 const NFT_FULL_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const DOUBLE_CHECK_NFT_PAUSE = 5 * SEC;
 
+export function shouldPollWalletVersions(wallet: Pick<ApiTonWallet, 'version'>) {
+  return wallet.version !== 'telegram';
+}
+
 export function setupActivePolling(
   accountId: string,
   account: ApiAccountWithChain<'ton'>,
@@ -472,6 +476,16 @@ function setupWalletVersionsPolling(accountId: string, onUpdate: OnApiUpdate) {
       try {
         const { type: accountType, byChain: { ton: tonWallet } } = await fetchStoredAccount(accountId);
         if (!tonWallet) {
+          return 'stop';
+        }
+
+        if (!shouldPollWalletVersions(tonWallet)) {
+          onUpdate({
+            type: 'updateWalletVersions',
+            accountId,
+            currentVersion: tonWallet.version,
+            versions: [],
+          });
           return 'stop';
         }
 

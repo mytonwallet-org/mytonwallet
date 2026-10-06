@@ -31,6 +31,8 @@ export enum ApiTransactionError {
   WrongAddress = 'WrongAddress',
   WrongNetwork = 'WrongNetwork',
   ConcurrentTransaction = 'ConcurrentTransaction',
+  TelegramWalletContractMismatch = 'TelegramWalletContractMismatch',
+  TelegramWalletPublicKeyMismatch = 'TelegramWalletPublicKeyMismatch',
 }
 
 export enum ApiHardwareError {
@@ -52,6 +54,13 @@ export enum ApiSwapError {
   SlippageError = 'SlippageError',
 }
 
+export enum EvmSmartAccountError {
+  BatchingNotSupported = 'EvmBatchingNotSupported',
+  BundlerNotConfigured = 'EvmBundlerNotConfigured',
+  ForeignDelegation = 'EvmForeignDelegation',
+  UserOperationFailed = 'EvmUserOperationFailed',
+}
+
 export type ApiAnyDisplayError =
   | ApiCommonError
   | ApiAuthError
@@ -59,4 +68,5 @@ export type ApiAnyDisplayError =
   | ApiTransactionError
   | ApiHardwareError
   | ApiTokenImportError
-  | ApiSwapError;
+  | ApiSwapError
+  | EvmSmartAccountError;

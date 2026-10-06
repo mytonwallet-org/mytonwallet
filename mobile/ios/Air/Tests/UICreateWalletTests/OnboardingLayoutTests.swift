@@ -12,10 +12,8 @@ import WalletResources
 final class OnboardingLayoutTests: XCTestCase {
     func testOnboardingAndLockScreenAdaptToBothSideInsetsAndWideWindows() async throws {
         _ = WalletResourcesBundle.bundle.load()
-        for (font, ext) in [("SFCompactRoundedBold", "otf"), ("SFCompactDisplayMedium", "otf"), ("CalSans-Regular", "ttf")] {
-            if let url = WalletResourcesBundle.bundle.url(forResource: font, withExtension: ext) {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
+        if let url = WalletResourcesBundle.bundle.url(forResource: "CalSans-Regular", withExtension: "ttf") {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
         }
         let words = (1...24).map { "example\($0)" }
         let model = IntroModel(network: .mainnet, authMode: .requiresPasscodeSetup, words: words)

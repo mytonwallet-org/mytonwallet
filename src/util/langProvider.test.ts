@@ -12,7 +12,7 @@ import {
 describe('isSupportedLanguageCode', () => {
   it('uses the frontend localization registry as the source of truth', () => {
     expect(isSupportedLanguageCode('ru')).toBe(true);
-    expect(isSupportedLanguageCode('it')).toBe(false);
+    expect(isSupportedLanguageCode('fr')).toBe(false);
   });
 });
 

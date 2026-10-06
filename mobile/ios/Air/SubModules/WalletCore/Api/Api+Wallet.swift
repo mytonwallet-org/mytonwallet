@@ -74,10 +74,13 @@ public struct ApiDappRequestConfirmation: Encodable, Sendable {
     public var accountId: String
     /** Base64. Shall miss when no proof is required. Can be multiple for multichain. */
     public var proofSignatures: [String]?
+    /** Hex. The public keys corresponding to `proofSignatures`. */
+    public var proofPublicKeys: [String]?
     
-    public init(accountId: String, proofSignatures: [String]?) {
+    public init(accountId: String, proofSignatures: [String]?, proofPublicKeys: [String]? = nil) {
         self.accountId = accountId
         self.proofSignatures = proofSignatures
+        self.proofPublicKeys = proofPublicKeys
     }
 }
 

@@ -19,8 +19,11 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class HeaderCell(context: Context, private val startMargin: Float = 20f) :
-    WCell(context),
+class HeaderCell(
+    context: Context,
+    private val startMargin: Float = 20f,
+    private val drawsBackground: Boolean = true
+) : WCell(context),
     WThemedView {
 
     enum class TopRounding {
@@ -78,11 +81,13 @@ class HeaderCell(context: Context, private val startMargin: Float = 20f) :
     }
 
     override fun updateTheme() {
-        setBackgroundColor(
-            WColor.Background.color,
-            topRoundingValue,
-            0f
-        )
+        if (drawsBackground) {
+            setBackgroundColor(
+                WColor.Background.color,
+                topRoundingValue,
+                0f
+            )
+        }
         titleLabel.updateTheme()
     }
 

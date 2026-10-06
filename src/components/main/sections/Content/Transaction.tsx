@@ -52,6 +52,7 @@ import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
 
+import NftImage from '../../../common/NftImage';
 import TokenIcon from '../../../common/TokenIcon';
 import Button from '../../../ui/Button';
 import DropdownMenu from '../../../ui/DropdownMenu';
@@ -61,8 +62,6 @@ import ActivityStatusIcon from './ActivityStatusIcon';
 
 import styles from './Activity.module.scss';
 
-import noImageSrcDark from '../../../../assets/nftNoImageDark.svg';
-import noImageSrcLight from '../../../../assets/nftNoImageLight.svg';
 import scamImg from '../../../../assets/scam.svg';
 
 type OwnProps = {
@@ -250,17 +249,7 @@ function Transaction({
         data-nft-address={address}
         data-tx-id={id}
       >
-        {thumbnail ? (
-          <img src={thumbnail} alt={name} className={styles.nftImage} />
-        ) : (
-          <div className={buildClassName(styles.nftImage, styles.nftImageNoData)}>
-            <img
-              src={appTheme === 'dark' ? noImageSrcDark : noImageSrcLight}
-              alt=""
-              className={styles.nftNoImageIcon}
-            />
-          </div>
-        )}
+        <NftImage url={thumbnail} alt={name} className={styles.nftImage} />
         {Boolean(name || collectionName) && (
           <div className={styles.nftData}>
             {Boolean(name) && <div className={styles.nftName}>{name}</div>}

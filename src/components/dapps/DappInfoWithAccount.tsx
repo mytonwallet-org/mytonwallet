@@ -27,11 +27,8 @@ import DappHostWarning from './DappHostWarning';
 import styles from './Dapp.module.scss';
 
 const DAPP_LOGO_CLASS_NAME = buildClassName(styles.dappLogo, styles.dappLogo_round);
-const DAPP_LOGO_FALLBACK = (
-  <i
-    className={buildClassName(DAPP_LOGO_CLASS_NAME, styles.dappLogo_icon, styles.dappIcon, 'icon-laptop')}
-    aria-hidden
-  />
+const DAPP_LOGO_FALLBACK_CLASS_NAME = buildClassName(
+  DAPP_LOGO_CLASS_NAME, styles.dappLogo_icon, styles.dappIcon, 'icon-laptop',
 );
 
 interface OwnProps {
@@ -138,7 +135,7 @@ function DappInfoWithAccount({
           forceLoaded
           className={buildClassName(DAPP_LOGO_CLASS_NAME, styles.headerPillTrailingIcon)}
           imageClassName={DAPP_LOGO_CLASS_NAME}
-          fallback={DAPP_LOGO_FALLBACK}
+          fallbackClassName={DAPP_LOGO_FALLBACK_CLASS_NAME}
         />
       </div>
     </div>

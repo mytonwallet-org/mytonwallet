@@ -1,7 +1,7 @@
 import React, { memo, useEffect } from '../../../lib/teact/teact';
-import { getActions, getGlobal, withGlobal } from '../../../global';
+import { getActions, withGlobal } from '../../../global';
 
-import { selectCurrentAccount, selectEnclaveToken, selectIsEnclaveSessionValid } from '../../../global/selectors';
+import { selectCurrentAccount } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 
 import useFlag from '../../../hooks/useFlag';
@@ -24,7 +24,6 @@ interface OwnProps {
 
   onBackClick: () => void;
   openMfaPassword: () => void;
-  openMfaInstalled: () => void;
 }
 
 interface StateProps {
@@ -50,13 +49,12 @@ function Mfa(
     isSlideActive,
     isActive,
     openMfaPassword,
-    openMfaInstalled,
     mfa,
     installMfa,
   }: OwnProps & StateProps,
 ) {
   const [isPasswordRequested, setPasswordRequested] = useFlag(false);
-  const { clearMfaRequests, submitInstallMfa } = getActions();
+  const { clearMfaRequests } = getActions();
 
   const lang = useLang();
 
@@ -72,22 +70,14 @@ function Mfa(
     onBackClick();
   });
 
-  // note: since the current state in security settings is not stored in the global state, we have to resort to hacks
+  // note: since the current state in security settings is not stored in the global state, we have to resort to hacks.
+  // Installing MFA always asks for the passcode, even while the Remember Passcode window is open.
   useEffect(() => {
     if (installMfa?.user && !isPasswordRequested) {
-      const global = getGlobal();
-      const enclaveToken = selectEnclaveToken(global);
-
-      if (selectIsEnclaveSessionValid(global) && enclaveToken) {
-        submitInstallMfa({ enclaveToken });
-        openMfaInstalled();
-      } else {
-        openMfaPassword();
-      }
-
+      openMfaPassword();
       setPasswordRequested();
     }
-  }, [installMfa, openMfaPassword, openMfaInstalled, onBackClick, isPasswordRequested]);
+  }, [installMfa, openMfaPassword, onBackClick, isPasswordRequested]);
 
   return (
     <div className={settingsStyles.slide}>

@@ -333,10 +333,23 @@ addActionHandler('apiUpdate', (global, actions, update) => {
 
     case 'updateAccount': {
       const {
-        accountId, chain, domain, address, isMultisig, derivation, mfa,
+        accountId, chain, accountType, domain, address, isMultisig, derivation, version, mfa,
       } = update;
       const account = selectAccount(global, accountId);
       if (!account) {
+        break;
+      }
+
+      if (accountType !== undefined) {
+        global = updateAccount(global, accountId, { type: accountType });
+
+        if (!chain) {
+          setGlobal(global);
+          break;
+        }
+      }
+
+      if (!chain) {
         break;
       }
 
@@ -353,6 +366,7 @@ addActionHandler('apiUpdate', (global, actions, update) => {
               ...(domain ? { domain } : {}),
               ...(isMultisig ? { isMultisig: true } : {}),
               ...(derivation ? { derivation } : {}),
+              ...(version ? { version } : {}),
             },
           },
         });
@@ -372,6 +386,9 @@ addActionHandler('apiUpdate', (global, actions, update) => {
       }
       if (derivation !== undefined) {
         chainUpdate.derivation = derivation;
+      }
+      if (version !== undefined) {
+        chainUpdate.version = version;
       }
       if (mfa !== undefined) {
         chainUpdate.mfa = mfa || undefined;

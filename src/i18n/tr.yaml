@@ -398,6 +398,7 @@ Encrypted Message: Şifrelenmiş Mesaj
 Message is encrypted: Mesaj şifrelenmiştir
 Agree: Kabul et
 $swap_action: Takas
+$swap_batch_tx_duration_hint: Gönderim 1 dakikaya kadar sürebilir.
 $swap_activity_title: Takas
 Swap: Takas
 You Sell: Satıyorsunuz
@@ -470,12 +471,12 @@ Cross-chain exchange provided by %provider%: "%provider% tarafından sağlanan c
 $swap_cex_terms_of_use: kullanım şartları
 $swap_cex_privacy_policy: gizlilik politikası
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: AML/KYC Politikası
 $swap_cex_legal_message: "%terms% ve %policy%'yi kabul ederek devam edersiniz."
 $swap_cex_legal_message_with_aml: Devam ederek, %terms% ve %policy%'yi kabul etmiş olursunuz ve transferin %aml%'ye göre doğrulama tetikleyebileceğini anlarsınız.
 Password must contain %length% digits.: Parola %length% hane içermelidir.
 Deposit Link: Para yatırma bağlantısı
 $swap_cex_from_wallet_description: "Yakında %blockchain% blockchain'deki adresinize jetonlar gönderilecek:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Lütfen, token'ların cüzdanınızda görünmesinin birkaç saat sürebileceğini unutmayın.
 Minimum amount: Minimum %value%
 Maximum amount: Maksimum %value%
 Display Tray Icon: Sistem çubuğu simgesini göster
@@ -580,7 +581,6 @@ Scan your fingerprint: Parmak izinizi tarayın
 Incorrect code, please try again.: Hatalı kod, lütfen tekrar deneyin.
 Correct: Doğru
 Confirm Action: İşlemi onayla
-$classic_confirm_actions: İşlemleri onayla
 Confirm Swap: Takası onaylayın
 Confirm Rewards Claim: Ödül Talebini Onayla
 "%amount% to %address%": "%address% numaralı adrese %amount%"
@@ -599,6 +599,8 @@ Buy with Card: Kart ile Satın Al
 Buy with Crypto: Kripto ile Satın Al
 Add funds to swap: Takas için bakiye ekleyin
 Direct swap unavailable: Doğrudan takas kullanılamıyor
+"Direct exchange unavailable": "Doğrudan takas kullanılamıyor"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "%buy_token% almak için önce %token% alın, ardından %buy_token% ile takas edin."
 Swap on an external service: Harici bir hizmette takas yapın
 Buy with a card or receive crypto to fund this swap.: Bu takasa bakiye sağlamak için kartla kripto satın alın veya kripto transferi alın.
 Buy crypto or choose another token to sell.: Kripto satın alın veya satmak için başka bir token seçin.
@@ -955,12 +957,10 @@ Import Wallet: Cüzdanı içe aktar
 Please top up your %token% balance.: Lütfen %token% bakiyenizi yükleyin.
 Remember Passcode: Kodu hatırla
 Remember Password: Şifreyi hatırla
-Not available with biometrics.: Biyometrik ile kullanılamaz.
 App will not ask for signature for %minutes% minutes after last entry.: Uygulama, son girişten sonra %minutes% dakika boyunca imza istemeyecek.
 Auto-Exit: Otomatik Çıkış
 Log out of all wallets after failed attempts.: Başarısız denemelerden sonra tüm cüzdanlardan çıkış yap.
 "%count% attempts": "%count% deneme"
-Remember for %minutes% minutes: "%minutes% dakika boyunca hatırla"
 Preview: Önizleme
 $preview_not_guaranteed: Önizleme sonucu **garanti edilmez** ve hizmet tarafından **sahte olabilir**.
 Unverified Source: Doğrulanmamış Kaynak
@@ -2262,6 +2262,8 @@ See All: Tümünü Gör
 Add an **extra layer of security** for your wallet in TON network.: TON ağındaki cüzdanınıza **ekstra bir güvenlik katmanı** ekleyin.
 Agent is unavailable: Asistan kullanılamıyor
 Another transaction was sent from this wallet simultaneously. Please try again.: Bu cüzdandan aynı anda başka bir işlem gönderildi. Lütfen tekrar deneyin.
+Telegram Wallet contract was not found at this address.: Telegram Wallet sözleşmesi bu adreste bulunamadı.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Telegram Wallet açık anahtarı bu seed ile eşleşmiyor. Cüzdan anahtarını değiştirmiş olabilir.
 Buying with card is not supported for this chain.: Bu ağ kartla satın almayı desteklemiyor.
 Confirm with Telegram: Telegram ile onayla
 Couldn't open support chat. Please try again.: Destek sohbeti açılamadı. Lütfen tekrar deneyin.
@@ -2325,8 +2327,33 @@ Search token or stock: Token veya hisse ara
 
 Unknown Transfer: Bilinmeyen Transfer
 $dapp_sign_data_for_prefix: için
+
+# Token Buy / Sell
+"Pay %value%": "%value% öde"
+"Receive %value%": "%value% al"
+"Buy %token% via %provider%": "%provider% ile %token% al"
+"Sell %token% via %provider%": "%provider% ile %token% sat"
+"Switch Amount Currency": "Tutar para birimini değiştir"
+"Pay With": "Ödeme yöntemi"
+"Receive in": "Alınacak para birimi"
+"You Pay": "Ödeyeceğiniz"
+"You Receive": "Alacağınız"
+"You pay": "Ödeyeceğiniz"
 Successfully Sent: Başarıyla gönderildi
 Successfully Signed: Başarıyla imzalandı
 3D Card: 3B Kart
 Coming soon: Yakında
 $dapp_identity_not_confirmed: Uygulamanın kimliği **doğrulanmadı**.
+
+# Token trade asset browser and details
+"Choose Asset": "Varlık Seç"
+"Asset to Buy": "Alınacak Varlık"
+"Asset to Sell": "Satılacak Varlık"
+"Fiat": "İtibari"
+"Stocks": "Hisseler"
+"Popular Currencies": "Popüler Para Birimleri"
+"Cross-chain Provider": "Zincirler Arası Sağlayıcı"
+"Min": "Min."
+Ruble: Ruble
+$token_price_value: "Fiyat: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Bu tür takaslar genellikle birkaç dakika sürer. Nadir durumlarda iki saate kadar sürebilir.

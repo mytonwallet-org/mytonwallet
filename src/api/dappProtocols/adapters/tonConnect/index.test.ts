@@ -1,4 +1,5 @@
 import { beginCell } from '@ton/core';
+import nacl from 'tweetnacl';
 
 import type { ApiUpdateDappSendTransactions } from '../../../types';
 import { DappProtocolType } from '../../types';
@@ -103,6 +104,10 @@ describe('TonConnectAdapter.connect', () => {
   const selectedAccountId = '1-mainnet';
   const activeAddress = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-active';
   const selectedAddress = 'UQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB-selected';
+  const rotationAnchorKeyPair = nacl.sign.keyPair.fromSeed(new Uint8Array(Array(32).fill(1)));
+  const rotationSigningKeyPair = nacl.sign.keyPair.fromSeed(new Uint8Array(Array(32).fill(2)));
+  const rotationAnchorPublicKey = Buffer.from(rotationAnchorKeyPair.publicKey).toString('hex');
+  const rotationSigningPublicKey = Buffer.from(rotationSigningKeyPair.publicKey).toString('hex');
 
   const activeAccount = {
     type: 'mnemonic',
@@ -165,7 +170,10 @@ describe('TonConnectAdapter.connect', () => {
     return adapter;
   }
 
-  function connect(adapter: Awaited<ReturnType<typeof createConnectedAdapter>>) {
+  function connect(
+    adapter: Awaited<ReturnType<typeof createConnectedAdapter>>,
+    items = [{ name: 'ton_addr' }] as Array<{ name: 'ton_addr' } | { name: 'ton_proof'; payload: string }>,
+  ) {
     return adapter.connect(
       {
         url: undefined,
@@ -187,7 +195,7 @@ describe('TonConnectAdapter.connect', () => {
         },
         protocolData: {
           manifestUrl: 'https://agents.ton.org/tonconnect-manifest.json',
-          items: [{ name: 'ton_addr' }],
+          items,
         },
       },
       123,
@@ -232,6 +240,54 @@ describe('TonConnectAdapter.connect', () => {
     );
     expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(activeAccountId, 'ton');
     expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(selectedAccountId, 'ton');
+  });
+
+  it('uses the signing public key for rotated Telegram proof and keeps state init from anchor', async () => {
+    const rotatedTelegramAccount = {
+      type: 'bip39',
+      byChain: {
+        ton: {
+          address: selectedAddress,
+          publicKey: rotationAnchorPublicKey,
+          version: 'telegram',
+          index: 0,
+        },
+      },
+    };
+    mockFetchStoredChainAccount.mockImplementation((accountId: string) => (
+      accountId === selectedAccountId ? rotatedTelegramAccount : activeAccount
+    ));
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: Promise.resolve({
+        accountId: selectedAccountId,
+        proofSignatures: ['proof-signature'],
+        proofPublicKeys: [rotationSigningPublicKey],
+      }),
+    });
+
+    const result = await connect(await createConnectedAdapter(), [
+      { name: 'ton_addr' },
+      { name: 'ton_proof', payload: 'rotation-proof' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const items = (result.session.protocolData.payload as any).items;
+    expect(items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'ton_addr',
+        publicKey: rotationSigningPublicKey,
+      }),
+      expect.objectContaining({
+        name: 'ton_proof',
+      }),
+    ]));
+    expect(mockGetWalletStateInit).toHaveBeenCalledWith(expect.objectContaining({
+      publicKey: rotationAnchorPublicKey,
+      version: 'telegram',
+    }));
   });
 
   it.each(['publicKey', 'version'] as const)('refuses to connect a wallet with no %s', async (field) => {

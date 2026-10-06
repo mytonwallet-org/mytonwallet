@@ -676,6 +676,7 @@ class AgentMessageCell(context: Context) :
                 }
             ),
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             yOffset = (-16).dp,
             centerHorizontally = true,
             windowBackgroundStyle = buildBubbleCutoutStyle(),

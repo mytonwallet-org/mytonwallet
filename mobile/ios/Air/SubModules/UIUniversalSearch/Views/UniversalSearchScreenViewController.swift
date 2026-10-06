@@ -133,8 +133,11 @@ public final class UniversalSearchScreenViewController: UIViewController {
               let window = view.window
         else { return }
 
-        let frameInView = view.convert(keyboardFrame, from: window.screen.coordinateSpace)
-        keyboardOverlap = max(0, view.bounds.maxY - frameInView.minY)
+        let frameInWindow = window.convert(keyboardFrame, from: window.screen.coordinateSpace)
+        let isDocked = frameInWindow.maxY >= window.bounds.maxY
+            && frameInWindow.width >= window.bounds.width - 1
+        let frameInView = view.convert(frameInWindow, from: window)
+        keyboardOverlap = isDocked ? max(0, view.bounds.maxY - frameInView.minY) : 0
         animateResultsBottomInset(with: notification)
     }
 

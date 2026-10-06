@@ -3,7 +3,7 @@ import type { GlobalState } from '../types';
 
 import { INITIAL_STATE } from '../initialState';
 import { addPastActivities } from '../reducers/activities';
-import { selectLastActivityTimestamp } from './activities';
+import { selectLastActivityTimestamp, selectNewestActivityTimestamps } from './activities';
 
 const ACCOUNT_ID = 'test-account';
 
@@ -69,5 +69,39 @@ describe('selectLastActivityTimestamp', () => {
 
   it('has no anchor before anything is stored', () => {
     expect(selectLastActivityTimestamp(buildGlobal(), ACCOUNT_ID)).toBeUndefined();
+  });
+});
+
+describe('selectActivityPollingTimestamps', () => {
+  it('drops a cached cursor when the chain has no stored activity ids', () => {
+    let global = buildGlobal();
+    global = {
+      ...global,
+      accounts: {
+        byId: {
+          [ACCOUNT_ID]: {
+            title: 'Test',
+            type: 'mnemonic',
+            byChain: { zcash: { address: 't1Yu7eHTifSqttLD6X8trcqwDExs6TpL87o' } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: {
+          activities: {
+            byId: {},
+            idsMain: [],
+            idsBySlug: {},
+            newestActivitiesBySlug: {
+              zec: makeActivity('d0379a41', 1_790_778_446_000),
+            },
+            areInitialActivitiesLoaded: { zcash: true },
+            mainActivityIdsByChain: { zcash: [] },
+          },
+        },
+      },
+    } as unknown as GlobalState;
+
+    expect(selectNewestActivityTimestamps(global, ACCOUNT_ID)).toEqual({ zec: 1_790_778_446_000 });
   });
 });

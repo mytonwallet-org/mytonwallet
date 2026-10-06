@@ -2,12 +2,10 @@ import React, { memo, useCallback, useMemo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
 import type { ApiNft } from '../../api/types';
-import type { Theme } from '../../global/types';
 
 import { selectCurrentAccountState } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 
-import useAppTheme from '../../hooks/useAppTheme';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useScrolledState from '../../hooks/useScrolledState';
@@ -30,7 +28,6 @@ interface StateProps {
   areUnverifiedNftsHidden?: boolean;
   orderedAddresses?: string[];
   byAddress?: Record<string, ApiNft>;
-  theme: Theme;
 }
 
 function SettingsHiddenNfts({
@@ -40,11 +37,9 @@ function SettingsHiddenNfts({
   areUnverifiedNftsHidden,
   orderedAddresses,
   byAddress,
-  theme,
   onBackClick,
 }: OwnProps & StateProps) {
   const lang = useLang();
-  const appTheme = useAppTheme(theme);
 
   useHistoryBack({
     isActive,
@@ -93,32 +88,26 @@ function SettingsHiddenNfts({
 
   // `useLastCallback` would not fit here: `HiddenNftList` is memoized and re-renders its rows only
   // when the renderer identity changes, so it must change together with the captured values
-  const renderHiddenByUserNft = useCallback((nft: ApiNft, style: string) => (
-    <HiddenByUserNft key={nft.address} nft={nft} appTheme={appTheme} style={style} />
-  ), [appTheme]);
-
   const renderUnverifiedNft = useCallback((nft: ApiNft, style: string) => (
     <AutoHiddenNft
       key={nft.address}
       nft={nft}
-      appTheme={appTheme}
       section="unverified"
       isWhitelisted={whitelistedNftAddressesSet.has(nft.address)}
       style={style}
     />
-  ), [appTheme, whitelistedNftAddressesSet]);
+  ), [whitelistedNftAddressesSet]);
 
   const renderProbablyScamNft = useCallback((nft: ApiNft, style: string) => (
     <AutoHiddenNft
       key={nft.address}
       nft={nft}
-      appTheme={appTheme}
       section="scam"
       isWhitelisted={whitelistedNftAddressesSet.has(nft.address)}
       shouldConfirmUnhide
       style={style}
     />
-  ), [appTheme, whitelistedNftAddressesSet]);
+  ), [whitelistedNftAddressesSet]);
 
   function renderHiddenByUserNfts() {
     return (
@@ -202,6 +191,9 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     areUnverifiedNftsHidden: global.settings.areUnverifiedNftsHidden,
     orderedAddresses,
     byAddress,
-    theme: global.settings.theme,
   };
 })(SettingsHiddenNfts));
+
+function renderHiddenByUserNft(nft: ApiNft, style: string) {
+  return <HiddenByUserNft key={nft.address} nft={nft} style={style} />;
+}

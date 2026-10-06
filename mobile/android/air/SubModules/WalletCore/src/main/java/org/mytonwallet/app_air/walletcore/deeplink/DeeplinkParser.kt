@@ -58,7 +58,7 @@ sealed class Deeplink {
         val amountIn: Double?
     ) : Deeplink()
 
-    data class Receive(override val accountAddress: String?) : Deeplink()
+    data class Receive(override val accountAddress: String?, val chain: String? = null) : Deeplink()
     data class BuyWithCard(override val accountAddress: String?) : Deeplink()
     data class SellOnCard(override val accountAddress: String?) : Deeplink()
     data class Offramp(
@@ -245,6 +245,12 @@ class DeeplinkParser {
                 fields.containsAll(setOf("topic", "wc_ev")) ||
                 fields.containsAll(setOf("topic", "message"))
 
+        internal fun receiveDeeplink(chain: String?): Deeplink.Receive? {
+            if (chain == null) return Deeplink.Receive(accountAddress = null)
+            if (chain.isBlank()) return null
+            return Deeplink.Receive(accountAddress = null, chain = chain)
+        }
+
         internal fun mintCardDeeplink(command: String?): Deeplink.MintCard? =
             if (command == "nft-card" || command == "mint") {
                 Deeplink.MintCard(accountAddress = null)
@@ -400,7 +406,7 @@ class DeeplinkParser {
 
                 "send" -> handleSend(uri)
 
-                "receive" -> Deeplink.Receive(accountAddress = null)
+                "receive" -> receiveDeeplink(uri.getQueryParameter("chain"))
 
                 "buy-with-card" -> Deeplink.BuyWithCard(accountAddress = null)
 
@@ -577,11 +583,17 @@ class DeeplinkParser {
             if (colonIndex == -1) return null
 
             val chain = target.substring(0, colonIndex)
-            val address = target.substring(colonIndex + 1)
+            val address = target.substring(colonIndex + 1).takeIf { it.isNotBlank() }
 
             val blockchain = MBlockchain.valueOfOrNull(chain) ?: return null
             if (!blockchain.isSupported) return null
-            if (!blockchain.isValidAddress(address) && !blockchain.isValidDNS(address)) return null
+            if (
+                address != null &&
+                !blockchain.isValidAddress(address) &&
+                !blockchain.isValidDNS(address)
+            ) {
+                return null
+            }
 
             var amount: String? = null
             var comment: String? = null

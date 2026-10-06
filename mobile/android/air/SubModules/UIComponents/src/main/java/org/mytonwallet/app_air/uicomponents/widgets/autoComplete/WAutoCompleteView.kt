@@ -134,6 +134,7 @@ class WAutoCompleteView(context: Context, val onSuggest: (MSavedAddress) -> Unit
     private fun updateSuggestions(keyword: String) {
         currentFilterJob?.cancel()
 
+        val query = keyword.lowercase()
         currentFilterJob = coroutineScope.launch {
             val filteredAddresses = withContext(Dispatchers.IO) {
                 (
@@ -148,8 +149,9 @@ class WAutoCompleteView(context: Context, val onSuggest: (MSavedAddress) -> Unit
                     )
                     .distinctBy { it.address }
                     .filter { savedAddress ->
-                        savedAddress.address.contains(keyword) ||
-                            savedAddress.name.contains(keyword.lowercase())
+                        savedAddress.address.lowercase().contains(query) ||
+                            savedAddress.name.lowercase().contains(query) ||
+                            savedAddress.domain?.lowercase()?.contains(query) == true
                     }
             }
 

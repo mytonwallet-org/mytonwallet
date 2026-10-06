@@ -41,6 +41,15 @@ object LocaleController {
                 2
             }
         },
+        WLanguage.ITALIAN.langCode to { n ->
+            if (n == 0) {
+                1
+            } else if (n != 1) {
+                6
+            } else {
+                2
+            }
+        },
         WLanguage.POLISH.langCode to { n ->
             when {
                 n == 0 -> 1

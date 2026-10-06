@@ -149,6 +149,8 @@ class SwapViewModel :
     private val _defaultTokensAppliedFlow = MutableStateFlow(false)
     private var preservedReceivingTokenSlug: String? = null
 
+    var shouldKeepSelectedPair = false
+
     fun setDefaultTokens(sendingToken: MApiSwapAsset?, receivingToken: MApiSwapAsset?) {
         if (defaultTokensRequest == null) {
             defaultTokensRequest = DefaultTokensRequest(sendingToken, receivingToken)
@@ -239,6 +241,13 @@ class SwapViewModel :
         this::buildUiInputStateFlow
     ).filterNotNull()
 
+    val currentUiInputState: SwapUiInputState?
+        get() = buildUiInputStateFlow(
+            _walletStateFlow.value,
+            _inputStateFlow.value,
+            _defaultTokensAppliedFlow.value
+        )
+
     private fun buildUiInputStateFlow(
         walletOpt: SwapWalletState?,
         input: SwapInputState,
@@ -263,7 +272,7 @@ class SwapViewModel :
             validatePair()
 
             if (_loadingStatusFlow.value.needOpenSelectorAfterPairsLoading) {
-                openTokenToReceiveSelector()
+                openTokenToReceiveSelector(_loadingStatusFlow.value.showUnsupportedReceivingAssets)
             }
         } catch (_: JSWebViewBridge.ApiError) {
         } finally {
@@ -294,28 +303,51 @@ class SwapViewModel :
         }
     }
 
-    fun openTokenToReceiveSelector() {
+    fun openTokenToReceiveSelector(showUnsupportedAssets: Boolean = false) {
         cancelScheduledSelectorOpen()
 
         val state = _inputStateFlow.value
         val pairs = tokenPairsCache[state.tokenToSend?.slug]
 
-        if (state.tokenToSend == null || _inputStateFlow.value.shouldShowAllPairsToBuy) {
+        if (state.tokenToSend == null ||
+            (!showUnsupportedAssets && state.shouldShowAllPairsToBuy)
+        ) {
             _walletStateFlow.value?.assets?.let {
                 _eventsFlow.tryEmit(Event.ShowSelector(it, mode = Mode.RECEIVE))
             }
         } else if (pairs != null) {
-            _walletStateFlow.value?.assetsMap?.let { assets ->
+            _walletStateFlow.value?.let { wallet ->
+                val supportedSlugs = pairs.map { it.slug }.toMutableSet()
+                if (showUnsupportedAssets && state.shouldShowAllPairsToBuy) {
+                    wallet.assets.filter { asset ->
+                        asset.chain == state.tokenToSend.chain &&
+                            asset.slug != state.tokenToSend.slug
+                    }.forEach { supportedSlugs.add(it.slug) }
+                }
+                if (showUnsupportedAssets) {
+                    supportedSlugs.retainAll(
+                        wallet.assets.filter { wallet.isSupportedChain(it.mBlockchain) }
+                            .map { it.slug }.toSet()
+                    )
+                }
                 _eventsFlow.tryEmit(
                     Event.ShowSelector(
-                        pairs.mapNotNull { assets[it.slug] },
-                        mode = Mode.RECEIVE
+                        if (showUnsupportedAssets) {
+                            wallet.assets
+                        } else {
+                            pairs.mapNotNull {
+                                wallet.assetsMap[it.slug]
+                            }
+                        },
+                        mode = Mode.RECEIVE,
+                        supportedAssetSlugs = supportedSlugs.takeIf { showUnsupportedAssets }
                     )
                 )
             }
         } else {
             _loadingStatusFlow.value = _loadingStatusFlow.value.copy(
-                needOpenSelectorAfterPairsLoading = true
+                needOpenSelectorAfterPairsLoading = true,
+                showUnsupportedReceivingAssets = showUnsupportedAssets
             )
         }
     }
@@ -352,6 +384,9 @@ class SwapViewModel :
         get() {
             return _inputStateFlow.value.tokenToSendMaxAmount
         }
+
+    val tokenToSendMaxBalance: BigInteger
+        get() = calcSwapMaxBalance(fallbackToMax = true)
 
     val tokenToReceive: IApiToken?
         get() {
@@ -448,7 +483,7 @@ class SwapViewModel :
 
     private fun validatePair() {
         val state = _inputStateFlow.value
-        if (state.shouldShowAllPairs) return
+        if (shouldKeepSelectedPair || state.shouldShowAllPairs) return
         val pairs = tokenPairsCache[state.tokenToSend?.slug]
         if (pairs != null && state.tokenToReceive != null) {
             if (pairs.find { it.slug == state.tokenToReceive.slug } == null) {
@@ -696,7 +731,10 @@ class SwapViewModel :
 
     /** Loading **/
 
-    data class LoadingState(val needOpenSelectorAfterPairsLoading: Boolean = false)
+    data class LoadingState(
+        val needOpenSelectorAfterPairsLoading: Boolean = false,
+        val showUnsupportedReceivingAssets: Boolean = false
+    )
 
     private val _loadingStatusFlow = MutableStateFlow(LoadingState())
 
@@ -717,7 +755,11 @@ class SwapViewModel :
     enum class Mode { SEND, RECEIVE }
 
     sealed class Event {
-        data class ShowSelector(val assets: List<MApiSwapAsset>, val mode: Mode) : Event()
+        data class ShowSelector(
+            val assets: List<MApiSwapAsset>,
+            val mode: Mode,
+            val supportedAssetSlugs: Set<String>? = null
+        ) : Event()
 
         data class ShowConfirm(val request: SwapEstimateResponse, val addressToReceive: String?) :
             Event()
@@ -1185,7 +1227,8 @@ class SwapViewModel :
                             dexRouterLabel = dex.dexRouterLabel,
                             dieselFee = dex.dieselFee,
                             swapVersion = ConfigStore.swapVersion ?: DEFAULT_SWAP_VERSION,
-                            routes = dex.routes
+                            routes = dex.routes,
+                            needsApprove = dex.needsApprove
                         )
                     )
                 )
@@ -1234,7 +1277,9 @@ class SwapViewModel :
                             cex = null
                         ),
                         estimate.explainedFee.isGasless,
-                        build.transaction
+                        build.transaction,
+                        build.calls,
+                        dex.needsApprove
                     )
                 )
                 submitResult.error?.let { error ->

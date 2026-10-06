@@ -170,7 +170,7 @@ function SettingsPermissions({
     return (
       <div
         key={`delegation:${delegation.delegateAddress}`}
-        className={styles.item}
+        className={buildClassName(styles.item, styles.item_delegation)}
         onClick={() => handlePermissionClick(delegation)}
       >
         {delegation.delegateIcon && (

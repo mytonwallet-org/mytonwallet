@@ -9,6 +9,10 @@ import type { AuthTypes, ProposalTypes, Verify } from '@walletconnect/types';
 
 import type { ApiBaseCurrency, ApiChain, ApiNetwork } from '../../../types';
 
+import { EVM_CHAIN_IDS } from '../../../chains/evm/constants';
+
+export { EVM_CHAIN_IDS };
+
 // =============================================================================
 // CAIP (Chain Agnostic Improvement Proposal) Types
 // =============================================================================
@@ -163,29 +167,6 @@ export type ChainIdByChain = Record<string, ChainId>;
 export const SOLANA_CHAIN_IDS: ChainIdByChain = {
   'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': { chain: 'solana', network: 'mainnet' },
   'solana:4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ': { chain: 'solana', network: 'testnet' },
-};
-
-export const EVM_CHAIN_IDS: ChainIdByChain = {
-  'eip155:1': { chain: 'ethereum', network: 'mainnet' },
-  'eip155:5': { chain: 'ethereum', network: 'testnet' },
-  'eip155:8453': { chain: 'base', network: 'mainnet' },
-  'eip155:84532': { chain: 'base', network: 'testnet' },
-  'eip155:137': { chain: 'polygon', network: 'mainnet' },
-  'eip155:80002': { chain: 'polygon', network: 'testnet' },
-  'eip155:42161': { chain: 'arbitrum', network: 'mainnet' },
-  'eip155:421614': { chain: 'arbitrum', network: 'testnet' },
-  'eip155:56': { chain: 'bnb', network: 'mainnet' },
-  'eip155:97': { chain: 'bnb', network: 'testnet' },
-  'eip155:43114': { chain: 'avalanche', network: 'mainnet' },
-  'eip155:43113': { chain: 'avalanche', network: 'testnet' },
-  'eip155:143': { chain: 'monad', network: 'mainnet' },
-  'eip155:10143': { chain: 'monad', network: 'testnet' },
-  'eip155:999': { chain: 'hyperliquid', network: 'mainnet' },
-  'eip155:998': { chain: 'hyperliquid', network: 'testnet' },
-  'eip155:4663': { chain: 'robinhood', network: 'mainnet' },
-  'eip155:46630': { chain: 'robinhood', network: 'testnet' },
-  'eip155:5042': { chain: 'arc', network: 'mainnet' },
-  'eip155:5042002': { chain: 'arc', network: 'testnet' },
 };
 
 export const CHAIN_IDS_BY_CHAIN: Record<string, ChainIdByChain> = {

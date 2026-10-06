@@ -116,6 +116,7 @@ describe('Solana on-chain swap history owner handling', () => {
       transaction: 'transaction',
       swapId: 'swap-id',
       authToken: 'auth-token',
+      enclaveToken: 'enclave-token',
     });
 
     expect(fetchStoredWallet).toHaveBeenCalledWith('0-mainnet', 'ton');

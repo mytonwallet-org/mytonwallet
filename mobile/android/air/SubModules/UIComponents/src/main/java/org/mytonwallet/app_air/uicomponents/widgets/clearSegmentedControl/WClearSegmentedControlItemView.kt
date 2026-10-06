@@ -39,11 +39,19 @@ open class WClearSegmentedControlItemView(context: Context) :
     WCell(context, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)),
     WThemedView {
 
-    internal var minimumWidthProvider: (() -> Int)? = null
+    internal var minimumWidthProvider: ((naturalWidth: Int) -> Int)? = null
+    internal var horizontalPaddingProvider: (() -> Int)? = null
+    private var horizontalPadding = 16.dp
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        horizontalPaddingProvider?.invoke()?.let { padding ->
+            if (horizontalPadding != padding) {
+                horizontalPadding = padding
+                updatePaddings()
+            }
+        }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-        val minimumWidth = minimumWidthProvider?.invoke() ?: return
+        val minimumWidth = minimumWidthProvider?.invoke(measuredWidth) ?: return
         if (MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.EXACTLY &&
             measuredWidth < minimumWidth
         ) {
@@ -366,9 +374,9 @@ open class WClearSegmentedControlItemView(context: Context) :
     private fun updatePaddings() {
         val arrowVisibility = arrowVisibility ?: 0f
         val endPadding = if (arrowVisibility > 0) {
-            16.dp + (selectedEndPadding * arrowVisibility).toInt()
+            horizontalPadding + (selectedEndPadding * arrowVisibility).toInt()
         } else {
-            16.dp
+            horizontalPadding
         }
 
         badgeView.translationX = (badgeTargetWidth - badgeCurrentWidth) - endPadding.toFloat()
@@ -376,9 +384,13 @@ open class WClearSegmentedControlItemView(context: Context) :
         val endGap =
             if (badgeCurrentWidth == 0) 0 else (badgeView.alpha * 5.dp).roundToInt()
         val textViewEndPadding = endPadding + endGap + badgeCurrentWidth
-        if (textView.paddingEnd == textViewEndPadding) return
+        if (textView.paddingStart == horizontalPadding &&
+            textView.paddingEnd == textViewEndPadding
+        ) {
+            return
+        }
 
-        textView.setPaddingLocalized(16.dp, 5.dp, textViewEndPadding, 5.dp)
+        textView.setPaddingLocalized(horizontalPadding, 5.dp, textViewEndPadding, 5.dp)
         trailingImageView.setPadding(
             0,
             selectedYPadding.roundToInt(),

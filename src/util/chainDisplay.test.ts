@@ -58,6 +58,22 @@ describe('buildAccountChainSummary', () => {
     expect([...summary.chainsWithBalance]).toEqual(['ton']);
   });
 
+  it('does not count hidden tokens as funding', () => {
+    const pricedTokens = [buildToken('ton', 'ton', 1), buildToken('tron', 'tron')];
+    const balances = { ton: ONE_COIN, tron: 5n };
+    const hiddenByUser = buildSummary(balances, pricedTokens, undefined, {
+      ...VISIBILITY,
+      accountSettings: { alwaysHiddenSlugs: ['tron'] },
+    });
+    const hiddenNoCost = buildSummary(balances, pricedTokens, undefined, {
+      ...VISIBILITY,
+      areTokensWithNoCostHidden: true,
+    });
+
+    expect([...hiddenByUser.chainsWithBalance]).toEqual(['ton']);
+    expect([...hiddenNoCost.chainsWithBalance]).toEqual(['ton']);
+  });
+
   it('orders the chains by value, staking included, and keeps the default order for ties', () => {
     const pricedTokens = [buildToken('ton', 'ton', 1), buildToken('tron', 'tron'), buildToken('solana', 'solana', 1)];
     const balances = { ton: ONE_COIN, tron: 5n, solana: 2n * ONE_COIN };

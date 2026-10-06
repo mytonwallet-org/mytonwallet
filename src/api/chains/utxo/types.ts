@@ -17,8 +17,10 @@ export type UtxoTransactionVin = {
   vout?: number;
   addresses?: string[];
   isAddress?: boolean;
+  isOwn?: boolean;
   value?: string;
   n?: number;
+  sequence?: number;
 };
 
 export type UtxoTransactionVout = {
@@ -26,6 +28,7 @@ export type UtxoTransactionVout = {
   n: number;
   addresses?: string[];
   isAddress?: boolean;
+  isOwn?: boolean;
   hex?: string;
 };
 

@@ -8,5 +8,6 @@ public enum ApiTonWalletVersion: String, Equatable, Hashable, Codable, Sendable 
     case v3R1 = "v3R1"
     case v3R2 = "v3R2"
     case v4R2 = "v4R2"
+    case telegram = "telegram"
     case W5 = "W5"
 }

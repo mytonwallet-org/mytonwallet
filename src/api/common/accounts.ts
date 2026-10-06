@@ -184,6 +184,7 @@ export function getAccountChains(account: ApiAccountAny): Partial<Record<ApiChai
     address: wallet.address,
     derivation: wallet.derivation,
     ledgerIndex: account.type === 'ledger' ? wallet.index : undefined,
+    version: (wallet as { version?: AccountChain['version'] }).version,
     mfa: (wallet as { mfa?: AccountChain['mfa'] }).mfa,
   }));
 }

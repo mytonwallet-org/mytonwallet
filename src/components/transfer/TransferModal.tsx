@@ -21,6 +21,7 @@ import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { shortenAddress } from '../../util/shortenAddress';
 
+import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
@@ -34,6 +35,7 @@ import Modal from '../ui/Modal';
 import Transition from '../ui/Transition';
 import TransferComplete from './TransferComplete';
 import TransferConfirm from './TransferConfirm';
+import TransferConfirmationHeader from './TransferConfirmationHeader';
 import TransferConfirmMfa from './TransferConfirmMfa';
 import TransferInitial from './TransferInitial';
 import TransferMultiNftProcess from './TransferMultiNftProcess';
@@ -51,7 +53,13 @@ interface StateProps {
 }
 
 function TransferModal({
-  currentTransfer: {
+  currentTransfer,
+  currentAccountId,
+  tokens,
+  savedAddresses,
+  isMediaViewerOpen,
+}: StateProps) {
+  const {
     state,
     amount,
     toAddress,
@@ -64,12 +72,7 @@ function TransferModal({
     sentNftsCount,
     diesel,
     isNftBurn,
-  },
-  currentAccountId,
-  tokens,
-  savedAddresses,
-  isMediaViewerOpen,
-}: StateProps) {
+  } = currentTransfer;
   const {
     submitTransferConfirm,
     submitTransfer,
@@ -86,11 +89,12 @@ function TransferModal({
   const decimals = selectedToken?.decimals;
   const renderedTransactionAmount = usePrevious(amount, true);
   const symbol = selectedToken?.symbol || '';
-  const isNftTransfer = Boolean(nfts?.length);
   // A transfer of more NFTs than fit in one transaction is sent as one API call per batch, and every
   // call signs on its own, so the batches past the first need a secret read each
   const extraNftBatchCount = nfts?.length ? Math.ceil(nfts.length / NFT_BATCH_SIZE) - 1 : 0;
-  const isBurning = toAddress === BURN_ADDRESS || isNftBurn;
+  // Closing the modal clears the transfer before the closing animation ends, while the last slide is still shown
+  const renderedTransfer = useCurrentOrPrev(isOpen ? currentTransfer : undefined, true);
+  const isBurning = renderedTransfer?.toAddress === BURN_ADDRESS || renderedTransfer?.isNftBurn;
   // After confirming the transaction, `toAddress` is set to empty string, so we need to use the previous value
   const renderedToAddress = usePrevious(toAddress || undefined, true);
 
@@ -170,21 +174,15 @@ function TransferModal({
             isBurning={isBurning}
             error={error}
             extraAuthUsages={extraNftBatchCount}
-            onAuthorize={handleTransferSubmit}
-            onCancel={handleClose}
             isGaslessWithStars={diesel?.status === 'stars-fee'}
+            onAuthorize={handleTransferSubmit}
+            onCancel={handleBackClick}
+            onClose={handleClose}
           >
-            <TransactionBanner
-              tokenIn={selectedToken}
-              imageUrl={nfts?.[0]?.thumbnail}
-              withNftPlaceholder={isNftTransfer}
-              withChainIcon
-              text={isNftTransfer
-                ? (nfts.length > 1 ? lang('%amount% NFTs', nfts.length, 'i') : nfts[0]?.name || 'NFT')
-                : formatCurrency(toDecimal(amount!, decimals), symbol)}
-              className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
-              secondText={shortenAddress(toAddress!)}
-              isTextHidden={isBurning}
+            <TransferConfirmationHeader
+              transfer={renderedTransfer!}
+              token={selectedToken}
+              isBurning={isBurning}
             />
           </TransferPassword>
         );
@@ -229,7 +227,9 @@ function TransferModal({
             onClose={handleClose}
           />
         );
-      case TransferState.ConfirmMfa:
+      case TransferState.ConfirmMfa: {
+        const { amount: mfaAmount, nfts: mfaNfts, toAddress: mfaToAddress } = renderedTransfer!;
+
         return (
           <TransferConfirmMfa
             isActive={isActive}
@@ -237,17 +237,18 @@ function TransferModal({
           >
             <TransactionBanner
               tokenIn={selectedToken}
-              imageUrl={nfts?.[0]?.thumbnail}
-              withNftPlaceholder={isNftTransfer}
+              imageUrl={mfaNfts?.[0]?.thumbnail}
+              withNftPlaceholder={Boolean(mfaNfts?.length)}
               withChainIcon
-              text={isNftTransfer
-                ? (nfts.length > 1 ? lang('%amount% NFTs', nfts.length, 'i') : nfts[0]?.name || 'NFT')
-                : formatCurrency(toDecimal(amount!, decimals), symbol)}
+              text={mfaNfts?.length
+                ? (mfaNfts.length > 1 ? lang('%amount% NFTs', mfaNfts.length, 'i') : mfaNfts[0]?.name || 'NFT')
+                : formatCurrency(toDecimal(mfaAmount!, decimals), symbol)}
               className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
-              secondText={shortenAddress(toAddress!)}
+              secondText={shortenAddress(mfaToAddress!)}
             />
           </TransferConfirmMfa>
         );
+      }
     }
   }
 

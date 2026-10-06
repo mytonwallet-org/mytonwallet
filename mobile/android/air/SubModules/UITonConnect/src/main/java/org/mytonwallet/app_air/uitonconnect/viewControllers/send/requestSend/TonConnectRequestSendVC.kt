@@ -57,6 +57,7 @@ import org.mytonwallet.app_air.uitonconnect.viewControllers.TonConnectRequestSen
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.Adapter
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.TonConnectItem
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.adapter.holder.CellHeaderSendRequest
+import org.mytonwallet.app_air.uitonconnect.viewControllers.send.commonViews.SignDataPasscodeHeaderView
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSendDetails.TonConnectRequestSendDetailsVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.signed.SignedVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
@@ -973,10 +974,17 @@ class TonConnectRequestSendVC(
         val updateValue = update ?: return
         val confirmActionVC = PasscodeConfirmVC(
             context,
-            PasscodeViewState.CustomHeader(
-                confirmHeaderView,
-                showNavbarTitle = false
-            ),
+            if (updateValue is ApiUpdate.ApiUpdateDappSignData) {
+                PasscodeViewState.CustomHeader(
+                    confirmHeaderView,
+                    navbarTitle = LocaleController.getString("Confirm")
+                )
+            } else {
+                PasscodeViewState.CustomHeader(
+                    confirmHeaderView,
+                    showNavbarTitle = false
+                )
+            },
             task = { passcode ->
                 viewModel?.accept(updateValue.promiseId, passcode)
             }
@@ -986,6 +994,13 @@ class TonConnectRequestSendVC(
 
     private val confirmHeaderView: View
         get() {
+            (update as? ApiUpdate.ApiUpdateDappSignData)?.let { update ->
+                return SignDataPasscodeHeaderView(
+                    context,
+                    dappName = update.dapp.name ?: update.dapp.host ?: "",
+                    dappIconUrl = update.dapp.iconUrl
+                )
+            }
             val maximumHeight =
                 ((window?.windowView?.height ?: 0) * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO)
                     .roundToInt()
@@ -995,13 +1010,7 @@ class TonConnectRequestSendVC(
             ).apply {
                 config(
                     Content.ofUrl(update?.dapp?.iconUrl ?: ""),
-                    when (update) {
-                        is ApiUpdate.ApiUpdateDappSignData -> {
-                            LocaleController.getString("Confirm Action")
-                        }
-
-                        else -> title ?: ""
-                    },
+                    title ?: "",
                     update?.dapp?.host ?: "",
                     Content.Rounding.Radius(12f.dp)
                 )

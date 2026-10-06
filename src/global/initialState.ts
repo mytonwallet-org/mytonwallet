@@ -118,6 +118,7 @@ export const INITIAL_STATE: GlobalState = {
     byAccountId: {},
     areTokensWithNoCostHidden: true,
     autolockValue: DEFAULT_AUTOLOCK_OPTION,
+    isAutoConfirmEnabled: true,
     baseCurrency: DEFAULT_PRICE_CURRENCY,
   },
 

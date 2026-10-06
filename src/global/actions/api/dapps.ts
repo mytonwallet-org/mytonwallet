@@ -70,7 +70,7 @@ addActionHandler('submitDappConnectRequestConfirm', withEnclaveSessionRelease(as
       { ...proof, type: 'tonProof' },
       enclaveToken,
     )
-    : { signatures: undefined };
+    : { signatures: undefined, publicKeys: undefined };
 
   if (!handleDappSignatureResult(signingResult, updateDappConnectRequest)) {
     return;
@@ -81,6 +81,7 @@ addActionHandler('submitDappConnectRequestConfirm', withEnclaveSessionRelease(as
   await callApi('confirmDappRequestConnect', promiseId!, {
     accountId,
     proofSignatures: signingResult.signatures,
+    proofPublicKeys: signingResult.publicKeys,
   });
 
   global = getGlobal();

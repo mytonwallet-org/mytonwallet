@@ -1,4 +1,3 @@
-import CoreText
 import Testing
 import UIKit
 import WalletContext
@@ -11,11 +10,6 @@ import WalletResources
 struct MintCardTests {
     init() {
         _ = WalletResourcesBundle.bundle.load()
-        for font in ["SFCompactRoundedBold", "SFCompactDisplayMedium"] {
-            if let url = WalletResourcesBundle.bundle.url(forResource: font, withExtension: "otf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
-        }
     }
 
     private var token: ApiToken {
@@ -126,6 +120,60 @@ struct MintCardTests {
                 }
             }
         }
+    }
+
+    @Test
+    func returningToTopCannotOverscroll() {
+        let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
+        view.layoutIfNeeded()
+        for topInset in [0.0, 24] {
+            view.scrollView.contentInset.top = topInset
+            view.scrollView.contentOffset.y = 60
+            #expect(view.scrollView.contentOffset.y == 60)
+            view.scrollView.contentOffset.y = -topInset - 40
+            view.scrollView.layoutIfNeeded()
+            let offset = view.scrollView.contentOffset.y
+            #expect(offset == CGFloat(-topInset))
+        }
+    }
+
+    @Test
+    func projectedStopsWithinFiftyPointsSnapToTop() {
+        let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
+        view.layoutIfNeeded()
+        for topInset: CGFloat in [0, 24] {
+            view.scrollView.contentInset.top = topInset
+            for currentOffset: CGFloat in [10, 100] {
+                view.scrollView.contentOffset.y = currentOffset
+                for distance: CGFloat in [-20, 0, 49.9, 50, 50.1, 100] {
+                    for velocity: CGFloat in [-1, 0, 1] {
+                        var target = CGPoint(x: 7, y: -topInset + distance)
+                        view.scrollViewWillEndDragging(view.scrollView, withVelocity: CGPoint(x: 0, y: velocity), targetContentOffset: &target)
+                        #expect(target.x == 7)
+                        #expect(target.y == (distance <= 50 ? -topInset : -topInset + distance))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    func bottomOverscrollSurvivesLayoutButIsCorrectedAfterResize() {
+        let view = MintCardView(frame: CGRect(x: 0, y: 0, width: 402, height: 500))
+        view.layoutIfNeeded()
+        let bottom = view.scrollView.contentSize.height + view.scrollView.contentInset.bottom - view.scrollView.bounds.height
+        #expect(bottom > 0)
+        #expect(view.scrollView.bounces)
+        #expect(!view.scrollView.alwaysBounceVertical)
+        view.scrollView.contentOffset.y = bottom + 40
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        #expect(view.scrollView.contentOffset.y == bottom + 40)
+
+        view.frame.size.height = 1000
+        view.layoutIfNeeded()
+        let resizedBottom = max(0, view.scrollView.contentSize.height + view.scrollView.contentInset.bottom - view.scrollView.bounds.height)
+        #expect(view.scrollView.contentOffset.y == resizedBottom)
     }
 
     @Test

@@ -16,8 +16,8 @@
   }
 }
 
-.sticker {
-  margin: -0.5rem auto 1.25rem;
+.heroAmount {
+  margin-top: 0.5rem;
 }
 
 .footer {
@@ -132,6 +132,10 @@
 
 .swapSupportBlock {
   gap: 1rem;
+}
+
+.cexTransactionId {
+  color: var(--color-gray-3);
 }
 
 .textFieldLabel {

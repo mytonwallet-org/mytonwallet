@@ -83,31 +83,9 @@ private func makeInitApi(langCode: String) -> String {
     """
 }
 
-let LOGGING_FETCH = """
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        let [input, init] = args;
-        let method, url, body;
-        if (input instanceof Request) {
-            method = input.method;
-            url = input.url;
-            body = init?.body || '[Request body]';
-        } else {
-            url = input;
-            method = init?.method || 'GET';
-            body = init?.body || '';
-        }
-        console.log(method, url, body);
-        const startTime = performance.now();
-        const response = await originalFetch.apply(this, args);
-        const endTime = performance.now();
-        const durationSeconds = ((endTime - startTime) / 1000).toFixed(3);
-        console.log(`time=${durationSeconds} status=${response.status} @ ${method} ${url}`);
-        return response;
-    };
-"""
-
 private let log = Log("JSWebViewBridge")
+/// How long a loaded SDK page may take to accept `initApi`. A cold start takes a few seconds.
+private let bridgeReadyTimeoutSeconds = 30
 private let console = Log("console")
 private var sdkIndexFileURL: URL {
     Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "JS")!
@@ -120,10 +98,21 @@ public class JSWebViewBridge: UIViewController {
     private var webView: WKWebView?
     private var isApiReady = false
     private var bridgeReadyWaiters: [CheckedContinuation<Void, Never>] = []
+    private var readinessWatchdog: Task<Void, Never>?
 
     // Token deltas must reach stores in delivery order, including JSON decoding
     private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background)
     private let storage = JSBridgeStorage()
+
+    func waitForPendingUpdates() async {
+        await withCheckedContinuation { continuation in
+            updateQueue.async {
+                DispatchQueue.main.async {
+                    continuation.resume()
+                }
+            }
+        }
+    }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -170,13 +159,24 @@ public class JSWebViewBridge: UIViewController {
         // Save storage db data in keychain (swift side)
         userContentController.add(self, name: "nativeCall")
         
+        // At document start: the SDK is a classic script in the document's own head, so a capture
+        // injected at document end arrives after it has already run and misses the bundle's first
+        // line, which is the one naming which bundle this is. Request logging is the SDK's own job
+        // (src/util/fetchLogging.ts) and reaches this capture like any other console line.
         let logSource = "function captureLog(...msg) { window.webkit.messageHandlers.log.postMessage(msg); } window.console.log = captureLog;"
-        let logScript = WKUserScript(source: logSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        let logScript = WKUserScript(source: logSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         userContentController.addUserScript(logScript)
         userContentController.add(self, name: "log")
-        
-//        let logFetchScript = WKUserScript(source: LOGGING_FETCH, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
-//        userContentController.addUserScript(logFetchScript)
+
+        #if DEBUG
+        // End-to-end tests substitute wallet data in the SDK's network responses, as Playwright's
+        // addInitScript does for the web app; the script runs before the SDK loads.
+        if let initScript = ProcessInfo.processInfo.environment["E2E_SDK_INIT_SCRIPT"], !initScript.isEmpty {
+            userContentController.addUserScript(
+                WKUserScript(source: initScript, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            )
+        }
+        #endif
 
         webViewConfiguration.userContentController = userContentController
         // Every request the SDK makes says which app made it. The web view's default agent
@@ -228,6 +228,20 @@ public class JSWebViewBridge: UIViewController {
     private func loadHtml() {
         StartupTrace.markOnce("bridge.loadHtml")
         webView?.loadFileURL(sdkIndexFileURL, allowingReadAccessTo: sdkReadAccessURL)
+        watchReadiness()
+    }
+
+    /// Replaces a web view whose page never becomes ready. A hung content process, or one lost while it starts,
+    /// reports neither a finished navigation nor a termination, and every SDK call waits for the bridge.
+    private func watchReadiness() {
+        readinessWatchdog?.cancel()
+        guard let loadedWebView = webView else { return }
+        readinessWatchdog = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(bridgeReadyTimeoutSeconds))
+            guard !Task.isCancelled, let self, !self.isApiReady, self.webView === loadedWebView else { return }
+            log.fault("SDK page is not ready after \(bridgeReadyTimeoutSeconds)s, recreating the web view")
+            self.recreateWebView(onCompletion: self.onBridgeReady)
+        }
     }
     
     private nonisolated(nonsending) func _callApiImpl(
@@ -428,6 +442,8 @@ public class JSWebViewBridge: UIViewController {
                 })
             } else {
                 //log.debug("JavaScript injected successfully")
+                self?.readinessWatchdog?.cancel()
+                self?.readinessWatchdog = nil
                 self?.isApiReady = true
                 let waiters = self?.bridgeReadyWaiters ?? []
                 self?.bridgeReadyWaiters.removeAll()
@@ -449,6 +465,8 @@ public class JSWebViewBridge: UIViewController {
     }
     
     func stop() {
+        readinessWatchdog?.cancel()
+        readinessWatchdog = nil
         isApiReady = false
         let waiters = bridgeReadyWaiters
         bridgeReadyWaiters.removeAll()
@@ -1043,10 +1061,12 @@ extension JSWebViewBridge: WKNavigationDelegate, WKUIDelegate {
         injectIfNeeded()
     }
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        log.error("SDK page navigation failed: \(error, .public)")
     }
     public func webView(_ webView: WKWebView,
                         didFailProvisionalNavigation navigation: WKNavigation!,
                         withError error: any Error) {
+        log.error("SDK page failed to load: \(error, .public)")
     }
     
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {

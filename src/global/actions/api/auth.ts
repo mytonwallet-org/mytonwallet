@@ -73,7 +73,6 @@ import {
   selectCurrentNetwork,
   selectEnclaveToken,
   selectHasPassword,
-  selectIsEnclaveSessionValid,
   selectIsOneAccount,
   selectNetworkAccounts,
   selectNetworkAccountsMemoized,
@@ -190,7 +189,9 @@ addActionHandler('startCreatingWallet', async (global, actions, payload) => {
 
   global = getGlobal();
 
-  if (hasPassword && !enclaveToken && !selectIsEnclaveSessionValid(global)) {
+  // A new wallet shows its secret words, so it asks for the passcode unless the caller has just passed a token.
+  // The Remember Passcode window does not count here.
+  if (hasPassword && !enclaveToken) {
     // The password screen lives in the auth flow, so the app has to be showing it - otherwise the request
     // for a password renders nowhere and the caller waits forever.
     global = { ...global, appState: AppState.Auth };
@@ -663,7 +664,9 @@ addActionHandler('startImportingWallet', (global, actions, payload) => {
 
   const { enclaveToken } = payload ?? {};
   const hasPassword = selectHasPassword(global);
-  const state = hasPassword && !enclaveToken && !selectIsEnclaveSessionValid(global)
+  // Importing by secret words asks for the passcode unless the caller has just passed a token. The Remember
+  // Passcode window does not count here.
+  const state = hasPassword && !enclaveToken
     ? AuthState.importWalletCheckPassword
     : AuthState.importWallet;
 
@@ -961,6 +964,10 @@ addActionHandler('importAccountByVersion', async (global, actions, { version, is
   const accountId = selectCurrentAccountId(global)!;
 
   const wallet = (await callApi('importNewWalletVersion', accountId, version, isTestnetSubwalletId))!;
+  if ('error' in wallet) {
+    actions.showError({ error: wallet.error });
+    return;
+  }
 
   if (!await duplicateSecretOrShowError(accountId, wallet.accountId)) return;
 

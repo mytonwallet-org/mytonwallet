@@ -24,7 +24,7 @@ import { getChainTitle, getIsSupportedChain } from '../../../../util/chain';
 import { formatFullDay, formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
 import { shareUrl } from '../../../../util/share';
-import { getCexExternalExchangeId } from '../../../../util/swap/cex';
+import { getCexExternalExchangeId, getCexTrackingUrl } from '../../../../util/swap/cex';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
 import { getSwapTransactionIdRows } from '../../../../util/swap/transactionIds';
@@ -208,6 +208,9 @@ function SwapActivityModal({
     }
   }
 
+  const cexTransactionId = getCexExternalExchangeId(renderedActivity?.cex);
+  const isCexTransactionIdInSupportInfo = shouldRenderCexInfo && (isCexHold || isCountdownFinished);
+
   const handleClose = useLastCallback(() => {
     closeActivityInfo({ id: id! });
   });
@@ -315,19 +318,31 @@ function SwapActivityModal({
     );
   }
 
-  function renderCexTransactionId() {
-    const cex = renderedActivity?.cex;
-    const externalExchangeId = getCexExternalExchangeId(cex);
-
-    if (!externalExchangeId) return undefined;
+  function renderCexTransactionId(transactionId: string, copyNotification: string) {
+    const trackingUrl = getCexTrackingUrl(renderedActivity!.cexLabel, renderedActivity!.cex!);
 
     return (
       <InteractiveTextField
-        text={externalExchangeId}
-        copyNotification={lang('External Exchange ID Copied')}
+        text={transactionId}
+        textClassName={styles.cexTransactionId}
+        addressUrl={trackingUrl}
+        shareLink={trackingUrl}
+        copyNotification={copyNotification}
         noSavedAddress
-        noExplorer
       />
+    );
+  }
+
+  function renderSwapProviderId(transactionId: string) {
+    const providerName = renderedActivity?.cex?.providerName;
+
+    return (
+      <div className={styles.textFieldWrapper}>
+        <span className={styles.textFieldLabel}>
+          {providerName ? lang('Swap ID for %provider%', { provider: providerName }) : lang('Swap ID')}
+        </span>
+        {renderCexTransactionId(transactionId, lang('Swap ID Copied'))}
+      </div>
     );
   }
 
@@ -336,7 +351,7 @@ function SwapActivityModal({
       return (
         <div className={styles.textFieldWrapper}>
           <CexSupportText cex={renderedActivity?.cex} isHold classNames={cexSupportClassNames} />
-          {renderCexTransactionId()}
+          {cexTransactionId && renderCexTransactionId(cexTransactionId, lang('External Exchange ID Copied'))}
         </div>
       );
     }
@@ -347,13 +362,13 @@ function SwapActivityModal({
 
         {isCexPending && (
           <span className={buildClassName(styles.cexDescription)}>
-            {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
+            {lang('Swaps like this usually take a few minutes. In rare cases, up to two hours.')}
           </span>
         )}
         {isCountdownFinished && (
           <>
             <CexSupportText cex={renderedActivity?.cex} classNames={cexSupportClassNames} />
-            {renderCexTransactionId()}
+            {cexTransactionId && renderCexTransactionId(cexTransactionId, lang('External Exchange ID Copied'))}
           </>
         )}
       </div>
@@ -525,6 +540,7 @@ function SwapActivityModal({
           {renderSwapInfo()}
           {shouldRenderCexInfo && renderCexInformation()}
           {renderTransactionIds()}
+          {cexTransactionId && !isCexTransactionIdInSupportInfo && renderSwapProviderId(cexTransactionId)}
         </div>
         {shouldRenderFooter && (
           <div className={buildClassName(styles.footer, shouldUseGridFooter && styles.swapFooter)}>

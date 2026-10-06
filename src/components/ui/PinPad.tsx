@@ -28,7 +28,6 @@ interface OwnProps {
   resetStateDelayMs?: number;
   className?: string;
   isMinified?: boolean;
-  topContent?: TeactJsx;
   onBiometricsClick?: NoneToVoidFunction;
   onChange: (value: string) => void;
   onClearError?: NoneToVoidFunction;
@@ -55,7 +54,6 @@ function PinPad({
   isPinAccepted,
   className,
   isMinified,
-  topContent,
   onBiometricsClick,
   onChange,
   onClearError,
@@ -166,7 +164,7 @@ function PinPad({
 
   return (
     <div className={buildClassName(styles.root, className, SWIPE_DISABLED_CLASS_NAME)}>
-      {topContent ?? <div className={titleClassName}>{title}</div>}
+      <div className={titleClassName}>{title}</div>
       {renderDots()}
 
       <div className={buildClassName(styles.grid, isMinified && styles.minified)}>

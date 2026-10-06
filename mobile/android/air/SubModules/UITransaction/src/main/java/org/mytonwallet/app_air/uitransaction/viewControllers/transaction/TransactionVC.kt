@@ -603,6 +603,7 @@ class TransactionVC(
 
     private var detailsRowViews = ArrayList<KeyValueRowView>()
     private var estimatedTimeRow: KeyValueRowView? = null
+    private var shouldShowFeeInBaseCurrency = false
     private val feeRow: KeyValueRowView? by lazy {
         KeyValueRowView(
             context,
@@ -614,6 +615,11 @@ class TransactionVC(
             isSensitiveData = true
             useSkeletonIndicatorWithWidth = 80.dp
             isLoading = valueLabel.contentView.text.isNullOrEmpty()
+            valueLabel.contentView.setOnClickListener {
+                if (!valueLabel.contentView.isClickable) return@setOnClickListener
+                shouldShowFeeInBaseCurrency = !shouldShowFeeInBaseCurrency
+                updateFeeRow()
+            }
         }
     }
     private var transactionIdRow: KeyValueRowView? = null
@@ -739,9 +745,7 @@ class TransactionVC(
                     estimatedTimeRow = this
                     detailsRowViews.add(this)
                 }
-                if (transaction.fee > BigInteger.ZERO || transaction.shouldLoadDetails == true) {
-                    feeRow?.let { detailsRowViews.add(it) }
-                }
+                feeRow?.let { detailsRowViews.add(it) }
                 if (detailsRowViews.isEmpty()) {
                     transactionDetailsLabel.visibility = View.GONE
                 }
@@ -795,23 +799,24 @@ class TransactionVC(
                 detailsRowViews.add(
                     KeyValueRowView(
                         context,
-                        "${LocaleController.getString(
-                            "Price per"
-                        )}\u202D 1 ${toToken?.symbol ?: ""}",
+                        "${
+                            LocaleController.getString(
+                                "Price per"
+                            )
+                        }\u202D 1 ${toToken?.symbol ?: ""}",
                         (transaction.fromAmount.absoluteValue / transaction.toAmount).toString(
                             fromToken?.decimals ?: 9,
                             fromToken?.symbol ?: "",
                             fromToken?.decimals ?: 9,
-                            smartDecimals = false,
-                            showPositiveSign = false
+                            smartDecimals = true,
+                            showPositiveSign = false,
+                            roundUp = false
                         ) ?: "",
                         KeyValueRowView.Mode.SECONDARY,
                         !shouldShowFeeRow && !shouldShowViewInExplorer
                     )
                 )
-                if (shouldShowFeeRow) {
-                    feeRow?.let { detailsRowViews.add(it) }
-                }
+                feeRow?.let { detailsRowViews.add(it) }
             }
         }
 
@@ -874,6 +879,36 @@ class TransactionVC(
         v
     }
 
+    private val cexFooter by lazy { CexActivityDetailsFooter(context) }
+    private val cexFooterHandler = Handler(Looper.getMainLooper())
+    private val cexFooterRefresh = Runnable { updateCexFooter() }
+
+    private fun updateCexFooter() {
+        cexFooterHandler.removeCallbacks(cexFooterRefresh)
+        val deadline = cexFooter.configure(transaction as? MApiTransaction.Swap)
+        if (!isDisappeared && deadline != null) {
+            cexFooterHandler.postDelayed(
+                cexFooterRefresh,
+                (deadline - System.currentTimeMillis()).coerceAtLeast(1L)
+            )
+        }
+    }
+
+    override fun viewWillAppear() {
+        super.viewWillAppear()
+        updateCexFooter()
+    }
+
+    override fun viewWillDisappear() {
+        super.viewWillDisappear()
+        cexFooterHandler.removeCallbacks(cexFooterRefresh)
+    }
+
+    override fun onDestroy() {
+        cexFooterHandler.removeCallbacks(cexFooterRefresh)
+        super.onDestroy()
+    }
+
     private val innerContentView: WView by lazy {
         val v = WView(context)
         v.addView(headerViewContainer, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -892,6 +927,7 @@ class TransactionVC(
             v.addView(transactionAddress, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
         v.addView(transactionDetails, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        v.addView(cexFooter, ConstraintLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setConstraints {
             toTop(headerViewContainer)
             toCenterX(headerViewContainer)
@@ -904,8 +940,11 @@ class TransactionVC(
                 topToBottom(transactionDetails, actionsView, ViewConstants.GAP.toFloat())
             }
             toCenterX(transactionDetails, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
-            toBottomPx(transactionDetails, navigationController?.getSystemBars()?.bottom ?: 0)
+            toBottomPx(cexFooter, navigationController?.getSystemBars()?.bottom ?: 0)
+            topToBottom(cexFooter, transactionDetails)
+            toCenterX(cexFooter, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             setVerticalBias(transactionDetails.id, 0f)
+            setVerticalBias(cexFooter.id, 0f)
         }
         v
     }
@@ -1075,13 +1114,14 @@ class TransactionVC(
         applyExpandPresentation()
 
         if (transaction.shouldLoadDetails == true) loadActivityDetails()
+        updateFeeRow()
     }
 
     private var appliedDetailsExpandedByDefault: Boolean? = null
     override fun insetsUpdated() {
         super.insetsUpdated()
         innerContentView.setConstraints {
-            toBottomPx(transactionDetails, navigationController?.getSystemBars()?.bottom ?: 0)
+            toBottomPx(cexFooter, navigationController?.getSystemBars()?.bottom ?: 0)
             toStartPx(
                 transactionDetails,
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset
@@ -1090,6 +1130,8 @@ class TransactionVC(
                 transactionDetails,
                 ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset
             )
+            toStartPx(cexFooter, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset)
+            toEndPx(cexFooter, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
             transactionAddress?.let {
                 toStartPx(it, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarStartInset)
                 toEndPx(it, ViewConstants.HORIZONTAL_PADDINGS.dp + systemBarEndInset)
@@ -1120,6 +1162,7 @@ class TransactionVC(
         super.updateTheme()
 
         updateBackground()
+        updateCexFooter()
         reloadCommentView()
         updateTransactionAddressBackgroundColor()
         // headerView corners are updated in updateBackground()
@@ -1197,6 +1240,7 @@ class TransactionVC(
         val progress = effectiveExpandProgress
         updateBackground()
         transactionDetails.alpha = progress
+        cexFooter.alpha = progress
         transactionAddress?.alpha = progress
         val padding = (ViewConstants.HORIZONTAL_PADDINGS.dp * progress).roundToInt()
         headerViewContainer.setPaddingRelative(
@@ -1354,6 +1398,7 @@ class TransactionVC(
     }
 
     private fun reloadData() {
+        updateCexFooter()
         configureTitle(animated = true)
         setNavSubtitle(transactionNavSubtitle())
         updateEstimatedTimeRow()
@@ -1361,15 +1406,32 @@ class TransactionVC(
         reloadCommentView()
         reloadTransactionAddressView()
         actionsView.resetTabs(generateActions())
-        calcFee(transaction)?.let { fee ->
-            feeRow?.setValue(
-                fee,
-                fadeIn = false
-            )
-            feeRow?.isLoading = false
-        } ?: run {
-            loadActivityDetails()
+        loadActivityDetails()
+        updateFeeRow()
+    }
+
+    private fun updateFeeRow() {
+        val isLoading =
+            transaction.shouldLoadDetails == true && loadingDetailsActivityId == transaction.id
+        val fee = calcFee(transaction)
+        val price = TokenStore.getToken(transaction.getTxSlug(), searchMinterAddress = true)
+            ?.nativeToken?.price
+        val canToggle = fee != null && price != null && price.isFinite() && price > 0
+        val displayedFee = if (shouldShowFeeInBaseCurrency && !isLoading && canToggle) {
+            calcFeeEquivalent(transaction) ?: fee
+        } else {
+            fee
         }
+        feeRow?.apply {
+            setValue(if (isLoading) null else displayedFee)
+            this.isLoading = isLoading
+            isGone = !isLoading && fee == null
+            valueLabel.contentView.isClickable = !isLoading &&
+                (shouldShowFeeInBaseCurrency || canToggle)
+            valueLabel.contentView.isFocusable = valueLabel.contentView.isClickable
+        }
+        val lastVisibleRow = detailsRowViews.lastOrNull { !it.isGone }
+        detailsRowViews.forEach { it.setLast(it == lastVisibleRow) }
     }
 
     private fun reloadCommentView() {
@@ -1419,10 +1481,35 @@ class TransactionVC(
         }
     }
 
+    private fun calcFeeEquivalent(transaction: MApiTransaction): String? {
+        val nativeToken = TokenStore.getToken(transaction.getTxSlug(), searchMinterAddress = true)
+            ?.nativeToken ?: return null
+        val price = nativeToken.price?.takeIf { it.isFinite() && it > 0 } ?: return null
+        val amount = when (transaction) {
+            is MApiTransaction.Transaction -> transaction.fee
+            is MApiTransaction.Swap -> transaction.networkFee?.toBigInteger(nativeToken.decimals)
+        }?.takeIf { it > BigInteger.ZERO } ?: return null
+        val equivalent = (amount.doubleAbsRepresentation(nativeToken.decimals) * price).toString(
+            decimals = nativeToken.decimals,
+            currency = WalletCore.baseCurrency.sign,
+            currencyDecimals = nativeToken.decimals,
+            smartDecimals = true,
+            showPositiveSign = false
+        ) ?: return null
+        val isPending = when (transaction) {
+            is MApiTransaction.Transaction -> isPendingTransaction
+
+            is MApiTransaction.Swap ->
+                transaction.status.uiStatus ==
+                    MApiTransaction.UIStatus.PENDING
+        }
+        return (if (isPending) MFeePrecision.APPROXIMATE.prefix else "") + equivalent
+    }
+
     private fun calcFee(transaction: MApiTransaction): String? {
-        if (transaction.shouldLoadDetails == true) return null
         when (transaction) {
             is MApiTransaction.Transaction -> {
+                if (transaction.fee <= BigInteger.ZERO) return null
                 val token = TokenStore.getToken(transaction.slug)
                 val nativeToken = token?.nativeToken
                 return if (nativeToken == null) {
@@ -1438,6 +1525,7 @@ class TransactionVC(
             }
 
             is MApiTransaction.Swap -> {
+                if ((transaction.networkFee ?: 0.0) <= 0.0) return null
                 val fromToken = transaction.fromToken ?: return null
                 val nativeDecimals = fromToken.nativeToken?.decimals ?: fromToken.decimals
                 val feeTerms = MFeeTerms(
@@ -1580,6 +1668,7 @@ class TransactionVC(
                                 contentView,
                                 roundRadius = 16f.dp
                             )
+
                         )
                     }
 
@@ -1670,6 +1759,7 @@ class TransactionVC(
                             contentView,
                             roundRadius = 16f.dp
                         )
+
                     )
                 }
 
@@ -1771,6 +1861,7 @@ class TransactionVC(
                                 contentView,
                                 roundRadius = 16f.dp
                             )
+
                         )
                     }
 
@@ -1788,34 +1879,35 @@ class TransactionVC(
         }
 
     private fun loadActivityDetails() {
-        val accountId = AccountStore.activeAccountId ?: return
-        val activityId = transaction.id
+        if (transaction.shouldLoadDetails != true || isDestroyed) return
+        val accountId = showingAccountId
+        val requestedActivity = transaction
+        val activityId = requestedActivity.id
         if (loadingDetailsActivityId == activityId) return
         loadingDetailsActivityId = activityId
         WalletCore.call(
             ApiMethod.WalletData.FetchActivityDetails(
                 accountId,
-                transaction
+                requestedActivity
             ),
             callback = { res, err ->
                 if (loadingDetailsActivityId != activityId) return@call
                 loadingDetailsActivityId = null
-                if (err != null) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        if (view.parent == null || transaction.id != activityId) return@postDelayed
-                        loadActivityDetails()
-                    }, 3000)
+                if (isDestroyed || transaction.id != activityId) return@call
+                if (transaction != requestedActivity) {
+                    loadActivityDetails()
+                    updateFeeRow()
                     return@call
                 }
-                res?.let { transaction ->
-                    ActivityStore.updateCachedTransaction(accountId, transaction)
-                    updateEstimatedTimeRow(transaction)
-                    feeRow?.setValue(
-                        calcFee(transaction),
-                        fadeIn = feeRow?.valueLabel?.contentView?.text.isNullOrEmpty()
-                    )
-                    feeRow?.isLoading = false
+                if (err == null && res != null && transaction.shouldLoadDetails == true) {
+                    ActivityStore.updateCachedTransaction(accountId, res)
+                    isPendingTransaction =
+                        res is MApiTransaction.Transaction && res.isPending()
+                    transaction = adjustTransactionStatusForUi(res)
+                    updateCexFooter()
+                    updateEstimatedTimeRow(res)
                 }
+                updateFeeRow()
             }
         )
     }

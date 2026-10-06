@@ -404,6 +404,7 @@ Encrypted Message: Зашифрованное сообщение
 Message is encrypted: Сообщение зашифровано
 Agree: Согласен
 $swap_action: Обмен
+$swap_batch_tx_duration_hint: Отправка может занять до 1 минуты
 $swap_activity_title: Обмен
 Swap: Обменять
 You Sell: Вы продаёте
@@ -476,12 +477,12 @@ Cross-chain exchange provided by %provider%: Сервис предоставле
 $swap_cex_terms_of_use: условиями использования
 $swap_cex_privacy_policy: политикой конфиденциальности
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: Политика AML/KYC
 $swap_cex_legal_message: "Продолжая, вы соглашаетесь с %terms% и %policy%."
 $swap_cex_legal_message_with_aml: Продолжая, вы соглашаетесь с %terms% и %policy% и понимаете, что перевод может вызвать проверку согласно %aml%.
 Password must contain %length% digits.: Пароль должен содержать %length% цифры.
 Deposit Link: Ссылка для пополнения
 $swap_cex_from_wallet_description: "Токены скоро будут отправлены на ваш адрес в блокчейне %blockchain%:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Появление купленных токенов в вашем кошельке может занять до нескольких часов.
 Minimum amount: Минимум %value%
 Maximum amount: Максимум %value%
 Display Tray Icon: Иконка на панели задач
@@ -586,7 +587,6 @@ Scan your fingerprint: Отсканируйте свой отпечаток па
 Incorrect code, please try again.: Неверный код, пожалуйста, попробуйте снова.
 Correct: Правильно
 Confirm Action: Подтвердить действие
-$classic_confirm_actions: Подтвердить действия
 Confirm Swap: Подтвердите обмен
 Confirm Rewards Claim: Подтвердите вывод наград
 "%amount% to %address%": "%amount% на %address%"
@@ -604,6 +604,8 @@ Buy with Card: Покупка с карты
 Buy with Crypto: Покупка за криптовалюту
 Add funds to swap: Пополните баланс для обмена
 Direct swap unavailable: Прямой обмен недоступен
+"Direct exchange unavailable": "Прямой обмен недоступен"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Чтобы получить %buy_token%, сначала получите %token%, а затем обменяйте на %buy_token%."
 Swap on an external service: Обмен через сторонний сервис
 Buy with a card or receive crypto to fund this swap.: Купите криптовалюту с карты или получите перевод, чтобы пополнить баланс для обмена.
 Buy crypto or choose another token to sell.: Купите криптовалюту или выберите другой токен для продажи.
@@ -979,12 +981,10 @@ Import Wallet: Импорт кошелька
 Please top up your %token% balance.: Пожалуйста, пополните ваш %token%-баланс.
 Remember Passcode: Запоминать код
 Remember Password: Запоминать пароль
-Not available with biometrics.: Недоступно при использовании биометрии.
 App will not ask for signature for %minutes% minutes after last entry.: Приложение не будет запрашивать подпись в течение %minutes% минут после последнего ввода.
 Auto-Exit: Автовыход
 Log out of all wallets after failed attempts.: Выйти из всех кошельков после неудачных попыток.
 "%count% attempts": "%count% попыток"
-Remember for %minutes% minutes: Запомнить на %minutes% минут
 Preview: Предпросмотр
 $preview_not_guaranteed: Предпросмотр **не гарантирует** результат и **может быть подделан** сервисом.
 Unverified Source: Непроверенный источник
@@ -1278,7 +1278,7 @@ Confirm Revoking: Подтверждение отзыва
 Unknown Plugin: Неизвестный плагин
 $nft_not_found: NFT не найден
 You will be able to save it again via Transfer Info with this address.: Вы сможете сохранить его снова через Информацию о Переводе с этим адресом.
-Transfer Info: Информация о Переводе
+Transfer Info: Информация о переводе
 Transfer not found: Перевод не найден
 Failed to fetch transfer: Не удалось получить перевод
 Transfer in progress: Перевод выполняется
@@ -2303,6 +2303,8 @@ See All: Показать все
 Add an **extra layer of security** for your wallet in TON network.: Добавьте **дополнительный уровень безопасности** для кошелька в сети TON.
 Agent is unavailable: Агент недоступен
 Another transaction was sent from this wallet simultaneously. Please try again.: Одновременно из этого кошелька была отправлена другая транзакция. Пожалуйста, попробуйте ещё раз.
+Telegram Wallet contract was not found at this address.: Контракт Telegram Wallet не найден по этому адресу.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Публичный ключ Telegram Wallet не совпадает с этой seed-фразой. Возможно, кошелёк изменил свой ключ.
 Buying with card is not supported for this chain.: Покупка с карты не поддерживается для этой сети.
 Confirm with Telegram: Подтвердить через Telegram
 Couldn't open support chat. Please try again.: Не удалось открыть чат поддержки. Пожалуйста, попробуйте ещё раз.
@@ -2367,8 +2369,33 @@ Search token or stock: Поиск токена или акции
 
 Unknown Transfer: Неизвестный перевод
 $dapp_sign_data_for_prefix: для
+
+# Token Buy / Sell
+"Pay %value%": "Оплатить %value%"
+"Receive %value%": "Получить %value%"
+"Buy %token% via %provider%": "Купить %token% через %provider%"
+"Sell %token% via %provider%": "Продать %token% через %provider%"
+"Switch Amount Currency": "Изменить валюту суммы"
+"Pay With": "Оплатить с помощью"
+"Receive in": "Получить в"
+"You Pay": "Вы платите"
+"You Receive": "Вы получаете"
+"You pay": "Вы платите"
 Successfully Sent: Успешно отправлено
 Successfully Signed: Успешно подписано
 3D Card: 3D карта
 Coming soon: Скоро
 $dapp_identity_not_confirmed: Подлинность приложения **не подтверждена**.
+
+# Token trade asset browser and details
+"Choose Asset": "Выберите актив"
+"Asset to Buy": "Актив для покупки"
+"Asset to Sell": "Актив для продажи"
+"Fiat": "Фиат"
+"Stocks": "Акции"
+"Popular Currencies": "Популярные валюты"
+"Cross-chain Provider": "Провайдер кроссчейн-обмена"
+"Min": "Мин."
+Ruble: Рубль
+$token_price_value: "Цена: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Обычно такой обмен занимает несколько минут. В редких случаях — до двух часов.

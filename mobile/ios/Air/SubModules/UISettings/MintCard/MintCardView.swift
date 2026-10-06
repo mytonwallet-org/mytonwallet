@@ -5,6 +5,8 @@ import WalletContext
 import WalletCore
 
 final class MintCardView: UIView {
+    private static let topSnapDistance: CGFloat = 50
+
     var onUpgrade: (ApiMtwCardType) -> Void = { _ in }
     var isSubmitting = false {
         didSet { updateControls(); updatePlayback() }
@@ -32,6 +34,7 @@ final class MintCardView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        scrollView.delegate = self
         scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.showsVerticalScrollIndicator = false
         if #available(iOS 26, *) { scrollView.topEdgeEffect.isHidden = true; scrollView.bottomEdgeEffect.isHidden = true }
@@ -277,17 +280,25 @@ final class MintCardView: UIView {
         footerBackground.solidEdgeLength = max(0, bounds.height - footerTop)
         // Scroll beneath the fade, with enough clearance to reveal the last row above it.
         let previousOffset = scrollView.contentOffset
-        scrollView.frame = bounds
-        scrollView.contentInset.bottom = bounds.height - fadeTop + 16
+        let previousSize = scrollView.bounds.size
+        let previousContentSize = scrollView.contentSize
+        let previousInsets = scrollView.contentInset
+        if scrollView.frame != bounds { scrollView.frame = bounds }
+        let bottomInset = bounds.height - fadeTop + 16
+        if scrollView.contentInset.bottom != bottomInset { scrollView.contentInset.bottom = bottomInset }
         let heroHeight = hero.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height
         hero.frame = CGRect(x: 0, y: 0, width: width, height: heroHeight)
         let benefitsWidth = max(0, width - 32)
         let benefitsHeight = benefits.sizeThatFits(CGSize(width: benefitsWidth, height: .greatestFiniteMagnitude)).height
         benefits.frame = CGRect(x: 16, y: heroHeight + 16, width: benefitsWidth, height: benefitsHeight)
         content.frame = CGRect(x: 0, y: 0, width: width, height: benefits.frame.maxY)
-        scrollView.contentSize = content.bounds.size
-        let maximumOffset = max(0, scrollView.contentSize.height + scrollView.contentInset.bottom - scrollView.bounds.height)
-        scrollView.contentOffset = CGPoint(x: previousOffset.x, y: min(previousOffset.y, maximumOffset))
+        if scrollView.contentSize != content.bounds.size { scrollView.contentSize = content.bounds.size }
+        if previousSize != scrollView.bounds.size || previousContentSize != scrollView.contentSize || previousInsets != scrollView.contentInset {
+            // Correct offsets after resizing, but let bottom bounce continue during ordinary layouts.
+            let minimumOffset = -scrollView.adjustedContentInset.top
+            let maximumOffset = max(minimumOffset, scrollView.contentSize.height + scrollView.adjustedContentInset.bottom - scrollView.bounds.height)
+            scrollView.contentOffset = CGPoint(x: previousOffset.x, y: max(minimumOffset, min(previousOffset.y, maximumOffset)))
+        }
     }
 
     override func accessibilityScroll(_ direction: UIAccessibilityScrollDirection) -> Bool {
@@ -301,6 +312,31 @@ final class MintCardView: UIView {
         default: return false
         }
         return true
+    }
+}
+
+extension MintCardView: UIScrollViewDelegate {
+    func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        let minimumOffset = -scrollView.adjustedContentInset.top
+        if targetContentOffset.pointee.y <= minimumOffset + Self.topSnapDistance {
+            targetContentOffset.pointee.y = minimumOffset
+        }
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        // A slow release may not start deceleration toward the adjusted target.
+        let minimumOffset = -scrollView.adjustedContentInset.top
+        if !decelerate, scrollView.contentOffset.y > minimumOffset,
+           scrollView.contentOffset.y <= minimumOffset + Self.topSnapDistance {
+            scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: minimumOffset), animated: true)
+        }
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let minimumOffset = -scrollView.adjustedContentInset.top
+        if scrollView.contentOffset.y < minimumOffset {
+            scrollView.contentOffset.y = minimumOffset
+        }
     }
 }
 

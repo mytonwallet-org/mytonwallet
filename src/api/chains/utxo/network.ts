@@ -54,6 +54,10 @@ const UTXO_SIGNER_NETWORKS: Record<UTXOChain, Record<ApiNetwork, UtxoSignerNetwo
     mainnet: DOGE_MAINNET,
     testnet: DOGE_TESTNET,
   },
+  zcash: {
+    mainnet: NETWORK,
+    testnet: TEST_NETWORK,
+  },
 };
 
 export function getUtxoSignerNetwork(chain: UTXOChain, network: ApiNetwork): UtxoSignerNetwork {

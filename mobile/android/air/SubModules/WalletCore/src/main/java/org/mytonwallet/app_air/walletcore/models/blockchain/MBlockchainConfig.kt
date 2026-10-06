@@ -21,6 +21,7 @@ interface MBlockchainConfig {
     val isOffRampSupported: Boolean get() = true
     val isOnchainSwapSupported: Boolean get() = false
     val canSwapByBuyAmount: Boolean get() = false
+    val canTransferFullNativeBalance: Boolean get() = false
     val multiWalletSupport: MultiWalletSupport?
 
     val chainStandard: String? get() = null

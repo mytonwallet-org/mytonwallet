@@ -1011,7 +1011,13 @@ class SplashVC(context: Context) :
                     nextDeeplink = null
                     return
                 }
-                val receiveVC = ReceiveVC.createIfAvailable(context) ?: return
+                val defaultChain = deeplink.chain?.let { chain ->
+                    MBlockchain.valueOfOrNull(chain)?.takeIf { it.isSupported } ?: run {
+                        nextDeeplink = null
+                        return
+                    }
+                }
+                val receiveVC = ReceiveVC.createIfAvailable(context, defaultChain) ?: return
                 val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(receiveVC)
                 window.present(navVC)
@@ -1441,7 +1447,8 @@ class SplashVC(context: Context) :
                 WalletCore.notifyEvent(
                     WalletEvent.OpenUrl(
                         it.toString(),
-                        isExternal = source != DeeplinkOpenSource.IN_APP_BROWSER
+                        isExternal = source != DeeplinkOpenSource.IN_APP_BROWSER,
+                        source = source
                     )
                 )
             }

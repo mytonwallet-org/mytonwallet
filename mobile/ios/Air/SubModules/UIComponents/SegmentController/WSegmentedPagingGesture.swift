@@ -1,7 +1,23 @@
 import UIKit
 
+@MainActor
+protocol WSegmentedPagingGestureTarget: AnyObject {
+    var pageCount: Int { get }
+    var scrollView: UIScrollView! { get }
+    func isForwardNavigationEdge(_ point: CGPoint, in bounds: CGRect) -> Bool
+    func canBeginForwardNavigation(velocity: CGFloat, fromEdge: Bool) -> Bool
+    func beginForwardNavigation(velocity: CGPoint, fromEdge: Bool) -> WInteractivePushTransition?
+    func beginAdditionalPaging()
+    func updateAdditionalPaging(translation: CGFloat)
+    func endAdditionalPaging(translation: CGFloat, velocity: CGFloat, cancelled: Bool)
+}
+
+extension WSegmentedController: WSegmentedPagingGestureTarget {
+    var pageCount: Int { viewControllers.count }
+}
+
 final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizerDelegate {
-    private weak var controller: WSegmentedController?
+    private weak var controller: (any WSegmentedPagingGestureTarget)?
     private weak var touchedView: UIView?
     private let isPagingEnabled: () -> Bool
     private let forwardOnly: Bool
@@ -9,7 +25,7 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
     private var forwardTransition: WInteractivePushTransition?
 
     init(
-        controller: WSegmentedController,
+        controller: any WSegmentedPagingGestureTarget,
         forwardOnly: Bool = false,
         isPagingEnabled: @escaping () -> Bool
     ) {
@@ -44,7 +60,7 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard let controller,
-              controller.viewControllers.count > 1,
+              controller.pageCount > 1,
               controller.scrollView.isScrollEnabled,
               !controller.scrollView.isDragging,
               !controller.scrollView.isDecelerating,

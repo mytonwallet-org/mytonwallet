@@ -9,13 +9,16 @@ struct SwapView: View {
     
     var swapModel: SwapModel
     var isSensitiveDataHidden: Bool
+    var showsSelectors = true
     
     var body: some View {
         WithPerceptionTracking {
             ScrollView {
                 VStack(spacing: 16) {
-                    SwapSelectorsView(model: swapModel.input)
-                        .padding(.top, 8)
+                    if showsSelectors {
+                        SwapSelectorsView(model: swapModel.input)
+                            .padding(.top, 8)
+                    }
                     
                     SwapWarning(displayImpactWarning: swapModel.displayImpactWarning)
                     

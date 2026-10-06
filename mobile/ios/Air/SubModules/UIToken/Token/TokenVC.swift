@@ -104,7 +104,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         button.customTitleFont = WButton.capsuleFont
         button.setTitle(lang("Buy"), for: .normal)
         button.addAction(UIAction { [weak self] _ in
-            self?.presentSwap(isBuying: true)
+            self?.presentTokenTrade(isBuying: true)
         }, for: .touchUpInside)
         return button
     }()
@@ -115,7 +115,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         button.customTitleFont = WButton.capsuleFont
         button.setTitle(lang("Sell"), for: .normal)
         button.addAction(UIAction { [weak self] _ in
-            self?.presentSwap(isBuying: false)
+            self?.presentTokenTrade(isBuying: false)
         }, for: .touchUpInside)
         return button
     }()
@@ -225,6 +225,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         cell.configure(
             token: token,
             sendAvailable: account.supportsSend,
+            swapAvailable: areTradeActionsAvailable,
             earnAvailable: accountContext.isEarnAvailable(forTokenSlug: token.slug)
         )
     }
@@ -516,24 +517,18 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
         guard areTradeActionsAvailable else { return }
         switch id {
         case SharedToolbarActionID.buy:
-            presentSwap(isBuying: true)
+            presentTokenTrade(isBuying: true)
         case SharedToolbarActionID.sell:
             guard hasSellableBalance else { return }
-            presentSwap(isBuying: false)
+            presentTokenTrade(isBuying: false)
         default:
             break
         }
     }
 
-    private func presentSwap(isBuying: Bool) {
+    private func presentTokenTrade(isBuying: Bool) {
         Task { [accountContext, currentToken] in
-            await AppActions.showSwap(
-                accountContext: accountContext,
-                defaultSellingToken: isBuying ? nil : currentToken.slug,
-                defaultBuyingToken: isBuying ? currentToken.slug : nil,
-                defaultSellingAmount: nil,
-                push: nil
-            )
+            await AppActions.showTokenTrade(accountContext: accountContext, token: currentToken, isBuying: isBuying)
         }
     }
 
@@ -562,11 +557,6 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func updateNavigationMenu() {
-        if ConfigStore.shared.shouldRestrictSwapsAndOnRamp {
-            navigationItem.rightBarButtonItem = nil
-            return
-        }
-
         let menu = makeMenu()
         navigationItem.rightBarButtonItem = menu.children.isEmpty
             ? nil
@@ -574,6 +564,10 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
     }
 
     private func makeMenu() -> UIMenu {
+        guard !ConfigStore.shared.shouldRestrictSwapsAndOnRamp else {
+            return UIMenu(children: [])
+        }
+
         let openUrl: (URL) -> () = { url in
             AppActions.openInBrowser(url)
         }
@@ -634,6 +628,7 @@ extension TokenVC: WalletCoreData.EventsObserver {
         case .configChanged:
             updateNavigationMenu()
             applySnapshot(makeSnapshot(), animatingDifferences: true)
+            reconfigureCustomSection(id: actionsCustomSectionID)
             updateTradeActions()
             tokenVM.refreshTokenDetails()
         case .tokensChanged:

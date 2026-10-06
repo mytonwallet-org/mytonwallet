@@ -164,4 +164,7 @@ data class SwapEstimateResponse(
             }
             return false
         }
+
+    val isBatchTx: Boolean
+        get() = SwapHelpers.isBatchSwapTx(dex, request.tokenToSend)
 }

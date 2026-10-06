@@ -14,6 +14,7 @@ export const UTXO_COIN_TYPES: Record<UTXOChain, number> = {
   litecoin: 2,
   dogecoin: 3,
   bitcoincash: 145,
+  zcash: 133,
 };
 
 export const UTXO_SUPPORTED_ADDRESS_TYPES: Record<UTXOChain, readonly UtxoAddressType[]> = {
@@ -21,6 +22,7 @@ export const UTXO_SUPPORTED_ADDRESS_TYPES: Record<UTXOChain, readonly UtxoAddres
   litecoin: ['legacy', 'wrapped-segwit', 'segwit', 'taproot'],
   bitcoincash: ['legacy'],
   dogecoin: ['legacy'],
+  zcash: ['legacy'],
 };
 
 export type UtxoDerivationPaths = Record<UtxoAddressType, string>;

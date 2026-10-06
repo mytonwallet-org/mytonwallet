@@ -190,7 +190,7 @@ struct CrosschainToWalletView: View {
 
     private var internalSwapContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+            Text(lang("Swaps like this usually take a few minutes. In rare cases, up to two hours."))
                 .textStyle(.body, scaling: .dynamic)
                 .foregroundStyle(Color.air.secondaryLabel)
             transactionID
@@ -200,7 +200,7 @@ struct CrosschainToWalletView: View {
 
     private var inProgressContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+            Text(lang("Swaps like this usually take a few minutes. In rare cases, up to two hours."))
                 .textStyle(.body, scaling: .dynamic)
                 .foregroundStyle(Color.air.secondaryLabel)
             transactionID
@@ -241,7 +241,7 @@ struct CrosschainToWalletView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(lang("Please note that it may take up to a few hours for tokens to appear in your wallet."))
+            Text(lang("Swaps like this usually take a few minutes. In rare cases, up to two hours."))
                 .textStyle(.body, scaling: .dynamic)
                 .padding(.top, 13)
             transactionID

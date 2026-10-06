@@ -18,7 +18,7 @@ enum SwapButtonState: Equatable {
 @MainActor final class SwapButtonModel {
     func configuration(for state: SwapButtonState, sellingToken: ApiToken?, buyingToken: ApiToken?) -> DraftButtonConfiguration {
         guard let sellingToken, let buyingToken else {
-            return .init(title: .text(lang("Continue")), isEnabled: false, showLoading: false)
+            return .init(title: .text(lang("Continue")), isEnabled: false, showLoading: false, resetsLoadingAppearance: true)
         }
         let swapTitle = swapTitle(sellingToken: sellingToken, buyingToken: buyingToken)
         switch state {
@@ -26,7 +26,9 @@ enum SwapButtonState: Equatable {
             return .init(title: swapTitle, isEnabled: false, showLoading: true)
         case .invalidPair:
             return .init(title: .text(SwapIssue.invalidPair.buttonTitle), isEnabled: false, showLoading: false)
-        case .emptyAmount, .waitingForEstimate:
+        case .emptyAmount:
+            return .init(title: swapTitle, isEnabled: false, showLoading: false, resetsLoadingAppearance: true)
+        case .waitingForEstimate:
             return .init(title: swapTitle, isEnabled: false, showLoading: false)
         case .estimating(let showContinue):
             return .init(title: showContinue ? .text(lang("Continue")) : swapTitle, isEnabled: false, showLoading: true)

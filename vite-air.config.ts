@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { defineConfig, mergeConfig } from 'vite';
 
+import { resolveBuildStamp } from './dev/buildStamp';
 import { defineEnv } from './plugins/env';
 import { createBaseConfig, ROOT_DIR } from './plugins/viteBase';
 import { APP_ENV } from './src/config';
@@ -37,6 +38,7 @@ export default defineConfig(({ mode }) => mergeConfig(createBaseConfig({
     AGENT_OVERRIDE: 'no_override',
     AGENT_V2_QUOTA_STATUS_ENABLED: '0',
     AGENT_API_URL: '',
+    SDK_BUILD_STAMP: resolveBuildStamp(),
     TONCENTER_MAINNET_URL: '',
     TONCENTER_MAINNET_KEY: '',
     TONCENTER_TESTNET_URL: '',

@@ -207,8 +207,9 @@ class WMenuPopupView(
                                 popupWindow?.pop()
                                 return@setOnClickListener
                             }
+                            return@setOnClickListener
                         }
-                        popupWindow?.dismiss()
+                        if (!item.shouldKeepOpen) popupWindow?.dismiss()
                     }
                 }
             }

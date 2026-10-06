@@ -11,15 +11,19 @@ public struct DraftButtonConfiguration: Equatable {
     public let title: Title
     public let isEnabled: Bool
     public let showLoading: Bool
+    /// An empty form has no resolved appearance to retain during its first load.
+    public let resetsLoadingAppearance: Bool
 
     public init(
         title: Title,
         isEnabled: Bool,
-        showLoading: Bool
+        showLoading: Bool,
+        resetsLoadingAppearance: Bool = false
     ) {
         self.title = title
         self.isEnabled = isEnabled
         self.showLoading = showLoading
+        self.resetsLoadingAppearance = resetsLoadingAppearance
     }
 }
 
@@ -39,14 +43,14 @@ extension DraftButtonConfiguration.Title: Equatable {
     }
 }
 
-/// Keeps a previously enabled appearance while a plausible replacement draft
-/// loads. Interaction and accessibility always follow the actual readiness;
-/// a definitive disabled state takes effect immediately. There is no timeout.
+/// Retains the last resolved appearance during loading, using the primary
+/// appearance when there is no history. Interaction and accessibility always
+/// follow actual readiness; a definitive disabled state takes effect immediately.
 @MainActor
 public final class DraftButtonPresenter {
     private let button: WButton
     private var configuration: DraftButtonConfiguration?
-    private var appearsEnabled = false
+    private var lastResolvedEnabled: Bool?
 
     public init(button: WButton) {
         self.button = button
@@ -57,10 +61,12 @@ public final class DraftButtonPresenter {
             self.configuration = configuration
             applyContent(configuration)
         }
-        if configuration.isEnabled || !configuration.showLoading {
-            appearsEnabled = configuration.isEnabled
+        if configuration.resetsLoadingAppearance {
+            lastResolvedEnabled = nil
+        } else if configuration.isEnabled || !configuration.showLoading {
+            lastResolvedEnabled = configuration.isEnabled
         }
-        button.isEnabled = appearsEnabled
+        button.isEnabled = configuration.showLoading ? (lastResolvedEnabled ?? true) : configuration.isEnabled
         button.isUserInteractionEnabled = configuration.isEnabled
         if configuration.isEnabled {
             button.accessibilityTraits.remove(.notEnabled)

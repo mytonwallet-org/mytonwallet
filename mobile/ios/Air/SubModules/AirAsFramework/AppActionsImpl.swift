@@ -757,6 +757,32 @@ private class AppActionsImpl: AppActionsProtocol {
         let vc = SellVC(accountContext: accountContext, tokenSlug: tokenSlug)
         topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
     }
+
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async {
+        guard accountContext.account.supportsSwap else {
+            await showSwap(accountContext: accountContext, defaultSellingToken: isBuying ? nil : token.slug,
+                           defaultBuyingToken: isBuying ? token.slug : nil, defaultSellingAmount: nil,
+                           defaultBuyingAmount: nil, push: nil, isAccountSwitchingAllowed: true)
+            return
+        }
+        guard !isShowingSwap else { return }
+        isShowingSwap = true
+        defer { isShowingSwap = false }
+        let context = AccountContext(accountId: accountContext.account.id)
+        let request = ApiSwapDefaultsRequest(accountContext: context, tokenIn: isBuying ? nil : token, tokenOut: isBuying ? token : nil)
+        let defaults = (try? await Api.resolveSwapDefaults(request))
+            ?? ApiSwapDefaults(tokenIn: request.tokenIn, tokenOut: request.tokenOut)
+        guard !Task.isCancelled else { return }
+        let vc = SwapVC(accountContext: context, defaults: defaults, tradeDirection: isBuying ? .buy : .sell)
+        let nc = WNavigationController(rootViewController: vc)
+        nc.sheetPresentationController?.detents = [.large()]
+        topViewController()?.present(nc, animated: true)
+    }
+
+    static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency) {
+        let vc = SellVC(accountContext: accountContext, tokenSlug: amount.type.slug, requestedAmount: amount, requestedCurrency: currency)
+        pushIfNeeded(vc, push: true)
+    }
     
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async {
         if accountContext.account.supportsSwap != true {

@@ -13,6 +13,7 @@ import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 
+import NftImage from '../common/NftImage';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 
 import styles from './NftInfo.module.scss';
@@ -83,7 +84,7 @@ function NftInfo({
   function renderContent() {
     return (
       <>
-        {thumbnail && <img src={thumbnail} alt={name} className={styles.thumbnail} />}
+        <NftImage url={thumbnail} alt={name} className={styles.thumbnail} />
 
         <div className={styles.info}>
           <div className={styles.title}>

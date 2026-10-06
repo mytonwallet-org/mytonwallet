@@ -8,12 +8,14 @@ public struct ActivityIconView: UIViewRepresentable {
     public var size: CGFloat
     public var accessorySize: CGFloat?
     public var isTransactionConfirmation: Bool
+    public var hideMainIcon: Bool
     
-    public init(activity: ApiActivity, size: CGFloat, accessorySize: CGFloat?, isTransactionConfirmation: Bool) {
+    public init(activity: ApiActivity, size: CGFloat, accessorySize: CGFloat?, isTransactionConfirmation: Bool, hideMainIcon: Bool = false) {
         self.activity = activity
         self.size = size
         self.accessorySize = accessorySize
         self.isTransactionConfirmation = isTransactionConfirmation
+        self.hideMainIcon = hideMainIcon
     }
 
     public func makeUIView(context: Context) -> IconView {
@@ -22,7 +24,7 @@ public struct ActivityIconView: UIViewRepresentable {
 
     public func updateUIView(_ uiView: IconView, context: Context) {
         uiView.setSize(size)
-        uiView.config(with: activity, isTransactionConfirmation: isTransactionConfirmation)
+        uiView.config(with: activity, isTransactionConfirmation: isTransactionConfirmation, hideMainIcon: hideMainIcon)
         if let accessorySize {
             let borderWidth = borderWidthForAccessorySize(accessorySize)
             let chainSize = max(0, accessorySize - 2 * borderWidth)

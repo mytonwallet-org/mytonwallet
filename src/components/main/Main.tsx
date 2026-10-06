@@ -22,6 +22,7 @@ import buildClassName from '../../util/buildClassName';
 import { getStakingStateStatus } from '../../util/staking';
 import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
+import { getIsMainActive } from './helpers/getIsMainActive';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
@@ -64,6 +65,7 @@ import Warnings from './sections/Warnings';
 import styles from './Main.module.scss';
 
 interface OwnProps {
+  accountId?: string;
   isActive?: boolean;
 }
 
@@ -89,6 +91,7 @@ const MARKET_PRELOAD_DELAY = 5000; // 5 sec
 
 function Main({
   isActive,
+  accountId,
   stakingState,
   isTestnet,
   isViewMode,
@@ -201,7 +204,7 @@ function Main({
   function renderLandscapeLayout() {
     return (
       <div ref={landscapeContainerRef} className={styles.landscapeContainer} dir={lang.isRtl ? 'rtl' : 'ltr'}>
-        <div className={buildClassName(styles.sidebar, 'custom-scroll')}>
+        <div key={accountId} className={buildClassName(styles.sidebar, 'custom-scroll')}>
           <Warnings onOpenBackupWallet={openBackupWalletModal} />
 
           <Header />
@@ -237,18 +240,18 @@ function Main({
     <>
       {renderContent()}
 
-      <StakeModal />
-      <StakingInfoModal isOpen={isStakingInfoModalOpen} onClose={closeStakingInfo} />
-      <ReceiveModal />
-      <InvoiceModal />
-      <UnstakeModal />
-      <StakingClaimModal />
-      <VestingModal />
-      <VestingPasswordModal />
-      <RenewDomainModal />
-      <LinkingDomainModal />
-      <PromotionModal />
-      <AccountSelectorModal />
+      <StakeModal key={accountId} />
+      <StakingInfoModal key={accountId} isOpen={isStakingInfoModalOpen} onClose={closeStakingInfo} />
+      <ReceiveModal key={accountId} />
+      <InvoiceModal key={accountId} />
+      <UnstakeModal key={accountId} />
+      <StakingClaimModal key={accountId} />
+      <VestingModal key={accountId} />
+      <VestingPasswordModal key={accountId} />
+      <RenewDomainModal key={accountId} />
+      <LinkingDomainModal key={accountId} />
+      <PromotionModal key={accountId} />
+      <AccountSelectorModal key={accountId} />
     </>
   );
 }
@@ -280,6 +283,6 @@ export default memo(
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
+    getIsMainActive,
   )(Main),
 );

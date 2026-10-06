@@ -12,6 +12,10 @@ extension ProtectedAction where HeaderView == SwapConfirmHeaderView, Result == S
         guard let snapshot = model.makeConfirmationSnapshot(payoutAddress: payoutAddress) else {
             return nil
         }
+        let isBatchTx = SwapBatchTxPolicy.isBatchTx(
+            estimate: snapshot.estimateState.dexEstimate,
+            sellingToken: snapshot.confirmation.selling.token
+        )
         let completion: Completion<SwapExecutionResult>
         if presentCrosschainResult {
             completion = .replace { receipt in
@@ -42,7 +46,8 @@ extension ProtectedAction where HeaderView == SwapConfirmHeaderView, Result == S
                 title: lang("Confirm Swap"),
                 header: SwapConfirmHeaderView(
                     fromAmount: snapshot.confirmation.selling,
-                    toAmount: snapshot.confirmation.buying
+                    toAmount: snapshot.confirmation.buying,
+                    batchNotice: isBatchTx ? lang("$swap_batch_tx_duration_hint") : nil
                 ),
                 prefersNavigationTitleWithCustomHeader: false
             ),

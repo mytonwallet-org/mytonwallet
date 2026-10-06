@@ -9,15 +9,32 @@ struct DraftButtonPresenterTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
 
     @Test
-    func `first load does not inherit the default enabled UIButton appearance`() {
+    func `first load uses primary appearance without allowing activation`() {
         let button = WButton()
+        button.isEnabled = false
         let presenter = DraftButtonPresenter(button: button)
         presenter.apply(loading)
 
-        #expect(!button.isEnabled)
+        #expect(button.isEnabled)
         #expect(!button.isUserInteractionEnabled)
         #expect(button.accessibilityTraits.contains(.notEnabled))
         #expect(button.showLoading)
+    }
+
+    @Test
+    func `empty input clears appearance history for the next load`() {
+        let button = WButton()
+        let presenter = DraftButtonPresenter(button: button)
+        presenter.apply(.init(title: .text("Insufficient Balance"), isEnabled: false, showLoading: false))
+        presenter.apply(.init(title: .text("Continue"), isEnabled: false, showLoading: false, resetsLoadingAppearance: true))
+        #expect(!button.isEnabled)
+        #expect(!button.isUserInteractionEnabled)
+
+        presenter.apply(loading)
+        #expect(button.isEnabled)
+        #expect(button.showLoading)
+        #expect(!button.isUserInteractionEnabled)
+        #expect(button.accessibilityTraits.contains(.notEnabled))
     }
 
     @Test

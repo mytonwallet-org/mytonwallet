@@ -397,7 +397,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       const deviceInfo = tonConnectGetDeviceInfo(account);
       const items: ConnectItemReply[] = [
-        buildTonAddressReplyItem(accountId, account.byChain.ton),
+        buildTonAddressReplyItem(accountId, account.byChain.ton, promiseResult.proofPublicKeys?.[0]),
       ];
 
       if (proof) {
@@ -1370,7 +1370,11 @@ async function ensureRequestParams(
   } as ApiDappRequest & { url: string; accountId: string };
 }
 
-function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): ConnectItemReply {
+function buildTonAddressReplyItem(
+  accountId: string,
+  wallet: ApiTonWallet,
+  proofPublicKey?: string,
+): ConnectItemReply {
   const { network } = parseAccountId(accountId);
   const { publicKey, address, version } = wallet;
 
@@ -1386,7 +1390,7 @@ function buildTonAddressReplyItem(accountId: string, wallet: ApiTonWallet): Conn
     name: 'ton_addr',
     address: toRawAddress(address),
     network: network === 'mainnet' ? CHAIN.MAINNET : CHAIN.TESTNET,
-    publicKey,
+    publicKey: proofPublicKey ?? publicKey,
     walletStateInit: stateInit
       .toBoc({ idx: true, crc32: true })
       .toString('base64'),

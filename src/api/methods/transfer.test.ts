@@ -1,20 +1,36 @@
-import type { ApiCheckTransactionDraftOptions, ApiCheckTransactionDraftResult } from '../types';
+import type {
+  ApiCheckTransactionDraftOptions,
+  ApiCheckTransactionDraftResult,
+  ApiSubmitTransferOptions,
+} from '../types';
+import { ApiTransactionError } from '../types';
 
 import chains from '../chains';
-import { checkTransactionDraft } from './transfer';
+import { fetchStoredAddress } from '../common/accounts';
+import { checkTransactionDraft, initTransfer, submitTransfer } from './transfer';
 
 jest.mock('../chains', () => ({
   __esModule: true,
   default: {
     ton: {
       checkTransactionDraft: jest.fn(),
+      submitGasfullTransfer: jest.fn(),
     },
   },
 }));
+jest.mock('../common/accounts', () => ({
+  fetchStoredAddress: jest.fn(),
+}));
 
 const mockedCheckTransactionDraft = jest.mocked(chains.ton.checkTransactionDraft);
+const mockedSubmitGasfullTransfer = jest.mocked(chains.ton.submitGasfullTransfer);
 
 const options: ApiCheckTransactionDraftOptions = {
+  accountId: '0-mainnet',
+  toAddress: 'EQ-test',
+  amount: 1n,
+};
+const transferOptions: ApiSubmitTransferOptions = {
   accountId: '0-mainnet',
   toAddress: 'EQ-test',
   amount: 1n,
@@ -96,6 +112,44 @@ describe('checkTransactionDraft cancellation isolation', () => {
     await expect(currentRequest).resolves.toMatchObject({ resolvedAddress: 'EQ-current' });
     await expect(coalescedRequest).resolves.toMatchObject({ resolvedAddress: 'EQ-current' });
     expect(targetRequestCount).toBe(2);
+  });
+});
+
+describe('submitTransfer Telegram Wallet signer mismatch', () => {
+  const onUpdate = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    initTransfer(onUpdate);
+    jest.mocked(fetchStoredAddress).mockResolvedValue('EQ-from');
+  });
+
+  it('emits an account view-mode update when Telegram Wallet signing key changed on-chain', async () => {
+    mockedSubmitGasfullTransfer.mockResolvedValue({
+      error: ApiTransactionError.TelegramWalletPublicKeyMismatch,
+    });
+
+    await expect(submitTransfer('ton', transferOptions)).resolves.toEqual({
+      error: ApiTransactionError.TelegramWalletPublicKeyMismatch,
+    });
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      type: 'updateAccount',
+      accountId: '0-mainnet',
+      accountType: 'view',
+    });
+  });
+
+  it('does not emit a view-mode update for unrelated transfer errors', async () => {
+    mockedSubmitGasfullTransfer.mockResolvedValue({
+      error: ApiTransactionError.InsufficientBalance,
+    });
+
+    await expect(submitTransfer('ton', transferOptions)).resolves.toEqual({
+      error: ApiTransactionError.InsufficientBalance,
+    });
+
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 });
 

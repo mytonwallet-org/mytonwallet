@@ -39,7 +39,7 @@ enum RootContainerLayout: String {
 @MainActor
 final class AdaptiveRootViewController: UIViewController, VisibleContentProviding, WalletCoreData.EventsObserver {
     private var activeContentViewController: UIViewController?
-    private weak var activeTopTabsRootViewController: TopTabsRootViewController?
+    let searchController = RootSearchToolbarController()
     private var activeLayout: RootContainerLayout?
     private var activeShowsActionButtonsRow = WalletActionButtonsSettings.showsActionButtonsRow
 
@@ -112,7 +112,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
             return
         }
 
-        activeTopTabsRootViewController?.discardSearch()
+        searchController.prepareForLayoutChange()
         let navigationState = activeContentViewController.flatMap(AdaptiveRootNavigationState.init)
         let contentViewController = makeContentViewController(for: layout)
         contentViewController.loadViewIfNeeded()
@@ -132,10 +132,10 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         switch layout {
         case .tab:
             return WNavigationController(
-                rootViewController: TopTabsRootViewController()
+                rootViewController: TopTabsRootViewController(searchController: searchController)
             )
         case .split:
-            return SplitRootViewController()
+            return SplitRootViewController(searchController: searchController)
         }
     }
 
@@ -144,8 +144,6 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         layout: RootContainerLayout,
         width: CGFloat
     ) {
-        activeTopTabsRootViewController?.discardSearch()
-        activeTopTabsRootViewController = nil
         if let activeContentViewController {
             activeContentViewController.willMove(toParent: nil)
             activeContentViewController.view.removeFromSuperview()
@@ -162,10 +160,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         view.addSubview(contentViewController.view)
         contentViewController.didMove(toParent: self)
 
-        let topTabsRootViewController = contentViewController.descendantViewController(
-            of: TopTabsRootViewController.self
-        )
-        activeTopTabsRootViewController = topTabsRootViewController
+        searchController.finishLayoutChange()
 
         StartupTrace.mark(
             "rootContainer.activeRoot.layout",
@@ -301,7 +296,7 @@ private struct AdaptiveRootNavigationState {
                     topTabsRootViewController.setNavigationStack(stack, for: id)
                 }
             }
-            topTabsRootViewController.selectTab(selectedTabId)
+            topTabsRootViewController.selectTab(selectedTabId, animated: false)
             return
         }
 

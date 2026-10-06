@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.stores
 
+import android.os.SystemClock
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
@@ -18,6 +19,7 @@ import org.mytonwallet.app_air.walletbasecontext.logger.Logger
 import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletcontext.cacheStorage.WCacheStorage
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcontext.utils.ensureMainThread
 import org.mytonwallet.app_air.walletcore.TESTNET_SLUGS
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
@@ -52,6 +54,11 @@ internal fun <T> mergeTokenUpdateMaps(
 }
 
 object TokenStore : IStore {
+    private const val MARKET_REFRESH_INTERVAL_MS = 5 * 60_000L
+    private var marketAssetsRequest: ApiMethod.Tokens.FetchMarketAssets? = null
+    private var marketAssetsRequestLangCode: String? = null
+    private var lastMarketAssetsFetchedAt: Long? = null
+    private var lastMarketAssetsLangCode: String? = null
 
     // Observable Flow
     data class Tokens(val tokens: Map<String, ApiTokenWithPrice>)
@@ -269,6 +276,7 @@ object TokenStore : IStore {
 
     fun onBridgeReady() {
         TokenDetailsCacheHelper.onBridgeReady()
+        loadMarketAssets()
     }
 
     fun cachedTokenDetails(tokenSlug: String): MApiTokenDetails? =
@@ -437,8 +445,38 @@ object TokenStore : IStore {
         }
     }
 
-    fun cacheMarketAssets(raw: String?) {
-        WCacheStorage.setMarketAssets(raw)
+    fun loadMarketAssets() {
+        ensureMainThread {
+            if (!WalletCore.isBridgeReady) return@ensureMainThread
+            val langCode = WGlobalStorage.getLangCode()
+            if (marketAssetsRequest != null && marketAssetsRequestLangCode == langCode) {
+                return@ensureMainThread
+            }
+            val now = SystemClock.elapsedRealtime()
+            if (lastMarketAssetsLangCode == langCode &&
+                lastMarketAssetsFetchedAt?.let { now - it < MARKET_REFRESH_INTERVAL_MS } == true
+            ) {
+                return@ensureMainThread
+            }
+            val request = ApiMethod.Tokens.FetchMarketAssets(langCode)
+            val bridge = WalletCore.bridge
+            marketAssetsRequest = request
+            marketAssetsRequestLangCode = langCode
+            WalletCore.call(request) { raw, res, err ->
+                if (marketAssetsRequest !== request) return@call
+                marketAssetsRequest = null
+                marketAssetsRequestLangCode = null
+                if (WalletCore.bridge !== bridge || err != null || res == null ||
+                    WGlobalStorage.getLangCode() != langCode
+                ) {
+                    return@call
+                }
+                WCacheStorage.setMarketAssets(raw)
+                lastMarketAssetsFetchedAt = SystemClock.elapsedRealtime()
+                lastMarketAssetsLangCode = langCode
+                WalletCore.notifyEvent(WalletEvent.MarketAssetsUpdated)
+            }
+        }
     }
 
     fun cachedMarketAssets(): MApiMarketAssetsResponse? =
@@ -468,6 +506,10 @@ object TokenStore : IStore {
     }
 
     fun clearDownloadedData() {
+        marketAssetsRequest = null
+        marketAssetsRequestLangCode = null
+        lastMarketAssetsFetchedAt = null
+        lastMarketAssetsLangCode = null
         cacheScope.coroutineContext.cancelChildren()
         pendingTokensCache.set(null)
         pendingSwapCache.set(null)

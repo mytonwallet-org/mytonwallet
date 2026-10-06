@@ -77,6 +77,8 @@ export function getSwapEstimateResetParams(global: GlobalState) {
     dieselStatus: undefined,
     dexLabel: undefined,
     dexRouterLabel: undefined,
+    needsApprove: undefined,
+    isBatchTx: undefined,
     routes: undefined,
     currentCexLabel: undefined,
     currentCexProviderName: undefined,

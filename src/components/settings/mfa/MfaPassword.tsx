@@ -1,4 +1,4 @@
-import React, { memo } from '../../../lib/teact/teact';
+import React, { memo, useEffect, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
 import { selectCurrentAccount, selectCurrentAccountId } from '../../../global/selectors';
@@ -14,7 +14,6 @@ import ModalHeader from '../../ui/ModalHeader';
 import PasswordForm from '../../ui/PasswordForm';
 import WalletAvatar from '../../ui/WalletAvatar';
 
-import avatarStyles from '../../../components/ui/WalletAvatar.module.scss';
 import settingsStyles from '../Settings.module.scss';
 import styles from './Mfa.module.scss';
 
@@ -40,12 +39,14 @@ interface StateProps {
       username?: string;
       avatarUrl?: string;
     };
+    failedAttemptCount?: number;
   };
 
   mfa?: {
     user?: {
       name: string;
       username?: string;
+      avatarUrl?: string;
     };
   };
 }
@@ -71,15 +72,32 @@ function MfaPassword({
     isScrolled,
   } = useScrolledState();
 
-  const isInstall = !!installMfa;
+  // How many install attempts had failed when the user last pressed Connect. The install is still running
+  // while `failedAttemptCount` has not grown. The error text can't show this: the same error twice in a row
+  // looks unchanged.
+  const [failedAttemptsAtSubmit, setFailedAttemptsAtSubmit] = useState<number>();
+  const failedAttemptCount = installMfa?.failedAttemptCount ?? 0;
+
+  // After a successful install the request is cleared, but the screen keeps the install mode and the loader
+  // until it switches to the success screen
+  const isInstallSubmitted = failedAttemptsAtSubmit !== undefined;
+  const isInstall = Boolean(installMfa) || isInstallSubmitted;
+  const isInstalling = isInstallSubmitted && (!installMfa || failedAttemptCount === failedAttemptsAtSubmit);
   const telegramUser = installMfa?.user ?? mfa?.user;
   const telegramAccountName = telegramUser?.name ?? lang('My Telegram Account');
   const telegramAccountUsername = telegramUser?.username && `@${telegramUser.username}`;
 
+  // The install has succeeded once the account has `mfa` and the action has cleared `installMfa`. Waiting for
+  // the clearing matters: the success screen prepares the `Mfa` screen in advance, and `Mfa` reopens this one
+  // while the request still exists.
+  useEffect(() => {
+    if (isInstallSubmitted && mfa && !installMfa) openMfaInstalled();
+  }, [isInstallSubmitted, mfa, installMfa, openMfaInstalled]);
+
   const handleAuthorize = useLastCallback((enclaveToken: string) => {
     if (isInstall) {
+      setFailedAttemptsAtSubmit(failedAttemptCount);
       submitInstallMfa({ enclaveToken });
-      openMfaInstalled();
     } else {
       submitRemoveMfa({ enclaveToken });
       openMfa();
@@ -113,7 +131,12 @@ function MfaPassword({
         onScroll={handleContentScroll}
       >
         <PasswordForm
+          // After a correct passcode `PasswordForm` ignores further input until it is shown again. A failed
+          // install changes the `key`, which creates a new form, so the user can retry. With biometrics, the new
+          // form asks for them right away.
+          key={failedAttemptCount}
           isActive={isActive}
+          isLoading={isInstalling}
           error={error}
           submitLabel={isInstall ? lang('Connect') : lang('Disconnect')}
           noAutoConfirm
@@ -121,7 +144,7 @@ function MfaPassword({
           // key until it is cached, so the first install on an account reads the secret twice
           extraAuthUsages={isInstall ? 1 : 0}
           onAuthorize={handleAuthorize}
-          onCancel={onBackClick}
+          onCancel={onBack}
           onUpdate={clearInstallMfaError}
           noAnimatedIcon
         >
@@ -132,18 +155,11 @@ function MfaPassword({
                 title={accountTitle}
                 className={styles.avatar}
               />
-              {installMfa.user?.avatarUrl ? (
-                <img
-                  src={installMfa.user.avatarUrl}
-                  alt="Account"
-                  className={buildClassName(styles.avatar, avatarStyles.avatar)}
-                />
-              ) : (
-                <WalletAvatar
-                  title={installMfa.user?.name}
-                  className={styles.avatar}
-                />
-              )}
+              <WalletAvatar
+                title={telegramUser?.name}
+                imageUrl={telegramUser?.avatarUrl}
+                className={styles.avatar}
+              />
             </div>
           )}
           <div className={styles.title}>{isInstall ? lang('Confirm Connection') : lang('Confirm Disconnection')}</div>

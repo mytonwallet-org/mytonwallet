@@ -395,6 +395,7 @@ Encrypted Message: 加密消息
 Message is encrypted: 消息已加密
 Agree: 同意
 $swap_action: 交換
+$swap_batch_tx_duration_hint: 傳送最多可能需要 1 分鐘。
 $swap_activity_title: 交換
 Swap: 交換
 You Sell: 您賣出
@@ -467,12 +468,12 @@ Cross-chain exchange provided by %provider%: "%provider%提供的跨鏈交換"
 $swap_cex_terms_of_use: 使用條款
 $swap_cex_privacy_policy: 隱私政策
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: AML/KYC 政策
 $swap_cex_legal_message: "繼續即表示您同意 %terms% 和 %policy%。"
 $swap_cex_legal_message_with_aml: 繼續即表示您同意 %terms% 和 %policy%，並理解該轉帳可能會根據 %aml% 觸發驗證。
 Password must contain %length% digits.: 密碼必須包含%length%位數字。
 Deposit Link: 儲值連結
 $swap_cex_from_wallet_description: 代幣將很快發送到您在%blockchain%區塊鏈中的地址：
-Please note that it may take up to a few hours for tokens to appear in your wallet.: 請注意，代幣顯示在您的錢包中可能需要幾個小時。
 Minimum amount: 最低 %value%
 Maximum amount: 最高 %value%
 Display Tray Icon: 顯示托盤圖標
@@ -576,7 +577,6 @@ Scan your fingerprint: 掃描您的指紋
 Incorrect code, please try again.: 不正確的代碼，請重試。
 Correct: 不錯
 Confirm Action: 確認操作
-$classic_confirm_actions: 確認所有操作
 Confirm Swap: 確認兌換
 Confirm Rewards Claim: 確認獎勵提取
 "%amount% to %address%": "%amount% 至 %address%"
@@ -595,6 +595,8 @@ Buy with Card: 用卡購買
 Buy with Crypto: 用加密貨幣購買
 Add funds to swap: 儲值以進行交換
 Direct swap unavailable: 無法直接交換
+"Direct exchange unavailable": "無法直接兌換"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "若要接收 %buy_token%，請先接收 %token%，再將其兌換為 %buy_token%。"
 Swap on an external service: 透過第三方服務交換
 Buy with a card or receive crypto to fund this swap.: 用卡購買或接收加密貨幣，為此次交換儲值。
 Buy crypto or choose another token to sell.: 購買加密貨幣或選擇其他代幣賣出。
@@ -950,12 +952,10 @@ Import Wallet: 導入錢包
 Please top up your %token% balance.: 請充值您的%token%餘額。
 Remember Passcode: 記住驗證碼
 Remember Password: 記住密碼
-Not available with biometrics.: 無法使用生物識別功能。
 App will not ask for signature for %minutes% minutes after last entry.: 應用程式在上次輸入後的%minutes%分鐘內不會要求簽名。
 Auto-Exit: 自動登出
 Log out of all wallets after failed attempts.: 多次嘗試失敗後登出所有錢包。
 "%count% attempts": "%count% 次嘗試"
-Remember for %minutes% minutes: 記住 %minutes% 分鐘
 Preview: 預覽
 $preview_not_guaranteed: 預覽結果**不受保證**，且**可能被服務偽造**。
 Unverified Source: 未經驗證的來源
@@ -2250,6 +2250,8 @@ See All: 查看全部
 Add an **extra layer of security** for your wallet in TON network.: 為你在 TON 網路中的錢包加入**額外安全層**。
 Agent is unavailable: 助手無法使用
 Another transaction was sent from this wallet simultaneously. Please try again.: 此錢包同時傳送了另一筆交易。請重試。
+Telegram Wallet contract was not found at this address.: 在此地址找不到 Telegram Wallet 合約。
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Telegram Wallet 公鑰與此種子不相符。該錢包可能已輪換金鑰。
 Buying with card is not supported for this chain.: 此網路不支援信用卡購買。
 Confirm with Telegram: 透過 Telegram 確認
 Couldn't open support chat. Please try again.: 無法開啟客服聊天。請重試。
@@ -2313,8 +2315,33 @@ Search token or stock: 搜尋代幣或股票
 
 Unknown Transfer: 未知轉帳
 $dapp_sign_data_for_prefix: 為
+
+# Token Buy / Sell
+"Pay %value%": "支付 %value%"
+"Receive %value%": "接收 %value%"
+"Buy %token% via %provider%": "透過 %provider% 購買 %token%"
+"Sell %token% via %provider%": "透過 %provider% 出售 %token%"
+"Switch Amount Currency": "切換金額幣別"
+"Pay With": "支付方式"
+"Receive in": "接收幣別"
+"You Pay": "您支付"
+"You Receive": "您收到"
+"You pay": "您支付"
 Successfully Sent: 送出成功
 Successfully Signed: 簽名成功
 3D Card: 3D 卡片
 Coming soon: 即將推出
 $dapp_identity_not_confirmed: 應用程式身分**未經確認**。
+
+# Token trade asset browser and details
+"Choose Asset": "選擇資產"
+"Asset to Buy": "要購買的資產"
+"Asset to Sell": "要出售的資產"
+"Fiat": "法幣"
+"Stocks": "股票"
+"Popular Currencies": "熱門貨幣"
+"Cross-chain Provider": "跨鏈服務商"
+"Min": "最小"
+Ruble: 盧布
+$token_price_value: "價格：%value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: 此類交換通常需要幾分鐘。極少數情況下，最長可能需要兩小時。

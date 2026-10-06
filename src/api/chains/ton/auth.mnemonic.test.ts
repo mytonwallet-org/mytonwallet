@@ -1,17 +1,41 @@
-import { wordlists } from 'bip39';
+import * as bip39 from 'bip39';
 import nacl from 'tweetnacl';
 import { WalletContractV4 } from '@ton/ton/dist/wallets/WalletContractV4';
 
-import type { ApiTonAccount } from '../../types';
+import type { ApiBip39Account, ApiTonAccount } from '../../types';
 
+import * as HDKey from '../../../lib/ed25519-hd-key';
 import { deriveMnemonicKeyPair } from '../../../../dev/mfa/mnemonic';
 import { TON_MNEMONIC_VECTORS } from '../../../../tests/fixtures/tonMnemonic';
 import { validateBip39Mnemonic } from '../../common/mnemonic';
 import { getMnemonicWordList } from '../../methods/wallet';
 import { generateMnemonic, getKeyPairFromStoredMnemonic, validateMnemonic } from './auth';
+import { TON_BIP39_PATH } from './constants';
 
 const ACCOUNT: ApiTonAccount = { type: 'ton', byChain: {} };
+const TELEGRAM_ACCOUNT: ApiBip39Account = {
+  type: 'bip39',
+  byChain: {
+    ton: {
+      address: 'telegram-address',
+      publicKey: 'anchor-public-key',
+      version: 'telegram',
+      index: 0,
+      derivation: { path: TON_BIP39_PATH, index: 0 },
+    },
+  },
+};
 const SIGNING_MESSAGE = new TextEncoder().encode('TON mnemonic migration test');
+const ROTATION_ANCHOR_HALF = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon'
+  + ' about';
+const ROTATION_SIGNING_HALF = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
+
+function bip39HalfToTonKeyPair(mnemonic: string[]) {
+  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' ')).toString('hex');
+  const { key } = HDKey.derivePath(TON_BIP39_PATH.replace('{index}', '0'), seed);
+
+  return nacl.sign.keyPair.fromSeed(key);
+}
 
 describe('TON mnemonic compatibility', () => {
   it.each(TON_MNEMONIC_VECTORS)('preserves keys, address and signature for $address', async (vector) => {
@@ -56,7 +80,7 @@ describe('TON mnemonic compatibility', () => {
 
   it('preserves the ordered English recovery word list', () => {
     expect(getMnemonicWordList()).toHaveLength(2048);
-    expect(getMnemonicWordList()).toEqual(wordlists.english);
+    expect(getMnemonicWordList()).toEqual(bip39.wordlists.english);
   });
 
   it('generates 24 TON words that cannot be interpreted as BIP39', async () => {
@@ -65,5 +89,20 @@ describe('TON mnemonic compatibility', () => {
     expect(mnemonic).toHaveLength(24);
     expect(await validateMnemonic(mnemonic)).toBe(true);
     expect(validateBip39Mnemonic(mnemonic)).toBe(false);
+  });
+
+  it('uses the second half of a Telegram rotation mnemonic as the signing key', async () => {
+    const mnemonic = `${ROTATION_ANCHOR_HALF} ${ROTATION_SIGNING_HALF}`.split(' ');
+    const signingHalf = ROTATION_SIGNING_HALF.split(' ');
+    const anchorPublicKey = bip39HalfToTonKeyPair(ROTATION_ANCHOR_HALF.split(' ')).publicKey;
+    const expectedSigningKeyPair = bip39HalfToTonKeyPair(signingHalf);
+
+    const keyPair = await getKeyPairFromStoredMnemonic(mnemonic, TELEGRAM_ACCOUNT);
+
+    expect(Buffer.from(keyPair.publicKey).toString('hex'))
+      .toBe(Buffer.from(expectedSigningKeyPair.publicKey).toString('hex'));
+    expect(Buffer.from(keyPair.secretKey).toString('hex'))
+      .toBe(Buffer.from(expectedSigningKeyPair.secretKey).toString('hex'));
+    expect(Buffer.from(keyPair.publicKey).toString('hex')).not.toBe(Buffer.from(anchorPublicKey).toString('hex'));
   });
 });

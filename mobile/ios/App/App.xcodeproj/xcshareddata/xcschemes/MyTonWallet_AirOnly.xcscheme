@@ -34,6 +34,9 @@
             default = "YES">
          </TestPlanReference>
          <TestPlanReference
+            reference = "container:../Tests/AirKeychainIntegrationTests.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
             reference = "container:../Tests/AirUIIntegrationTests.xctestplan">
          </TestPlanReference>
       </TestPlans>

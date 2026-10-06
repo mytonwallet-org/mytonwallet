@@ -413,6 +413,7 @@ export default function useAgentV2Messages({
           amount: BigInt(resolved.review.amountAtomic),
           toAddress: resolved.review.toAddress,
           ...(resolved.review.comment ? { comment: resolved.review.comment } : {}),
+          shouldRequireFreshAuth: true,
         });
       } else {
         dispatchResolvedAction(resolved);
@@ -452,6 +453,7 @@ export default function useAgentV2Messages({
           amount: undefined,
           toAddress: resolved.toAddress,
           comment: undefined,
+          shouldRequireFreshAuth: true,
         });
         return;
       case 'reviewSend':

@@ -3,9 +3,11 @@ import { getActions, withGlobal } from '../../../global';
 
 import type { UserToken } from '../../../global/types';
 
-import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../../config';
-import { selectCurrentAccountTokens } from '../../../global/selectors';
+import { ANIMATED_STICKER_BIG_SIZE_PX, MFA_INSTALL_FEE, TONCOIN } from '../../../config';
+import { selectCurrentAccount, selectCurrentAccountTokens } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
+import { toDecimal } from '../../../util/decimals';
+import { formatCurrency } from '../../../util/formatNumber';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
 import useInterval from '../../../hooks/useInterval';
@@ -29,6 +31,7 @@ interface OwnProps {
 
 interface StateProps {
   tokens?: UserToken[];
+  isWalletSupported: boolean;
 
   installMfa?: {
     requestId?: string;
@@ -38,19 +41,19 @@ interface StateProps {
   };
 }
 
-const INSTALL_FEE = BigInt(Math.round(0.15 * 1e9));
-
-function InstallMfa({ isSlideActive, tokens, installMfa }: OwnProps & StateProps) {
+function InstallMfa({ isSlideActive, tokens, isWalletSupported, installMfa }: OwnProps & StateProps) {
   const lang = useLang();
 
   const { createInstallMfaRequest, updateInstallMfaRequest } = getActions();
 
-  const isAvailable = useMemo(() => {
+  const hasInstallBalance = useMemo(() => {
     if (!tokens) return false;
 
-    const ton = tokens.find((token) => token.slug === 'toncoin');
-    return !!ton && ton.amount >= INSTALL_FEE;
+    const ton = tokens.find((token) => token.slug === TONCOIN.slug);
+    return !!ton && ton.amount >= MFA_INSTALL_FEE;
   }, [tokens]);
+
+  const isAvailable = isWalletSupported && hasInstallBalance;
 
   useInterval(() => {
     if (isSlideActive && installMfa) updateInstallMfaRequest();
@@ -110,9 +113,9 @@ function InstallMfa({ isSlideActive, tokens, installMfa }: OwnProps & StateProps
 
       <div className={styles.actions}>
         <span
-          className={buildClassName(styles.feeInfo, !isAvailable && styles.feeInfoError)}
+          className={buildClassName(styles.feeInfo, isWalletSupported && !hasInstallBalance && styles.feeInfoError)}
         >
-          {lang('Connection Fee:')} 0.15 TON
+          {lang('Connection Fee:')} {formatCurrency(toDecimal(MFA_INSTALL_FEE), TONCOIN.symbol)}
         </span>
         <Button
           onClick={handleConnectTelegram}
@@ -121,7 +124,9 @@ function InstallMfa({ isSlideActive, tokens, installMfa }: OwnProps & StateProps
           isLoading={isConfirming}
           className={styles.button}
         >
-          {isAvailable ? lang('Connect Telegram') : lang('Insufficient Balance')}
+          {!isWalletSupported
+            ? lang('Unsupported Wallet Version')
+            : isAvailable ? lang('Connect Telegram') : lang('Insufficient Balance')}
         </Button>
       </div>
     </>
@@ -131,6 +136,8 @@ function InstallMfa({ isSlideActive, tokens, installMfa }: OwnProps & StateProps
 export default memo(withGlobal<OwnProps>((global): StateProps => {
   return {
     tokens: selectCurrentAccountTokens(global),
+    // MFA is a wallet extension, and only W5 wallets support extensions
+    isWalletSupported: selectCurrentAccount(global)?.byChain.ton?.version === 'W5',
     installMfa: global.settings.installMfa,
   };
 })(InstallMfa));

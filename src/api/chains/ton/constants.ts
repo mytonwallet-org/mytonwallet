@@ -93,7 +93,7 @@ export const WALLET_IS_BOUNCEABLE = false;
 export const FEE_FACTOR = 1.05;
 
 export const ALL_WALLET_VERSIONS: ApiTonWalletVersion[] = [
-  'simpleR1', 'simpleR2', 'simpleR3', 'v2R1', 'v2R2', 'v3R1', 'v3R2', 'v4R2', 'W5',
+  'simpleR1', 'simpleR2', 'simpleR3', 'v2R1', 'v2R2', 'v3R1', 'v3R2', 'v4R2', 'W5', 'telegram',
 ];
 
 export const RAW_ADDRESS_LENGTH = 66;
@@ -109,6 +109,7 @@ export const TRANSFER_TIMEOUT_SEC = 600; // 10 min.
 export const DEFAULT_MAX_MESSAGES = 4;
 export const LEDGER_MAX_MESSAGES = 1;
 export const W5_MAX_MESSAGES = 255;
+export const TELEGRAM_WALLET_MAX_MESSAGES = 255;
 
 export const LEDGER_WALLET_VERSIONS = {
   v3R2: 'v3r2',
@@ -282,7 +283,7 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     name: 'telegram',
     // Every Telegram wallet deploys the same immutable trampoline, so this hash identifies the wallet but says
     // nothing about its logic: that lives in the blockchain config, under key -123, and is replaced by validator
-    // voting. There is deliberately no `ApiTonWalletVersion` for it, because the app cannot build the contract yet.
+    // voting.
     hash: '9149ae51c1e4689710cebf7830297b16acfbadb363a920a537893e7ffeeca768',
     type: ContractType.Wallet,
   },

@@ -191,13 +191,17 @@ export async function signDappProof(
 ) {
   try {
     const signatures: string[] = [];
+    const publicKeys: string[] = [];
     for (const chain of dappChains) {
       const result = await chains[chain.chain].dapp?.signConnectionProof?.(accountId, proof, enclaveToken);
       if (result && 'signature' in result) {
         signatures.push(result.signature);
+        if (result.publicKey) {
+          publicKeys.push(result.publicKey);
+        }
       }
     }
-    return { signatures };
+    return { signatures, publicKeys: publicKeys.length ? publicKeys : undefined };
   } catch (err) {
     logDebugError('signDappProof', err);
     return {

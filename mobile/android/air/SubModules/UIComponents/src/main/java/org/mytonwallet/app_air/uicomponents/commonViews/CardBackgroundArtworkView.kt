@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -38,10 +37,14 @@ import org.mytonwallet.app_air.uicomponents.R
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 
 /** Cached card artwork with optional Home-only displacement and light response. */
-class CardBackgroundArtworkView(context: Context) : View(context) {
+class CardBackgroundArtworkView(context: Context) :
+    View(context),
+    WalletCore.EventObserver {
     private class GramStar(val x: Float, val y: Float, val radius: Float) {
         val azimuth = atan2(x - 0.5f, 0.5f - y)
     }
@@ -141,14 +144,9 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.ADD)
     }
     private val linearShine = CardLinearShineMotion()
-    private val meshWidth = 12
-    private val meshHeight = 7
-    private val vertices = FloatArray((meshWidth + 1) * (meshHeight + 1) * 2)
-    private val rowEnvelope = FloatArray(meshHeight + 1) { sin(PI * it / meshHeight).toFloat() }
-    private val columnEnvelope = FloatArray(meshWidth + 1) { sin(PI * it / meshWidth).toFloat() }
-    private val rowWave = FloatArray(meshHeight + 1)
-    private val columnWave = FloatArray(meshWidth + 1)
     private var artwork: CardBackgroundArtwork.Artwork? = null
+    private var motionShader: CardBackgroundMotionShader? = null
+    private var motionMesh: CardBackgroundMotionMesh? = null
     val hasArtwork: Boolean get() = artwork != null
     private var cardNumber: Int? = null
     private var isDefaultCard = true
@@ -222,6 +220,8 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
         alpha = 1f
         cardNumber = number
         artwork = null
+        motionShader = null
+        motionMesh = null
         lineTime = 0.0
         blobTime = 0.0
         boost = 0.0
@@ -238,6 +238,8 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
             val shouldFadeIn = image != null && !loadingSynchronously && isShown
             if (shouldFadeIn) alpha = 0f
             artwork = image
+            motionShader = null
+            motionMesh = null
             onArtworkChanged?.invoke(image != null)
             updateEffects()
             invalidate()
@@ -272,9 +274,26 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
         postInvalidateOnAnimation()
     }
 
-    fun pressShine() {
+    fun pressShine(x: Float, y: Float) {
         if (!currentEffects || !shineEnabled || gramShinePaint != null) return
-        linearShine.press()
+        val offsetX = x * width
+        val offsetY = y * height
+        val angle = if (offsetX == 0f && offsetY == 0f) {
+            Math.toRadians(29.0)
+        } else {
+            atan2(offsetY.toDouble(), offsetX.toDouble())
+        }
+        linearShine.press(angle + PI)
+        postInvalidateOnAnimation()
+    }
+
+    fun releaseShine(cancelled: Boolean = false) {
+        linearShine.release(cancelled || !currentEffects)
+        postInvalidateOnAnimation()
+    }
+
+    fun updateShinePressStrength(strength: Float) {
+        linearShine.updatePressStrength(strength)
         postInvalidateOnAnimation()
     }
 
@@ -323,6 +342,7 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        WalletCore.registerObserver(this)
         context.registerReceiver(
             powerReceiver,
             IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
@@ -335,6 +355,7 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
     }
 
     override fun onDetachedFromWindow() {
+        WalletCore.unregisterObserver(this)
         animate().cancel()
         alpha = 1f
         context.unregisterReceiver(powerReceiver)
@@ -360,6 +381,10 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
         updateEffects()
     }
 
+    override fun onWalletEvent(walletEvent: WalletEvent) {
+        if (walletEvent == WalletEvent.CardEffectsChanged) updateEffects()
+    }
+
     private fun updateEffects() {
         val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val systemAnimationsEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
@@ -369,6 +394,7 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
                 isAttachedToWindow &&
                 isShown && hasWindowFocus() &&
                 WGlobalStorage.getAreAnimationsActive() && systemAnimationsEnabled &&
+                !WGlobalStorage.getIs3dCardDisabled() &&
                 power?.isPowerSaveMode != true
         val allowed = requestedEffects && canAnimate
         val fadeOut = !requestedEffects && fadeOutRequested && canAnimate
@@ -470,7 +496,7 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
             ) {
                 canvas.scale(scale, scale)
                 if (effectsLevel > 0f) {
-                    drawMovingArtwork(canvas, image, effectsLevel)
+                    drawMovingArtwork(canvas, layers, effectsLevel)
                 } else {
                     canvas.drawBitmap(image, 0f, 0f, artworkPaint)
                 }
@@ -561,29 +587,21 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
         canvas.restoreToCount(save)
     }
 
-    private fun drawMovingArtwork(canvas: Canvas, image: Bitmap, strength: Float) {
-        val t = lineTime
-        val seed = ((cardNumber ?: 0) * 0.61803398875).toFloat()
-        for (row in 0..meshHeight) {
-            val v = row.toFloat() / meshHeight
-            rowWave[row] = (sin(t * 0.7 + v * 5 + seed) - sin(v * 5 + seed)).toFloat()
+    private fun drawMovingArtwork(
+        canvas: Canvas,
+        layers: CardBackgroundArtwork.Artwork,
+        strength: Float
+    ) {
+        val image = layers.base
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && canvas.isHardwareAccelerated) {
+            val shader = motionShader ?: CardBackgroundMotionShader(image, layers.motionPhase)
+                .also { motionShader = it }
+            shader.draw(canvas, lineTime, strength)
+            return
         }
-        for (column in 0..meshWidth) {
-            val u = column.toFloat() / meshWidth
-            columnWave[column] = (sin(t * 0.53 + u * 4 + seed) - sin(u * 4 + seed)).toFloat()
-        }
-        val amount = 15f * image.width / 400f * strength
-        var index = 0
-        for (row in 0..meshHeight) {
-            for (column in 0..meshWidth) {
-                val u = column.toFloat() / meshWidth
-                val v = row.toFloat() / meshHeight
-                val envelope = columnEnvelope[column] * rowEnvelope[row]
-                vertices[index++] = u * image.width + rowWave[row] * envelope * amount
-                vertices[index++] = v * image.height + columnWave[column] * envelope * amount
-            }
-        }
-        canvas.drawBitmapMesh(image, meshWidth, meshHeight, vertices, 0, null, 0, artworkPaint)
+        val mesh = motionMesh ?: CardBackgroundMotionMesh(image, layers.motionPhase)
+            .also { motionMesh = it }
+        mesh.draw(canvas, lineTime, strength)
     }
 
     private fun drawGramShine(canvas: Canvas, angle: Float, strength: Float) {
@@ -592,11 +610,11 @@ class CardBackgroundArtworkView(context: Context) : View(context) {
     }
 
     private fun drawArtworkShine(canvas: Canvas, strength: Float) {
-        val angle = 29f
+        val angle = linearShine.touchAngle?.let { Math.toDegrees(it).toFloat() } ?: 29f
         val normalX = cos(Math.toRadians(angle.toDouble())).toFloat()
         val normalY = sin(Math.toRadians(angle.toDouble())).toFloat()
         val bandWidth = width * .28f
-        val travel = (normalX * width + normalY * height) / 2 + bandWidth * 1.5f
+        val travel = (abs(normalX) * width + abs(normalY) * height) / 2 + bandWidth * 1.5f
         val offset = linearShine.position.toFloat() * travel
         val centerX = width * .5f + normalX * offset
         val centerY = height * .5f + normalY * offset

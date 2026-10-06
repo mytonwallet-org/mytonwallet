@@ -1,5 +1,6 @@
-import type { ApiChain, ApiSubmitGasfullTransferOptions } from '../types';
+import type { ApiChain, ApiSubmitGasfullTransferOptions, ApiSwapHistoryItem } from '../types';
 
+import { buildLocalTxId } from '../../util/activities';
 import {
   activitiesFromBackendRows,
   activitiesFromSocketMessage,
@@ -10,7 +11,7 @@ import {
   wallet2,
 } from '../../../tests/helpers/swapReconcilerFixtures';
 import { projectSwapActivities } from '../common/activities/swapReconciler';
-import { fetchSwaps, initSwap, swapCexCreateTransaction, swapCexSubmit, swapEstimate } from './swap';
+import { fetchSwaps, initSwap, swapCexCreateTransaction, swapCexSubmit, swapEstimate, swapSubmit } from './swap';
 
 jest.mock('../chains', () => ({
   __esModule: true,
@@ -54,6 +55,7 @@ jest.mock('../hooks', () => ({
 
 jest.mock('./mfa', () => ({
   publishSignedMfaRequest: jest.fn(),
+  registerMfaConfirmationHandler: jest.fn(),
 }));
 
 jest.mock('./other', () => ({
@@ -90,8 +92,9 @@ const { callBackendPost } = require('../common/backend') as { callBackendPost: j
 const { getBackendConfigCache } = require('../common/cache') as { getBackendConfigCache: jest.Mock };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { publishSignedMfaRequest } = require('./mfa') as {
+const { publishSignedMfaRequest, registerMfaConfirmationHandler } = require('./mfa') as {
   publishSignedMfaRequest: jest.Mock;
+  registerMfaConfirmationHandler: jest.Mock;
 };
 
 describe('swap estimate hints', () => {
@@ -239,7 +242,7 @@ describe('swapCexSubmit', () => {
     });
   });
 
-  it.each(['returned error', 'thrown error'])(
+  it.each(['returned error', 'thrown error', 'unpublished MFA request'])(
     'replaces the created activity immediately on %s even when the backend patch fails',
     async (failure) => {
       const onUpdate = jest.fn();
@@ -256,8 +259,11 @@ describe('swapCexSubmit', () => {
       patchSwapItem.mockRejectedValue(new Error('backend unavailable'));
       if (failure === 'returned error') {
         chains.base.submitGasfullTransfer.mockResolvedValue({ error: 'InsufficientBalance' });
-      } else {
+      } else if (failure === 'thrown error') {
         chains.base.submitGasfullTransfer.mockRejectedValue(new Error('submit failed'));
+      } else {
+        chains.base.submitGasfullTransfer.mockResolvedValue({ mfaRequest: { payload: 'payload' } });
+        publishSignedMfaRequest.mockRejectedValue(new Error('submit failed'));
       }
       const submission = swapCexSubmit('base', {
         accountId: '0-mainnet', enclaveToken: 'enclave-token', toAddress: '0xdeposit', amount: 1n, fee: 1n,
@@ -322,6 +328,66 @@ describe('swapCexSubmit', () => {
         hashes: ['0xbase-deposit'],
       })],
     });
+  });
+});
+
+describe('swapSubmit', () => {
+  const historyItem = {
+    id: 'swap-id',
+    timestamp: 1,
+    status: 'pendingTrusted',
+    from: 'TON',
+    fromAmount: '1',
+    to: 'USDT',
+    toAmount: '3',
+  } as ApiSwapHistoryItem;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    patchSwapItem.mockReset();
+    fetchStoredWallet.mockResolvedValue({ address: 'UQ-ton-wallet' });
+    publishSignedMfaRequest.mockResolvedValue({ mfaRequestHash: 'mfa-request-hash' });
+    chains.ton.submitOnchainSwapTransfer.mockResolvedValueOnce({ mfaRequest: { payload: 'payload' } });
+  });
+
+  it('shows an MFA swap in the history once the request is confirmed in Telegram', async () => {
+    const onUpdate = jest.fn();
+    initSwap(onUpdate);
+
+    const result = await swapSubmit('ton', '0-mainnet', 'enclave-token', [], historyItem);
+
+    const localActivityId = buildLocalTxId('swap-id');
+    expect(result).toEqual({ activityId: localActivityId, swapId: 'swap-id', mfaRequestHash: 'mfa-request-hash' });
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    const [[mfaRequestHash, handleConfirmation]] = registerMfaConfirmationHandler.mock.calls;
+    expect(mfaRequestHash).toBe('mfa-request-hash');
+
+    handleConfirmation('confirmed-tx-hash');
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      type: 'newLocalActivities',
+      accountId: '0-mainnet',
+      activities: [expect.objectContaining({
+        id: localActivityId,
+        kind: 'swap',
+        externalMsgHashNorm: 'confirmed-tx-hash',
+      })],
+    });
+  });
+
+  it('closes the backend swap row when the MFA request cannot be published', async () => {
+    publishSignedMfaRequest.mockRejectedValue(new Error('publish failed'));
+
+    await expect(swapSubmit('ton', '0-mainnet', 'enclave-token', [], historyItem)).rejects.toThrow('publish failed');
+
+    expect(patchSwapItem).toHaveBeenCalledWith({
+      address: 'UQ-ton-wallet',
+      swapId: 'swap-id',
+      authToken: 'backend-auth-token',
+      error: expect.stringContaining('publish failed'),
+    });
+    expect(registerMfaConfirmationHandler).not.toHaveBeenCalled();
   });
 });
 

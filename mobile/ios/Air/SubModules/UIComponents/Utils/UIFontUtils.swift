@@ -1,21 +1,7 @@
 import UIKit
 import SwiftUI
 
-public enum CompactDisplayWeight {
-    case medium
-}
-
-public enum CompactRoundedWeight {
-    case bold
-}
-
 public extension UIFont {
-    
-    class func compactRounded(ofSize size: CGFloat, weight: CompactRoundedWeight) -> UIFont {
-        switch weight {
-        case .bold: UIFont(name: "SFCompactRounded-Bold", size: size)!
-        }
-    }
     
     class func roundedNative(ofSize size: CGFloat, weight: UIFont.Weight) -> UIFont {
         let systemFont = UIFont.systemFont(ofSize: size, weight: weight)
@@ -34,15 +20,5 @@ public extension Font {
     static func calSans(size: CGFloat) -> Font {
         let font = UIFont(name: "CalSans-Regular", size: size)!
         return Font(font)
-    }
-    
-    static func compactDisplay(size: CGFloat, weight: CompactDisplayWeight) -> Font {
-        switch weight {
-        case .medium: Font(UIFont(name: "SFCompactDisplay-Medium", size: size)!)
-        }
-    }
-    
-    static func compactRounded(size: CGFloat, weight: CompactRoundedWeight) -> Font {
-        Font(UIFont.compactRounded(ofSize: size, weight: weight))
     }
 }

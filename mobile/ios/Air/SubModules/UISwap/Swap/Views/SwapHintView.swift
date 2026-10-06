@@ -8,21 +8,27 @@ struct SwapHintView: View {
     var onAction: () -> Void
 
     var body: some View {
-        WarningView(header: title, text: message, kind: .warning, actionTitle: actionTitle, onAction: onAction)
+        let content = SwapHintContent(hint: hint)
+        WarningView(header: content.title, text: content.message, kind: .warning, actionTitle: content.actionTitle, onAction: onAction)
     }
+}
 
-    private var title: String {
+struct SwapHintContent {
+    let hint: SwapHint
+    var tradeDirection: TokenTradeDirection? = nil
+
+    var title: String {
         switch hint {
         case .receive, .belowMinimum:
             lang("Add funds to swap")
         case .intermediate:
-            lang("Direct swap unavailable")
+            lang(tradeDirection == nil ? "Direct swap unavailable" : "Direct exchange unavailable")
         case .external:
             lang("Swap on an external service")
         }
     }
 
-    private var message: String {
+    var message: String {
         switch hint {
         case .receive(_, let hasAlternativeToken):
             if hasAlternativeToken {
@@ -33,18 +39,22 @@ struct SwapHintView: View {
         case .belowMinimum:
             lang("Your balances are small. Add funds or choose another token to swap.")
         case .intermediate(let token, let buyingToken):
-            L10n.toBuyBuyTokenFirstBuyTokenThenSwapItForBuyToken(buyToken: buyingToken.symbol, token: token.symbol)
+            if tradeDirection == .sell {
+                L10n.toReceiveBuyTokenFirstReceiveTokenThenExchangeItForBuyToken(buyToken: buyingToken.symbol, token: token.symbol)
+            } else {
+                L10n.toBuyBuyTokenFirstBuyTokenThenSwapItForBuyToken(buyToken: buyingToken.symbol, token: token.symbol)
+            }
         case .external(let providerName, _):
             L10n.openProviderToSwapThisPairInTheBrowser(provider: providerName)
         }
     }
 
-    private var actionTitle: String {
+    var actionTitle: String {
         switch hint {
         case .receive, .belowMinimum:
             lang("Fund")
         case .intermediate(let token, _):
-            L10n.buyToken(token: token.symbol)
+            tradeDirection == .sell ? L10n.receiveValue(value: token.symbol) : L10n.buyToken(token: token.symbol)
         case .external(let providerName, _):
             L10n.openProvider(provider: providerName)
         }

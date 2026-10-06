@@ -116,7 +116,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     
     private var byAccountId: [String: AccountState] = [:]
     private var initialMainHistoryProgressByAccountId: [String: InitialMainHistoryProgress] = [:]
-    private var pendingCardMints = PendingCardMints()
+    nonisolated private let pendingCardMints = PendingCardMints()
     
     private func withAccountState(_ accountId: String, updates: (inout AccountState) -> Void) {
         guard !removedAccountIds.contains(accountId) else {
@@ -690,7 +690,7 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
     }
     
     func clean() {
-        pendingCardMints = PendingCardMints()
+        pendingCardMints.removeAll()
         pendingCexSwapRefreshTask?.cancel()
         pendingCexSwapRefreshTask = nil
         byAccountId = [:]
@@ -1220,6 +1220,10 @@ public actor _ActivityStore: WalletCoreData.EventsObserver {
 
     private func shouldHideBecauseOfNft(accountId: String, transaction: ApiTransactionActivity) -> Bool {
         NftStore.shouldHideTransaction(accountId: accountId, transaction: transaction)
+    }
+
+    nonisolated public func isCardMinting(accountId: String) -> Bool {
+        pendingCardMints.isMinting(accountId: accountId)
     }
 
     public func markCardMintSubmitted(accountId: String, since date: Date) {

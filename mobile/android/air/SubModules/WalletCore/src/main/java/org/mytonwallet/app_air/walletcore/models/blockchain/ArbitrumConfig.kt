@@ -25,6 +25,8 @@ object ArbitrumConfig : MBlockchainConfig {
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS
 
+    override val isOnchainSwapSupported = true
+
     override val isCommentSupported = false
     override val isEncryptedCommentSupported = false
 

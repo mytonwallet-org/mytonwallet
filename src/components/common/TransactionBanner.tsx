@@ -12,6 +12,7 @@ import { getIsNativeToken } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
 
+import NftImage from './NftImage';
 import TokenIcon from './TokenIcon';
 
 import styles from './TransactionBanner.module.scss';
@@ -63,9 +64,9 @@ function TransactionBanner({
     return (
       <div className={buildClassName(styles.nftIcon, Array.isArray(imageUrl) && imageUrl.length > 1 && styles.stacked)}>
         {imageUrls.length ? imageUrls.map((image) => (
-          <img src={image} alt="" key={image} className={styles.image} />
+          <NftImage key={image} url={image} className={styles.image} />
         )) : (
-          <div className={buildClassName(styles.image, styles.imageNoData)} />
+          <NftImage className={styles.image} />
         )}
         {withChainIcon && tokenIn?.chain && tokenIn.slug && !getIsNativeToken(tokenIn.slug) && (
           <img

@@ -93,7 +93,8 @@ fun isUtxoChain(chain: MBlockchain): Boolean = when (chain) {
     MBlockchain.bitcoin,
     MBlockchain.bitcoincash,
     MBlockchain.litecoin,
-    MBlockchain.dogecoin -> true
+    MBlockchain.dogecoin,
+    MBlockchain.zcash -> true
 
     else -> false
 }
@@ -101,6 +102,7 @@ fun isUtxoChain(chain: MBlockchain): Boolean = when (chain) {
 const val LITECOIN_SLUG = "ltc"
 const val BITCOINCASH_SLUG = "bch"
 const val DOGECOIN_SLUG = "doge"
+const val ZCASH_SLUG = "zec"
 const val ETH_SLUG = "eth"
 const val ETH_USDT_MAINNET_SLUG = "ethereum-0xdac17f95"
 const val ETH_USDC_MAINNET_SLUG = "ethereum-0xa0b86991"
@@ -112,6 +114,7 @@ const val BNB_SLUG = "bnb"
 const val BSC_USDT_MAINNET_SLUG = "bnb-0x55d39832"
 const val POLYGON_SLUG = "pol"
 const val ARBITRUM_SLUG = "arb"
+const val OPTIMISM_SLUG = "op"
 const val MONAD_SLUG = "mon"
 const val AVALANCHE_SLUG = "ava"
 const val AVALANCHE_USDT_MAINNET_SLUG = "avalanche-0x9702230a"
@@ -154,7 +157,8 @@ val POPULAR_WALLET_VERSIONS = listOf(
     "v3R1",
     "v3R2",
     "v4R2",
-    "W5"
+    "W5",
+    "telegram"
 )
 
 val PRICELESS_TOKEN_HASHES = setOf(

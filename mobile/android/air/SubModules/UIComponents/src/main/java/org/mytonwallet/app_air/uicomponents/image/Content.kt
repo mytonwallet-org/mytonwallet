@@ -17,7 +17,8 @@ data class Content(
 
     val rounding: Rounding = Rounding.Default,
     val placeholder: Placeholder = Placeholder.Default,
-    val scaleType: ScalingUtils.ScaleType = ScalingUtils.ScaleType.CENTER_CROP
+    val scaleType: ScalingUtils.ScaleType = ScalingUtils.ScaleType.CENTER_CROP,
+    val withBlackBackground: Boolean = false
 ) {
     sealed class Image {
         data object Empty : Image()
@@ -71,7 +72,8 @@ data class Content(
                     image = if (image != null) Image.Url(image) else Image.Empty,
                     subImageRes = if (showChain) token.mBlockchain?.icon ?: 0 else 0,
                     placeholder = Placeholder.Initials(tokenInitials(token.name, token.symbol)),
-                    rounding = rounding
+                    rounding = rounding,
+                    withBlackBackground = token.isRwaStock
                 )
             }
         }
@@ -131,7 +133,8 @@ data class Content(
                 image = mainImage,
                 subImageRes = finalSubImageRes,
                 placeholder = placeholder,
-                rounding = roundingFor(token)
+                rounding = roundingFor(token),
+                withBlackBackground = token.isRwaStock
             )
         }
 

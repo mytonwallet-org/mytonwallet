@@ -161,6 +161,8 @@ private let DEFAULT_CHAIN_ORDER: [ApiChain] = [
     .arbitrum,
     .polygon,
     .avalanche,
+    .optimism,
+    .zcash,
     .dogecoin,
     .litecoin,
     .bitcoincash,
@@ -180,6 +182,7 @@ private let GRAM_CHAIN_ORDER: [ApiChain] = [
     .robinhood,
     .base,
     .arbitrum,
+    .optimism,
    .monad,
    .polygon,
    .avalanche,
@@ -194,6 +197,7 @@ private let BITCOIN_DEFAULT_DERIVATION_PATH = "m/86'/0'/0'/0/{index}"
 private let LITECOIN_DEFAULT_DERIVATION_PATH = "m/84'/2'/0'/0/{index}"
 private let BITCOINCASH_DEFAULT_DERIVATION_PATH = "m/44'/145'/0'/0/{index}"
 private let DOGECOIN_DEFAULT_DERIVATION_PATH = "m/44'/3'/0'/0/{index}"
+private let ZCASH_DEFAULT_DERIVATION_PATH = "m/44'/133'/0'/0/{index}"
 private let EVM_DEFAULT_DERIVATION_PATH = "m/44'/60'/0'/0/{index}"
 private let EVM_ADDRESS_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{40}$"#)
 private let EVM_ADDRESS_PREFIX_REGEX = ChainConfig.RegexPattern(pattern: #"^0x[a-fA-F0-9]{0,40}$"#)
@@ -366,6 +370,7 @@ private func makeEvmChainConfig(
     buySwapAmountIn: String,
     isOnRampSupported: Bool = true,
     isOffRampSupported: Bool = true,
+    isOnchainSwapSupported: Bool = true,
     usdtSlug: String? = nil,
     defaultEnabledSlugs: [String],
     crosschainSwapSlugs: [String],
@@ -385,6 +390,7 @@ private func makeEvmChainConfig(
         canBuyWithCardInRussia: false,
         isOnRampSupported: isOnRampSupported,
         isOffRampSupported: isOffRampSupported,
+        isOnchainSwapSupported: isOnchainSwapSupported,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -752,11 +758,26 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         explorerMainnetUrl: "https://blockchair.com/dogecoin/",
         explorerTestnetUrl: "https://blockchair.com/dogecoin/testnet/"
     ),
+    .zcash: makeUtxoChainConfig(
+        title: "Zcash",
+        defaultDerivationPath: ZCASH_DEFAULT_DERIVATION_PATH,
+        addressRegex: .init(
+            pattern: #"^t[13][a-km-zA-HJ-NP-Z1-9]{33}$|^tm[a-km-zA-HJ-NP-Z1-9]{33}$|^t2[a-km-zA-HJ-NP-Z1-9]{33}$"#
+        ),
+        addressPrefixRegex: .init(pattern: #"^t[123m][a-km-zA-HJ-NP-Z1-9]{0,33}$"#),
+        nativeToken: .ZCASH,
+        feeCheckAddress: "t1HxutHFt2Sejz7fs92wFVAbsFM7NDjsBG6",
+        explorerId: "blockchair",
+        explorerName: "Blockchair",
+        explorerMainnetUrl: "https://blockchair.com/zcash/",
+        explorerTestnetUrl: "https://blockchair.com/zcash/testnet/"
+    ),
     .ethereum: ChainConfig(
         title: "Ethereum",
         chainStandard: .ethereum,
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
+        isOnchainSwapSupported: true,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -822,6 +843,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         chainStandard: .ethereum,
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
+        isOnchainSwapSupported: true,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -943,6 +965,25 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
             .testnet: 421614,
         ]
     ),
+    .optimism: makeEvmChainConfig(
+        title: "Optimism",
+        nativeToken: .OPTIMISM,
+        buySwapAmountIn: "0.001",
+        defaultEnabledSlugs: [],
+        crosschainSwapSlugs: [OPTIMISM_SLUG],
+        tokenInfo: [
+            .OPTIMISM,
+        ],
+        explorerId: "optimismscan",
+        explorerName: "Optimism Etherscan",
+        explorerMainnetUrl: "https://optimistic.etherscan.io/",
+        explorerTestnetUrl: "https://sepolia-optimism.etherscan.io/",
+        isNftSupported: true,
+        walletConnectChainIds: [
+            .mainnet: 10,
+            .testnet: 11155420,
+        ]
+    ),
    .monad: makeEvmChainConfig(
        title: "Monad",
        nativeToken: .MONAD,
@@ -991,6 +1032,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         buySwapAmountIn: "0.1",
         isOnRampSupported: false,
         isOffRampSupported: false,
+        isOnchainSwapSupported: false,
         usdtSlug: HYPERLIQUID_USDC_MAINNET_SLUG,
         defaultEnabledSlugs: [HYPERLIQUID_SLUG],
         crosschainSwapSlugs: [HYPERLIQUID_SLUG, HYPERLIQUID_USDC_MAINNET_SLUG],

@@ -231,7 +231,7 @@ function CreatePasswordForm({
           <Button
             isSubmit
             isPrimary
-            isDisabled={isPasswordsNotEqual || firstPassword === ''}
+            isDisabled={!canSubmit}
             isLoading={isLoading}
             className={styles.btn}
           >

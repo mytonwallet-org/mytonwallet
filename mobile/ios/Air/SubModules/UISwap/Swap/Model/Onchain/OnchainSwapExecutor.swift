@@ -2,6 +2,13 @@ import WalletCore
 import WalletContext
 
 @MainActor struct OnchainSwapExecutor {
+    var buildTransfer: (String, EnclaveToken, ApiSwapBuildRequest) async throws -> ApiSwapBuildResponse = {
+        try await Api.swapBuildTransfer(accountId: $0, enclaveToken: $1, request: $2)
+    }
+    var submit: (ApiChain, String, EnclaveToken, [ApiSwapTransfer]?, ApiSwapHistoryItem, Bool?, String?, [ApiEvmSwapCall]?, Bool?) async throws -> ApiSwapSubmitResult = {
+        try await Api.swapSubmit(chain: $0, accountId: $1, enclaveToken: $2, transfers: $3, historyItem: $4, isGasless: $5, transaction: $6, calls: $7, needsApprove: $8)
+    }
+
     func performSwap(
         swapEstimate: ApiSwapDexEstimateResponse?,
         swapMode: ApiSwapMode,
@@ -51,9 +58,10 @@ import WalletContext
             networkFee: swapEstimate.realNetworkFee,
             swapFee: swapEstimate.swapFee,
             ourFee: swapEstimate.ourFee,
-            dieselFee: swapEstimate.dieselFee
+            dieselFee: swapEstimate.dieselFee,
+            needsApprove: swapEstimate.needsApprove
         )
-        let transferData = try await Api.swapBuildTransfer(accountId: account.id, enclaveToken: enclaveToken, request: swapBuildRequest)
+        let transferData = try await buildTransfer(account.id, enclaveToken, swapBuildRequest)
         if let error = transferData.error {
             throw SdkError.apiReturnedError(error: error.rawValue, context: transferData)
         }
@@ -61,14 +69,16 @@ import WalletContext
             throw SdkError.unexpected(message: "Invalid swap build response", context: transferData)
         }
         let historyItem = ApiSwapHistoryItem.makeFrom(swapBuildRequest: swapBuildRequest, swapId: swapId)
-        let result = try await Api.swapSubmit(
-            chain: chain,
-            accountId: account.id,
-            enclaveToken: enclaveToken,
-            transfers: transferData.transfers,
-            historyItem: historyItem,
-            isGasless: shouldTryDiesel,
-            transaction: transferData.transaction
+        let result = try await submit(
+            chain,
+            account.id,
+            enclaveToken,
+            transferData.transfers,
+            historyItem,
+            shouldTryDiesel,
+            transferData.transaction,
+            transferData.calls,
+            swapBuildRequest.needsApprove
         )
         if let error = result.error {
             throw SdkError.apiReturnedError(error: error, context: result)

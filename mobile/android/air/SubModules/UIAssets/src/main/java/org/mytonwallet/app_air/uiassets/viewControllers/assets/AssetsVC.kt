@@ -1025,7 +1025,6 @@ class AssetsVC(
                     items,
                     popupWidth = WRAP_CONTENT,
                     positioning = WMenuPopup.Positioning.ALIGNED,
-                    backdropStyle = WMenuPopup.BackdropStyle.Transparent,
                     usePillShadow = true
                 )
             }

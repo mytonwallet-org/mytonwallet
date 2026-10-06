@@ -33,6 +33,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
 import me.vkryl.core.fromTo
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
@@ -41,8 +42,10 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.helpers.SpacesItemDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
+import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.typeface
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.recyclerView.CustomItemTouchHelper
@@ -87,8 +90,10 @@ class WClearSegmentedControl(
     companion object {
         val ITEM_CELL = WCell.Type(2)
         private const val ANIMATION_DURATION = 200L
-        private const val THUMB_HEIGHT = 32f
+        const val THUMB_HEIGHT = 32f
         private const val ITEM_SPACING = 6
+        private const val ITEM_HORIZONTAL_PADDING = 16
+        private const val MIN_ITEM_HORIZONTAL_PADDING = 10
         private const val DRAG_ELEVATION = 8f
     }
 
@@ -751,13 +756,45 @@ class WClearSegmentedControl(
     private fun defaultPrimaryTextColor(): Int =
         if (isTransparent) Color.WHITE else WColor.PrimaryText.color
 
-    private fun itemMinimumWidth(): Int {
-        if (!fillAvailableWidth || availableWidthForItems == 0 || items.isEmpty()) return 0
-        val availableWidth = availableWidthForItems -
-            recyclerView.paddingStart -
-            recyclerView.paddingEnd -
-            items.size * ITEM_SPACING.dp
-        return (availableWidth / items.size).coerceAtLeast(0)
+    private val titleMeasuringLabel by lazy {
+        WLabel(context).apply { setStyle(adaptiveFontSize(), WFont.Medium) }
+    }
+
+    private val fillsAvailableWidth
+        get() = fillAvailableWidth && availableWidthForItems > 0 && items.isNotEmpty()
+
+    private fun availableItemsWidth() = availableWidthForItems -
+        recyclerView.paddingStart -
+        recyclerView.paddingEnd -
+        items.size * ITEM_SPACING.dp
+
+    private fun itemTitleWidths() =
+        items.map { ceil(titleMeasuringLabel.paint.measureText(it.title)).toInt() }
+
+    // Filled tabs get equal widths when every title fits its share, otherwise natural widths
+    // plus an equal share of the leftover space. When natural widths overflow, the horizontal
+    // padding shrinks to make them fit; tabs scroll only if even the minimum padding overflows.
+    private fun itemHorizontalPadding(): Int {
+        if (!fillsAvailableWidth) return ITEM_HORIZONTAL_PADDING.dp
+        val fittingPadding =
+            (availableItemsWidth() - itemTitleWidths().sum()) / (2 * items.size)
+        return if (fittingPadding in
+            MIN_ITEM_HORIZONTAL_PADDING.dp until ITEM_HORIZONTAL_PADDING.dp
+        ) {
+            fittingPadding
+        } else {
+            ITEM_HORIZONTAL_PADDING.dp
+        }
+    }
+
+    private fun itemMinimumWidth(naturalWidth: Int): Int {
+        if (!fillsAvailableWidth) return 0
+        val availableWidth = availableItemsWidth()
+        val naturalWidths = itemTitleWidths().map { it + 2 * ITEM_HORIZONTAL_PADDING.dp }
+        val equalWidth = availableWidth / items.size
+        if (naturalWidths.all { it <= equalWidth }) return equalWidth
+        val extraWidth = (availableWidth - naturalWidths.sum()) / items.size
+        return if (extraWidth > 0) naturalWidth + extraWidth else 0
     }
 
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = 1
@@ -770,6 +807,7 @@ class WClearSegmentedControl(
     override fun recyclerViewCellView(rv: RecyclerView, cellType: WCell.Type): WCell =
         WClearSegmentedControlItemView(context).apply {
             minimumWidthProvider = ::itemMinimumWidth
+            horizontalPaddingProvider = ::itemHorizontalPadding
             layoutDirection =
                 if (LocaleController.isRTL) LAYOUT_DIRECTION_RTL else LAYOUT_DIRECTION_LTR
         }

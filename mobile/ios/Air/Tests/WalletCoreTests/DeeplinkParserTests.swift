@@ -4,6 +4,35 @@ import WalletCore
 
 @Suite("Deeplink Parser")
 struct DeeplinkParserTests {
+    @Test(arguments: ["", "receiver.ton"])
+    func parsesSendFormWithOptionalRecipient(address: String) throws {
+        let url = try #require(URL(string: "mtw://send/ton:\(address)?token=gram&amount=3000000000&text=Hello"))
+        let deeplink = try #require(Deeplink(url: url))
+
+        guard case .send(let chain, let recipient, let amount, let comment, let binaryPayload, let tokenSlug, let stateInit) = deeplink else {
+            Issue.record("Expected send deeplink")
+            return
+        }
+
+        #expect(chain == .ton)
+        #expect(recipient == address)
+        #expect(amount == 3_000_000_000)
+        #expect(comment == "Hello")
+        #expect(tokenSlug == "gram")
+        #expect(binaryPayload == nil)
+        #expect(stateInit == nil)
+    }
+
+    @Test(arguments: [
+        "mtw://send/ton:invalid-recipient?token=gram&amount=3000000000",
+        "mtw://send/unsupported:?token=gram&amount=3000000000",
+        "mtw://send/ton?token=gram&amount=3000000000",
+    ])
+    func rejectsInvalidSendForm(value: String) throws {
+        let url = try #require(URL(string: value))
+        #expect(Deeplink(url: url) == nil)
+    }
+
     @Test(arguments: [
         "mtw://nft-card",
         "mtw://nft-card/",

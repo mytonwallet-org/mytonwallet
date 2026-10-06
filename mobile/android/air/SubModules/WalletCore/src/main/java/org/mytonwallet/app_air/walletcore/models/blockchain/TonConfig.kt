@@ -33,6 +33,7 @@ object TonConfig : MBlockchainConfig {
     override val isEncryptedCommentSupported = true
     override val isOnchainSwapSupported = true
     override val canSwapByBuyAmount = true
+    override val canTransferFullNativeBalance = true
 
     override val burnAddress = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"
     override val multiWalletSupport = MultiWalletSupport.VERSION

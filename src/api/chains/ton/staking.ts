@@ -21,6 +21,7 @@ import { ApiLiquidUnstakeMode, ApiTransactionDraftError } from '../../types';
 import {
   DEBUG,
   ETHENA_STAKING_VAULT,
+  JETTON_STAKING_POOLS,
   LIQUID_JETTON,
   LIQUID_POOL,
   TON_TSUSDE,
@@ -38,6 +39,7 @@ import { getIsActiveStakingState } from '../../../util/staking';
 import { getNativeToken } from '../../../util/tokens';
 import calcJettonStakingApr from '../../../util/ton/calcJettonStakingApr';
 import {
+  areAddressesEqual,
   buildJettonClaimPayload,
   buildJettonUnstakePayload,
   buildLiquidStakingDepositBody,
@@ -61,6 +63,10 @@ import { STAKE_COMMENT, TON_GAS, UNSTAKE_COMMENT } from './constants';
 import { checkTransactionDraft, submitGasfullTransfer } from './transfer';
 
 export async function checkStakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
+  if (isUnexpectedJettonStakingPool(state)) {
+    return { error: ApiTransactionDraftError.InvalidToAddress };
+  }
+
   let result: ApiCheckTransactionDraftResult;
 
   switch (state.type) {
@@ -140,6 +146,10 @@ export async function checkUnstakeDraft(
   amount: bigint, // The amount that the user sees
   state: ApiStakingState,
 ) {
+  if (isUnexpectedJettonStakingPool(state)) {
+    return { error: ApiTransactionDraftError.InvalidToAddress };
+  }
+
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
   const commonData = await getStakingCommonCache('ton');
@@ -181,7 +191,7 @@ export async function checkUnstakeDraft(
 
       result = await checkTransactionDraft({
         accountId,
-        toAddress: state.stakeWalletAddress,
+        toAddress: await resolveJettonStakeWalletAddress(network, address, state),
         amount: TON_GAS.unstakeJettons,
         payload: buildJettonUnstakePayload(amount, true),
       });
@@ -221,6 +231,10 @@ export async function submitStake(
   amount: bigint,
   state: ApiStakingState,
 ) {
+  if (isUnexpectedJettonStakingPool(state)) {
+    return { error: ApiTransactionDraftError.InvalidToAddress };
+  }
+
   let result: ApiSubmitGasfullTransferResult | { error: string };
   let toAddress: string;
 
@@ -301,6 +315,10 @@ export async function submitUnstake(
   amount: bigint, // Token amount (not the amount that the user sees)
   state: ApiStakingState,
 ) {
+  if (isUnexpectedJettonStakingPool(state)) {
+    return { error: ApiTransactionDraftError.InvalidToAddress };
+  }
+
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
 
@@ -338,7 +356,7 @@ export async function submitUnstake(
       break;
     }
     case 'jetton': {
-      toAddress = state.stakeWalletAddress;
+      toAddress = await resolveJettonStakeWalletAddress(network, address, state);
       result = await submitGasfullTransfer({
         accountId,
         enclaveToken,
@@ -436,6 +454,10 @@ export async function getStakingStates(
   const promises: Promise<ApiStakingState>[] = [];
 
   for (const poolConfig of commonData.jettonPools) {
+    if (!isKnownJettonStakingPool(poolConfig.pool, poolConfig.token)) {
+      continue;
+    }
+
     const slug = buildTokenSlug('ton', poolConfig.token);
     if (slug in balances) {
       promises.push(buildJettonState(options, poolConfig));
@@ -607,6 +629,37 @@ async function buildJettonState(
   return state;
 }
 
+/** Whether `pool` is an allowlisted jetton staking pool accepting `token`, with the addresses in any format */
+export function isKnownJettonStakingPool(pool: string, token: string) {
+  return Object.entries(JETTON_STAKING_POOLS).some(([knownPool, knownToken]) => (
+    areAddressesSafelyEqual(pool, knownPool) && areAddressesSafelyEqual(token, knownToken)
+  ));
+}
+
+/** Checks the pool and the jetton that a stake sends, which is resolved from the state's token slug */
+function isUnexpectedJettonStakingPool(state: ApiStakingState) {
+  if (state.type !== 'jetton') {
+    return false;
+  }
+
+  const tokenAddress = getTokenBySlug(state.tokenSlug)?.tokenAddress;
+  return !tokenAddress || !isKnownJettonStakingPool(state.pool, tokenAddress);
+}
+
+function areAddressesSafelyEqual(address1: string, address2: string) {
+  try {
+    return areAddressesEqual(address1, address2);
+  } catch {
+    return false;
+  }
+}
+
+/** The user's stake wallet, resolved by the pool contract rather than taken from the state */
+async function resolveJettonStakeWalletAddress(network: ApiNetwork, address: string, state: ApiJettonStakingState) {
+  const stakeWallet = await getJettonPoolStakeWallet(network, state.pool, state.period, address);
+  return toBase64Address(stakeWallet.address, true);
+}
+
 async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthenaStakingState> {
   const {
     network, balances, address: walletAddress,
@@ -694,7 +747,13 @@ export async function submitTokenStakingClaim(
   enclaveToken: string | undefined,
   state: ApiJettonStakingState,
 ) {
-  const toAddress = state.stakeWalletAddress;
+  if (isUnexpectedJettonStakingPool(state)) {
+    return { error: ApiTransactionDraftError.InvalidToAddress };
+  }
+
+  const { network } = parseAccountId(accountId);
+  const { address } = await fetchStoredWallet(accountId, 'ton');
+  const toAddress = await resolveJettonStakeWalletAddress(network, address, state);
   const amount = TON_GAS.claimJettons;
   const result = await submitGasfullTransfer({
     accountId,
@@ -760,6 +819,7 @@ export async function submitUnstakeEthenaLocked(
 export async function getStakingCommonData(): Promise<ApiStakingCommonData> {
   const tonClient = getTonClient('mainnet');
   const response = await callBackendGet<ApiStakingCommonResponse>('/staking/common');
+  const knownJettonPools = response.jettonPools.filter(({ pool, token }) => isKnownJettonStakingPool(pool, token));
 
   const data: ApiStakingCommonData = {
     ...response,
@@ -768,7 +828,7 @@ export async function getStakingCommonData(): Promise<ApiStakingCommonData> {
       available: fromDecimal(response.liquid.available),
       tvl: fromDecimal(response.liquid.tvl),
     },
-    jettonPools: await Promise.all(response.jettonPools.map(async (pool) => {
+    jettonPools: await Promise.all(knownJettonPools.map(async (pool) => {
       const poolContract = tonClient.open(StakingPool.createFromAddress(Address.parse(pool.pool)));
       const poolConfig = await poolContract.getStorageData();
       return {

@@ -158,9 +158,20 @@ object AccountStore : IStore {
 
     fun updateAccountData(update: ApiUpdate.ApiUpdateUpdateAccount) {
         val account = accountById(update.accountId) ?: return
-        val chain = update.chain.name
-        val byChain = account.byChain.toMutableMap()
         var didChange = false
+
+        val accountType = update.accountType?.let { MAccount.AccountType.fromValue(it) }
+        if (accountType != null && account.accountType != accountType) {
+            account.accountType = accountType
+            WGlobalStorage.saveAccountType(update.accountId, accountType.value)
+            if (activeAccountId == update.accountId) {
+                activeAccount?.accountType = accountType
+            }
+            notifyEvent(WalletEvent.AccountChanged(update.accountId))
+        }
+
+        val chain = update.chain?.name ?: return
+        val byChain = account.byChain.toMutableMap()
 
         update.address?.let { newAddress ->
             val normalizedAddress = MAccount.normalizeAddress(chain, newAddress)

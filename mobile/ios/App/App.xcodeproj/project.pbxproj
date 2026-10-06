@@ -125,6 +125,23 @@
 		C4D16308205C59A627997B13 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4105E6D6E2A708EB52003A /* FirebaseCore */; };
 		CEE7F3F02CE1FBCE009D2B34 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */; };
 		DEC5F7D0F4B76E59868A6B79 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 238EDAED8A39AE9B0BC5976B /* FirebaseMessaging */; };
+		B9C000000000000000000001 /* KeychainTransferTests.swift in Sources */ = {
+			isa = PBXBuildFile; fileRef = B9C000000000000000000005 /* KeychainTransferTests.swift */;
+		};
+		B9C000000000000000000002 /* EnclaveRecoveryTests.swift in Sources */ = {
+			isa = PBXBuildFile; fileRef = B9C000000000000000000006 /* EnclaveRecoveryTests.swift */;
+		};
+		B9C000000000000000000003 /* WalletContext in Frameworks */ = {
+			isa = PBXBuildFile; productRef = B9C00000000000000000000E /* WalletContext */;
+		};
+		B9C000000000000000000004 /* NativeEnclave in Frameworks */ = {
+			isa = PBXBuildFile; productRef = B9C00000000000000000000F /* NativeEnclave */;
+		};
+		B9C000000000000000000012 /* main.swift in Sources */ = {
+			isa = PBXBuildFile; fileRef = B9C000000000000000000013 /* main.swift */;
+		};
+		59F127110000000000000002 /* CompactFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F127110000000000000001 /* CompactFonts.swift */; };
+		59F127110000000000000003 /* CompactFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F127110000000000000001 /* CompactFonts.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -303,6 +320,22 @@
 		CAC3D6138B5E7B5AF24B8370 /* MyTonWallet_Preview-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "MyTonWallet_Preview-Info.plist"; sourceTree = "<group>"; };
 		CE138AE22AC7209B00BE5802 /* MyTonWallet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MyTonWallet.entitlements; sourceTree = "<group>"; };
 		CEE7F3EF2CE1FBCE009D2B34 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B9C000000000000000000005 /* KeychainTransferTests.swift */ = {
+			isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTransferTests.swift; sourceTree = "<group>";
+		};
+		B9C000000000000000000006 /* EnclaveRecoveryTests.swift */ = {
+			isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnclaveRecoveryTests.swift; sourceTree = "<group>";
+		};
+		B9C000000000000000000007 /* KeychainIntegrationTests.xctest */ = {
+			isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KeychainIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		B9C000000000000000000013 /* main.swift */ = {
+			isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>";
+		};
+		B9C000000000000000000014 /* KeychainTestHost.app */ = {
+			isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeychainTestHost.app; sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		59F127110000000000000001 /* CompactFonts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CompactFonts.swift; path = ../Air/SubModules/UIComponents/Utils/CompactFonts.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -436,6 +469,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9C00000000000000000000A /* PBXFrameworksBuildPhase */ = {
+			isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647;
+			files = (B9C000000000000000000003 /* WalletContext in Frameworks */, B9C000000000000000000004 /* NativeEnclave in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -491,6 +529,8 @@
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
+				B9C000000000000000000008 /* KeychainIntegrationTests */,
+				B9C000000000000000000015 /* KeychainTestHost */,
 				504EC3061FED79650016851F /* App */,
 				A11AB0000000000000000009 /* MyLab */,
 				584C517D2F6142520079935F /* Air */,
@@ -505,6 +545,8 @@
 		504EC3051FED79650016851F /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				B9C000000000000000000007 /* KeychainIntegrationTests.xctest */,
+				B9C000000000000000000014 /* KeychainTestHost.app */,
 				504EC3041FED79650016851F /* MyTonWallet.app */,
 				582009C72E820AD20010E2B5 /* AirWidgetExtension.appex */,
 				58F6322E2EB8CDFA00A90B79 /* MyTonWallet_AirOnly.app */,
@@ -530,6 +572,7 @@
 		582009F62E822DDD0010E2B5 /* AirWidget */ = {
 			isa = PBXGroup;
 			children = (
+				59F127110000000000000001 /* CompactFonts.swift */,
 				582009F32E822DDD0010E2B5 /* AirWidgetBundle.swift */,
 				582009F42E822DDD0010E2B5 /* Assets.xcassets */,
 				582009F52E822DDD0010E2B5 /* Info.plist */,
@@ -626,6 +669,15 @@
 			);
 			path = GramWallet;
 			sourceTree = "<group>";
+		};
+		B9C000000000000000000008 /* KeychainIntegrationTests */ = {
+			isa = PBXGroup;
+			children = (B9C000000000000000000005 /* KeychainTransferTests.swift */, B9C000000000000000000006 /* EnclaveRecoveryTests.swift */,);
+			path = ../Tests/KeychainIntegrationTests;
+			sourceTree = "<group>";
+		};
+		B9C000000000000000000015 /* KeychainTestHost */ = {
+			isa = PBXGroup; children = (B9C000000000000000000013 /* main.swift */,); path = ../Tests/KeychainTestHost; sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -851,6 +903,29 @@
 			productReference = 47944749FD2D0A00CA7F241E /* MyTonWallet_Preview.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B9C00000000000000000000B /* KeychainIntegrationTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9C00000000000000000000C /* Build configuration list for KeychainIntegrationTests */;
+			buildPhases = (B9C000000000000000000009 /* Sources */, B9C00000000000000000000A /* Frameworks */,);
+			buildRules = ();
+			dependencies = (B9C00000000000000000000D /* PBXTargetDependency */,);
+			name = KeychainIntegrationTests;
+			packageProductDependencies = (B9C00000000000000000000E /* WalletContext */, B9C00000000000000000000F /* NativeEnclave */,);
+			productName = KeychainIntegrationTests;
+			productReference = B9C000000000000000000007 /* KeychainIntegrationTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B9C000000000000000000017 /* KeychainTestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9C000000000000000000018 /* Build configuration list for KeychainTestHost */;
+			buildPhases = (B9C000000000000000000016 /* Sources */,);
+			buildRules = ();
+			dependencies = ();
+			name = KeychainTestHost;
+			productName = KeychainTestHost;
+			productReference = B9C000000000000000000014 /* KeychainTestHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -903,6 +978,7 @@
 				uk,
 				ar,
 				fa,
+				it,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
@@ -912,6 +988,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				B9C000000000000000000017 /* KeychainTestHost */,
+				B9C00000000000000000000B /* KeychainIntegrationTests */,
 				504EC3031FED79650016851F /* MyTonWallet */,
 				58F631D52EB8CDFA00A90B79 /* MyTonWallet_AirOnly */,
 				582009C62E820AD20010E2B5 /* AirWidgetExtension */,
@@ -1112,6 +1190,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				588AD2222E83D44600588415 /* ActionsWidget.swift in Sources */,
+				59F127110000000000000002 /* CompactFonts.swift in Sources */,
 				582009FC2E822DDD0010E2B5 /* AirWidgetBundle.swift in Sources */,
 				5890CBAE2E858CE100110FDF /* ChartView.swift in Sources */,
 				5890CBAF2E858CE100110FDF /* TokenWithChartWidget.swift in Sources */,
@@ -1157,6 +1236,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				59C000172F81000100ABCD01 /* ActionsWidget.swift in Sources */,
+				59F127110000000000000003 /* CompactFonts.swift in Sources */,
 				59C000182F81000100ABCD01 /* AirWidgetBundle.swift in Sources */,
 				59C000192F81000100ABCD01 /* ChartView.swift in Sources */,
 				59C0001A2F81000100ABCD01 /* TokenWithChartWidget.swift in Sources */,
@@ -1187,6 +1267,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9C000000000000000000009 /* PBXSourcesBuildPhase */ = {
+			isa = PBXSourcesBuildPhase; buildActionMask = 2147483647;
+			files = (B9C000000000000000000001 /* KeychainTransferTests.swift in Sources */, B9C000000000000000000002 /* EnclaveRecoveryTests.swift in Sources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9C000000000000000000016 /* Sources */ = {
+			isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B9C000000000000000000012 /* main.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1209,6 +1297,9 @@
 			isa = PBXTargetDependency;
 			target = 59C2000A2FB2000100BEEF01 /* MyTonWalletNotificationServiceExtension */;
 			targetProxy = 59C200042FB2000100BEEF01 /* PBXContainerItemProxy */;
+		};
+		B9C00000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency; target = B9C000000000000000000017 /* KeychainTestHost */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1942,6 +2033,82 @@
 			};
 			name = Debug;
 		};
+		B9C000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.KeychainIntegrationTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KeychainTestHost.app/KeychainTestHost";
+			};
+			name = Debug;
+		};
+		B9C000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.KeychainIntegrationTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KeychainTestHost.app/KeychainTestHost";
+			};
+			name = Release;
+		};
+		B9C000000000000000000019 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.KeychainTestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B9C00000000000000000001A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y54Z4K69Z9;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mytonwallet.KeychainTestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -2034,6 +2201,16 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		B9C00000000000000000000C /* Build configuration list for KeychainIntegrationTests */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (B9C000000000000000000010 /* Debug */, B9C000000000000000000011 /* Release */,);
+			defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;
+		};
+		B9C000000000000000000018 /* Build configuration list for KeychainTestHost */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (B9C000000000000000000019 /* Debug */, B9C00000000000000000001A /* Release */,);
+			defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 
@@ -2167,6 +2344,12 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2054E5367348F6E9D47E2836 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		B9C00000000000000000000E /* WalletContext */ = {
+			isa = XCSwiftPackageProductDependency; productName = WalletContext;
+		};
+		B9C00000000000000000000F /* NativeEnclave */ = {
+			isa = XCSwiftPackageProductDependency; productName = NativeEnclave;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

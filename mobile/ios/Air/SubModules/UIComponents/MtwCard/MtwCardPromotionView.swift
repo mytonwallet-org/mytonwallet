@@ -35,8 +35,7 @@ public final class MtwCardPromotionView: UIView {
     }
 
     public func configure(promotion: ApiPromotion?, animated: Bool = true) {
-        let next = promotion?.kind == .cardOverlay && promotion?.cardOverlay?.onClickAction == .openPromotionModal
-            ? promotion : nil
+        let next = promotion?.kind == .cardOverlay ? promotion : nil
         guard !hasConfigured || self.promotion != next else { return }
         configurationGeneration += 1
         let generation = configurationGeneration

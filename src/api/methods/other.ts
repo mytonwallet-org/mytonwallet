@@ -35,9 +35,9 @@ function requireReceiveGradientSvgs() {
 
 export function isBackendAuthTokenValid(authToken: string, publicKey: string) {
   try {
-    const signature = Buffer.from(authToken, 'base64');
+    const signature = new Uint8Array(Buffer.from(authToken, 'base64'));
 
-    if (signature.length !== nacl.sign.signatureLength || signature.toString('base64') !== authToken) {
+    if (signature.length !== nacl.sign.signatureLength || Buffer.from(signature).toString('base64') !== authToken) {
       return false;
     }
 

@@ -28,6 +28,8 @@ open class WRecyclerView(context: Context) :
     RecyclerView(context),
     GlassCaptureHost {
 
+    override fun glassDrawBackground(canvas: Canvas) = onDraw(canvas)
+
     override fun glassDrawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean =
         drawChild(canvas, child, drawingTime)
     init {

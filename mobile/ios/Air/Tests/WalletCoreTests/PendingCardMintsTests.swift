@@ -1,6 +1,7 @@
 import Dependencies
 import Foundation
 import GRDB
+import Perception
 import Testing
 import WalletContext
 @testable import WalletCore
@@ -10,8 +11,44 @@ struct PendingCardMintsTests {
     private let start = Date(timeIntervalSince1970: 100.5)
 
     @Test
+    func `mint visibility is observable and clears on delivery refund removal and reset`() {
+        let pending = PendingCardMints()
+        let changed = UnfairLock(initialState: false)
+        withPerceptionTracking {
+            #expect(!pending.isMinting(accountId: "minting"))
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        pending.recordSubmission(accountId: "minting", since: start)
+        #expect(changed.withLock { $0 })
+        #expect(pending.isMinting(accountId: "minting"))
+        #expect(!pending.isMinting(accountId: "other"))
+
+        changed.withLock { $0 = false }
+        withPerceptionTracking {
+            #expect(pending.isMinting(accountId: "minting"))
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        #expect(pending.consume(accountId: "minting", activities: [activity(nft: card())]) == .minted(card()))
+        #expect(changed.withLock { $0 })
+        #expect(!pending.isMinting(accountId: "minting"))
+
+        pending.recordSubmission(accountId: "minting", since: start)
+        #expect(pending.consume(accountId: "minting", activities: [activity(from: MINT_CARD_ADDRESS, comment: MINT_CARD_REFUND_COMMENT)]) == .refunded)
+        #expect(!pending.isMinting(accountId: "minting"))
+        pending.recordSubmission(accountId: "minting", since: start)
+        pending.recordSubmission(accountId: "other", since: start)
+        pending.remove(accountId: "minting")
+        #expect(!pending.isMinting(accountId: "minting"))
+        #expect(pending.isMinting(accountId: "other"))
+        pending.removeAll()
+        #expect(!pending.isMinting(accountId: "other"))
+    }
+
+    @Test
     func `delivery is scoped to the minting account and consumed only once`() {
-        var pending = PendingCardMints()
+        let pending = PendingCardMints()
         pending.recordSubmission(accountId: "minting", since: start)
         let delivery = activity(nft: card())
         #expect(pending.consume(accountId: "other", activities: [delivery]) == nil)
@@ -21,7 +58,7 @@ struct PendingCardMintsTests {
 
     @Test
     func `history and unconfirmed or unrelated transfers do not complete a mint`() {
-        var pending = PendingCardMints()
+        let pending = PendingCardMints()
         pending.recordSubmission(accountId: "minting", since: start)
         let unrelated = ApiNft(chain: .ton, address: "other-nft", collectionAddress: "other", isOnSale: false)
         let ignored = [
@@ -44,7 +81,7 @@ struct PendingCardMintsTests {
 
     @Test
     func `only a confirmed refund from the mint contract clears the pending upgrade`() {
-        var pending = PendingCardMints()
+        let pending = PendingCardMints()
         pending.recordSubmission(accountId: "minting", since: start)
         #expect(pending.consume(accountId: "minting", activities: [activity(comment: MINT_CARD_REFUND_COMMENT)]) == nil)
         #expect(pending.consume(accountId: "minting", activities: [activity(from: MINT_CARD_ADDRESS, comment: "Other")]) == nil)
@@ -55,7 +92,7 @@ struct PendingCardMintsTests {
 
     @Test
     func `delivery takes precedence over a refund in the same update as on web`() {
-        var pending = PendingCardMints()
+        let pending = PendingCardMints()
         pending.recordSubmission(accountId: "minting", since: start)
         #expect(pending.consume(accountId: "minting", activities: [
             activity(from: MINT_CARD_ADDRESS, comment: MINT_CARD_REFUND_COMMENT),
@@ -65,7 +102,7 @@ struct PendingCardMintsTests {
 
     @Test
     func `removing an account clears its pending mint only`() {
-        var pending = PendingCardMints()
+        let pending = PendingCardMints()
         pending.recordSubmission(accountId: "removed", since: start)
         pending.recordSubmission(accountId: "kept", since: start)
         pending.remove(accountId: "removed")

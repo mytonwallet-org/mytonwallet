@@ -36,7 +36,8 @@ private struct DraftButtonView: UIViewRepresentable {
         let effectiveConfiguration = DraftButtonConfiguration(
             title: configuration.title,
             isEnabled: isEnabled && configuration.isEnabled,
-            showLoading: isEnabled && configuration.showLoading
+            showLoading: isEnabled && configuration.showLoading,
+            resetsLoadingAppearance: configuration.resetsLoadingAppearance
         )
         context.coordinator.action = action
         context.coordinator.isEnabled = effectiveConfiguration.isEnabled

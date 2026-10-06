@@ -38,6 +38,26 @@ function makeGlobal(currentAccountId: string): GlobalState {
   } as unknown as GlobalState;
 }
 
+describe('updateAccount api update', () => {
+  beforeEach(() => {
+    (setGlobal as jest.Mock).mockClear();
+  });
+
+  it('applies account-level type changes to global account state', () => {
+    const global = makeGlobal('0-ton-mainnet');
+
+    getApiUpdateHandler()(global, {}, {
+      type: 'updateAccount',
+      accountId: '0-ton-mainnet',
+      accountType: 'view',
+    });
+
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    expect((updatedGlobal as GlobalState).accounts!.byId['0-ton-mainnet'].type).toBe('view');
+    expect((updatedGlobal as GlobalState).accounts!.byId['0-ton-testnet'].type).toBe('mnemonic');
+  });
+});
+
 describe('updateNfts api update', () => {
   const ACCOUNT_ID = '0-ton-mainnet';
   const NFT_ADDRESS = 'EQAglL_g6q2AhMK_BT9jN1F-8jBlv2pOI30vRkPluU9kcXgV';
@@ -240,5 +260,35 @@ describe('updateConfig api update', () => {
     const updatedGlobal = dispatchUpdateConfig(global, undefined);
 
     expect(updatedGlobal.restrictions.isNftBuyingDisabled).toBe(false);
+  });
+});
+
+describe('updateAccount api update', () => {
+  const ACCOUNT_ID = '0-ton-mainnet';
+
+  it('stores the TON wallet version on an existing chain', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.accounts!.byId[ACCOUNT_ID] = { ...global.accounts!.byId[ACCOUNT_ID], byChain: { ton: { address: 'UQ1' } } };
+    (setGlobal as jest.Mock).mockClear();
+
+    getApiUpdateHandler()(global, {}, { type: 'updateAccount', accountId: ACCOUNT_ID, chain: 'ton', version: 'W5' });
+
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    expect((updatedGlobal as GlobalState).accounts!.byId[ACCOUNT_ID].byChain.ton)
+      .toEqual({ address: 'UQ1', version: 'W5' });
+  });
+
+  it('stores the TON wallet version on a chain added to the account', () => {
+    const global = makeGlobal(ACCOUNT_ID);
+    global.accounts!.byId[ACCOUNT_ID] = { ...global.accounts!.byId[ACCOUNT_ID], byChain: {} };
+    (setGlobal as jest.Mock).mockClear();
+
+    getApiUpdateHandler()(global, {}, {
+      type: 'updateAccount', accountId: ACCOUNT_ID, chain: 'ton', address: 'UQ1', version: 'W5',
+    });
+
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    expect((updatedGlobal as GlobalState).accounts!.byId[ACCOUNT_ID].byChain.ton)
+      .toEqual({ address: 'UQ1', version: 'W5' });
   });
 });

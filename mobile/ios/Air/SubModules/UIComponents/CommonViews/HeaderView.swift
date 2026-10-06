@@ -19,8 +19,10 @@ public class HeaderView: UIView {
                 description: String? = nil,
                 additionalView: UIView? = nil,
                 animationSize: Int? = nil,
-                compactMode: Bool = false) {
+                compactMode: Bool = false,
+                descriptionSpacing: CGFloat = 12) {
         self.animationSize = animationSize ?? _animationSize
+        self.descriptionSpacing = descriptionSpacing
         super.init(frame: CGRect.zero)
         setupView(animationName: animationName,
                   animationPlaybackMode: animationPlaybackMode,
@@ -50,6 +52,7 @@ public class HeaderView: UIView {
     }
 
     public let animationSize: Int
+    private var descriptionSpacing: CGFloat = 12
     
     // MARK: - Public subviews
     public var animatedSticker: WAnimatedSticker?
@@ -129,7 +132,7 @@ public class HeaderView: UIView {
         lblDescription.textAlignment = .center
         addSubview(lblDescription)
         NSLayoutConstraint.activate([
-            lblDescription.topAnchor.constraint(equalTo: lblTitle.bottomAnchor, constant: description != nil ? 12 : 0),
+            lblDescription.topAnchor.constraint(equalTo: lblTitle.bottomAnchor, constant: description != nil ? descriptionSpacing : 0),
             lblDescription.leadingAnchor.constraint(equalTo: leadingAnchor),
             lblDescription.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])

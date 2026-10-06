@@ -9,9 +9,11 @@ import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { fetchEvmWallet } from './util/account';
+import { isUnlimitedEvmAllowance } from './util/allowance';
+import { collectZerionApprovals } from './util/approvals';
 import { getEvmProvider } from './util/client';
 import { updateTokensMetadataByAddress } from './util/metadata';
-import { getZerionFungibleImplementation, getZerionFungibleTokenSlug } from './util/tokens';
+import { collectZerionTxTokenAddresses, getZerionFungibleTokenSlug } from './util/tokens';
 import { untrackableRegistry } from './util/untrackable';
 import { getIsNegVerdictCacheEnabled } from '../../common/cache';
 import { updateActivityMetadata } from '../../common/helpers';
@@ -200,17 +202,7 @@ export async function collectTokensFromTransactions(
   const zerionChain = getZerionChainByApiChain(chain);
 
   for (const tx of rawTxs) {
-    if (tx.attributes.transfers.length) {
-      for (const transfer of tx.attributes.transfers) {
-        if ('fungible_info' in transfer) {
-          const implementation = getZerionFungibleImplementation(transfer.fungible_info, zerionChain);
-
-          if (implementation?.address) {
-            addresses.add(implementation.address);
-          }
-        }
-      }
-    }
+    collectZerionTxTokenAddresses(tx, zerionChain, addresses);
   }
 
   await updateTokensMetadataByAddress(network, chain, [...addresses], signal);
@@ -291,6 +283,48 @@ function transformUnknownTx(
     shouldHide: false,
     status: 'completed',
     externalMsgHashNorm: tx.attributes.hash,
+    isScam: tx.attributes.flags.is_trash,
+  });
+}
+
+/**
+ * An allowance grant or revoke, read from the same Zerion approvals the wallet permissions are built
+ * from. Zerion marks these transactions `approve` and `revoke`; both carry the resulting allowance,
+ * so a revoke is the same activity with a zero amount.
+ */
+function transformEvmApproval(
+  chain: EVMChain,
+  tx: ZerionTransaction,
+  address: string,
+): ApiActivity | undefined {
+  const zerionChain = getZerionChainByApiChain(chain);
+  const [approval] = collectZerionApprovals(tx, zerionChain);
+  if (approval?.amount === undefined) {
+    return undefined;
+  }
+
+  const slug = getZerionFungibleTokenSlug(chain, zerionChain, approval.fungibleInfo);
+
+  if (!slug) {
+    return undefined;
+  }
+
+  return updateActivityMetadata({
+    id: tx.attributes.hash,
+    kind: 'transaction',
+    timestamp: new Date(tx.attributes.mined_at).getTime(),
+    comment: undefined,
+    fromAddress: normalizeAddress(tx.attributes.sent_from),
+    toAddress: approval.spenderAddress,
+    // The allowance the transaction sets, not a transfer, so it keeps its sign in both directions
+    amount: approval.amount,
+    slug,
+    isIncoming: normalizeAddress(tx.attributes.sent_from) !== address,
+    normalizedAddress: normalizeAddress(address),
+    fee: BigInt(tx.attributes.fee.quantity.int),
+    type: 'approval',
+    isApprovalUnlimited: isUnlimitedEvmAllowance(approval.amount),
+    status: 'completed',
     isScam: tx.attributes.flags.is_trash,
   });
 }
@@ -445,7 +479,7 @@ export function transformEvmTxToUnified(
   );
 
   if (!transfer) {
-    return transformUnknownTx(chain, tx, address);
+    return transformEvmApproval(chain, tx, address) ?? transformUnknownTx(chain, tx, address);
   }
 
   const isNftTransfer = 'nft_info' in transfer;

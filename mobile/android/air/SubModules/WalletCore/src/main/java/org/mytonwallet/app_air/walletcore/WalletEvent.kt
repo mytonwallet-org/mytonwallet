@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore
 
 import org.json.JSONObject
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
@@ -13,6 +14,8 @@ sealed class WalletEvent {
     data object NotActiveAccountBalanceChanged : WalletEvent()
 
     data object TokensChanged : WalletEvent()
+
+    data object MarketAssetsUpdated : WalletEvent()
 
     data object BaseCurrencyChanged : WalletEvent()
 
@@ -79,8 +82,13 @@ sealed class WalletEvent {
     data object AppTabsChanged : WalletEvent()
     data object WalletCardTopLineChanged : WalletEvent()
     data object ActionButtonsRowChanged : WalletEvent()
+    data object CardEffectsChanged : WalletEvent()
 
-    data class OpenUrl(val url: String, val isExternal: Boolean = false) : WalletEvent()
+    data class OpenUrl(
+        val url: String,
+        val isExternal: Boolean = false,
+        val source: DeeplinkOpenSource = DeeplinkOpenSource.INTERNAL_UI
+    ) : WalletEvent()
 
     data class OpenUrlWithConfig(val config: InAppBrowserConfig? = null) : WalletEvent()
 

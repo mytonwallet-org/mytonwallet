@@ -24,13 +24,17 @@ public class SellVC: WViewController {
     
     @AccountContext private var account: MAccount
     private let tokenSlug: String
+    private let requestedAmount: TokenAmount?
+    private let requestedCurrency: MBaseCurrency?
     private let webView = WKWebView()
     private let activityIndicator = WActivityIndicator()
 
     @Dependency(\.balancesStore) private var balancesStore
     
-    public init(accountContext: AccountContext, tokenSlug: String) {
+    public init(accountContext: AccountContext, tokenSlug: String, requestedAmount: TokenAmount? = nil, requestedCurrency: MBaseCurrency? = nil) {
         self.tokenSlug = tokenSlug
+        self.requestedAmount = requestedAmount
+        self.requestedCurrency = requestedCurrency
         self._account = accountContext
         super.init(nibName: nil, bundle: nil)
     }
@@ -140,11 +144,18 @@ public class SellVC: WViewController {
                             amount = limitAsBigInt
                         }
                     }
+                    if let requestedAmount {
+                        guard requestedAmount.type.slug == tokenSlug, requestedAmount.amount > 0,
+                              requestedAmount.amount <= amount else {
+                            throw DisplayError(text: lang("Insufficient balance"))
+                        }
+                        amount = requestedAmount.amount
+                    }
                     amountString = bigIntToDoubleString(amount, decimals: token.decimals)
                 }
                 
                 // Get the best currency
-                let preferredCurrency = TokenStore.baseCurrency
+                let preferredCurrency = requestedCurrency ?? TokenStore.baseCurrency
                 let currency = Moonpay.Offramp.supportedCurrencies.first { $0 == preferredCurrency } ?? Moonpay.Offramp.supportedCurrencies.first!
                 
                 // fetch signed moonpay url

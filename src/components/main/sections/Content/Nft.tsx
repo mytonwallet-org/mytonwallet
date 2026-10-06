@@ -14,6 +14,7 @@ import { formatRelativeDays, getCountDaysToDate } from '../../../../util/dateFor
 import { stopEvent } from '../../../../util/domEvents';
 import { vibrate } from '../../../../util/haptics';
 import { shortenAddress } from '../../../../util/shortenAddress';
+import { splitNftNumber } from '../../../../util/splitNftNumber';
 import { IS_ANDROID, IS_IOS } from '../../../../util/windowEnvironment';
 
 import useContextMenuHandlers from '../../../../hooks/useContextMenuHandlers';
@@ -52,8 +53,6 @@ interface UseLottieReturnType {
   unmarkHover?: NoneToVoidFunction;
 }
 
-const NFT_NUMBER_REGEX = /^(.*\S)\s*([#№][\d\\/]+)$/;
-
 function Nft({
   nft,
   appTheme,
@@ -89,19 +88,7 @@ function Nft({
   });
   const hasCollectionName = Boolean(nft.collectionName);
 
-  const { name: nftName, nftNumber } = useMemo(() => {
-    const fullName = (nft.name || '').trim();
-    const match = fullName.match(NFT_NUMBER_REGEX);
-
-    if (match) {
-      return {
-        name: match[1],
-        nftNumber: match[2],
-      };
-    }
-
-    return { name: fullName };
-  }, [nft.name]);
+  const { name: nftName, nftNumber } = splitNftNumber(nft.name || '');
 
   useEffect(() => {
     if (nft.thumbnail) {

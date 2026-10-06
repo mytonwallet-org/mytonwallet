@@ -41,7 +41,12 @@ internal object CardBackgroundArtwork {
 
     internal class Contrast(val overlay: Paint, val base: Paint?)
 
-    internal class Artwork(val base: Bitmap, val spots: List<Bitmap>, val contrast: Contrast?)
+    internal class Artwork(
+        val base: Bitmap,
+        val spots: List<Bitmap>,
+        val contrast: Contrast?,
+        val motionPhase: Float
+    )
 
     private val requiredTraits = setOf(
         "Card Type", "Background", "Shine", "Text", "Texture Type", "Texture Color",
@@ -173,7 +178,21 @@ internal object CardBackgroundArtwork {
         } else {
             null
         }
-        return Artwork(base, spots, contrast)
+        return Artwork(base, spots, contrast, motionPhase(data, traits))
+    }
+
+    private fun motionPhase(data: JSONObject, traits: Map<String, String>): Float {
+        val attributes = data.getJSONArray("attributes")
+        val cardId = (0 until attributes.length()).joinToString("-") { index ->
+            val attribute = attributes.getJSONObject(index)
+            val options = attribute.getJSONArray("options")
+            val value = traits[attribute.getString("name")]
+            ((0 until options.length()).first { options.getString(it) == value } + 1).toString()
+        }
+        val seed = cardId.fold(2_166_136_261L) { hash, character ->
+            ((hash xor character.code.toLong()) * 16_777_619L) and 0xFFFFFFFFL
+        }
+        return ((seed % 65_536) / 65_536.0 * 2 * Math.PI).toFloat()
     }
 
     private fun drawBackground(

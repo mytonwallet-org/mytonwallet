@@ -186,7 +186,7 @@ class HeaderActionsView(
             anchorView,
             items,
             positioning = Positioning.BELOW,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             usePillShadow = true
         )
     }

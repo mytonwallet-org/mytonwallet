@@ -224,14 +224,6 @@ export function initConnector(
             };
           },
         },
-        'solana:signAndSendTransaction': {
-          version: '1.0.0',
-          supportedTransactionVersions: ['legacy', 0],
-          signAndSendTransaction: async (input: any) => {
-            // TODO: find dapp to test this
-            await Promise.resolve();
-          },
-        },
         'solana:signTransaction': {
           version: '1.0.0',
           supportedTransactionVersions: ['legacy', 0],
@@ -346,6 +338,8 @@ export function initConnector(
       'eip155:80002': { chain: 'polygon', network: 'testnet' },
       'eip155:42161': { chain: 'arbitrum', network: 'mainnet' },
       'eip155:421614': { chain: 'arbitrum', network: 'testnet' },
+      'eip155:10': { chain: 'optimism', network: 'mainnet' },
+      'eip155:11155420': { chain: 'optimism', network: 'testnet' },
       'eip155:56': { chain: 'bnb', network: 'mainnet' },
       'eip155:97': { chain: 'bnb', network: 'testnet' },
       'eip155:43114': { chain: 'avalanche', network: 'mainnet' },

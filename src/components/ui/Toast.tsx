@@ -19,6 +19,7 @@ type OwnProps = {
   containerId?: string;
   message: string;
   icon?: string;
+  isPersistent?: boolean;
   actionText?: string;
   onAction?: NoneToVoidFunction;
   onDismiss: NoneToVoidFunction;

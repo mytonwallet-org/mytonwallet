@@ -45,10 +45,13 @@ function CustomCardBackground({
   const imageRef = useRef<HTMLImageElement>();
   const [loadedImage, setLoadedImage] = useState<{ url: string; element: HTMLImageElement }>();
   const [isLoaded, markLoaded] = useFlag();
+  // `CustomCardManager` passes `noShowAnimation` only on its first render. If it re-renders before the artwork
+  // loads, the flag is reset and the initial card fades in. So the value from mount is used here.
+  const noShowAnimationRef = useRef(noShowAnimation);
   // The card stays hidden until its artwork is decoded, so its border shine, background and the image's
   // alt text (Firefox draws it while loading) do not show up over the plain container.
   // The initial card skips only the fade
-  const ref = useMediaTransition(isLoaded && !shouldHide, { noOpenTransition: noShowAnimation });
+  const ref = useMediaTransition(isLoaded && !shouldHide, { noOpenTransition: noShowAnimationRef.current });
 
   const {
     borderShineType,

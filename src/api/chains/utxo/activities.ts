@@ -5,7 +5,7 @@ import type {
   ApiTransactionActivity,
   UTXOChain,
 } from '../../types';
-import type { UtxoAddressInfo, UtxoTransaction } from './types';
+import type { UtxoAddressInfo, UtxoTransaction, UtxoTransactionVin, UtxoTransactionVout } from './types';
 
 import { parseAccountId } from '../../../util/account';
 import { getIsActivityPending } from '../../../util/activities';
@@ -59,6 +59,7 @@ export async function getTokenActivitySlice(
   fromTimestamp?: number,
   limit?: number,
 ): Promise<{ activities: ApiActivity[]; hasMore: boolean }> {
+  const walletAddress = toUtxoApiAddress(chain, network, address);
   const pageSize = limit ?? INDEXER_PAGE_SIZE;
   const collected: ApiActivity[] = [];
   let page = 1;
@@ -70,7 +71,7 @@ export async function getTokenActivitySlice(
     const { transactions, page: currentPage, totalPages: reportedPages } = await fetchAddressTransactions(
       chain,
       network,
-      address,
+      walletAddress,
       { page, pageSize: INDEXER_PAGE_SIZE },
     );
 
@@ -79,7 +80,7 @@ export async function getTokenActivitySlice(
 
     const pageActivities = sortActivities(
       transactions
-        .map((tx) => parseUtxoTransaction(chain, network, address, tx))
+        .map((tx) => parseUtxoTransaction(chain, network, walletAddress, tx))
         .filter((activity) => !activity.shouldHide),
     );
     const oldestOnPage = pageActivities[pageActivities.length - 1];
@@ -125,6 +126,28 @@ export async function getTokenActivitySlice(
   return { activities, hasMore };
 }
 
+/** Blockbook may return an empty `transactions` array while `txids` is populated. */
+export async function resolveBlockbookAddressTransactions(
+  chain: UTXOChain,
+  network: ApiNetwork,
+  response: UtxoAddressInfo,
+): Promise<UtxoTransaction[]> {
+  if (response.transactions?.length) {
+    return response.transactions;
+  }
+
+  const txids = response.txids ?? [];
+  if (!txids.length) {
+    return [];
+  }
+
+  const endpoint = UTXO_RPC_URLS[network](chain);
+
+  return Promise.all(
+    txids.map((txId) => fetchJson<UtxoTransaction>(`${endpoint}/api/v2/tx/${txId}`)),
+  );
+}
+
 async function fetchAddressTransactions(
   chain: UTXOChain,
   network: ApiNetwork,
@@ -135,18 +158,13 @@ async function fetchAddressTransactions(
   },
 ) {
   const endpoint = UTXO_RPC_URLS[network](chain);
-  const apiAddress = toUtxoApiAddress(chain, network, address);
-  const response = await fetchJson<UtxoAddressInfo>(`${endpoint}/api/v2/address/${apiAddress}`, {
+  const response = await fetchJson<UtxoAddressInfo>(`${endpoint}/api/v2/address/${address}`, {
     page: options.page,
     pageSize: options.pageSize,
     details: 'txs',
   });
 
-  const transactions = response.transactions ?? await Promise.all(
-    (response.txids ?? []).map(async (txId) => (
-      fetchJson<UtxoTransaction>(`${UTXO_RPC_URLS[network](chain)}/api/v2/tx/${txId}`)
-    )),
-  );
+  const transactions = await resolveBlockbookAddressTransactions(chain, network, response);
 
   return {
     transactions,
@@ -206,6 +224,33 @@ function hasWalletAddress(
   return Boolean(addresses?.some((address) => isSameUtxoAddress(chain, network, walletAddress, address)));
 }
 
+function vinBelongsToWallet(
+  chain: UTXOChain,
+  network: ApiNetwork,
+  walletAddress: string,
+  input: UtxoTransactionVin,
+) {
+  // Blockbook sets `isOwn` on address-scoped `/address/...?details=txs` responses.
+  if (input.isOwn) {
+    return true;
+  }
+
+  return hasWalletAddress(chain, network, walletAddress, input.addresses);
+}
+
+function voutBelongsToWallet(
+  chain: UTXOChain,
+  network: ApiNetwork,
+  walletAddress: string,
+  output: UtxoTransactionVout,
+) {
+  if (output.isOwn) {
+    return true;
+  }
+
+  return hasWalletAddress(chain, network, walletAddress, output.addresses);
+}
+
 function getIsIncoming(
   chain: UTXOChain,
   network: ApiNetwork,
@@ -213,12 +258,21 @@ function getIsIncoming(
   tx: UtxoTransaction,
 ) {
   const received = tx.vout
-    .filter((output) => hasWalletAddress(chain, network, walletAddress, output.addresses))
+    .filter((output) => voutBelongsToWallet(chain, network, walletAddress, output))
     .reduce((sum, output) => sum + BigInt(output.value), 0n);
 
   const sent = tx.vin
-    .filter((input) => hasWalletAddress(chain, network, walletAddress, input.addresses))
+    .filter((input) => vinBelongsToWallet(chain, network, walletAddress, input))
     .reduce((sum, input) => sum + BigInt(input.value ?? '0'), 0n);
+
+  const hasExternalOut = tx.vout.some(
+    (output) => !voutBelongsToWallet(chain, network, walletAddress, output),
+  );
+
+  // A spend with change must stay outgoing even when change back to self is larger than the payment.
+  if (sent > 0n && hasExternalOut) {
+    return false;
+  }
 
   return received > sent;
 }
@@ -232,16 +286,16 @@ function getTransferAmount(
 ) {
   if (isIncoming) {
     return tx.vout
-      .filter((output) => hasWalletAddress(chain, network, walletAddress, output.addresses))
+      .filter((output) => voutBelongsToWallet(chain, network, walletAddress, output))
       .reduce((sum, output) => sum + BigInt(output.value), 0n);
   }
 
   const change = tx.vout
-    .filter((output) => hasWalletAddress(chain, network, walletAddress, output.addresses))
+    .filter((output) => voutBelongsToWallet(chain, network, walletAddress, output))
     .reduce((sum, output) => sum + BigInt(output.value), 0n);
 
   const externalOut = tx.vout
-    .filter((output) => !hasWalletAddress(chain, network, walletAddress, output.addresses))
+    .filter((output) => !voutBelongsToWallet(chain, network, walletAddress, output))
     .reduce((sum, output) => sum + BigInt(output.value), 0n);
 
   if (externalOut > 0n) {
@@ -258,7 +312,7 @@ function getTransferAmount(
 
   const fee = BigInt(tx.fees ?? '0');
   const sent = tx.vin
-    .filter((input) => hasWalletAddress(chain, network, walletAddress, input.addresses))
+    .filter((input) => vinBelongsToWallet(chain, network, walletAddress, input))
     .reduce((sum, input) => sum + BigInt(input.value ?? '0'), 0n);
 
   if (sent > change + fee) {
@@ -288,7 +342,7 @@ function getCounterpartyAddress(
   }
 
   const recipient = tx.vout.find(
-    (output) => !hasWalletAddress(chain, network, walletAddress, output.addresses),
+    (output) => !voutBelongsToWallet(chain, network, walletAddress, output),
   )?.addresses?.[0];
   return recipient ?? walletAddress;
 }
@@ -311,7 +365,8 @@ export async function fetchActivityDetails(
   const tx = await fetchJson<UtxoTransaction>(`${endpoint}/api/v2/tx/${txId}`);
 
   const { address } = await fetchStoredWallet(accountId, chain);
-  const parsed = parseUtxoTransaction(chain, network, address, tx);
+  const walletAddress = toUtxoApiAddress(chain, network, address);
+  const parsed = parseUtxoTransaction(chain, network, walletAddress, tx);
 
   if (parsed.fee === activity.fee && parsed.status === activity.status) {
     return undefined;

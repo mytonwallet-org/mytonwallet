@@ -20,6 +20,8 @@ export const APP_ENV = process.env.APP_ENV || 'production';
 export const IS_GRAM_WALLET = process.env.IS_GRAM_WALLET === '1';
 export const APP_NAME = process.env.APP_NAME || (IS_GRAM_WALLET ? 'Gram Wallet' : 'My Wallet');
 export const APP_VERSION = process.env.APP_VERSION!;
+// Identifies the JS bundle itself, which ships and updates separately from the app around it.
+export const SDK_BUILD_STAMP = process.env.SDK_BUILD_STAMP || 'unstamped';
 export const APP_COMMIT_HASH = process.env.APP_COMMIT_HASH!;
 export const APP_ENV_MARKER = APP_ENV === 'staging' ? 'Beta' : APP_ENV === 'development' ? 'Dev' : undefined;
 export const EXTENSION_NAME = IS_GRAM_WALLET ? 'Gram Wallet' : 'My Wallet • Crypto & Web3';
@@ -252,6 +254,8 @@ export const IFRAME_WHITELIST = [
 export const SUBPROJECT_URL_MASK = 'https://*.mywallet.io';
 
 export const CEX_WAITING_DEADLINE = 3 * 60 * 60 * 1000; // 3 hours
+export const CHANGELLY_TRACKING_URL = 'https://changelly.com/track/';
+export const NEAR_INTENTS_EXPLORER_URL = 'https://explorer.near-intents.org/transactions/';
 
 export const PROXY_HOSTS = process.env.PROXY_HOSTS;
 
@@ -259,7 +263,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-365';
+export const LANG_CACHE_NAME = 'mtw-lang-368';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -321,6 +325,11 @@ export const LANG_LIST: LangItem[] = [{
   name: 'Persian',
   nativeName: 'فارسی',
   rtl: true,
+}, {
+  langCode: 'it',
+  name: 'Italian',
+  nativeName: 'Italiano',
+  rtl: false,
 }];
 
 // Blacklist-style feature flags (default unset = feature ON). Each is substituted at build time, so it both
@@ -352,6 +361,7 @@ export const NO_LEDGER = process.env.NO_LEDGER === '1';
 export const VALIDATION_PERIOD_MS = 65_536_000; // 18.2 h.
 export const ONE_TON = 1_000_000_000n;
 export const DEFAULT_FEE = 15_000_000n; // 0.015 TON
+export const MFA_INSTALL_FEE = 150_000_000n; // 0.15 TON
 export const UNSTAKE_TON_GRACE_PERIOD = 20 * 60 * 1000; // 20 m.
 
 const LEGACY_NOMINATORS_STAKING_POOL = 'Ef8dgIOIRyCLU0NEvF8TD6Me3wrbrkS1z3Gpjk3ppd8m8-s_';
@@ -464,6 +474,15 @@ export const DOGECOIN = {
   cmcSlug: 'dogecoin',
 } as const;
 
+export const ZCASH = {
+  name: 'Zcash',
+  symbol: 'ZEC',
+  slug: 'zec',
+  decimals: 8,
+  chain: 'zcash',
+  cmcSlug: 'zcash',
+} as const;
+
 export const ETH = {
   name: 'Ethereum',
   symbol: 'ETH',
@@ -504,6 +523,15 @@ export const ARBITRUM = {
   decimals: 18,
   chain: 'arbitrum',
   label: 'Arbitrum',
+} as const;
+
+export const OPTIMISM = {
+  name: 'Optimism',
+  symbol: 'ETH',
+  slug: 'op',
+  decimals: 18,
+  chain: 'optimism',
+  label: 'Optimism',
 } as const;
 
 export const MONAD = {
@@ -569,6 +597,10 @@ export const MYCOIN_TESTNET = {
 export const STAKED_TON_SLUG = 'ton-eqcqc6ehrj';
 export const STAKED_MYCOIN_SLUG = 'ton-eqcbzvsfwq';
 export const MYCOIN_STAKING_POOL = 'EQC3roTiRRsoLzfYVK7yVVoIZjTEqAjQU3ju7aQ7HWTVL5o5';
+// The only jetton staking pools the wallet sends to, each mapped to the jetton it accepts
+export const JETTON_STAKING_POOLS: Readonly<Record<string, string>> = {
+  [MYCOIN_STAKING_POOL]: MYCOIN_MAINNET.minterAddress,
+};
 
 // Tokens that do not accept new stakes; existing positions stay fully withdrawable
 export const NEW_STAKE_DISABLED_TOKEN_SLUGS: ReadonlySet<string> = new Set([MYCOIN_MAINNET.slug, MYCOIN_TESTNET.slug]);
@@ -788,6 +820,10 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
   [DOGECOIN.slug]: {
     cardColor: 'gold',
   },
+  [ZCASH.slug]: {
+    fontIcon: 'icon-chain-zcash',
+    cardColor: 'gold',
+  },
   [ETH.slug]: {
     fontIcon: 'icon-chain-ethereum',
     cardColor: 'purple',
@@ -803,6 +839,10 @@ export const TOKEN_CUSTOM_STYLES: Partial<Record<string, {
   [ARC.slug]: {
     fontIcon: 'icon-chain-arc',
     cardColor: 'blue',
+  },
+  [OPTIMISM.slug]: {
+    fontIcon: 'icon-chain-optimism',
+    cardColor: 'red',
   },
   [STAKED_TON_SLUG]: {
     cardColor: 'green',
@@ -827,12 +867,14 @@ export const PRIORITY_TOKENS = [
   TRX,
   BNB,
   BASE,
-  ROBINHOOD,
   ARC,
+  ROBINHOOD,
   MONAD,
   ARBITRUM,
   POLYGON,
   AVALANCHE,
+  OPTIMISM,
+  ZCASH,
   DOGECOIN,
   LITECOIN,
   BITCOINCASH,
@@ -921,7 +963,7 @@ export const CURRENCIES: Record<
 export const BURN_ADDRESS = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ';
 
 export const DEFAULT_WALLET_VERSION: ApiTonWalletVersion = 'W5';
-export const POPULAR_WALLET_VERSIONS: readonly ApiTonWalletVersion[] = ['v3R1', 'v3R2', 'v4R2', 'W5'];
+export const POPULAR_WALLET_VERSIONS: readonly ApiTonWalletVersion[] = ['v3R1', 'v3R2', 'v4R2', 'W5', 'telegram'];
 
 export const DEFAULT_TIMEOUT = 10000;
 export const DEFAULT_RETRIES = 3;

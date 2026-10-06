@@ -67,11 +67,7 @@ export function setupActivePolling<C extends UTXOChain>(
     chain, accountId, address, activityPolling.update, onUpdate,
   );
 
-  const hasCachedTimestamps = compact(Object.values(newestActivityTimestamps)).length > 0;
-
-  if (!hasCachedTimestamps) {
-    activityPolling.update();
-  }
+  activityPolling.update();
 
   return () => {
     backendActivityWatcher?.();
@@ -110,6 +106,7 @@ function setupActivityPolling(
   let newestConfirmedActivityTimestamp = initialTimestamps.length ? Math.max(...initialTimestamps) : undefined;
 
   let lastEmptyTimestamp: number | undefined;
+  let didEmptyIncrementalRecovery = false;
 
   async function rawUpdate() {
     if (newestConfirmedActivityTimestamp !== undefined && newestConfirmedActivityTimestamp === lastEmptyTimestamp) {
@@ -130,6 +127,12 @@ function setupActivityPolling(
 
         if (newTimestamps.length && Math.max(...newTimestamps) > newestConfirmedActivityTimestamp) {
           newestConfirmedActivityTimestamp = Math.max(newestConfirmedActivityTimestamp, Math.max(...newTimestamps));
+        } else if (!newTimestamps.length && !didEmptyIncrementalRecovery) {
+          didEmptyIncrementalRecovery = true;
+          newestConfirmedActivityTimestamp = undefined;
+          const initialResult = await loadInitialActivities(chain, accountId, onUpdate);
+          const initialTimestamps = compact(Object.values(initialResult));
+          newestConfirmedActivityTimestamp = initialTimestamps.length ? Math.max(...initialTimestamps) : undefined;
         } else {
           lastEmptyTimestamp = newestConfirmedActivityTimestamp;
         }

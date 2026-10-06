@@ -211,8 +211,8 @@ addActionHandler('selectToken', (global, actions, { slug } = {}) => {
       } else {
         actions.setDefaultSwapParams({ tokenOutSlug: slug });
       }
-      actions.changeTransferToken({ tokenSlug: slug });
     }
+    actions.changeTransferToken({ tokenSlug: slug });
   } else {
     const currentAccountId = selectCurrentAccountId(global);
     if (!currentAccountId) return;

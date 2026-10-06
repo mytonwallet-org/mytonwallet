@@ -82,6 +82,7 @@
 
 .rwaStockIcon {
   border-radius: 0.375rem !important;
+  background-color: #000;
 
   @include mixins.squircleIcon();
 }

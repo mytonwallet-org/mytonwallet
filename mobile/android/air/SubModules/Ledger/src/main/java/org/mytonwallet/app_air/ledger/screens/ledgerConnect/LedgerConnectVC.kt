@@ -831,7 +831,8 @@ class LedgerConnectVC(
                                 signData.promiseId,
                                 Request(
                                     accountId = account.accountId,
-                                    proofSignatures = signResult.signatures
+                                    proofSignatures = signResult.signatures,
+                                    proofPublicKeys = signResult.publicKeys
                                 )
                             )
                         )

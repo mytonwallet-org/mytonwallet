@@ -14,11 +14,13 @@ enum class MBlockchainExplorer(val identifier: String) {
     BLOCKCHAIR_LITECOIN("blockchair"),
     BLOCKCHAIR_BITCOINCASH("blockchair"),
     BLOCKCHAIR_DOGECOIN("blockchair"),
+    BLOCKCHAIR_ZCASH("blockchair"),
     ETHERSCAN("etherscan"),
     BASESCAN("basescan"),
     BSCTRACE("bsctrace"),
     POLYGONSCAN("polygonscan"),
     ARBISCAN("arbiscan"),
+    OPTIMISMSCAN("optimismscan"),
     MONADSCAN("monadscan"),
     SNOWTRACE("snowtrace"),
     HYPEREVMSCAN("hyperevmscan"),
@@ -38,7 +40,8 @@ enum class MBlockchainExplorer(val identifier: String) {
 
                 MEMPOOL -> "Mempool"
 
-                BLOCKCHAIR_LITECOIN, BLOCKCHAIR_BITCOINCASH, BLOCKCHAIR_DOGECOIN ->
+                BLOCKCHAIR_LITECOIN, BLOCKCHAIR_BITCOINCASH, BLOCKCHAIR_DOGECOIN,
+                BLOCKCHAIR_ZCASH ->
                     "Blockchair"
 
                 ETHERSCAN -> "Etherscan"
@@ -50,6 +53,8 @@ enum class MBlockchainExplorer(val identifier: String) {
                 POLYGONSCAN -> "Polygonscan"
 
                 ARBISCAN -> "Arbiscan"
+
+                OPTIMISMSCAN -> "Optimism Etherscan"
 
                 MONADSCAN -> "Monadscan"
 
@@ -65,8 +70,17 @@ enum class MBlockchainExplorer(val identifier: String) {
 
     private val isEvm: Boolean
         get() = this in setOf(
-            ETHERSCAN, BASESCAN, BSCTRACE, POLYGONSCAN, ARBISCAN, MONADSCAN, SNOWTRACE,
-            HYPEREVMSCAN, ROBINSCAN, ARCSCAN
+            ETHERSCAN,
+            BASESCAN,
+            BSCTRACE,
+            POLYGONSCAN,
+            ARBISCAN,
+            OPTIMISMSCAN,
+            MONADSCAN,
+            SNOWTRACE,
+            HYPEREVMSCAN,
+            ROBINSCAN,
+            ARCSCAN
         )
 
     private val isUtxo: Boolean
@@ -74,7 +88,8 @@ enum class MBlockchainExplorer(val identifier: String) {
             MEMPOOL,
             BLOCKCHAIR_LITECOIN,
             BLOCKCHAIR_BITCOINCASH,
-            BLOCKCHAIR_DOGECOIN
+            BLOCKCHAIR_DOGECOIN,
+            BLOCKCHAIR_ZCASH
         )
 
     private fun blockchairBaseUrlBuilder(network: MBlockchainNetwork, chainPath: String) =
@@ -121,6 +136,8 @@ enum class MBlockchainExplorer(val identifier: String) {
 
         BLOCKCHAIR_DOGECOIN -> blockchairBaseUrlBuilder(network, "dogecoin")
 
+        BLOCKCHAIR_ZCASH -> blockchairBaseUrlBuilder(network, "zcash")
+
         ETHERSCAN -> Uri.Builder()
             .scheme("https")
             .authority(if (network.isMainnet) "etherscan.io" else "sepolia.etherscan.io")
@@ -140,6 +157,16 @@ enum class MBlockchainExplorer(val identifier: String) {
         ARBISCAN -> Uri.Builder()
             .scheme("https")
             .authority(if (network.isMainnet) "arbiscan.io" else "sepolia.arbiscan.io")
+
+        OPTIMISMSCAN -> Uri.Builder()
+            .scheme("https")
+            .authority(
+                if (network.isMainnet) {
+                    "optimistic.etherscan.io"
+                } else {
+                    "sepolia-optimism.etherscan.io"
+                }
+            )
 
         MONADSCAN -> Uri.Builder()
             .scheme("https")
@@ -183,7 +210,7 @@ enum class MBlockchainExplorer(val identifier: String) {
             .appendPath(txHash)
             .build().toString()
 
-        BLOCKCHAIR_LITECOIN, BLOCKCHAIR_BITCOINCASH, BLOCKCHAIR_DOGECOIN ->
+        BLOCKCHAIR_LITECOIN, BLOCKCHAIR_BITCOINCASH, BLOCKCHAIR_DOGECOIN, BLOCKCHAIR_ZCASH ->
             baseUrlBuilder(network)
                 .appendPath("transaction")
                 .appendPath(txHash)

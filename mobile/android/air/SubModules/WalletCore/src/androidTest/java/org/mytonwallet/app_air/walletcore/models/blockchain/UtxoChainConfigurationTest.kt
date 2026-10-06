@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.walletcore.BITCOINCASH_SLUG
 import org.mytonwallet.app_air.walletcore.BITCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.DOGECOIN_SLUG
 import org.mytonwallet.app_air.walletcore.LITECOIN_SLUG
+import org.mytonwallet.app_air.walletcore.ZCASH_SLUG
 import org.mytonwallet.app_air.walletcore.stores.DefaultTokens
 
 @RunWith(AndroidJUnit4::class)
@@ -44,12 +45,14 @@ class UtxoChainConfigurationTest {
                 "tron",
                 "bnb",
                 "base",
-                "robinhood",
                 "arc",
+                "robinhood",
                 "monad",
                 "arbitrum",
                 "polygon",
                 "avalanche",
+                "optimism",
+                "zcash",
                 "dogecoin",
                 "litecoin",
                 "bitcoincash"
@@ -60,6 +63,7 @@ class UtxoChainConfigurationTest {
         assertSame(MBlockchain.litecoin, MBlockchain.valueOfOrNull("litecoin"))
         assertSame(MBlockchain.bitcoincash, MBlockchain.valueOfOrNull("bitcoincash"))
         assertSame(MBlockchain.dogecoin, MBlockchain.valueOfOrNull("dogecoin"))
+        assertSame(MBlockchain.zcash, MBlockchain.valueOfOrNull("zcash"))
         assertNull(MBlockchain.valueOfOrNull("bitcoin_cash"))
         assertNull(MBlockchain.valueOfOrNull("doge"))
     }
@@ -98,6 +102,14 @@ class UtxoChainConfigurationTest {
                 symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_dogecoin,
                 symbolIconPadded =
                     org.mytonwallet.app_air.icons.R.drawable.ic_symbol_dogecoin_15
+            ),
+            ChainExpectation(
+                chain = MBlockchain.zcash,
+                nativeSlug = ZCASH_SLUG,
+                derivationPath = "m/44'/133'/0'/0/{index}",
+                symbolIcon = org.mytonwallet.app_air.icons.R.drawable.ic_symbol_zcash,
+                symbolIconPadded =
+                    org.mytonwallet.app_air.icons.R.drawable.ic_symbol_zcash_15
             )
         )
 
@@ -142,6 +154,12 @@ class UtxoChainConfigurationTest {
                 mainnetBaseUrl = "https://blockchair.com/dogecoin",
                 testnetBaseUrl = "https://blockchair.com/dogecoin/testnet",
                 transactionPath = "transaction"
+            ),
+            ExplorerExpectation(
+                explorer = MBlockchainExplorer.BLOCKCHAIR_ZCASH,
+                mainnetBaseUrl = "https://blockchair.com/zcash",
+                testnetBaseUrl = "https://blockchair.com/zcash/testnet",
+                transactionPath = "transaction"
             )
         )
 
@@ -174,7 +192,8 @@ class UtxoChainConfigurationTest {
                 "bitcoincash",
                 "bitcoin-cash"
             ),
-            TokenExpectation(DOGECOIN_SLUG, "Dogecoin", "DOGE", "dogecoin", "dogecoin")
+            TokenExpectation(DOGECOIN_SLUG, "Dogecoin", "DOGE", "dogecoin", "dogecoin"),
+            TokenExpectation(ZCASH_SLUG, "Zcash", "ZEC", "zcash", "zcash")
         )
 
         expectations.forEach { expectation ->

@@ -171,6 +171,7 @@ class InAppBrowserTopBarView(
                 horizontalOffset = 8.dp,
                 verticalOffset = 0
             ),
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             xOffset = (-8).dp
         )
     }
@@ -637,7 +638,8 @@ class InAppBrowserTopBarView(
                 }
             ),
             popupWidth = WRAP_CONTENT,
-            positioning = WMenuPopup.Positioning.ALIGNED
+            positioning = WMenuPopup.Positioning.ALIGNED,
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent
         )
     }
 

@@ -38,8 +38,14 @@ public actor EnclaveManager {
 
     private init() {}
 
-    public func setupAuth(authType: AuthType, passcode: String?) async throws -> SessionResult {
-        try ensureStorageCanBeInitialized()
+    /// Replacement is reserved for setup after the caller verifies that no local
+    /// software wallets remain. It also clears secrets orphaned by device restore.
+    public func setupAuth(
+        authType: AuthType,
+        passcode: String?,
+        replacingOrphanedAuth: Bool = false
+    ) async throws -> SessionResult {
+        try ensureStorageCanBeInitialized(replacingOrphanedAuth: replacingOrphanedAuth)
         try await resetForInitialization()
         let masterKey = try KeyDerivation.generateMasterKey()
 
@@ -281,11 +287,12 @@ public actor EnclaveManager {
         try storage.clearChecked()
     }
 
-    private func ensureStorageCanBeInitialized() throws {
+    private func ensureStorageCanBeInitialized(replacingOrphanedAuth: Bool = false) throws {
         guard let version = try storage.loadVersion() else {
             return
         }
-        guard version != EnclaveStorage.currentVersion else {
+        if version == EnclaveStorage.currentVersion {
+            if replacingOrphanedAuth { return }
             throw EnclaveError.authAlreadyConfigured
         }
         throw EnclaveError.unsupportedEnclaveVersion(String(version))

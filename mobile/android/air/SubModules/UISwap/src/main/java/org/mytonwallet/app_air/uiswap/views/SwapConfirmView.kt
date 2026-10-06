@@ -18,12 +18,14 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WCustomImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
+import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
 
 class SwapConfirmView(context: Context) :
@@ -64,6 +66,17 @@ class SwapConfirmView(context: Context) :
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, lineHeight)
     }
 
+    private val batchNoticeTextView = AppCompatTextView(context).apply {
+        id = generateViewId()
+        visibility = GONE
+        textAlignment = TEXT_ALIGNMENT_CENTER
+        typeface = WFont.Medium.typeface
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        setLineHeight(TypedValue.COMPLEX_UNIT_SP, 18f)
+        setPaddingDp(12, 8, 12, 8)
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+    }
+
     private val tokenToReceiveTextView = AppCompatTextView(context).apply {
         id = generateViewId()
         textAlignment = TEXT_ALIGNMENT_CENTER
@@ -85,6 +98,7 @@ class SwapConfirmView(context: Context) :
         addView(tokenToReceiveIconView)
         addView(tokenToSendTextView)
         addView(tokenToReceiveTextView)
+        addView(batchNoticeTextView)
 
         setConstraints {
             toCenterX(iconView)
@@ -101,9 +115,23 @@ class SwapConfirmView(context: Context) :
 
             topToBottom(tokenToReceiveTextView, tokenToSendTextView, 8f)
             toCenterX(tokenToReceiveTextView)
+
+            topToBottom(batchNoticeTextView, tokenToReceiveTextView, 16f)
+            toCenterX(batchNoticeTextView)
+            toBottom(batchNoticeTextView)
         }
 
         updateTheme()
+    }
+
+    fun setBatchNotice(notice: CharSequence?) {
+        if (notice.isNullOrBlank()) {
+            batchNoticeTextView.visibility = GONE
+            batchNoticeTextView.text = null
+            return
+        }
+        batchNoticeTextView.text = notice
+        batchNoticeTextView.visibility = VISIBLE
     }
 
     fun config(
@@ -146,5 +174,11 @@ class SwapConfirmView(context: Context) :
         tokenToSendTextView.setTextColor(WColor.PrimaryText.color)
         tokenToReceiveTextView.setTextColor(WColor.PrimaryText.color)
         iconView.imageTintList = ColorStateList.valueOf(WColor.SecondaryText.color)
+        batchNoticeTextView.setTextColor(WColor.SecondaryText.color)
+        batchNoticeTextView.setBackgroundColor(
+            WColor.SecondaryBackground.color.colorWithAlpha(255),
+            12f.dp,
+            true
+        )
     }
 }

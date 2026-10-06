@@ -28,6 +28,8 @@ export interface ApiDappRequestConfirmation {
   accountId: string;
   /** Base64. Shall miss when no proof is required. Can be multiple if walletConnect multichain connect is used */
   proofSignatures?: string[];
+  /** Hex. The public keys corresponding to `proofSignatures`. */
+  proofPublicKeys?: string[];
 }
 
 /**

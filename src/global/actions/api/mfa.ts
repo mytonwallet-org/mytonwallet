@@ -4,6 +4,7 @@ import { callApi } from '../../../api';
 import { openSite } from '../../../components/explore/helpers/utils';
 import { addActionHandler, getGlobal, setGlobal } from '../..';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
+import { errorCodeToMessage } from '../../helpers/errors';
 import { updateAccount, updateInstallMfa, updateRemoveMfa, updateSettings } from '../../reducers';
 import { selectCurrentAccount, selectCurrentAccountId } from '../../selectors';
 
@@ -22,32 +23,31 @@ addActionHandler('updateInstallMfaRequest', async (global) => {
 
 addActionHandler('submitInstallMfa', withEnclaveSessionRelease(async (global, actions, { enclaveToken }) => {
   const accountId = selectCurrentAccountId(global)!;
-  const account = selectCurrentAccount(global)!;
-  const { user } = global.settings.installMfa!;
+  const { requestId, user } = global.settings.installMfa!;
 
   if (!user) return;
 
-  global = updateSettings(global, { installMfa: undefined });
-  setGlobal(global);
+  setGlobal(updateInstallMfa(global, { error: undefined }));
 
+  // On success the API saves the extension to the account and sends `updateAccount` itself, so the account
+  // is not updated here
   const result = await callApi('installMfaFromRequest', accountId, user, enclaveToken);
-  if (typeof result === 'object' && 'error' in result) return;
 
+  // While the extension was being installed, the user may have left the screen, which clears the request,
+  // or started a new one. Either way this result is outdated, so it is ignored.
   global = getGlobal();
-  global = updateAccount(
-    global,
-    accountId,
-    {
-      byChain: {
-        ...account.byChain,
-        ton: { ...account.byChain.ton!, mfa: {
-          address: result!,
-          user,
-        } },
-      },
-    },
-  );
-  setGlobal(global);
+  const { installMfa } = global.settings;
+  if (installMfa?.requestId !== requestId) return;
+
+  if (typeof result !== 'string') {
+    setGlobal(updateInstallMfa(global, {
+      error: errorCodeToMessage(result?.error),
+      failedAttemptCount: (installMfa.failedAttemptCount ?? 0) + 1,
+    }));
+    return;
+  }
+
+  setGlobal(updateSettings(global, { installMfa: undefined }));
 }));
 
 addActionHandler('clearMfaRequests', (global) => {

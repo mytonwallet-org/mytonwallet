@@ -7,7 +7,7 @@ import { resetHardware, setCurrentTransferAddress, updateCurrentTransfer } from 
 import { selectEnclaveToken, selectIsEnclaveSessionValid, selectIsHardwareAccount } from '../../selectors';
 
 addActionHandler('startTransfer', (global, actions, payload) => {
-  const { isOfframp, ...rest } = payload ?? {};
+  const { isOfframp, shouldRequireFreshAuth, ...rest } = payload ?? {};
 
   const nftTokenSlug = Symbol('nft');
   const previousFeeTokenSlug = global.currentTransfer.nfts?.length ? nftTokenSlug : global.currentTransfer.tokenSlug;
@@ -20,6 +20,7 @@ addActionHandler('startTransfer', (global, actions, payload) => {
     ...(shouldClearFee ? { explainedFee: undefined, diesel: undefined } : {}),
     ...rest,
     isOfframp,
+    shouldRequireFreshAuth,
   }));
 
   // For offramp mode, automatically submit to calculate fee and go to Confirm screen
@@ -87,7 +88,7 @@ addActionHandler('submitTransferConfirm', (global, actions) => {
   if (selectIsHardwareAccount(global)) {
     global = resetHardware(global, chain);
     global = updateCurrentTransfer(global, { state: TransferState.ConnectHardware });
-  } else if (selectIsEnclaveSessionValid(global)) {
+  } else if (selectIsEnclaveSessionValid(global) && !global.currentTransfer.shouldRequireFreshAuth) {
     global = updateCurrentTransfer(global, { isLoading: true });
     actions.submitTransfer({ enclaveToken: selectEnclaveToken(global) });
   } else {

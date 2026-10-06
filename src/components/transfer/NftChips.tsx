@@ -7,6 +7,8 @@ import buildClassName from '../../util/buildClassName';
 import useFlag from '../../hooks/useFlag';
 import useLang from '../../hooks/useLang';
 
+import NftImage from '../common/NftImage';
+
 import styles from './NftChips.module.scss';
 
 interface OwnProps {
@@ -28,7 +30,7 @@ function NftChips({ nfts, className }: OwnProps) {
   function renderNft(nft: NftTransfer) {
     return (
       <div key={nft.address} className={styles.nft}>
-        {nft.thumbnail && <img src={nft.thumbnail} alt={nft.name} className={styles.image} />}
+        <NftImage url={nft.thumbnail} alt={nft.name} className={styles.image} />
         <span className={styles.name}>{nft.name || nft.address}</span>
       </div>
     );
