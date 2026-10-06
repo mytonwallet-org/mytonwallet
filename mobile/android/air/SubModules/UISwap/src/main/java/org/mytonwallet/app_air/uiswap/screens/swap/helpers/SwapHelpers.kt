@@ -6,7 +6,9 @@ import java.math.RoundingMode
 import org.mytonwallet.app_air.uiswap.screens.swap.models.SwapEstimateResponse
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcore.models.SwapType
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapEstimateResponse
 import org.mytonwallet.app_air.walletcore.moshi.MDieselStatus
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.ExplainedSwapFee
 import org.mytonwallet.app_air.walletcore.moshi.explainedFee.MFee
@@ -27,6 +29,12 @@ class SwapHelpers {
                 tokenToReceive,
                 walletAddressByChain = walletAddressByChain
             )
+        }
+
+        fun isBatchSwapTx(dex: MApiSwapEstimateResponse?, tokenToSend: IApiToken?): Boolean {
+            if (dex?.needsApprove != true) return false
+            val chain = tokenToSend?.chain ?: return false
+            return MBlockchain.isEvmChain(chain)
         }
 
         fun isCex(tokenToSend: IApiToken?, tokenToReceive: IApiToken?): Boolean {

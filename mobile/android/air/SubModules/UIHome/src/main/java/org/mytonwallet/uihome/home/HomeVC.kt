@@ -43,7 +43,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WProtectedView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
-import org.mytonwallet.app_air.uireceive.BuyWithCardLauncher
 import org.mytonwallet.app_air.uireceive.ReceiveVC
 import org.mytonwallet.app_air.uisend.send.MultisendLauncher
 import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
@@ -53,6 +52,7 @@ import org.mytonwallet.app_air.uistake.earn.EarnViewModel
 import org.mytonwallet.app_air.uistake.earn.EarnViewModelFactory
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
+import org.mytonwallet.app_air.uiswap.BuyWithCardLauncher
 import org.mytonwallet.app_air.uiswap.screens.cex.SwapSendAddressOutputVC
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
@@ -1000,11 +1000,10 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
         this.swipeFadeInPercent = actionsFadeInPercent
         swipeItemsOffset = verticalOffset
-        currentActivityListView.updateHeaderHeights()
+        allActivityListViews.forEach { it.updateHeaderHeights(isHorizontalSwipe = progress != 0f) }
         if (progress > 0.02) {
             nextActivityListView.isInvisible = false
             nextActivityListView.updateAlpha(progress)
-            nextActivityListView.updateHeaderHeights()
         } else {
             nextActivityListView.updateAlpha(0f)
             if (!nextActivityListView.isGone) nextActivityListView.isInvisible = true
@@ -1012,7 +1011,6 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         if (progress < -0.02) {
             prevActivityListView.isInvisible = false
             prevActivityListView.updateAlpha(-progress)
-            prevActivityListView.updateHeaderHeights()
         } else {
             prevActivityListView.updateAlpha(0f)
             if (!prevActivityListView.isGone) prevActivityListView.isInvisible = true

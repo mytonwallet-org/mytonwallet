@@ -53,31 +53,24 @@ class TokenTagHelper(context: Context) {
         token: MToken?,
         tokenBalance: MTokenBalance?
     ) {
-        val shouldShow = when (token?.slug) {
-            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> {
-                configureStaticTag("TRC-20")
-                true
-            }
-
-            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> {
-                configureStaticTag("TON")
-                true
-            }
-
-            SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> {
-                configureStaticTag("Solana")
-                true
-            }
-
-            ETH_BNB_MAINNET_SLUG -> {
-                configureStaticTag("ERC-20")
-                true
-            }
-
-            else -> configureStakingTag(accountId, token, tokenBalance) ||
-                configureLabelTag(token)
+        val staticTag = staticTagText(token?.slug)
+        val shouldShow = if (staticTag != null) {
+            configureStaticTag(staticTag)
+            true
+        } else {
+            configureStakingTag(accountId, token, tokenBalance) || configureLabelTag(token)
         }
         updateLabelSpacing(cell, topLeftLabel, topRightView, shouldShow)
+    }
+
+    companion object {
+        fun staticTagText(slug: String?): String? = when (slug) {
+            TRON_USDT_SLUG, TRON_USDT_TESTNET_SLUG -> "TRC-20"
+            TON_USDT_SLUG, TON_USDT_TESTNET_SLUG -> "TON"
+            SOLANA_USDT_SLUG, SOLANA_USDC_SLUG -> "Solana"
+            ETH_BNB_MAINNET_SLUG -> "ERC-20"
+            else -> null
+        }
     }
 
     fun onThemeChanged() {

@@ -38,6 +38,11 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.promotion.PromotionVC
 
+internal fun routeOpenUrlDeeplink(
+    event: WalletEvent.OpenUrl,
+    handleDeeplink: (String, DeeplinkOpenSource) -> Boolean
+): Boolean = handleDeeplink(event.url, event.source)
+
 /**
  * Shared base for the two tab containers (phone [TabsVC] and tablet TabletTabsVC). Owns the
  * per-tab navigation stacks and the shared [WalletEvent] routing, and
@@ -314,10 +319,12 @@ abstract class BaseTabsVC(context: Context) :
                 val url = walletEvent.url
                 if (walletEvent.isExternal) {
                     context.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))
-                } else if (WalletContextManager.delegate?.get()?.handleDeeplink(
-                        url,
-                        DeeplinkOpenSource.INTERNAL_UI
-                    ) != true
+                } else if (!routeOpenUrlDeeplink(walletEvent) { deeplink, source ->
+                        WalletContextManager.delegate?.get()?.handleDeeplink(
+                            deeplink,
+                            source
+                        ) == true
+                    }
                 ) {
                     if (canOpenExternally(url)) {
                         context.startActivityCatching(Intent(Intent.ACTION_VIEW, url.toUri()))

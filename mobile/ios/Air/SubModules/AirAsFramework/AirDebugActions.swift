@@ -130,9 +130,6 @@ public enum AirDebugActions {
             window.rootViewController?
                 .descendantViewController(of: TopTabsRootViewController.self)?
                 .debugOnly_resetAgentRoot()
-            window.rootViewController?
-                .descendantViewController(of: SplitRootViewController.self)?
-                .debugOnly_resetAgentRoot()
         }
     }
 }

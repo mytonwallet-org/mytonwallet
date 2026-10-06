@@ -1,6 +1,6 @@
 import { logDebugError } from '../../util/logs';
 import { fetchMaybeStoredAccount, fetchStoredAccounts, getCurrentAccountId } from '../common/accounts';
-import { activateAccount } from './accounts';
+import { activateAccount, initAccounts, loadAccountsWalletVersions } from './accounts';
 import { setActivePollingAccount } from './polling';
 
 jest.mock('../common/accounts', () => ({
@@ -106,5 +106,24 @@ describe('activateAccount', () => {
       MISSING_ACCOUNT_ID,
       error,
     );
+  });
+});
+
+describe('loadAccountsWalletVersions', () => {
+  it('sends the stored version of each requested TON wallet that has one', async () => {
+    const onUpdate = jest.fn();
+    initAccounts(onUpdate);
+    jest.mocked(fetchStoredAccounts).mockResolvedValue({
+      '0-mainnet': { byChain: { ton: { address: 'UQ0', version: 'W5' } } },
+      '1-mainnet': { byChain: { ton: { address: 'EQ1' } } },
+      '2-mainnet': { byChain: { tron: { address: 'T2' } } },
+      '3-mainnet': { byChain: { ton: { address: 'UQ3', version: 'v4R2' } } },
+    } as any);
+
+    await loadAccountsWalletVersions(['0-mainnet', '1-mainnet', '2-mainnet', 'removed-mainnet']);
+
+    expect(onUpdate.mock.calls).toEqual([
+      [{ type: 'updateAccount', accountId: '0-mainnet', chain: 'ton', version: 'W5' }],
+    ]);
   });
 });

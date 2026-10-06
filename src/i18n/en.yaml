@@ -393,6 +393,7 @@ Encrypted Message: Encrypted Message
 Message is encrypted: Message is encrypted
 Agree: Agree
 $swap_action: Swap
+$swap_batch_tx_duration_hint: Sending may take up to 1 minute.
 $swap_activity_title: Swap
 Swap: Swap
 You Sell: You Sell
@@ -465,12 +466,12 @@ Cross-chain exchange provided by %provider%: Cross-chain swap by %provider%
 $swap_cex_terms_of_use: terms of use
 $swap_cex_privacy_policy: privacy policy
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: AML/KYC Policy
 $swap_cex_legal_message: "By continuing, you agree to %terms% and %policy%."
 $swap_cex_legal_message_with_aml: By continuing, you agree to %terms% and %policy% and understand that the transaction may trigger verification according to %aml%.
 Password must contain %length% digits.: Password must contain %length% digits.
 Deposit Link: Deposit Link
 $swap_cex_from_wallet_description: "Tokens will be sent to your address in %blockchain% blockchain soon:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Please note that it may take up to a few hours for tokens to appear in your wallet.
 Minimum amount: Minimum %value%
 Maximum amount: Maximum %value%
 Display Tray Icon: Display Tray Icon
@@ -575,7 +576,6 @@ Scan your fingerprint: Scan your fingerprint
 Incorrect code, please try again.: Incorrect code, please try again.
 Correct: Correct
 Confirm Action: Confirm Action
-$classic_confirm_actions: Confirm Actions
 Confirm Swap: Confirm Swap
 Confirm Rewards Claim: Confirm Rewards Claim
 "%amount% to %address%": "%amount% to %address%"
@@ -595,6 +595,8 @@ Buy with Card: Buy with Card
 Buy with Crypto: Buy with Crypto
 Add funds to swap: Add funds to swap
 Direct swap unavailable: Direct swap unavailable
+"Direct exchange unavailable": "Direct exchange unavailable"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "To receive %buy_token%, first receive %token%, then exchange it for %buy_token%."
 Swap on an external service: Swap on an external service
 Buy with a card or receive crypto to fund this swap.: Buy with a card or receive crypto to fund this swap.
 Buy crypto or choose another token to sell.: Buy crypto or choose another token to sell.
@@ -966,12 +968,10 @@ Import Wallet: Import Wallet
 Please top up your %token% balance.: Please top up your %token% balance.
 Remember Passcode: Remember Passcode
 Remember Password: Remember Password
-Not available with biometrics.: Not available with biometrics.
 App will not ask for signature for %minutes% minutes after last entry.: The app will not ask for a signature for %minutes% minutes after the last entry.
 Auto-Exit: Auto-Exit
 Log out of all wallets after failed attempts.: Log out of all wallets after failed attempts.
 "%count% attempts": "%count% attempts"
-Remember for %minutes% minutes: Remember for %minutes% minutes
 Preview: Preview
 $preview_not_guaranteed: Preview result **is not guaranteed** and **can be forged** by the service.
 Unverified Source: Unverified Source
@@ -2265,6 +2265,8 @@ See All: See All
 Add an **extra layer of security** for your wallet in TON network.: Add an **extra layer of security** for your wallet in TON network.
 Agent is unavailable: Agent is unavailable
 Another transaction was sent from this wallet simultaneously. Please try again.: Another transaction was sent from this wallet simultaneously. Please try again.
+Telegram Wallet contract was not found at this address.: Telegram Wallet contract was not found at this address.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Telegram Wallet public key does not match this seed. The wallet may have rotated its key.
 Buying with card is not supported for this chain.: Buying with card is not supported for this chain.
 Confirm with Telegram: Confirm with Telegram
 Couldn't open support chat. Please try again.: Couldn't open support chat. Please try again.
@@ -2329,8 +2331,33 @@ Search token or stock: Search token or stock
 Unknown Transfer: Unknown Transfer
 # Prefix before the requesting Dapp name on the Sign Data confirmation screen.
 $dapp_sign_data_for_prefix: for
+
+# Token Buy / Sell
+"Pay %value%": "Pay %value%"
+"Receive %value%": "Receive %value%"
+"Buy %token% via %provider%": "Buy %token% via %provider%"
+"Sell %token% via %provider%": "Sell %token% via %provider%"
+"Switch Amount Currency": "Switch Amount Currency"
+"Pay With": "Pay With"
+"Receive in": "Receive in"
+"You Pay": "You Pay"
+"You Receive": "You Receive"
+"You pay": "You pay"
 Successfully Sent: Successfully Sent
 Successfully Signed: Successfully Signed
 3D Card: 3D Card
 Coming soon: Coming soon
 $dapp_identity_not_confirmed: App identity **is not confirmed**.
+
+# Token trade asset browser and details
+"Choose Asset": "Choose Asset"
+"Asset to Buy": "Asset to Buy"
+"Asset to Sell": "Asset to Sell"
+"Fiat": "Fiat"
+"Stocks": "Stocks"
+"Popular Currencies": "Popular Currencies"
+"Cross-chain Provider": "Cross-chain Provider"
+"Min": "Min"
+Ruble: Ruble
+$token_price_value: "Price: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Swaps like this usually take a few minutes. In rare cases, up to two hours.

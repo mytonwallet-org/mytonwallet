@@ -507,7 +507,8 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
                     pauseReloadData = false
                     reloadData(animated: false)
                     updateHeader()
-                    navigationController?.popToRootViewController(animated: false)
+                    // Settings can share a navigation stack with Home and other screens.
+                    navigationController?.popToViewController(self, animated: false)
                 }
 
             case .accountNameChanged:

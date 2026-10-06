@@ -20,6 +20,8 @@ sealed interface MBridgeError {
         INACTIVE_CONTRACT("InactiveContract"),
         MFA_NFT_BATCH_LIMIT("MfaNftBatchLimit"),
         CONCURRENT_TRANSACTION("ConcurrentTransaction"),
+        TELEGRAM_WALLET_CONTRACT_MISMATCH("TelegramWalletContractMismatch"),
+        TELEGRAM_WALLET_PUBLIC_KEY_MISMATCH("TelegramWalletPublicKeyMismatch"),
         ADDRESS_DOES_NOT_EXIST("AddressDoesNotExist"),
         NOT_A_TOKEN_ADDRESS("NotATokenAddress"),
 
@@ -97,6 +99,14 @@ sealed interface MBridgeError {
 
                 Type.CONCURRENT_TRANSACTION -> LocaleController.getString(
                     "Another transaction was sent from this wallet simultaneously. Please try again."
+                )
+
+                Type.TELEGRAM_WALLET_CONTRACT_MISMATCH -> LocaleController.getString(
+                    "Telegram Wallet contract was not found at this address."
+                )
+
+                Type.TELEGRAM_WALLET_PUBLIC_KEY_MISMATCH -> LocaleController.getString(
+                    "Telegram Wallet public key does not match this seed. The wallet may have rotated its key."
                 )
 
                 Type.ADDRESS_DOES_NOT_EXIST -> LocaleController.getString("Address doesn't exist")

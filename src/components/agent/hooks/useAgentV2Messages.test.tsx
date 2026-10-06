@@ -1352,6 +1352,7 @@ describe('useAgentV2Messages', () => {
       amount: 100000000n,
       toAddress: 'EQ-mom-private',
       comment: 'Спасибо',
+      shouldRequireFreshAuth: true,
     });
   });
 
@@ -1392,6 +1393,7 @@ describe('useAgentV2Messages', () => {
       amount: undefined,
       toAddress: 'EQ-defi-private',
       comment: undefined,
+      shouldRequireFreshAuth: true,
     });
   });
 
@@ -1669,6 +1671,7 @@ describe('useAgentV2Messages', () => {
       amount: 500000000n,
       toAddress: 'EQ-mom-private',
       comment: undefined,
+      shouldRequireFreshAuth: true,
     });
   });
 
@@ -1728,6 +1731,7 @@ describe('useAgentV2Messages', () => {
       tokenSlug: 'gram',
       amount: 500000000n,
       toAddress: 'EQ-mom-private',
+      shouldRequireFreshAuth: true,
     });
   });
 
@@ -1767,6 +1771,7 @@ describe('useAgentV2Messages', () => {
       tokenSlug: 'gram',
       amount: 500000000n,
       toAddress: 'EQ-mom-private',
+      shouldRequireFreshAuth: true,
     });
   });
 

@@ -27,6 +27,7 @@ import { toDecimal } from '../../../../util/decimals';
 import { buildCollectionByKey } from '../../../../util/iteratees';
 import { MEMO_EMPTY_ARRAY } from '../../../../util/memo';
 import { getIsActiveStakingState, getIsNewStakeAllowed, getStakingStateStatus } from '../../../../util/staking';
+import { getIsChainBadgeShown } from '../../../../util/tokens';
 import { REM } from '../../../../util/windowEnvironment';
 import { ANIMATED_STICKERS_PATHS } from '../../../ui/helpers/animatedAssets';
 import { getScrollContainerClosestSelector } from '../../helpers/scrollableContainer';
@@ -311,9 +312,7 @@ function Assets({
     const isStakingAvailable = Boolean(baseTokenState && !isStakingDisabled && getIsNewStakeAllowed(slug));
     const yieldSource = stakingState || (isStakingAvailable ? baseTokenState : undefined);
     const { annualYield, yieldType } = yieldSource || {};
-    // Unless `areChainBadgesShown` is on, only labeled tokens get the chain icon. A token with a yield badge
-    // gets none, as on iOS, where the yield badge takes the place of the label.
-    const withChainIcon = isMultichainAccount && (areChainBadgesShown || (Boolean(token.label) && !annualYield));
+    const withChainIcon = isMultichainAccount && getIsChainBadgeShown(token, areChainBadgesShown, Boolean(annualYield));
     const isSwapAvailable = Boolean(swapTokensBySlug[slug]);
     const isPinned = pinnedSlugsSet.has(slug);
     const amountDecimal = isStaking ? toDecimal(amount, decimals) : undefined;

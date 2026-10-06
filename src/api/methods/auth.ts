@@ -21,7 +21,7 @@ import type {
   ApiWalletByChain,
   OnApiUpdate,
 } from '../types';
-import { ApiCommonError } from '../types';
+import { ApiCommonError, ApiTransactionError } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { getChainConfig, getChainsByStandard, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
@@ -34,6 +34,7 @@ import chains from '../chains';
 // The TON backend auth token is signed from the already-decrypted mnemonic during import; it is a backend
 // concern rather than a chain capability, so it stays a direct import until it gets its own SDK group.
 import * as ton from '../chains/ton';
+import { getIsTestnetSubwalletId, getTelegramWalletInfo } from '../chains/ton/wallet';
 import {
   fetchStoredAccount,
   fetchStoredAccounts,
@@ -52,6 +53,7 @@ import {
   validateBip39Mnemonic,
 } from '../common/mnemonic';
 import { sendUpdateTokens } from '../common/tokens';
+import { bytesToHex, hexToBytes } from '../common/utils';
 import { tokenRepository } from '../db';
 import { getEnvironment } from '../environment';
 import { ApiServerError, handleServerError } from '../errors';
@@ -99,8 +101,9 @@ async function buildTonBackendAuthToken(mnemonic: string[], account: ApiAccountW
     try {
       const keyPair = await ton.getKeyPairFromStoredMnemonic(mnemonic, account);
       const authToken = ton.buildBackendAuthToken(keyPair.secretKey);
+      const tokenPublicKey = tonWallet.version === 'telegram' ? bytesToHex(keyPair.publicKey) : tonWallet.publicKey;
 
-      return isBackendAuthTokenValid(authToken, tonWallet.publicKey) ? authToken : undefined;
+      return isBackendAuthTokenValid(authToken, tokenPublicKey) ? authToken : undefined;
     } catch (err) {
       logDebugError('buildTonBackendAuthToken', err);
     }
@@ -137,6 +140,10 @@ export function generateMnemonic(isBip39: boolean) {
 }
 
 export async function validateMnemonic(mnemonic: string[]) {
+  if (ton.isTelegramRotationMnemonic(mnemonic)) {
+    return true;
+  }
+
   // Every build accepts a BIP39 phrase, even one that only ever mints TON-specific ones: a wallet has to stay
   // restorable in the app that created it, whichever way that app was built at the time.
   if (validateBip39Mnemonic(mnemonic)) {
@@ -155,8 +162,9 @@ export async function importMnemonic(
   const isBip39Mnemonic = validateBip39Mnemonic(mnemonic);
   const nativeMnemonic = findNativeMnemonic();
   const isTonMnemonic = nativeMnemonic ? await nativeMnemonic.validateMnemonic(mnemonic) : false;
+  const isTelegramRotationMnemonic = ton.isTelegramRotationMnemonic(mnemonic);
 
-  if (!isBip39Mnemonic && !isTonMnemonic) {
+  if (!isBip39Mnemonic && !isTonMnemonic && !isTelegramRotationMnemonic) {
     throw new Error('Invalid mnemonic');
   }
 
@@ -164,10 +172,37 @@ export async function importMnemonic(
     // Phase 1: derive every network's wallets without touching storage. The TON history probe can throw on an
     // unreachable node, so deriving up front means such a failure aborts before anything is persisted; a partial
     // write would otherwise leave a ghost account that a retry duplicates.
-    const derivedByNetwork = await Promise.all(networks.map(async (network) => {
+    let derivationError: ApiAnyDisplayError | undefined;
+    const derivedByNetwork: {
+      network: ApiNetwork;
+      sortedAccounts: (ApiAccountWithMnemonic & { id?: string; derivedFromIndex?: number })[];
+    }[] = await Promise.all(networks.map(async (network) => {
       let accounts: (ApiAccountWithMnemonic & { derivedFromIndex?: number })[] = [];
       let tonWallet: ApiTonWallet & { lastTxId?: string } | undefined;
       let shouldForceTonMnemonic = false;
+
+      if (isTelegramRotationMnemonic) {
+        const telegramWallet = await ton.getWalletFromTelegramRotationMnemonic(network, mnemonic);
+        if ('error' in telegramWallet) {
+          const canFallBackToOrdinaryImport = (isBip39Mnemonic || isTonMnemonic)
+            && telegramWallet.error === ApiTransactionError.TelegramWalletContractMismatch;
+
+          if (!canFallBackToOrdinaryImport) {
+            derivationError ??= telegramWallet.error;
+            return { network, sortedAccounts: [] };
+          }
+        } else {
+          return {
+            network,
+            sortedAccounts: [{
+              type: 'bip39' as const,
+              byChain: {
+                ton: telegramWallet,
+              },
+            }],
+          };
+        }
+      }
 
       if (!shouldSkipDiscovery && isBip39Mnemonic && isTonMnemonic) {
         // On-chain history is the only tiebreaker between the two derivations, and they yield different addresses.
@@ -197,6 +232,10 @@ export async function importMnemonic(
 
       return { network, sortedAccounts };
     }));
+
+    if (derivationError) {
+      return { error: derivationError };
+    }
 
     // Phase 2: every network derived successfully, so the storage writes below cannot be interrupted part way
     // through by a probe failure on another network.
@@ -346,6 +385,13 @@ async function findBip39WalletGroups(network: ApiNetwork, mnemonic: string[]) {
 
   const grouped = await Promise.all(
     [...walletsByDerivationIndex.entries()].map(async ([index, wallets]) => {
+      const telegramWallet = wallets.find((wallet) => (
+        wallet.chain === 'ton' && 'version' in wallet && wallet.version === 'telegram'
+      ));
+      if (telegramWallet) {
+        return [{ index, wallets: [telegramWallet] }];
+      }
+
       const splitGroups = await splitWalletGroupByDistinctAddresses(network, mnemonic, wallets);
 
       return splitGroups.map((group) => ({ index, wallets: group }));
@@ -568,6 +614,7 @@ function findMultichainUpgradeCandidates(accounts: Record<string, ApiAccountAny>
     if (account.type !== 'bip39' && account.type !== 'ton') return false;
 
     const hasMissingChains = account.type === 'bip39'
+      && account.byChain.ton?.version !== 'telegram'
       && supportedChains.some(
         (chain) => !account.byChain?.[chain]?.derivation && getChainConfig(chain).isSubwalletsSupported,
       );
@@ -609,7 +656,7 @@ export async function upgradeMultichainAccounts(enclaveToken: string, accountIds
       await updateStoredWallet(accountId, 'ton', { authToken: backfilledAuthToken });
     }
 
-    if (isMnemonicPrivateKey(mnemonic) || account.type !== 'bip39') {
+    if (isMnemonicPrivateKey(mnemonic) || account.type !== 'bip39' || account.byChain.ton?.version === 'telegram') {
       continue;
     }
 
@@ -651,6 +698,7 @@ export async function upgradeMultichainAccounts(enclaveToken: string, accountIds
         chain,
         address: wallet.address,
         derivation: wallet.derivation,
+        version: wallet.version,
       });
     }
   }
@@ -737,21 +785,48 @@ export async function importNewWalletVersion(
 } | {
   isNew: false;
   accountId: string;
+} | {
+  error: ApiAnyDisplayError;
 }> {
   const { network } = parseAccountId(accountId);
   const account = await fetchStoredChainAccount(accountId, 'ton');
+  if (account.byChain.ton.version === 'telegram') {
+    return { error: ApiCommonError.UnsupportedVersion };
+  }
+
   // Wallet versions are a TON concept, and the derived wallet is stored back as the account's TON wallet
   const getOtherVersionWallet = chains.ton?.getOtherVersionWallet;
   if (!getOtherVersionWallet) {
     throw new Error('Wallet versions are not supported in this build');
   }
 
+  const resolvedIsTestnetSubwalletId = isTestnetSubwalletId ?? getIsTestnetSubwalletId(network, version);
   const newAccount: ApiAccountWithChain<'ton'> = {
     ...account,
     byChain: {
-      ton: getOtherVersionWallet(network, account.byChain.ton, version, isTestnetSubwalletId),
+      ton: getOtherVersionWallet(network, account.byChain.ton, version, resolvedIsTestnetSubwalletId),
     },
   };
+
+  if (version === 'telegram') {
+    const { address, publicKey } = newAccount.byChain.ton;
+    if (!publicKey) {
+      return { error: ApiTransactionError.TelegramWalletPublicKeyMismatch };
+    }
+
+    const telegramInfo = await getTelegramWalletInfo(
+      network,
+      address,
+      hexToBytes(publicKey),
+      resolvedIsTestnetSubwalletId,
+    );
+    if (!telegramInfo.isTelegramWallet) {
+      return { error: ApiTransactionError.TelegramWalletContractMismatch };
+    }
+    if (telegramInfo.isPublicKeyMismatch) {
+      return { error: ApiTransactionError.TelegramWalletPublicKeyMismatch };
+    }
+  }
 
   const accounts = await fetchStoredAccounts();
   const existingAccount = Object.entries(accounts).find(([, account]) => {

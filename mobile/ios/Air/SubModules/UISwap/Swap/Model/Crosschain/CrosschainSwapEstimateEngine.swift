@@ -185,7 +185,7 @@ func crosschainAdjustedNativeMaxAmount(
             }
 
             let resolvedSelling = TokenAmount(
-                DecimalAmount.fromDouble(swapEstimate.fromAmount.value, selling.token).roundedForSwap.amount,
+                swapEstimate.fromAmount.bigintAmount(decimals: selling.token.decimals),
                 selling.token
             )
             let nativeFee = swapEstimate.networkFee.flatMap {

@@ -17,18 +17,25 @@ interface OwnProps {
   error?: string;
   children?: TeactNode;
   extraAuthUsages?: number;
+  isGaslessWithStars?: boolean;
   onAuthorize: (enclaveToken: string) => void;
   onCancel: NoneToVoidFunction;
-  isGaslessWithStars?: boolean;
+  onClose: NoneToVoidFunction;
 }
 
 function TransferPassword({
-  isActive, isLoading, isBurning, error, children, extraAuthUsages, onAuthorize, onCancel, isGaslessWithStars,
+  isActive,
+  isLoading,
+  isBurning,
+  error,
+  children,
+  extraAuthUsages,
+  isGaslessWithStars,
+  onAuthorize,
+  onCancel,
+  onClose,
 }: OwnProps) {
-  const {
-    cancelTransfer,
-    clearTransferError,
-  } = getActions();
+  const { clearTransferError } = getActions();
 
   const lang = useLang();
 
@@ -37,19 +44,21 @@ function TransferPassword({
     onBack: onCancel,
   });
 
-  const title = isBurning ? 'Confirm Burning' : 'Confirm Sending';
+  const title = isBurning ? 'Confirm Burning' : 'Confirm';
   const submitLabel = isGaslessWithStars
     ? lang('Pay fee with %stars_symbol%', { stars_symbol: STARS_SYMBOL })
     : lang('Confirm');
 
   return (
     <>
-      {!getDoesUsePinPad() && <ModalHeader title={lang(title)} onClose={cancelTransfer} />}
+      {!getDoesUsePinPad() && <ModalHeader title={lang(title)} onClose={onClose} />}
       <PasswordForm
         isActive={isActive}
         isLoading={isLoading}
         withCloseButton={Boolean(children)}
         operationType="transfer"
+        operationTitle={title}
+        noAnimatedIcon
         error={error}
         submitLabel={submitLabel}
         cancelLabel={lang('Back')}
@@ -57,6 +66,7 @@ function TransferPassword({
         extraAuthUsages={extraAuthUsages}
         onAuthorize={onAuthorize}
         onCancel={onCancel}
+        onClose={onClose}
         onUpdate={clearTransferError}
       >
         {children}

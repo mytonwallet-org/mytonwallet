@@ -12,6 +12,7 @@ import {
   type ApiNetwork,
   type ApiTonWallet,
 } from '../../types';
+import { ApiTransactionError } from '../../types';
 
 import { DEFAULT_WALLET_VERSION } from '../../../config';
 import * as HDKey from '../../../lib/ed25519-hd-key';
@@ -28,10 +29,18 @@ import { resolveAddress } from './address';
 import { TON_BIP39_PATH } from './constants';
 import { getWalletInfos } from './toncenter';
 import {
-  getIsTestnetSubwalletId, getWalletInfo, pickBestWallet, pickBestWalletVersion, publicKeyToAddress,
+  buildWallet,
+  getIsTestnetSubwalletId,
+  getTelegramWalletInfo,
+  getWalletInfo,
+  pickBestWallet,
+  pickBestWalletVersion,
+  publicKeyToAddress,
 } from './wallet';
 
 const MULTIWALLET_BY_PATH_DEFAULT_COUNT = 2;
+const TELEGRAM_ROTATION_HALF_WORD_COUNT = 12;
+const TELEGRAM_ROTATION_WORD_COUNT = TELEGRAM_ROTATION_HALF_WORD_COUNT * 2;
 
 function buildOfflineWalletFromPublicKey(
   network: ApiNetwork,
@@ -121,6 +130,12 @@ export async function getKeyPairFromStoredMnemonic(
 ) {
   if (isMnemonicPrivateKey(mnemonic)) {
     return privateKeyHexToKeyPair(mnemonic[0]);
+  } else if (account.byChain.ton?.version === 'telegram' && isTelegramRotationMnemonic(mnemonic)) {
+    const signingMnemonic = mnemonic.slice(TELEGRAM_ROTATION_HALF_WORD_COUNT);
+    const seed = bip39.mnemonicToSeedSync(signingMnemonic.join(' '));
+    const derivation = account.byChain.ton.derivation ?? { path: TON_BIP39_PATH, index: 0 };
+
+    return getWalletVariantByIndex(seed.toString('hex'), derivation.index, derivation.path);
   } else if (account.type === 'bip39') {
     const derivation = account.byChain.ton?.derivation;
 
@@ -134,6 +149,12 @@ export async function getKeyPairFromStoredMnemonic(
   } else {
     return mnemonicToKeyPair(mnemonic);
   }
+}
+
+export function isTelegramRotationMnemonic(mnemonic: string[]) {
+  return mnemonic.length === TELEGRAM_ROTATION_WORD_COUNT
+    && validateBip39Mnemonic(mnemonic.slice(0, TELEGRAM_ROTATION_HALF_WORD_COUNT))
+    && validateBip39Mnemonic(mnemonic.slice(TELEGRAM_ROTATION_HALF_WORD_COUNT));
 }
 
 async function mnemonicToKeyPair(mnemonic: string[]) {
@@ -261,6 +282,42 @@ export async function getWalletFromPrivateKey(
   }
 }
 
+export async function getWalletFromTelegramRotationMnemonic(
+  network: ApiNetwork,
+  mnemonic: string[],
+): Promise<ApiTonWallet | { error: ApiTransactionError }> {
+  if (!isTelegramRotationMnemonic(mnemonic)) {
+    return { error: ApiTransactionError.TelegramWalletPublicKeyMismatch };
+  }
+
+  const anchorKeyPair = getBip39HalfKeyPair(mnemonic.slice(0, TELEGRAM_ROTATION_HALF_WORD_COUNT));
+  const signingKeyPair = getBip39HalfKeyPair(mnemonic.slice(TELEGRAM_ROTATION_HALF_WORD_COUNT));
+  const isTestnetSubwalletId = getIsTestnetSubwalletId(network, 'telegram');
+  const wallet = buildWallet(anchorKeyPair.publicKey, 'telegram', isTestnetSubwalletId);
+  const address = toBase64Address(wallet.address, false, network);
+  const telegramInfo = await getTelegramWalletInfo(
+    network,
+    address,
+    signingKeyPair.publicKey,
+    isTestnetSubwalletId,
+  );
+
+  if (!telegramInfo.isTelegramWallet) {
+    return { error: ApiTransactionError.TelegramWalletContractMismatch };
+  }
+  if (telegramInfo.isPublicKeyMismatch) {
+    return { error: ApiTransactionError.TelegramWalletPublicKeyMismatch };
+  }
+
+  return {
+    address,
+    publicKey: bytesToHex(anchorKeyPair.publicKey),
+    version: 'telegram',
+    index: 0,
+    derivation: { path: TON_BIP39_PATH, index: 0 },
+  };
+}
+
 async function getWalletFromKeys(
   network: ApiNetwork,
   variants: { publicKey: Uint8Array; derivation?: { path: string; index: number } }[],
@@ -313,6 +370,12 @@ function getWalletVariantByIndex(seed: string, index: number, pathTemplate: stri
   return { ...keypair, path: pathTemplate, index };
 }
 
+function getBip39HalfKeyPair(mnemonic: string[]) {
+  const seed = bip39.mnemonicToSeedSync(mnemonic.join(' '));
+
+  return getWalletVariantByIndex(seed.toString('hex'), 0);
+}
+
 function bip39MnemonicToKeyPairs(
   mnemonic: string[],
   shouldSkipDiscovery?: boolean,
@@ -342,7 +405,8 @@ export function getOtherVersionWallet(
   }
 
   const publicKey = hexToBytes(wallet.publicKey);
-  const newAddress = publicKeyToAddress(network, publicKey, otherVersion, isTestnetSubwalletId);
+  const resolvedIsTestnetSubwalletId = isTestnetSubwalletId ?? getIsTestnetSubwalletId(network, otherVersion);
+  const newAddress = publicKeyToAddress(network, publicKey, otherVersion, resolvedIsTestnetSubwalletId);
 
   return {
     address: newAddress,

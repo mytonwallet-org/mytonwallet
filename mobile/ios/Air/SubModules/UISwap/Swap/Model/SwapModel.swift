@@ -231,12 +231,16 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         SwapDetailsVM(swapEstimate: estimateState.dexEstimate, inputModel: input)
     }
 
-    var currentButtonConfiguration: DraftButtonConfiguration {
-        let state = currentPresentationContext().map {
+    var currentButtonState: SwapButtonState {
+        guard !isSubmitting else { return .submitting }
+        return currentPresentationContext().map {
             flow(for: swapType).buttonState(context: $0, state: currentEstimateState)
         } ?? .emptyAmount
-        return buttonModel.configuration(
-            for: isSubmitting ? .submitting : state,
+    }
+
+    var currentButtonConfiguration: DraftButtonConfiguration {
+        buttonModel.configuration(
+            for: currentButtonState,
             sellingToken: input.sellingToken,
             buyingToken: input.buyingToken
         )

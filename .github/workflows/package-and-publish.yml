@@ -464,10 +464,15 @@ jobs:
           path: ${{ steps.download-x64.outputs.download-path }}/${{ env.FILE_NAME_X64 }}
 
   electron-beta-publish:
-    name: Publish beta desktop feed to MinIO
+    name: Publish beta desktop feed
     needs: electron-release
     if: github.ref == 'refs/heads/master' && vars.PUBLISH_REPO == ''
     runs-on: ubuntu-latest
+    # `environment: production` is load-bearing rather than cautious. The role assumed below trusts a
+    # token whose `sub` claim is `repo:mytonwallet-org/mytonwallet-dev:environment:production`, so the
+    # environment is what mints the subject the trust policy names; without this key the assume-role
+    # call is refused outright. The policy also pins `ref` to refs/heads/master, which together with
+    # the `if` above means this job cannot be rehearsed on a branch - it runs on master or nowhere.
     environment: production
     timeout-minutes: 15
     # A publish writes several files to one feed in sequence. Serialize runs and never cancel one
@@ -475,6 +480,16 @@ jobs:
     concurrency:
       group: beta-feed-publish
       cancel-in-progress: false
+    # Job-level permissions REPLACE the workflow-level set rather than merging with it, so everything
+    # this job needs is restated. `id-token: write` lives here and not at workflow level because that
+    # block is shared with jobs running third-party actions for the store uploads, and an OIDC token
+    # those jobs never use is a credential handed to code that has no business minting one.
+    # `contents` drops from the workflow's `write` to `read`: this job has no checkout at all, taking
+    # its inputs from artifacts, so it needs nothing beyond the implicit read.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - name: Download mac feed
         uses: actions/download-artifact@v4
@@ -487,19 +502,32 @@ jobs:
           pattern: mac-*-dmg
           path: feed
           merge-multiple: true
-      - name: Prepare MinIO client
-        uses: mytonwallet-org/shared-actions/prepare_minio@master
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          endpoint: ${{ secrets.S3_ENDPOINT }}
-          access-key: ${{ vars.S3_ACCESS_KEY }}
-          secret-key: ${{ secrets.S3_SECRET_KEY }}
-          mc-version: ${{ vars.MC_VERSION }}
+          role-to-assume: arn:aws:iam::990678687129:role/gha-public-assets-desktop-beta
+          aws-region: eu-central-1
       - name: Skip if this version is already published
         id: guard
+        env:
+          BUCKET: my-wallet-public-assets-prod
+          KEY: public/desktop-beta/electronVersion.txt
         run: |
           set -euo pipefail
           BUILD_VER=$(yq '.version' feed/latest-mac.yml)
-          GATE=$(mc cat s3/public/desktop-beta/electronVersion.txt 2>/dev/null || echo "0.0.0")
+          # Only a genuinely absent object means "no feed yet". The MinIO version of this line read
+          # `|| echo 0.0.0`, which turned EVERY failure into that answer - a denied credential, a
+          # network blip, a typo in the key - and 0.0.0 loses to any real version, so the protection
+          # against publishing backwards switched itself off in exactly the situations where something
+          # was already wrong. Here a 404 is the only tolerated failure and anything else stops the job.
+          if err=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY" 2>&1 >/dev/null); then
+            GATE=$(aws s3 cp "s3://$BUCKET/$KEY" -)
+          elif printf '%s' "$err" | grep -q 'An error occurred (404)'; then
+            GATE=0.0.0
+          else
+            printf '%s\n' "$err" >&2
+            exit 1
+          fi
           HIGHEST=$(printf '%s\n%s\n' "$GATE" "$BUILD_VER" | sort -V | tail -1)
           echo "build=$BUILD_VER gate=$GATE highest=$HIGHEST"
           # electronVersion.txt is the gate the client polls before it downloads, so a build no newer than
@@ -514,25 +542,51 @@ jobs:
           fi
       - name: Publish feed
         if: steps.guard.outputs.skip == 'false'
+        env:
+          D: s3://my-wallet-public-assets-prod/public/desktop-beta
+          BUILD_VER: ${{ steps.guard.outputs.build_ver }}
         run: |
           set -euo pipefail
-          D=s3/public/desktop-beta
           # Order is load-bearing: payloads and manifest first, the gate (electronVersion.txt) LAST. The
           # client polls the gate every few minutes; raising it before its files are up sends a client that
           # polls in the gap to fetch a version the feed cannot serve yet.
-          mc cp feed/MyWallet-*.zip feed/MyWallet-*.zip.blockmap "$D/"
-          mc cp feed/MyWallet-*x64.dmg   "$D/MyWallet-x64.dmg"
-          mc cp feed/MyWallet-*arm64.dmg "$D/MyWallet-arm64.dmg"
-          mc cp feed/latest-mac.yml "$D/latest-mac.yml"
-          printf '%s' "${{ steps.guard.outputs.build_ver }}" | mc pipe "$D/electronVersion.txt"
+          #
+          # One copy per file rather than one command for the glob: `aws s3 cp` takes a single source, so
+          # a multi-file form would silently treat the last argument as the destination.
+          for f in feed/MyWallet-*.zip feed/MyWallet-*.zip.blockmap; do
+            aws s3 cp "$f" "$D/$(basename "$f")"
+          done
+          aws s3 cp feed/MyWallet-*x64.dmg   "$D/MyWallet-x64.dmg"
+          aws s3 cp feed/MyWallet-*arm64.dmg "$D/MyWallet-arm64.dmg"
+          aws s3 cp feed/latest-mac.yml "$D/latest-mac.yml"
+          printf '%s' "$BUILD_VER" | aws s3 cp - "$D/electronVersion.txt"
       - name: Prune old beta payloads
         if: steps.guard.outputs.skip == 'false'
+        env:
+          BUCKET: my-wallet-public-assets-prod
+          PREFIX: public/desktop-beta
         run: |
           set -euo pipefail
-          D=s3/public/desktop-beta
+          # The listing is taken once into a variable instead of being piped straight into the filters,
+          # because two of its answers are not keys. `--query 'Contents[].Key' --output text` prints the
+          # literal `None` when the prefix holds nothing, and a `grep` that then matches no line exits 1,
+          # which under `pipefail` fails the whole step - so an empty or freshly created prefix would
+          # break a publish rather than skip a prune that has nothing to do.
+          keys=$(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$PREFIX/" \
+            --query 'Contents[].Key' --output text)
+          if [ -z "$keys" ] || [ "$keys" = "None" ]; then
+            echo "no objects under $PREFIX/ - nothing to prune"
+            exit 0
+          fi
           for arch in x64 arm64; do
-            mc ls "$D/" | awk '{print $NF}' | grep -E "^MyWallet-.*-${arch}\.zip$" | sort -V | head -n -3 | while read -r f; do
-              mc rm "$D/$f" "$D/$f.blockmap" || true
+            # Three builds per architecture stay; `head -n -3` prints everything above that and nothing
+            # at all when there are three or fewer, so a young feed prunes none of itself.
+            stale=$(printf '%s' "$keys" | tr '\t' '\n' | awk -F/ '{print $NF}' \
+              | grep -E "^MyWallet-.*-${arch}\.zip$" | sort -V | head -n -3 || true)
+            [ -n "$stale" ] || continue
+            printf '%s\n' "$stale" | while read -r f; do
+              aws s3 rm "s3://$BUCKET/$PREFIX/$f" || true
+              aws s3 rm "s3://$BUCKET/$PREFIX/$f.blockmap" || true
             done
           done
 

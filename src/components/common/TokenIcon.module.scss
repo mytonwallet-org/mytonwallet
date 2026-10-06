@@ -31,6 +31,11 @@
     --chain-icon-size: 1.375rem !important;
     --chain-icon-gap: 0.125rem !important;
   }
+
+  &.xxx-large {
+    --chain-icon-size: 1.75rem !important;
+    --chain-icon-gap: 0.125rem !important;
+  }
 }
 
 .withChainIcon .icon {
@@ -83,6 +88,12 @@
     height: 3.5rem !important;
   }
 
+  &.xxx-large {
+    flex-basis: 5rem;
+    width: 5rem !important;
+    height: 5rem !important;
+  }
+
   &.x-small {
     width: 1.0625rem !important;
     height: 1.0625rem !important;
@@ -121,6 +132,10 @@
   &.x-small {
     font-size: 0.75rem;
   }
+
+  &.xxx-large {
+    font-size: 2rem;
+  }
 }
 
 .blockchainIcon {
@@ -138,6 +153,8 @@
 }
 
 .square {
+  --fallback-token-color: var(--color-white);
+
   border-radius: 0.75rem;
   background-color: #000;
 

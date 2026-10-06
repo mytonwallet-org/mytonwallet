@@ -105,6 +105,27 @@ describe('add-account routing', () => {
     expect(result.auth.state).toBe(AuthState.importWalletCheckPassword);
   });
 
+  // Adding a wallet reveals or accepts secret words, which the Remember Passcode window must not unlock
+  it('asks for the password to import while the Remember Passcode window is open', async () => {
+    const result = await run('startImportingWallet', makeGlobal({
+      authTypes: ['passcode'],
+      enclaveSession: { token: 'passcode:aa', validUntil: Date.now() + 60_000 },
+    }));
+
+    expect(result.auth.state).toBe(AuthState.importWalletCheckPassword);
+  });
+
+  it('asks for the password to create a wallet while the Remember Passcode window is open', async () => {
+    const actions = { createAccount: jest.fn() };
+    const result = await run('startCreatingWallet', makeGlobal({
+      authTypes: ['passcode'],
+      enclaveSession: { token: 'passcode:aa', validUntil: Date.now() + 60_000 },
+    }), actions);
+
+    expect(result.auth.state).toBe(AuthState.checkPassword);
+    expect(actions.createAccount).not.toHaveBeenCalled();
+  });
+
   it('shows the password screen inside the auth flow when creating a wallet', async () => {
     const result = await run('startCreatingWallet', makeGlobal({ authTypes: ['passcode'] }));
 

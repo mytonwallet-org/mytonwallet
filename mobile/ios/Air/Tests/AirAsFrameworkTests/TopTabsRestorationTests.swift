@@ -1,4 +1,3 @@
-import CoreText
 import Dependencies
 import UIKit
 import XCTest
@@ -20,11 +19,6 @@ final class TopTabsRestorationTests: XCTestCase {
     override func setUp() {
         super.setUp()
         _ = WalletResourcesBundle.bundle.load()
-        for name in ["SFCompactRoundedBold", "SFCompactDisplayMedium"] {
-            if let url = WalletResourcesBundle.bundle.url(forResource: name, withExtension: "otf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
-        }
         MainActor.assumeIsolated {
             UIView.setAnimationsEnabled(false)
         }
@@ -95,6 +89,38 @@ final class TopTabsRestorationTests: XCTestCase {
                 let stack = try XCTUnwrap(topTabs.takeNavigationStack(for: id, keepingRoot: true))
                 XCTAssertEqual(stack.count, path.count + 1)
                 XCTAssertTrue(Array(stack.dropFirst()).elementsEqual(path, by: { $0 === $1 }))
+            }
+        }
+    }
+
+    func testRootPagesKeepNativeMarginsAndOnlyMountSelectedContent() async throws {
+        let root = TopTabsRootViewController()
+        let navigation = WNavigationController(rootViewController: root)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        window.layoutIfNeeded()
+        let pager = try XCTUnwrap(root.children.first as? WPagerViewController)
+        XCTAssertEqual(pager.children.count, 1)
+        XCTAssertTrue(pager.children.first?.children.first === root.homeVC)
+
+        for (left, right) in [(0.0, 0.0), (84, 0), (0, 84), (0, 0)] {
+            root.additionalSafeAreaInsets.left = left
+            root.additionalSafeAreaInsets.right = right
+            for tab in [AppTabId.wallet, .explore, .wallet, .market] {
+                root.selectTab(tab)
+                window.layoutIfNeeded()
+                try await Task.sleep(for: .milliseconds(100))
+                window.layoutIfNeeded()
+                XCTAssertEqual(pager.children.count, 1)
+                let content = root.visibleContentProviderViewController
+                XCTAssertTrue(pager.children.first?.children.first === content)
+                XCTAssertEqual(content.view.safeAreaInsets.left, root.view.safeAreaInsets.left)
+                XCTAssertEqual(content.view.safeAreaInsets.right, root.view.safeAreaInsets.right)
+                XCTAssertEqual(content.view.layoutMargins.left, root.view.layoutMargins.left)
+                XCTAssertEqual(content.view.layoutMargins.right, root.view.layoutMargins.right)
+                XCTAssertTrue(content.viewRespectsSystemMinimumLayoutMargins)
             }
         }
     }

@@ -63,7 +63,8 @@ interface OwnProps {
   noDimming?: boolean;
   noSavedAddress?: boolean;
   noExplorer?: boolean;
-  withShareInMenu?: boolean;
+  /** The link that "Share Link" shares. Without it, a transaction shares its in-app view link. */
+  shareLink?: string;
 }
 
 interface StateProps {
@@ -99,7 +100,7 @@ function InteractiveTextField({
   savedAddresses,
   isTestnet,
   noDimming,
-  withShareInMenu,
+  shareLink,
   selectedExplorerIds,
 }: OwnProps & StateProps) {
   const { showToast, addSavedAddress, openTemporaryViewAccount } = getActions();
@@ -127,6 +128,7 @@ function InteractiveTextField({
   const withSavedAddresses = Boolean(!isScam && !noSavedAddress && address);
   const withExplorer = Boolean(!noExplorer && resolvedAddressUrl);
   const isAddressCanBeViewed = Boolean(withSavedAddresses && !isAddressAlreadySaved);
+  const canShareLink = Boolean(isTransaction || shareLink);
 
   useEffect(() => {
     if (isSaveAddressModalOpen) {
@@ -158,17 +160,15 @@ function InteractiveTextField({
     void copyTextToClipboard(address || text);
   });
 
-  const handleShareTransaction = useLastCallback(() => {
-    const url = getViewTransactionUrl(chain!, address!, isTestnet);
+  const handleShareLink = useLastCallback(() => {
+    const url = shareLink ?? getViewTransactionUrl(chain!, address!, isTestnet);
 
     void shareUrl(url);
   });
 
   const handleExplorerOpen = useLastCallback(() => {
-    if (!chain) return;
-
     void openUrl(resolvedAddressUrl!, {
-      title: getExplorerName(chain, selectedExplorerId),
+      title: chain ? getExplorerName(chain, selectedExplorerId) : undefined,
       subtitle: getHostnameFromUrl(resolvedAddressUrl!),
       shouldSkipOverlayClose: true,
     });
@@ -194,7 +194,7 @@ function InteractiveTextField({
     closeActionsMenu,
   } = useDropdownMenu({
     copy: handleCopy,
-    share: handleShareTransaction,
+    share: handleShareLink,
     addressBook: isAddressAlreadySaved ? openDeletedSavedAddressModal : openSaveAddressModal,
     explorer: handleExplorerOpen,
     viewInApp: handleViewInApp,
@@ -204,7 +204,7 @@ function InteractiveTextField({
     isTransaction,
     withSavedAddresses,
     withExplorer,
-    withShare: withShareInMenu,
+    withShare: canShareLink,
     address,
     addressName,
   });
@@ -353,12 +353,12 @@ function InteractiveTextField({
           </span>
         )}
 
-        {isTransaction && (
+        {canShareLink && (
           <span
             className={styles.button}
             title={lang('Share Link')}
             aria-label={lang('Share Link')}
-            onClick={handleShareTransaction}
+            onClick={handleShareLink}
           >
             <i className={buildClassName(styles.icon, styles.iconShare, 'icon-link')} aria-hidden />
           </span>
@@ -524,7 +524,7 @@ function useDropdownMenu(
       });
     }
 
-    if (isTransaction || withShare) {
+    if (withShare) {
       items.push({
         name: 'Share Link',
         fontIcon: IS_IOS ? 'share-ios' : 'share-android',

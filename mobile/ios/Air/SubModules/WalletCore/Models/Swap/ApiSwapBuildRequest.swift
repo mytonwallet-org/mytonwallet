@@ -31,7 +31,8 @@ public struct ApiSwapBuildRequest: Codable, Sendable {
     public let swapFee: MDouble?
     public let ourFee: MDouble?
     public let dieselFee: MDouble?
-    
+    public let needsApprove: Bool?
+
     public init(
         from: String,
         to: String,
@@ -54,7 +55,8 @@ public struct ApiSwapBuildRequest: Codable, Sendable {
         networkFee: MDouble? = nil,
         swapFee: MDouble? = nil,
         ourFee: MDouble? = nil,
-        dieselFee: MDouble? = nil
+        dieselFee: MDouble? = nil,
+        needsApprove: Bool? = nil
     ) {
         self.from = from
         self.to = to
@@ -78,5 +80,6 @@ public struct ApiSwapBuildRequest: Codable, Sendable {
         self.swapFee = swapFee
         self.ourFee = ourFee
         self.dieselFee = dieselFee
+        self.needsApprove = needsApprove
     }
 }

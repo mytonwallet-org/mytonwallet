@@ -276,6 +276,7 @@ class GlassRoot private constructor(root: ViewGroup) :
             root.background?.draw(canvas)
             canvas.save()
             canvas.translate(-root.scrollX.toFloat(), -root.scrollY.toFloat())
+            host?.glassDrawBackground(canvas)
             for (i in 0 until root.childCount) {
                 val child = root.getChildAt(i)
                 if (!isCaptured(root, child, position)) continue

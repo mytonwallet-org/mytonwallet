@@ -1,17 +1,24 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 internal class CardLinearShineMotion {
     var position = 1.0
         private set
     var isAnimating = false
         private set
+    var touchAngle: Double? = null
+        private set
 
+    private var isPressed = false
+    private var targetTouchAngle = 0.0
     private var direction = 1.0
     private var progress = 0.0
     private var rate = 1.0
@@ -26,6 +33,9 @@ internal class CardLinearShineMotion {
     fun reset() {
         position = 1.0
         isAnimating = false
+        touchAngle = null
+        isPressed = false
+        targetTouchAngle = 0.0
         direction = 1.0
         progress = 0.0
         rate = 1.0
@@ -41,6 +51,9 @@ internal class CardLinearShineMotion {
     fun copyFrom(other: CardLinearShineMotion) {
         position = other.position
         isAnimating = other.isAnimating
+        touchAngle = other.touchAngle
+        isPressed = other.isPressed
+        targetTouchAngle = other.targetTouchAngle
         direction = other.direction
         progress = other.progress
         rate = other.rate
@@ -61,12 +74,37 @@ internal class CardLinearShineMotion {
         idleTime = 0.0
     }
 
-    fun press() {
-        if (isAnimating) return
-        movement = 0.0
-        lastTriggerDirection = null
-        idleTime = 0.0
-        start(if (position >= 0) 1.0 else -1.0, 0.0)
+    fun press(angle: Double) {
+        pendingSweep = null
+        rebase(previousPitch, previousRoll)
+        if (touchAngle == null || !isAnimating) {
+            touchAngle = angle
+            position = -1.0
+        }
+        targetTouchAngle = angle
+        isPressed = true
+        isAnimating = position < 1.0 || touchAngle != targetTouchAngle
+    }
+
+    fun release(cancelled: Boolean = false) {
+        if (!isPressed && (!cancelled || touchAngle == null)) return
+        isPressed = false
+        rebase(previousPitch, previousRoll)
+        if (cancelled) {
+            touchAngle = null
+            isAnimating = false
+        } else {
+            isAnimating = position > -1.0 || touchAngle != targetTouchAngle
+        }
+    }
+
+    fun updatePressStrength(strength: Float) {
+        if (touchAngle == null) return
+        position = strength * 2.0 - 1.0
+        isAnimating = strength != (if (isPressed) 1f else 0f)
+        if (!isAnimating) {
+            touchAngle = targetTouchAngle
+        }
     }
 
     fun advance(pitch: Double, roll: Double, dt: Double) {
@@ -77,7 +115,12 @@ internal class CardLinearShineMotion {
         previousRoll = roll
         val delta = pitchDelta * 0.89 - rollDelta * 0.68
         val speed = hypot(pitchDelta * 0.89, rollDelta * 0.68) / dt
+        val suppressTilt = isPressed || (touchAngle != null && isAnimating)
         advanceAnimation(dt, speed)
+        if (suppressTilt) {
+            rebase(pitch, roll)
+            return
+        }
         idleTime = if (hypot(pitchDelta, rollDelta) / dt < 0.035) idleTime + dt else 0.0
         if (idleTime >= 0.5) {
             movement = 0.0
@@ -101,6 +144,7 @@ internal class CardLinearShineMotion {
     }
 
     private fun start(direction: Double, speed: Double) {
+        touchAngle = null
         this.direction = direction
         position = direction
         progress = 0.0
@@ -113,6 +157,16 @@ internal class CardLinearShineMotion {
 
     private fun advanceAnimation(dt: Double, speed: Double) {
         if (!isAnimating) return
+        val angle = touchAngle
+        if (angle != null) {
+            val difference = atan2(sin(targetTouchAngle - angle), cos(targetTouchAngle - angle))
+            touchAngle = if (abs(difference) < .001) {
+                targetTouchAngle
+            } else {
+                angle + difference * (1 - exp(-dt / .1))
+            }
+            return
+        }
         targetRate = max(targetRate, animationRate(speed))
         val decay = exp(-dt / 0.08)
         progress += targetRate * dt + (rate - targetRate) * 0.08 * (1 - decay)

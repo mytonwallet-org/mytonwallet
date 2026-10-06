@@ -17,12 +17,13 @@ export type EVMChain =
   | 'bnb'
   | 'polygon'
   | 'arbitrum'
+  | 'optimism'
   | 'monad'
   | 'avalanche'
   | 'hyperliquid'
   | 'robinhood'
   | 'arc';
-export type UTXOChain = 'bitcoin' | 'litecoin' | 'bitcoincash' | 'dogecoin';
+export type UTXOChain = 'bitcoin' | 'litecoin' | 'bitcoincash' | 'dogecoin' | 'zcash';
 export type ApiChain = 'ton' | 'tron' | 'solana' | UTXOChain | EVMChain;
 export type ApiNetwork = 'mainnet' | 'testnet';
 export type ApiLedgerDriver = 'HID' | 'USB';

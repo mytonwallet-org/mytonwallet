@@ -1,6 +1,5 @@
 import UIKit
 import UIHome
-import UIAgent
 import UIAssets
 import UIBrowser
 import UIPortfolio
@@ -22,7 +21,7 @@ struct AppTabRegistration {
 @MainActor
 final class AppTabManager {
     static let shared = AppTabManager()
-    static let defaultTabIds: [AppTabId] = [.wallet, .market, .agent, .explore, .settings]
+    static let defaultTabIds: [AppTabId] = [.wallet, .market, .explore, .settings]
 
     private var registrations: [AppTabId: AppTabRegistration] = [:]
     private var registrationOrder: [AppTabId] = []
@@ -105,7 +104,7 @@ final class AppTabManager {
         orderedTabIds = validated
     }
 
-    private func validatedTabOrder(from rawValues: [String]) -> [AppTabId] {
+    func validatedTabOrder(from rawValues: [String]) -> [AppTabId] {
         var seen = Set<AppTabId>()
         var result = rawValues
             .map(AppTabId.init(_:))
@@ -145,28 +144,18 @@ final class AppTabManager {
             titleProvider: { lang("Market") },
             compactIcon: marketIcon,
             sidebarIcon: marketIcon,
-            makeNavigationController: { _ in
-                AppTabLazyNavigationController { MarketVC() }
+            makeNavigationController: { layout in
+                AppTabLazyNavigationController { MarketVC(usesTopTabsChrome: layout == .split) }
             },
             sidebarEdgeCoverColor: .air.background
-        ))
-        register(AppTabRegistration(
-            id: .agent,
-            titleProvider: { lang("Agent") },
-            compactIcon: UIImage(named: "tab_agent", in: AirBundle, compatibleWith: nil) ?? UIImage(),
-            sidebarIcon: UIImage.airBundle("SidebarAgent"),
-            makeNavigationController: { _ in
-                AppTabLazyNavigationController { AgentEntryPoint.makeRootViewController() }
-            },
-            sidebarEdgeCoverColor: nil
         ))
         register(AppTabRegistration(
             id: .explore,
             titleProvider: { lang("Explore") },
             compactIcon: UIImage(named: "tab_explore", in: AirBundle, compatibleWith: nil) ?? UIImage(),
             sidebarIcon: UIImage.airBundle("SidebarExplore"),
-            makeNavigationController: { _ in
-                AppTabLazyNavigationController { ExploreTabVC() }
+            makeNavigationController: { layout in
+                AppTabLazyNavigationController { ExploreTabVC(showsSearchBar: layout != .split, usesTopTabsChrome: layout == .split) }
             },
             sidebarEdgeCoverColor: .air.background
         ))

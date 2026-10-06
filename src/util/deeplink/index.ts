@@ -282,6 +282,7 @@ async function processTransferDeeplink(
 
   actions.startTransfer({
     ...startTransferParams,
+    shouldRequireFreshAuth: true,
   });
 
   return true;
@@ -295,7 +296,7 @@ async function processTonDeeplink(url: string): Promise<DeeplinkOpenResult> {
 
   // Trying to open the transfer modal from a widget using a deeplink
   if (url === 'ton://transfer') {
-    getActions().startTransfer();
+    getActions().startTransfer({ shouldRequireFreshAuth: true });
 
     return true;
   }
@@ -322,7 +323,7 @@ async function processSendDeeplink(
 
   if (!target) {
     // mtw://send with no address - open empty transfer modal
-    getActions().startTransfer();
+    getActions().startTransfer({ shouldRequireFreshAuth: true });
     return true;
   }
 
@@ -895,6 +896,7 @@ async function openSelfDeeplink(
           amount,
           isTransferReadonly: true,
           isOfframp: true,
+          shouldRequireFreshAuth: true,
         });
 
         return true;

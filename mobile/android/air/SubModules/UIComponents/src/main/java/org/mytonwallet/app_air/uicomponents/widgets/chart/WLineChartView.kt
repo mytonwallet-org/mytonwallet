@@ -2,9 +2,12 @@ package org.mytonwallet.app_air.uicomponents.widgets.chart
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Rect
 import android.view.MotionEvent
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.highlight.Highlight
@@ -12,6 +15,8 @@ import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.github.mikephil.charting.listener.ChartTouchListener.ChartGesture
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import com.github.mikephil.charting.renderer.XAxisRenderer
+import com.github.mikephil.charting.utils.MPPointF
 import java.util.Date
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
@@ -63,6 +68,39 @@ class WLineChartView(context: Context, labeled: Boolean) :
             xAxis.typeface = WFont.Regular.typeface
             xAxis.setDrawAxisLine(false)
             xAxis.setDrawGridLines(false)
+            setXAxisRenderer(object : XAxisRenderer(
+                viewPortHandler,
+                xAxis,
+                getTransformer(YAxis.AxisDependency.LEFT)
+            ) {
+                private val labelBounds = Rect()
+                private val fadeDistance = 12f.dp
+
+                override fun drawLabel(
+                    c: Canvas,
+                    formattedLabel: String,
+                    x: Float,
+                    y: Float,
+                    anchor: MPPointF,
+                    angleDegrees: Float
+                ) {
+                    mAxisLabelPaint.getTextBounds(
+                        formattedLabel,
+                        0,
+                        formattedLabel.length,
+                        labelBounds
+                    )
+                    val labelWidth = labelBounds.width()
+                    val left = x - labelWidth * anchor.x
+                    val edgeDistance = minOf(left, width - left - labelWidth)
+                    if (edgeDistance <= 0f) return
+                    val originalAlpha = mAxisLabelPaint.alpha
+                    mAxisLabelPaint.alpha =
+                        (originalAlpha * (edgeDistance / fadeDistance).coerceIn(0f, 1f)).toInt()
+                    super.drawLabel(c, formattedLabel, x, y, anchor, angleDegrees)
+                    mAxisLabelPaint.alpha = originalAlpha
+                }
+            })
         } else {
             xAxis.isEnabled = false
         }

@@ -683,6 +683,12 @@ $createSubwalletPaddingBottom: 1rem;
     @include mixins.separatorBottomSettings(1rem, 0);
   }
 
+  &_delegation {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
   &_wallet_version {
     grid-template-areas: "content info arrow";
     grid-template-columns: min-content 1fr min-content;
@@ -1404,41 +1410,10 @@ a.item:hover {
 }
 
 .nftImage {
-  overflow: hidden;
-
   width: 2.625rem;
   height: 2.625rem;
   border-radius: var(--border-radius-normal);
-
   background-color: var(--color-background-second);
-}
-
-.nftImageFill {
-  width: 100%;
-  height: 100%;
-}
-
-.nftImageContent {
-  height: 100%;
-  object-fit: cover;
-}
-
-.nftImageNoData {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  width: 100%;
-  height: 100%;
-
-  :global(html.theme-dark) & {
-    background-color: #131314;
-  }
-}
-
-.nftNoImageIcon {
-  width: 1.75rem;
-  opacity: 0.5;
 }
 
 .nftButtonUnhide {

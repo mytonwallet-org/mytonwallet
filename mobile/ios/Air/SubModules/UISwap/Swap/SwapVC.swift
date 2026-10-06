@@ -1,3 +1,4 @@
+import ContextMenuKit
 import SwiftUI
 import UIKit
 import ProtectedAction
@@ -12,6 +13,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private var swapModel: SwapModel!
     @AccountContext private var account: MAccount
     private let isAccountSwitchingAllowed: Bool
+    private var tradeModel: TokenTradeModel?
+    private var tradeMenuInteraction: ContextMenuInteraction?
     
     private var hostingController: UIHostingController<SwapView>?
 
@@ -44,7 +47,8 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         defaults: ApiSwapDefaults,
         defaultSellingAmount: Double? = nil,
         defaultBuyingAmount: Double? = nil,
-        isAccountSwitchingAllowed: Bool = true
+        isAccountSwitchingAllowed: Bool = true,
+        tradeDirection: TokenTradeDirection? = nil
     ) {
         self._account = accountContext
         self.isAccountSwitchingAllowed = isAccountSwitchingAllowed
@@ -56,6 +60,9 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
             defaultBuyingAmount: defaultBuyingAmount,
             accountContext: _account
         )
+        if let tradeDirection, let token = tradeDirection == .buy ? swapModel.input.buyingToken : swapModel.input.sellingToken {
+            self.tradeModel = TokenTradeModel(swap: swapModel, direction: tradeDirection, token: token, accountContext: _account)
+        }
         WalletCoreData.add(eventObserver: self)
     }
     
@@ -79,7 +86,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !swapModel.isSubmitting {
-            swapModel.setStage(.editing)
+            swapModel.setStage(tradeModel?.cardCurrency == nil ? .editing : .externalAddress)
         }
         swapModel.refreshBalances()
         prepareBottomButtonForPresentation()
@@ -183,6 +190,10 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     }
 
     private func setupViews() {
+        if let tradeModel {
+            setupTradeViews(tradeModel)
+            return
+        }
         navigationItem.title = lang("Swap")
         navigationItem.leftItemsSupplementBackButton = true
         addCloseNavigationItemIfNeeded()
@@ -294,6 +305,17 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     @objc func continuePressed() {
         view.endEditing(true)
 
+        if let tradeModel, let currency = tradeModel.cardCurrency {
+            guard tradeModel.canContinue else { return }
+            if tradeModel.isBuying {
+                guard let vc = BuyWithCardVC(accountContext: _account, chain: tradeModel.token.chain, selectedCurrency: currency) else { return }
+                navigationController?.pushViewController(vc, animated: true)
+            } else {
+                AppActions.showTokenTradeOfframp(accountContext: _account, amount: tradeModel.typedTokenAmount, currency: currency)
+            }
+            return
+        }
+
         guard let route = swapModel.continueRoute() else { return }
         execute(route)
     }
@@ -372,7 +394,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         }
 
         accountSwitcher.update(selectedAccountId: account.id)
-        let items = accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
+        let items = tradeModel != nil || accountSwitcher.hasAlternativeAccounts(selectedAccountId: account.id)
             ? [accountSwitcher.barButtonItem]
             : nil
         navigationItem.setLeftBarButtonItems(items, animated: true)
@@ -382,6 +404,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
         Task {
             do {
                 try await swapModel.onAccountSelected(accountId: accountId)
+                tradeModel?.resetAmount()
             } catch {
                 AppActions.showError(error: error)
             }
@@ -429,6 +452,7 @@ extension SwapVC: WalletCoreData.EventsObserver {
 }
 
 extension SwapVC: SwapModelDelegate {
+
     func executeSwapCommand(_ command: SwapCommand) {
         switch command {
         case .dismissKeyboard:
@@ -457,17 +481,29 @@ extension SwapVC: TokenSelectionVCDelegate {
 
     func presentTokenSelector(side: SwapSide) {
         currentTokenSelectionSide = side
+        let fiatOptions: [TokenSelectionVC.FiatOption] = tradeModel.map { model in
+            model.availableCardCurrencies.map { currency in
+                .init(currency: currency, subtitle: lang(model.isBuying ? "Buy with Card" : "Sell on Card")) { [weak self] in
+                    model.selectCard(currency)
+                    self?.currentTokenSelectionSide = nil
+                    self?.dismiss(animated: true)
+                }
+            }
+        } ?? []
         let swapTokenSelectionVC: TokenSelectionVC
         switch side {
         case .selling:
             swapTokenSelectionVC = TokenSelectionVC(
                 forceAvailable: swapModel.input.sellingToken?.slug,
                 otherSymbolOrMinterAddress: nil,
+                showOnlyMyAssets: tradeModel != nil,
                 myAssetsDisplayMode: .swap,
-                title: lang("You Sell"),
+                title: lang(tradeModel == nil ? "You Sell" : "Pay With"),
                 delegate: self,
                 isModal: true,
-                onlySupportedChains: false
+                onlySupportedChains: false,
+                fiatOptions: fiatOptions,
+                showsAssetCategories: tradeModel != nil
             )
         case .buying:
             swapTokenSelectionVC = TokenSelectionVC(
@@ -477,19 +513,117 @@ extension SwapVC: TokenSelectionVCDelegate {
                     .map(\.nativeToken.slug),
                 otherSymbolOrMinterAddress: nil,
                 myAssetsDisplayMode: .swap,
-                title: lang("You Buy"),
+                title: lang(tradeModel == nil ? "You Buy" : "You Receive"),
                 delegate: self,
                 isModal: true,
-                onlySupportedChains: false
+                onlySupportedChains: false,
+                fiatOptions: fiatOptions,
+                showsAssetCategories: tradeModel != nil
             )
         }
         let nc = WNavigationController(rootViewController: swapTokenSelectionVC)
+        if tradeModel != nil {
+            nc.sheetPresentationController?.detents = [.large()]
+        }
         present(nc, animated: true)
     }
 
     private func didSelectToken(_ token: ApiToken) {
         guard let side = currentTokenSelectionSide else { return }
         currentTokenSelectionSide = nil
-        swapModel.input.userSelectedToken(token, side: side)
+        if let tradeModel { tradeModel.selectToken(token) }
+        else { swapModel.input.userSelectedToken(token, side: side) }
+    }
+}
+
+private extension SwapVC {
+    func setupTradeViews(_ model: TokenTradeModel) {
+        view.backgroundColor = .air.sheetBackground
+        navigationItem.title = nil
+        configureNavigationItemWithTransparentBackground()
+        addCloseNavigationItemIfNeeded()
+        let settingsButton = UIButton(type: .system)
+        settingsButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        settingsButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        settingsButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        if #available(iOS 26, *), IOS_26_MODE_ENABLED {
+            settingsButton.configuration = .glass()
+        }
+        settingsButton.tintColor = .label
+        settingsButton.accessibilityIdentifier = "tokenTrade.settings"
+        let settings = UIBarButtonItem(customView: settingsButton)
+        if #available(iOS 26, *) { settings.hidesSharedBackground = true }
+        let closeItems = navigationItem.rightBarButtonItems ?? []
+        navigationItem.rightBarButtonItems = closeItems + [settings]
+        let interaction = ContextMenuInteraction(triggers: [.tap, .longPress], presentationMode: .zoomPopover) { [weak self] _ in
+            guard let self else { return nil }
+            return TokenTradeMenu.configuration(model: model,
+                showSlippage: { [weak self] in self?.showTradeSlippage() },
+                showProvider: { [weak self] in self?.showTradeProvider() })
+        }
+        interaction.attach(to: settingsButton)
+        settingsButton.addAction(UIAction { [weak interaction] _ in interaction?.present() }, for: .primaryActionTriggered)
+        tradeMenuInteraction = interaction
+        observe {
+            let isCard = model.cardCurrency != nil
+            settingsButton.setImage(isCard ? UIImage(systemName: "info")
+                : UIImage(named: "TokenTradeSettings", in: AirBundle, compatibleWith: nil), for: .normal)
+            settingsButton.accessibilityLabel = lang(isCard ? "Info" : "Settings")
+        }
+        _ = addHostingController(TokenTradeView(model: model, selectMethod: { [weak self] in
+            self?.showTradeMethods()
+        }, continueAction: { [weak self] in
+            self?.continuePressed()
+        }), constraints: .fill)
+    }
+
+    func showTradeMethods() {
+        guard let model = tradeModel else { return }
+        presentTokenSelector(side: model.isBuying ? .selling : .buying)
+    }
+
+    func showTradeSlippage() {
+        let vc = TokenTradeSlippageVC(slippage: swapModel.slippage) { [weak self] value in
+            self?.swapModel.commitSlippage(value)
+        }
+        present(WNavigationController(rootViewController: vc), animated: true)
+    }
+
+    func showTradeProvider() {
+        guard let estimate = swapModel.estimateState.cexEstimate,
+              let provider = estimate.providerName else { return }
+        let termsUrl = URL.sanitizedHttpUrl(from: estimate.termsOfUseUrl)
+        let privacyUrl = URL.sanitizedHttpUrl(from: estimate.privacyPolicyUrl)
+        let amlUrl = URL.sanitizedHttpUrl(from: estimate.amlKycPolicyUrl)
+        let terms = termsUrl.map { _ in lang("$swap_cex_terms_of_use") }
+        let policy = privacyUrl.map { _ in lang("$swap_cex_privacy_policy") }
+        let aml = amlUrl.map { _ in L10n.swapCexAmlKycPolicyWithProvider(provider: provider) }
+        let message: String
+        if let terms, let policy, let aml {
+            message = L10n.swapCexLegalMessageWithAml(terms: terms, policy: policy, aml: aml)
+        } else if let terms, let policy {
+            message = L10n.swapCexLegalMessage(terms: terms, policy: policy)
+        } else {
+            message = langJoin([terms, policy, aml].compactMap { $0 }, .and)
+        }
+
+        let alert = UIAlertController(
+            title: L10n.crossChainExchangeProvidedByProvider(provider: provider),
+            message: message.nilIfEmpty,
+            preferredStyle: .alert
+        )
+        for (title, url) in [
+            (lang("Terms of Use"), termsUrl),
+            (lang("Privacy Policy"), privacyUrl),
+            (lang("AML/KYC Policy"), amlUrl),
+        ] {
+            guard let url else { continue }
+            alert.addAction(UIAlertAction(title: title, style: .default) { _ in
+                AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
+            })
+        }
+        alert.addAction(UIAlertAction(title: lang("OK"), style: .cancel))
+        view.endEditing(true)
+        present(alert, animated: true)
     }
 }

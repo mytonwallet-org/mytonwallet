@@ -3,9 +3,6 @@ package org.mytonwallet.uihome.home.views
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -14,6 +11,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
+import androidx.core.view.doOnNextLayout
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
@@ -49,6 +47,7 @@ import org.mytonwallet.app_air.uicomponents.commonViews.cells.SkeletonHeaderCell
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.activity.ActivityCell
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
+import org.mytonwallet.app_air.uicomponents.helpers.ActivitySectionBackgroundDecoration
 import org.mytonwallet.app_air.uicomponents.helpers.LinearLayoutManagerAccurateOffset
 import org.mytonwallet.app_air.uicomponents.helpers.RevealUpdates
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -56,7 +55,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
-import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -208,6 +206,7 @@ class ActivityListView<T>(
 
         activityLoader?.clean()
         activityLoader = null
+        showingTransactions = null
         val showingAccountId = showingAccountId
         if (showingAccountId != null) {
             isInstantSwitchingAccount =
@@ -234,7 +233,33 @@ class ActivityListView<T>(
     }
 
     // Called to update reserved header space when user scrolls on header cells
-    fun updateHeaderHeights() {
+    private var horizontalSwipeInProgress = false
+
+    fun updateHeaderHeights(isHorizontalSwipe: Boolean = horizontalSwipeInProgress) {
+        if (horizontalSwipeInProgress != isHorizontalSwipe) {
+            val layerType = if (isHorizontalSwipe) LAYER_TYPE_HARDWARE else LAYER_TYPE_NONE
+            recyclerView.setLayerType(layerType, null)
+            skeletonRecyclerView.setLayerType(layerType, null)
+        }
+        horizontalSwipeInProgress = isHorizontalSwipe
+        if (isHorizontalSwipe) {
+            val dataSource = dataSource ?: return
+            updateActionsCell()
+            val headerHeight =
+                dataSource.activityListViewHeaderHeight() + dataSource.swipeItemsOffset()
+            recyclerView.translationY = (headerHeight - headerCell.layoutParams.height).toFloat()
+            val actionsHeight = if (dataSource.activityListReserveActionsCell()) {
+                dataSource.activityListActionsCellHeight()
+            } else {
+                0
+            }
+            skeletonRecyclerView.translationY = (
+                headerHeight + actionsHeight - (skeletonEmptyHeaderCell?.layoutParams?.height ?: 0)
+                ).toFloat()
+            return
+        }
+        recyclerView.translationY = 0f
+        skeletonRecyclerView.translationY = 0f
         updateHeaderCellHeight()
         updateSkeletonHeaderCellHeight()
         updateActionsCell()
@@ -270,6 +295,7 @@ class ActivityListView<T>(
         contentShownCallback = null
         activityLoader?.clean()
         activityLoader = null
+        showingTransactions = null
         removalFallbackHandler.removeCallbacksAndMessages(null)
         emptyCellCollapseAnimation?.cancel()
         showAllRowRevealAnimation?.cancel()
@@ -481,6 +507,16 @@ class ActivityListView<T>(
         if (!removingEmptyCell) return
         removingEmptyCell = false
         reloadData()
+        recyclerView.doOnNextLayout {
+            if (dataSource?.isDestroyed != false || !isVisible ||
+                recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE ||
+                recyclerView.getOverScrollOffset() != 0f
+            ) {
+                return@doOnNextLayout
+            }
+            scrollListener.onScrolled(recyclerView, 0, 0)
+            scrollEnded()
+        }
     }
 
     private val showsShowAllActivitiesRow: Boolean
@@ -555,6 +591,7 @@ class ActivityListView<T>(
             val child = layoutManager.findViewByPosition(itemCursor++) ?: break
             child.alpha = if (stickyCells.contains(child)) 1f else childrenAlpha
         }
+        recyclerView.invalidate()
     }
 
     private var childrenFadeAnimator: ValueAnimator? = null
@@ -589,10 +626,8 @@ class ActivityListView<T>(
                     )
         }
 
-    val showingTransactions: List<MApiTransaction>?
-        get() {
-            return activityLoader?.showingTransactions
-        }
+    var showingTransactions: List<MApiTransaction>? = null
+        private set
 
     internal var activityLoader: IActivityLoader? = null
 
@@ -701,52 +736,31 @@ class ActivityListView<T>(
         }
     }
 
-    // Rounds the bottom corners of the activities card by painting the page background outside
-    // the corner radius, over whatever row currently ends the card. The card's last row changes
-    // and animates its height (rows collapsing out, the "Show All" row revealing), so a corner
-    // painted by any single cell would jump; this overlay follows the card's bottom edge every
-    // frame instead.
-    private val activityCardBottomCornerDecoration = object : RecyclerView.ItemDecoration() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val stripPath = Path()
-        private val cardPath = Path()
-
-        override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-            super.onDrawOver(canvas, parent, state)
-            if (!usesCardSections) return
-            val cardRowCount = recyclerViewNumberOfItems(parent, TRANSACTION_SECTION) +
-                recyclerViewNumberOfItems(parent, EMPTY_VIEW_SECTION)
-            if (cardRowCount == 0) return
-            val firstCardPosition = recyclerViewNumberOfItems(parent, HEADER_SECTION) +
-                recyclerViewNumberOfItems(parent, MULTISIG_WARNING_SECTION) +
-                recyclerViewNumberOfItems(parent, ASSETS_SECTION)
-            val lastCardPosition = firstCardPosition + cardRowCount - 1
-            val lastCardChild = (0 until parent.childCount)
-                .map { parent.getChildAt(it) }
-                .firstOrNull { parent.getChildAdapterPosition(it) == lastCardPosition }
-                ?: return
-            val radius = ViewConstants.BLOCK_RADIUS.dp
-            val bottom = lastCardChild.bottom + lastCardChild.translationY
-            val left = lastCardChild.left.toFloat()
-            val right = lastCardChild.right.toFloat()
-            if (bottom - radius >= parent.height || right <= left) return
-            stripPath.reset()
-            stripPath.addRect(left, bottom - radius, right, bottom, Path.Direction.CW)
-            cardPath.reset()
-            cardPath.addRoundRect(
-                left,
-                bottom - 2 * radius,
-                right,
-                bottom,
-                radius,
-                radius,
-                Path.Direction.CW
-            )
-            stripPath.op(cardPath, Path.Op.DIFFERENCE)
-            paint.color = WColor.SecondaryBackground.color
-            canvas.drawPath(stripPath, paint)
+    private val activitySectionBackgroundDecoration = ActivitySectionBackgroundDecoration(
+        firstPosition = {
+            recyclerViewNumberOfItems(recyclerView, HEADER_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, MULTISIG_WARNING_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, ASSETS_SECTION) +
+                if (usesCardSections) {
+                    0
+                } else {
+                    recyclerViewNumberOfItems(
+                        recyclerView,
+                        EMPTY_VIEW_SECTION
+                    )
+                }
+        },
+        rowCount = {
+            recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
+                if (usesCardSections) {
+                    recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION)
+                } else if (showingTransactions != null && activityLoader?.loadedAll != true) {
+                    1
+                } else {
+                    0
+                }
         }
-    }
+    )
 
     private var isShowingRecyclerView = false
     private var contentShownCallback: (() -> Unit)? = null
@@ -772,7 +786,7 @@ class ActivityListView<T>(
             clipToPadding = false
             adapter = rvAdapter
             setLayoutManager(rvLayoutManager)
-            addItemDecoration(activityCardBottomCornerDecoration)
+            addItemDecoration(activitySectionBackgroundDecoration)
             addOnScrollListener(scrollListener)
             setOnOverScrollListener { isTouchActive, newState, suggestedOffset, velocity ->
                 val dataSource = dataSource ?: return@setOnOverScrollListener
@@ -932,7 +946,7 @@ class ActivityListView<T>(
     var tokensCell: HomeTokensCell? = null
 
     private val activityTitleCell: HeaderCell by lazy {
-        HeaderCell(context).apply {
+        HeaderCell(context, drawsBackground = false).apply {
             configure(
                 LocaleController.getString("Activity"),
                 titleColor = WColor.Tint,
@@ -965,7 +979,7 @@ class ActivityListView<T>(
     private val showAllActivitiesCell: WCell by showAllActivitiesCellLazy
 
     // The "Show All" row entered the card on the latest update (activities outgrew the card):
-    // its next bind reveals it by growing from the card's corner instead of popping in.
+    // its next bind reveals it by growing from zero.
     private var pendingShowAllRowReveal = false
     private var showAllRowShown = false
     private var showAllRowRevealAnimation: SpringAnimation? = null
@@ -1013,12 +1027,6 @@ class ActivityListView<T>(
     private fun updateActivityCardCellsTheme() {
         activityTitleCell.updateTheme()
         if (!showAllActivitiesCellLazy.isInitialized()) return
-        showAllActivitiesCell.setBackgroundColor(
-            WColor.Background.color,
-            0f,
-            ViewConstants.BLOCK_RADIUS.dp,
-            true
-        )
         (showAllActivitiesCell.getChildAt(0) as? ShowAllView)?.updateTheme()
     }
 
@@ -1063,7 +1071,6 @@ class ActivityListView<T>(
                 anchorView,
                 roundRadius = 16f.dp
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true
         )
     }
@@ -1247,6 +1254,7 @@ class ActivityListView<T>(
         rvAdapter.updateTheme()
         rvSkeletonAdapter.updateTheme()
         tokensCell?.updateTheme()
+        recyclerView.invalidate()
         if (usesCardSections) updateActivityCardCellsTheme()
     }
 
@@ -1309,6 +1317,7 @@ class ActivityListView<T>(
     }
 
     private fun updateHeaderCellHeight() {
+        if (horizontalSwipeInProgress && headerCell.layoutParams.height >= 0) return
         val dataSource = dataSource ?: return
         val newHeight = dataSource.activityListViewHeaderHeight() + dataSource.swipeItemsOffset()
         if (newHeight == headerCell.layoutParams.height) return
@@ -1329,6 +1338,11 @@ class ActivityListView<T>(
     }
 
     private fun updateSkeletonHeaderCellHeight() {
+        if (horizontalSwipeInProgress &&
+            (skeletonEmptyHeaderCell?.layoutParams?.height ?: -1) >= 0
+        ) {
+            return
+        }
         val dataSource = dataSource ?: return
         val actionsHeight =
             if (dataSource.activityListReserveActionsCell()) {
@@ -1604,7 +1618,12 @@ class ActivityListView<T>(
     }
 
     private fun applyTransactionsUpdate(isUpdateEvent: Boolean) {
-        if (showingAccountId == null) return
+        if (showingAccountId == null || dataSource?.isDestroyed != false) return
+        if (recyclerView.isComputingLayout) {
+            recyclerView.post { transactionsUpdated(isUpdateEvent) }
+            return
+        }
+        showingTransactions = activityLoader?.showingTransactions?.toList()
         pendingTransactionsUpdate = false
         updateSkeletonState(animated = true)
         if (usesCardSections) {
@@ -1646,7 +1665,7 @@ class ActivityListView<T>(
         }
         post {
             isApplyingUpdate = false
-            activityLoader?.showingTransactions?.let { showingTransactions ->
+            showingTransactions?.let { showingTransactions ->
                 oldTransactions =
                     showingTransactions.map { it.getStableId() }.toSet()
                 oldTransactionsFirstDt = showingTransactions.firstOrNull()?.dt
@@ -1675,13 +1694,17 @@ class ActivityListView<T>(
             recyclerViewNumberOfItems(recyclerView, TRANSACTION_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, EMPTY_VIEW_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, LOADING_SECTION)
-        if (count > 0) rvAdapter.reloadRange(startInt, count)
+        if (rvAdapter.itemCount != startInt + count) {
+            reloadData()
+        } else if (count > 0) {
+            rvAdapter.reloadRange(startInt, count)
+        }
     }
 
     // RECYCLER VIEW ///////////////////////////////////////////////////////////////////////////////
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = when (rv) {
         recyclerView -> {
-            if (isGeneralDataAvailable) 6 else 1
+            if (isShowingRecyclerView || isGeneralDataAvailable) 6 else 1
         }
 
         skeletonRecyclerView -> {
@@ -1885,7 +1908,8 @@ class ActivityListView<T>(
                         val cell = ActivityCell(
                             recyclerView,
                             withoutTagAndComment = false,
-                            isFirstInDay = null
+                            isFirstInDay = null,
+                            drawsBackground = false
                         )
                         cell.showsInlineDate = usesCardSections
                         cell.allowNftMenu = true
@@ -1902,7 +1926,8 @@ class ActivityListView<T>(
                         val cell = ActivityCell(
                             recyclerView,
                             withoutTagAndComment = true,
-                            isFirstInDay = false
+                            isFirstInDay = false,
+                            drawsBackground = false
                         )
                         cell.showsInlineDate = usesCardSections
                         cell.allowNftMenu = true
@@ -1919,7 +1944,8 @@ class ActivityListView<T>(
                         val cell = ActivityCell(
                             recyclerView,
                             withoutTagAndComment = true,
-                            isFirstInDay = true
+                            isFirstInDay = true,
+                            drawsBackground = false
                         )
                         cell.allowNftMenu = true
                         cell.onTap = { transaction ->
@@ -1933,7 +1959,7 @@ class ActivityListView<T>(
                     }
 
                     SKELETON_CELL -> {
-                        SkeletonCell(context)
+                        SkeletonCell(context, drawsBackground = false)
                     }
 
                     else -> {
@@ -2088,7 +2114,8 @@ class ActivityListView<T>(
                                             oldTransactionsFirstDt?.let {
                                                 !transaction.dt.isSameDayAs(it)
                                             } != false,
-                                    revealsFromZero = usesCardSections
+                                    isHomeFirstActivityReveal = usesCardSections &&
+                                        removingEmptyCell && index == 0
                                 )
                             )
                         } else {
@@ -2103,12 +2130,6 @@ class ActivityListView<T>(
                         (cellHolder.cell as EmptyCell).let { cell ->
                             cell.updateTheme()
                             if (usesCardSections) {
-                                cell.setBackgroundColor(
-                                    WColor.Background.color,
-                                    0f,
-                                    ViewConstants.BLOCK_RADIUS.dp,
-                                    true
-                                )
                                 if (removingEmptyCell) {
                                     collapseEmptyCell(cell)
                                     return@let
@@ -2159,7 +2180,7 @@ class ActivityListView<T>(
                             configure(indexPath.row, false, isLast = true)
                             updateTheme()
                             visibility =
-                                if (activityLoader?.showingTransactions == null ||
+                                if (showingTransactions == null ||
                                     activityLoader?.loadedAll == true
                                 ) {
                                     INVISIBLE

@@ -59,7 +59,8 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class ActivityCell(
     val parentView: View,
     val withoutTagAndComment: Boolean,
-    val isFirstInDay: Boolean?
+    val isFirstInDay: Boolean?,
+    private val drawsBackground: Boolean = true
 ) : WCell(parentView.context, LayoutParams(MATCH_PARENT, 0)),
     WThemedView {
 
@@ -70,7 +71,7 @@ class ActivityCell(
         const val SPACING_BETWEEN_TAG_AND_COMMENT = 8
     }
 
-    private val dateView = ActivityDateLabel(context)
+    private val dateView = ActivityDateLabel(context, drawsBackground)
     private val mainContentView = ActivityMainContentView(context)
 
     // Dates go into the subtitle instead of day headers (see ActivityMainContentView).
@@ -167,9 +168,8 @@ class ActivityCell(
         // The row is leaving the list: collapse its height to 0 while fading the content out
         // (the reverse of the `isAdded` reveal), then report through `onRemoved`.
         val isRemoving: Boolean = false,
-        // The `isAdded` reveal grows from 0 instead of the card corner radius: another row is
-        // collapsing in step with it, so the list must not gain any height on the first frame.
-        val revealsFromZero: Boolean = false
+        // Centers the first Home activity's reveal while its empty card collapses.
+        val isHomeFirstActivityReveal: Boolean = false
     ) {
         fun matches(comparing: Positioning): Boolean = this.isFirst == comparing.isFirst &&
             this.isFirstInDay == comparing.isFirstInDay &&
@@ -251,9 +251,7 @@ class ActivityCell(
         positioning.isFirstInDay && !positioning.isAddedAsNewDay ->
             (FIRST_DAY_MAIN_CONTENT_HEIGHT - MAIN_CONTENT_HEIGHT).dp
 
-        positioning.revealsFromZero -> 0
-
-        else -> bigRadius.roundToInt()
+        else -> if (drawsBackground) bigRadius.roundToInt() else 0
     }
 
     // Restores the resting look after an interrupted or finished height animation.
@@ -410,7 +408,11 @@ class ActivityCell(
                 mainContentView.alpha = lerp(0f, 1f, fraction)
                 mainContentView.scaleX = lerp(0.85f, 1f, mainContentView.alpha)
                 mainContentView.scaleY = mainContentView.scaleX
-                val overflowShift = ((value - mainContentViewBottom) / 2f).coerceAtMost(0f)
+                val overflowShift = if (positioning.isHomeFirstActivityReveal) {
+                    ((value - mainContentViewBottom) / 2f).coerceAtMost(0f)
+                } else {
+                    0f
+                }
                 mainContentView.translationY = overflowShift
                 dateView.translationY = overflowShift
                 if (positioning.isAddedAsNewDay) {
@@ -510,11 +512,11 @@ class ActivityCell(
                 popupWidth = WRAP_CONTENT,
                 yOffset = (-20).dp,
                 positioning = WMenuPopup.Positioning.BELOW,
+                backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
                 centerHorizontally = true,
                 windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
                     contentCutoutPath(roundRadius = bigRadius)
                 ),
-                backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
                 usePillShadow = true
             )
             true
@@ -663,11 +665,15 @@ class ActivityCell(
         }
         _isDarkThemeApplied = ThemeManager.isDark
         _lastBigRadius = ViewConstants.BLOCK_RADIUS
-        setBackgroundColor(
-            WColor.Background.color,
-            if (positioning?.isFirst == true) bigRadius else 0f,
-            if (positioning?.isLast == true) bigRadius else 0f
-        )
+        if (drawsBackground) {
+            setBackgroundColor(
+                WColor.Background.color,
+                if (positioning?.isFirst == true) bigRadius else 0f,
+                if (positioning?.isLast == true) bigRadius else 0f
+            )
+        } else {
+            background = null
+        }
         addRippleEffect(
             WColor.SecondaryBackground.color,
             0f,

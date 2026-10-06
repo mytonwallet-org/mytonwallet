@@ -12,11 +12,19 @@ public struct MtwCardContentData {
     public var showsWalletName: Bool
     public var seasonalTheme: ApiUpdate.UpdateConfig.SeasonalTheme?
     public var promotion: ApiPromotion?
+    public var hasCardsInfo: Bool
+    public var isCardMinting: Bool
+    public var isNftBuyingDisabled: Bool
+
+    public var showsMintAction: Bool {
+        !account.isView && !isNftBuyingDisabled && (hasCardsInfo || isCardMinting)
+    }
 
     public init(account: MAccount, addressLine: MAccount.AddressLine, balance: BaseCurrencyAmount?,
                 previousBalance: BaseCurrencyAmount?, balanceChange: Double?, nft: ApiNft?,
                 showsWalletName: Bool = false, seasonalTheme: ApiUpdate.UpdateConfig.SeasonalTheme? = nil,
-                promotion: ApiPromotion? = nil) {
+                promotion: ApiPromotion? = nil, hasCardsInfo: Bool = false,
+                isCardMinting: Bool = false, isNftBuyingDisabled: Bool = false) {
         self.account = account
         self.addressLine = addressLine
         self.balance = balance
@@ -26,6 +34,9 @@ public struct MtwCardContentData {
         self.showsWalletName = showsWalletName
         self.seasonalTheme = seasonalTheme
         self.promotion = promotion
+        self.hasCardsInfo = hasCardsInfo
+        self.isCardMinting = isCardMinting
+        self.isNftBuyingDisabled = isNftBuyingDisabled
     }
 }
 
@@ -35,6 +46,7 @@ public final class MtwCardContentView: UIView {
     public let change = MtwCardChangeView()
     public let accountLine = MtwCardAccountLineView()
     public let promotionButton = MtwCardTapView()
+    public let mintButton = MtwCardTapView()
     public let seasonal = MtwCardSeasonalView()
     private static let mintActionSize: CGFloat = 50
     private static let mintImage = UIImage(
@@ -51,7 +63,7 @@ public final class MtwCardContentView: UIView {
     private var minimumFontScale: CGFloat = 1
 
     private var showsMintAction: Bool {
-        data?.promotion?.kind == .cardOverlay && data?.promotion?.cardOverlay?.onClickAction == .openMintCardModal
+        data?.showsMintAction == true
     }
 
     public init(mode: Mode) {
@@ -66,13 +78,17 @@ public final class MtwCardContentView: UIView {
         addSubview(title)
         addSubview(seasonal)
         addSubview(promotionButton)
+        addSubview(mintButton)
+        mintButton.accessibilityLabel = lang("Mint Cards")
+        mintButton.accessibilityIdentifier = "MintCardsButton"
         mintIcon.contentMode = .center
         mintIcon.isHidden = true
         mintIcon.accessibilityElementsHidden = true
-        promotionButton.addSubview(mintIcon)
+        mintButton.addSubview(mintIcon)
         accountLine.isHidden = mode == .collapsed
         seasonal.isHidden = mode == .collapsed
         promotionButton.isHidden = true
+        mintButton.isHidden = true
         title.isHidden = mode == .expanded
     }
 
@@ -110,8 +126,8 @@ public final class MtwCardContentView: UIView {
             seasonal.configure(theme: data.seasonalTheme)
             promotionButton.isHidden = data.promotion?.kind != .cardOverlay
             promotionButton.accessibilityLabel = promotionAccessibilityLabel(data.promotion)
-            promotionButton.accessibilityIdentifier = showsMintAction ? "MintCardsButton" : nil
-            promotionButton.tintColor = UIColor(getSecondaryForegroundColor(nft: data.nft))
+            mintButton.isHidden = !showsMintAction
+            mintButton.tintColor = UIColor(getSecondaryForegroundColor(nft: data.nft))
             mintIcon.isHidden = !showsMintAction
             if showsMintAction { mintIcon.image = Self.mintImage }
             mintIcon.alpha = data.nft?.metadata?.mtwCardType?.isPremium == true ? 1 : 0.75
@@ -132,6 +148,7 @@ public final class MtwCardContentView: UIView {
         promotionButton.isHidden = true
         promotionButton.accessibilityLabel = nil
         promotionButton.accessibilityIdentifier = nil
+        mintButton.isHidden = true
         mintIcon.isHidden = true
         data = nil
     }
@@ -157,7 +174,7 @@ public final class MtwCardContentView: UIView {
             let balanceX = ceil((bounds.midX + leading - balanceWidth / 2) * displayScale) / displayScale
             balance.frame = CGRect(x: balanceX - contentX, y: 0, width: balanceWidth, height: height)
             change.frame = CGRect(x: 0, y: height + 5, width: contentWidth, height: 26)
-            let rawLineHeight = data.showsWalletName ? WTypography.uiFont(.bodyStrong).lineHeight : UIFont(name: "SFCompactDisplay-Medium", size: 17)!.lineHeight
+            let rawLineHeight = data.showsWalletName ? WTypography.uiFont(.bodyStrong).lineHeight : UIFont.compactDisplay(ofSize: 17, weight: .medium).lineHeight
             let lineHeight = (rawLineHeight * displayScale).rounded() / displayScale
             let padding: CGFloat = data.showsWalletName ? 20 : 16
             let bottomPadding: CGFloat = data.showsWalletName ? 6 : 9
@@ -165,15 +182,12 @@ public final class MtwCardContentView: UIView {
             accountLine.frame = CGRect(x: (bounds.width - accountLineWidth) / 2, y: bounds.height - bottomPadding - lineHeight - padding,
                                        width: accountLineWidth, height: lineHeight + padding)
             seasonal.frame = CGRect(x: contentX, y: 0, width: contentWidth, height: contentWidth * 72 / 378)
-            if showsMintAction {
-                let size = Self.mintActionSize
-                promotionButton.frame = CGRect(x: bounds.width - size, y: bounds.height - size, width: size, height: size)
-                mintIcon.frame = promotionButton.bounds
-            } else {
-                let mascot = data.promotion?.cardOverlay?.mascotIcon
-                let size = mascot.map { CGSize(width: $0.width * 1.072, height: $0.height * 1.075) } ?? CGSize(width: 64, height: 64)
-                promotionButton.frame = CGRect(x: bounds.width - size.width + (mascot?.right ?? 0), y: -(mascot?.top ?? 0), width: size.width, height: size.height)
-            }
+            let mintSize = Self.mintActionSize
+            mintButton.frame = CGRect(x: bounds.width - mintSize, y: bounds.height - mintSize, width: mintSize, height: mintSize)
+            mintIcon.frame = mintButton.bounds
+            let mascot = data.promotion?.cardOverlay?.mascotIcon
+            let size = mascot.map { CGSize(width: $0.width * 1.072, height: $0.height * 1.075) } ?? CGSize(width: 64, height: 64)
+            promotionButton.frame = CGRect(x: bounds.width - size.width + (mascot?.right ?? 0), y: -(mascot?.top ?? 0), width: size.width, height: size.height)
         } else {
             centerContent.frame = bounds
             let subtitleHeight: CGFloat = topTabs ? 26 : WTypography.uiFont(.body).lineHeight

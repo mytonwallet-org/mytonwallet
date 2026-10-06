@@ -55,6 +55,7 @@ export type ApiWalletByChain = {
   bnb: ApiEVMWallet;
   polygon: ApiEVMWallet;
   arbitrum: ApiEVMWallet;
+  optimism: ApiEVMWallet;
   monad: ApiEVMWallet;
   avalanche: ApiEVMWallet;
   hyperliquid: ApiEVMWallet;
@@ -64,6 +65,7 @@ export type ApiWalletByChain = {
   litecoin: ApiUTXOWallet;
   bitcoincash: ApiUTXOWallet;
   dogecoin: ApiUTXOWallet;
+  zcash: ApiUTXOWallet;
 };
 
 type ApiBaseAccount = {

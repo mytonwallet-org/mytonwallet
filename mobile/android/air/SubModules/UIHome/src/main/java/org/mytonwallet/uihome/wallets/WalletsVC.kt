@@ -783,7 +783,7 @@ class WalletsVC(
                     addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
                 }
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             usePillShadow = true,
             // Keep the active gesture alive where drag-to-reorder from the menu is possible.
             cancelsAncestorTouches = !allowsDragToReorder,

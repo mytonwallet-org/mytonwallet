@@ -394,6 +394,7 @@ Encrypted Message: رسالة مشفرة
 Message is encrypted: الرسالة مشفرة
 Agree: يوافق
 $swap_action: تبديل
+$swap_batch_tx_duration_hint: قد يستغرق الإرسال ما يصل إلى دقيقة واحدة.
 Swap: تبديل
 You Sell: أنت تبيع
 You Buy: تشتري
@@ -455,7 +456,6 @@ Swap Expired: انتهت صلاحية المبادلة
 Address for %blockchain% transfer: عنوان نقل %blockchain%
 Password must contain %length% digits.: يجب أن تحتوي كلمة المرور على أرقام %length%.
 Deposit Link: رابط الإيداع
-Please note that it may take up to a few hours for tokens to appear in your wallet.: يرجى ملاحظة أن الأمر قد يستغرق ما يصل إلى بضع ساعات حتى تظهر الرموز المميزة في محفظتك.
 Minimum amount: الحد الأدنى %value%
 Maximum amount: الحد الأقصى لـ %value%
 Display Tray Icon: أيقونة عرض الدرج
@@ -559,7 +559,6 @@ Scan your fingerprint: مسح بصمة الإصبع الخاصة بك
 Incorrect code, please try again.: الرمز غير صحيح، يرجى المحاولة مرة أخرى.
 Correct: صحيح
 Confirm Action: تأكيد الإجراء
-$classic_confirm_actions: تأكيد الإجراءات
 Confirm Swap: تأكيد المبادلة
 Confirm Rewards Claim: تأكيد المطالبة بالمكافآت
 "%amount% to %address%": "%amount% إلى %address%"
@@ -578,6 +577,8 @@ Buy with Card: الشراء بالبطاقة
 Buy with Crypto: الشراء باستخدام التشفير
 Add funds to swap: أضف رصيدًا للتبديل
 Direct swap unavailable: التبديل المباشر غير متاح
+"Direct exchange unavailable": "التبادل المباشر غير متاح"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "لاستلام %buy_token%، استلم %token% أولًا، ثم بادله مقابل %buy_token%."
 Swap on an external service: التبديل عبر خدمة خارجية
 Buy with a card or receive crypto to fund this swap.: اشترِ عملات مشفرة بالبطاقة أو استلم عملات مشفرة لتوفير رصيد لهذا التبديل.
 Buy crypto or choose another token to sell.: اشترِ عملات مشفرة أو اختر رمزًا آخر للبيع.
@@ -948,12 +949,10 @@ Import Wallet: استيراد المحفظة
 Please top up your %token% balance.: يرجى تعبئة رصيد %token% الخاص بك.
 Remember Passcode: تذكر رمز المرور
 Remember Password: تذكر كلمة المرور
-Not available with biometrics.: غير متوفر مع القياسات الحيوية.
 App will not ask for signature for %minutes% minutes after last entry.: لن يطلب التطبيق توقيعًا لمدة دقائق %minutes% بعد آخر إدخال.
 Auto-Exit: الخروج التلقائي
 Log out of all wallets after failed attempts.: تسجيل الخروج من جميع المحافظ بعد محاولات فاشلة.
 "%count% attempts": "%count% محاولات"
-Remember for %minutes% minutes: تذكر دقائق %minutes%
 Preview: معاينة
 $preview_not_guaranteed: نتيجة المعاينة **غير مضمونة** و **يمكن تزويرها** بواسطة الخدمة.
 Unverified Source: مصدر لم يتم التحقق منه
@@ -2076,6 +2075,7 @@ Cross-chain exchange provided by %provider%: مبادلة عبر السلاسل 
 $swap_cex_terms_of_use: شروط الاستخدام
 $swap_cex_privacy_policy: سياسة الخصوصية
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: سياسة AML/KYC
 $swap_cex_legal_message: بالمتابعة، أنت توافق على %terms% و%policy%.
 $swap_cex_legal_message_with_aml: بالمتابعة، أنت توافق على %terms% و%policy% وتدرك أن التحويل قد يستدعي التحقق وفقًا لسياسة %aml%.
 $swap_cex_from_wallet_description: "سيتم إرسال التوكنات إلى عنوانك في بلوكتشين %blockchain% قريبًا:"
@@ -2271,6 +2271,8 @@ See All: عرض الكل
 Add an **extra layer of security** for your wallet in TON network.: أضف **طبقة إضافية من الأمان** لمحفظتك على شبكة TON.
 Agent is unavailable: الوكيل غير متاح
 Another transaction was sent from this wallet simultaneously. Please try again.: تم إرسال معاملة أخرى من هذه المحفظة في الوقت نفسه. يرجى المحاولة مرة أخرى.
+Telegram Wallet contract was not found at this address.: لم يتم العثور على عقد Telegram Wallet على هذا العنوان.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: لا يتطابق المفتاح العام لـ Telegram Wallet مع عبارة seed هذه. ربما غيّرت المحفظة مفتاحها.
 Buying with card is not supported for this chain.: الشراء باستخدام البطاقة غير مدعوم لهذه الشبكة.
 Confirm with Telegram: التأكيد عبر Telegram
 Couldn't open support chat. Please try again.: تعذر فتح محادثة الدعم. يرجى المحاولة مرة أخرى.
@@ -2334,8 +2336,33 @@ Search token or stock: ابحث عن توكن أو سهم
 
 Unknown Transfer: تحويل غير معروف
 $dapp_sign_data_for_prefix: لـ
+
+# Token Buy / Sell
+"Pay %value%": "ادفع %value%"
+"Receive %value%": "استلم %value%"
+"Buy %token% via %provider%": "شراء %token% عبر %provider%"
+"Sell %token% via %provider%": "بيع %token% عبر %provider%"
+"Switch Amount Currency": "تغيير عملة المبلغ"
+"Pay With": "الدفع باستخدام"
+"Receive in": "الاستلام بعملة"
+"You Pay": "أنت تدفع"
+"You Receive": "أنت تستلم"
+"You pay": "أنت تدفع"
 Successfully Sent: تم الإرسال بنجاح
 Successfully Signed: تم التوقيع بنجاح
 3D Card: بطاقة ثلاثية الأبعاد
 Coming soon: قريبًا
 $dapp_identity_not_confirmed: هوية التطبيق **غير مؤكدة**.
+
+# Token trade asset browser and details
+"Choose Asset": "اختر أصلًا"
+"Asset to Buy": "الأصل المراد شراؤه"
+"Asset to Sell": "الأصل المراد بيعه"
+"Fiat": "نقدية"
+"Stocks": "أسهم"
+"Popular Currencies": "العملات الشائعة"
+"Cross-chain Provider": "مزود التبادل عبر الشبكات"
+"Min": "الأدنى"
+Ruble: روبل
+$token_price_value: "سعر: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: تستغرق هذه المبادلة عادةً بضع دقائق. وفي حالات نادرة، قد تستغرق ما يصل إلى ساعتين.

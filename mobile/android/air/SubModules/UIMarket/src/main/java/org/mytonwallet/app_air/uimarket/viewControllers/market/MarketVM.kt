@@ -1,20 +1,13 @@
 package org.mytonwallet.app_air.uimarket.viewControllers.market
 
-import android.os.SystemClock
 import java.lang.ref.WeakReference
-import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiMarketAssetsResponse
-import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
-    companion object {
-        private const val REFRESH_INTERVAL_MS = 5 * 60_000L
-    }
-
     interface Delegate {
         fun marketSectionsUpdated()
     }
@@ -24,8 +17,6 @@ class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
     private var allSections = marketResponse?.let(::buildSections) ?: emptyList()
     private var query = ""
     private var observingWalletCore = false
-    private var isFetching = false
-    private var lastFetchedAt: Long? = null
 
     var sections: List<MarketSection> = allSections
         private set
@@ -34,7 +25,9 @@ class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
         if (observingWalletCore) return
         observingWalletCore = true
         WalletCore.registerObserver(this)
-        fetchMarketAssets()
+        marketResponse = TokenStore.cachedMarketAssets()
+        rebuildSections()
+        TokenStore.loadMarketAssets()
     }
 
     fun stop() {
@@ -50,30 +43,19 @@ class MarketVM(delegate: Delegate) : WalletCore.EventObserver {
     }
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
+        if (walletEvent == WalletEvent.MarketAssetsUpdated) {
+            marketResponse = TokenStore.cachedMarketAssets()
+            rebuildSections()
+            return
+        }
         if (walletEvent != WalletEvent.TokensChanged &&
-            walletEvent != WalletEvent.BaseCurrencyChanged
+            walletEvent != WalletEvent.BaseCurrencyChanged &&
+            walletEvent != WalletEvent.NetworkConnected
         ) {
             return
         }
-        fetchMarketAssets()
+        TokenStore.loadMarketAssets()
         rebuildSections()
-    }
-
-    private fun fetchMarketAssets() {
-        if (isFetching) return
-        val now = SystemClock.elapsedRealtime()
-        if (lastFetchedAt?.let { now - it < REFRESH_INTERVAL_MS } == true) return
-        isFetching = true
-        WalletCore.call(
-            ApiMethod.Tokens.FetchMarketAssets(WGlobalStorage.getLangCode())
-        ) { raw, res, err ->
-            isFetching = false
-            if (!observingWalletCore || err != null || res == null) return@call
-            TokenStore.cacheMarketAssets(raw)
-            lastFetchedAt = SystemClock.elapsedRealtime()
-            marketResponse = res
-            rebuildSections()
-        }
     }
 
     private fun rebuildSections() {

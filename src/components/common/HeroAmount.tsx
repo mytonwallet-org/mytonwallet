@@ -1,9 +1,9 @@
 import React, { memo, useLayoutEffect, useRef } from '../../lib/teact/teact';
 
 import buildClassName from '../../util/buildClassName';
-import { formatNumber } from '../../util/formatNumber';
 
 import useFontScale from '../../hooks/useFontScale';
+import useFullAmountToggle from '../../hooks/useFullAmountToggle';
 
 import SensitiveData from '../ui/SensitiveData';
 
@@ -15,21 +15,25 @@ interface OwnProps {
   prefix?: string;
   suffix?: string;
   baseCurrencyValue?: string;
+  isPositive?: boolean;
+  isNegative?: boolean;
   isSensitiveDataHidden?: true;
+  className?: string;
 }
 
 function HeroAmount({
-  value, decimals, prefix, suffix, baseCurrencyValue, isSensitiveDataHidden,
+  value, decimals, prefix, suffix, baseCurrencyValue, isPositive, isNegative, isSensitiveDataHidden, className,
 }: OwnProps) {
   const amountRef = useRef<HTMLDivElement>();
   const { updateFontScale } = useFontScale(amountRef);
+  const { wholePart, fractionPart, handleAmountClick, hideFullAmount } = useFullAmountToggle(value, decimals);
 
-  const [wholePart, fractionPart] = formatNumber(value, decimals).split('.');
-
-  useLayoutEffect(updateFontScale, [value, decimals, prefix, suffix, isSensitiveDataHidden, updateFontScale]);
+  useLayoutEffect(updateFontScale, [
+    wholePart, fractionPart, prefix, suffix, isPositive, isNegative, isSensitiveDataHidden, updateFontScale,
+  ]);
 
   return (
-    <div className={styles.block}>
+    <div className={buildClassName(styles.block, className)}>
       <SensitiveData
         isActive={isSensitiveDataHidden}
         rows={2}
@@ -38,8 +42,12 @@ function HeroAmount({
         align="center"
         className={styles.sensitiveData}
         contentClassName={styles.sensitiveDataContent}
+        onClick={handleAmountClick}
+        onContentHidden={hideFullAmount}
       >
         <div ref={amountRef} className={buildClassName(styles.amount, 'rounded-font')}>
+          {isPositive && <>+&#8239;</>}
+          {isNegative && <>&minus;&#8239;</>}
           {prefix && <span className={styles.symbol}>{prefix}</span>}
           {wholePart}
           {fractionPart && <span className={styles.fraction}>.{fractionPart}</span>}

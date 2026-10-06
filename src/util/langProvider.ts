@@ -44,6 +44,7 @@ const PLURAL_OPTIONS = ['value', ...PLURAL_VALUE_OPTIONS] as const;
 // en - zeroValue, oneValue, otherValue
 // es - zeroValue, oneValue, otherValue
 // fa - zeroValue, oneValue, otherValue
+// it - zeroValue, oneValue, otherValue
 // pl - zeroValue, oneValue, fewValue, manyValue
 // ru - zeroValue, oneValue, fewValue, manyValue
 // th - zeroValue, otherValue
@@ -58,6 +59,7 @@ const PLURAL_RULES = {
   en: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
   es: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
   fa: (n: number) => (n === 0 ? 1 : (n === 1 ? 2 : 6)),
+  it: (n: number) => (n === 0 ? 1 : (n !== 1 ? 6 : 2)),
   pl: (n: number) => (n === 0 ? 1 : (n === 1 ? 2 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 4 : 5)),
   ru: (n: number) => (n === 0 ? 1 : (n % 10 === 1 && n % 100 !== 11 ? 2 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 4 : 5)),
   th: (n: number) => (n === 0 ? 1 : 6),

@@ -472,7 +472,8 @@ class WAutoCompleteAddressView(context: Context) :
             positioning = positioning,
             centerHorizontally = true,
             showTemporaryViewOption = true,
-            windowBackgroundStyle = windowBackgroundStyle
+            windowBackgroundStyle = windowBackgroundStyle,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
         )
     }
 }

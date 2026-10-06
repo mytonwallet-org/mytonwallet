@@ -669,7 +669,7 @@ class WalletsTabsVC(context: Context, val defaultMode: MWalletSettingsViewMode) 
                 )
             ),
             positioning = WMenuPopup.Positioning.BELOW,
-            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
+            windowBackgroundStyle = BackgroundStyle.Cutout.fromView(view, roundRadius = 20f.dp),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true
         )

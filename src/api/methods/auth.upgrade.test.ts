@@ -43,6 +43,11 @@ const arcWallet: ApiBip39Account['byChain']['arc'] = {
   index: 0,
   derivation: { path: 'evm-path', index: 0 },
 };
+const telegramWallet: ApiBip39Account['byChain']['ton'] = {
+  ...tonWallet,
+  address: 'telegram-address',
+  version: 'telegram',
+};
 
 let accounts: Record<string, ApiAccountAny>;
 const onUpdate = jest.fn();
@@ -54,6 +59,7 @@ beforeEach(() => {
     '2-mainnet': { type: 'bip39', byChain: { ton: tonWallet } },
     '3-mainnet': { type: 'bip39', byChain: { ton: tonWallet, arc: arcWallet } },
     '4-mainnet': { type: 'view', byChain: { ton: { address: 'view-address', index: 0, version: 'W5' } } },
+    '5-mainnet': { type: 'bip39', byChain: { ton: telegramWallet } },
   };
   jest.mocked(fetchStoredAccounts).mockImplementation(() => Promise.resolve(accounts));
   jest.mocked(fetchStoredAccount).mockImplementation((accountId) => Promise.resolve(accounts[accountId] as any));
@@ -69,7 +75,9 @@ beforeEach(() => {
 });
 
 it('excludes SDK-only accounts from native upgrade candidates', async () => {
-  expect(await getMultichainUpgradeCandidateIds(['2-mainnet', '3-mainnet', '4-mainnet', 'missing-mainnet']))
+  expect(await getMultichainUpgradeCandidateIds([
+    '2-mainnet', '3-mainnet', '4-mainnet', '5-mainnet', 'missing-mainnet',
+  ]))
     .toEqual(['2-mainnet']);
 });
 
@@ -96,6 +104,16 @@ it('treats an empty account list as no eligible accounts', async () => {
   expect(await getMultichainUpgradeCandidateIds([])).toEqual([]);
   await expect(upgradeMultichainAccounts('enclave-token', [])).resolves.toBeUndefined();
   expect(getMnemonic).not.toHaveBeenCalled();
+  expect(updateStoredAccount).not.toHaveBeenCalled();
+});
+
+it('does not multichain-upgrade Telegram Wallet accounts', async () => {
+  expect(await getMultichainUpgradeCandidateIds(['5-mainnet'])).toEqual([]);
+
+  await expect(upgradeMultichainAccounts('enclave-token', ['5-mainnet'])).resolves.toBeUndefined();
+
+  expect(getMnemonic).not.toHaveBeenCalled();
+  expect(chains.arc.getWalletFromBip39Mnemonic).not.toHaveBeenCalled();
   expect(updateStoredAccount).not.toHaveBeenCalled();
 });
 

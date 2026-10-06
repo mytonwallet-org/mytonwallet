@@ -179,6 +179,7 @@ internal class GlassRootBitmap private constructor(root: ViewGroup) :
         try {
             root.background?.draw(canvas)
             canvas.translate(-root.scrollX.toFloat(), -root.scrollY.toFloat())
+            host?.glassDrawBackground(canvas)
             for (i in 0 until root.childCount) {
                 val child = root.getChildAt(i)
                 if (child.visibility != View.VISIBLE || child in excluded) continue

@@ -7,6 +7,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MoshiBuilder
 
 class ApiUpdateDecodingTest {
@@ -45,6 +46,28 @@ class ApiUpdateDecodingTest {
         )
         assertNull(update?.currentVersion)
         assertEquals("v4R2", update?.versions?.single()?.version)
+    }
+
+    @Test
+    fun updateAccountDecodesAccountLevelTypeWithoutChain() {
+        val update = decode<ApiUpdate.ApiUpdateUpdateAccount>(
+            """{"accountId":"0-mainnet","accountType":"view"}"""
+        )
+
+        assertEquals("0-mainnet", update?.accountId)
+        assertNull(update?.chain)
+        assertEquals("view", update?.accountType)
+    }
+
+    @Test
+    fun updateAccountStillDecodesChainLevelUpdates() {
+        val update = decode<ApiUpdate.ApiUpdateUpdateAccount>(
+            """{"accountId":"0-mainnet","chain":"ton","address":"EQ1"}"""
+        )
+
+        assertEquals(MBlockchain.ton, update?.chain)
+        assertEquals("EQ1", update?.address)
+        assertNull(update?.accountType)
     }
 
     @Test

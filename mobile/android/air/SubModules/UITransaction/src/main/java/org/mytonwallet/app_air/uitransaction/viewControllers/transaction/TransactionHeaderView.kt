@@ -12,11 +12,12 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.widget.Space
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
+import org.mytonwallet.app_air.uicomponents.diamond.WBlueDiamondView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -35,14 +36,17 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.views.LabelAndIconView
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
@@ -63,8 +67,20 @@ class TransactionHeaderView(
     WThemedView {
     private val sizeSpan = RelativeSizeSpan(28f / 36f)
     private val colorSpan = WForegroundColorSpan()
+    private val isGramTransfer: Boolean
+        get() = ApplicationContextHolder.isGramApp &&
+            (DEBUG_MODE || ApplicationContextHolder.isBetaApp) &&
+            (transaction as? MApiTransaction.Transaction)?.let {
+                it.slug == TONCOIN_SLUG && it.type == null
+            } == true
 
     private val tokenIconView = IconView(context, 80.dp, chainSize = 26.dp)
+    private var diamondView: WBlueDiamondView? = null
+    private val iconContainer = WView(context).apply {
+        clipChildren = false
+        addView(tokenIconView, LayoutParams(82.dp, 82.dp))
+        setConstraints { allEdges(tokenIconView) }
+    }
 
     private val amountView = LabelAndIconView(context)
     private val amountContainerView = WSensitiveDataContainer(
@@ -108,16 +124,17 @@ class TransactionHeaderView(
         addressLabel.measure(0.unspecified, 0.unspecified)
         val addressLabelTranslation = addressLabel.measuredHeight
         addressLabel.translationY = addressLabelTranslation.toFloat()
-        addView(tokenIconView, LayoutParams(82.dp, 82.dp))
+        val iconSize = if (isGramTransfer) 120.dp else 82.dp
+        addView(iconContainer, LayoutParams(iconSize, iconSize))
         addView(amountContainerView)
         addView(addressSpace, LayoutParams(LayoutParams.WRAP_CONTENT, addressLabelTranslation))
         addView(addressLabel)
 
         setConstraints {
-            toTop(tokenIconView)
-            toCenterX(tokenIconView)
+            toTop(iconContainer)
+            toCenterX(iconContainer)
 
-            topToBottom(amountContainerView, tokenIconView, 20f)
+            topToBottom(amountContainerView, iconContainer, if (isGramTransfer) -8f else 20f)
             toCenterX(amountContainerView, 8f)
 
             bottomToTop(addressLabel, addressSpace)
@@ -158,8 +175,29 @@ class TransactionHeaderView(
         if (transaction !is MApiTransaction.Transaction) throw Exception()
         val activeAccount = AccountStore.activeAccount ?: return
         val token = TokenStore.getToken(transaction.slug)
+        iconContainer.updateLayoutParams {
+            width = if (isGramTransfer) 120.dp else 82.dp
+            height =
+                width
+        }
+        if (amountContainerView.parent != null) {
+            setConstraints {
+                topToBottom(amountContainerView, iconContainer, if (isGramTransfer) -8f else 20f)
+            }
+        }
+        if (isGramTransfer && diamondView == null) {
+            diamondView = WBlueDiamondView(context).also {
+                iconContainer.addView(
+                    it,
+                    0,
+                    LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+                )
+                iconContainer.setConstraints { allEdges(it) }
+            }
+        }
+        diamondView?.isVisible = isGramTransfer
         if (token != null) {
-            tokenIconView.config(transaction)
+            tokenIconView.config(transaction, hideMainIcon = isGramTransfer)
             val amountDouble = transaction.amount.doubleAbsRepresentation(token.decimals)
             val amount = if (transaction.type == ApiTransactionType.APPROVAL) {
                 transaction.formatApprovalAmount() ?: ""
@@ -182,7 +220,11 @@ class TransactionHeaderView(
                     }
                     ssb
                 },
-                Content.of(token, showChain = AccountStore.activeAccount?.isMultichain == true)
+                if (isGramTransfer) {
+                    null
+                } else {
+                    Content.of(token, showChain = AccountStore.activeAccount?.isMultichain == true)
+                }
             )
         } else {
             tokenIconView.setImageDrawable(null)
@@ -300,6 +342,7 @@ class TransactionHeaderView(
     }
 
     override fun updateTheme() {
+        diamondView?.updatePlayback()
         colorSpan.color = WColor.SecondaryText.color
         amountView.lbl.setTextColor(WColor.PrimaryText.color)
         addressLabel.setTextColor(WColor.PrimaryText.color)

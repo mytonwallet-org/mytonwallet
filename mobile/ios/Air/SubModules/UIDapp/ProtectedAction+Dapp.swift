@@ -121,6 +121,7 @@ extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result
             },
             hardware: .custom { _ in
                 let signatures: [String]?
+                let publicKeys: [String]?
                 do {
                     if let proof = update.proof {
                         guard let tonAddress = account.getAddress(chain: .ton) else {
@@ -140,8 +141,10 @@ extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result
                             enclaveToken: nil
                         )
                         signatures = result.signatures
+                        publicKeys = result.publicKeys
                     } else {
                         signatures = nil
+                        publicKeys = nil
                     }
                 } catch {
                     return .notCommitted(error)
@@ -149,6 +152,7 @@ extension ProtectedAction where HeaderView == DappConfirmationHeaderView, Result
                 let result = DappConnectSubmitResult(
                     accountId: account.id,
                     proofSignatures: signatures,
+                    proofPublicKeys: publicKeys,
                     resolver: resolver
                 )
                 return await result.resolveConfirmation()

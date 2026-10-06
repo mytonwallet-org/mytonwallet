@@ -24,6 +24,11 @@ import { findKnownContract } from './util/knownContracts';
 import {
   getTonClient, toBase64Address, walletClassMap,
 } from './util/tonCore';
+import {
+  getTelegramWalletSubwalletId as getTelegramWalletDefaultSubwalletId,
+  TELEGRAM_WALLET_TRAMPOLINE_CODE_HASH,
+  TelegramWallet,
+} from './contracts/TelegramWallet';
 import { fetchStoredWallet } from '../../common/accounts';
 import { base64ToBytes, hexToBytes, sha256 } from '../../common/utils';
 import {
@@ -74,11 +79,12 @@ export function publicKeyToAddress(
 }
 
 /**
- * W5 stores the network id inside its wallet ID, so one key gives different addresses on mainnet and testnet.
- * This picks the one a wallet being created now needs; other versions ignore the network, hence `undefined`.
+ * Some TON wallet contracts encode the target network in their wallet/subwallet id, so one key gives different
+ * addresses on mainnet and testnet. This picks the one a wallet being created now needs; other versions ignore the
+ * network, hence `undefined`.
  */
 export function getIsTestnetSubwalletId(network: ApiNetwork, version: ApiTonWalletVersion) {
-  return version === 'W5' && network === 'testnet' ? true : undefined;
+  return (version === 'W5' || version === 'telegram') && network === 'testnet' ? true : undefined;
 }
 
 export function buildWallet(
@@ -88,6 +94,14 @@ export function buildWallet(
 ): TonWallet {
   if (typeof publicKey === 'string') {
     publicKey = hexToBytes(publicKey);
+  }
+
+  if (walletVersion === 'telegram') {
+    return TelegramWallet.create({
+      publicKey: Buffer.from(publicKey),
+      workchain: WORKCHAIN,
+      subwalletId: getTelegramWalletDefaultSubwalletId(isTestnetSubwalletId),
+    });
   }
 
   const WalletClass = walletClassMap[walletVersion];
@@ -301,14 +315,25 @@ export async function getWalletVersionInfos(
   const items = getWalletVersions(network, publicKey, versions);
   const walletInfos = await getWalletInfos(network, extractKey(items, 'address'));
 
-  const result = items.map((item) => {
-    return {
+  const result = await Promise.all(items.map(async (item) => {
+    const walletInfo = {
       ...walletInfos[item.address],
       ...item,
     };
-  });
 
-  return result;
+    if (item.version !== 'telegram') {
+      return walletInfo;
+    }
+
+    const telegramInfo = await getTelegramWalletInfo(network, item.address, publicKey, item.isTestnetSubwalletId);
+    if (!telegramInfo.isTelegramWallet || telegramInfo.isPublicKeyMismatch) {
+      return undefined;
+    }
+
+    return walletInfo;
+  }));
+
+  return result.filter(Boolean);
 }
 
 type ApiTonWalletVersionInfo = {
@@ -345,14 +370,15 @@ export function getWalletVersions(
       }];
     }
 
-    const wallet = buildWallet(publicKey, version);
+    const isTestnetSubwalletId = getIsTestnetSubwalletId(network, version);
+    const wallet = buildWallet(publicKey, version, isTestnetSubwalletId);
     const address = toBase64Address(wallet.address, false, network);
 
     return {
       wallet,
       address,
       version,
-      isTestnetSubwalletId: undefined,
+      isTestnetSubwalletId,
     };
   });
 }
@@ -374,8 +400,8 @@ export function pickWalletByAddress(network: ApiNetwork, publicKey: Uint8Array, 
 }
 
 /**
- * Check if the wallet is with testnet subwallet ID
- * @returns `undefined` if the wallet is not a W5 wallet,
+ * Check if the wallet is with testnet-sensitive wallet/subwallet ID.
+ * @returns `undefined` if the wallet is not network-sensitive,
  * `true` if the wallet is with testnet subwallet ID, `false` otherwise
  */
 function checkIsTestnetSubwalletId(
@@ -383,7 +409,7 @@ function checkIsTestnetSubwalletId(
   version: ApiTonWalletVersion,
   address: string,
 ): boolean | undefined {
-  if (version !== 'W5') {
+  if (version !== 'W5' && version !== 'telegram') {
     return undefined;
   }
 
@@ -401,13 +427,57 @@ export function getTonWallet(tonWallet: ApiTonWallet) {
     throw new Error('Wallet version is missing');
   }
 
-  // For W5 wallets, determine the correct subwallet ID by comparing addresses
-  if (version === 'W5') {
+  // For W5 and Telegram wallets, determine the correct subwallet ID by comparing addresses
+  if (version === 'W5' || version === 'telegram') {
     const isTestnetSubwalletId = checkIsTestnetSubwalletId(hexToBytes(publicKey), version, address);
     return buildWallet(publicKey, version, isTestnetSubwalletId);
   }
 
   return buildWallet(publicKey, version);
+}
+
+async function getTelegramWalletPublicKey(network: ApiNetwork, address: string) {
+  const { stack, exit_code } = await getTonClient(network).runMethodWithError(Address.parse(address), 'get_public_key');
+  if (exit_code !== 0) return undefined;
+
+  return hexToBytes(stack.readBigNumber().toString(16).padStart(64, '0'));
+}
+
+async function getTelegramWalletSubwalletId(network: ApiNetwork, address: string) {
+  const { stack, exit_code } = await getTonClient(network).runMethodWithError(
+    Address.parse(address),
+    'get_subwallet_id',
+  );
+  if (exit_code !== 0) return undefined;
+
+  return Number(stack.readBigNumber());
+}
+
+export async function getTelegramWalletInfo(
+  network: ApiNetwork,
+  address: string,
+  expectedPublicKey?: Uint8Array,
+  isTestnetSubwalletId?: boolean,
+) {
+  const [{ codeHash, isInitialized }, publicKey, subwalletId] = await Promise.all([
+    getContractInfo(network, address),
+    getTelegramWalletPublicKey(network, address),
+    getTelegramWalletSubwalletId(network, address),
+  ]);
+
+  const expectedSubwalletId = getTelegramWalletDefaultSubwalletId(isTestnetSubwalletId);
+
+  return {
+    isTelegramWallet: isInitialized
+      && codeHash === TELEGRAM_WALLET_TRAMPOLINE_CODE_HASH
+      && subwalletId === expectedSubwalletId
+      && !!publicKey,
+    publicKey,
+    subwalletId,
+    isPublicKeyMismatch: !!expectedPublicKey
+      && !!publicKey
+      && !Buffer.from(publicKey).equals(Buffer.from(expectedPublicKey)),
+  };
 }
 
 export async function getW5WalletExtensionAddresses(

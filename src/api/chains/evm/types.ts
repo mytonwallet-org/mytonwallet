@@ -62,7 +62,8 @@ export type ZerionTransaction = {
   id: string;
   attributes: {
     address: string;
-    operation_type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'delegate' | 'revoke_delegation';
+    operation_type: 'trade' | 'receive' | 'send' | 'execute' | 'approve' | 'revoke'
+      | 'delegate' | 'revoke_delegation';
     hash: string;
     mined_at_block: number;
     mined_at: string;
@@ -82,12 +83,7 @@ export type ZerionTransaction = {
       act_id: string;
       chain_id?: string;
     }[];
-    application_metadata?: {
-      name?: string;
-      icon?: { url: string };
-      contract_address: string;
-      method?: { id: string; name: string };
-    };
+    application_metadata?: ZerionApplicationMetadata;
     flags: { is_trash: boolean };
     acts: {
       id: string;
@@ -113,6 +109,13 @@ export type ZerionTransaction = {
       };
     };
   };
+};
+
+export type ZerionApplicationMetadata = {
+  name?: string;
+  icon?: { url: string };
+  contract_address: string;
+  method?: { id: string; name: string };
 };
 
 export type ZerionTransactionsResponse = {

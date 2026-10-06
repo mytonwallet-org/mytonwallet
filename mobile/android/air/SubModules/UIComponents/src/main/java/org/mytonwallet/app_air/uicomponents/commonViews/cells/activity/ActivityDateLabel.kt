@@ -12,7 +12,8 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 
-class ActivityDateLabel(context: Context) : WLabel(context) {
+class ActivityDateLabel(context: Context, private val drawsBackground: Boolean = true) :
+    WLabel(context) {
 
     init {
         id = generateViewId()
@@ -32,11 +33,13 @@ class ActivityDateLabel(context: Context) : WLabel(context) {
 
         setTextColor(WColor.Tint.color)
 
-        setBackgroundColor(
-            WColor.Background.color,
-            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
-            0f
-        )
+        if (drawsBackground) {
+            setBackgroundColor(
+                WColor.Background.color,
+                if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
+                0f
+            )
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

@@ -21,11 +21,14 @@ public class BuyWithCardVC: WViewController {
     
     /// Nil when no currency is offered on this chain, so the caller refuses instead of pushing a screen
     /// that has nothing to show.
-    public init?(accountContext: AccountContext, chain: ApiChain) {
-        guard let model = BuyWithCardModel(accountContext: accountContext, chain: chain, selectedCurrency: TokenStore.baseCurrency) else {
+    public init?(accountContext: AccountContext, chain: ApiChain, selectedCurrency: MBaseCurrency? = nil) {
+        guard let model = BuyWithCardModel(accountContext: accountContext, chain: chain, selectedCurrency: selectedCurrency ?? TokenStore.baseCurrency) else {
             return nil
         }
         self.model = model
+        if let selectedCurrency, model.supportedCurrencies.contains(selectedCurrency) {
+            model.selectedCurrency = selectedCurrency
+        }
         super.init(nibName: nil, bundle: nil)
     }
     

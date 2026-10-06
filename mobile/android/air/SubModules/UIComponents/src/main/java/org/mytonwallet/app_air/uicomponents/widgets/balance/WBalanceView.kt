@@ -512,7 +512,7 @@ class WBalanceView(context: Context) :
                         this.offset2 = it
                         candidateOffset2 = null
                     }
-                    requestLayout()
+                    if (sizeChanged) requestLayout()
                 }
                 invalidate()
             }

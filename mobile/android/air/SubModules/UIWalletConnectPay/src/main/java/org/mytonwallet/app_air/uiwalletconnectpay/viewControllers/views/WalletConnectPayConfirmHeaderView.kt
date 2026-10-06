@@ -17,7 +17,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.balance.WBalanceView
-import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MToken
@@ -87,14 +86,6 @@ class WalletConnectPayConfirmHeaderView(
         visibility = if (hasAmount) VISIBLE else GONE
     }
 
-    private val subtitlePrefixLabel = WLabel(context).apply {
-        setStyle(17f, WFont.Medium)
-        gravity = Gravity.CENTER
-        maxLines = 1
-        ellipsize = TextUtils.TruncateAt.END
-        text = LocaleController.getString("Send to")
-    }
-
     private val subtitleIconView = WCustomImageView(context).apply {
         defaultRounding = Content.Rounding.Radius(4f.dp)
         defaultPlaceholder = Content.Placeholder.Color(WColor.SecondaryBackground)
@@ -115,12 +106,6 @@ class WalletConnectPayConfirmHeaderView(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         clipChildren = false
-        addView(
-            subtitlePrefixLabel,
-            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
-                marginEnd = 4.dp
-            }
-        )
         addView(
             subtitleIconView,
             LinearLayout.LayoutParams(SUBTITLE_ICON_SIZE.dp, SUBTITLE_ICON_SIZE.dp).apply {
@@ -158,7 +143,6 @@ class WalletConnectPayConfirmHeaderView(
             secondaryColor = WColor.PrimaryText.color,
             drawGradient = false
         )
-        subtitlePrefixLabel.setTextColor(WColor.PrimaryText.color)
         subtitleLabel.setTextColor(WColor.SecondaryText.color)
     }
 }

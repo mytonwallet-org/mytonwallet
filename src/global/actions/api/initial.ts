@@ -64,6 +64,15 @@ addActionHandler('initApi', async (global, actions) => {
     setGlobal(global);
   }
 
+  // Accounts restored from the cache may lack the TON wallet version, so it is copied from the worker storage.
+  // View accounts of non-wallet contracts have no version and repeat this on every start, which costs one storage read.
+  const accountIdsWithoutVersion = Object.entries(global.accounts?.byId ?? {})
+    .filter(([, { byChain }]) => byChain.ton && !byChain.ton.version)
+    .map(([accountId]) => accountId);
+  if (accountIdsWithoutVersion.length) {
+    void callApi('loadAccountsWalletVersions', accountIdsWithoutVersion);
+  }
+
   const { currentAccountId } = global;
 
   if (!currentAccountId) return;

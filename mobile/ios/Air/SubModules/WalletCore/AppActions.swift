@@ -91,6 +91,8 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues)
     static func showSell(accountContext: AccountContext, tokenSlug: String?)
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async
+    static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency)
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String])
     static func showToast(_ config: ToastConfig)
@@ -230,6 +232,8 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showSend(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSendForm(accountContext: AccountContext, prefilledValues: SendPrefilledValues) { }
     static func showSell(accountContext: AccountContext, tokenSlug: String?) { }
+    static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async { }
+    static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency) { }
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async { }
     static func showTemporaryViewAccount(network: ApiNetwork, addressOrDomainByChain: [String: String]) { }
     static func showToast(_ config: ToastConfig) { }

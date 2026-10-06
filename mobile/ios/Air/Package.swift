@@ -269,7 +269,12 @@ let package = Package(
                 .product(name: "SwiftSVG", package: "SwiftSVG"),
                 .product(name: "SwiftUIIntrospect", package: "swiftui-introspect"),
             ],
-            resources: [.process("Resources")]
+            resources: [
+                .process("Resources/CardBackgrounds"),
+                .process("Resources/DefaultCards.xcassets"),
+                .copy("Resources/BlueDiamond"),
+                .process("BlueDiamond/BlueDiamond.metal"),
+            ]
         ),
         airTarget(
             "UIActivityList",

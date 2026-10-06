@@ -402,6 +402,7 @@ Encrypted Message: Mensaje encriptado
 Message is encrypted: El mensaje está encriptado
 Agree: Aceptar
 $swap_action: Intercambiar
+$swap_batch_tx_duration_hint: El envío puede tardar hasta 1 minuto.
 $swap_activity_title: Intercambio
 Swap: Intercambiar
 You Sell: Usted vende
@@ -474,12 +475,12 @@ Cross-chain exchange provided by %provider%: Proporcionado por %provider%
 $swap_cex_terms_of_use: términos de uso
 $swap_cex_privacy_policy: política de privacidad
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: Política AML/KYC
 $swap_cex_legal_message: "Al continuar, aceptas los %terms% y %policy%."
 $swap_cex_legal_message_with_aml: Al continuar, aceptas los %terms% y %policy% y comprendes que la transferencia puede activar una verificación según %aml%.
 Password must contain %length% digits.: La contraseña debe contener %length% dígitos.
 Deposit Link: Enlace de depósito
 $swap_cex_from_wallet_description: "Los tokens se enviarán pronto a su dirección en %blockchain% blockchain:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Tenga en cuenta que pueden pasar hasta unas horas para que los tokens aparezcan en su billetera.
 Minimum amount: Mínimo %value%
 Maximum amount: Máximo %value%
 Display Tray Icon: Icono de bandeja
@@ -583,7 +584,6 @@ Scan your fingerprint: Escanea tu huella digital
 Incorrect code, please try again.: Codigo Incorrecto, por favor intenta de nuevo.
 Correct: Correcto
 Confirm Action: Confirmar acción
-$classic_confirm_actions: Confirmar acciones
 Confirm Swap: Confirmar intercambio
 Confirm Rewards Claim: Confirmar reclamo de recompensas
 "%amount% to %address%": "%amount% a %address%"
@@ -602,6 +602,8 @@ Buy with Card: Comprar con Tarjeta
 Buy with Crypto: Comprar con Cripto
 Add funds to swap: Añade fondos para intercambiar
 Direct swap unavailable: Intercambio directo no disponible
+"Direct exchange unavailable": "Intercambio directo no disponible"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Para recibir %buy_token%, primero recibe %token% y luego intercámbialo por %buy_token%."
 Swap on an external service: Intercambio en un servicio externo
 Buy with a card or receive crypto to fund this swap.: Compra cripto con tarjeta o recibe cripto para disponer de fondos para este intercambio.
 Buy crypto or choose another token to sell.: Compra cripto o elige otro token para vender.
@@ -960,12 +962,10 @@ Import Wallet: Importar monedero
 Please top up your %token% balance.: Por favor, recargue su saldo %token%.
 Remember Passcode: Recordar código
 Remember Password: Recordar contraseña
-Not available with biometrics.: No disponible con biometría.
 App will not ask for signature for %minutes% minutes after last entry.: La aplicación no pedirá una firma durante %minutes% minutos después de la última entrada.
 Auto-Exit: Salida automática
 Log out of all wallets after failed attempts.: Cerrar sesión en todas las billeteras tras intentos fallidos.
 "%count% attempts": "%count% intentos"
-Remember for %minutes% minutes: Recordar durante %minutes% minutos
 Preview: Vista previa
 $preview_not_guaranteed: El resultado de la vista previa **no está garantizado** y **puede ser falsificado** por el servicio.
 Unverified Source: Fuente no verificada
@@ -2270,6 +2270,8 @@ See All: Ver todo
 Add an **extra layer of security** for your wallet in TON network.: Añade una **capa adicional de seguridad** para tu monedero en la red TON.
 Agent is unavailable: El Agente no está disponible
 Another transaction was sent from this wallet simultaneously. Please try again.: Se envió otra transacción desde este monedero al mismo tiempo. Inténtalo de nuevo.
+Telegram Wallet contract was not found at this address.: No se encontró el contrato de Telegram Wallet en esta dirección.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: La clave pública de Telegram Wallet no coincide con esta frase semilla. Es posible que el monedero haya rotado su clave.
 Buying with card is not supported for this chain.: Esta red no admite compras con tarjeta.
 Confirm with Telegram: Confirmar con Telegram
 Couldn't open support chat. Please try again.: No se pudo abrir el chat de soporte. Inténtalo de nuevo.
@@ -2333,8 +2335,33 @@ Search token or stock: Buscar token o acción
 
 Unknown Transfer: Transferencia desconocida
 $dapp_sign_data_for_prefix: para
+
+# Token Buy / Sell
+"Pay %value%": "Pagar %value%"
+"Receive %value%": "Recibir %value%"
+"Buy %token% via %provider%": "Comprar %token% con %provider%"
+"Sell %token% via %provider%": "Vender %token% con %provider%"
+"Switch Amount Currency": "Cambiar la moneda del importe"
+"Pay With": "Pagar con"
+"Receive in": "Recibir en"
+"You Pay": "Pagas"
+"You Receive": "Recibes"
+"You pay": "Pagas"
 Successfully Sent: Enviado con éxito
 Successfully Signed: Firmado con éxito
 3D Card: Tarjeta 3D
 Coming soon: Próximamente
 $dapp_identity_not_confirmed: La identidad de la app **no está confirmada**.
+
+# Token trade asset browser and details
+"Choose Asset": "Elegir activo"
+"Asset to Buy": "Activo a comprar"
+"Asset to Sell": "Activo a vender"
+"Fiat": "Fíat"
+"Stocks": "Acciones"
+"Popular Currencies": "Monedas populares"
+"Cross-chain Provider": "Proveedor entre cadenas"
+"Min": "Mín."
+Ruble: Rublo
+$token_price_value: "Precio: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Un intercambio como este suele tardar unos minutos. En casos excepcionales, hasta dos horas.

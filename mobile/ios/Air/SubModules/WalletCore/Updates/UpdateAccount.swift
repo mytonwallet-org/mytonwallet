@@ -21,7 +21,8 @@ extension ApiUpdate {
     public struct UpdateAccount: Equatable, Hashable, Decodable, Sendable {
         public var type = "updateAccount"
         public var accountId: String
-        public var chain: ApiChain
+        public var chain: ApiChain?
+        public var accountType: AccountType?
         public var address: String?
         public var domain: Domain
         public var isMultisig: Bool?
@@ -66,6 +67,7 @@ extension ApiUpdate {
             case type
             case accountId
             case chain
+            case accountType
             case address
             case domain
             case isMultisig
@@ -77,7 +79,8 @@ extension ApiUpdate {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.type = try container.decode(String.self, forKey: .type)
             self.accountId = try container.decode(String.self, forKey: .accountId)
-            self.chain = try container.decode(ApiChain.self, forKey: .chain)
+            self.chain = try container.decodeIfPresent(ApiChain.self, forKey: .chain)
+            self.accountType = try container.decodeIfPresent(AccountType.self, forKey: .accountType)
             self.address = try container.decodeIfPresent(String.self, forKey: .address)
             self.domain = try container.decodeIfPresent(Domain.self, forKey: .domain) ?? .unchanged
             self.isMultisig = try container.decodeIfPresent(Bool.self, forKey: .isMultisig)

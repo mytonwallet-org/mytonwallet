@@ -490,7 +490,7 @@ export interface ChainDappSupport<T extends ApiChain = any> {
     accountId: string,
     proof: DappProofRequest,
     enclaveToken?: string,
-  ): Promise<{ signature: string } | { error: ApiAnyDisplayError }>;
+  ): Promise<{ signature: string; publicKey?: string } | { error: ApiAnyDisplayError }>;
 
   signDappTransfers(
     accountId: string,

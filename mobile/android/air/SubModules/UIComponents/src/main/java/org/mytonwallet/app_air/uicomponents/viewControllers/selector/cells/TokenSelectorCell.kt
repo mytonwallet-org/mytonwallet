@@ -8,6 +8,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import java.math.BigInteger
 import kotlin.math.abs
+import org.mytonwallet.app_air.uicomponents.commonViews.FiatCurrencyIconView
 import org.mytonwallet.app_air.uicomponents.commonViews.IconView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.helpers.TokenNameHelper
@@ -21,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
+import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -35,8 +37,14 @@ class TokenSelectorCell(context: Context) :
     WCell(context),
     WThemedView {
 
+    private companion object {
+        const val FIAT_RATE_PRECISION = 9
+        const val DISABLED_ALPHA = 0.4f
+    }
+
     enum class SecondaryAmountMode {
         BALANCE_VALUE,
+        BALANCE_VALUE_OR_PRICE,
         TOKEN_PRICE
     }
 
@@ -91,13 +99,20 @@ class TokenSelectorCell(context: Context) :
         }
     }
 
+    private val fiatIconView = FiatCurrencyIconView(context).apply {
+        visibility = GONE
+    }
+
     var onTap: ((tokenBalance: MTokenBalance) -> Unit)? = null
+    var onFiatTap: ((currency: MBaseCurrency) -> Unit)? = null
+    private var currency: MBaseCurrency? = null
 
     init {
         layoutParams.apply {
             height = 60.dp
         }
         addView(iconView, LayoutParams(46.dp, 46.dp))
+        addView(fiatIconView, LayoutParams(44.dp, 44.dp))
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(tagHelper.tagLabel, LayoutParams(WRAP_CONTENT, 16.dp))
         addView(bottomLeftLabel)
@@ -106,6 +121,9 @@ class TokenSelectorCell(context: Context) :
             toTop(iconView, 8f)
             toBottom(iconView, 8f)
             toStart(iconView, 12f)
+            toTop(fiatIconView, 8f)
+            toBottom(fiatIconView, 8f)
+            toStart(fiatIconView, 12f)
             toTop(topLeftLabel, 8f)
             toStart(topLeftLabel, 68f)
             startToEnd(tagHelper.tagLabel, topLeftLabel, 3f)
@@ -121,6 +139,10 @@ class TokenSelectorCell(context: Context) :
             setHorizontalBias(bottomLeftLabel.id, 0f)
         }
         setOnClickListener {
+            currency?.let {
+                onFiatTap?.invoke(it)
+                return@setOnClickListener
+            }
             tokenBalance?.let {
                 onTap?.invoke(it)
             }
@@ -130,12 +152,12 @@ class TokenSelectorCell(context: Context) :
     override fun updateTheme() {
         setBackgroundColor(
             WColor.Background.color,
-            0f,
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         addRippleEffect(
             WColor.SecondaryBackground.color,
-            0f,
+            if (isFirst) ViewConstants.BLOCK_RADIUS.dp else 0f,
             if (isLast) ViewConstants.BLOCK_RADIUS.dp else 0f
         )
         topLeftLabel.setTextColor(WColor.PrimaryText.color)
@@ -146,6 +168,7 @@ class TokenSelectorCell(context: Context) :
     }
 
     private var tokenBalance: MTokenBalance? = null
+    private var isFirst = false
     private var isLast = false
 
     @SuppressLint("SetTextI18n")
@@ -153,13 +176,23 @@ class TokenSelectorCell(context: Context) :
         tokenBalance: MTokenBalance,
         showChain: Boolean,
         isLast: Boolean,
+        isFirst: Boolean = false,
         accountId: String? = null,
         showBalance: Boolean = true,
-        secondaryAmountMode: SecondaryAmountMode = SecondaryAmountMode.BALANCE_VALUE
+        secondaryAmountMode: SecondaryAmountMode = SecondaryAmountMode.BALANCE_VALUE,
+        isSelectable: Boolean = true
     ) {
         this.tokenBalance = tokenBalance
+        this.currency = null
+        this.isFirst = isFirst
         this.isLast = isLast
+        setSelectable(isSelectable)
+        topLeftLabel.translationY = 0f
+        topRightLabel.translationY = 0f
         updateTheme()
+        iconView.visibility = VISIBLE
+        fiatIconView.visibility = GONE
+        topRightLabel.isSensitiveData = true
 
         val token = TokenStore.getToken(tokenBalance.token)
 
@@ -183,15 +216,26 @@ class TokenSelectorCell(context: Context) :
                 forceCurrencyToRight = true
             )
 
-            bottomRightLabel.text = "\u202D" + when (secondaryAmountMode) {
-                SecondaryAmountMode.TOKEN_PRICE -> tokenPriceText(token)
+            val showsPrice = secondaryAmountMode == SecondaryAmountMode.BALANCE_VALUE_OR_PRICE &&
+                tokenBalance.amountValue <= BigInteger.ZERO
+            bottomRightLabel.text = if (showsPrice) {
+                if ((token?.price ?: 0.0) > 0.0) {
+                    "${LocaleController.getString("Price")}: ${tokenPriceText(token)}"
+                } else {
+                    tokenPriceText(token)
+                }
+            } else {
+                "\u202D" + when (secondaryAmountMode) {
+                    SecondaryAmountMode.TOKEN_PRICE -> tokenPriceText(token)
 
-                SecondaryAmountMode.BALANCE_VALUE -> tokenBalance.toBaseCurrency?.toString(
-                    token?.decimals ?: 9,
-                    WalletCore.baseCurrency.sign,
-                    WalletCore.baseCurrency.decimalsCount,
-                    smartDecimals = true
-                ) ?: ""
+                    SecondaryAmountMode.BALANCE_VALUE, SecondaryAmountMode.BALANCE_VALUE_OR_PRICE ->
+                        tokenBalance.toBaseCurrency?.toString(
+                            token?.decimals ?: 9,
+                            WalletCore.baseCurrency.sign,
+                            WalletCore.baseCurrency.decimalsCount,
+                            smartDecimals = true
+                        ) ?: ""
+                }
             }
         } else {
             topRightLabel.visibility = GONE
@@ -208,6 +252,63 @@ class TokenSelectorCell(context: Context) :
             } ?: ""
 
         tagHelper.configure(this, topLeftLabel, rightContainer, accountId, token, tokenBalance)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        // Fiat rows have no second line, so their title and rate sit on the row's center line.
+        val isFiat = currency != null
+        topLeftLabel.translationY =
+            if (isFiat) (height - topLeftLabel.height) / 2f - topLeftLabel.top else 0f
+        topRightLabel.translationY =
+            if (isFiat) (height - topRightLabel.height) / 2f - topRightLabel.top else 0f
+    }
+
+    fun configure(currency: MBaseCurrency, isLast: Boolean) {
+        this.tokenBalance = null
+        this.currency = currency
+        this.isFirst = false
+        this.isLast = isLast
+        setSelectable(true)
+        updateTheme()
+        iconView.visibility = INVISIBLE
+        fiatIconView.visibility = VISIBLE
+        fiatIconView.configure(currency)
+        topLeftLabel.text = if (currency == MBaseCurrency.RUB) {
+            LocaleController.getString("Ruble")
+        } else {
+            currency.currencyName
+        }
+        bottomLeftLabel.text = ""
+        requestLayout()
+        val baseCurrency = WalletCore.baseCurrency
+        val rate = TokenStore.currencyRates?.get(currency.currencyCode) ?: 0.0
+        val baseRate = TokenStore.currencyRates?.get(baseCurrency.currencyCode) ?: 0.0
+        topRightLabel.visibility = VISIBLE
+        topRightLabel.isSensitiveData = false
+        topRightLabel.updateProtectedView(false)
+        topRightLabel.contentView.text = if (rate > 0) {
+            (baseRate / rate).toString(
+                FIAT_RATE_PRECISION,
+                baseCurrency.sign,
+                baseCurrency.decimalsCount,
+                smartDecimals = true
+            ) ?: ""
+        } else {
+            ""
+        }
+        bottomRightLabel.text = ""
+        tagHelper.configure(this, topLeftLabel, rightContainer, null, null, null)
+    }
+
+    private fun setSelectable(isSelectable: Boolean) {
+        isEnabled = isSelectable
+        val alpha = if (isSelectable) 1f else DISABLED_ALPHA
+        iconView.alpha = alpha
+        topLeftLabel.alpha = alpha
+        tagHelper.tagLabel.alpha = alpha
+        bottomLeftLabel.alpha = alpha
+        rightContainer.alpha = alpha
     }
 
     private fun tokenPriceText(token: MToken?): String = when (val tokenPrice = token?.price) {

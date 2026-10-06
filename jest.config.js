@@ -8,8 +8,8 @@ module.exports = {
     '^@ton/core(.*)$': '<rootDir>/node_modules/@ton/core$1',
     '\\.(css|scss|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|tgs)$':
       '<rootDir>/tests/staticFileMock.js',
-    // Vite import suffixes for bundled workers and asset URLs
-    '\\?(worker|url)$': '<rootDir>/tests/staticFileMock.js',
+    // Vite import suffixes for bundled workers, asset URLs and raw file contents
+    '\\?(worker|url|raw)$': '<rootDir>/tests/staticFileMock.js',
   },
   testPathIgnorePatterns: [
     '<rootDir>/tests/playwright/',

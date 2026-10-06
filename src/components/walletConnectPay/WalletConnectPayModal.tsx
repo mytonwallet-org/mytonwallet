@@ -195,9 +195,10 @@ function WalletConnectPayModal({
       const { value, display } = paymentAmount;
       amountNode = (
         <HeroAmount
-          value={toDecimal(-BigInt(value), display.decimals)}
+          value={toDecimal(BigInt(value), display.decimals)}
           decimals={display.decimals}
           suffix={display.assetSymbol}
+          isNegative
         />
       );
     }

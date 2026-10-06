@@ -9,6 +9,7 @@ import webextensionPolyfillPackage from 'webextension-polyfill/package.json';
 
 import type { EmittedFiles } from './plugins/emittedFiles';
 
+import { resolveBuildStamp } from './dev/buildStamp';
 import { createBundleStatsPlugins } from './plugins/bundleStats';
 import { emittedFiles } from './plugins/emittedFiles';
 import { defineEnv } from './plugins/env';
@@ -211,6 +212,7 @@ const ENV_DEFAULTS = {
   MULTISEND_DAPP_URL: '',
   PORTFOLIO_DAPP_URL: '',
   AGENT_API_URL: '',
+  SDK_BUILD_STAMP: resolveBuildStamp(),
   AGENT_OVERRIDE: 'no_override',
   AGENT_V2_QUOTA_STATUS_ENABLED: '0',
   MFA_BOT_URL: '',

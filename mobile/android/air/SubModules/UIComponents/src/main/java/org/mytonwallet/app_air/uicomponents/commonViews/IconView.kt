@@ -16,6 +16,7 @@ import org.mytonwallet.app_air.uicomponents.image.Content
 import org.mytonwallet.app_air.uicomponents.image.WActivityImageView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
+import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
@@ -64,7 +65,7 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
         clearCache()
     }
 
-    fun config(transaction: MApiTransaction.Transaction) {
+    fun config(transaction: MApiTransaction.Transaction, hideMainIcon: Boolean = false) {
         val iconRes = transaction.type?.getIcon() ?: if (transaction.isIncoming) {
             org.mytonwallet.app_air.icons.R.drawable.ic_act_received
         } else {
@@ -94,7 +95,12 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
 
         activityImageView.set(
             Content(
-                image = Content.Image.Res(iconRes),
+                image = if (hideMainIcon) Content.Image.Empty else Content.Image.Res(iconRes),
+                placeholder = if (hideMainIcon) {
+                    Content.Placeholder.Color(WColor.Transparent)
+                } else {
+                    Content.Placeholder.Default
+                },
                 subImageRes = if (transaction.status == ApiTransactionStatus.FAILED) {
                     if (ThemeManager.isDark) {
                         org.mytonwallet.app_air.icons.R.drawable.ic_failed_dark
@@ -110,7 +116,8 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
         )
 
         activityImageView.imageView.setPadding(viewSize / 4)
-        activityImageView.imageView.background = getCachedTransactionGradientDrawable(transaction)
+        activityImageView.imageView.background =
+            if (hideMainIcon) null else getCachedTransactionGradientDrawable(transaction)
     }
 
     fun config(swap: MApiTransaction.Swap) {

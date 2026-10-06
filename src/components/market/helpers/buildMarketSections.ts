@@ -11,7 +11,7 @@ import type { LangFn } from '../../../util/langProvider';
 
 import { calculateTokenPrice } from '../../../util/calculatePrice';
 import { formatCurrency, getShortCurrencySymbol } from '../../../util/formatNumber';
-import { getTokenName } from '../../../util/tokens';
+import { getIsChainBadgeShown, getTokenName } from '../../../util/tokens';
 
 export interface MarketToken {
   slug: string;
@@ -93,9 +93,7 @@ function buildMarketToken(
     name: getTokenName(lang, token, areTokenNamesLocalized),
     priceText: formatCurrency(price, getShortCurrencySymbol(baseCurrency)),
     change,
-    // Unless `areChainBadgesShown` is on, only labeled tokens (stablecoins and tokenized stocks
-    // available on multiple chains) get the chain icon, as in the wallet token list
-    withChainIcon: Boolean(areChainBadgesShown || token.label),
+    withChainIcon: getIsChainBadgeShown(token, areChainBadgesShown),
   };
 }
 

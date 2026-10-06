@@ -78,6 +78,10 @@ public class AirLauncher {
         AgentStore.shared.clean()
         installRootViewControllerIfNeeded()
 
+        #if DEBUG
+        await E2EWalletSession.seedIfRequested()
+        #endif
+
         let launchPreparation: DatabaseBootstrapResult
         do {
             launchPreparation = try await DatabaseBootstrap.prepare()

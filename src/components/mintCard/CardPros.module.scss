@@ -1,4 +1,8 @@
 .root {
+  --surface-color: var(--color-background-window);
+  --term-color: var(--color-black);
+  --data-color: var(--color-gray-2);
+
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -6,9 +10,9 @@
   gap: 1rem;
 
   min-height: 0;
-  padding: 1rem 1rem max(1rem, calc(var(--safe-area-bottom) + 0.5rem));
+  padding: 1rem 1rem 0;
 
-  background-color: var(--color-background-window);
+  background-color: var(--surface-color);
 
   &.standard {
     --current-accent-color: var(--color-default-accent);
@@ -38,14 +42,13 @@
   }
 
   &.black {
+    --surface-color: #000;
+    --term-color: #FFF;
+    --data-color: var(--color-card-second-text);
     --current-accent-color: #FFFFFF;
     --current-accent-color-hover: #FFFFFFCC;
     --current-accent-text-color: #000000;
     --color-accent-button-text-hover: #000000;
-    --color-black: #FFF;
-    --color-gray-2: var(--color-card-second-text);
-
-    background: #000;
   }
 }
 
@@ -63,7 +66,7 @@
   font-size: 1rem;
   font-weight: 650;
   line-height: 1;
-  color: var(--color-black);
+  color: var(--term-color);
 }
 
 .icon {
@@ -81,7 +84,57 @@
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.0625rem;
+  color: var(--data-color);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.footer {
+  position: sticky;
+  z-index: 1;
+  bottom: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+
+  margin-top: auto;
+  padding-bottom: max(1rem, calc(var(--safe-area-bottom) + 0.5rem));
+
+  &::before {
+    pointer-events: none;
+    content: "";
+
+    position: absolute;
+    z-index: -1;
+    inset: -1rem -1rem 0;
+
+    background-color: var(--surface-color);
+
+    mask-image: linear-gradient(180deg, transparent, #000 1rem);
+
+    @supports (backdrop-filter: blur(1px)) and (background-color: color-mix(in srgb, red, transparent)) {
+      background-color: color-mix(in srgb, var(--surface-color) 80%, transparent);
+      backdrop-filter: blur(var(--blur-glass-capsule));
+    }
+  }
+}
+
+.discountNotice {
+  align-self: center;
+
+  padding: 0.5rem 0.75rem;
+  border-radius: 1.5rem;
+
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.0625rem;
   color: var(--color-gray-2);
+  text-align: center;
+
+  background-color: var(--color-background-first);
 }
 
 .button {
@@ -91,7 +144,6 @@
 
   width: 100% !important;
   max-width: none !important;
-  margin-top: auto;
 
   &.scheduled {
     --color-accent-button-background: var(--color-gray-3);

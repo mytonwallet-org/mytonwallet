@@ -54,12 +54,12 @@ import WalletContext
         let estimatedAmounts = result.dexEstimate.map {
             SwapInputModel.Estimate(
                 changedFrom: result.changedFrom,
-                fromAmount: $0.fromAmount.value,
-                toAmount: $0.toAmount.value
+                fromAmount: $0.fromAmount,
+                toAmount: $0.toAmount
             )
         }
         let backendMaxAmount = input.isMaxAmount ? result.dexEstimate.map {
-            DecimalAmount.fromDouble($0.fromAmount.value, input.selling.token).roundedForSwap.amount
+            TokenAmount($0.fromAmount.bigintAmount(decimals: input.selling.token.decimals), input.selling.token).roundedForSwap.amount
         } : nil
         return SwapEstimateUpdate(
             changedFrom: result.changedFrom,

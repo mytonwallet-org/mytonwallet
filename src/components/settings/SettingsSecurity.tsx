@@ -19,7 +19,6 @@ import {
   selectCurrentAccountState,
   selectIsAllowSuspiciousActions,
   selectIsBiometricAuthEnabled,
-  selectIsEnclaveSessionValid,
   selectIsMnemonicAccount,
   selectIsMultichainAccount,
 } from '../../global/selectors';
@@ -28,7 +27,6 @@ import buildClassName from '../../util/buildClassName';
 import { vibrateOnSuccess } from '../../util/haptics';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY } from '../../util/windowEnvironment';
-import { getTokenAuthType } from '../../enclave';
 
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
@@ -80,7 +78,7 @@ interface StateProps {
   isMultichainAccount: boolean;
   isAppLockEnabled?: boolean;
   autolockValue?: AutolockValueType;
-  isAutoConfirmEnabled?: boolean;
+  isAutoConfirmEnabled: boolean;
   isAllowSuspiciousActions?: boolean;
   shouldShowBackup: boolean;
   isLoading?: boolean;
@@ -178,29 +176,14 @@ function SettingsSecurity({
     clearIsPinAccepted();
   });
 
-  // `forcePasscode` ensures the user re-authenticates with their passcode even when a valid
-  // biometric session exists. This is critical for `changePasscode`: `migrateAuth` resolves the
-  // current auth type from the token prefix, so passing a biometric token while replacing
-  // passcode would destroy the biometric auth on the native side instead of the old passcode.
-  const ensureAuthenticatedAction = useLastCallback((
-    proceedCb: () => void | Promise<void>,
-    options?: { forcePasscode?: boolean },
-  ) => {
+  // These settings change how the wallet is protected, so they ask for the passcode or biometrics
+  // every time, even while the Remember Passcode window is open
+  const ensureAuthenticatedAction = useLastCallback((proceedCb: () => void | Promise<void>) => {
     if (currentSlide === SLIDES.password) return;
 
-    const global = getGlobal();
-    const isSessionValid = selectIsEnclaveSessionValid(global);
-    const isPasscodeSession = global.enclaveSession?.token
-      ? getTokenAuthType(global.enclaveSession.token) === 'passcode'
-      : false;
-
-    if (isSessionValid && (!options?.forcePasscode || isPasscodeSession)) {
-      void proceedCb();
-    } else {
-      setPendingProceedCb(() => proceedCb);
-      setCurrentSlide(SLIDES.password);
-      setNextKey(SLIDES.settings);
-    }
+    setPendingProceedCb(() => proceedCb);
+    setCurrentSlide(SLIDES.password);
+    setNextKey(SLIDES.settings);
   });
 
   const openSettingsSlide = useLastCallback(() => {
@@ -295,7 +278,7 @@ function SettingsSecurity({
     ensureAuthenticatedAction(() => {
       setCurrentSlide(SLIDES.changePasscode);
       setNextKey(SLIDES.settings);
-    }, { forcePasscode: true });
+    });
   });
 
   const handleOpenBackupWallet = useLastCallback(() => {
@@ -425,6 +408,8 @@ function SettingsSecurity({
 
       case SLIDES.password: {
         const isBiometricsTurnOn = passwordPurpose === 'biometricsTurnOn';
+        // Changing the passcode needs a passcode token. `migrateAuth` picks the auth to replace by the token
+        // prefix, so a biometric token would destroy the biometric auth instead of the old passcode.
         const isChangePasscode = passwordPurpose === 'changePasscode';
         const passwordTitle = isBiometricsTurnOn
           ? lang('Turn On Biometrics')
@@ -549,7 +534,6 @@ function SettingsSecurity({
             currentAccountId={currentAccountId}
             isSlideActive={isSlideActive}
             openMfaPassword={handleOpenInstallConfirmation}
-            openMfaInstalled={handleOpenMfaInstalled}
           />
         );
       case SLIDES.confirmMfaInstallation:

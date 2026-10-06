@@ -14,7 +14,6 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountTokens,
   selectEnclaveToken,
-  selectIsEnclaveSessionValid,
 } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
 import { calculateTokenPrice } from '../../../util/calculatePrice';
@@ -99,13 +98,11 @@ function SettingsWalletVariants({
   } = getActions();
   const lang = useLang();
 
-  const [currentSlide, setCurrentSlide] = useState<SLIDES>(
-    selectIsEnclaveSessionValid(getGlobal()) ? SLIDES.walletVariants : SLIDES.password,
-  );
+  // The screen reads the secret, so it asks for the passcode every time it opens, even while the
+  // Remember Passcode window is open
+  const [currentSlide, setCurrentSlide] = useState<SLIDES>(SLIDES.password);
 
-  const [enclaveToken, setEnclaveToken] = useState<string | undefined>(
-    selectIsEnclaveSessionValid(getGlobal()) ? selectEnclaveToken(getGlobal()) : undefined,
-  );
+  const [enclaveToken, setEnclaveToken] = useState<string>();
   const [groups, setGroups] = useState<ApiGroupedWalletVariant[]>([]);
   const [derivationsError, setDerivationsError] = useState<string>();
   const [isLoadingDerivations, setIsLoadingDerivations] = useState(true);
@@ -161,15 +158,7 @@ function SettingsWalletVariants({
       return;
     }
 
-    const currentEnclaveToken = selectEnclaveToken(getGlobal());
-
-    if (currentEnclaveToken && selectIsEnclaveSessionValid(getGlobal())) {
-      holdToken(currentEnclaveToken);
-      setEnclaveToken(currentEnclaveToken);
-      setCurrentSlide(SLIDES.walletVariants);
-    } else {
-      setCurrentSlide(SLIDES.password);
-    }
+    setCurrentSlide(SLIDES.password);
   }, [isActive]);
 
   useHistoryBack({

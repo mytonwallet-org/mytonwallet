@@ -9,6 +9,7 @@ import type {
   ApiTransferPayload,
   OnApiUpdate,
 } from '../types';
+import { ApiTransactionError } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import { SECOND } from '../../util/dateFormat';
@@ -24,6 +25,7 @@ let onUpdate: OnApiUpdate;
 
 const DRAFT_CACHE_TTL = 5 * SECOND;
 const DRAFT_CACHE_MAX_ENTRIES = 64;
+const TELEGRAM_WALLET_PUBLIC_KEY_MISMATCH_ERROR: string = ApiTransactionError.TelegramWalletPublicKeyMismatch;
 
 type DraftCacheEntry = {
   value?: ApiCheckTransactionDraftResult;
@@ -191,6 +193,14 @@ export async function submitTransfer(
   }
 
   if ('error' in result) {
+    if (result.error === TELEGRAM_WALLET_PUBLIC_KEY_MISMATCH_ERROR) {
+      onUpdate({
+        type: 'updateAccount',
+        accountId,
+        accountType: 'view',
+      });
+    }
+
     return result;
   }
 

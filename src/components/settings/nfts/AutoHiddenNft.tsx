@@ -3,25 +3,20 @@ import React from '../../../lib/teact/teactn';
 import { getActions } from '../../../global';
 
 import { type ApiNft } from '../../../api/types';
-import { type AppTheme, type HiddenNftsSection, MediaType } from '../../../global/types';
+import { type HiddenNftsSection, MediaType } from '../../../global/types';
 
 import { stopEvent } from '../../../util/domEvents';
 
-import useFlag from '../../../hooks/useFlag';
 import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
-import Image from '../../ui/Image';
+import NftImage from '../../common/NftImage';
 import Switcher from '../../ui/Switcher';
 
 import styles from '../Settings.module.scss';
 
-import noImageSrcDark from '../../../assets/nftNoImageDark.svg';
-import noImageSrcLight from '../../../assets/nftNoImageLight.svg';
-
 interface OwnProps {
   nft: ApiNft;
-  appTheme: AppTheme;
   section: HiddenNftsSection;
   isWhitelisted?: boolean;
   shouldConfirmUnhide?: boolean;
@@ -29,13 +24,12 @@ interface OwnProps {
 }
 
 function AutoHiddenNft({
-  nft, appTheme, section, isWhitelisted, shouldConfirmUnhide, style,
+  nft, section, isWhitelisted, shouldConfirmUnhide, style,
 }: OwnProps) {
   const {
     openMediaViewer, removeNftSpecialStatus, openUnhideNftModal, addNftsToWhitelist,
   } = getActions();
   const lang = useLang();
-  const [isImageBroken, markImageBroken] = useFlag();
 
   const handleNftClick = useLastCallback(() => {
     openMediaViewer({
@@ -73,25 +67,7 @@ function AutoHiddenNft({
       tabIndex={0}
       data-nft-address={nft.address}
     >
-      {/* The static wrapper keeps the grid cell in place while the inner image is hidden during loading */}
-      <div className={styles.nftImage}>
-        {nft.thumbnail && !isImageBroken ? (
-          <Image
-            url={nft.thumbnail}
-            className={styles.nftImageFill}
-            imageClassName={styles.nftImageContent}
-            onError={markImageBroken}
-          />
-        ) : (
-          <div className={styles.nftImageNoData}>
-            <img
-              src={appTheme === 'dark' ? noImageSrcDark : noImageSrcLight}
-              alt=""
-              className={styles.nftNoImageIcon}
-            />
-          </div>
-        )}
-      </div>
+      <NftImage url={nft.thumbnail} className={styles.nftImage} />
       <div className={styles.nftPrimaryCell}>
         <span className={styles.nftName}>{nft.name}</span>
         {nft.collectionName && <span className={styles.nftCollection}>{nft.collectionName}</span>}

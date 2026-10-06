@@ -18,6 +18,7 @@ import org.mytonwallet.app_air.walletcore.HYPERLIQUID_SLUG
 import org.mytonwallet.app_air.walletcore.HYPERLIQUID_USDC_MAINNET_SLUG
 import org.mytonwallet.app_air.walletcore.LITECOIN_SLUG
 import org.mytonwallet.app_air.walletcore.MYCOIN_SLUG
+import org.mytonwallet.app_air.walletcore.OPTIMISM_SLUG
 import org.mytonwallet.app_air.walletcore.ROBINHOOD_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_SLUG
 import org.mytonwallet.app_air.walletcore.SOLANA_USDC_SLUG
@@ -32,6 +33,7 @@ import org.mytonwallet.app_air.walletcore.TRON_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_SLUG
 import org.mytonwallet.app_air.walletcore.TRON_USDT_TESTNET_SLUG
 import org.mytonwallet.app_air.walletcore.USDE_SLUG
+import org.mytonwallet.app_air.walletcore.ZCASH_SLUG
 import org.mytonwallet.app_air.walletcore.models.MToken
 
 internal object DefaultTokens {
@@ -90,6 +92,7 @@ internal object DefaultTokens {
             cmcSlug = "bitcoin-cash"
         ),
         token(DOGECOIN_SLUG, "Dogecoin", "DOGE", 8, "dogecoin", cmcSlug = "dogecoin"),
+        token(ZCASH_SLUG, "Zcash", "ZEC", 8, "zcash", cmcSlug = "zcash"),
         token(MYCOIN_SLUG, "My Wallet Coin", "MY", 9, "ton"),
         token(
             USDE_SLUG,
@@ -212,6 +215,7 @@ internal object DefaultTokens {
             priceUsd = 1.0
         ),
         token(ARBITRUM_SLUG, "Arbitrum", "ETH", 18, "arbitrum"),
+        token(OPTIMISM_SLUG, "Optimism", "ETH", 18, "optimism", label = "Optimism"),
         token(HYPERLIQUID_SLUG, "Hyperliquid", "HYPE", 18, "hyperliquid"),
         token(
             ROBINHOOD_SLUG,

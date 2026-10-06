@@ -82,7 +82,8 @@ public struct ApiSwapDexEstimateResponse: Equatable, Decodable, Sendable {
     public var ourFee: MDouble
     public var ourFeePercent: Double
     public var dieselFee: MDouble?
-    
+    public var needsApprove: Bool?
+
     public static func ==(lhs: Self, rhs: Self) -> Bool {
         lhs.hint == rhs.hint &&
         lhs.from == rhs.from &&
@@ -103,6 +104,7 @@ public struct ApiSwapDexEstimateResponse: Equatable, Decodable, Sendable {
         lhs.swapFeePercent == rhs.swapFeePercent &&
         lhs.ourFee == rhs.ourFee &&
         lhs.ourFeePercent == rhs.ourFeePercent &&
-        lhs.dieselFee == rhs.dieselFee
+        lhs.dieselFee == rhs.dieselFee &&
+        lhs.needsApprove == rhs.needsApprove
     }
 }

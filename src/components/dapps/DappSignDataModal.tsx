@@ -7,12 +7,14 @@ import { SignDataState } from '../../global/types';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { pick } from '../../util/iteratees';
+import { MEMO_EMPTY_ARRAY } from '../../util/memo';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import useModalTransitionKeys from '../../hooks/useModalTransitionKeys';
 
+import ConfirmationHeader from '../common/ConfirmationHeader';
 import Modal from '../ui/Modal';
 import ModalHeader from '../ui/ModalHeader';
 import PasswordForm from '../ui/PasswordForm';
@@ -22,11 +24,12 @@ import DappSignDataInitial from './DappSignDataInitial';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
-type StateProps = Pick<GlobalState['currentDappSignData'], 'isLoading' | 'state' | 'error'>;
+type StateProps = Pick<GlobalState['currentDappSignData'], 'isLoading' | 'state' | 'dapp' | 'error'>;
 
 function DappSignDataModal({
   isLoading,
   state,
+  dapp,
   error,
 }: StateProps) {
   const {
@@ -62,19 +65,28 @@ function DappSignDataModal({
     return (
       <>
         {!getDoesUsePinPad() && (
-          <ModalHeader title={lang('Sign Data')} onClose={closeDappSignData} />
+          <ModalHeader title={lang('Confirm')} onClose={closeDappSignData} />
         )}
         <PasswordForm
           isActive={isActive}
           isLoading={isLoading}
+          operationTitle="Confirm"
+          noAnimatedIcon
           error={error}
-          submitLabel={lang('Sign')}
+          submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
           noAutoConfirm
           onAuthorize={handlePasswordSubmit}
           onCancel={handleBackClick}
           onUpdate={clearDappSignDataError}
-        />
+        >
+          <ConfirmationHeader
+            assets={MEMO_EMPTY_ARRAY}
+            title={lang('Sign Data')}
+            subtitlePrefix={lang('$dapp_sign_data_for_prefix')}
+            dapp={dapp}
+          />
+        </PasswordForm>
       </>
     );
   }
@@ -113,5 +125,5 @@ function DappSignDataModal({
 
 export default memo(withGlobal((global): StateProps => pick(
   global.currentDappSignData,
-  ['isLoading', 'state', 'error'],
+  ['isLoading', 'state', 'dapp', 'error'],
 ))(DappSignDataModal));

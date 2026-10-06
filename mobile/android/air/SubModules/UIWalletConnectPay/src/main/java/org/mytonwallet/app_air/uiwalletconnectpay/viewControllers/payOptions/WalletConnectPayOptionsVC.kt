@@ -285,6 +285,7 @@ class WalletConnectPayOptionsVC(
                 accountSelectorView,
                 roundRadius = 24f.dp
             )
+
         )
         accountSwitcherPopup = popup
     }

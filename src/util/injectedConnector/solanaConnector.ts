@@ -1,19 +1,22 @@
+// Raw key bytes that also answer the `PublicKey` methods legacy `window.solana` callers use
+type LegacyPublicKey = Uint8Array<ArrayBuffer> & {
+  toBase58: () => string;
+  toBytes: () => Uint8Array<ArrayBuffer>;
+  toJSON: () => string;
+};
+
 declare global {
   interface Window {
     solana: {
       isMyTonWallet: boolean;
-      publicKey: Uint8Array<ArrayBuffer> | null;
+      publicKey: LegacyPublicKey | null;
       isConnected: boolean;
       connect: (options: any) => Promise<{
-        publicKey: Uint8Array<ArrayBuffer>;
+        publicKey: LegacyPublicKey;
       } | undefined>;
       disconnect: () => Promise<void>;
-      signTransaction: (tx: any) => Promise<{
-        signedTransaction: Uint8Array<ArrayBufferLike>;
-      }>;
-      signAllTransactions: (txs: any[]) => Promise<{
-        signedTransactions: void[];
-      }>;
+      signTransaction: (tx: any) => Promise<any>;
+      signAllTransactions: (txs: any[]) => Promise<any[]>;
       on: (event: any, cb: any) => () => void;
     };
   }
@@ -54,11 +57,6 @@ export interface SolanaStandardWallet {
       version: string;
       on: (event: any, listener: any) => () => void;
     };
-    'solana:signAndSendTransaction': {
-      version: string;
-      supportedTransactionVersions: (string | number)[];
-      signAndSendTransaction: (input: any) => Promise<void>;
-    };
     'solana:signTransaction': {
       version: string;
       supportedTransactionVersions: (string | number)[];
@@ -91,9 +89,13 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
     window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
   });
 
-  window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', {
-    detail: register,
-  }));
+  // A dApp that starts listening after our `register-wallet` dispatch announces itself with `app-ready`
+  window.addEventListener('wallet-standard:app-ready', (e) => {
+    const api = (e as CustomEvent).detail;
+    if (typeof api?.register === 'function') {
+      register(api);
+    }
+  });
 
   if (!window.solana) {
     window.solana = {
@@ -104,11 +106,11 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
       connect: async (options: any) => {
         const result = await solanaWallet.features['standard:connect'].connect(options);
         if (result.accounts.length) {
-          const account = result.accounts[0];
-          window.solana.publicKey = account.publicKey;
+          const publicKey = toLegacyPublicKey(result.accounts[0]);
+          window.solana.publicKey = publicKey;
           window.solana.isConnected = true;
 
-          return { publicKey: account.publicKey };
+          return { publicKey };
         }
         return undefined;
       },
@@ -118,21 +120,15 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
         // eslint-disable-next-line no-null/no-null
         window.solana.publicKey = null;
       },
-      signTransaction: async (tx: any) => {
-        const res = await solanaWallet.features['solana:signTransaction'].signTransaction(tx);
-        return {
-          signedTransaction: res[0].signedTransaction,
-        };
-      },
-      // TODO: find dApp to test this
+      signTransaction: signLegacyTransaction,
       signAllTransactions: async (txs: any[]) => {
-        const signed = await Promise.all(txs.map(async (e) => {
-          await solanaWallet.features['solana:signAndSendTransaction'].signAndSendTransaction(e);
-        }));
+        // One at a time, so that each transaction gets its own confirmation
+        const signed = [];
+        for (const tx of txs) {
+          signed.push(await signLegacyTransaction(tx));
+        }
 
-        return {
-          signedTransactions: signed,
-        };
+        return signed;
       },
       on: (event: any, cb: any) => {
         return solanaWallet.features['standard:events'].on(event, cb);
@@ -143,11 +139,44 @@ export function registerSolanaInjectedWallet(connector: SolanaStandardWallet) {
   // this event & definition spam helps (proven)
   const interval = setInterval(() => {
     window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
-    window.dispatchEvent(new CustomEvent('wallet-standard:request-provider'));
   }, 500);
 
   setTimeout(() => clearInterval(interval), 10_000);
   return solanaWallet;
+
+  // Accepts a web3.js `Transaction`/`VersionedTransaction` (or raw bytes) and returns the same kind, signed
+  async function signLegacyTransaction(tx: any) {
+    const account = solanaWallet.accounts[0];
+    if (!account) {
+      throw new Error('Wallet is not connected');
+    }
+
+    const transaction: Uint8Array = tx instanceof Uint8Array
+      ? tx
+      : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+    const [output] = await solanaWallet.features['solana:signTransaction'].signTransaction({ account, transaction });
+    if (!output) {
+      throw new Error('Transaction was not signed');
+    }
+
+    if (tx instanceof Uint8Array) {
+      return output.signedTransaction;
+    }
+
+    const TransactionClass = tx.constructor;
+    return typeof TransactionClass.deserialize === 'function'
+      ? TransactionClass.deserialize(output.signedTransaction)
+      : TransactionClass.from(output.signedTransaction);
+  }
+}
+
+function toLegacyPublicKey({ address, publicKey }: StandardWalletAddress): LegacyPublicKey {
+  return Object.assign(new Uint8Array(publicKey), {
+    toBase58: () => address,
+    toString: () => address,
+    toBytes: () => publicKey,
+    toJSON: () => address,
+  });
 }
 
 export type RegisterSolanaInjectedWalletCb = typeof registerSolanaInjectedWallet;

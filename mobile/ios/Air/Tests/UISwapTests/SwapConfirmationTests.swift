@@ -12,6 +12,105 @@ import WalletResources
 struct SwapConfirmationTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
 
+    @Test(arguments: [false, true])
+    func `first fraction selection starts with primary loading appearance`(crosschain: Bool) async throws {
+        let harness = Harness(crosschain: crosschain, defaultSellingAmount: nil)
+        let model = harness.model
+        let trade = TokenTradeModel(swap: model, direction: .sell, token: .TONCOIN, accountContext: model.input.$account)
+        trade.isTokenAmount = true
+        let button = WButton()
+        let presenter = DraftButtonPresenter(button: button)
+        presenter.apply(trade.buttonConfiguration)
+        #expect(!button.isEnabled)
+
+        trade.useFraction(25)
+        presenter.apply(trade.buttonConfiguration)
+        #expect(trade.hasAmount)
+        #expect(button.isEnabled)
+        #expect(button.showLoading)
+        #expect(!button.isUserInteractionEnabled)
+        expectCannotConfirm(model)
+
+        let amount = try #require(model.input.sellingTokenAmount).doubleValue
+        try await harness.publishQuote(amount: amount)
+        presenter.apply(trade.buttonConfiguration)
+        #expect(button.isEnabled)
+        #expect(!button.showLoading)
+        #expect(button.isUserInteractionEnabled)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `confirmation cancellation preserves ready appearance and the matching quote`(crosschain: Bool, isTrade: Bool) async throws {
+        let harness = Harness(crosschain: crosschain)
+        let model = harness.model
+        let trade = TokenTradeModel(swap: model, direction: .sell, token: .TONCOIN, accountContext: model.input.$account)
+        trade.isTokenAmount = true
+        var input = TokenTradeAmountInput()
+        input.set(1_000_000_000, decimals: 9)
+        trade.userEditedInput(input)
+        try await harness.publishQuote()
+        let original = try #require(model.makeConfirmationSnapshot())
+        let button = WButton()
+        let presenter = DraftButtonPresenter(button: button)
+        func apply() { presenter.apply(isTrade ? trade.buttonConfiguration : model.currentButtonConfiguration) }
+        apply()
+        #expect(button.isEnabled)
+        #expect(button.isUserInteractionEnabled)
+
+        model.setStage(.confirming)
+        model.refreshBalances()
+        apply()
+        #expect(button.isEnabled)
+        #expect(button.showLoading)
+        #expect(!button.isUserInteractionEnabled)
+        #expect(model.continueRoute() == nil)
+
+        model.setStage(.editing)
+        model.refreshBalances()
+        apply()
+        #expect(button.isEnabled)
+        #expect(!button.showLoading)
+        #expect(button.isUserInteractionEnabled)
+        let restored = try #require(model.makeConfirmationSnapshot())
+        #expect(restored.confirmation.selling.amount == original.confirmation.selling.amount)
+        #expect(restored.estimateState.response == original.estimateState.response)
+        try await harness.publishQuote()
+    }
+
+    @Test(arguments: [false, true])
+    func `token trade retains the displayed fee and amount while a new quote loads`(crosschain: Bool) async throws {
+        let harness = Harness(crosschain: crosschain)
+        let model = harness.model
+        let trade = TokenTradeModel(swap: model, direction: .sell, token: .TONCOIN, accountContext: model.input.$account)
+        trade.isTokenAmount = true
+        var amount = TokenTradeAmountInput()
+        amount.set(1_000_000_000, decimals: 9)
+        trade.userEditedInput(amount)
+        try await harness.publishQuote()
+        let oldFee = try #require(trade.feeText)
+        let oldAmount = try #require(trade.methodAmountText)
+        let oldRate = trade.rateText
+
+        amount.set(2_000_000_000, decimals: 9)
+        trade.userEditedInput(amount)
+        #expect(trade.feeText == oldFee)
+        #expect(trade.methodAmountText == oldAmount)
+        #expect(trade.rateText == oldRate)
+        #expect(trade.isMethodAmountStale)
+        #expect(!trade.canContinue)
+        expectCannotConfirm(model)
+
+        model.estimate.synchronize()
+        try await harness.publishQuote(amount: 2)
+        #expect(trade.methodAmountText != oldAmount)
+        #expect(!trade.isMethodAmountStale)
+
+        trade.userEditedInput(TokenTradeAmountInput())
+        #expect(trade.feeText == nil)
+        #expect(trade.methodAmountText == nil)
+        #expect(!trade.canContinue)
+    }
+
     @Test
     func `changing the buying token preserves appearance but never the old executable quote`() async throws {
         let harness = Harness(crosschain: false)
@@ -169,7 +268,7 @@ private let rateLimitError = SdkError.apiReturnedError(error: "Requests limit ex
     let balances: AccountBalances
     let model: SwapModel
 
-    init(crosschain: Bool) {
+    init(crosschain: Bool, defaultSellingAmount: Double? = 1) {
         self.crosschain = crosschain
         let accountId = "swapconfirmation\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))-mainnet"
         let store = _BalancesStore.liveValue
@@ -182,7 +281,7 @@ private let rateLimitError = SdkError.apiReturnedError(error: "Requests limit ex
             SwapModel(
                 delegate: delegate,
                 defaults: ApiSwapDefaults(tokenIn: .TONCOIN, tokenOut: crosschain ? ApiChain.ethereum.nativeToken : .TON_USDT),
-                defaultSellingAmount: 1,
+                defaultSellingAmount: defaultSellingAmount,
                 accountContext: AccountContext(source: .constant(MAccount(
                     id: accountId, title: nil, type: .mnemonic,
                     byChain: [.ton: AccountChain(address: "ton-address"), .ethereum: AccountChain(address: "eth-address")]
@@ -243,7 +342,7 @@ private func quote(crosschain: Bool, amount: Double) throws -> SwapEstimateUpdat
     }
     return SwapEstimateUpdate(
         changedFrom: .selling,
-        estimatedAmounts: .init(changedFrom: .selling, fromAmount: amount, toAmount: amount * 5),
+        estimatedAmounts: .init(changedFrom: .selling, fromAmount: MDouble(amount), toAmount: MDouble(amount * 5)),
         backendMaxAmount: nil,
         stateUpdate: SwapEstimateResult(changedFrom: .selling, response: response)
     )

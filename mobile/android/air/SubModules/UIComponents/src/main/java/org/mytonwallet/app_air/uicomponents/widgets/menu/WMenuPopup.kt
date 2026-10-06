@@ -37,6 +37,7 @@ class WMenuPopup {
     data class Item(
         val config: Config,
         var hasSeparator: Boolean = false,
+        val shouldKeepOpen: Boolean = false,
         val onTap: (() -> Unit)? = null
     ) {
         constructor(
@@ -255,7 +256,7 @@ class WMenuPopup {
             centerHorizontally: Boolean = false,
             windowBackgroundStyle: BackgroundStyle =
                 BackgroundStyle.Cutout.fromView(view, roundRadius = 16f.dp),
-            backdropStyle: BackdropStyle = BackdropStyle.BlurDimmed,
+            backdropStyle: BackdropStyle = BackdropStyle.Transparent,
             usePillShadow: Boolean = false,
             onWillDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,

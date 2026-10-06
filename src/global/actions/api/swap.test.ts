@@ -15,8 +15,9 @@ import {
   TONCOIN,
   TRX,
 } from '../../../config';
+import * as schedulers from '../../../util/schedulers';
 import { callApi } from '../../../api';
-import { getActions, getGlobal, setGlobal } from '../../index';
+import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
 import { clearCurrentSwap, updateCurrentSwap } from '../../reducers';
 import {
   buildSwapBuildRequest,
@@ -338,7 +339,31 @@ describe('estimateSwap', () => {
     ));
   }
 
+  const dexEstimate = {
+    route: 'dex' as const,
+    from: BASE.slug,
+    to: BASE_USDC_MAINNET.tokenAddress,
+    fromAmount: '300',
+    toAmount: '900',
+    toMinAmount: '850',
+    impact: 0,
+    dieselStatus: 'not-available' as const,
+    networkFee: '0.001',
+    realNetworkFee: '0.001',
+    swapFee: '0',
+    swapFeePercent: 0,
+    ourFee: '0',
+    ourFeePercent: 0,
+  };
+
+  function mockDexApi() {
+    (callApi as jest.Mock).mockImplementation((method: string) => Promise.resolve(
+      method === 'swapEstimate' ? dexEstimate : undefined,
+    ));
+  }
+
   beforeEach(() => {
+    (callApi as jest.Mock).mockReset();
     const base = clearCurrentSwap(getGlobal());
 
     setGlobal(updateCurrentSwap({
@@ -370,7 +395,7 @@ describe('estimateSwap', () => {
     }));
   });
 
-  it.each([DOGECOIN, BITCOIN, LITECOIN, BITCOINCASH, BASE, TONCOIN, SOLANA, TRX])(
+  it.each([DOGECOIN, BITCOIN, LITECOIN, BITCOINCASH, TONCOIN, SOLANA, TRX])(
     'prices native $slug Max against the full balance and ordinary swaps against their amount',
     async (token) => {
       const balance = 300n * 10n ** BigInt(token.decimals);
@@ -408,6 +433,45 @@ describe('estimateSwap', () => {
     },
   );
 
+  it('prices on-chain native Max via swapEstimate and ordinary swaps against their amount', async () => {
+    const token = BASE;
+    const balance = 300n * 10n ** BigInt(token.decimals);
+    const base = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...base,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic', title: 'Test',
+            byChain: { [token.chain]: { address: '0x1' } },
+          },
+        },
+      },
+      byAccountId: { [ACCOUNT_ID]: { balances: { bySlug: { [token.slug]: balance } } } },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [token.slug]: token, [BASE_USDC_MAINNET.slug]: BASE_USDC_MAINNET },
+      },
+    } as unknown as GlobalState, {
+      tokenInSlug: token.slug, tokenOutSlug: BASE_USDC_MAINNET.slug, amountIn: '299', isMaxAmount: true,
+    }));
+    mockDexApi();
+    await estimateSwap(getGlobal(), () => false);
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      fromAmount: '300',
+      isFromAmountMax: true,
+    }));
+    expect(callApi).not.toHaveBeenCalledWith('checkTransactionDraft', expect.anything(), expect.anything());
+    (callApi as jest.Mock).mockClear();
+    setGlobal(updateCurrentSwap(getGlobal(), { isMaxAmount: false, amountIn: '10' }));
+    await estimateSwap(getGlobal(), () => false);
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      fromAmount: '10',
+      isFromAmountMax: false,
+    }));
+  });
+
   it('blocks the swap when the source chain cannot price the transfer', async () => {
     mockApi(undefined);
 
@@ -428,4 +492,119 @@ describe('estimateSwap', () => {
 
     expect(result).toMatchObject({ errorType: undefined, networkFee: '0.0005', realNetworkFee: '0.0004' });
   });
+});
+
+describe('submitSwapCex', () => {
+  const ACCOUNT_ID = '0-mainnet';
+  const SWAP_ID = 'cex-swap';
+  const MFA_REQUEST_HASH = 'mfa-request';
+  const ENCLAVE_TOKEN = 'enclave-token';
+
+  // The real handlers live in action modules this test does not load
+  const releaseEnclaveSession = jest.fn();
+  const showError = jest.fn();
+  addActionHandler('releaseEnclaveSession', releaseEnclaveSession);
+  addActionHandler('showError', showError);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(schedulers, 'pause').mockResolvedValue(undefined);
+    const base = clearCurrentSwap(getGlobal());
+
+    setGlobal(updateCurrentSwap({
+      ...base,
+      currentAccountId: ACCOUNT_ID,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic',
+            title: 'Test',
+            byChain: { ton: { address: 'UQ1', mfa: { address: 'UQmfa' } } },
+          },
+        },
+      },
+      byAccountId: { [ACCOUNT_ID]: { balances: { bySlug: {} } } },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [TON_USDT_MAINNET.slug]: TON_USDT_MAINNET, [BASE.slug]: BASE },
+      },
+    } as unknown as GlobalState, {
+      state: SwapState.Password,
+      tokenInSlug: TON_USDT_MAINNET.slug,
+      tokenOutSlug: BASE.slug,
+      amountIn: '10',
+      amountOut: '0.0036',
+      inputSource: SwapInputSource.In,
+      toAddress: '0xdestination',
+      networkFee: '0.05',
+    }));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('asks an MFA account for Telegram confirmation without showing the swap as complete first', async () => {
+    const swapsBeforeDeposit = mockCexSubmitResult({ swapId: SWAP_ID, mfaRequestHash: MFA_REQUEST_HASH });
+
+    await submitSwapCex();
+
+    expect(swapsBeforeDeposit).toEqual([{ state: SwapState.Password, isLoading: true }]);
+    expect(getGlobal().currentSwap).toMatchObject({
+      state: SwapState.ConfirmMfa,
+      isLoading: undefined,
+      swapId: SWAP_ID,
+      mfaRequestHash: MFA_REQUEST_HASH,
+    });
+    expect(releaseEnclaveSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { enclaveToken: ENCLAVE_TOKEN },
+    );
+  });
+
+  it('completes an MFA account swap whose deposit needs no Telegram confirmation', async () => {
+    mockCexSubmitResult({ swapId: SWAP_ID });
+
+    await submitSwapCex();
+
+    expect(getGlobal().currentSwap).toMatchObject({ state: SwapState.Complete, isLoading: undefined });
+  });
+
+  it('keeps an MFA account on the password screen when the deposit fails', async () => {
+    mockCexSubmitResult(undefined);
+
+    await submitSwapCex();
+
+    expect(getGlobal().currentSwap).toMatchObject({ state: SwapState.Password, isLoading: undefined });
+    expect(showError).toHaveBeenCalled();
+  });
+
+  function mockCexSubmitResult(submitResult: unknown) {
+    const swapsBeforeDeposit: Pick<GlobalState['currentSwap'], 'state' | 'isLoading'>[] = [];
+
+    (callApi as jest.Mock).mockImplementation((method: string) => {
+      switch (method) {
+        case 'swapCexCreateTransaction':
+          return Promise.resolve({
+            swap: { id: SWAP_ID, fromAmount: '10', networkFee: '0.05', cex: { payinAddress: 'UQpayin' } },
+            activity: { id: 'activity' },
+          });
+        case 'swapCexSubmit': {
+          const { state, isLoading } = getGlobal().currentSwap;
+          swapsBeforeDeposit.push({ state, isLoading });
+          return Promise.resolve(submitResult);
+        }
+        default:
+          return Promise.resolve(undefined);
+      }
+    });
+
+    return swapsBeforeDeposit;
+  }
+
+  function submitSwapCex() {
+    return getActions().submitSwapCex({ enclaveToken: ENCLAVE_TOKEN }) as unknown as Promise<void>;
+  }
 });

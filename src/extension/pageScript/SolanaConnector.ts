@@ -88,14 +88,6 @@ class SolanaConnect implements SolanaStandardWallet {
         };
       },
     },
-    'solana:signAndSendTransaction': {
-      version: '1.0.0',
-      supportedTransactionVersions: ['legacy', 0],
-      signAndSendTransaction: async (input: any) => {
-        // TODO: find dapp to test this
-        await Promise.resolve();
-      },
-    },
     'solana:signTransaction': {
       version: '1.0.0',
       supportedTransactionVersions: ['legacy', 0],

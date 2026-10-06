@@ -65,7 +65,7 @@ import {
   toBase64Address,
 } from './util/tonCore';
 import { getMfaExtensionSeqno, getMfaFees, resolveMfaExtensionAddress } from './contracts/util';
-import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet, updateStoredAccount } from '../../common/accounts';
 import { callBackendGet } from '../../common/backend';
 import { DIESEL_NOT_AVAILABLE } from '../../common/other';
 import { withoutTransferConcurrency } from '../../common/preventTransferConcurrency';
@@ -1349,12 +1349,31 @@ async function signTransactions(
   }
 
   const signedTransactions = await signer.signTransactions(transactionsToSign, isTonConnect);
-  if ('error' in signedTransactions) return signedTransactions;
+  if ('error' in signedTransactions) {
+    await degradeTelegramWalletToViewOnlyOnSignerMismatch(accountId, account, signedTransactions);
+    return signedTransactions;
+  }
 
   return signedTransactions.map((transaction, index) => ({
     seqno: transactionsToSign[index].seqno,
     transaction,
   }));
+}
+
+async function degradeTelegramWalletToViewOnlyOnSignerMismatch(
+  accountId: string,
+  account: ApiAccountWithChain<'ton'>,
+  result: { error: ApiAnyDisplayError },
+) {
+  if (
+    result.error !== ApiTransactionError.TelegramWalletPublicKeyMismatch
+    || account.type === 'view'
+    || account.byChain.ton.version !== 'telegram'
+  ) {
+    return;
+  }
+
+  await updateStoredAccount(accountId, { type: 'view' });
 }
 
 async function waitForWalletSeqnoChange(network: ApiNetwork, address: string, seqno: number) {

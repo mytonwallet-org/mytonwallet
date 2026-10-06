@@ -107,6 +107,7 @@ class ActivityMainContentView(context: Context) :
         setStyle(13f, WFont.Regular)
         setSingleLine()
         ellipsize = TextUtils.TruncateAt.MARQUEE
+        isHorizontalFadingEdgeEnabled = true
         isSelected = true
         useCustomEmoji = true
     }
@@ -142,7 +143,7 @@ class ActivityMainContentView(context: Context) :
             )
         )
         addView(topLeftLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
-        addView(bottomLeftLabel)
+        addView(bottomLeftLabel, LayoutParams(0, WRAP_CONTENT))
         addView(topRightIconView, LayoutParams(18.dp, 18.dp))
         addView(topRightLabel, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
         addView(bottomRightLabel)
@@ -177,7 +178,6 @@ class ActivityMainContentView(context: Context) :
             endToStart(bottomRightLabel, activitySwapIconsView)
             toBottom(bottomRightLabel, 10f)
             setHorizontalBias(bottomLeftLabel.id, 0f)
-            constrainedWidth(bottomLeftLabel.id, true)
             toStart(bottomLeftLabel, ApplicationContextHolder.adaptiveContentStart)
             toBottom(bottomLeftLabel, 10f)
             endToStart(bottomLeftLabel, bottomRightLabel, 4f)

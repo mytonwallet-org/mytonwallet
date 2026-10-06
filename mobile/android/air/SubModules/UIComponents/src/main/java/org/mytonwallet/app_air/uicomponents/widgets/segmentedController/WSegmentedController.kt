@@ -75,7 +75,11 @@ class WSegmentedController(
     // Keeps the tab bar (and its menu) visible even when there is only one item.
     private val showSingleItemTabs: Boolean = false,
     // Shows the arrow indicator next to the active tab when it has a menu.
-    private val showActiveTabArrow: Boolean = true
+    private val showActiveTabArrow: Boolean = true,
+    // Stretches pilled tabs across the screen with a tinted active thumb.
+    private val pilledTabsFillWidth: Boolean = false,
+    private val pilledTabsHeight: Int = PILLED_TABS_HEIGHT,
+    private val pilledTabsThumbHeight: Float = WClearSegmentedControl.THUMB_HEIGHT
 ) : WView(navigationController.context),
     WThemedView,
     WProtectedView,
@@ -234,8 +238,11 @@ class WSegmentedController(
             context,
             horizontalPaddingDp = if (pilledTabs) 1f else 11f,
             isTransparent = isTransparent,
+            thumbHeightDp = pilledTabsThumbHeight,
             showActiveTabArrow = showActiveTabArrow
-        )
+        ).apply {
+            fillAvailableWidth = pilledTabsFillWidth
+        }
     private var underTabsView: View? = null
     private var underTabsHeight = 0
     private val blurSourceContainerView: WView by lazy {
@@ -285,7 +292,7 @@ class WSegmentedController(
         val fullScreenOffset =
             if (isFullScreen) navigationController.getSystemBars().top + navTopPadding else 2
         return if (pilledTabs) {
-            (navHeight - PILLED_TABS_HEIGHT.dp) / 2 + fullScreenOffset
+            (navHeight - pilledTabsHeight.dp) / 2 + fullScreenOffset
         } else {
             fullScreenOffset
         }
@@ -305,10 +312,13 @@ class WSegmentedController(
         val v = WView(context)
         v.clipChildren = clipContent
         v.clipToPadding = clipContent
-        val clearSegmentedControlHeight = if (pilledTabs) PILLED_TABS_HEIGHT.dp else navHeight
+        val clearSegmentedControlHeight = if (pilledTabs) pilledTabsHeight.dp else navHeight
         v.addView(
             clearSegmentedControl,
-            ViewGroup.LayoutParams(WRAP_CONTENT, clearSegmentedControlHeight)
+            ViewGroup.LayoutParams(
+                if (pilledTabsFillWidth) 0 else WRAP_CONTENT,
+                clearSegmentedControlHeight
+            )
         )
         v.setConstraints {
             constrainedWidth(clearSegmentedControl.id, true)
@@ -316,7 +326,7 @@ class WSegmentedController(
                 clearSegmentedControl,
                 segmentedControlTop()
             )
-            toCenterX(clearSegmentedControl)
+            toCenterX(clearSegmentedControl, if (pilledTabsFillWidth) 16f else 0f)
             constrainedWidth(clearSegmentedControl.id, true)
         }
         v
@@ -409,6 +419,10 @@ class WSegmentedController(
                 if (closeButton.parent != null && (items.size < 3 || forceCenterTabs)) {
                     toEndPx(clearSegmentedControl, reservedInset + systemBarEndInset)
                 }
+            }
+            if (pilledTabsFillWidth) {
+                toStartPx(clearSegmentedControl, 16.dp + systemBarStartInset)
+                toEndPx(clearSegmentedControl, 16.dp + systemBarEndInset)
             }
         }
         setConstraints {
@@ -526,11 +540,15 @@ class WSegmentedController(
         if (pilledTabs) {
             clearSegmentedControl.setBackgroundColor(
                 if (isTransparent) Color.WHITE.colorWithAlpha(38) else WColor.Background.color,
-                (PILLED_TABS_HEIGHT.dp / 2).toFloat(),
+                (pilledTabsHeight.dp / 2).toFloat(),
                 clipContent
             )
         }
         if (isFullScreen) clearSegmentedControl.paintColor = WColor.ThumbBackground.color
+        if (pilledTabsFillWidth) {
+            clearSegmentedControl.paintColor = WColor.Tint.color.colorWithAlpha(31)
+            clearSegmentedControl.primaryTextColorOverride = WColor.Tint.color
+        }
         if (isTransparent) {
             updateThemeTransparent()
         } else {

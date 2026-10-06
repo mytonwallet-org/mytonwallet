@@ -11,7 +11,7 @@ struct CexActivityDetailsFooter: View {
     private var statusMessage: String? {
         switch status {
         case .pending, .waitingForPayment:
-            lang("Please note that it may take up to a few hours for tokens to appear in your wallet.")
+            lang("Swaps like this usually take a few minutes. In rare cases, up to two hours.")
         case .expired:
             lang("You have not sent the coins to the specified address.")
         case .refunded:

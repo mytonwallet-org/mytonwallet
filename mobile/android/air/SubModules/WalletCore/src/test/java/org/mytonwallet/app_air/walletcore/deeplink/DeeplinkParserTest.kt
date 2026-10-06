@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.walletcore.deeplink
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -26,6 +27,12 @@ class DeeplinkParserTest {
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("topic")))
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("message")))
         assertFalse(DeeplinkParser.isWalletConnectSessionRequest(setOf("uri")))
+    }
+
+    @Test
+    fun preservesReceiveChain() {
+        assertEquals("tron", DeeplinkParser.receiveDeeplink("tron")?.chain)
+        assertNull(DeeplinkParser.receiveDeeplink(""))
     }
 
     @Test

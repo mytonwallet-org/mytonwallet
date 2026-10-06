@@ -56,6 +56,7 @@ object WalletNameMenuHelper {
             popupWidth = 220.dp,
             yOffset = (-20).dp,
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             centerHorizontally = true,
             windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
                 anchor.frameAsPath(
@@ -65,8 +66,8 @@ object WalletNameMenuHelper {
                     rightOffset = 8f.dp,
                     bottomOffset = (-20f).dp
                 )
-            ),
-            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
+            )
+
         )
     }
 }

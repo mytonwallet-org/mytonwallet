@@ -147,8 +147,17 @@ private fun WalletCore.importNewWalletVersionInternal(
             callback(null, error)
         } else {
             val accountObj = JSONObject(result)
-            val accountId = accountObj.getString("accountId")
-            val isNew = accountObj.getBoolean("isNew")
+            accountObj.optString("error").takeIf { it.isNotBlank() }?.let { errorName ->
+                callback(null, MBridgeError.fromErrorName(errorName) ?: MBridgeError.Type.UNKNOWN)
+                return@callApi
+            }
+
+            val accountId = accountObj.optString("accountId").takeIf { it.isNotBlank() }
+            val isNew = accountObj.optBoolean("isNew")
+            if (accountId == null || !accountObj.has("isNew")) {
+                callback(null, MBridgeError.Type.UNKNOWN)
+                return@callApi
+            }
             if (!isNew) {
                 val accountJson = WGlobalStorage.getAccount(accountId)
                 if (accountJson == null) {
@@ -373,6 +382,14 @@ fun WalletCore.removeAccount(
     isNextAccountPushedTemporary: Boolean?,
     callback: (Boolean?, MBridgeError?) -> Unit
 ) {
+    fun abortAccountChange() {
+        if (nextAccountId == null || WalletCore.nextAccountId != nextAccountId) return
+        WalletCore.nextAccountId = null
+        WalletCore.nextAccountIsPushedTemporary = null
+        AccountStore.updateActiveAccount(accountId)
+        WalletCore.notifyEvent(WalletEvent.AccountChangeAborted)
+    }
+
     if (nextAccountId != null) {
         AccountStore.updateActiveAccount(null)
         WalletCore.nextAccountId = nextAccountId
@@ -384,7 +401,13 @@ fun WalletCore.removeAccount(
             ActivityStore.getNewestActivityTimestamps(nextAccountId) ?: JSONObject()
         }
 
-    bridge?.callApi(
+    val activeBridge = bridge
+    if (activeBridge == null) {
+        abortAccountChange()
+        callback(null, MBridgeError.Type.BRIDGE_INTERRUPTED)
+        return
+    }
+    activeBridge.callApi(
         "removeAccount",
         nextAccountId?.let {
             "[$quotedAccountId, $quotedNextAccountId, $newestActivitiesTimestampBySlug]"
@@ -392,25 +415,26 @@ fun WalletCore.removeAccount(
             ?: "[$quotedAccountId]"
     ) { result, error ->
         if (error != null || result == null) {
+            abortAccountChange()
             callback(null, error)
-        } else {
-            nextAccountId?.let {
-                if (WalletCore.nextAccountId != nextAccountId) return@let
-                activateAccount(
-                    nextAccountId,
-                    false,
-                    isPushedTemporary = isNextAccountPushedTemporary ?: false,
-                    force = true,
-                    callback = { account, error ->
-                        if (error != null || account == null) {
-                            throw Error()
-                        }
-                        callback(true, null)
+            return@callApi
+        }
+        nextAccountId?.let {
+            if (WalletCore.nextAccountId != nextAccountId) return@let
+            activateAccount(
+                nextAccountId,
+                false,
+                isPushedTemporary = isNextAccountPushedTemporary ?: false,
+                force = true,
+                callback = { account, error ->
+                    if (error != null || account == null) {
+                        throw Error()
                     }
-                )
-            } ?: run {
-                callback(true, null)
-            }
+                    callback(true, null)
+                }
+            )
+        } ?: run {
+            callback(true, null)
         }
     }
 }

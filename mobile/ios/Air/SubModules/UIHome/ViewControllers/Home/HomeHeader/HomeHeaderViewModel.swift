@@ -34,6 +34,7 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     var seasonalThemingVersion: Int = 0
     var isAccountScrolling = false
     private(set) var walletCardTopLine: WalletCardTopLine = .defaultValue
+    private(set) var isNftBuyingDisabled = ConfigStore.shared.shouldRestrictBuyNfts
 
     @PerceptionIgnored
     private nonisolated(unsafe) var settingsObservation: NSObjectProtocol?
@@ -124,6 +125,7 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
         switch event {
         case .configChanged:
             seasonalThemingVersion += 1
+            isNftBuyingDisabled = ConfigStore.shared.shouldRestrictBuyNfts
         default:
             break
         }

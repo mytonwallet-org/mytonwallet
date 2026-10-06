@@ -111,6 +111,7 @@ object WGlobalStorage {
     private const val ARE_ROUNDED_TOOLBARS_ACTIVE = "settings.roundedToolbars"
     private const val IS_TESTNET = "settings.isTestnet"
     private const val ARE_ANIMATIONS_ACTIVE = "settings.animationLevel"
+    private const val IS_3D_CARD_DISABLED = "settings.is3dCardDisabled"
     private const val ARE_SIDE_GUTTERS_ACTIVE = "settings.sideGutters"
     private const val ARE_ROUNDED_CORNERS_ACTIVE = "settings.roundedCorners"
     private const val IS_GRADIENT_NAVIGATION_BAR_ACTIVE = "settings.gradientNavigationBar"
@@ -281,6 +282,14 @@ object WGlobalStorage {
                 IGlobalStorageProvider.PERSIST_NORMAL
             )
         }
+    }
+
+    fun saveAccountType(accountId: String, accountType: String) {
+        globalStorageProvider.set(
+            "accounts.byId.$accountId.type",
+            accountType,
+            IGlobalStorageProvider.PERSIST_NORMAL
+        )
     }
 
     fun saveTemporaryAccount(accountId: String) {
@@ -512,6 +521,16 @@ object WGlobalStorage {
         globalStorageProvider.set(
             ARE_ANIMATIONS_ACTIVE,
             if (active) 2 else 0,
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
+    fun getIs3dCardDisabled(): Boolean = globalStorageProvider.getBool(IS_3D_CARD_DISABLED) == true
+
+    fun setIs3dCardDisabled(disabled: Boolean) {
+        globalStorageProvider.set(
+            IS_3D_CARD_DISABLED,
+            disabled,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
     }

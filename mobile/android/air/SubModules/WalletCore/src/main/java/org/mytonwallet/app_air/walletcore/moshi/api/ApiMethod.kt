@@ -28,6 +28,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
+import org.mytonwallet.app_air.walletcore.moshi.MApiEvmSwapCall
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
@@ -657,7 +658,9 @@ sealed class ApiMethod<T> {
             transfers: List<MApiSwapTransfer>?,
             historyItem: MApiSwapHistoryItem,
             withDiesel: Boolean,
-            transaction: String?
+            transaction: String?,
+            calls: List<MApiEvmSwapCall>? = null,
+            needsApprove: Boolean? = null
         ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "swapSubmit"
             override val type: Type = ApiSubmitTransferResult::class.java
@@ -672,6 +675,11 @@ sealed class ApiMethod<T> {
                 .jsObject(historyItem, MApiSwapHistoryItem::class.java)
                 .boolean(withDiesel)
                 .string(transaction)
+                .jsObject(
+                    calls,
+                    Types.newParameterizedType(List::class.java, MApiEvmSwapCall::class.java)
+                )
+                .boolean(needsApprove)
                 .build()
         }
 
@@ -766,7 +774,7 @@ sealed class ApiMethod<T> {
         ) : ApiMethod<SignDappProof.Result>() {
 
             @JsonClass(generateAdapter = true)
-            data class Result(val signatures: List<String>)
+            data class Result(val signatures: List<String>, val publicKeys: List<String>? = null)
 
             override val name: String = "signDappProof"
             override val type: Type = Result::class.java
@@ -789,7 +797,8 @@ sealed class ApiMethod<T> {
             @JsonClass(generateAdapter = true)
             data class Request(
                 val accountId: String? = null,
-                val proofSignatures: List<String>? = null
+                val proofSignatures: List<String>? = null,
+                val proofPublicKeys: List<String>? = null
             )
         }
         class CancelDappRequest(promiseId: String, reason: String?) : ApiMethod<Unit>() {

@@ -85,6 +85,7 @@ public enum DatabaseBootstrap {
 
     public static func prepare() async throws -> DatabaseBootstrapResult {
         log.info("prepare")
+        try CapacitorKeychainStorageProvider().migrateToTransferableProtection()
         StartupTrace.mark("airLauncher.database.connect.begin")
         let db = try connectToDatabase()
         StartupTrace.mark("airLauncher.database.connect.end")

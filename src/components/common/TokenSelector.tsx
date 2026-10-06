@@ -1,3 +1,4 @@
+import type { TeactNode } from '../../lib/teact/teact';
 import React, {
   memo,
   useCallback,
@@ -10,26 +11,27 @@ import React, {
 import { getActions, withGlobal } from '../../global';
 
 import type { ApiBaseCurrency, ApiChain, ApiSwapVersion } from '../../api/types';
-import {
-  type AssetPairs, SettingsState, type UserSwapToken, type UserToken,
-} from '../../global/types';
+import type { TokenType } from '../../util/tokenSearch';
+import { type AssetPairs, SettingsState, type UserSwapToken } from '../../global/types';
 
 import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
   selectCurrentAccount,
+  selectCurrentAccountSettings,
   selectPopularTokens,
   selectSwapTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig, getDisplayOrderedChains, getTrustedUsdtSlugs } from '../../util/chain';
+import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { getChainFromAddress } from '../../util/isValidAddress';
 import { disableSwipeToClose, enableSwipeToClose } from '../../util/modalSwipeManager';
 import getChainNetworkName from '../../util/swap/getChainNetworkName';
 import { isSwapPairValid } from '../../util/swap/isSwapPairValid';
-import { getChainBySlug, getIsRwaStockToken, getTokenName } from '../../util/tokens';
+import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
+import { findTokensByQuery } from '../../util/tokenSearch';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useDebouncedValue from '../../hooks/useDebouncedValue';
@@ -48,15 +50,6 @@ import TokenIcon from './TokenIcon';
 import TokenTitle from './TokenTitle';
 
 import styles from './TokenSelector.module.scss';
-
-type TokenType = UserToken | UserSwapToken;
-
-type TokenSortFactors = {
-  tickerExactMatch: number;
-  tickerMatchLength: number;
-  nameMatchLength: number;
-  specialOrder: number;
-};
 
 interface OwnProps {
   isActive?: boolean;
@@ -86,6 +79,7 @@ interface StateProps {
   isLoading?: boolean;
   error?: string;
   availableChains?: Partial<Record<ApiChain, unknown>>;
+  importedSlugs?: string[];
   isSensitiveDataHidden?: true;
 }
 
@@ -122,6 +116,7 @@ function TokenSelector({
   availableChains = EMPTY_OBJECT,
   selectedChain,
   searchTokens,
+  importedSlugs,
   isSensitiveDataHidden,
   onTokenSelect,
   onBack,
@@ -202,77 +197,12 @@ function TokenSelector({
 
   const filteredTokenList = useMemo(() => {
     const tokensToFilter = shouldUseSwapTokens ? swapTokensWithFilter : allTokens;
-    const untrimmedSearchValue = debouncedSearchValue.toLowerCase();
-    const lowerCaseSearchValue = untrimmedSearchValue.trim();
+    const enabledTokens = tokensToFilter.filter(({ isDisabled }) => !isDisabled);
 
-    if (untrimmedSearchValue.length && !lowerCaseSearchValue.length) {
-      return [];
-    }
-
-    const filteredTokens = tokensToFilter.filter(({
-      name, symbol, keywords, isDisabled, label, chain,
-    }) => {
-      if (isDisabled) {
-        return false;
-      }
-
-      const isName = name.toLowerCase().includes(lowerCaseSearchValue);
-      const isSymbol = symbol.toLowerCase().includes(lowerCaseSearchValue);
-      const isLabel = label?.toLowerCase().includes(lowerCaseSearchValue);
-      const isChain = getChainNetworkName(chain).toLowerCase().includes(lowerCaseSearchValue);
-      const isKeyword = keywords?.some((key) => key.toLowerCase().includes(lowerCaseSearchValue));
-
-      return isName || isSymbol || isLabel || isChain || isKeyword;
-    }) ?? [];
-
-    const sortFactors = filteredTokens.reduce((acc, searchResultToken) => {
-      const factors = {
-        tickerExactMatch: 0,
-        tickerMatchLength: 0,
-        nameMatchLength: 0,
-        specialOrder: 0, // The higher the value, the higher the position
-      };
-
-      const tokenSymbol = searchResultToken.symbol.toLowerCase();
-      const tokenName = searchResultToken.name.toLowerCase();
-
-      if (tokenSymbol === lowerCaseSearchValue) {
-        factors.tickerExactMatch = 1;
-      }
-
-      if (tokenSymbol.includes(lowerCaseSearchValue)) {
-        factors.tickerMatchLength = lowerCaseSearchValue.length;
-      }
-
-      if (tokenName.includes(lowerCaseSearchValue)) {
-        factors.nameMatchLength = lowerCaseSearchValue.length;
-      }
-
-      if (getTrustedUsdtSlugs().has(searchResultToken.slug)) {
-        const chain = getChainBySlug(searchResultToken.slug);
-        const supportedChains = getDisplayOrderedChains();
-        const chainPriority = supportedChains.indexOf(chain);
-        if (chainPriority !== -1) {
-          // Subtracting, because the lower chain index should have higher priority, and `specialOrder` expects higher
-          // numbers for higher priority.
-          factors.specialOrder = supportedChains.length - chainPriority;
-        }
-      }
-
-      acc[searchResultToken.slug] = factors;
-
-      return acc;
-    }, {} as Record<string, TokenSortFactors>);
-
-    return filteredTokens.sort((a, b) => {
-      const factorA = sortFactors[a.slug];
-      const factorB = sortFactors[b.slug];
-      const comparisonResult = compareTokens(factorA, factorB);
-      if (comparisonResult !== 0) return comparisonResult;
-
-      return Number(b.amount - a.amount);
-    });
-  }, [allTokens, shouldUseSwapTokens, debouncedSearchValue, swapTokensWithFilter]);
+    return debouncedSearchValue
+      ? findTokensByQuery(lang, enabledTokens, debouncedSearchValue, importedSlugs)
+      : enabledTokens;
+  }, [allTokens, shouldUseSwapTokens, debouncedSearchValue, swapTokensWithFilter, lang, importedSlugs]);
 
   const resetSearch = () => {
     setSearchValue('');
@@ -372,9 +302,11 @@ function TokenSelector({
       ? getChainNetworkName(currentToken.chain)
       : lang('Unavailable');
 
-    const tokenPrice = currentToken.price === 0
-      ? lang('No Price')
-      : formatCurrency(currentToken.price, shortBaseSymbol, undefined, true);
+    const valueText = Number(currentToken.totalValue) > 0
+      ? formatCurrency(currentToken.totalValue, shortBaseSymbol)
+      : currentToken.price === 0
+        ? lang('No Price')
+        : lang('$token_price_value', { value: formatCurrency(currentToken.price, shortBaseSymbol, undefined, true) });
 
     return (
       <Token
@@ -384,7 +316,7 @@ function TokenSelector({
         withChainIcon
         descriptionText={descriptionText}
         token={currentToken}
-        tokenPrice={tokenPrice}
+        valueText={valueText}
         onSelect={handleTokenClick}
       />
     );
@@ -533,6 +465,7 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const popularTokens = selectPopularTokens(global);
   const swapTokens = selectSwapTokens(global);
   const availableChains = selectCurrentAccount(global)?.byChain;
+  const importedSlugs = selectCurrentAccountSettings(global)?.importedSlugs;
 
   return {
     baseCurrency,
@@ -546,6 +479,7 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
     popularTokens,
     swapTokens,
     availableChains,
+    importedSlugs,
     isSensitiveDataHidden,
   };
 })(TokenSelector));
@@ -556,7 +490,7 @@ function Token({
   isSensitiveDataHidden,
   withChainIcon,
   descriptionText,
-  tokenPrice,
+  valueText,
   onSelect,
 }: {
   token: TokenType;
@@ -564,7 +498,7 @@ function Token({
   isSensitiveDataHidden?: true;
   withChainIcon: boolean;
   descriptionText: string;
-  tokenPrice: string;
+  valueText: TeactNode;
   onSelect: (token: TokenType) => void;
 }) {
   const lang = useLang();
@@ -620,13 +554,21 @@ function Token({
         >
           {formatCurrency(toDecimal(token.amount, token?.decimals), token.symbol)}
         </SensitiveData>
-        <span className={buildClassName(
-          styles.tokenValue,
-          !isAvailable && styles.tokenTextDisabled,
-        )}
+        <SensitiveData
+          isActive={isSensitiveDataHidden}
+          min={4}
+          max={10}
+          seed={token.slug}
+          rows={2}
+          cellSize={8}
+          align="right"
+          className={buildClassName(
+            styles.tokenValue,
+            !isAvailable && styles.tokenTextDisabled,
+          )}
         >
-          {tokenPrice}
-        </span>
+          {valueText}
+        </SensitiveData>
       </div>
     </div>
   );
@@ -647,19 +589,6 @@ function filterAndSortTokens(
       canSwap: isSwapPairValid(tokenInSlug, token.slug, pairsBySlug, swapVersion, availableChains),
     }))
     .sort((a, b) => Number(b.canSwap) - Number(a.canSwap));
-}
-
-function compareTokens(a: TokenSortFactors, b: TokenSortFactors) {
-  if (a.specialOrder !== b.specialOrder) {
-    return b.specialOrder - a.specialOrder;
-  }
-  if (a.tickerExactMatch !== b.tickerExactMatch) {
-    return b.tickerExactMatch - a.tickerExactMatch;
-  }
-  if (a.tickerMatchLength !== b.tickerMatchLength) {
-    return b.tickerMatchLength - a.tickerMatchLength;
-  }
-  return b.nameMatchLength - a.nameMatchLength;
 }
 
 function filterSupportedTokens<T extends TokenType>(

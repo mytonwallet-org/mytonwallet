@@ -1,20 +1,20 @@
 import React, { memo } from '../../../lib/teact/teact';
-import { getActions, getGlobal, withGlobal } from '../../../global';
+import { getActions, withGlobal } from '../../../global';
 
-import { ANIMATED_STICKER_BIG_SIZE_PX } from '../../../config';
-import { selectCurrentAccount, selectEnclaveToken, selectIsEnclaveSessionValid } from '../../../global/selectors';
+import { ANIMATED_STICKER_BIG_SIZE_PX, MFA_INSTALL_FEE, TONCOIN } from '../../../config';
+import { selectCurrentAccount } from '../../../global/selectors';
 import buildClassName from '../../../util/buildClassName';
+import { toDecimal } from '../../../util/decimals';
+import { formatCurrency } from '../../../util/formatNumber';
 import { ANIMATED_STICKERS_PATHS } from '../../ui/helpers/animatedAssets';
 
 import useInterval from '../../../hooks/useInterval';
 import useLang from '../../../hooks/useLang';
-import useLastCallback from '../../../hooks/useLastCallback';
 
 import AnimatedIconWithPreview from '../../ui/AnimatedIconWithPreview';
 import Button from '../../ui/Button';
 import WalletAvatar from '../../ui/WalletAvatar';
 
-import avatarStyles from '../../../components/ui/WalletAvatar.module.scss';
 import settingsStyles from '../Settings.module.scss';
 import styles from './Mfa.module.scss';
 
@@ -47,22 +47,11 @@ function ManageMfa({
 }: OwnProps & StateProps) {
   const lang = useLang();
 
-  const { submitRemoveMfa, updateRemoveMfaRequest } = getActions();
+  const { updateRemoveMfaRequest } = getActions();
 
   const isConfirming = !!removeMfa;
   const telegramAccountName = mfa.user?.name ?? lang('My Telegram Account');
   const telegramAccountUsername = mfa.user?.username ? `@${mfa.user.username}` : lang('Without username');
-
-  const onClick = useLastCallback(() => {
-    const global = getGlobal();
-    const enclaveToken = selectEnclaveToken(global);
-
-    if (selectIsEnclaveSessionValid(global) && enclaveToken) {
-      submitRemoveMfa({ enclaveToken });
-    } else {
-      openMfaPassword();
-    }
-  });
 
   useInterval(() => {
     if (isSlideActive && removeMfa) updateRemoveMfaRequest();
@@ -93,15 +82,7 @@ function ManageMfa({
           {lang('My Telegram Account')}
         </div>
         <div className={buildClassName(styles.block, styles.accountBlock)}>
-          {mfa.user?.avatarUrl ? (
-            <img
-              src={mfa.user.avatarUrl}
-              alt="Avatar"
-              className={avatarStyles.avatar}
-            />
-          ) : (
-            <WalletAvatar title={telegramAccountName.slice(0, 2)} />
-          )}
+          <WalletAvatar title={telegramAccountName.slice(0, 2)} imageUrl={mfa.user?.avatarUrl} />
 
           <div className={styles.accountInfo}>
             <div className={styles.accountName}>{telegramAccountName}</div>
@@ -133,13 +114,13 @@ function ManageMfa({
         <span
           className={styles.feeInfo}
         >
-          {lang('Connection Fee:')} 0.15 TON
+          {lang('Connection Fee:')} {formatCurrency(toDecimal(MFA_INSTALL_FEE), TONCOIN.symbol)}
         </span>
         <Button
           isDestructive
           isLoading={isConfirming}
           className={styles.button}
-          onClick={onClick}
+          onClick={openMfaPassword}
         >
           {lang('Unlink Account')}
         </Button>

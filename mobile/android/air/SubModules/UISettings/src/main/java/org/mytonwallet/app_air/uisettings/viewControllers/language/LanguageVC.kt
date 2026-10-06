@@ -44,7 +44,8 @@ class LanguageVC(context: Context) :
             WLanguage.UKRAINIAN,
             WLanguage.POLISH,
             WLanguage.PERSIAN,
-            WLanguage.ARABIC
+            WLanguage.ARABIC,
+            WLanguage.ITALIAN
         )
 
         val HEADER_CELL = WCell.Type(1)

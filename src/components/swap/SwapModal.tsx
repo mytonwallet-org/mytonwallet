@@ -69,6 +69,7 @@ function SwapModal({
     payinExtraId,
     isManualDepositRequired,
     currentCexLabel,
+    isBatchTx,
   },
   swapType,
   swapTokens,
@@ -297,6 +298,7 @@ function SwapModal({
           <SwapPassword
             isActive={isActive}
             isLoading={isLoading}
+            isBatchTx={isBatchTx}
             error={error}
             onAuthorize={handleTransferSubmit}
             onBack={handleBackClick}

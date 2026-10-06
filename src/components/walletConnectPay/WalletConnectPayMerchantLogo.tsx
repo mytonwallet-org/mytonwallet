@@ -11,6 +11,10 @@ import Skeleton from '../ui/Skeleton';
 
 import styles from './WalletConnectPay.module.scss';
 
+const ICON_FALLBACK_CLASS_NAME = buildClassName(
+  styles.merchantLogo, styles.merchantLogo_icon, styles.merchantIcon, 'icon-card',
+);
+
 interface OwnProps {
   merchant?: WcPayMerchant;
   className?: string;
@@ -41,17 +45,7 @@ function WalletConnectPayMerchantLogo({ merchant, className }: OwnProps) {
         alt={merchant.name || lang('Logo')}
         forceLoaded
         className={buildClassName(styles.merchantLogo, styles.merchantIcon)}
-        fallback={(
-          <i
-            className={buildClassName(
-              styles.merchantLogo,
-              styles.merchantLogo_icon,
-              styles.merchantIcon,
-              'icon-card',
-            )}
-            aria-hidden
-          />
-        )}
+        fallbackClassName={ICON_FALLBACK_CLASS_NAME}
       />
     </div>
   );

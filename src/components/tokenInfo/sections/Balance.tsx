@@ -9,11 +9,10 @@ import { selectCurrentAccountId, selectIsMultichainAccount } from '../../../glob
 import buildClassName from '../../../util/buildClassName';
 import { calcBigChangeValue } from '../../../util/calcChangeValue';
 import { toBig, toDecimal } from '../../../util/decimals';
-import { formatCurrency, formatNumber, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
+import { formatCurrency, formatPercent, getShortCurrencySymbol } from '../../../util/formatNumber';
 
-import useFlag from '../../../hooks/useFlag';
 import useFontScale from '../../../hooks/useFontScale';
-import useLastCallback from '../../../hooks/useLastCallback';
+import useFullAmountToggle from '../../../hooks/useFullAmountToggle';
 
 import TokenIcon from '../../common/TokenIcon';
 import SensitiveData from '../../ui/SensitiveData';
@@ -45,7 +44,6 @@ function Balance({
   token, pricePoint, baseCurrency, isSensitiveDataHidden, isMultichainAccount,
 }: OwnProps & StateProps) {
   const amountRef = useRef<HTMLDivElement>();
-  const [isFullAmount, showFullAmount, hideFullAmount] = useFlag();
   const { updateFontScale } = useFontScale(amountRef);
 
   const { amount, decimals, symbol, price, change24h } = token;
@@ -61,25 +59,11 @@ function Balance({
     : calcBigChangeValue(valueBig, change24h).toNumber();
   const changePercent = (pricePoint ? pricePoint.price / pricePoint.initialPrice - 1 : change24h) * 100;
 
-  const decimalAmount = toDecimal(amount, decimals);
-  const [wholePart, fractionPart] = (isFullAmount
-    ? formatNumber(decimalAmount, decimals, undefined, true)
-    : formatNumber(decimalAmount)
-  ).split('.');
+  const { wholePart, fractionPart, handleAmountClick, hideFullAmount } = useFullAmountToggle(
+    toDecimal(amount, decimals), decimals,
+  );
 
   useLayoutEffect(updateFontScale, [wholePart, fractionPart, symbol, updateFontScale]);
-
-  // The mask reveal takes the first tap, so the full amount comes on the second one, and the third one
-  // returns the mask (the click is handed back to `SensitiveData` by returning a falsy value)
-  const handleAmountClick = useLastCallback(() => {
-    if (isFullAmount) {
-      hideFullAmount();
-      return false;
-    }
-
-    showFullAmount();
-    return true;
-  });
 
   return (
     <div className={styles.root}>

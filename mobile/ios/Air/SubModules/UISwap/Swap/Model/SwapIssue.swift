@@ -17,7 +17,7 @@ extension SwapIssue {
     var buttonTitle: String {
         switch self {
         case .invalidPair:
-            lang("Invalid Pair")
+            lang("Unsupported Pair")
         case .insufficientBalance:
             lang("Insufficient Balance")
         case .insufficientLiquidity:

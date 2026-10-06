@@ -18,9 +18,13 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonReader
 import java.lang.reflect.Type
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -44,9 +48,43 @@ import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
-val INIT_SCRIPT
-    get() =
-        "window.airBridge.initApi((data) => {androidApp.onUpdate(data.type, JSON.stringify(data))}, {isAndroidApp: true, langCode: '${LocaleController.activeLanguage.langCode}'})"
+internal suspend fun <T> consumeBridgeQueue(
+    channel: ReceiveChannel<T>,
+    process: suspend (T) -> Unit,
+    onFailure: (T, Throwable) -> Unit
+) {
+    for (item in channel) {
+        try {
+            process(item)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            onFailure(item, e)
+        }
+    }
+}
+
+internal class SerialBridgeEventQueue<T>(
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    process: suspend (T) -> Unit,
+    onFailure: (T, Throwable) -> Unit
+) {
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val channel = Channel<T>(Channel.UNLIMITED)
+
+    init {
+        scope.launch {
+            consumeBridgeQueue(channel, process, onFailure)
+        }
+    }
+
+    fun trySend(item: T): Boolean = channel.trySend(item).isSuccess
+
+    fun dispose() {
+        channel.close()
+        scope.cancel()
+    }
+}
 
 /**
  * `MyWallet/26.9.9 (66330)` - the version name a person reads and the version code that
@@ -66,7 +104,6 @@ private fun clientUserAgentToken(context: Context): String {
 
 @SuppressLint("SetJavaScriptEnabled")
 class JSWebViewBridge(context: Context) : WebView(context) {
-
     init {
         id = generateViewId()
     }
@@ -98,7 +135,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
         loadUrl("file:///android_asset/js/index.html")
 
-        addJavascriptInterface(JsWebInterface(this), "androidApp")
+        jsWebInterface = JsWebInterface(this)
+        addJavascriptInterface(requireNotNull(jsWebInterface), "androidApp")
         webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -132,6 +170,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
                 isRenderProcessGone = true
                 injecting = false
                 injected = false
+                disposeJsWebInterface()
                 failPendingCallbacks(MBridgeError.Type.BRIDGE_INTERRUPTED)
                 WalletCore.onBridgeRenderProcessGone(this@JSWebViewBridge)
                 return true
@@ -143,7 +182,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         private set
 
     private var isDisposed: Boolean = false
-
+    private var jsWebInterface: JsWebInterface? = null
     private var injecting: Boolean = false
     var injected: Boolean = false
         private set
@@ -153,7 +192,7 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         injecting = true
 
         // Inject the init script
-        evaluateJavascript(INIT_SCRIPT) { res ->
+        evaluateJavascript(initScript()) { res ->
             if (isRenderProcessGone || isDisposed) {
                 Logger.e(
                     Logger.LogTag.JS_WEBVIEW_BRIDGE,
@@ -188,14 +227,23 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         InstallReferrerChannel.deliver(context, this)
     }
 
+    private fun initScript(): String = buildInitScript(LocaleController.activeLanguage.langCode)
+
     internal fun dispose() {
         if (isDisposed) return
         isDisposed = true
         injecting = false
         injected = false
+        disposeJsWebInterface()
         failPendingCallbacks(MBridgeError.Type.BRIDGE_INTERRUPTED)
         (parent as? ViewGroup)?.removeView(this)
         destroy()
+    }
+
+    private fun disposeJsWebInterface() {
+        jsWebInterface?.dispose()
+        jsWebInterface = null
+        removeJavascriptInterface("androidApp")
     }
 
     private fun getMemoryStateForLog(): String {
@@ -254,6 +302,13 @@ class JSWebViewBridge(context: Context) : WebView(context) {
     }
 
     class JsWebInterface(val bridge: JSWebViewBridge) {
+        private sealed interface BridgeEvent {
+            data class Callback(val identifier: Int, val success: Boolean, val result: String) :
+                BridgeEvent
+
+            data class Update(val type: String, val value: String) : BridgeEvent
+        }
+
         companion object {
             private val sdkStorageKeys = setOf(
                 "agentMessages",
@@ -271,12 +326,31 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
         @JavascriptInterface
         fun callback(identifier: Int, success: Boolean, result: String) {
-            bridge.post {
-                bridge.callbackRegistry.complete(identifier, success, result)
+            if (!eventQueue.trySend(BridgeEvent.Callback(identifier, success, result))) {
+                Logger.w(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "callback: bridge queue is closed identifier=$identifier"
+                )
             }
         }
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        private val eventQueue = SerialBridgeEventQueue(
+            process = ::processEvent,
+            onFailure = { event, error ->
+                val updateType = (event as? BridgeEvent.Update)?.type
+                Logger.w(
+                    Logger.LogTag.JS_WEBVIEW_BRIDGE,
+                    "bridge event rejected type=$updateType " +
+                        "error=${error.javaClass.simpleName}"
+                )
+            }
+        )
+
+        fun dispose() {
+            eventQueue.dispose()
+            scope.cancel()
+        }
 
         private fun getStorageValue(key: String): String {
             if (usesSecureStorage(key)) return WSecureStorage.getSecValue(key)
@@ -490,22 +564,32 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
         @JavascriptInterface
         fun onUpdate(updateType: String, updateString: String) {
-            scope.launch {
-                streamTokenUpdates(updateType, updateString)
-                if (updateType == "updateSwapTokens") return@launch
+            if (!eventQueue.trySend(BridgeEvent.Update(updateType, updateString))) {
+                Logger.w(Logger.LogTag.JS_WEBVIEW_BRIDGE, "onUpdate: bridge queue is closed")
+            }
+        }
 
-                val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
-                try {
-                    val update = adapter.fromJson(updateString) ?: return@launch
-                    WalletCore.notifyApiUpdate(update)
-                } catch (e: Exception) {
-                    Logger.w(
-                        Logger.LogTag.JS_WEBVIEW_BRIDGE,
-                        "onUpdate: Moshi rejected type=$updateType " +
-                            "error=${e.javaClass.simpleName}"
+        private suspend fun processEvent(event: BridgeEvent) {
+            when (event) {
+                is BridgeEvent.Callback -> withContext(Dispatchers.Main) {
+                    bridge.callbackRegistry.complete(
+                        event.identifier,
+                        event.success,
+                        event.result
                     )
                 }
+
+                is BridgeEvent.Update -> processUpdate(event.type, event.value)
             }
+        }
+
+        private suspend fun processUpdate(updateType: String, updateString: String) {
+            streamTokenUpdates(updateType, updateString)
+            if (updateType == "updateSwapTokens") return
+
+            val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
+            val update = adapter.fromJson(updateString) ?: return
+            WalletCore.notifyApiUpdate(update)
         }
 
         @JavascriptInterface
@@ -739,3 +823,8 @@ class JSWebViewBridge(context: Context) : WebView(context) {
         return parsed
     }
 }
+
+internal fun buildInitScript(langCode: String) = "window.airBridge.initApi((data) => {" +
+    "androidApp.onUpdate(data.type, JSON.stringify(data))}, {" +
+    "isAndroidApp: true, " +
+    "langCode: '$langCode'})"

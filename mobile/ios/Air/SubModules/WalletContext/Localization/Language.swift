@@ -97,7 +97,14 @@ public struct Language: Equatable, Identifiable, Sendable {
         nativeName: "فارسی",
         isRtl: true
     )
-    
+
+    public static let it = Language(
+        langCode: "it",
+        name: "Italian",
+        nativeName: "Italiano",
+        isRtl: false
+    )
+
     public static let allCases: [Language] = [
         .en,
         .es,
@@ -110,7 +117,8 @@ public struct Language: Equatable, Identifiable, Sendable {
         .uk,
         .pl,
         .ar,
-        .fa
+        .fa,
+        .it
     ]
     
     public static let supportedLanguages: [Language] = [
@@ -126,5 +134,6 @@ public struct Language: Equatable, Identifiable, Sendable {
         .pl,
         .ar,
         .fa,
+        .it,
     ]
 }

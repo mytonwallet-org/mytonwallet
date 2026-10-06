@@ -18,6 +18,7 @@ import iotaBlockchainIcon from '../../assets/blockchain/chain_iota.svg';
 import litecoinBlockchainIcon from '../../assets/blockchain/chain_litecoin.svg';
 import monadBlockchainIcon from '../../assets/blockchain/chain_monad.svg';
 import moneroBlockchainIcon from '../../assets/blockchain/chain_monero.svg';
+import optimismBlockchainIcon from '../../assets/blockchain/chain_optimism.svg';
 import polkadotBlockchainIcon from '../../assets/blockchain/chain_polkadot.svg';
 import polygonBlockchainIcon from '../../assets/blockchain/chain_polygon.svg';
 import rippleBlockchainIcon from '../../assets/blockchain/chain_ripple.svg';
@@ -56,6 +57,7 @@ const CHAIN_ICON_MAP: Record<string, string> = {
   polygon: polygonBlockchainIcon,
   bnb: bnbBlockchainIcon,
   arbitrum: arbitrumBlockchainIcon,
+  optimism: optimismBlockchainIcon,
   monad: monadBlockchainIcon,
   hyperliquid: hyperliquidBlockchainIcon,
   robinhood: robinhoodBlockchainIcon,

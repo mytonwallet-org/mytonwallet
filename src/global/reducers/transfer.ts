@@ -4,7 +4,11 @@ import type { GlobalState } from '../types';
 import { pick } from '../../util/iteratees';
 import { replaceActivityId } from '../helpers/misc';
 import { INITIAL_STATE } from '../initialState';
-import { selectCurrentTransferMaxAmount, selectTokenMatchingCurrentTransferAddressSlow } from '../selectors';
+import {
+  selectCurrentAccountState,
+  selectCurrentTransferMaxAmount,
+  selectTokenMatchingCurrentTransferAddressSlow,
+} from '../selectors';
 
 export function updateCurrentTransferByCheckResult(global: GlobalState, result: ApiCheckTransactionDraftResult) {
   const nextGlobal = updateCurrentTransfer(global, {
@@ -31,10 +35,16 @@ export function updateCurrentTransfer(global: GlobalState, update: Partial<Globa
   };
 }
 
+/** The cleared form keeps the token of the open token screen, so Send there starts with that token */
 export function clearCurrentTransfer(global: GlobalState) {
+  const { currentTokenSlug } = selectCurrentAccountState(global) ?? {};
+
   return {
     ...global,
-    currentTransfer: INITIAL_STATE.currentTransfer,
+    currentTransfer: {
+      ...INITIAL_STATE.currentTransfer,
+      tokenSlug: currentTokenSlug ?? INITIAL_STATE.currentTransfer.tokenSlug,
+    },
   };
 }
 

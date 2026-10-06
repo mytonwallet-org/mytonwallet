@@ -14,8 +14,6 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     private enum TransitionAnimation {
         static let duration: TimeInterval = 0.5
-        static let springDamping: CGFloat = 1.0
-        static let initialVelocity: CGFloat = 0.0
     }
 
     private enum TransitionDirection {
@@ -53,6 +51,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     private var interactiveDirection: TransitionDirection?
     private var lastViewportProgress: CGFloat = 0
     private var pendingProgrammaticTransition: ProgrammaticTransition?
+    private let animation = PagerAnimation()
 
     public var onScrollProgressChanged: ((_ progress: CGFloat, _ animated: Bool) -> Void)?
     public var onWillStartTransition: (() -> Void)?
@@ -231,6 +230,9 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             onDidEndScrolling?()
             return
         }
+        stopProgrammaticScrollIfNeeded()
+        settleInteractiveScrollIfNeeded()
+
         guard index != currentIndex else {
             reportSettledProgress()
             onDidEndScrolling?()
@@ -239,18 +241,14 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
         onWillStartTransition?()
 
-        stopProgrammaticScrollIfNeeded()
-        settleInteractiveScrollIfNeeded()
-
-        if !animated {
+        if !animated || !UIView.areAnimationsEnabled || UIAccessibility.isReduceMotionEnabled {
             selectIndex(index)
             onDidEndScrolling?()
             return
         }
 
-        withAnimation(.spring(duration: 0.25)) {
-            model.setRawProgress(CGFloat(index))
-        }
+        // The container height animates directly to the requested page. The control's
+        // logical offset follows the page animation, independently of any bridge slot.
         reportScrollProgress(CGFloat(index), animated: true)
         startProgrammaticTransition(to: index)
     }
@@ -349,7 +347,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
             return
         }
         if items.count >= 2 {
-            model.setRawProgress(CGFloat(currentIndex))
+            segmentedControl.setPagingProgress(CGFloat(currentIndex))
         } else {
             model.selection = .init(item1: items[currentIndex].id)
         }
@@ -371,6 +369,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     }
 
     private func clearTransientState() {
+        animation.cancel()
         pendingProgrammaticTransition = nil
         isInteractiveTransitionActive = false
         interactiveDirection = nil
@@ -432,23 +431,20 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
     }
 
     private func animateProgrammaticScroll(to offsetX: CGFloat) {
-        UIView.animate(
-            withDuration: TransitionAnimation.duration,
-            delay: 0,
-            usingSpringWithDamping: TransitionAnimation.springDamping,
-            initialSpringVelocity: TransitionAnimation.initialVelocity,
-            options: [.beginFromCurrentState, .allowUserInteraction],
-            animations: {
-                self.scrollView.contentOffset = CGPoint(x: offsetX, y: 0)
-            },
-            completion: { [weak self] finished in
-                guard finished, let self else { return }
-                guard let transition = self.pendingProgrammaticTransition else { return }
-                self.clearTransientState()
-                self.syncSettledState(at: transition.targetIndex)
-                self.onDidEndScrolling?()
-            }
-        )
+        guard let transition = pendingProgrammaticTransition else { return }
+        let startOffset = scrollView.contentOffset.x
+        let source = CGFloat(transition.sourceIndex)
+        let target = CGFloat(transition.targetIndex)
+        animation.start(duration: TransitionAnimation.duration) { [weak self] progress in
+            guard let self else { return }
+            scrollView.contentOffset.x = startOffset + (offsetX - startOffset) * progress
+            segmentedControl.setPagingProgress(source + (target - source) * progress)
+        } completion: { [weak self] in
+            guard let self else { return }
+            clearTransientState()
+            syncSettledState(at: transition.targetIndex)
+            onDidEndScrolling?()
+        }
     }
 
     private func visiblePageIndices(around progress: CGFloat) -> [Int] {
@@ -675,7 +671,7 @@ public final class WSegmentedPagerView: WTouchPassView, UIScrollViewDelegate {
 
     private func applyCurrentScrollProgress(_ progress: CGFloat) {
         if items.count >= 2 {
-            model.setRawProgress(progress)
+            segmentedControl.setPagingProgress(progress)
         } else if let first = items.first {
             model.selection = .init(item1: first.id)
         }

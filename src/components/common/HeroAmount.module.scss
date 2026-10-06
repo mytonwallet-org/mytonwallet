@@ -33,12 +33,7 @@
   white-space: nowrap;
 }
 
-.symbol {
-  font-size: calc(1.75rem * var(--font-size-scale, 1));
-  line-height: 2.125rem;
-  color: var(--color-gray-2);
-}
-
+.symbol,
 .fraction {
   font-size: calc(1.5rem * var(--font-size-scale, 1));
   line-height: 2rem;

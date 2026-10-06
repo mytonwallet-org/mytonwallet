@@ -8,6 +8,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -26,11 +27,14 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.animation.doOnEnd
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.withSave
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import com.facebook.imagepipeline.request.ImageRequestBuilder
 import java.math.BigInteger
 import kotlin.concurrent.thread
 import kotlin.math.absoluteValue
@@ -99,6 +103,7 @@ import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
+import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -314,7 +319,7 @@ class WalletCardView(
             if (mode == HomeHeaderView.Mode.Collapsed || !topTabsMode) {
                 return@setOnLongClickListener false
             }
-            balanceViewContainerTapped()
+            balanceViewContainerTapped(WMenuPopup.BackdropStyle.BlurDimmed)
             true
         }
         WSensitiveDataContainer(
@@ -533,7 +538,31 @@ class WalletCardView(
         }
     }
 
-    private val clippedContainer = WView(context).apply {
+    private val clippedContainer = object : WView(context) {
+        private val snapshotClipPath = Path()
+
+        override fun dispatchDraw(canvas: Canvas) {
+            if (canvas.isHardwareAccelerated) {
+                super.dispatchDraw(canvas)
+                return
+            }
+            val radius = currentRadius.coerceAtLeast(0f)
+            snapshotClipPath.rewind()
+            snapshotClipPath.addRoundRect(
+                0f,
+                0f,
+                width.toFloat(),
+                height.toFloat(),
+                radius,
+                radius,
+                Path.Direction.CW
+            )
+            canvas.withSave {
+                clipPath(snapshotClipPath)
+                super.dispatchDraw(this)
+            }
+        }
+    }.apply {
         id = generateViewId()
         clipChildren = false
         clipToPadding = true
@@ -543,6 +572,7 @@ class WalletCardView(
         val v = WView(context).apply {
             clipChildren = false
             clipToPadding = false
+            setPadding(1, 1, 1, 1)
         }
         val maxBottomContainerWidth = max(240.dp, window.windowView.width - 100.dp)
 
@@ -613,7 +643,7 @@ class WalletCardView(
         addView(contentView)
 
         setConstraints {
-            allEdges(contentView)
+            allEdgesPx(contentView, -1)
         }
 
         balanceView.onTotalWidthChanged = { width ->
@@ -740,7 +770,7 @@ class WalletCardView(
             TiltSensorManager.removeObserver(this)
             isSensorListening = false
         }
-        releasePress(immediate = immediate)
+        releasePress(immediate = immediate, cancelled = true)
     }
 
     private fun shouldFadeOnScroll(): Boolean = isAccountScrolling && isHomeVisible && !isOffScreen
@@ -1024,8 +1054,10 @@ class WalletCardView(
             } else {
                 img.isVisible = true
                 img.set(
-                    Content(
-                        Content.Image.Res(org.mytonwallet.app_air.uicomponents.R.drawable.img_card)
+                    Content.ofUrl(
+                        ImageRequestBuilder.newBuilderWithResourceId(
+                            org.mytonwallet.app_air.uicomponents.R.drawable.img_card
+                        ).sourceUri.toString()
                     )
                 )
             }
@@ -1061,22 +1093,34 @@ class WalletCardView(
     var mode = HomeHeaderView.DEFAULT_MODE
 
     private var pressAnimator: ValueAnimator? = null
+    private val cardLayerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var pressTiltX = 0f
     private var pressTiltY = 0f
     private var pressStrength = 0f
+    private var pressTargetX = 0f
+    private var pressTargetY = 0f
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 if (artworkView.effectsActive && width > 0 && height > 0) {
-                    if (ev.actionMasked == MotionEvent.ACTION_DOWN) artworkView.pressShine()
                     val x = (2f * ev.x / width - 1f).coerceIn(-1f, 1f)
                     val y = (2f * ev.y / height - 1f).coerceIn(-1f, 1f)
-                    animatePress(x, y, 1f)
+                    val positionChanged = pressTargetX != x || pressTargetY != y
+                    pressTargetX = x
+                    pressTargetY = y
+                    if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+                        artworkView.pressShine(x, y)
+                        animatePress(x, y, 1f)
+                    } else if (positionChanged && pressAnimator?.isRunning != true) {
+                        animatePress(x, y, 1f)
+                    }
                 }
             }
 
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> releasePress()
+            MotionEvent.ACTION_UP -> releasePress()
+
+            MotionEvent.ACTION_CANCEL -> releasePress(cancelled = true)
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -1084,19 +1128,21 @@ class WalletCardView(
     private fun animatePress(x: Float, y: Float, depth: Float, immediate: Boolean = false) {
         pressAnimator?.cancel()
         pressAnimator = null
+        pressTargetX = x
+        pressTargetY = y
         val startX = contentView.rotationX
         val startY = contentView.rotationY
         val startScale = contentView.scaleX
         val startLightX = pressTiltX
         val startLightY = pressTiltY
         val startPress = pressStrength
-        val targetX = -y * depth * 4f
-        val targetY = x * depth * 4f
         val targetScale = 1f - depth * 0.005f
         val gramDefaultCard = ApplicationContextHolder.isGramApp && cardNft == null
-        val targetLightX = if (gramDefaultCard) x * depth else targetY / 12f
-        val targetLightY = if (gramDefaultCard) y * depth else -targetX / 12f
         fun apply(progress: Float) {
+            val targetX = -pressTargetY * depth * 4f
+            val targetY = pressTargetX * depth * 4f
+            val targetLightX = if (gramDefaultCard) pressTargetX * depth else targetY / 12f
+            val targetLightY = if (gramDefaultCard) pressTargetY * depth else -targetX / 12f
             contentView.rotationX = startX + (targetX - startX) * progress
             contentView.rotationY = startY + (targetY - startY) * progress
             contentView.scaleX = startScale + (targetScale - startScale) * progress
@@ -1109,24 +1155,41 @@ class WalletCardView(
                 currentTiltY + pressTiltY,
                 pressStrength
             )
+            artworkView.updateShinePressStrength(pressStrength)
         }
         if (immediate) {
             apply(1f)
+            if (depth == 0f) contentView.setLayerType(LAYER_TYPE_NONE, null)
         } else {
+            contentView.setLayerType(LAYER_TYPE_HARDWARE, cardLayerPaint)
             pressAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = if (depth > 0f) 120 else 240
+                duration = if (depth > 0f) {
+                    AnimationConstants.SLOW_ANIMATION
+                } else {
+                    AnimationConstants.QUICK_ANIMATION
+                }
+                interpolator = WInterpolator.spring(0.9f, 6f)
                 addUpdateListener { apply(it.animatedValue as Float) }
+                doOnEnd {
+                    if (pressAnimator === it) {
+                        pressAnimator = null
+                        if (depth == 0f) contentView.setLayerType(LAYER_TYPE_NONE, null)
+                    }
+                }
                 start()
             }
         }
     }
 
-    internal fun releasePress(immediate: Boolean = false) {
+    internal fun releasePress(immediate: Boolean = false, cancelled: Boolean = false) {
+        artworkView.releaseShine(cancelled || immediate)
         if (contentView.rotationX == 0f && contentView.rotationY == 0f &&
             contentView.scaleX == 1f && contentView.scaleY == 1f && pressStrength == 0f
         ) {
             pressAnimator?.cancel()
             pressAnimator = null
+            contentView.setLayerType(LAYER_TYPE_NONE, null)
+            artworkView.updateShinePressStrength(0f)
             return
         }
         animatePress(0f, 0f, 0f, immediate)
@@ -1388,18 +1451,25 @@ class WalletCardView(
         }
     }
 
-    private fun balanceViewContainerTapped() {
+    private fun balanceViewContainerTapped(
+        backdropStyle: WMenuPopup.BackdropStyle = WMenuPopup.BackdropStyle.Transparent
+    ) {
         presentBaseCurrencyPopup(
             anchor = balanceViewContainer.contentView,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                 this@WalletCardView,
                 roundRadius = EXPANDED_RADIUS.dp.toFloat(),
                 verticalOffset = (-0.5f).dp.roundToInt()
-            )
+            ),
+            backdropStyle = backdropStyle
         )
     }
 
-    fun presentBaseCurrencyPopup(anchor: View, windowBackgroundStyle: BackgroundStyle) {
+    fun presentBaseCurrencyPopup(
+        anchor: View,
+        windowBackgroundStyle: BackgroundStyle,
+        backdropStyle: WMenuPopup.BackdropStyle = WMenuPopup.BackdropStyle.Transparent
+    ) {
         val account = account ?: return
         WMenuPopup.present(
             anchor,
@@ -1435,7 +1505,9 @@ class WalletCardView(
             yOffset = (-6).dp,
             popupWidth = 225.dp,
             positioning = WMenuPopup.Positioning.BELOW,
-            windowBackgroundStyle = windowBackgroundStyle
+            windowBackgroundStyle = windowBackgroundStyle,
+            backdropStyle = backdropStyle
+
         )
     }
 
@@ -1768,6 +1840,7 @@ class WalletCardView(
                 anchor,
                 roundRadius = 16f.dp
             )
+
         )
     }
 }

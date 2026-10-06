@@ -1,6 +1,7 @@
 package org.mytonwallet.uihome.home.views.header
 
 import android.content.Context
+import android.graphics.drawable.BitmapDrawable
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
@@ -85,6 +86,8 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
         if (bgImageView.drawable == null) {
             bgImageView.setImageResource(R.drawable.promo_card_bg)
             overlayImageView.setImageResource(R.drawable.promo_card_overlay)
+            (bgImageView.drawable as? BitmapDrawable)?.isFilterBitmap = true
+            (overlayImageView.drawable as? BitmapDrawable)?.isFilterBitmap = true
         }
         visibility = VISIBLE
         updateMascot(promo.cardOverlay.mascotIcon)

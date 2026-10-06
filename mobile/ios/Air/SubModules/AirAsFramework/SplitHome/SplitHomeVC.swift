@@ -11,6 +11,7 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
     @AccountContext private var account: MAccount
 
     var splitHomeAccountContext: AccountContext { $account }
+    var onWalletAssetsEditingStateChange: (() -> Void)?
     private var didReportDataReady = false
 
     private var switchAccountTask: Task<Void, Never>?
@@ -192,7 +193,8 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
         }
 
         super.setupCollectionView(collectionViewBottomConstraint: 0)
-        additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4)
+        additionalSafeAreaInsets.left = 4
+        additionalSafeAreaInsets.right = 4
 
         applySnapshot(makeSnapshot(), animatingDifferences: false)
         updateSkeletonState()
@@ -272,9 +274,10 @@ final class SplitHomeVC: ActivityListViewController, WSensitiveDataProtocol, Act
                 editingNavigator?.onStateChange = { [weak self] _, newState in
                     guard let self else { return }
                     if newState.editingState == .selection {
-                        self.editingNavigator?.installToolbar(into: view)
+                        self.editingNavigator?.installToolbar(into: navigationController?.view ?? view)
                     }
                     self.updateNavigationItem()
+                    self.onWalletAssetsEditingStateChange?()
                 }
             }
         }

@@ -2,6 +2,7 @@ import UIKit
 import UIComponents
 import UIHome
 import UIAssets
+import UIAgent
 import WalletCore
 import WalletContext
 import SwiftNavigation
@@ -18,10 +19,11 @@ private struct SidebarEdgeCoverEntry {
 @MainActor
 final class SplitRootViewController: UISplitViewController, VisibleContentProviding {
 
+    let searchController: RootSearchToolbarController
     private let viewModel: SplitRootViewModel
 
     private let sidebarViewController: SplitRootSidebarViewController
-    private let sidebarNavigationController: WNavigationController
+    private let sidebarNavigationController: SplitRootSidebarNavigationController
     private var sidebarEdgeCoverEntries: [SidebarEdgeCoverEntry] = []
 
     /// All live navigation controllers keyed by their tab id.
@@ -90,15 +92,19 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
     }
 
-    init() {
+    init(searchController: RootSearchToolbarController = RootSearchToolbarController()) {
+        self.searchController = searchController
         self.navControllersByTabId = [:]
 
         let viewModel = SplitRootViewModel()
         self.viewModel = viewModel
         self.sidebarViewController = SplitRootSidebarViewController(viewModel: viewModel)
-        self.sidebarNavigationController = WNavigationController(rootViewController: sidebarViewController)
+        self.sidebarNavigationController = SplitRootSidebarNavigationController(rootViewController: sidebarViewController)
 
         super.init(style: .doubleColumn)
+        sidebarNavigationController.onDismissSearch = { [weak searchController] in
+            searchController?.closeSearch()
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -198,6 +204,9 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     func select(tab: AppTabId, popToRoot: Bool = false) {
         viewModel.selectedTab = tab
+        // Navigation restoration needs the selected host immediately; observation
+        // can run after AdaptiveRoot has already finished transferring Search.
+        onTabSelect(tab: tab)
         if popToRoot, let nc = navControllersByTabId[tab] {
             nc.popToRootViewController(animated: true)
         }
@@ -205,6 +214,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     func onTabSelect(tab: AppTabId) {
         guard let nc = navControllersByTabId[tab] else { return }
+        (nc as? AppTabLazyNavigationController)?.ensureRootViewControllerInstalled()
         if isCollapsed {
             if viewController(for: .secondary) !== nc {
                 showDetailViewController(nc, sender: self)
@@ -212,6 +222,17 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         } else if viewController(for: .secondary) !== nc {
             setViewController(nc, for: .secondary)
         }
+        if let home = nc.viewControllers.first as? SplitHomeVC {
+            home.onWalletAssetsEditingStateChange = { [weak self] in
+                self?.searchController.updatePresentation()
+            }
+        }
+        searchController.attach(to: self)
+    }
+
+    @discardableResult
+    func pushFromSearch(_ controller: UIViewController) -> Bool {
+        searchController.pushFromSearch(controller)
     }
 
     func isHomeRootSelected() -> Bool {
@@ -225,12 +246,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func showAgent() {
-        select(tab: .agent)
-    }
-
-    func debugOnly_resetAgentRoot() {
-        guard let agentNC = navControllersByTabId[.agent] as? AppTabLazyNavigationController else { return }
-        agentNC.resetRootViewController()
+        currentNavigationController.pushViewController(AgentEntryPoint.makeRootViewController(), animated: true)
     }
 
     func showExplore() {
@@ -245,6 +261,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func showSettings(path: [UIViewController]) {
+        if let destination = path.last, pushFromSearch(destination) { return }
         select(tab: .settings, popToRoot: false)
         guard let settingsNC = navControllersByTabId[.settings] else { return }
         (settingsNC as? AppTabLazyNavigationController)?.ensureRootViewControllerInstalled()
@@ -253,6 +270,11 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
     }
 
     func showTemporaryViewAccount(accountId: String) {
+        if searchController.isSearchVisible {
+            focusSidebarAccount(accountId: accountId, animated: true)
+            searchController.pushFromSearch(SplitHomeVC(accountSource: .accountId(accountId)))
+            return
+        }
         if let rootVC = view.window?.rootViewController, rootVC.presentedViewController != nil {
             rootVC.dismiss(animated: true)
         }
@@ -412,5 +434,21 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         for entry in sidebarEdgeCoverEntries {
             entry.view.isHidden = true
         }
+    }
+}
+
+extension SplitRootViewController: RootSearchToolbarHost {
+    func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?) {
+        sidebarNavigationController.setSearchVisible(isVisible, coordinator: coordinator)
+    }
+
+    var searchNavigationController: WNavigationController? { navControllersByTabId[selectedTab] }
+    var showsRootSearchToolbar: Bool { [.wallet, .market, .explore].contains(selectedTab) }
+    var searchRootContentControllers: [UIViewController] {
+        guard showsRootSearchToolbar, let root = searchNavigationController?.viewControllers.first else { return [] }
+        return [root]
+    }
+    var searchEditingNavigator: NftsEditingNavigator? {
+        (searchNavigationController?.viewControllers.first as? SplitHomeVC)?.editingNavigator
     }
 }

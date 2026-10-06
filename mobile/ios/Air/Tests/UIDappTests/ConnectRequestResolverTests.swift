@@ -75,12 +75,32 @@ struct ConnectRequestResolverTests {
     }
 
     @Test
+    func `confirmation forwards proof public keys`() async {
+        let spy = RequestSpy()
+        let resolver = makeResolver(spy: spy)
+
+        let outcome = await resolver.confirm(
+            accountId: "account",
+            proofSignatures: ["signature"],
+            proofPublicKeys: ["public-key"]
+        )
+
+        guard case .confirmed = outcome else {
+            Issue.record("Expected confirmation to succeed")
+            return
+        }
+        let confirmation = await spy.lastConfirmation
+        #expect(confirmation?.proofSignatures == ["signature"])
+        #expect(confirmation?.proofPublicKeys == ["public-key"])
+    }
+
+    @Test
     func `confirmation bridge failure is indeterminate and cannot be cancelled`() async {
         let spy = RequestSpy()
         let resolver = ConnectRequestResolver(
             promiseId: "promise",
-            confirmRequest: { _, _ in
-                await spy.recordConfirmation()
+            confirmRequest: { _, confirmation in
+                await spy.recordConfirmation(confirmation)
                 throw TestError.failed
             },
             cancelRequest: { _, _ in
@@ -108,8 +128,8 @@ struct ConnectRequestResolverTests {
     ) -> ConnectRequestResolver {
         ConnectRequestResolver(
             promiseId: "promise",
-            confirmRequest: { _, _ in
-                await spy.recordConfirmation()
+            confirmRequest: { _, confirmation in
+                await spy.recordConfirmation(confirmation)
                 if let blocker {
                     await blocker.block()
                 }
@@ -124,10 +144,12 @@ struct ConnectRequestResolverTests {
 private actor RequestSpy {
     private(set) var confirmations = 0
     private(set) var cancellations = 0
+    private(set) var lastConfirmation: ApiDappRequestConfirmation?
     private var cancellationWaiters: [CheckedContinuation<Void, Never>] = []
 
-    func recordConfirmation() {
+    func recordConfirmation(_ confirmation: ApiDappRequestConfirmation? = nil) {
         confirmations += 1
+        lastConfirmation = confirmation
     }
 
     func recordCancellation() {

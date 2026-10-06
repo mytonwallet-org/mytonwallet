@@ -37,6 +37,8 @@ public enum ApiTransactionError: String, Error {
     case wrongAddress = "WrongAddress"
     case wrongNetwork = "WrongNetwork"
     case concurrentTransaction = "ConcurrentTransaction"
+    case telegramWalletContractMismatch = "TelegramWalletContractMismatch"
+    case telegramWalletPublicKeyMismatch = "TelegramWalletPublicKeyMismatch"
 }
 
 public enum ApiHardwareError: String, Error {
@@ -92,6 +94,8 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
     case wrongAddress
     case wrongNetwork
     case concurrentTransaction
+    case telegramWalletContractMismatch
+    case telegramWalletPublicKeyMismatch
 
     // ApiHardwareError
     case hardwareOutdated
@@ -166,6 +170,10 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return "WrongNetwork"
         case .concurrentTransaction:
             return "ConcurrentTransaction"
+        case .telegramWalletContractMismatch:
+            return "TelegramWalletContractMismatch"
+        case .telegramWalletPublicKeyMismatch:
+            return "TelegramWalletPublicKeyMismatch"
         case .hardwareOutdated:
             return "HardwareOutdated"
         case .notSupportedHardwareOperation:
@@ -256,6 +264,10 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return .wrongNetwork
         case "ConcurrentTransaction":
             return .concurrentTransaction
+        case "TelegramWalletContractMismatch":
+            return .telegramWalletContractMismatch
+        case "TelegramWalletPublicKeyMismatch":
+            return .telegramWalletPublicKeyMismatch
         case "HardwareOutdated":
             return .hardwareOutdated
         case "NotSupportedHardwareOperation":
@@ -327,6 +339,10 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return lang("WrongNetwork")
         case .concurrentTransaction:
             return lang("Another transaction was sent from this wallet simultaneously. Please try again.")
+        case .telegramWalletContractMismatch:
+            return lang("Telegram Wallet contract was not found at this address.")
+        case .telegramWalletPublicKeyMismatch:
+            return lang("Telegram Wallet public key does not match this seed. The wallet may have rotated its key.")
         case .hardwareOutdated, .notSupportedHardwareOperation:
             return L10n.ledgerOutdated(chain: "TON")
         case .blindSigningNotEnabled:

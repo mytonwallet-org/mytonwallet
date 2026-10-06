@@ -17,7 +17,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 
 @SuppressLint("ViewConstructor")
-class SkeletonCell(context: Context) :
+class SkeletonCell(context: Context, private val drawsBackground: Boolean = true) :
     WCell(context),
     WThemedView,
     SkeletonContainer {
@@ -66,7 +66,7 @@ class SkeletonCell(context: Context) :
             toStart(subtitleSkeleton, 68f)
         }
 
-        background = backgroundDrawable
+        if (drawsBackground) background = backgroundDrawable
         setOnClickListener { }
     }
 

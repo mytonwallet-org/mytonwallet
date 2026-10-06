@@ -354,7 +354,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
 
         val isInProgress: Boolean
             get() {
-                return isLocal() || status == ApiSwapStatus.PENDING ||
+                return status.isPending ||
                     cex?.status?.isInProgress == true
             }
 

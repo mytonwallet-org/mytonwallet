@@ -599,6 +599,7 @@ addActionHandler('handleQrCode', async (global, actions, { data }) => {
   if (plainAddressData) {
     actions.startTransfer({
       ...plainAddressData,
+      shouldRequireFreshAuth: true,
     });
     return;
   }

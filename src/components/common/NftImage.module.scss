@@ -1,0 +1,39 @@
+.root {
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.fill,
+.image,
+.noImage {
+  width: 100%;
+  height: 100%;
+}
+
+.image {
+  display: block;
+  object-fit: cover;
+}
+
+.noImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  :global(html.theme-dark) & {
+    background-color: #131314;
+  }
+
+  // The placeholder is painted with the theme color through a mask, so it needs no theme-specific image
+  &::before {
+    content: "";
+
+    width: 50%;
+    height: 50%;
+
+    opacity: 0.5;
+    background-color: var(--color-gray-4);
+
+    mask: url("../../assets/nftNoImageLight.svg") center / contain no-repeat;
+  }
+}

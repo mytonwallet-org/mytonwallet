@@ -1,14 +1,14 @@
 import React, { memo, useEffect } from '../../lib/teact/teact';
 import { getActions } from '../../global';
 
-import type { ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
+import type { ApiCardInfo, ApiMtwCardType, ApiTokenWithPrice } from '../../api/types';
 
 import { TONCOIN } from '../../config';
 import buildClassName from '../../util/buildClassName';
 import { SECOND } from '../../util/dateFormat';
 import { fromDecimal, toDecimal } from '../../util/decimals';
 import { getToncoinAmountForTransfer } from '../../util/fee/getTonOperationFees';
-import { formatNumber } from '../../util/formatNumber';
+import { formatNumber, formatPercent } from '../../util/formatNumber';
 import { setCancellableTimeout } from '../../util/schedulers';
 import { formatMintCountdown } from './helpers/mintCountdown';
 
@@ -22,8 +22,10 @@ import styles from './CardPros.module.scss';
 
 interface OwnProps {
   type: ApiMtwCardType;
+  cardName: string;
   mycoin?: ApiTokenWithPrice;
   price?: number;
+  discount?: ApiCardInfo['discount'];
   mycoinBalance?: bigint;
   toncoinBalance?: bigint;
   isAvailable?: boolean;
@@ -34,7 +36,7 @@ interface OwnProps {
 const SWAP_AMOUNT_RESERVE_MULTIPLIER = 105n; // 100% + 5% reserve
 
 function CardPros({
-  type, mycoin, price, mycoinBalance, toncoinBalance, isAvailable, isComingSoon, mintStartsAt,
+  type, cardName, mycoin, price, discount, mycoinBalance, toncoinBalance, isAvailable, isComingSoon, mintStartsAt,
 }: OwnProps) {
   const {
     startCardMinting, showDialog, startSwap, setSwapAmountOut, closeMintCardModal, checkMintStart,
@@ -143,23 +145,35 @@ function CardPros({
         </dd>
       </dl>
 
-      {(!!price || isComingSoon || mintSecondsLeft !== undefined) && (
-        <Button
-          isPrimary
-          isDisabled={isSubmitDisabled}
-          className={buildClassName(styles.button, isCountingDown && styles.scheduled)}
-          onClick={isSubmitDisabled ? undefined : handleSubmit}
-        >
-          {isCountingDown
-            ? lang('Mint starts in %time%', { time: formatMintCountdown(mintSecondsLeft) })
-            : price && mintStartsAt === undefined
-              ? lang('Upgrade for %amount% %currency%', {
-                amount: formatNumber(price),
-                currency: mycoin?.symbol || 'MY',
-              })
-              : lang('Coming soon')}
-        </Button>
-      )}
+      <div className={styles.footer}>
+        {discount && (
+          <div className={styles.discountNotice}>
+            {lang(
+              discount.isApplied
+                ? 'Congrats! Your first %card% comes at %percent% off.'
+                : 'Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!',
+              { card: cardName, percent: formatPercent(discount.percent) },
+            )}
+          </div>
+        )}
+        {(!!price || isComingSoon || mintSecondsLeft !== undefined) && (
+          <Button
+            isPrimary
+            isDisabled={isSubmitDisabled}
+            className={buildClassName(styles.button, isCountingDown && styles.scheduled)}
+            onClick={isSubmitDisabled ? undefined : handleSubmit}
+          >
+            {isCountingDown
+              ? lang('Mint starts in %time%', { time: formatMintCountdown(mintSecondsLeft) })
+              : price && mintStartsAt === undefined
+                ? lang('Upgrade for %amount% %currency%', {
+                  amount: formatNumber(price, 2, true),
+                  currency: mycoin?.symbol || 'MY',
+                })
+                : lang('Coming soon')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

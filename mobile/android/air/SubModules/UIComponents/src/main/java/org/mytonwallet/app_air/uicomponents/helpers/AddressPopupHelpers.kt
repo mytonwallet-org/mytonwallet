@@ -139,6 +139,7 @@ class AddressPopupHelpers {
             centerHorizontally: Boolean,
             showTemporaryViewOption: Boolean,
             windowBackgroundStyle: BackgroundStyle,
+            backdropStyle: WMenuPopup.BackdropStyle = WMenuPopup.BackdropStyle.Transparent,
             displayProgressListener: ((progress: Float) -> Unit)? = null
         ) {
             val context = viewController.get()?.view?.context ?: return
@@ -229,6 +230,7 @@ class AddressPopupHelpers {
                 positioning = positioning,
                 centerHorizontally = centerHorizontally,
                 windowBackgroundStyle = windowBackgroundStyle,
+                backdropStyle = backdropStyle,
                 displayProgressListener = displayProgressListener
             )
         }

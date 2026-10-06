@@ -1,6 +1,7 @@
 import type { SignedMfaRequest } from '../chains/ton/util/signer';
 import type { ApiSwapActivity } from './activities';
 import type {
+  ApiEvmSwapCall,
   ApiSwapBuildTransactionRequest,
   ApiSwapExecuteTransactionResult,
   ApiSwapHistoryItem,
@@ -29,13 +30,17 @@ export type ApiBuildOnchainSwapTransferOptions = {
   transaction?: string;
   swapId: string;
   authToken: string;
+  enclaveToken: string;
 };
 
 export type ApiBuildOnchainSwapTransferResult = {
   id: string;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
+  calls?: ApiEvmSwapCall[];
   chain: ApiChain;
+  /** EVM: approve, delegation setup, and swap are submitted as one EIP-7702 batch user operation. */
+  isBatchTx?: boolean;
 };
 
 export type ApiSubmitOnchainSwapTransferOptions = {
@@ -43,6 +48,9 @@ export type ApiSubmitOnchainSwapTransferOptions = {
   enclaveToken: string;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
+  calls?: ApiEvmSwapCall[];
+  /** EVM: from estimate; gates EIP-7702 batching when allowance approve is required. */
+  needsApprove?: boolean;
   historyItem: ApiSwapHistoryItem;
   isGasless?: boolean;
   authToken: string;

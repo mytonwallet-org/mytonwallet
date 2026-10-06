@@ -55,13 +55,15 @@ enum PortfolioPalette {
         case .robinhood:
             return "#CCFF00"
         case .arc:
-            return "#2775CA"
+            return "#708BB8"
         case .ethereum:
             return "#5E5CEE"
         case .base:
             return "#00CAFF"
         case .arbitrum:
             return "#00CA48"
+        case .optimism:
+            return "#FF4F4F"
         default:
             return color(at: 0)
         }

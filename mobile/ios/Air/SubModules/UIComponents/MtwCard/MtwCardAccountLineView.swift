@@ -92,7 +92,7 @@ public final class MtwCardAccountLineView: UIView {
         saveLabel.textColor = saveButton.tintColor
         if #unavailable(iOS 26) { saveBackground?.backgroundColor = saveButton.tintColor.withAlphaComponent(0.15) }
         addressesButton.accessibilityLabel = showsName ? name : address.items.map(\.text).joined(separator: ", ")
-        let font = showsName ? WTypography.uiFont(.bodyStrong) : UIFont(name: "SFCompactDisplay-Medium", size: 17)!
+        let font = showsName ? WTypography.uiFont(.bodyStrong) : UIFont.compactDisplay(ofSize: 17, weight: .medium)
         let increasedOpacity = nft?.metadata?.mtwCardType?.isPremium == true
         if address.isTestnet { appendImage("inline_testnet", font: font, gap: 4) }
         switch address.leadingIcon {

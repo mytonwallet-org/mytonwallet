@@ -35,10 +35,35 @@ public let KeychainStorageProvider: IKeychainStorageProvider = CapacitorKeychain
 
 public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, Sendable {
     
-    private static let serviceName = "cap_sec"
-    let keychainWrapper: KeychainWrapper = KeychainWrapper.init(serviceName: serviceName)
+    private let serviceName: String
+    let keychainWrapper: KeychainWrapper
     
-    public init() {}
+    public convenience init() {
+        self.init(serviceName: "cap_sec")
+    }
+
+    init(serviceName: String) {
+        self.serviceName = serviceName
+        keychainWrapper = KeychainWrapper(serviceName: serviceName)
+    }
+
+    public func migrateToTransferableProtection() throws {
+        // Change attributes in place, including records that are never rewritten.
+        // Keep iCloud synchronization disabled; this only enables device restore.
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let attributes: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+        ]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainStorageProviderError.keychain(status)
+        }
+    }
     
     public func set(key: String, value: String) -> Bool {
         do {
@@ -96,12 +121,12 @@ public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, S
 
         var addQuery = query(key: key)
         addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
         if addStatus == errSecDuplicateItem {
             let attributes: [String: Any] = [
                 kSecValueData as String: data,
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
             ]
             let updateStatus = SecItemUpdate(
                 query(key: key) as CFDictionary,
@@ -128,7 +153,7 @@ public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, S
         let encodedKey = Data(key.utf8)
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.serviceName,
+            kSecAttrService as String: serviceName,
             kSecAttrGeneric as String: encodedKey,
             kSecAttrAccount as String: encodedKey,
             kSecAttrSynchronizable as String: kCFBooleanFalse as Any,

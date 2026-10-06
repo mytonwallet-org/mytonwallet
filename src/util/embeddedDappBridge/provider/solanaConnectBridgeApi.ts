@@ -53,7 +53,6 @@ export function buildSolanaConnectBridgeApi(pageUrl: string): BrowserSolanaConne
     'standard:connect',
     'standard:disconnect',
     'standard:events',
-    'solana:signAndSendTransaction',
     'solana:signTransaction',
     'solana:signMessage',
     'solana:signIn',

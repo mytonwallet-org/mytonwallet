@@ -245,11 +245,12 @@ class NftVC(
             ),
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             windowBackgroundStyle = BackgroundStyle.Cutout.fromView(
                 anchor,
                 roundRadius = ViewConstants.BLOCK_RADIUS.dp
-            ),
-            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed
+            )
+
         )
     }
 
@@ -1619,8 +1620,8 @@ class NftVC(
             },
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.ALIGNED,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true
+
         )
     }
 
@@ -1689,6 +1690,7 @@ class NftVC(
                 wearActionButton,
                 roundRadius = WEAR_ITEM_SIZE.dp.toFloat()
             )
+
         )
     }
 

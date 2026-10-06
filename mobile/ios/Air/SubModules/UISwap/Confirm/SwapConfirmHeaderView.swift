@@ -16,10 +16,23 @@ struct SwapConfirmHeaderView: ConfirmationContent {
 
     var fromAmount: TokenAmount
     var toAmount: TokenAmount
+    var batchNotice: String?
 
     var body: some View {
-        SwapOverviewView(fromAmount: fromAmount, toAmount: toAmount)
-            .padding(.bottom, 12)
+        VStack(spacing: 12) {
+            SwapOverviewView(fromAmount: fromAmount, toAmount: toAmount)
+            if let batchNotice {
+                Text(batchNotice)
+                    .textStyle(.footnoteEmphasized)
+                    .foregroundStyle(Color.air.secondaryLabel)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.air.secondaryFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .padding(.bottom, 12)
     }
 
     var compactRepresentation: some View {

@@ -101,7 +101,7 @@ function SwapResult({
     return (
       <div className={styles.cexInfoBlock}>
         <span className={styles.cexDescription}>
-          {lang('Please note that it may take up to a few hours for tokens to appear in your wallet.')}
+          {lang('Swaps like this usually take a few minutes. In rare cases, up to two hours.')}
         </span>
       </div>
     );

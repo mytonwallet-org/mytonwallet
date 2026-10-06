@@ -393,7 +393,7 @@ public class IconView: UIView {
         )
     }
 
-    public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false) {
+    public func config(with activity: ApiActivity, isTransactionConfirmation: Bool = false, hideMainIcon: Bool = false) {
         applyIconShape(.circle)
         resetAccountAvatarState()
         cachedTokenSlug = nil
@@ -406,14 +406,14 @@ public class IconView: UIView {
         imageView.tintColor = nil
         self.resolveGradientColors = { activity.iconColors.map(\.cgColor) }
         gradientLayer.colors = resolveGradientColors?()
-        gradientLayer.isHidden = false
+        gradientLayer.isHidden = hideMainIcon
         let content = activity.avatarContent
         if case .image(let image) = content {
             largeLabel.text = nil
             smallLabelTop.text = nil
             smallLabelBottom.text = nil
             imageView.contentMode = .scaleAspectFit
-            imageView.image = .airBundle(image)
+            imageView.image = hideMainIcon ? nil : .airBundle(image)
         }
         
         if let accessoryStatus = activityAccessoryStatus(for: activity), !isTransactionConfirmation {
@@ -980,7 +980,7 @@ public class IconView: UIView {
     }
 
     private func hideTokenLoadingPlaceholder() {
-        imageView.backgroundColor = .clear
+        imageView.backgroundColor = iconShape == .roundedSquare && tokenImageState == .loaded ? .black : .clear
     }
 
     private func updateTokenPlaceholderAppearance() {

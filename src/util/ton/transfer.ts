@@ -7,7 +7,12 @@ import type {
   ApiTokensTransferPayload,
 } from '../../api/types';
 
-import { DEFAULT_MAX_MESSAGES, LEDGER_MAX_MESSAGES, W5_MAX_MESSAGES } from '../../api/chains/ton/constants';
+import {
+  DEFAULT_MAX_MESSAGES,
+  LEDGER_MAX_MESSAGES,
+  TELEGRAM_WALLET_MAX_MESSAGES,
+  W5_MAX_MESSAGES,
+} from '../../api/chains/ton/constants';
 
 export function isNftTransferPayload(payload: ApiParsedPayload | undefined): payload is ApiNftTransferPayload {
   return payload?.type === 'nft:transfer';
@@ -38,6 +43,8 @@ export function getMaxMessagesInTransaction(account: ApiAccountWithChain<'ton'>)
     return LEDGER_MAX_MESSAGES;
   } else if (version === 'W5') {
     return W5_MAX_MESSAGES;
+  } else if (version === 'telegram') {
+    return TELEGRAM_WALLET_MAX_MESSAGES;
   } else {
     return DEFAULT_MAX_MESSAGES;
   }

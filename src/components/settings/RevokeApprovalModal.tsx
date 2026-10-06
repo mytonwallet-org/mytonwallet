@@ -1,7 +1,9 @@
 import React, { memo, useState } from '../../lib/teact/teact';
+import { getGlobal } from '../../global';
 
 import type { ApiWalletPermission } from '../../api/types/misc';
 
+import { selectEnclaveToken, selectIsEnclaveSessionValid } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import { shortenAddress } from '../../util/shortenAddress';
 import { callApi } from '../../api';
@@ -58,10 +60,6 @@ function RevokeApprovalModal({
     setError(undefined);
   });
 
-  const handleStartRevoke = useLastCallback(() => {
-    setModalState(RevokePermissionModalState.Password);
-  });
-
   const handleBackToConfirm = useLastCallback(() => {
     setModalState(RevokePermissionModalState.Confirm);
     setError(undefined);
@@ -93,12 +91,25 @@ function RevokeApprovalModal({
 
       if (!result || 'error' in result) {
         setError(result?.error ?? 'Unexpected');
+        // The confirmation screen has no place for the error, and the password screen also lets the user retry
+        setModalState(RevokePermissionModalState.Password);
         return;
       }
 
       onSuccess(permission);
       handleClose();
     });
+  });
+
+  const handleStartRevoke = useLastCallback(() => {
+    const global = getGlobal();
+
+    if (selectIsEnclaveSessionValid(global)) {
+      handleAuthorize(selectEnclaveToken(global)!);
+      return;
+    }
+
+    setModalState(RevokePermissionModalState.Password);
   });
 
   function renderContent() {
@@ -144,7 +155,12 @@ function RevokeApprovalModal({
           </p>
           <div className={disconnectStyles.buttons}>
             <Button onClick={handleClose} className={disconnectStyles.button}>{lang('Cancel')}</Button>
-            <Button isDestructive onClick={handleStartRevoke} className={disconnectStyles.button}>
+            <Button
+              isDestructive
+              isLoading={isLoading}
+              onClick={handleStartRevoke}
+              className={disconnectStyles.button}
+            >
               {lang('Revoke')}
             </Button>
           </div>
@@ -191,7 +207,12 @@ function RevokeApprovalModal({
         </p>
         <div className={disconnectStyles.buttons}>
           <Button onClick={handleClose} className={disconnectStyles.button}>{lang('Cancel')}</Button>
-          <Button isDestructive onClick={handleStartRevoke} className={disconnectStyles.button}>
+          <Button
+            isDestructive
+            isLoading={isLoading}
+            onClick={handleStartRevoke}
+            className={disconnectStyles.button}
+          >
             {lang('Revoke')}
           </Button>
         </div>

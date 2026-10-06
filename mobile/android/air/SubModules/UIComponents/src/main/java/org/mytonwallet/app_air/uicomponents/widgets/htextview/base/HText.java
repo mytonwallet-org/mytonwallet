@@ -90,6 +90,7 @@ public abstract class HText implements IHText {
     }
 
     private void prepareAnimate() {
+        mTextSize = mHTextView.getTextSize();
         syncPaint(mPaint);
         syncPaint(mOldPaint);
 

@@ -1,25 +1,42 @@
 import Foundation
+import Perception
 import WalletContext
 
-struct PendingCardMints: Sendable {
+@Perceptible
+final class PendingCardMints: Sendable {
     enum Resolution: Equatable {
         case minted(ApiNft)
         case refunded
     }
 
-    private var startedAtByAccountId: [String: Int64] = [:]
+    private let startedAtByAccountId = UnfairLock<[String: Int64]>(initialState: [:])
 
-    mutating func recordSubmission(accountId: String, since date: Date) {
+    func isMinting(accountId: String) -> Bool {
+        access(keyPath: \.startedAtByAccountId)
+        return startedAtByAccountId.withLock { $0[accountId] != nil }
+    }
+
+    func recordSubmission(accountId: String, since date: Date) {
         // TON timestamps have second precision, unlike the local submission time.
-        startedAtByAccountId[accountId] = Int64(date.timeIntervalSince1970.rounded(.down)) * 1_000
+        withMutation(keyPath: \.startedAtByAccountId) {
+            startedAtByAccountId.withLock { $0[accountId] = Int64(date.timeIntervalSince1970.rounded(.down)) * 1_000 }
+        }
     }
 
-    mutating func remove(accountId: String) {
-        startedAtByAccountId[accountId] = nil
+    func remove(accountId: String) {
+        withMutation(keyPath: \.startedAtByAccountId) {
+            startedAtByAccountId.withLock { $0[accountId] = nil }
+        }
     }
 
-    mutating func consume(accountId: String, activities: some Collection<ApiActivity>) -> Resolution? {
-        guard let startedAt = startedAtByAccountId[accountId] else { return nil }
+    func removeAll() {
+        withMutation(keyPath: \.startedAtByAccountId) {
+            startedAtByAccountId.withLock { $0.removeAll() }
+        }
+    }
+
+    func consume(accountId: String, activities: some Collection<ApiActivity>) -> Resolution? {
+        guard let startedAt = startedAtByAccountId.withLock({ $0[accountId] }) else { return nil }
         let transactions = activities.compactMap { activity -> ApiTransactionActivity? in
             guard !activity.isLocal,
                   activity.isConfirmedOrCompleted,

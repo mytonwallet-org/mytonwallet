@@ -36,7 +36,7 @@ extension Api {
     public static func signDappProof(dappChains: [ApiDappSessionChain], accountId: String, proof: ApiTonConnectProof, enclaveToken: EnclaveToken?) async throws -> ApiSignDappProofResult {
         let response = try await bridge.callApi("signDappProof", dappChains, accountId, proof, enclaveToken, decoding: ApiSignDappProofResponse.self)
         if let signatures = response.signatures {
-            return ApiSignDappProofResult(signatures: signatures)
+            return ApiSignDappProofResult(signatures: signatures, publicKeys: response.publicKeys)
         }
         if let error = response.error?.stringValue {
             throw SdkError.apiReturnedError(error: error, context: response)

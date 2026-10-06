@@ -80,9 +80,12 @@ public final class CardBackgroundRenderer {
         ).frame(width: 400, height: 232))
         renderer.scale = CGFloat(resolution.rawValue) / 400
         renderer.isOpaque = true
-        guard let image = renderer.uiImage, let cgImage = image.cgImage else {
+        guard let cgImage = renderer.cgImage else {
             throw CardBackgroundSeed.InvalidSeed(message: "Could not render the card background.")
         }
+        // iOS 17's UIImageAsset registration rejects scales below 1 and aborts.
+        // Keep the rendered pixels, but give thumbnails a valid UIKit display scale.
+        let image = UIImage(cgImage: cgImage, scale: max(1, renderer.scale), orientation: .up)
         images.setObject(image, forKey: key, cost: cgImage.bytesPerRow * cgImage.height)
         renderCount += 1
         lastRenderMilliseconds = (CACurrentMediaTime() - start) * 1_000

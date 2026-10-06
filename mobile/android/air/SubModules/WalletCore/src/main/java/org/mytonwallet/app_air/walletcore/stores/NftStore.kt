@@ -32,6 +32,7 @@ object NftStore : IStore {
     private val cachedNftCollections = ConcurrentHashMap<String, List<MCollectionTabToShow>>()
     private val preloadingCollections = ConcurrentHashMap.newKeySet<String>()
     private val cachedHasHiddenNfts = ConcurrentHashMap<String, Boolean>()
+    private val cachedHasUnverifiedNfts = ConcurrentHashMap<String, Boolean>()
     private val ignoredExpiringAddressesByAccount = ConcurrentHashMap<String, MutableSet<String>>()
 
     // Accumulates new MTW cards across the batches of a streamed NFT polling round.
@@ -442,6 +443,7 @@ object NftStore : IStore {
     }
 
     private fun updateDerivedCache(accountId: String, nfts: List<ApiNft>?) {
+        cachedHasUnverifiedNfts[accountId] = nfts?.any { it.isUnverified == true } == true
         if (!nfts.isNullOrEmpty()) {
             val collections = getCollectionsFromNfts(nfts)
             writeCollectionsToCache(accountId, collections)
@@ -554,6 +556,7 @@ object NftStore : IStore {
     }
 
     fun removeAccount(accountId: String) {
+        cachedHasUnverifiedNfts.remove(accountId)
         pendingCacheWrites.remove(accountId)
         cacheReads.remove(accountId)
         pendingNewMtwCardsByAccount.remove(accountId)
@@ -601,6 +604,7 @@ object NftStore : IStore {
         preloadingCollections.clear()
         cachedNftCollections.clear()
         cachedHasHiddenNfts.clear()
+        cachedHasUnverifiedNfts.clear()
         ignoredExpiringAddressesByAccount.clear()
         pendingNewMtwCardsByAccount.clear()
         mintingAccountIds.clear()
@@ -616,6 +620,7 @@ object NftStore : IStore {
         preloadingCollections.clear()
         cachedNftCollections.clear()
         cachedHasHiddenNfts.clear()
+        cachedHasUnverifiedNfts.clear()
     }
 
     private fun clearActiveNftData() {
@@ -654,6 +659,8 @@ object NftStore : IStore {
         cachedNftCollections[accountId] = collections
         val hasHiddenNft = nfts.hasHiddenNfts()
         cachedHasHiddenNfts[accountId] = hasHiddenNft
+
+        cachedHasUnverifiedNfts[accountId] = nfts.any { it.isUnverified == true }
 
         val nftsToWrite = if (shouldWriteNfts) nfts.toList() else null
         pendingCacheWrites[accountId]?.let {
@@ -899,12 +906,15 @@ object NftStore : IStore {
     }
 
     private fun getHasUnverifiedNft(accountId: String): Boolean {
-        val nfts = if (nftData?.accountId == accountId) {
-            nftData?.cachedNfts
-        } else {
-            fetchCachedNfts(accountId)
+        val currentData = nftData?.takeIf { it.accountId == accountId }
+        if (currentData != null) {
+            return currentData.cachedNfts?.any { it.isUnverified == true } == true
         }
-        return nfts?.any { it.isUnverified == true } == true
+        cachedHasUnverifiedNfts[accountId]?.let { return it }
+        val nfts = fetchCachedNfts(accountId) ?: return false
+        val hasUnverifiedNfts = nfts.any { it.isUnverified == true }
+        return cachedHasUnverifiedNfts.putIfAbsent(accountId, hasUnverifiedNfts)
+            ?: hasUnverifiedNfts
     }
 
     private fun writeCollectionsToCache(

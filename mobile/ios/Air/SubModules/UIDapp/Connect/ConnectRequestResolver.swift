@@ -52,7 +52,8 @@ final class ConnectRequestResolver {
 
     func confirm(
         accountId: String,
-        proofSignatures: [String]?
+        proofSignatures: [String]?,
+        proofPublicKeys: [String]? = nil
     ) async -> ConfirmationOutcome {
         switch state {
         case .pending:
@@ -76,7 +77,8 @@ final class ConnectRequestResolver {
                 promiseId,
                 ApiDappRequestConfirmation(
                     accountId: accountId,
-                    proofSignatures: proofSignatures
+                    proofSignatures: proofSignatures,
+                    proofPublicKeys: proofPublicKeys
                 )
             )
             outcome = .confirmed

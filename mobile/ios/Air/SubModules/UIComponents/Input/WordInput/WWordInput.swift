@@ -21,6 +21,7 @@ public class WWordInput: UIView {
     
     public let wordNumber: Int
     public var advancesOnSuggestionSelection = true
+    public weak var previousInput: WWordInput?
     public weak var nextInput: WWordInput?
 
     private let numberLabel = UILabel()
@@ -46,7 +47,7 @@ public class WWordInput: UIView {
         semanticContentAttribute = .forceLeftToRight
 
         // corner radius
-        layer.cornerRadius = 10
+        layer.cornerRadius = 24
 
         addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(focusTextField)))
 
@@ -54,26 +55,27 @@ public class WWordInput: UIView {
         //  Because, prior to iOS 14, stack views were "non-rendering" views
         let stackView = UIStackView()
         stackView.axis = .horizontal
-        stackView.spacing = 6
+        stackView.spacing = 16
         stackView.semanticContentAttribute = .forceLeftToRight
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            stackView.heightAnchor.constraint(equalToConstant: 50)
+            stackView.heightAnchor.constraint(equalToConstant: 48)
         ])
 
         // add word number label
         numberLabel.translatesAutoresizingMaskIntoConstraints = false
         numberLabel.text = localizedIntegerString(wordNumber)
         numberLabel.textAlignment = .right
+        numberLabel.applyTextStyle(.body)
         numberLabel.isAccessibilityElement = false
         stackView.addArrangedSubview(numberLabel)
         NSLayoutConstraint.activate([
-            numberLabel.widthAnchor.constraint(equalToConstant: 42)
+            numberLabel.widthAnchor.constraint(equalToConstant: 36)
         ])
         
         // add text field
@@ -86,7 +88,10 @@ public class WWordInput: UIView {
         textField.backgroundColor = .clear
         textField.delegate = self
         textField.clearButtonMode = .whileEditing
-        textField.inputAccessoryView = suggestionsView
+        textField.inputAssistantItem.leadingBarButtonGroups = []
+        textField.inputAssistantItem.trailingBarButtonGroups = []
+        textField.autocapitalizationType = .none
+        textField.applyTextStyle(.bodyEmphasized)
         textField.accessibilityLabel = localizedIntegerString(wordNumber)
         stackView.addArrangedSubview(textField)
 
@@ -94,7 +99,7 @@ public class WWordInput: UIView {
     }
 
     private func updateTheme() {
-        backgroundColor = .air.sheetBackground
+        backgroundColor = .air.groupedItem
         numberLabel.textColor = .air.secondaryLabel
     }
     
@@ -185,6 +190,10 @@ extension WWordInput: UITextFieldDelegate {
     }
     
     public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if string == "\t" {
+            self.textField.focusNextWord()
+            return false
+        }
         defer { delegate?.textChanged() }
         if let text = textField.text,
            let textRange = Range(range, in: text) {

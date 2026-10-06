@@ -4,7 +4,7 @@ import WalletContext
 public let FALLBACK_CHAIN: ApiChain = .ton
 public func isUtxoChain(_ chain: ApiChain) -> Bool {
     switch chain {
-    case .bitcoin, .bitcoincash, .litecoin, .dogecoin:
+    case .bitcoin, .bitcoincash, .litecoin, .dogecoin, .zcash:
         return true
     default:
         return false
@@ -20,11 +20,13 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
     case litecoin
     case bitcoincash
     case dogecoin
+    case zcash
     case ethereum
     case base
     case bnb
     case polygon
     case arbitrum
+    case optimism
     case monad
     case avalanche
     case hyperliquid
@@ -50,6 +52,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             self = .bitcoincash
         case "dogecoin":
             self = .dogecoin
+        case "zcash":
+            self = .zcash
         case "ethereum":
             self = .ethereum
         case "base":
@@ -60,6 +64,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
            self = .polygon
         case "arbitrum":
             self = .arbitrum
+        case "optimism":
+            self = .optimism
        case "monad":
            self = .monad
        case "avalanche":
@@ -91,6 +97,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
             "bitcoincash"
         case .dogecoin:
             "dogecoin"
+        case .zcash:
+            "zcash"
         case .ethereum:
             "ethereum"
         case .base:
@@ -101,6 +109,8 @@ public enum ApiChain: Equatable, Hashable, Codable, Sendable, CaseIterable {
            "polygon"
         case .arbitrum:
             "arbitrum"
+        case .optimism:
+            "optimism"
        case .monad:
            "monad"
        case .avalanche:
@@ -216,11 +226,13 @@ public extension ApiChain {
             "BCH"
         case .dogecoin:
             "DOGE"
+        case .zcash:
+            "ZEC"
         case .bnb:
             "BEP-20"
         case .ethereum, .base:
             "ERC-20"
-        case .polygon, .arbitrum, .monad, .avalanche, .hyperliquid, .robinhood, .arc:
+        case .polygon, .arbitrum, .optimism, .monad, .avalanche, .hyperliquid, .robinhood, .arc:
             "ERC-20"
         case .other(let chain):
             chain.uppercased()

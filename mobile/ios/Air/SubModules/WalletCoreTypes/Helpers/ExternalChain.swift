@@ -20,6 +20,7 @@ let chainNames = [
     "ethereum": "Ethereum",
     "polygon": "Polygon",
     "arbitrum": "Arbitrum",
+    "optimism": "Optimism",
     "monad": "Monad",
     "solana": "Solana",
     "tron": "TRON",

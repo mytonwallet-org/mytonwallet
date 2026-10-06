@@ -55,10 +55,7 @@
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 50%;
-
-  &.imageNoData {
-    background-color: var(--color-background-second);
-  }
+  background-color: var(--color-background-second);
 
   &:not(:first-child) {
     margin-inline-start: -0.625rem;

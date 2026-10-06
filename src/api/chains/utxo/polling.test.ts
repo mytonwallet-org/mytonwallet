@@ -273,4 +273,38 @@ describe('UTXO history after reopening', () => {
     }));
     stop();
   });
+
+  it('refetches the initial slice when a cached cursor yields no incremental activities', async () => {
+    mockBackendWatcher();
+    const onUpdate = jest.fn() as jest.MockedFunction<OnApiUpdate>;
+    const zcashAccount = {
+      type: 'view',
+      byChain: { zcash: { address: 't1Yu7eHTifSqttLD6X8trcqwDExs6TpL87o', index: 0 } },
+    } as ApiAccountWithChain<'zcash'>;
+    const outgoing = rawTransaction(10);
+    const incoming = { ...rawTransaction(10), txid: 'b'.repeat(64), blockTime: cachedBlockTime - 60 };
+
+    jest.mocked(fetchStoredWallet).mockResolvedValue({
+      address: 't1Yu7eHTifSqttLD6X8trcqwDExs6TpL87o',
+      index: 0,
+    });
+    jest.mocked(fetchJson)
+      .mockResolvedValueOnce({ page: 1, totalPages: 1, transactions: [] })
+      .mockResolvedValueOnce({ page: 1, totalPages: 1, transactions: [outgoing, incoming] });
+
+    const stop = setupActivePolling('zcash', '0-mainnet', zcashAccount, onUpdate, jest.fn(), {
+      zec: cachedBlockTime * 1000,
+    });
+    await flushPromises();
+
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'initialActivities',
+      chain: 'zcash',
+      mainActivities: expect.arrayContaining([
+        expect.objectContaining({ id: outgoing.txid }),
+        expect.objectContaining({ id: incoming.txid }),
+      ]),
+    }));
+    stop();
+  });
 });

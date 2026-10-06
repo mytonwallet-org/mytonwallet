@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "id": "1886937F-0236-4BBB-A0C4-37226215CD3A",
+      "name": "Configuration 1",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:../App/App.xcodeproj",
+        "identifier": "B9C00000000000000000000B",
+        "name": "KeychainIntegrationTests"
+      }
+    }
+  ],
+  "version": 1
+}

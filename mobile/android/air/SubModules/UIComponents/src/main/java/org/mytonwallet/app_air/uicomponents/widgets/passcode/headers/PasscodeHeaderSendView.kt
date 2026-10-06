@@ -40,7 +40,8 @@ import org.mytonwallet.app_air.walletcore.stores.AddressStore
 @SuppressLint("ViewConstructor")
 class PasscodeHeaderSendView(
     val viewController: WeakReference<WViewController>,
-    val availableHeight: Int
+    val availableHeight: Int,
+    private val titleSizeSp: Float = TITLE_SIZE_SP
 ) : LinearLayout(viewController.get()!!.context) {
 
     private val tokenToSendIconView = WCustomImageView(context)
@@ -89,8 +90,7 @@ class PasscodeHeaderSendView(
         val imageChainSize = 30.dp
         val imageChainGap = 2f.dp
 
-        val titleSizeSp = TITLE_SIZE_SP
-        val titleLineHeightDp = 44.dp
+        val titleLineHeightDp = (titleSizeSp + TITLE_LINE_SPACING_SP).dp.roundToInt()
 
         val subtitleSizeSp = 16f
         val subtitleLineHeightDp = 24.dp
@@ -324,6 +324,8 @@ class PasscodeHeaderSendView(
         private const val CUSTOM_ICON_SUBTITLE_TOP_MARGIN_DP = 15
         private const val DEFAULT_VERTICAL_PADDING_DP = 24
         private const val CUSTOM_ICON_BOTTOM_PADDING_DP = 27
+        private const val TITLE_LINE_SPACING_SP = 8f
         const val TITLE_SIZE_SP = 36f
+        const val TEXT_TITLE_SIZE_SP = 28f
     }
 }

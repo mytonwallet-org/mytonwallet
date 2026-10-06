@@ -18,7 +18,7 @@
     --pill-width: 5.625rem;
   }
 
-  :global(html:where([lang="es"], [lang="de"], [lang="uk"])) & {
+  :global(html:where([lang="es"], [lang="de"], [lang="uk"], [lang="it"])) & {
     --pill-width: 6.25rem;
   }
 

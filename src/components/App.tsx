@@ -230,6 +230,7 @@ function App({
           >
             <Main
               key={mainKey}
+              accountId={accountId}
               isActive={isActive}
             />
           </Transition>

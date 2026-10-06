@@ -403,6 +403,7 @@ Encrypted Message: Verschlüsselte Nachricht
 Message is encrypted: Die Nachricht ist verschlüsselt
 Agree: Zustimmen
 $swap_action: Tausch
+$swap_batch_tx_duration_hint: Das Senden kann bis zu 1 Minute dauern.
 $swap_activity_title: Tausch
 Swap: Tausch
 You Sell: Sie verkaufen
@@ -475,12 +476,12 @@ Cross-chain exchange provided by %provider%: Cross-Chain-Austausch bereitgestell
 $swap_cex_terms_of_use: Nutzungsbedingungen
 $swap_cex_privacy_policy: Datenschutzrichtlinie
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: AML/KYC-Richtlinie
 $swap_cex_legal_message: "Durch Fortfahren stimmen Sie den %terms% und der %policy% zu."
 $swap_cex_legal_message_with_aml: Durch Fortfahren stimmen Sie den %terms% und %policy% zu und verstehen, dass die Überweisung gemäß %aml% eine Überprüfung auslösen kann.
 Password must contain %length% digits.: Das Passwort muss %length% Ziffern enthalten.
 Deposit Link: Einzahlungslink
 $swap_cex_from_wallet_description: "Token werden in Kürze an Ihre Adresse in der %blockchain%-Blockchain gesendet:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Bitte beachten Sie, dass es bis zu einigen Stunden dauern kann, bis Tokens in Ihrer Wallet angezeigt werden.
 Minimum amount: Mindestens %value%
 Maximum amount: Höchstens %value%
 Display Tray Icon: Tray-Symbol anzeigen
@@ -585,7 +586,6 @@ Scan your fingerprint: Legen Sie Ihren Fingerabdruck auf.
 Incorrect code, please try again.: Falscher Code, bitte versuchen Sie es erneut.
 Correct: Korrekt
 Confirm Action: Aktion bestätigen
-$classic_confirm_actions: Aktionen bestätigen
 Confirm Swap: Swap bestätigen
 Confirm Rewards Claim: Belohnungsanspruch bestätigen
 "%amount% to %address%": "%amount% zu %address%"
@@ -604,6 +604,8 @@ Buy with Card: Mit Karte kaufen
 Buy with Crypto: Mit Krypto kaufen
 Add funds to swap: Guthaben zum Tauschen hinzufügen
 Direct swap unavailable: Direkter Tausch nicht verfügbar
+"Direct exchange unavailable": "Direkter Tausch nicht verfügbar"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Um %buy_token% zu erhalten, erhalten Sie zuerst %token% und tauschen Sie diese dann gegen %buy_token%."
 Swap on an external service: Tausch über einen externen Dienst
 Buy with a card or receive crypto to fund this swap.: Kaufen Sie Krypto mit Karte oder empfangen Sie Krypto, um Guthaben für diesen Tausch hinzuzufügen.
 Buy crypto or choose another token to sell.: Kaufen Sie Krypto oder wählen Sie einen anderen Token zum Verkaufen.
@@ -962,12 +964,10 @@ Import Wallet: Wallet importieren
 Please top up your %token% balance.: Bitte laden Sie Ihr %token%-Guthaben auf.
 Remember Passcode: Code merken
 Remember Password: Passwort merken
-Not available with biometrics.: Nicht mit Biometrie verfügbar.
 App will not ask for signature for %minutes% minutes after last entry.: Die App wird für %minutes% Minuten nach der letzten Eingabe nicht nach einer Signatur fragen.
 Auto-Exit: Automatisches Abmelden
 Log out of all wallets after failed attempts.: Nach fehlgeschlagenen Versuchen von allen Wallets abmelden.
 "%count% attempts": "%count% Versuche"
-Remember for %minutes% minutes: Für %minutes% Minuten merken
 Preview: Vorschau
 $preview_not_guaranteed: Das Vorschauergebnis ist **nicht garantiert** und kann **vom Dienst manipuliert** werden.
 Unverified Source: Unbestätigte Quelle
@@ -2272,6 +2272,8 @@ See All: Alle anzeigen
 Add an **extra layer of security** for your wallet in TON network.: Fügen Sie Ihrer Wallet im TON-Netzwerk eine **zusätzliche Sicherheitsebene** hinzu.
 Agent is unavailable: Der Agent ist nicht verfügbar
 Another transaction was sent from this wallet simultaneously. Please try again.: Von dieser Wallet wurde gleichzeitig eine weitere Transaktion gesendet. Bitte versuchen Sie es erneut.
+Telegram Wallet contract was not found at this address.: Der Telegram Wallet-Vertrag wurde an dieser Adresse nicht gefunden.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Der öffentliche Schlüssel von Telegram Wallet stimmt nicht mit dieser Seed-Phrase überein. Die Wallet hat ihren Schlüssel möglicherweise rotiert.
 Buying with card is not supported for this chain.: Für dieses Netzwerk wird Kartenzahlung nicht unterstützt.
 Confirm with Telegram: Mit Telegram bestätigen
 Couldn't open support chat. Please try again.: Der Support-Chat konnte nicht geöffnet werden. Bitte versuchen Sie es erneut.
@@ -2335,8 +2337,33 @@ Search token or stock: Token oder Aktie suchen
 
 Unknown Transfer: Unbekannte Übertragung
 $dapp_sign_data_for_prefix: für
+
+# Token Buy / Sell
+"Pay %value%": "%value% bezahlen"
+"Receive %value%": "%value% erhalten"
+"Buy %token% via %provider%": "%token% über %provider% kaufen"
+"Sell %token% via %provider%": "%token% über %provider% verkaufen"
+"Switch Amount Currency": "Betragswährung wechseln"
+"Pay With": "Bezahlen mit"
+"Receive in": "Erhalten in"
+"You Pay": "Du zahlst"
+"You Receive": "Du erhältst"
+"You pay": "Du zahlst"
 Successfully Sent: Erfolgreich gesendet
 Successfully Signed: Erfolgreich signiert
 3D Card: 3D-Karte
 Coming soon: Demnächst
 $dapp_identity_not_confirmed: Die Identität der App ist **nicht bestätigt**.
+
+# Token trade asset browser and details
+"Choose Asset": "Asset auswählen"
+"Asset to Buy": "Zu kaufendes Asset"
+"Asset to Sell": "Zu verkaufendes Asset"
+"Fiat": "Fiat"
+"Stocks": "Aktien"
+"Popular Currencies": "Beliebte Währungen"
+"Cross-chain Provider": "Cross-Chain-Anbieter"
+"Min": "Min."
+Ruble: Rubel
+$token_price_value: "Preis: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Ein solcher Tausch dauert normalerweise einige Minuten. In seltenen Fällen bis zu zwei Stunden.

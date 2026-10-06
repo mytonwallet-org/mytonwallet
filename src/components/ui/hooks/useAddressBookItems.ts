@@ -76,7 +76,7 @@ export default function useAddressBookItems({
             && !uniqueAddresses.has(key)
             && (!currentChain || accountChain === currentChain)
             && accountChain in supportedChains
-            && doesSavedAddressFitSearch({ address, name: account.title || '' }, searchValue)
+            && doesSavedAddressFitSearch({ address, name: account.title || '', domain }, searchValue)
           ) {
             uniqueAddresses.add(key);
             items.push({

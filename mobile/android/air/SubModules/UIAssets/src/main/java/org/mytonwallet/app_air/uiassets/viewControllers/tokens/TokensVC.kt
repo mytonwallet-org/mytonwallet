@@ -772,8 +772,8 @@ class TokensVC(
                 anchorView,
                 roundRadius = 16f.dp
             ),
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
             usePillShadow = true
+
         )
     }
 
@@ -839,6 +839,7 @@ class TokensVC(
                 anchorView,
                 roundRadius = 16f.dp
             )
+
         )
     }
 
@@ -873,12 +874,14 @@ class TokensVC(
             items = items,
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.BELOW,
+            backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
             centerHorizontally = true,
             windowBackgroundStyle = WMenuPopup.BackgroundStyle.Cutout(
                 tokenView.frameAsPath(
                     ViewConstants.BLOCK_RADIUS.dp
                 )
             )
+
         )
     }
 

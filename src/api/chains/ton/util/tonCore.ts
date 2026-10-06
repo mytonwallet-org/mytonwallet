@@ -13,6 +13,7 @@ import { WalletContractV4 } from '@ton/ton/dist/wallets/WalletContractV4';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
 import type { ApiNetwork } from '../../../types';
+import type { TelegramWallet } from '../contracts/TelegramWallet';
 import type { ApiTonWalletVersion, TokenTransferBodyParams } from '../types';
 import { ApiTokenImportError } from '../../../types';
 import { ApiCommonError } from '../../../types';
@@ -54,11 +55,12 @@ export type TonWallet = WalletContractV1R1
   | WalletContractV3R1
   | WalletContractV3R2
   | WalletContractV4
-  | WalletContractV5R1;
+  | WalletContractV5R1
+  | TelegramWallet;
 
 const TON_MAX_COMMENT_BYTES = 127;
 
-export const walletClassMap: Record<ApiTonWalletVersion, TonWalletType> = {
+export const walletClassMap: Record<Exclude<ApiTonWalletVersion, 'telegram'>, TonWalletType> = {
   simpleR1: WalletContractV1R1,
   simpleR2: WalletContractV1R2,
   simpleR3: WalletContractV1R3,

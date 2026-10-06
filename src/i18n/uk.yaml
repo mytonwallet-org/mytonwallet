@@ -402,6 +402,7 @@ Encrypted Message: Зашифроване повідомлення
 Message is encrypted: Повідомлення зашифровано
 Agree: Згоден
 $swap_action: Обмін
+$swap_batch_tx_duration_hint: Надсилання може зайняти до 1 хвилини
 $swap_activity_title: Обмін
 Swap: Обмін
 You Sell: Ви продаєте
@@ -474,12 +475,12 @@ Cross-chain exchange provided by %provider%: Сервіс надано %provider
 $swap_cex_terms_of_use: умовами використання
 $swap_cex_privacy_policy: політикою конфіденційності
 $swap_cex_aml_kyc_policy: AML/KYC
+AML/KYC Policy: Політика AML/KYC
 $swap_cex_legal_message: "Продовжуючи, ви погоджуєтеся з %terms% та %policy%."
 $swap_cex_legal_message_with_aml: Продовжуючи, ви погоджуєтеся з %terms% та %policy% і розумієте, що переказ може спровокувати перевірку відповідно до %aml%.
 Password must contain %length% digits.: Пароль має містити %length% цифри.
 Deposit Link: Посилання для поповнення
 $swap_cex_from_wallet_description: "Токени буде відправлено на вашу адресу в блокчейні %blockchain% найближчим часом:"
-Please note that it may take up to a few hours for tokens to appear in your wallet.: Поява куплених токенів у вашому гаманці може зайняти до кількох годин.
 Minimum amount: Мінімум %value%
 Maximum amount: Максимум %value%
 Display Tray Icon: Іконка на панелі завдань
@@ -583,7 +584,6 @@ Scan your fingerprint: Відскануйте свій відбиток паль
 Incorrect code, please try again.: Неправильний код, будь ласка, спробуйте знову.
 Correct: Правильно
 Confirm Action: Підтвердити дію
-$classic_confirm_actions: Підтвердити дії
 Confirm Swap: Підтвердити обмін
 Confirm Rewards Claim: Підтвердити виведення нагород
 "%amount% to %address%": "%amount% на %address%"
@@ -602,6 +602,8 @@ Buy with Card: Купівля з картки
 Buy with Crypto: Купівля за криптовалюту
 Add funds to swap: Поповніть баланс для обміну
 Direct swap unavailable: Прямий обмін недоступний
+"Direct exchange unavailable": "Прямий обмін недоступний"
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Щоб отримати %buy_token%, спочатку отримайте %token%, а потім обміняйте на %buy_token%."
 Swap on an external service: Обмін через сторонній сервіс
 Buy with a card or receive crypto to fund this swap.: Купіть криптовалюту з картки або отримайте переказ, щоб поповнити баланс для обміну.
 Buy crypto or choose another token to sell.: Купіть криптовалюту або виберіть інший токен для продажу.
@@ -972,12 +974,10 @@ Import Wallet: Імпортувати гаманець
 Please top up your %token% balance.: Будь ласка, поповніть ваш %token%-баланс.
 Remember Passcode: Запам'ятовувати код
 Remember Password: Запам'ятовувати пароль
-Not available with biometrics.: Недоступно при використанні біометрії.
 App will not ask for signature for %minutes% minutes after last entry.: Додаток не запитуватиме підпис протягом %minutes% хвилин після останнього введення.
 Auto-Exit: Автовихід
 Log out of all wallets after failed attempts.: Вийти з усіх гаманців після невдалих спроб.
 "%count% attempts": "%count% спроб"
-Remember for %minutes% minutes: Запам’ятати на %minutes% хвилин
 Preview: Передпрогляд
 $preview_not_guaranteed: Передпроглядання **не гарантує** результату та **може бути підроблено** сервісом.
 Unverified Source: Непідтверджене джерело
@@ -2306,6 +2306,8 @@ See All: Показати всі
 Add an **extra layer of security** for your wallet in TON network.: Додайте **додатковий рівень безпеки** для гаманця в мережі TON.
 Agent is unavailable: Агент недоступний
 Another transaction was sent from this wallet simultaneously. Please try again.: Одночасно з цього гаманця було надіслано іншу транзакцію. Спробуйте ще раз.
+Telegram Wallet contract was not found at this address.: Контракт Telegram Wallet не знайдено за цією адресою.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: Публічний ключ Telegram Wallet не відповідає цій seed-фразі. Можливо, гаманець змінив свій ключ.
 Buying with card is not supported for this chain.: Придбання карткою не підтримується для цієї мережі.
 Confirm with Telegram: Підтвердити через Telegram
 Couldn't open support chat. Please try again.: Не вдалося відкрити чат підтримки. Спробуйте ще раз.
@@ -2369,8 +2371,33 @@ Search token or stock: Пошук токена або акції
 
 Unknown Transfer: Невідомий переказ
 $dapp_sign_data_for_prefix: для
+
+# Token Buy / Sell
+"Pay %value%": "Сплатити %value%"
+"Receive %value%": "Отримати %value%"
+"Buy %token% via %provider%": "Купити %token% через %provider%"
+"Sell %token% via %provider%": "Продати %token% через %provider%"
+"Switch Amount Currency": "Змінити валюту суми"
+"Pay With": "Сплатити за допомогою"
+"Receive in": "Отримати в"
+"You Pay": "Ви платите"
+"You Receive": "Ви отримуєте"
+"You pay": "Ви платите"
 Successfully Sent: Успішно відправлено
 Successfully Signed: Успішно підписано
 3D Card: 3D картка
 Coming soon: Незабаром
 $dapp_identity_not_confirmed: Автентичність застосунку **не підтверджено**.
+
+# Token trade asset browser and details
+"Choose Asset": "Виберіть актив"
+"Asset to Buy": "Актив для купівлі"
+"Asset to Sell": "Актив для продажу"
+"Fiat": "Фіат"
+"Stocks": "Акції"
+"Popular Currencies": "Популярні валюти"
+"Cross-chain Provider": "Провайдер кросчейн-обміну"
+"Min": "Мін."
+Ruble: Рубль
+$token_price_value: "Ціна: %value%"
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Зазвичай такий обмін займає кілька хвилин. У рідкісних випадках — до двох годин.

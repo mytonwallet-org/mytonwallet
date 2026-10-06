@@ -8,6 +8,7 @@ enum class WLanguage(val langCode: String) {
     CHINESE_TRADITIONAL("zh-Hant"),
     ENGLISH("en"),
     GERMAN("de"),
+    ITALIAN("it"),
 
     PERSIAN("fa"),
     POLISH("pl"),
@@ -37,6 +38,7 @@ enum class WLanguage(val langCode: String) {
                 POLISH -> "Polish"
                 PERSIAN -> "Persian"
                 ARABIC -> "Arabic"
+                ITALIAN -> "Italian"
             }
         }
 
@@ -55,6 +57,7 @@ enum class WLanguage(val langCode: String) {
                 POLISH -> "Polski"
                 PERSIAN -> "فارسی"
                 ARABIC -> "العربية"
+                ITALIAN -> "Italiano"
             }
         }
 

@@ -724,11 +724,16 @@ class ConfirmNftVC(
 
     private val headerView: View
         get() {
+            val isMultiple = nfts.size > 1
             val header = PasscodeHeaderSendView(
                 WeakReference(this@ConfirmNftVC),
-                (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt()
+                (view.height * PasscodeScreenView.TOP_HEADER_MAX_HEIGHT_RATIO).roundToInt(),
+                if (isMultiple) {
+                    PasscodeHeaderSendView.TITLE_SIZE_SP
+                } else {
+                    PasscodeHeaderSendView.TEXT_TITLE_SIZE_SP
+                }
             )
-            val isMultiple = nfts.size > 1
             val subtitle = header.buildSendToSubtitle(
                 LocaleController.getString("Sending to"),
                 resolvedAddress(),

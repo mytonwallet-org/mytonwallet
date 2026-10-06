@@ -362,7 +362,11 @@ struct WalletConnectInjectionScript {
             window.addEventListener('wallet-standard:request-provider', () => {
                 window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', { detail: register }));
             });
-            window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: register }));
+            window.addEventListener('wallet-standard:app-ready', (e) => {
+                if (typeof e.detail?.register === 'function') {
+                    register(e.detail);
+                }
+            });
 
             if (!window.solana) {
                 window.solana = {

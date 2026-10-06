@@ -13,12 +13,7 @@ import DappHostWarning from './DappHostWarning';
 
 import styles from './Dapp.module.scss';
 
-const ICON_FALLBACK = (
-  <i
-    className={buildClassName(styles.dappLogo, styles.dappLogo_icon, styles.dappIcon, 'icon-laptop')}
-    aria-hidden
-  />
-);
+const ICON_FALLBACK_CLASS_NAME = buildClassName(styles.dappLogo, styles.dappLogo_icon, styles.dappIcon, 'icon-laptop');
 
 interface OwnProps {
   dapp?: StoredDappConnection;
@@ -48,7 +43,7 @@ function DappInfo({
         forceLoaded
         className={styles.dappLogo}
         imageClassName={styles.dappLogo}
-        fallback={ICON_FALLBACK}
+        fallbackClassName={ICON_FALLBACK_CLASS_NAME}
       />
       <div className={styles.dappInfo}>
         <span className={styles.dappName}>{name}</span>

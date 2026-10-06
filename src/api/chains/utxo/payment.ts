@@ -7,6 +7,7 @@ import { bytesToHex, hexToBytes } from '../../common/utils';
 import { encodeCashAddressPayload } from './cashaddr';
 import { UTXO_ADDRESS_TYPES, type UtxoAddressType } from './constants';
 import { getUtxoCashAddrPrefix, getUtxoSignerNetwork } from './network';
+import { encodeZcashTransparentAddress, p2pkhHashFromScript } from './zcashTransparentAddress';
 
 export type UtxoPayment = {
   addressType: UtxoAddressType;
@@ -45,6 +46,10 @@ function formatLegacyAddress(
   script: Uint8Array,
   legacyAddress: string,
 ) {
+  if (chain === 'zcash') {
+    return encodeZcashTransparentAddress(network, 'p2pkh', p2pkhHashFromScript(script));
+  }
+
   if (chain !== 'bitcoincash') {
     return legacyAddress;
   }
@@ -90,6 +95,10 @@ export function getAddressTypeFromAddress(address: string): UtxoAddressType {
 
   if (/^(?:bc1|tb1|ltc1|tltc1)/i.test(address)) {
     return 'segwit';
+  }
+
+  if (/^t[23m]/.test(address)) {
+    return 'legacy';
   }
 
   // P2SH prefixes used by BIP49 nested/wrapped segwit: BTC `3`/`2`, LTC `M`/`Q`

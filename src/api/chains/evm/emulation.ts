@@ -2,7 +2,6 @@ import { Transaction } from 'ethers';
 
 import type { ApiDappTransfer, ApiEmulationResult, ApiNetwork, EVMChain } from '../../types';
 import type { AlchemyAssetChange, AlchemyAssetChangesResponse, EvmTokenOperation } from './types';
-import { EVM_CHAIN_IDS } from '../../dappProtocols/adapters/walletConnect/types';
 
 import { getChainConfig } from '../../../util/chain';
 import { toDecimal } from '../../../util/decimals';
@@ -14,7 +13,7 @@ import { updateActivityMetadata } from '../../common/helpers';
 import { getTokenBySlug } from '../../common/tokens';
 import { buildTokenSlug } from '../../methods';
 import { normalizeAddress } from './address';
-import { EVM_RPC_URLS } from './constants';
+import { EVM_CHAIN_IDS, EVM_RPC_URLS } from './constants';
 
 function normalizeHexTx(rawTx: string): string {
   const trimmed = rawTx.trim();

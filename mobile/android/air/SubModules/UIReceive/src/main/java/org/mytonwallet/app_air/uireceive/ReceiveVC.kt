@@ -41,6 +41,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegment
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedController.WSegmentedControllerItem
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.CustomTabsBrowser
+import org.mytonwallet.app_air.uiswap.BuyWithCardLauncher
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.models.MBaseCurrency

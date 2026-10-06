@@ -1,5 +1,5 @@
 import type { StateInit } from '@ton/core';
-import { beginCell, type Cell, contractAddress, internal, SendMode, storeMessageRelaxed, toNano } from '@ton/core';
+import { beginCell, type Cell, contractAddress, internal, SendMode, storeMessageRelaxed } from '@ton/core';
 import { sign } from '@ton/crypto';
 import type { SignDataPayload } from '@tonconnect/protocol';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
@@ -12,15 +12,16 @@ import type {
   ApiTonWallet,
 } from '../../../types';
 import type { PreparedTransactionToSign } from '../types';
-import { ApiCommonError } from '../../../types';
+import { ApiCommonError, ApiTransactionError } from '../../../types';
 
+import { MFA_INSTALL_FEE } from '../../../../config';
 import { parseAccountId } from '../../../../util/account';
 import { randomBytes } from '../../../../util/random';
 import { getBodyFromRequest, OpCode, prepareBodyWithoutSignature } from '../contracts/MfaExtension';
 import { hexToBytes } from '../../../common/utils';
 import { signDataWithPrivateKey, signTonProofWithPrivateKey } from '../../../dappProtocols/adapters/tonConnect/signing';
 import { fetchPrivateKey } from '../auth';
-import { getTonWallet } from '../wallet';
+import { getIsTestnetSubwalletId, getTelegramWalletInfo, getTonWallet } from '../wallet';
 import * as encryption from './encryption';
 
 type ErrorResult = { error: ApiAnyDisplayError };
@@ -36,6 +37,8 @@ export type SignedMfaRemoveRequest = { payload: Cell; signature: Buffer };
 export interface Signer {
   /** Whether the signer produces invalid signatures and encryption, for example for emulation */
   readonly isMock: boolean;
+  /** The public key corresponding to the key this signer uses for signatures. */
+  getSigningPublicKey(): MaybePromise<Uint8Array | ErrorResult>;
   signTonProof(proof: TonConnectProof): MaybePromise<Buffer | ErrorResult>;
   /** The output Cell order matches the input transactions order exactly. */
   signTransactions(
@@ -87,6 +90,7 @@ export function getSigner(
   if (enclaveToken === undefined) throw new Error('Preauthorization ID not provided');
 
   return new MnemonicSigner(
+    parseAccountId(accountId).network,
     account.byChain.ton,
     () => fetchPrivateKey(accountId, enclaveToken, account),
   );
@@ -95,9 +99,18 @@ export function getSigner(
 abstract class PrivateKeySigner implements Signer {
   abstract readonly isMock: boolean;
 
-  constructor(public wallet: ApiTonWallet) {}
+  constructor(public network: ApiNetwork, public wallet: ApiTonWallet) {}
 
   abstract getPrivateKey(): MaybePromise<Uint8Array | ErrorResult>;
+
+  async getSigningPublicKey() {
+    const privateKey = await this.getPrivateKey();
+    if ('error' in privateKey) return privateKey;
+
+    return this.wallet.version === 'telegram'
+      ? getPublicKeyFromPrivateKey(privateKey)
+      : this.getPublicKey();
+  }
 
   async signTonProof(proof: TonConnectProof) {
     const privateKey = await this.getPrivateKey();
@@ -110,6 +123,18 @@ abstract class PrivateKeySigner implements Signer {
   async signTransactions(transactions: PreparedTransactionToSign[]) {
     const privateKey = await this.getPrivateKey();
     if ('error' in privateKey) return privateKey;
+
+    if (!this.isMock) {
+      const publicKey = this.wallet.version === 'telegram'
+        ? getPublicKeyFromPrivateKey(privateKey)
+        : this.getPublicKey();
+      const telegramWalletCheck = await checkTelegramWalletSigner(
+        this.network,
+        this.wallet,
+        publicKey,
+      );
+      if (telegramWalletCheck) return telegramWalletCheck;
+    }
 
     return signTransactionsWithPrivateKey(transactions, this.wallet, privateKey);
   }
@@ -190,6 +215,14 @@ abstract class PrivateKeySigner implements Signer {
   }
 }
 
+function getPublicKeyFromPrivateKey(privateKey: Uint8Array) {
+  if (privateKey.length !== 64) {
+    throw new Error('Unexpected private key length');
+  }
+
+  return privateKey.subarray(32);
+}
+
 /**
  * A `NO_EXTRA_FEATURES` build leaves the module out together with its aes-js and noble-ed25519 dependencies,
  * which exist only for this feature.
@@ -211,10 +244,11 @@ class MnemonicSigner extends PrivateKeySigner {
   private privateKey?: Promise<Uint8Array | ErrorResult>;
 
   constructor(
+    network: ApiNetwork,
     wallet: ApiTonWallet,
     private fetchKey: () => Promise<Uint8Array | undefined>,
   ) {
-    super(wallet);
+    super(network, wallet);
   }
 
   /**
@@ -236,9 +270,40 @@ class MockSigner extends PrivateKeySigner {
   public isMock = true;
   private readonly privateKey = randomBytes(64);
 
+  constructor(wallet: ApiTonWallet) {
+    super('mainnet', wallet);
+  }
+
   public getPrivateKey() {
     return this.privateKey;
   }
+}
+
+export async function checkTelegramWalletSigner(
+  network: ApiNetwork,
+  wallet: ApiTonWallet,
+  publicKey: Uint8Array,
+): Promise<ErrorResult | undefined> {
+  if (wallet.version !== 'telegram') {
+    return undefined;
+  }
+
+  const info = await getTelegramWalletInfo(
+    network,
+    wallet.address,
+    publicKey,
+    getIsTestnetSubwalletId(network, 'telegram'),
+  );
+
+  if (!info.isTelegramWallet) {
+    return { error: ApiTransactionError.TelegramWalletContractMismatch };
+  }
+
+  if (info.isPublicKeyMismatch) {
+    return { error: ApiTransactionError.TelegramWalletPublicKeyMismatch };
+  }
+
+  return undefined;
 }
 
 class LedgerSigner implements Signer {
@@ -255,6 +320,14 @@ class LedgerSigner implements Signer {
 
     const { signTonProofWithLedger } = await import('../ledger');
     return signTonProofWithLedger(this.network, this.wallet, proof);
+  }
+
+  getSigningPublicKey() {
+    const publicKeyHex = this.wallet.publicKey;
+    if (!publicKeyHex) {
+      throw new Error('Public key is missing');
+    }
+    return hexToBytes(publicKeyHex);
   }
 
   async signTransactions(transactions: PreparedTransactionToSign[], isTonConnect?: boolean) {
@@ -332,8 +405,7 @@ function signMfaInstallRequestWithPrivateKey(
         mode: SendMode.PAY_GAS_SEPARATELY,
         outMsg: internal({
           to: extensionAddress,
-          // TODO: make it a constant
-          value: toNano('0.15'),
+          value: MFA_INSTALL_FEE,
           body: beginCell().storeUint(OpCode.INSTALL, 32).endCell(),
           init,
         }),

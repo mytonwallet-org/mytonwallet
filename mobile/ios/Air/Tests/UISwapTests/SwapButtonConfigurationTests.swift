@@ -1,5 +1,6 @@
 import Dependencies
 import Testing
+import UIComponents
 @testable import UISwap
 import WalletCore
 import WalletResources
@@ -8,6 +9,20 @@ import WalletResources
 @MainActor
 struct SwapButtonConfigurationTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
+
+    @Test
+    func `empty swap does not seed disabled appearance for the first estimate`() {
+        let button = WButton()
+        let presenter = DraftButtonPresenter(button: button)
+        let model = SwapButtonModel()
+        presenter.apply(model.configuration(for: .emptyAmount, sellingToken: .TONCOIN, buyingToken: .TON_USDT))
+        #expect(!button.isEnabled)
+
+        presenter.apply(model.configuration(for: .estimating(showContinue: false), sellingToken: .TONCOIN, buyingToken: .TON_USDT))
+        #expect(button.isEnabled)
+        #expect(button.showLoading)
+        #expect(!button.isUserInteractionEnabled)
+    }
 
     @Test
     func `submission stays busy through balance updates and restores editing afterward`() {

@@ -53,6 +53,10 @@ final class HomeCardContentView: UIView {
         balanceMenu.attach(to: content.balance)
         content.balance.onTap = { [weak self] in self?.toggleBalancePrivacy() }
         content.promotionButton.onTap = { [weak self] in self?.openPromotion() }
+        content.mintButton.onTap = { [weak self] in
+            guard let accountContext = self?.accountContext else { return }
+            AppActions.showMintCard(accountContext: accountContext)
+        }
         content.seasonal.onDisable = {
             AppStorageHelper.isSeasonalThemingDisabled = true
             AppActions.showToast(message: lang("You can always enable seasonal theming again in the appearance settings."))
@@ -90,9 +94,6 @@ final class HomeCardContentView: UIView {
 
     private func updateState() {
         guard let headerViewModel, let accountContext else { return }
-        if mode == .expanded, accountContext.isCurrent, accountContext.config.cardsInfo != nil {
-            AppActions.preloadUpgradeCard()
-        }
         let visibleBalance = (mode == .collapsed) == headerViewModel.isCollapsed
         let animatesChanges = wasVisible && visibleBalance
         wasVisible = visibleBalance
@@ -104,8 +105,14 @@ final class HomeCardContentView: UIView {
             balance: accountContext.balance, previousBalance: accountContext.balance24h,
             balanceChange: accountContext.balanceChange, nft: accountContext.nft,
             showsWalletName: headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs && headerViewModel.walletCardTopLine == .walletName,
-            seasonalTheme: headerViewModel.seasonalTheme, promotion: accountContext.activePromotion
+            seasonalTheme: headerViewModel.seasonalTheme, promotion: accountContext.activePromotion,
+            hasCardsInfo: accountContext.config.cardsInfo != nil,
+            isCardMinting: ActivityStore.isCardMinting(accountId: accountContext.accountId),
+            isNftBuyingDisabled: headerViewModel.isNftBuyingDisabled
         )
+        if mode == .expanded, accountContext.isCurrent, data.showsMintAction {
+            AppActions.preloadUpgradeCard()
+        }
         renderState = RenderState(
             data: data,
             collapseProgress: headerViewModel.collapseProgress,
@@ -160,7 +167,9 @@ final class HomeCardContentView: UIView {
         guard let promotion = accountContext?.activePromotion, let overlay = promotion.cardOverlay else { return }
         switch overlay.onClickAction {
         case .openPromotionModal: AppActions.showPromotion(promotion)
-        case .openMintCardModal: AppActions.showUpgradeCard()
+        case .openMintCardModal:
+            guard let accountContext else { return }
+            AppActions.showMintCard(accountContext: accountContext)
         }
     }
 }

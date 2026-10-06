@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import SwiftUI
 import WalletCore
 import WalletContext
 
@@ -14,6 +15,7 @@ public final class TokenCell: UICollectionViewCell {
     public enum SecondaryAmountMode: Equatable {
         case balanceValue
         case tokenPrice
+        case balanceValueOrPrice
     }
     
     private static let horizontalInset: CGFloat = 12
@@ -31,6 +33,8 @@ public final class TokenCell: UICollectionViewCell {
     
     private var onSelect: (() -> Void)? = nil
     private let stackView = WHighlightStackView()
+    private let iconContainer = UIView()
+    private var fiatIconView: UIView?
     private let iconView = IconView(size: 40, accessoryGeometry: .forIcon40)
     private let contentStackView = UIStackView()
     private let leftLabelsStackView = UIStackView()
@@ -42,6 +46,7 @@ public final class TokenCell: UICollectionViewCell {
     private let amountLabel = UILabel()
     private let secondaryAmountLabelContainer = WSensitiveData(cols: 8, rows: 2, cellSize: 6, cornerRadius: 3, theme: .adaptive, alignment: .trailing)
     private let secondaryAmountLabel = UILabel()
+    private lazy var marketRowHeight = contentView.heightAnchor.constraint(equalToConstant: 60)
     
     private func setupViews() {
         isUserInteractionEnabled = true
@@ -64,7 +69,13 @@ public final class TokenCell: UICollectionViewCell {
             stackViewBottom,
         ])
 
-        stackView.addArrangedSubview(iconView)
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.addStretchedToBounds(subview: iconView)
+        NSLayoutConstraint.activate([
+            iconContainer.widthAnchor.constraint(equalToConstant: 40),
+            iconContainer.heightAnchor.constraint(equalToConstant: 40),
+        ])
+        stackView.addArrangedSubview(iconContainer)
 
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
         contentStackView.axis = .horizontal
@@ -203,6 +214,16 @@ public final class TokenCell: UICollectionViewCell {
                            isCurrentSelection: Bool,
                            onSelect: @escaping () -> Void) {
         self.onSelect = onSelect
+        marketRowHeight.isActive = secondaryAmountMode == .balanceValueOrPrice
+        accessibilityIdentifier = nil
+        amountLabelContainer.isDisabled = false
+        secondaryAmountLabelContainer.isDisabled = secondaryAmountMode == .balanceValueOrPrice && balance <= 0
+        fiatIconView?.removeFromSuperview()
+        fiatIconView = nil
+        iconView.isHidden = false
+        descriptionLabel.isHidden = false
+        secondaryAmountLabelContainer.isHidden = false
+        secondaryAmountLabel.textColor = .air.secondaryLabel
         iconView.config(with: token, isStaking: isStaking, isWalletView: false, shouldShowChain: AccountStore.account?.isMultichain == true || token?.chain != .ton)
         let badgeText = token?.label?.nilIfEmpty
         titleLabel.text = if let token {
@@ -225,22 +246,52 @@ public final class TokenCell: UICollectionViewCell {
         descriptionLabel.text = isAvailable ? token?.chain.title : lang("Unavailable")
         amountLabel.text = formatAmount(balance: balance, token: token)
         secondaryAmountLabel.text = formatSecondaryAmount(balance: balance, token: token, mode: secondaryAmountMode)
+        if secondaryAmountMode == .balanceValueOrPrice {
+            descriptionLabel.isHidden = isAvailable
+        }
         stackView.alpha = isAvailable ? 1 : 0.5
         selectionIndicatorView.isHidden = !isCurrentSelection
     }
     
+    public func configure(currency: MBaseCurrency, onSelect: @escaping () -> Void) {
+        self.onSelect = onSelect
+        marketRowHeight.isActive = true
+        fiatIconView?.removeFromSuperview()
+        let icon = UIHostingConfiguration { FiatCurrencyIcon(currency: currency, size: 40) }
+            .margins(.all, 0).makeContentView()
+        iconContainer.addStretchedToBounds(subview: icon)
+        fiatIconView = icon
+        iconView.isHidden = true
+        amountLabelContainer.isDisabled = true
+        secondaryAmountLabelContainer.isDisabled = true
+        titleLabel.text = currency == .RUB ? lang("Ruble") : currency.name
+        descriptionLabel.isHidden = true
+        badgeView.configureHidden()
+        selectionIndicatorView.isHidden = true
+        secondaryAmountLabelContainer.isHidden = true
+        let rate = TokenStore.getCurrencyRate(currency)
+        amountLabel.text = rate > 0
+            ? BaseCurrencyAmount.fromDouble(TokenStore.getCurrencyRate(TokenStore.baseCurrency) / rate,
+                                            TokenStore.baseCurrency).formatted(.baseCurrencyEquivalent)
+            : nil
+        stackView.alpha = 1
+        accessibilityIdentifier = "tokenSelection.fiat." + currency.rawValue
+    }
+
     private func formatAmount(balance: BigInt, token: ApiToken?) -> String {
         guard let token else { return "" }
         return TokenAmount(balance, token).formatted(.defaultAdaptive, roundHalfUp: false)
     }
     
     private func formatSecondaryAmount(balance: BigInt, token: ApiToken?, mode: SecondaryAmountMode) -> String {
-        guard let price = token?.price, price != 0 else {
+        let marketPrice = mode == .balanceValueOrPrice ? token.flatMap { TokenStore.tokens[$0.slug]?.price } : nil
+        guard let price = marketPrice ?? token?.price, price != 0 else {
             return lang("No Price")
         }
-        if mode == .tokenPrice {
+        if mode == .tokenPrice || (mode == .balanceValueOrPrice && balance <= 0) {
             let tokenPrice = BaseCurrencyAmount.fromDouble(price, TokenStore.baseCurrency)
-            return tokenPrice.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
+            let formattedPrice = tokenPrice.formatted(.baseCurrencyEquivalent, roundHalfUp: true)
+            return mode == .balanceValueOrPrice ? L10n.tokenPriceValue(value: formattedPrice) : formattedPrice
         }
         let amount = balance.doubleAbsRepresentation(decimals: token?.decimals ?? 0)
         let baseCurrencyAmount = BaseCurrencyAmount.fromDouble(amount * price, TokenStore.baseCurrency)

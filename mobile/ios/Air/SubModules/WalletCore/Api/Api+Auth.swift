@@ -103,7 +103,8 @@ public struct ApiImportViewAccountResult: Decodable, Sendable {
 }
 
 public struct ApiImportNewWalletVersionResult: Decodable, Sendable {
-    public var isNew: Bool
-    public var accountId: String
+    public var isNew: Bool?
+    public var accountId: String?
     public var byChain: [String: AccountChain]?
+    public var error: ApiAnyDisplayError?
 }

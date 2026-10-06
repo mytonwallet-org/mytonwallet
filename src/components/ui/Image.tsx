@@ -14,6 +14,8 @@ interface OwnProps {
   imageClassName?: string;
   children?: TeactJsx;
   fallback?: TeactJsx;
+  /** Class name of the empty element shown in place of a missing image, unless `fallback` is set */
+  fallbackClassName?: string;
   forceLoaded?: boolean;
   onLoad?: (img: HTMLImageElement) => void;
   onError?: NoneToVoidFunction;
@@ -28,6 +30,7 @@ function ImageComponent({
   imageClassName,
   children,
   fallback,
+  fallbackClassName,
   forceLoaded,
   onLoad,
   onError,
@@ -70,7 +73,7 @@ function ImageComponent({
     onError?.();
   }
 
-  const shouldShowFallback = (hasError || !url) && !!fallback;
+  const shouldShowFallback = (hasError || !url) && Boolean(fallback || fallbackClassName);
 
   const divRef = useMediaTransition(forceLoaded || isLoaded || shouldShowFallback);
 
@@ -96,7 +99,7 @@ function ImageComponent({
           onLoad={handleLoad}
           onError={handleError}
         />
-      ) : fallback}
+      ) : (fallback ?? <i className={fallbackClassName} aria-hidden />)}
       {children}
     </div>
   );

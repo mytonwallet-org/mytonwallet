@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.image
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Path
@@ -9,6 +10,7 @@ import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.toDrawable
+import com.facebook.cache.common.SimpleCacheKey
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.drawee.controller.BaseControllerListener
 import com.facebook.drawee.drawable.FadeDrawable
@@ -18,7 +20,9 @@ import com.facebook.drawee.generic.RoundingParams
 import com.facebook.drawee.view.SimpleDraweeView
 import com.facebook.fresco.ui.common.OnFadeListener
 import com.facebook.imagepipeline.image.ImageInfo
+import com.facebook.imagepipeline.request.BasePostprocessor
 import com.facebook.imagepipeline.request.ImageRequest
+import com.facebook.imagepipeline.request.ImageRequestBuilder
 import org.mytonwallet.app_air.uicomponents.drawable.ContentGradientDrawable
 import org.mytonwallet.app_air.uicomponents.drawable.InitialsDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -234,7 +238,17 @@ open class WCustomImageView @JvmOverloads constructor(
 
             is Content.Image.Url -> Fresco.newDraweeControllerBuilder()
                 .setOldController(controller)
-                .setImageRequest(ImageRequest.fromUri(image.url))
+                .setImageRequest(
+                    ImageRequest.fromUri(image.url)?.let { request ->
+                        if (content.withBlackBackground) {
+                            ImageRequestBuilder.fromRequest(request)
+                                .setPostprocessor(BlackBackgroundPostprocessor)
+                                .build()
+                        } else {
+                            request
+                        }
+                    }
+                )
                 .setLowResImageRequest(ImageRequest.fromUri(lowResUrl))
                 .setControllerListener(controllerListener)
                 .build()
@@ -314,6 +328,19 @@ open class WCustomImageView @JvmOverloads constructor(
 
             is Content.Placeholder.Initials ->
                 InitialsDrawable(placeholder.text, getRoundingMode(content))
+        }
+    }
+
+    private object BlackBackgroundPostprocessor : BasePostprocessor() {
+        override fun getName() = "BlackBackground"
+
+        override fun getPostprocessorCacheKey() = SimpleCacheKey(name)
+
+        override fun process(dest: Bitmap, source: Bitmap) {
+            Canvas(dest).apply {
+                drawColor(Color.BLACK)
+                drawBitmap(source, 0f, 0f, null)
+            }
         }
     }
 }

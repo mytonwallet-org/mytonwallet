@@ -1,4 +1,3 @@
-import CoreText
 import Dependencies
 import Foundation
 import IssueReportingTestSupport
@@ -15,11 +14,6 @@ import WalletResources
 struct HomeCardSettingsObservationTests {
     init() {
         _ = WalletResourcesBundle.bundle.load()
-        for name in ["SFCompactRoundedBold", "SFCompactDisplayMedium"] {
-            if let url = WalletResourcesBundle.bundle.url(forResource: name, withExtension: "otf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
-        }
     }
 
     @Test

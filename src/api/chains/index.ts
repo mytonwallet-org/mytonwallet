@@ -41,6 +41,7 @@ if (process.env.NO_UTXO !== '1') {
     litecoin: new UTXOSdk('litecoin'),
     bitcoincash: new UTXOSdk('bitcoincash'),
     dogecoin: new UTXOSdk('dogecoin'),
+    zcash: new UTXOSdk('zcash'),
   });
 }
 
@@ -51,6 +52,7 @@ if (process.env.NO_EVM !== '1') {
     bnb: new EVMSdk('bnb'),
     polygon: new EVMSdk('polygon'),
     arbitrum: new EVMSdk('arbitrum'),
+    optimism: new EVMSdk('optimism'),
     monad: new EVMSdk('monad'),
     avalanche: new EVMSdk('avalanche'),
     hyperliquid: new EVMSdk('hyperliquid'),

@@ -1,4 +1,4 @@
-import { authorizationify, Contract, hashAuthorization, Interface } from 'ethers';
+import { Contract, Interface } from 'ethers';
 
 import type { ApiNetwork, ApiRevokeWalletPermissionOptions, ApiWalletPermission, EVMChain } from '../../types';
 import type { ApiAnyDisplayError } from '../../types/errors';
@@ -6,29 +6,36 @@ import type { ZerionFungibleInfo, ZerionTransaction, ZerionTransactionsResponse 
 import { ApiCommonError, ApiTransactionError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
-import { toDecimal } from '../../../util/decimals';
 import { fetchJson } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
+import { isUnlimitedEvmAllowance } from './util/allowance';
+import { collectZerionApprovals, resolveZerionActMetadata } from './util/approvals';
 import { getEvmProvider } from './util/client';
 import { updateTokensMetadataByAddress } from './util/metadata';
-import { getZerionFungibleImplementation } from './util/tokens';
+import { collectZerionTxTokenAddresses, getZerionFungibleImplementation } from './util/tokens';
 import { fetchStoredChainAccount } from '../../common/accounts';
 import { getKnownAddressInfo } from '../../common/addresses';
-import { buildTokenSlug } from '../../common/tokens';
+import { buildTokenSlug, getTokenBySlug } from '../../common/tokens';
 import { normalizeAddress } from './address';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import {
   EVM_DALEGATOR_ADDRESSES,
-  EVM_MAX_NUMBER,
   getEvmApiUrl,
   getZerionChainByApiChain,
+  UNISWAP_PERMIT2_ADDRESS,
   ZERO_ADDRESS,
 } from './constants';
 import { estimateEvmFee } from './transfer';
 import { getWalletBalance } from './wallet';
 
 const ERC20_APPROVE_ABI = ['function approve(address spender, uint256 amount) returns (bool)'];
+const PERMIT2_ALLOWANCE_ABI = [
+  'function allowance(address owner, address token, address spender) '
+  + 'view returns (uint160 amount, uint48 expiration, uint48 nonce)',
+  'function approve(address token, address spender, uint160 amount, uint48 expiration)',
+];
 const erc20ApproveInterface = new Interface(ERC20_APPROVE_ABI);
+const permit2AllowanceInterface = new Interface(PERMIT2_ALLOWANCE_ABI);
 
 const EIP7702_DELEGATION_PREFIX = '0xef0100';
 
@@ -49,7 +56,7 @@ type DelegationCandidate = {
   delegateIcon?: string;
 };
 
-async function getErc20Allowance(
+export async function getErc20Allowance(
   chain: EVMChain,
   network: ApiNetwork,
   owner: string,
@@ -69,7 +76,28 @@ async function getErc20Allowance(
   }
 }
 
-async function getEvmDelegationAddress(
+export async function getPermit2Allowance(
+  chain: EVMChain,
+  network: ApiNetwork,
+  owner: string,
+  tokenAddress: string,
+  spender: string,
+): Promise<bigint> {
+  try {
+    const contract = new Contract(
+      UNISWAP_PERMIT2_ADDRESS,
+      PERMIT2_ALLOWANCE_ABI,
+      getEvmProvider(network, chain),
+    );
+    const result = await contract.allowance(owner, tokenAddress, spender);
+    const amount = result?.amount ?? result?.[0] ?? 0;
+    return BigInt(amount.toString());
+  } catch {
+    return 0n;
+  }
+}
+
+export async function getEvmDelegationAddress(
   chain: EVMChain,
   network: ApiNetwork,
   address: string,
@@ -88,12 +116,103 @@ async function getEvmDelegationAddress(
   }
 }
 
-function resolveActMetadata(
+function collectTradeSpenderCandidates(
   tx: ZerionTransaction,
-  actId: string,
-): ZerionTransaction['attributes']['application_metadata'] | undefined {
-  const act = tx.attributes.acts?.find((item) => item.id === actId);
-  return act?.application_metadata ?? tx.attributes.application_metadata;
+  zerionChain: string,
+  pairs: Map<string, ApprovalCandidate>,
+) {
+  const tradeLikeActs = tx.attributes.acts?.filter(({ type }) => type === 'trade' || type === 'execute') ?? [];
+  if (!tradeLikeActs.length && tx.attributes.operation_type !== 'trade' && tx.attributes.operation_type !== 'execute') {
+    return;
+  }
+
+  const spenderEntries: Array<{ spenderAddress: string; spenderName?: string; spenderIcon?: string }> = [];
+
+  for (const act of tradeLikeActs) {
+    const metadata = act.application_metadata ?? tx.attributes.application_metadata;
+    if (!metadata?.contract_address) continue;
+
+    spenderEntries.push({
+      spenderAddress: normalizeAddress(metadata.contract_address),
+      spenderName: metadata.name,
+      spenderIcon: metadata.icon?.url,
+    });
+  }
+
+  if (!spenderEntries.length) {
+    const metadata = tx.attributes.application_metadata;
+    if (metadata?.contract_address) {
+      spenderEntries.push({
+        spenderAddress: normalizeAddress(metadata.contract_address),
+        spenderName: metadata.name,
+        spenderIcon: metadata.icon?.url,
+      });
+    }
+  }
+
+  if (!spenderEntries.length) return;
+
+  for (const transfer of tx.attributes.transfers) {
+    if (!('fungible_info' in transfer) || !transfer.fungible_info || transfer.direction !== 'out') continue;
+
+    const impl = getZerionFungibleImplementation(transfer.fungible_info, zerionChain);
+    if (!impl?.address) continue;
+
+    const tokenAddress = normalizeAddress(impl.address);
+
+    for (const { spenderAddress, spenderName, spenderIcon } of spenderEntries) {
+      const key = `${tokenAddress}:${spenderAddress}`;
+      if (pairs.has(key)) continue;
+
+      pairs.set(key, {
+        tokenAddress,
+        fungibleInfo: transfer.fungible_info,
+        spenderAddress,
+        spenderName,
+        spenderIcon,
+      });
+    }
+  }
+}
+
+function findFungibleInfoForToken(
+  pairs: Map<string, ApprovalCandidate>,
+  tokenAddress: string,
+): ZerionFungibleInfo | undefined {
+  for (const candidate of pairs.values()) {
+    if (candidate.tokenAddress === tokenAddress) {
+      return candidate.fungibleInfo;
+    }
+  }
+
+  return undefined;
+}
+
+async function supplementPermit2Erc20ApprovalCandidates(
+  chain: EVMChain,
+  network: ApiNetwork,
+  owner: string,
+  tokenAddresses: Set<string>,
+  pairs: Map<string, ApprovalCandidate>,
+) {
+  const permit2Address = normalizeAddress(UNISWAP_PERMIT2_ADDRESS);
+
+  await Promise.all([...tokenAddresses].map(async (tokenAddress) => {
+    const allowance = await getErc20Allowance(chain, network, owner, tokenAddress, permit2Address);
+    if (allowance === 0n) return;
+
+    const key = `${tokenAddress}:${permit2Address}`;
+    if (pairs.has(key)) return;
+
+    const fungibleInfo = findFungibleInfoForToken(pairs, tokenAddress);
+    if (!fungibleInfo) return;
+
+    pairs.set(key, {
+      tokenAddress,
+      spenderAddress: permit2Address,
+      fungibleInfo,
+    });
+  }));
 }
 
 function collectApprovalCandidates(
@@ -101,28 +220,11 @@ function collectApprovalCandidates(
   zerionChain: string,
   pairs: Map<string, ApprovalCandidate>,
 ) {
-  for (const approval of tx.attributes.approvals) {
-    if (!approval.fungible_info) continue;
-
-    const impl = getZerionFungibleImplementation(approval.fungible_info, zerionChain);
-    if (!impl?.address) continue;
-
-    const metadata = resolveActMetadata(tx, approval.act_id);
-    const spenderAddress = metadata?.contract_address;
-    if (!spenderAddress) continue;
-
-    const tokenAddress = normalizeAddress(impl.address);
-    const normalizedSpenderAddress = normalizeAddress(spenderAddress);
-    const key = `${tokenAddress}:${normalizedSpenderAddress}`;
+  for (const approval of collectZerionApprovals(tx, zerionChain)) {
+    const key = `${approval.tokenAddress}:${approval.spenderAddress}`;
 
     if (!pairs.has(key)) {
-      pairs.set(key, {
-        tokenAddress,
-        fungibleInfo: approval.fungible_info,
-        spenderAddress: normalizedSpenderAddress,
-        spenderName: metadata?.name,
-        spenderIcon: metadata?.icon?.url,
-      });
+      pairs.set(key, approval);
     }
   }
 }
@@ -136,7 +238,7 @@ function collectDelegationCandidates(
     if (delegation.chain_id && delegation.chain_id !== zerionChain) continue;
 
     const delegateAddress = normalizeAddress(delegation.address);
-    const metadata = resolveActMetadata(tx, delegation.act_id);
+    const metadata = resolveZerionActMetadata(tx, delegation.act_id);
     const key = delegateAddress;
 
     if (!candidates.has(key)) {
@@ -152,15 +254,18 @@ function collectDelegationCandidates(
 type ZerionPermissionCandidates = {
   approvalCandidates: Map<string, ApprovalCandidate>;
   delegationCandidates: Map<string, DelegationCandidate>;
+  tokenAddresses: Set<string>;
 };
 
 async function fetchZerionPermissionCandidates(
+  chain: EVMChain,
   network: ApiNetwork,
   checksumAddress: string,
   zerionChain: string,
 ): Promise<ZerionPermissionCandidates> {
   const approvalCandidates = new Map<string, ApprovalCandidate>();
   const delegationCandidates = new Map<string, DelegationCandidate>();
+  const tokenAddresses = new Set<string>();
 
   const baseUrl = `${getEvmApiUrl(network)}/v1/wallets/${checksumAddress}/transactions/`;
   let afterCursor: string | undefined;
@@ -180,6 +285,8 @@ async function fetchZerionPermissionCandidates(
     for (const tx of response.data) {
       collectApprovalCandidates(tx, zerionChain, approvalCandidates);
       collectDelegationCandidates(tx, zerionChain, delegationCandidates);
+      collectZerionTxTokenAddresses(tx, zerionChain, tokenAddresses);
+      collectTradeSpenderCandidates(tx, zerionChain, approvalCandidates);
     }
 
     page++;
@@ -198,7 +305,7 @@ async function fetchZerionPermissionCandidates(
     if (!afterCursor) break;
   }
 
-  return { approvalCandidates, delegationCandidates };
+  return { approvalCandidates, delegationCandidates, tokenAddresses };
 }
 
 async function buildApprovalPermissions(
@@ -225,27 +332,31 @@ async function buildApprovalPermissions(
       const impl = getZerionFungibleImplementation(fungibleInfo, zerionChain);
       if (!impl?.address) return undefined;
 
-      const allowance = await getErc20Allowance(chain, network, checksumAddress, tokenAddress, spenderAddress);
+      let allowance = await getErc20Allowance(chain, network, checksumAddress, tokenAddress, spenderAddress);
+      if (allowance === 0n) {
+        allowance = await getPermit2Allowance(chain, network, checksumAddress, tokenAddress, spenderAddress);
+      }
       if (allowance === 0n) return undefined;
 
-      const isUnlimited = allowance >= EVM_MAX_NUMBER - (EVM_MAX_NUMBER * 10n / 100n);
+      const isUnlimited = isUnlimitedEvmAllowance(allowance);
       const knownName = getKnownAddressInfo(spenderAddress)?.name;
 
       const tokenSlug = buildTokenSlug(chain, tokenAddress);
+      const cachedToken = getTokenBySlug(tokenSlug);
 
       return {
         kind: 'approval',
         chain,
         tokenAddress,
         tokenSlug,
-        tokenName: fungibleInfo.name,
-        tokenSymbol: fungibleInfo.symbol,
+        tokenName: cachedToken?.name ?? fungibleInfo.name,
+        tokenSymbol: cachedToken?.symbol ?? fungibleInfo.symbol,
         tokenDecimals: impl.decimals,
-        tokenImage: fungibleInfo.icon?.url ?? undefined,
+        tokenImage: cachedToken?.image ?? fungibleInfo.icon?.url ?? undefined,
         spenderAddress,
-        spenderName: knownName ?? spenderName,
+        spenderName: knownName ?? (spenderAddress === UNISWAP_PERMIT2_ADDRESS ? 'Permit2' : spenderName),
         spenderIcon,
-        allowance: toDecimal(allowance, impl.decimals),
+        allowance: allowance.toString(),
         isUnlimited,
       } satisfies ApiWalletPermission;
     }),
@@ -280,10 +391,21 @@ export async function fetchEvmWalletPermissions(
   const zerionChain = getZerionChainByApiChain(chain);
   const checksumAddress = normalizeAddress(address);
 
-  const { approvalCandidates, delegationCandidates } = await fetchZerionPermissionCandidates(
+  const { approvalCandidates, delegationCandidates, tokenAddresses } = await fetchZerionPermissionCandidates(
+    chain,
     network,
     checksumAddress,
     zerionChain,
+  );
+
+  await updateTokensMetadataByAddress(network, chain, [...tokenAddresses]);
+
+  await supplementPermit2Erc20ApprovalCandidates(
+    chain,
+    network,
+    checksumAddress,
+    tokenAddresses,
+    approvalCandidates,
   );
 
   const [approvals, activeDelegateAddress] = await Promise.all([
@@ -322,16 +444,39 @@ async function revokeEvmApproval(
 
     const { address } = account.byChain[chain];
     const provider = getEvmProvider(network, chain);
+    const normalizedTokenAddress = normalizeAddress(tokenAddress);
+    const normalizedSpenderAddress = normalizeAddress(spenderAddress);
 
-    const transaction = {
-      from: address,
-      to: normalizeAddress(tokenAddress),
-      value: 0n,
-      data: erc20ApproveInterface.encodeFunctionData('approve', [
-        normalizeAddress(spenderAddress),
-        0n,
-      ]),
-    };
+    const [erc20Allowance, permit2Allowance] = await Promise.all([
+      getErc20Allowance(chain, network, address, normalizedTokenAddress, normalizedSpenderAddress),
+      getPermit2Allowance(chain, network, address, normalizedTokenAddress, normalizedSpenderAddress),
+    ]);
+
+    if (erc20Allowance === 0n && permit2Allowance === 0n) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    const transaction = erc20Allowance > 0n
+      ? {
+        from: address,
+        to: normalizedTokenAddress,
+        value: 0n,
+        data: erc20ApproveInterface.encodeFunctionData('approve', [
+          normalizedSpenderAddress,
+          0n,
+        ]),
+      }
+      : {
+        from: address,
+        to: UNISWAP_PERMIT2_ADDRESS,
+        value: 0n,
+        data: permit2AllowanceInterface.encodeFunctionData('approve', [
+          normalizedTokenAddress,
+          normalizedSpenderAddress,
+          0,
+          0,
+        ]),
+      };
 
     const [nativeBalance, fee] = await Promise.all([
       getWalletBalance(chain, network, address),
@@ -385,16 +530,6 @@ async function revokeEvmDelegation(
       return { error: ApiTransactionError.UnsuccesfulTransfer };
     }
 
-    const [nonce, networkInfo] = await Promise.all([
-      provider.getTransactionCount(address),
-      provider.getNetwork(),
-    ]);
-    const chainId = networkInfo.chainId ?? undefined;
-
-    if (chainId === undefined) {
-      return { error: ApiTransactionError.WrongNetwork };
-    }
-
     const privateKey = await fetchPrivateKeyString(chain, accountId, enclaveToken, account);
 
     if (!privateKey) {
@@ -402,14 +537,11 @@ async function revokeEvmDelegation(
     }
 
     const signer = getSignerFromPrivateKey(network, privateKey).connect(provider);
-    const unsignedAuthorization = {
-      chainId,
+    const txNonce = await signer.getNonce('pending');
+
+    const authorization = await signer.authorize({
       address: ZERO_ADDRESS,
-      nonce: BigInt(nonce),
-    };
-    const authorization = authorizationify({
-      ...unsignedAuthorization,
-      signature: signer.signingKey.sign(hashAuthorization(unsignedAuthorization)),
+      nonce: txNonce + 1,
     });
 
     const transaction = {
@@ -418,20 +550,32 @@ async function revokeEvmDelegation(
       to: address,
       value: 0n,
       data: '0x',
-      chainId,
       authorizationList: [authorization],
     };
 
-    const [nativeBalance, fee] = await Promise.all([
+    const [nativeBalance, fee, feeData] = await Promise.all([
       getWalletBalance(chain, network, address),
       estimateEvmFee(provider, transaction),
+      provider.getFeeData(),
     ]);
 
     if (nativeBalance < fee) {
       return { error: ApiTransactionError.InsufficientBalance };
     }
 
-    const response = await signer.sendTransaction(transaction);
+    // Set-code transactions encode EIP-1559 fees; some chains (e.g. BSC) expose only gasPrice.
+    const maxFeePerGas = feeData.maxFeePerGas ?? feeData.gasPrice;
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? feeData.gasPrice;
+
+    if (!maxFeePerGas || !maxPriorityFeePerGas) {
+      return { error: ApiTransactionError.UnsuccesfulTransfer };
+    }
+
+    const response = await signer.sendTransaction({
+      ...transaction,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    });
 
     return { txId: response.hash };
   } catch (err) {

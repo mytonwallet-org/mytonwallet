@@ -63,6 +63,12 @@ export function errorCodeToMessage(error: ApiAnyDisplayError | string = ApiCommo
     case ApiTransactionError.ConcurrentTransaction:
       return 'Another transaction was sent from this wallet simultaneously. Please try again.';
 
+    case ApiTransactionError.TelegramWalletContractMismatch:
+      return 'Telegram Wallet contract was not found at this address.';
+
+    case ApiTransactionError.TelegramWalletPublicKeyMismatch:
+      return 'Telegram Wallet public key does not match this seed. The wallet may have rotated its key.';
+
     case ApiTransactionDraftError.InactiveContract:
       return '$transfer_inactive_contract_error';
 

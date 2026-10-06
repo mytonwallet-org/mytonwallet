@@ -17,13 +17,15 @@ object ArcConfig : MBlockchainConfig {
         org.mytonwallet.app_air.icons.R.drawable.receive_ornament_arc_light
 
     override val qrIcon = null
-    override val displayColor = "#2775CA".hexToColorInt()
+    override val displayColor = "#708BB8".hexToColorInt()
     override val qrGradientColors = intArrayOf(
         "#12294A".hexToColorInt(),
         "#000000".hexToColorInt()
     )
 
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS
+
+    override val isOnchainSwapSupported = true
 
     override val isCommentSupported = false
     override val isEncryptedCommentSupported = false

@@ -21,8 +21,8 @@ extension Api {
         return try await bridge.callApi("swapBuildTransfer", accountId, enclaveToken, request, decoding: ApiSwapBuildResponse.self)
     }
     
-    public static func swapSubmit(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?) async throws -> ApiSwapSubmitResult {
-        try await bridge.callApi("swapSubmit", chain, accountId, enclaveToken, transfers, historyItem, isGasless, transaction, decoding: ApiSwapSubmitResult.self)
+    public static func swapSubmit(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?, calls: [ApiEvmSwapCall]? = nil, needsApprove: Bool? = nil) async throws -> ApiSwapSubmitResult {
+        try await bridge.callApi("swapSubmit", chain, accountId, enclaveToken, transfers, historyItem, isGasless, transaction, calls, needsApprove, decoding: ApiSwapSubmitResult.self)
     }
     
     public static func swapEstimate(accountId: String, request: ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse {
@@ -114,7 +114,14 @@ public struct ApiSwapBuildResponse: Codable, Sendable {
     public let fee: BigInt?
     public let chain: ApiChain?
     public let transaction: String?
+    public let calls: [ApiEvmSwapCall]?
     public let error: ApiAnyDisplayError?
+}
+
+public struct ApiEvmSwapCall: Codable, Equatable, Sendable {
+    public let to: String
+    public let value: String?
+    public let data: String
 }
 
 public struct ApiSwapSubmitResult: Codable, Sendable {

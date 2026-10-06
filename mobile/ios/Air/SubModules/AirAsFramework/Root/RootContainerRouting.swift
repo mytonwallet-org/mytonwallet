@@ -152,7 +152,7 @@ struct SplitRootContainerRouter: RootContainerRouting {
     }
 
     func showAgent() {
-        showTab(.agent)
+        splitVC?.showAgent()
     }
 
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {
@@ -181,6 +181,7 @@ struct SplitRootContainerRouter: RootContainerRouting {
     }
 
     func showSettings(path: [UIViewController]) {
+        if let destination = path.last, splitVC?.pushFromSearch(destination) == true { return }
         if AppTabManager.shared.contains(.settings) {
             splitVC?.showSettings(path: path)
         } else {

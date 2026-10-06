@@ -5,7 +5,6 @@ import { getActions, getGlobal, withGlobal } from '../../global';
 import type { MigrationErrorPresentation } from '../../global/types';
 
 import {
-  AUTO_CONFIRM_DURATION_MINUTES,
   PIN_LENGTH,
   SUPPORT_USERNAME,
   WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION,
@@ -22,7 +21,6 @@ import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { stopEvent } from '../../util/domEvents';
 import { getTranslation } from '../../util/langProvider';
-import { toNativeDigits } from '../../util/nativeDigits';
 import { pause } from '../../util/schedulers';
 import { createSignal } from '../../util/signals';
 import { enclave, type LegacyAuthConfig } from '../../enclave';
@@ -41,7 +39,6 @@ import useToggleClass from '../../hooks/useToggleClass';
 import LogOutModal from '../main/modals/LogOutModal';
 import AnimatedIconWithPreview from './AnimatedIconWithPreview';
 import Button from './Button';
-import Checkbox from './Checkbox';
 import Input from './Input';
 import PinPad from './PinPad';
 import Transition from './Transition';
@@ -56,6 +53,8 @@ interface OwnProps {
   isActive: boolean;
   isLoading?: boolean;
   operationType?: OperationType;
+  /** Lang key of the title above the pinpad. Defaults to the title derived from `operationType`. */
+  operationTitle?: string;
   cancelLabel?: string;
   submitLabel?: string | TeactNode[];
   stickerSize?: number;
@@ -75,6 +74,7 @@ interface OwnProps {
   noBiometrics?: boolean;
   errorClassName?: string;
   noAutoConfirm?: boolean;
+  footerNotice?: TeactNode;
   /**
    * Secret reads this flow needs beyond the single one every operation gets. A usage is spent when
    * the private key is read, not when an API call is made, so only a flow that reads the key in more
@@ -83,6 +83,8 @@ interface OwnProps {
    */
   extraAuthUsages?: number;
   onCancel?: NoneToVoidFunction;
+  /** The pinpad close button, when closing differs from the cancel button, such as a step back. Defaults to `onCancel`. */
+  onClose?: NoneToVoidFunction;
   onUpdate?: NoneToVoidFunction;
   onAuthorize: (enclaveToken: string) => void;
   onError?: (error?: string) => void;
@@ -90,7 +92,7 @@ interface OwnProps {
 
 interface StateProps {
   isPasswordNumeric?: boolean;
-  isAutoConfirmEnabled?: boolean;
+  isAutoConfirmEnabled: boolean;
   enclaveSessionValidUntil?: number;
   isBiometricAuthEnabled: boolean;
   shouldMigrate?: boolean;
@@ -136,6 +138,7 @@ function PasswordForm({
   isActive,
   isLoading,
   operationType,
+  operationTitle,
   isPasswordNumeric,
   isBiometricAuthEnabled: isBiometricAuthEnabledProp,
   cancelLabel,
@@ -159,6 +162,7 @@ function PasswordForm({
   isAutoConfirmEnabled,
   enclaveSessionValidUntil,
   noAutoConfirm,
+  footerNotice,
   shouldMigrate,
   hasLegacyBiometrics,
   legacyAuthConfig,
@@ -167,11 +171,11 @@ function PasswordForm({
   extraAuthUsages,
   onUpdate,
   onCancel,
+  onClose,
   onAuthorize,
   onError,
 }: OwnProps & StateProps) {
   const {
-    setIsAutoConfirmEnabled,
     setEnclaveSession,
     enableBiometrics,
     migrateLegacyAuth,
@@ -189,14 +193,13 @@ function PasswordForm({
   const { isSmallHeight, isPortrait } = useDeviceScreen();
   const withAutoConfirm = useCanAutoConfirm(enclaveSessionValidUntil, noAutoConfirm);
   /**
-   * Whether this entry opens the auto-confirm window - not the question `noAutoConfirm` answers, which
-   * is whether this screen may be skipped. Tying them together left the transfer and dApp flows able to
-   * spend the window and unable to open it. Biometrics rule it out, read from the prop because
-   * `isBiometricAuthEnabled` is off wherever a screen passes `noBiometrics` on an account that has them,
-   * and the screen that turns biometrics on is a moment away from ruling it out too.
+   * Whether a passcode or biometric entry on this screen opens the auto-confirm window. This is separate from
+   * `noAutoConfirm`, which only decides whether the screen may be skipped while the window is open.
+   *
+   * The screen that turns biometrics on never opens the window. `enableBiometrics` replaces the session
+   * minted here with a single-use biometric one, so the window would be dropped right away.
    */
-  const canArmAutoConfirm = !isBiometricAuthEnabledProp && operationType !== 'turnOnBiometrics';
-  const isLongSession = canArmAutoConfirm && Boolean(isAutoConfirmEnabled);
+  const isLongSession = isAutoConfirmEnabled && operationType !== 'turnOnBiometrics';
   const isSubmitDisabled = !inputValue.length && !withAutoConfirm;
   const canUsePinPad = getDoesUsePinPad();
   const [isLogOutModalOpened, openLogOutModal, closeLogOutModal] = useFlag(false);
@@ -317,7 +320,7 @@ function PasswordForm({
     try {
       setLocalError('');
 
-      const enclaveSession = await enclave.authorize('biometric', false, undefined, usageCount);
+      const enclaveSession = await enclave.authorize('biometric', isLongSession, undefined, usageCount);
       if (!enclaveSession) {
         isAuthorizingRef.current = false;
         const errorMessage = 'Biometric confirmation failed';
@@ -409,10 +412,6 @@ function PasswordForm({
     handleClearError();
   });
 
-  const handleAutoConfirmChange = useLastCallback((isEnabled: boolean) => {
-    setIsAutoConfirmEnabled({ isEnabled });
-  });
-
   const handleOpenLogOutModal = useLastCallback((e: React.MouseEvent) => {
     stopEvent(e);
     openLogOutModal();
@@ -457,6 +456,16 @@ function PasswordForm({
     shouldRenderFullWidthButton && modalStyles.footerButtonFullWidth,
   );
 
+  function renderFooterNotice() {
+    if (!footerNotice) {
+      return undefined;
+    }
+
+    return (
+      <div className={styles.footerNotice}>{footerNotice}</div>
+    );
+  }
+
   function renderFooterButtons() {
     return (
       <div className={footerButtonsClassName}>
@@ -500,25 +509,9 @@ function PasswordForm({
     );
   }
 
-  function renderAutoConfirmCheckbox() {
-    return (
-      <Checkbox
-        checked={!!isAutoConfirmEnabled}
-        onChange={handleAutoConfirmChange}
-        className={styles.autoConfirmCheckbox}
-      >
-        {toNativeDigits(lang('Remember for %minutes% minutes', AUTO_CONFIRM_DURATION_MINUTES) as string)}
-      </Checkbox>
-    );
-  }
-
-  // Offered exactly where it can take effect: the checkbox and the window read one signal, so a
-  // screen cannot show the option and then refuse to act on it
-  const shouldRenderAutoConfirmCheckbox = canArmAutoConfirm;
-
   if (canUsePinPad) {
     const hasError = Boolean(localError || error);
-    const title = getPinPadTitle();
+    const title = operationTitle ?? getPinPadTitle();
     const actionName = lang(
       !isBiometricAuthEnabled
         ? 'Enter code'
@@ -536,7 +529,7 @@ function PasswordForm({
             isRound
             className={buildClassName(modalStyles.closeButton, styles.closeButton)}
             ariaLabel={lang('Close')}
-            onClick={onCancel}
+            onClick={onClose || onCancel}
           >
             <i className={buildClassName(modalStyles.closeIcon, 'icon-close')} aria-hidden />
           </Button>
@@ -555,6 +548,7 @@ function PasswordForm({
           {children}
         </div>
 
+        {renderFooterNotice()}
         {withAutoConfirm ? renderFooterButtons() : (
           <PinPad
             isActive={isActive}
@@ -566,7 +560,6 @@ function PasswordForm({
             length={PIN_LENGTH}
             resetStateDelayMs={resetStateDelayMs}
             value={inputValue}
-            topContent={shouldRenderAutoConfirmCheckbox ? renderAutoConfirmCheckbox() : undefined}
             className={pinPadClassName}
             onBiometricsClick={isBiometricAuthEnabled
               ? (shouldMigrate && hasLegacyBiometrics ? handleLegacyBiometricsMigration : handleBiometrics)
@@ -627,7 +620,6 @@ function PasswordForm({
         {help && !error && (
           <div className={styles.label}>{help}</div>
         )}
-        {shouldRenderAutoConfirmCheckbox && renderAutoConfirmCheckbox()}
       </>
     );
   }
@@ -665,6 +657,7 @@ function PasswordForm({
         </div>
       )}
 
+      {renderFooterNotice()}
       {renderFooterButtons()}
 
       {operationType === 'unlock' && (

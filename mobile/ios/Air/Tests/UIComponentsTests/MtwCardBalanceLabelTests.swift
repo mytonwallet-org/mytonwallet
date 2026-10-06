@@ -1,4 +1,3 @@
-import CoreText
 import os
 import Perception
 import Testing
@@ -12,11 +11,6 @@ import WalletResources
 struct MtwCardBalanceLabelTests {
     init() {
         _ = WalletResourcesBundle.bundle.load()
-        for font in ["SFCompactRoundedBold", "SFCompactDisplayMedium"] {
-            if let url = WalletResourcesBundle.bundle.url(forResource: font, withExtension: "otf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-            }
-        }
     }
 
     @Test

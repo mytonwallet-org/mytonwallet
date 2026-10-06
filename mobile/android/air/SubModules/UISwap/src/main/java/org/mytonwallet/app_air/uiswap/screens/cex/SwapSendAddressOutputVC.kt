@@ -190,7 +190,7 @@ class SwapSendAddressOutputVC(
 
         val hint =
             LocaleController.getString(
-                "Please note that it may take up to a few hours for tokens to appear in your wallet."
+                "Swaps like this usually take a few minutes. In rare cases, up to two hours."
             )
         text = SpannableStringBuilder()
             .append(hint)

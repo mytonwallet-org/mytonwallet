@@ -137,7 +137,9 @@ export default tonSdk;
 // The chain methods that haven't been multichain-refactored yet:
 
 export {
+  getWalletFromTelegramRotationMnemonic,
   getKeyPairFromStoredMnemonic,
+  isTelegramRotationMnemonic,
 } from './auth';
 export {
   BACKEND_AUTH_SIGN_MESSAGE,

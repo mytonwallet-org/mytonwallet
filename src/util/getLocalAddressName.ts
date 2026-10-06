@@ -16,17 +16,32 @@ export function getLocalAddressName({
 }) {
   if (!address) return undefined;
 
-  const otherAccount = accounts
-    ? Object.keys(accounts).find((accountId) => {
-      return accountId !== currentAccountId && accounts[accountId].byChain[chain]?.address === address;
-    })
-    : undefined;
+  const otherAccountId = accounts && findOtherAccountId({ address, chain, currentAccountId, accounts });
 
-  if (otherAccount) {
-    return accounts![otherAccount].title;
-  }
+  return otherAccountId
+    ? accounts[otherAccountId].title
+    : savedAddresses && findSavedAddressName({ address, chain, savedAddresses });
+}
 
-  return savedAddresses?.find((item) => {
-    return item.address === address && item.chain === chain;
-  })?.name;
+export function findOtherAccountId({
+  address, chain, currentAccountId, accounts,
+}: {
+  address: string;
+  chain: ApiChain;
+  currentAccountId: string;
+  accounts: Record<string, Account>;
+}) {
+  return Object.keys(accounts).find((accountId) => {
+    return accountId !== currentAccountId && accounts[accountId].byChain[chain]?.address === address;
+  });
+}
+
+export function findSavedAddressName({
+  address, chain, savedAddresses,
+}: {
+  address: string;
+  chain: ApiChain;
+  savedAddresses: SavedAddress[];
+}) {
+  return savedAddresses.find((item) => item.address === address && item.chain === chain)?.name;
 }

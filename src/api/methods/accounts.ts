@@ -117,6 +117,16 @@ export async function loadAccountsDerivations() {
   }
 }
 
+export async function loadAccountsWalletVersions(accountIds: string[]) {
+  const accounts = await fetchStoredAccounts();
+  for (const accountId of accountIds) {
+    const version = accounts[accountId]?.byChain.ton?.version;
+    if (version) {
+      onUpdate({ type: 'updateAccount', accountId, chain: 'ton', version });
+    }
+  }
+}
+
 export async function fetchStoredAccountSummary(accountId: string) {
   const account = await fetchStoredAccount(accountId);
   return {

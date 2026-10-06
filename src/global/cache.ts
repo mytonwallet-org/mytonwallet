@@ -40,6 +40,7 @@ import { getIsActiveStakingState } from '../util/staking';
 import { IS_ELECTRON } from '../util/windowEnvironment';
 import { addActionHandler, getGlobal } from './index';
 import { INITIAL_STATE, STATE_VERSION } from './initialState';
+import { clearCurrentTransfer } from './reducers';
 import { selectAccountSettings, selectAccountState } from './selectors';
 
 const UPDATE_THROTTLE = 5000;
@@ -132,7 +133,8 @@ export function loadCache(initialState: GlobalState): GlobalState {
     ...cached,
   };
 
-  return merged;
+  // The token screen is restored from the cache while the transfer form is not
+  return clearCurrentTransfer(merged);
 }
 
 function migrateCache(cached: GlobalState, initialState: GlobalState) {

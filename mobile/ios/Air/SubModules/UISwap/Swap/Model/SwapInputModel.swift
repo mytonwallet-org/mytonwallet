@@ -241,8 +241,8 @@ enum SwapCommand {
     
     struct Estimate: Equatable, Sendable {
         var changedFrom: SwapSide
-        var fromAmount: Double
-        var toAmount: Double
+        var fromAmount: MDouble
+        var toAmount: MDouble
     }
 
     func updateWithEstimate(_ swapEstimate: Estimate) {
@@ -250,14 +250,14 @@ enum SwapCommand {
         switch swapEstimate.changedFrom {
         case .selling:
             if !buyingFocused {
-                buyingAmount = DecimalAmount.fromDouble(swapEstimate.toAmount, buyingToken).roundedForSwap.amount
+                buyingAmount = TokenAmount(swapEstimate.toAmount.bigintAmount(decimals: buyingToken.decimals), buyingToken).roundedForSwap.amount
             }
             if isUsingMax {
-                sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
+                sellingAmount = TokenAmount(swapEstimate.fromAmount.bigintAmount(decimals: sellingToken.decimals), sellingToken).roundedForSwap.amount
             }
         case .buying:
             if !sellingFocused {
-                sellingAmount = DecimalAmount.fromDouble(swapEstimate.fromAmount, sellingToken).roundedForSwap.amount
+                sellingAmount = TokenAmount(swapEstimate.fromAmount.bigintAmount(decimals: sellingToken.decimals), sellingToken).roundedForSwap.amount
             }
         }
     }

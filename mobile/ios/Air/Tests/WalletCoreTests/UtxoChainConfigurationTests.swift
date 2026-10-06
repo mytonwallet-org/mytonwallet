@@ -21,6 +21,8 @@ struct UtxoChainConfigurationTests {
             .arbitrum,
             .polygon,
             .avalanche,
+            .optimism,
+            .zcash,
             .dogecoin,
             .litecoin,
             .bitcoincash,
@@ -29,7 +31,7 @@ struct UtxoChainConfigurationTests {
 
     @Test
     func `utxo raw values round trip`() throws {
-        let chains: [ApiChain] = [.bitcoin, .litecoin, .bitcoincash, .dogecoin]
+        let chains: [ApiChain] = [.bitcoin, .litecoin, .bitcoincash, .dogecoin, .zcash]
 
         for chain in chains {
             #expect(ApiChain(rawValue: chain.rawValue) == chain)
@@ -42,16 +44,18 @@ struct UtxoChainConfigurationTests {
         #expect(ApiChain.litecoin.nativeToken == .LITECOIN)
         #expect(ApiChain.bitcoincash.nativeToken == .BITCOINCASH)
         #expect(ApiChain.dogecoin.nativeToken == .DOGECOIN)
+        #expect(ApiChain.zcash.nativeToken == .ZCASH)
 
         #expect(ApiChain.bitcoin.nativeToken.decimals == 8)
         #expect(ApiChain.litecoin.nativeToken.decimals == 8)
         #expect(ApiChain.bitcoincash.nativeToken.decimals == 8)
         #expect(ApiChain.dogecoin.nativeToken.decimals == 8)
+        #expect(ApiChain.zcash.nativeToken.decimals == 8)
     }
 
     @Test
     func `utxo address patterns accept fee check addresses and prefixes`() {
-        let chains: [ApiChain] = [.bitcoin, .litecoin, .bitcoincash, .dogecoin]
+        let chains: [ApiChain] = [.bitcoin, .litecoin, .bitcoincash, .dogecoin, .zcash]
 
         for chain in chains {
             #expect(chain.addressRegex.matches(chain.feeCheckAddress))
@@ -61,6 +65,7 @@ struct UtxoChainConfigurationTests {
         #expect(ApiChain.litecoin.addressPrefixRegex.matches("ltc1q"))
         #expect(ApiChain.bitcoincash.addressPrefixRegex.matches("Q"))
         #expect(ApiChain.dogecoin.addressPrefixRegex.matches("DH"))
+        #expect(ApiChain.zcash.addressPrefixRegex.matches("t1H"))
     }
 
     @Test
@@ -69,11 +74,13 @@ struct UtxoChainConfigurationTests {
         #expect(ApiChain.litecoin.defaultDerivationPath == "m/84'/2'/0'/0/{index}")
         #expect(ApiChain.bitcoincash.defaultDerivationPath == "m/44'/145'/0'/0/{index}")
         #expect(ApiChain.dogecoin.defaultDerivationPath == "m/44'/3'/0'/0/{index}")
+        #expect(ApiChain.zcash.defaultDerivationPath == "m/44'/133'/0'/0/{index}")
 
         #expect(ApiChain.bitcoin.explorer.baseUrl[.mainnet]?.url == "https://mempool.space/")
         #expect(ApiChain.bitcoin.explorer.transaction == "{base}tx/{hash}")
         #expect(ApiChain.litecoin.explorer.baseUrl[.mainnet]?.url == "https://blockchair.com/litecoin/")
         #expect(ApiChain.bitcoincash.explorer.baseUrl[.mainnet]?.url == "https://blockchair.com/bitcoin-cash/")
         #expect(ApiChain.dogecoin.explorer.baseUrl[.mainnet]?.url == "https://blockchair.com/dogecoin/")
+        #expect(ApiChain.zcash.explorer.baseUrl[.mainnet]?.url == "https://blockchair.com/zcash/")
     }
 }

@@ -526,7 +526,9 @@ class SwapVC(
                         event.assets,
                         showMyAssets = true,
                         showChain = true,
-                        secondaryAmountMode = TokenSelectorCell.SecondaryAmountMode.TOKEN_PRICE
+                        secondaryAmountMode =
+                            TokenSelectorCell.SecondaryAmountMode.BALANCE_VALUE_OR_PRICE,
+                        requiresBalance = event.mode == SwapViewModel.Mode.SEND
                     ).apply {
                         setOnAssetSelectListener { asset ->
                             if (event.mode == SwapViewModel.Mode.SEND) {
@@ -784,6 +786,9 @@ class SwapVC(
                         request.fromAmount,
                         request.toAmount
                     )
+                    if (request.isBatchTx) {
+                        setBatchNotice(LocaleController.getString("\$swap_batch_tx_duration_hint"))
+                    }
                 },
                 LocaleController.getString("Confirm")
             ),

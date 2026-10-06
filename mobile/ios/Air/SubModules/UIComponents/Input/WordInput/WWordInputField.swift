@@ -18,6 +18,26 @@ public class WWordInputField: UITextField {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    public override var keyCommands: [UIKeyCommand]? {
+        let next = UIKeyCommand(input: "\t", modifierFlags: [], action: #selector(focusNextWord))
+        let previous = UIKeyCommand(input: "\t", modifierFlags: [.shift], action: #selector(focusPreviousWord))
+        next.wantsPriorityOverSystemBehavior = true
+        previous.wantsPriorityOverSystemBehavior = true
+        return (super.keyCommands ?? []) + [next, previous]
+    }
+
+    @objc func focusNextWord() {
+        if let nextInput = input?.nextInput {
+            nextInput.textField.becomeFirstResponder()
+        } else {
+            resignFirstResponder()
+        }
+    }
+
+    @objc private func focusPreviousWord() {
+        input?.previousInput?.textField.becomeFirstResponder()
+    }
     
     public override func paste(_ sender: Any?) {
         guard let pasteboardString = UIPasteboard.general.string else {

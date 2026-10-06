@@ -42,6 +42,10 @@ import DappPassword from './DappPassword';
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Dapp.module.scss';
 
+const ICON_FALLBACK_CLASS_NAME = buildClassName(
+  styles.dappLargePreviewLogo, styles.dappLargePreviewLogo_icon, 'icon-laptop',
+);
+
 interface DappConnectOpenProps {
   hasConnectRequest: true;
   state?: DappConnectState;
@@ -175,8 +179,19 @@ function DappConnectModal({
   });
 
   const handleCreateMultichainWallet = useLastCallback(() => {
-    if (!hasPassword || selectIsEnclaveSessionValid(getGlobal())) {
+    if (!hasPassword) {
       addAccount({ method: 'createAccount', clearDappConnectOnVerified: true });
+      return;
+    }
+
+    // Unlike adding a wallet from the wallet list, this flow may reuse the Remember Passcode window.
+    // `startCreatingWallet` ignores the window, so its token is passed explicitly.
+    if (selectIsEnclaveSessionValid(getGlobal())) {
+      addAccount({
+        method: 'createAccount',
+        clearDappConnectOnVerified: true,
+        enclaveToken: selectEnclaveToken(getGlobal())!,
+      });
       return;
     }
 
@@ -247,7 +262,7 @@ function DappConnectModal({
             alt={dapp!.name}
             className={styles.dappLargePreviewLogo}
             imageClassName={styles.dappLargePreviewLogo}
-            fallback={ICON_FALLBACK}
+            fallbackClassName={ICON_FALLBACK_CLASS_NAME}
           />
 
           <span className={styles.dappLargePreviewName}>{lang('$connect_dapp_title', { name: dapp?.name })}</span>
@@ -445,10 +460,3 @@ export default memo(withGlobal((global): StateProps => {
     isAuthAppState: global.appState === AppState.Auth,
   };
 })(DappConnectModal));
-
-const ICON_FALLBACK = (
-  <i
-    className={buildClassName(styles.dappLargePreviewLogo, styles.dappLargePreviewLogo_icon, 'icon-laptop')}
-    aria-hidden
-  />
-);

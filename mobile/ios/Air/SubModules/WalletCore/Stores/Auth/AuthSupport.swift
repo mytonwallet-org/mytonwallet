@@ -200,20 +200,34 @@ final class AuthSupportImpl: AuthSupportProtocol {
     }
 
     static func setPasscode(_ passcode: String) async throws -> EnclaveToken {
-        let status = Self.status
-        if !status.configuredMethods.isEmpty {
-            // Auth that guards no secret and no encrypted account is a leftover of
-            // a setup that never stored a wallet; keeping it would block wallet
-            // creation forever. Resetting is safe only in that provably-empty state.
-            let hasStoredSecrets = try await EnclaveManager.shared.hasStoredSecrets()
-            guard !status.requiresAuthorization, !hasStoredSecrets else {
-                throw AuthSupportError.authAlreadyConfigured
-            }
-            await clearAllAuth()
-        }
-
+        try validatePasscodeSetup(
+            hasEncryptedAccounts: accountsSupportAppLock,
+            loadStoredAccounts: { try KeychainHelper.loadAccounts() }
+        )
         let session = try await setupAuth(authType: .passcode, passcode: passcode)
+        failedLoginAttempts = 0
+        lastFailedAttempt = .distantPast
+        AuthSupportLegacy.clearBiometricArtifacts()
         return session.token
+    }
+
+    static func validatePasscodeSetup(
+        hasEncryptedAccounts: Bool,
+        loadStoredAccounts: () throws -> [String: [String: Any]]?
+    ) throws {
+        guard !hasEncryptedAccounts else {
+            throw AuthSupportError.authAlreadyConfigured
+        }
+        // A missing in-memory account list is insufficient: preserve persisted
+        // wallets, unknown account formats, and keychain read failures.
+        let storedAccounts = try loadStoredAccounts() ?? [:]
+        guard storedAccounts.values.allSatisfy({ account in
+            // Keychain accounts use SDK types, not the native AccountType schema.
+            let type = account["type"] as? String
+            return (type == "view" || type == "ledger") && account["mnemonicEncrypted"] == nil
+        }) else {
+            throw AuthSupportError.authAlreadyConfigured
+        }
     }
 
     static func changePasscode(to newPasscode: String, using authorizationToken: EnclaveToken) async throws {
@@ -338,7 +352,11 @@ final class AuthSupportImpl: AuthSupportProtocol {
         passcode: String?
     ) async throws -> SessionResult {
         do {
-            return try await EnclaveManager.shared.setupAuth(authType: authType, passcode: passcode)
+            return try await EnclaveManager.shared.setupAuth(
+                authType: authType,
+                passcode: passcode,
+                replacingOrphanedAuth: true
+            )
         } catch EnclaveError.authAlreadyConfigured {
             // EnclaveError text is not localized; surface the localized equivalent
             throw AuthSupportError.authAlreadyConfigured

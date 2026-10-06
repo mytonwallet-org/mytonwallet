@@ -24,9 +24,12 @@ import {
   isScamTransaction,
   shouldShowTransactionAddress,
 } from '../../../../util/activities';
+import { bigintAbs } from '../../../../util/bigint';
 import buildClassName from '../../../../util/buildClassName';
 import { getChainTitle } from '../../../../util/chain';
 import { formatRelativeHumanDateTime } from '../../../../util/dateFormat';
+import { toDecimal } from '../../../../util/decimals';
+import { formatBaseCurrencyAmount } from '../../../../util/formatNumber';
 import { getLocalAddressName } from '../../../../util/getLocalAddressName';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { getIsTransactionWithPoisoning } from '../../../../util/poisoningHash';
@@ -37,6 +40,8 @@ import useAppTheme from '../../../../hooks/useAppTheme';
 import useLang from '../../../../hooks/useLang';
 import useTransactionDetails from '../../../../hooks/useTransactionDetails';
 
+import GramDiamond from '../../../common/GramDiamond';
+import HeroAmount from '../../../common/HeroAmount';
 import TransactionAmount from '../../../common/TransactionAmount';
 import TransactionFee from '../../../common/TransactionFee';
 import NftInfo from '../../../transfer/NftInfo';
@@ -126,6 +131,7 @@ function TransactionInfo({
     isIncoming,
     nft,
     status,
+    slug,
     token,
     chain,
     nativeToken,
@@ -360,9 +366,28 @@ function TransactionInfo({
     return buttons.length ? <div className={styles.footer}>{buttons}</div> : undefined;
   }
 
+  // A plain GRAM amount gets the diamond and the hero layout; staking and other typed transactions keep
+  // the regular amount with its sign rules and status. Scam and failed transfers keep the regular amount
+  // too, so their red marking stays.
+  const isGramHero = slug === TONCOIN.slug && !nft && amountDisplayMode === 'normal' && !isScam
+    && status !== 'failed';
+
   return (
     <div className={buildClassName(modalStyles.transitionContent, className)}>
-      {amountDisplayMode !== 'hide' && (
+      {isGramHero && <GramDiamond isOpen={isOpen} />}
+
+      {isGramHero ? (
+        <HeroAmount
+          value={toDecimal(bigintAbs(amount!), TONCOIN.decimals)}
+          decimals={TONCOIN.decimals}
+          suffix={TONCOIN.symbol}
+          baseCurrencyValue={token && formatBaseCurrencyAmount(amount!, baseCurrency, token, currencyRates)}
+          isPositive={isIncoming}
+          isNegative={!isIncoming}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+          className={styles.heroAmount}
+        />
+      ) : amountDisplayMode !== 'hide' && (
         <TransactionAmount
           isSensitiveDataHidden={isSensitiveDataHidden}
           isIncoming={isIncoming}

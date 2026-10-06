@@ -305,7 +305,7 @@ function AccountSelectorModal({
   });
 
   const handleNewAccountClick = useLastCallback(() => {
-    if (!hasPassword || selectIsEnclaveSessionValid(getGlobal())) {
+    if (!hasPassword) {
       addAccount({ method: 'createAccount' });
 
       return;
@@ -322,12 +322,6 @@ function AccountSelectorModal({
     }
 
     setIsNewAccountImporting(true);
-
-    if (selectIsEnclaveSessionValid(getGlobal())) {
-      addAccount({ method: 'importMnemonic' });
-
-      return;
-    }
     setRenderingKey(AccountSelectorState.AddAccountPassword);
   });
 

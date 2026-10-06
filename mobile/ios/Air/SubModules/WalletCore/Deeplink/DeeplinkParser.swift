@@ -420,7 +420,7 @@ private func parseSendUrl(_ url: URL) -> Deeplink? {
     let address = String(target[target.index(after: colonIndex)...])
 
     guard let chain = ApiChain(rawValue: chainString), chain.isSupported else { return nil }
-    guard chain.isValidAddressOrDomain(address) else { return nil }
+    guard address.isEmpty || chain.isValidAddressOrDomain(address) else { return nil }
 
     let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
     var amount: BigInt?
