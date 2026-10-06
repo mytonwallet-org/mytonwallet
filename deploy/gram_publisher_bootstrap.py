@@ -17,12 +17,16 @@ ITEM_URL = f'https://chromewebstore.googleapis.com/v2/{ITEM_NAME}:fetchStatus'
 SCOPE = 'https://www.googleapis.com/auth/chromewebstore'
 SECRET_NAMES = ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REFRESH_TOKEN')
 OUTPUT_NAME = 'gram-publisher-bootstrap.json'
+ERROR_REASONS = frozenset(('SERVICE_DISABLED', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT', 'IAM_PERMISSION_DENIED',
+                           'CONSUMER_INVALID', 'USER_PROJECT_DENIED', 'BILLING_DISABLED', 'PERMISSION_DENIED',
+                           'insufficientPermissions', 'forbidden'))
 
 
 class BootstrapError(Exception):
-    def __init__(self, stage, status=0):
+    def __init__(self, stage, status=0, reason=None):
         self.stage = stage
         self.status = status
+        self.reason = reason if reason in ERROR_REASONS else None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -45,8 +49,18 @@ def request_json(stage, request):
         return value
     except urllib.error.HTTPError as error:
         status = error.code
-        error.close()
-        raise BootstrapError(stage, status) from None
+        reason = None
+        try:
+            body = json.loads(error.read(16_384)).get('error', {})
+            entries = body.get('details', []) + body.get('errors', [])
+            reason = next((entry.get('reason') for entry in entries
+                           if isinstance(entry, dict) and entry.get('reason') in ERROR_REASONS), None)
+            reason = reason or (body.get('status') if body.get('status') in ERROR_REASONS else None)
+        except Exception:
+            pass
+        finally:
+            error.close()
+        raise BootstrapError(stage, status, reason) from None
     except BootstrapError:
         raise
     except Exception:
@@ -124,9 +138,24 @@ def bootstrap(sodium, public_key, output):
     scope = info.get('scope')
     if not isinstance(scope, str) or SCOPE not in scope.split():
         raise BootstrapError('scope')
-    status = request_json('store', urllib.request.Request(
-        ITEM_URL, headers={'Authorization': f'Bearer {access_token}'},
-    ))
+    try:
+        status = request_json('store', urllib.request.Request(
+            ITEM_URL, headers={'Authorization': f'Bearer {access_token}'},
+        ))
+    except BootstrapError as error:
+        if error.status == 403:
+            for stage, item_id in [('legacy_target', ITEM_ID),
+                                   ('legacy_control', 'fldfpgipfncgndfolcbkdeeknbbbnhcc')]:
+                try:
+                    item = request_json(stage, urllib.request.Request(
+                        f'https://www.googleapis.com/chromewebstore/v1.1/items/{item_id}?projection=DRAFT',
+                        headers={'Authorization': f'Bearer {access_token}', 'x-goog-api-version': '2'},
+                    ))
+                    result = 200 if item.get('id') == item_id else 0
+                except BootstrapError as probe_error:
+                    result = probe_error.status
+                print(f'stage={stage} status={result}')
+        raise
     if status.get('name') != ITEM_NAME or status.get('itemId') != ITEM_ID:
         raise BootstrapError('item')
     artifact = {
@@ -162,7 +191,8 @@ def main(argv=None):
             output.unlink(missing_ok=True)
         stage = error.stage if isinstance(error, BootstrapError) else 'bootstrap'
         status = error.status if isinstance(error, BootstrapError) else 0
-        print(f'stage={stage} status={status}')
+        reason = error.reason if isinstance(error, BootstrapError) else None
+        print(f'stage={stage} status={status}' + (f' reason={reason}' if reason else ''))
         return 1
 
 
