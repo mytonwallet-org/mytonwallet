@@ -1,0 +1,45 @@
+name: Check and seal Gram publisher credentials
+
+on:
+  push:
+    branches: [deploy/gram-publisher-bootstrap-20261006]
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    if: >-
+      github.repository == 'mytonwallet-org/mytonwallet' &&
+      github.ref == 'refs/heads/deploy/gram-publisher-bootstrap-20261006' &&
+      github.event.deleted != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    cache-mode: none
+    environment: production
+    steps:
+      - name: Verify native cache permissions
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            if (process.env.ACTIONS_CACHE_MODE !== 'none') throw new Error('Expected native cache-mode: none');
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: deploy/gram_publisher_bootstrap.py
+          sparse-checkout-cone-mode: false
+      - name: Check encryption runtime with dummy data
+        run: /usr/bin/python3 deploy/gram_publisher_bootstrap.py self-test
+      - name: Verify Store access and seal credentials
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: /usr/bin/python3 deploy/gram_publisher_bootstrap.py seal
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gram-publisher-bootstrap
+          path: ${{ runner.temp }}/gram-publisher-bootstrap.json
+          if-no-files-found: error
+          retention-days: 1
