@@ -381,7 +381,18 @@ abstract class BaseTabsVC(context: Context) :
             is WalletEvent.OpenToken -> {
                 val account = AccountStore.activeAccount ?: return true
                 val token = TokenStore.getToken(walletEvent.slug) ?: return true
-                val navigationController = mainNavigationController ?: return true
+                val navigationController = if (window.topViewController === this) {
+                    mainNavigationController
+                } else {
+                    window.topNavigationController
+                } ?: return true
+                val topViewController = navigationController.viewControllers.lastOrNull()
+                if (topViewController is TokenVC &&
+                    topViewController.token.slug == token.slug &&
+                    topViewController.displayedAccount.accountId == account.accountId
+                ) {
+                    return true
+                }
                 navigationController.push(
                     TokenVC(
                         context,

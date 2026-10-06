@@ -49,12 +49,12 @@ class SwapContractTest {
     }
 
     @Test
-    fun completedCexRefreshAcceptsNullHashes() {
+    fun completedCexRefreshDefaultsMissingHashesToEmptyList() {
         val swapJson = """
             {
               "id": "swap-id:backend-swap", "kind": "swap", "timestamp": 1,
               "from": "ltc", "to": "usdtbsc", "fromAmount": "1", "toAmount": "100",
-              "status": "completed", "hashes": null, "transactionIds": {},
+              "status": "completed", "transactionIds": {},
               "cex": {
                 "payinAddress": "payin", "payoutAddress": "payout",
                 "status": "finished", "transactionId": "provider-id"
@@ -77,7 +77,7 @@ class SwapContractTest {
         val swap = result.swaps.single()
         assertEquals(ApiSwapStatus.COMPLETED, swap.status)
         assertEquals(MApiSwapCexTransactionStatus.FINISHED, swap.cex?.status)
-        assertNull(swap.hashes)
+        assertEquals(emptyList<String>(), swap.hashes)
         assertEquals(swap, requireNotNull(result.patch).upsert.single())
         assertEquals("swap-id", swap.getTxIdentifier())
         assertEquals(false, swap.isChanged(swap.copy(hashes = emptyList())))
