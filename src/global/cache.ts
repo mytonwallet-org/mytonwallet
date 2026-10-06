@@ -49,7 +49,7 @@ const ACTIVITY_TOKENS_LIMIT = 30;
 const STAKING_HISTORY_LIMIT = 30;
 
 const updateCacheThrottled = throttle(() => onFullyIdle(() => updateCache()), UPDATE_THROTTLE, false);
-const updateCacheForced = () => updateCache(true);
+export const persistCache = () => updateCache(true);
 
 let isCaching = false;
 let unsubscribeFromBeforeUnload: NoneToVoidFunction | undefined;
@@ -81,16 +81,16 @@ function setupCaching() {
   isCaching = true;
 
   addCallback(updateCacheThrottled);
-  unsubscribeFromBeforeUnload = onBeforeUnload(updateCacheForced, true);
-  window.addEventListener('blur', updateCacheForced);
+  unsubscribeFromBeforeUnload = onBeforeUnload(persistCache, true);
+  window.addEventListener('blur', persistCache);
 
-  updateCacheForced();
+  persistCache();
 }
 
 function clearCaching() {
   if (!isCaching) return;
 
-  window.removeEventListener('blur', updateCacheForced);
+  window.removeEventListener('blur', persistCache);
   unsubscribeFromBeforeUnload?.();
   removeCallback(updateCacheThrottled);
 
@@ -723,6 +723,9 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
     clearActivities();
     cached.stateVersion = 64;
   }
+  if (cached.stateVersion === 64) {
+    cached.stateVersion = 65;
+  }
   // When adding migration here, increase `STATE_VERSION`
 }
 
@@ -797,8 +800,8 @@ function getAccountTokenSlugs(global: GlobalState, accountId: string) {
 }
 
 function updateCache(force?: boolean) {
-  if (GLOBAL_STATE_CACHE_DISABLED || !isCaching || (!force && getIsHeavyAnimating())) {
-    return;
+  if (GLOBAL_STATE_CACHE_DISABLED || (!force && (!isCaching || getIsHeavyAnimating()))) {
+    return false;
   }
 
   const global = getGlobalWithoutTemporaryAccount();
@@ -821,6 +824,7 @@ function updateCache(force?: boolean) {
       'currencyRates',
       'accountSelectorViewMode',
       'seasonalTheme',
+      'isLegacyCoreMigrationCompleted',
     ]),
     accounts: {
       byId: accountsById,
@@ -841,6 +845,7 @@ function updateCache(force?: boolean) {
 
   const json = JSON.stringify(reducedGlobal);
   localStorage.setItem(GLOBAL_STATE_CACHE_KEY, json);
+  return true;
 }
 
 function getGlobalWithoutTemporaryAccount(): GlobalState {

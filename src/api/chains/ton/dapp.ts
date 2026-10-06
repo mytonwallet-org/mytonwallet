@@ -7,6 +7,7 @@ import type { TonTransferParams } from './types';
 import { ApiCommonError } from '../../types';
 
 import { getSigner } from './util/signer';
+import { toRawAddress } from './util/tonCore';
 import { fetchStoredChainAccount } from '../../common/accounts';
 import { fetchStoredWallet } from '../../common/accounts';
 import { createMfaRequest } from '../../common/mfa';
@@ -104,7 +105,7 @@ export async function signDappData(
     chain: 'ton',
     result: {
       signature: signature.toString('base64'),
-      address: account.byChain.ton.address,
+      address: toRawAddress(account.byChain.ton.address),
       timestamp,
       domain,
       payload: payloadToSign,

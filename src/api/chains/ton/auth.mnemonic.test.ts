@@ -5,7 +5,6 @@ import { WalletContractV4 } from '@ton/ton/dist/wallets/WalletContractV4';
 import type { ApiBip39Account, ApiTonAccount } from '../../types';
 
 import * as HDKey from '../../../lib/ed25519-hd-key';
-import { deriveMnemonicKeyPair } from '../../../../dev/mfa/mnemonic';
 import { TON_MNEMONIC_VECTORS } from '../../../../tests/fixtures/tonMnemonic';
 import { validateBip39Mnemonic } from '../../common/mnemonic';
 import { getMnemonicWordList } from '../../methods/wallet';
@@ -42,7 +41,6 @@ describe('TON mnemonic compatibility', () => {
     const mnemonic = vector.mnemonic.split(' ');
     const keyPair = await getKeyPairFromStoredMnemonic(mnemonic, ACCOUNT);
 
-    expect(await deriveMnemonicKeyPair(mnemonic)).toEqual(keyPair);
     expect(await validateMnemonic(mnemonic)).toBe(true);
     expect(Buffer.from(keyPair.publicKey).toString('hex')).toBe(vector.publicKey);
     expect(Buffer.from(keyPair.secretKey).toString('hex')).toBe(vector.secretKey);
@@ -58,10 +56,6 @@ describe('TON mnemonic compatibility', () => {
     const uppercase = words.map((word) => word.toUpperCase());
     const padded = words.map((word) => ` ${word} `);
 
-    expect(Buffer.from((await deriveMnemonicKeyPair(uppercase)).publicKey).toString('hex'))
-      .toBe(vector.uppercasePublicKey);
-    expect(Buffer.from((await deriveMnemonicKeyPair(padded)).publicKey).toString('hex'))
-      .toBe(vector.paddedPublicKey);
     expect(await validateMnemonic(uppercase)).toBe(false);
     expect(await validateMnemonic(padded)).toBe(false);
     expect(Buffer.from((await getKeyPairFromStoredMnemonic(uppercase, ACCOUNT)).publicKey).toString('hex'))

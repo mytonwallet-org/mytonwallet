@@ -8,6 +8,7 @@ import { recognizeDappMethod } from '../../types/methods';
 
 import { CONTENT_SCRIPT_PORT, PAGE_CONNECTOR_CHANNEL } from './config';
 import { createExtensionInterface } from '../../../util/createPostMessageInterface';
+import { isStorageMigrationReady } from '../../common/storageReadiness';
 import { getProtocolManager } from '../../dappProtocols';
 import * as siteApi from '../../extensionMethods/sites';
 
@@ -43,7 +44,7 @@ const ALLOWED_METHODS = new Set([
   'walletConnect_proxyEvmRpc',
 ]);
 
-createExtensionInterface(CONTENT_SCRIPT_PORT, (
+createExtensionInterface(CONTENT_SCRIPT_PORT, async (
   name: string, origin?: string, ...args: any[]
 ) => {
   if (name === 'init') {
@@ -57,6 +58,10 @@ createExtensionInterface(CONTENT_SCRIPT_PORT, (
   const parsedRequest = recognizeDappMethod(name);
 
   if (parsedRequest.isDapp) {
+    if (!await isStorageMigrationReady()) {
+      throw new Error('Open your wallet to finish updating it, then reconnect.');
+    }
+
     const adapter = getProtocolManager().getAdapter(parsedRequest.protocolType);
     if (!adapter) {
       return buildDappAdapterErrorResult();

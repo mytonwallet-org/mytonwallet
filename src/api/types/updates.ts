@@ -130,6 +130,17 @@ export type ApiUpdateShowError = {
   error?: ApiAnyDisplayError | string;
 };
 
+export type ApiUpdateMigrateLegacyCoreApplication = {
+  type: 'migrateLegacyCoreApplication';
+  accounts: Array<{ accountId: string; address: string }>;
+  currentAccountId: string;
+};
+
+export type ApiUpdateLegacyCoreMigrationReady = {
+  type: 'legacyCoreMigrationReady';
+  accountId: string;
+};
+
 export type ApiUpdateStaking = {
   type: 'updateStaking';
   accountId: string;
@@ -506,6 +517,8 @@ export type ApiUpdate =
   | ApiUpdatePrepareTransaction
   | ApiUpdateProcessDeeplink
   | ApiUpdateShowError
+  | ApiUpdateMigrateLegacyCoreApplication
+  | ApiUpdateLegacyCoreMigrationReady
   | ApiUpdateNfts
   | ApiNftUpdate
   | ApiUpdateAccount

@@ -1,12 +1,13 @@
-import { DEFAULT_PRICE_CURRENCY, IS_AIR_APP, IS_EXTENSION } from '../../../config';
+import { DEFAULT_PRICE_CURRENCY, IS_AIR_APP, IS_EXTENSION, IS_GRAM_WALLET } from '../../../config';
 import { getAgentOverride } from '../../../util/agent/agentProtocolVersion';
 import { captureBrowserAttribution } from '../../../util/installAttribution';
+import { mapValues } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
 import { IS_ELECTRON, IS_WEB } from '../../../util/windowEnvironment';
 import { callApi, initApi } from '../../../api';
 import { removeTemporaryAccount } from '../../helpers/auth';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
-import { selectNewestActivityTimestamps } from '../../selectors';
+import { selectAccount, selectCurrentAccountId, selectNewestActivityTimestamps } from '../../selectors';
 
 addActionHandler('initApi', async (global, actions) => {
   logDebug('initApi action called');
@@ -24,6 +25,19 @@ addActionHandler('initApi', async (global, actions) => {
       ? captureBrowserAttribution()
       : { channel: new URLSearchParams(window.location.search).get('utm_source') ?? undefined }),
     accountIds,
+  }, () => {
+    const currentGlobal = getGlobal();
+    const accountId = selectCurrentAccountId(currentGlobal);
+    const account = accountId ? selectAccount(currentGlobal, accountId) : undefined;
+    return {
+      current: accountId && account ? {
+        accountId,
+        type: account.type,
+        addressByChain: mapValues(account.byChain, (wallet) => wallet.address),
+        newestActivityTimestamps: selectNewestActivityTimestamps(currentGlobal, accountId),
+      } : undefined,
+      isLegacyCoreMigrationCompleted: currentGlobal.isLegacyCoreMigrationCompleted,
+    };
   });
 
   // The repair clears broken auth tokens, the detection below flags accounts missing one.
@@ -75,7 +89,7 @@ addActionHandler('initApi', async (global, actions) => {
 
   const { currentAccountId } = global;
 
-  if (!currentAccountId) return;
+  if (!currentAccountId || (IS_EXTENSION && IS_GRAM_WALLET)) return;
 
   const newestActivityTimestamps = selectNewestActivityTimestamps(global, currentAccountId);
 

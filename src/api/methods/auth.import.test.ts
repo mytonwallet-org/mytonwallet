@@ -4,10 +4,15 @@ import nacl from 'tweetnacl';
 
 import { ApiCommonError, ApiTransactionError } from '../types';
 
+import { getCurrentAccountId } from '../common/accounts';
+import { getEnvironment } from '../environment';
 import { ApiServerError } from '../errors';
-import { activateAccount } from './accounts';
+import { activateAccount, deactivateAllAccounts } from './accounts';
 import { resetAgentV2 } from './agentV2Lifecycle';
-import { importMnemonic, resetAccounts } from './auth';
+import {
+  importMnemonic, removeAccount, removeNetworkAccounts, resetAccounts,
+} from './auth';
+import { removeAccountDapps, removeAllDapps, removeNetworkDapps } from './dapps';
 import { isBackendAuthTokenValid } from './other';
 
 jest.mock('../chains', () => ({
@@ -64,8 +69,9 @@ jest.mock('../common/accounts', () => ({
   fetchStoredAccount: jest.fn(),
   fetchStoredAccounts: jest.fn(),
   fetchStoredChainAccount: jest.fn(),
-  removeAccountValue: jest.fn(),
-  removeNetworkAccountsValue: jest.fn(),
+  getCurrentAccountId: jest.fn(),
+  removeAccountValue: jest.fn().mockResolvedValue(undefined),
+  removeNetworkAccountsValue: jest.fn().mockResolvedValue(undefined),
   updateStoredAccount: jest.fn(),
   updateStoredWallet: jest.fn(),
 }));
@@ -85,12 +91,17 @@ jest.mock('./polling', () => ({
 jest.mock('../common/tokens', () => ({ sendUpdateTokens: jest.fn() }));
 jest.mock('../db', () => ({ tokenRepository: { clear: jest.fn() } }));
 jest.mock('../environment', () => ({ getEnvironment: jest.fn().mockReturnValue({}) }));
+jest.mock('./dapps', () => ({
+  removeAccountDapps: jest.fn(),
+  removeAllDapps: jest.fn(),
+  removeNetworkDapps: jest.fn(),
+}));
 jest.mock('../storages', () => ({
   storage: {
     getItem: jest.fn(),
     setItem: jest.fn(),
     mutateItem: jest.fn(),
-    removeItem: jest.fn(),
+    removeItem: jest.fn().mockResolvedValue(undefined),
   },
 }));
 jest.mock('./agentV2Lifecycle', () => ({ resetAgentV2: jest.fn() }));
@@ -117,7 +128,6 @@ const { setAccountValue, getNewAccountId } = require('../common/accounts') as {
   setAccountValue: jest.Mock;
   getNewAccountId: jest.Mock;
 };
-
 // A phrase that validates as both a TON-native and a BIP39 mnemonic (~1/256): the only tiebreaker between the two
 // derivations, which yield different addresses, is whether the TON derivation has on-chain history.
 const DUAL_VALID = ['dual', 'valid', 'phrase'];
@@ -417,5 +427,46 @@ describe('resetAccounts', () => {
     }
 
     expect(resetAgentV2).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('removeNetworkAccounts', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(getEnvironment).mockReturnValue({ isDappSupported: true } as ReturnType<typeof getEnvironment>);
+  });
+
+  it('removes only the requested network permissions without deactivating another network', async () => {
+    jest.mocked(getCurrentAccountId).mockResolvedValue('0-ton-mainnet');
+
+    await removeNetworkAccounts('testnet');
+
+    expect(deactivateAllAccounts).not.toHaveBeenCalled();
+    expect(removeNetworkDapps).toHaveBeenCalledWith('testnet');
+  });
+
+  it('deactivates when the active account belongs to the removed network', async () => {
+    jest.mocked(getCurrentAccountId).mockResolvedValue('0-ton-testnet');
+
+    await removeNetworkAccounts('testnet');
+
+    expect(deactivateAllAccounts).toHaveBeenCalledTimes(1);
+    expect(removeNetworkDapps).toHaveBeenCalledWith('testnet');
+  });
+
+  it('keeps full permission deletion owned by full account reset', async () => {
+    await resetAccounts();
+
+    expect(deactivateAllAccounts).toHaveBeenCalledTimes(1);
+    expect(removeAllDapps).toHaveBeenCalledTimes(1);
+    expect(removeNetworkDapps).not.toHaveBeenCalled();
+  });
+
+  it('keeps single-account permission deletion scoped to that account', async () => {
+    await removeAccount('0-ton-mainnet', undefined);
+
+    expect(removeAccountDapps).toHaveBeenCalledWith('0-ton-mainnet');
+    expect(removeAllDapps).not.toHaveBeenCalled();
+    expect(removeNetworkDapps).not.toHaveBeenCalled();
   });
 });

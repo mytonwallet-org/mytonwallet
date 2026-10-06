@@ -20,7 +20,7 @@ import type {
 } from '../../api/dappProtocols/types';
 import type { Connector } from '../../util/PostMessageConnector';
 
-import { TONCONNECT_PROTOCOL_VERSION, TONCONNECT_WALLET_JSBRIDGE_KEY } from '../../config';
+import { IS_GRAM_WALLET, TONCONNECT_PROTOCOL_VERSION, TONCONNECT_WALLET_JSBRIDGE_KEY } from '../../config';
 import { trackJsBridgeMethod } from '../../util/embeddedDappBridge/jsBridgeAnalytics';
 import { isPortDisconnectedError } from '../../util/isPortDisconnectedError';
 import { tonConnectGetDeviceInfo } from '../../util/tonConnectEnvironment';
@@ -32,6 +32,9 @@ declare global {
       tonconnect: TonConnect;
     };
     gramwallet: {
+      tonconnect: TonConnect;
+    };
+    tonwallet: {
       tonconnect: TonConnect;
     };
   }
@@ -263,10 +266,10 @@ class TonConnect implements ExtensionTonConnectBridge {
 
 export function initTonConnect(apiConnector: Connector) {
   const tonConnect = new TonConnect(apiConnector);
+  const bridge = { tonconnect: tonConnect };
 
-  window[TONCONNECT_WALLET_JSBRIDGE_KEY] = {
-    tonconnect: tonConnect,
-  };
+  window[TONCONNECT_WALLET_JSBRIDGE_KEY] = bridge;
+  if (IS_GRAM_WALLET) window.tonwallet = bridge;
 
   return tonConnect;
 }

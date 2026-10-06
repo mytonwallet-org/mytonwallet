@@ -20,7 +20,7 @@ import { getChainConfig, getOrderedAccountChains } from '../../util/chain';
 import { omit } from '../../util/iteratees';
 import { logDebugError } from '../../util/logs';
 import { OrGate } from '../../util/orGate';
-import { forbidConcurrency, throttle } from '../../util/schedulers';
+import { createTaskQueue, throttle } from '../../util/schedulers';
 import { getNativeToken } from '../../util/tokens';
 import chains from '../chains';
 import {
@@ -28,6 +28,7 @@ import {
   fetchMaybeStoredAccount,
   fetchStoredAccount,
   fetchStoredAccounts,
+  getCurrentAccountId,
 } from '../common/accounts';
 import { tryUpdateKnownAddresses } from '../common/addresses';
 import { callBackendGet, callBackendPost } from '../common/backend';
@@ -75,6 +76,7 @@ let stopCommonBackendPolling: NoneToVoidFunction | undefined;
 let stopActiveAccountPolling: NoneToVoidFunction | undefined;
 let activeAccountConfigPolling: ReturnType<typeof setupAccountConfigPolling> | undefined;
 let configUpdateGeneration = 0;
+let activeAccountPollingGeneration = 0;
 const inactiveAccountPolling = createInactiveAccountsPollingManager();
 const setUpdatingStatus = createUpdatingStatusManager();
 
@@ -110,8 +112,8 @@ export async function destroyPolling() {
   configUpdateGeneration += 1;
   stopCommonBackendPolling?.();
   stopCommonBackendPolling = undefined;
-  removeAllPollingAccounts();
-  await setActivePollingAccount(undefined, {});
+  const didDeactivate = await setActivePollingAccount(undefined, {});
+  if (didDeactivate) forgetAllHeldTokens();
 }
 
 function setupCommonBackendPolling() {
@@ -290,79 +292,113 @@ export async function setActivePollingAccount(
   newestActivityTimestamps: ApiActivityTimestamps,
   shouldResetBalances?: boolean,
 ) {
+  const generation = ++activeAccountPollingGeneration;
+  stopActivePolling();
+
+  if (!accountId) {
+    await inactiveAccountPolling?.setActiveAccount(undefined);
+    return generation === activeAccountPollingGeneration;
+  }
+
+  const account = await fetchStoredAccount(accountId);
+  if (generation !== activeAccountPollingGeneration) return false;
+  setupActivePolling(accountId, account, newestActivityTimestamps, shouldResetBalances);
+  await inactiveAccountPolling?.setActiveAccount(accountId);
+  return generation === activeAccountPollingGeneration;
+}
+
+export async function resumeCurrentAccountPollingAfterWorkerStart() {
+  const generation = ++activeAccountPollingGeneration;
+  stopActivePolling();
+
+  const accountId = await getCurrentAccountId();
+  if (generation !== activeAccountPollingGeneration) return false;
+  if (!accountId) return undefined;
+
+  const account = await fetchMaybeStoredAccount(accountId);
+  if (generation !== activeAccountPollingGeneration) return false;
+  if (!account) return undefined;
+
+  setupActivePolling(accountId, account, {});
+  await inactiveAccountPolling?.setActiveAccount(accountId);
+  return generation === activeAccountPollingGeneration;
+}
+
+function stopActivePolling() {
   stopActiveAccountPolling?.();
   stopActiveAccountPolling = undefined;
   activeAccountConfigPolling = undefined;
+}
 
-  if (accountId) {
-    const account = await fetchStoredAccount(accountId);
-    const accountChains = getOrderedAccountChains(account.byChain);
+function setupActivePolling(
+  accountId: string,
+  account: ApiAccountAny,
+  newestActivityTimestamps: ApiActivityTimestamps,
+  shouldResetBalances?: boolean,
+) {
+  const accountChains = getOrderedAccountChains(account.byChain);
 
-    // These accounts have no NFT polling to finish the initial loading state.
-    if (!accountChains.some((chain) => getChainConfig(chain).isNftSupported)) {
-      for (const chain of accountChains) {
-        onUpdate({
-          type: 'updateNfts',
-          accountId,
-          chain,
-          nfts: [],
-        });
-      }
+  // These accounts have no NFT polling to finish the initial loading state.
+  if (!accountChains.some((chain) => getChainConfig(chain).isNftSupported)) {
+    for (const chain of accountChains) {
+      onUpdate({
+        type: 'updateNfts',
+        accountId,
+        chain,
+        nfts: [],
+      });
     }
-
-    activeAccountConfigPolling = canPollAccountConfig(account)
-      ? setupAccountConfigPolling(accountId, account)
-      : undefined;
-
-    const stopPollingFns = [
-      activeAccountConfigPolling?.stop,
-      !NO_EXTRA_FEATURES && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
-
-      ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
-        if (doesAccountHaveChain(account, chain)) {
-          return chains[chain].setupActivePolling(
-            accountId,
-            account,
-            onUpdate,
-            setUpdatingStatus.bind(undefined, accountId, chain),
-            pickChainTimestamps(newestActivityTimestamps, chain),
-            shouldResetBalances,
-          );
-        }
-      }),
-    ];
-
-    stopActiveAccountPolling = () => {
-      for (const stopFn of stopPollingFns) {
-        stopFn?.();
-      }
-    };
   }
 
-  // Setting up inactive account polling at the end in order to give the active account polling a higher priority in the connection queue
-  inactiveAccountPolling?.setActiveAccount(accountId);
+  activeAccountConfigPolling = canPollAccountConfig(account)
+    ? setupAccountConfigPolling(accountId, account)
+    : undefined;
+
+  const stopPollingFns = [
+    activeAccountConfigPolling?.stop,
+    !NO_EXTRA_FEATURES && doesAccountHaveChain(account, 'ton') ? setupMfaPolling(accountId).stop : undefined,
+
+    ...(Object.keys(chains) as (keyof typeof chains)[]).map((chain) => {
+      if (doesAccountHaveChain(account, chain)) {
+        return chains[chain].setupActivePolling(
+          accountId,
+          account,
+          onUpdate,
+          setUpdatingStatus.bind(undefined, accountId, chain),
+          pickChainTimestamps(newestActivityTimestamps, chain),
+          shouldResetBalances,
+        );
+      }
+    }),
+  ];
+
+  stopActiveAccountPolling = () => {
+    for (const stopFn of stopPollingFns) {
+      stopFn?.();
+    }
+  };
 }
 
 /** Call it every time a new account is created */
 export function addPollingAccount(accountId: string, account: ApiAccountAny) {
-  inactiveAccountPolling?.addAccount(accountId, account);
+  void inactiveAccountPolling?.addAccount(accountId, account);
 }
 
 /** Call it every time an account is removed (except for cases in the other remove...account functions) */
-export function removePollingAccount(accountId: string) {
-  inactiveAccountPolling?.removeAccount(accountId);
+export async function removePollingAccount(accountId: string) {
+  await inactiveAccountPolling.removeAccount(accountId);
   forgetHeldTokens(accountId);
 }
 
 /** Call it every time all accounts of a network are removed */
-export function removeNetworkPollingAccounts(network: ApiNetwork) {
-  inactiveAccountPolling?.removeNetworkAccounts(network);
+export async function removeNetworkPollingAccounts(network: ApiNetwork) {
+  await inactiveAccountPolling.removeNetworkAccounts(network);
   forgetNetworkHeldTokens(network);
 }
 
 /** Call it every time all accounts are removed */
-export function removeAllPollingAccounts() {
-  inactiveAccountPolling?.removeAllAccounts();
+export async function removeAllPollingAccounts() {
+  await inactiveAccountPolling.removeAllAccounts();
   forgetAllHeldTokens();
 }
 
@@ -460,6 +496,7 @@ function createUpdatingStatusManager() {
  * @todo: Deduplicate polling the same addresses, if multiple accounts have it
  */
 function createInactiveAccountsPollingManager() {
+  const mutations = createTaskQueue(1);
   const stopByAccount: Record<string, NoneToVoidFunction> = {};
   let activeAccountId: string | undefined;
 
@@ -556,17 +593,15 @@ function createInactiveAccountsPollingManager() {
       stopAccountPolling();
       delete stopByAccount[accountId];
     }
+    activeAccountId = undefined;
   }
 
-  const preventRaceCondition = forbidConcurrency as
-    <Args extends unknown[]>(task: (...args: Args) => unknown) => (...args: Args) => void;
-
   return {
-    setActiveAccount: preventRaceCondition(setActiveAccount),
-    addAccount: preventRaceCondition(addAccount),
-    removeAccount: preventRaceCondition(removeAccount),
-    removeNetworkAccounts: preventRaceCondition(removeNetworkAccounts),
-    removeAllAccounts: preventRaceCondition(removeAllAccounts),
+    setActiveAccount: mutations.wrap(setActiveAccount),
+    addAccount: mutations.wrap(addAccount),
+    removeAccount: mutations.wrap(removeAccount),
+    removeNetworkAccounts: mutations.wrap(removeNetworkAccounts),
+    removeAllAccounts: mutations.wrap(removeAllAccounts),
   };
 }
 

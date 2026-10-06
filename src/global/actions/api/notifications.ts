@@ -14,8 +14,8 @@ import { isErrorTransferResult } from '../../helpers/transfer';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   createNotificationAccount,
-  deleteAllNotificationAccounts,
   deleteNotificationAccount,
+  deleteNotificationAccounts,
 } from '../../reducers/notifications';
 import { selectAccounts } from '../../selectors';
 import { selectNotificationAddressesSlow } from '../../selectors/notifications';
@@ -202,7 +202,7 @@ addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) =
     }
   } else {
     notificationAccounts = selectNotificationAddressesSlow(global, enabledAccounts);
-    global = deleteAllNotificationAccounts(global);
+    global = deleteNotificationAccounts(global, enabledAccounts);
   }
 
   setGlobal(global);
@@ -229,7 +229,7 @@ addActionHandler('toggleNotifications', async (global, actions, { isEnabled }) =
   if (!result || !('ok' in result)) {
     // Unsuccessful - reverting the enabled account addition/deletion
     if (isEnabled) {
-      global = deleteAllNotificationAccounts(global);
+      global = deleteNotificationAccounts(global, Object.keys(notificationAccounts));
     } else {
       for (const accountId of Object.keys(notificationAccounts)) {
         global = createNotificationAccount(global, accountId);

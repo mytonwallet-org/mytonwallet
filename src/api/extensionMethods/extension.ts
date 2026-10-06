@@ -50,10 +50,6 @@ export async function initExtension() {
   doDeeplinkHook(isDeeplinkHookEnabled);
 }
 
-export function onFullLogout() {
-  return storage.removeItem('dapps');
-}
-
 export function doProxy(isEnabled: boolean) {
   if (!PROXY_HOSTS) {
     return;

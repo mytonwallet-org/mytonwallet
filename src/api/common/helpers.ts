@@ -1,6 +1,6 @@
 import type { StoredDappsState } from '../dappProtocols/storage';
 import type { ApiDbSseConnection } from '../db';
-import type { StorageKey } from '../storages/types';
+import type { Storage, StorageKey } from '../storages/types';
 import type {
   ApiActivity,
   ApiLocalTransactionParams,
@@ -9,7 +9,7 @@ import type {
   OnApiUpdate,
 } from '../types';
 
-import { IS_AIR_APP, IS_EXTENSION, MAIN_ACCOUNT_ID } from '../../config';
+import { IS_AIR_APP, IS_EXTENSION, IS_GRAM_WALLET, MAIN_ACCOUNT_ID } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { buildLocalTxId } from '../../util/activities';
 import { areDeepEqual } from '../../util/areDeepEqual';
@@ -17,7 +17,7 @@ import { assert } from '../../util/assert';
 import { logDebugError } from '../../util/logs';
 import { getEnvironment } from '../environment';
 import * as migrations from '../migrations';
-import { storage } from '../storages';
+import { getCurrentStorage, storage } from '../storages';
 import airStorage from '../storages/airStorage';
 import idbStorage from '../storages/idb';
 import {
@@ -29,7 +29,7 @@ import {
 import { purgeCoreTwins } from './coreTwins';
 import { hexToBytes } from './utils';
 
-const actualStateVersion = 23;
+export const actualStateVersion = 23;
 
 export function buildLocalTransaction(
   params: ApiLocalTransactionParams,
@@ -82,6 +82,7 @@ export function updateActivityMetadata<T extends ApiActivity>(activity: T): T {
 }
 
 let currentOnUpdate: OnApiUpdate | undefined;
+const migrationPromises = new WeakMap<Storage, Promise<void>>();
 
 export function connectUpdater(onUpdate: OnApiUpdate) {
   currentOnUpdate = onUpdate;
@@ -95,26 +96,56 @@ export function isUpdaterAlive(onUpdate: OnApiUpdate) {
   return currentOnUpdate === onUpdate;
 }
 
+export async function runStorageMigration<T>(operation: () => Promise<T>): Promise<T> {
+  const storageInstance = getCurrentStorage();
+  const previous = migrationPromises.get(storageInstance) ?? Promise.resolve();
+  const operationPromise = previous.then(operation);
+  const settledPromise = operationPromise.then(() => undefined, () => undefined);
+  migrationPromises.set(storageInstance, settledPromise);
+
+  try {
+    return await operationPromise;
+  } finally {
+    if (migrationPromises.get(storageInstance) === settledPromise) {
+      migrationPromises.delete(storageInstance);
+    }
+  }
+}
+
 export async function tryMigrateStorage(onUpdate: OnApiUpdate, accountIds?: string[]) {
   try {
-    const result = await migrateStorage(onUpdate, accountIds);
-    // Not a state migration: runs on EVERY boot (including when the version is already current) and self-gates
-    // by build flavor and its own storage marker. See `coreTwins.ts` for why it must not ride stateVersion.
-    await purgeCoreTwins(onUpdate);
-    return result;
+    await runStorageMigration(async () => {
+      await migrateStorage(onUpdate, accountIds);
+      await purgeCoreTwins(onUpdate);
+    });
   } catch (err) {
     logDebugError('Migration error', err);
     onUpdate?.({
       type: 'showError',
       error: 'Migration error',
     });
+    if (IS_EXTENSION && IS_GRAM_WALLET) {
+      throw err;
+    }
   }
 }
 
 export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[]) {
   let version = Number(await storage.getItem('stateVersion', true));
+  const hasLegacyCoreStorage = IS_EXTENSION && IS_GRAM_WALLET
+    && await migrations.legacyCore.hasLegacyCoreStorage();
+  const hasConvertedLegacyCoreAccounts = hasLegacyCoreStorage
+    && await storage.getItem('legacyCoreAccountsConverted') === true;
+  const isVersionedLegacyCoreStorage = hasLegacyCoreStorage && !hasConvertedLegacyCoreAccounts
+    && version > 0 && version <= actualStateVersion;
+  if (isVersionedLegacyCoreStorage) {
+    await migrations.legacyCore.classifyVersionedLegacyCoreStorage();
+  }
+  const shouldCheckLegacyCore = hasLegacyCoreStorage
+    && !isVersionedLegacyCoreStorage
+    && (hasConvertedLegacyCoreAccounts || !version || version === actualStateVersion);
 
-  if (version === actualStateVersion) {
+  if (version === actualStateVersion && !shouldCheckLegacyCore) {
     return;
   }
 
@@ -127,6 +158,15 @@ export async function migrateStorage(onUpdate: OnApiUpdate, accountIds?: string[
   const { toBase64Address } = (process.env.NO_TON !== '1'
     ? await import('../chains/ton/util/tonCore')
     : {}) as typeof import('../chains/ton/util/tonCore');
+
+  if (shouldCheckLegacyCore) {
+    await migrations.legacyCore.startLegacyCoreMigration(onUpdate);
+    if (!version) {
+      await storage.setItem('stateVersion', actualStateVersion);
+      return;
+    }
+    if (version === actualStateVersion) return;
+  }
 
   if (IS_AIR_APP && !version) {
     if (await storage.getItem('accounts' as StorageKey, true)) {

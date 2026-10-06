@@ -4,7 +4,6 @@ import { logDebugError } from '../util/logs';
 
 interface Hooks {
   onFirstLogin: AnyFunction;
-  onFullLogout: AnyFunction;
   onWindowNeeded: AnyFunction;
   onDappDisconnected: (accountId: string, dapp: StoredDappConnection) => any;
   onDappsChanged: () => any;

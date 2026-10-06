@@ -1,5 +1,6 @@
 import type { ApiLiquidStakingState, ApiNft, ApiStakingState } from '../../../api/types';
-import type { AccountChain } from '../../types';
+import type { AccountChain, GlobalState } from '../../types';
+import { AppState } from '../../types';
 
 import {
   DEFAULT_STAKING_STATE,
@@ -16,6 +17,7 @@ import { buildCollectionByKey, omitUndefined, unique } from '../../../util/itera
 import { openUrl } from '../../../util/openUrl';
 import { normalizeAllowedOnOffRampCurrencies } from '../../../util/rampCurrencies';
 import { getIsActiveStakingState } from '../../../util/staking';
+import { persistCache } from '../../cache';
 import { omitAccounts } from '../../helpers/auth';
 import { pinMwCardsFirst } from '../../helpers/nfts';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
@@ -23,6 +25,7 @@ import {
   addUnorderedNfts,
   applyIncomingNftFromActivity,
   applyOutgoingNftFromActivity,
+  createAccount,
   removeNft,
   updateAccount,
   updateAccountChain,
@@ -33,8 +36,10 @@ import {
   updateAccountState,
   updateBalances,
   updateCurrencyRates,
+  updateCurrentAccountId,
   updateNft,
   updateRestrictions,
+  updateSettings,
   updateStakingDefault,
   updateSwapTokens,
   updateTokens,
@@ -52,6 +57,7 @@ import {
 // Accumulates new My Wallet Cards across multi-batch streaming rounds.
 // Drained on the round's final batch when `streamedAddresses` is present.
 const pendingNewMwCardsByAccount = new Map<string, ApiNft[]>();
+let pendingLegacySignIn: { accountId: string; address: string; auth: GlobalState['auth'] } | undefined;
 
 addActionHandler('apiUpdate', (global, actions, update) => {
   switch (update.type) {
@@ -524,6 +530,68 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         if (survivorId) {
           actions.switchAccount({ accountId: survivorId, newNetwork: parseAccountId(survivorId).network });
         }
+      }
+      break;
+    }
+
+    case 'legacyCoreMigrationReady': {
+      const pending = pendingLegacySignIn;
+      pendingLegacySignIn = undefined;
+      const account = selectAccount(global, update.accountId);
+      if (pending?.accountId === update.accountId && global.currentAccountId === update.accountId
+        && global.appState === AppState.Auth && global.auth === pending.auth
+        && global.isLegacyCoreMigrationCompleted && account?.type === 'mnemonic'
+        && account.byChain.ton?.address === pending.address) {
+        actions.afterSignIn();
+      }
+      break;
+    }
+
+    case 'migrateLegacyCoreApplication': {
+      if (global.isLegacyCoreMigrationCompleted) {
+        break;
+      }
+
+      const hasConflict = update.accounts.some(({ accountId, address }) => {
+        const existing = selectAccount(global, accountId);
+        return existing && (existing.type !== 'mnemonic' || existing.byChain.ton?.address !== address);
+      });
+      if (hasConflict) {
+        pendingLegacySignIn = undefined;
+        actions.showError({ error: 'Migration error' });
+        break;
+      }
+
+      for (const { accountId, address } of update.accounts) {
+        if (!selectAccount(global, accountId)) {
+          global = createAccount({
+            global,
+            accountId,
+            type: 'mnemonic',
+            byChain: { ton: { address } },
+            network: parseAccountId(accountId).network,
+          });
+        }
+      }
+      const hasSelectedAccount = update.accounts.some(({ accountId }) => accountId === global.currentAccountId);
+      const accountId = hasSelectedAccount ? global.currentAccountId! : update.currentAccountId;
+      if (!hasSelectedAccount && global.appState === AppState.Auth) {
+        pendingLegacySignIn = {
+          accountId, address: selectAccount(global, accountId)!.byChain.ton!.address, auth: global.auth,
+        };
+      }
+      global = updateCurrentAccountId(global, accountId);
+      global = updateSettings(global, { isTestnet: parseAccountId(accountId).network === 'testnet' });
+      setGlobal({ ...global, isLegacyCoreMigrationCompleted: true });
+      try {
+        if (!persistCache()) {
+          setGlobal({ ...getGlobal(), isLegacyCoreMigrationCompleted: undefined });
+          break;
+        }
+      } catch {
+        setGlobal({ ...getGlobal(), isLegacyCoreMigrationCompleted: undefined });
+        actions.showError({ error: 'Migration error' });
+        break;
       }
       break;
     }

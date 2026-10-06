@@ -3,8 +3,14 @@ import './initial';
 import type { ApiBaseCurrency, ApiNft } from '../../../api/types';
 import type { ApiUpdate } from '../../../api/types/updates';
 import type { GlobalState } from '../../types';
+import { AppState } from '../../types';
 
+import { callApi, callApiWithThrow } from '../../../api';
+import { persistCache } from '../../cache';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
+
+jest.mock('../../../api', () => ({ callApi: jest.fn(), callApiWithThrow: jest.fn() }));
+jest.mock('../../cache', () => ({ persistCache: jest.fn(() => true) }));
 
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(),
@@ -84,6 +90,10 @@ describe('updateNfts api update', () => {
 
   beforeEach(() => {
     (setGlobal as jest.Mock).mockClear();
+    jest.mocked(callApi).mockClear();
+    jest.mocked(callApiWithThrow).mockReset().mockResolvedValue(undefined);
+    jest.mocked(persistCache).mockClear();
+    jest.mocked(persistCache).mockReturnValue(true);
     jest.mocked(setGlobal).mockImplementation((global) => {
       jest.mocked(getGlobal).mockReturnValue(global);
     });
@@ -198,6 +208,199 @@ describe('removeAccounts api update', () => {
 
     expect(updatedGlobal.currentAccountId).toBeUndefined();
     expect(actions.switchAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('migrateLegacyCoreApplication api update', () => {
+  beforeEach(() => {
+    (setGlobal as jest.Mock).mockClear();
+    jest.mocked(callApi).mockClear();
+    jest.mocked(callApiWithThrow).mockReset().mockResolvedValue(undefined);
+    jest.mocked(persistCache).mockClear();
+    jest.mocked(persistCache).mockReturnValue(true);
+    jest.mocked(setGlobal).mockImplementation((global) => {
+      jest.mocked(getGlobal).mockReturnValue(global);
+    });
+  });
+
+  function makeEmptyGlobal(): GlobalState {
+    return {
+      auth: {}, appState: AppState.Auth,
+      accounts: { byId: {} },
+      byAccountId: {},
+      settings: { byAccountId: {}, isTestnet: false },
+      pushNotifications: { enabledAccounts: [] },
+    } as unknown as GlobalState;
+  }
+
+  const update = {
+    type: 'migrateLegacyCoreApplication',
+    accounts: [
+      { accountId: '0-ton-testnet', address: 'kQtest' },
+    ],
+    currentAccountId: '0-ton-testnet',
+  } as ApiUpdate;
+
+  async function dispatch(global: GlobalState, event: ApiUpdate = update) {
+    const actions = {
+      afterSignIn: jest.fn(),
+      showError: jest.fn(),
+      switchAccount: jest.fn(),
+    };
+    getApiUpdateHandler()(global, actions, event);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const updatedGlobal = (setGlobal as jest.Mock).mock.calls.at(-1)?.[0] as GlobalState | undefined;
+    return { actions, updatedGlobal: updatedGlobal ?? global };
+  }
+
+  it('creates only the original network wallet', async () => {
+    const { actions, updatedGlobal } = await dispatch(makeEmptyGlobal());
+
+    expect(Object.keys(updatedGlobal.accounts!.byId)).toEqual(['0-ton-testnet']);
+    expect(updatedGlobal.accounts?.byId['0-ton-testnet']).toMatchObject({
+      type: 'mnemonic', byChain: { ton: { address: 'kQtest' } },
+    });
+    expect(callApiWithThrow).not.toHaveBeenCalled();
+    expect(actions.afterSignIn).not.toHaveBeenCalled();
+    getApiUpdateHandler()(updatedGlobal, actions, { type: 'legacyCoreMigrationReady', accountId: '0-ton-testnet' });
+    expect(actions.afterSignIn).toHaveBeenCalled();
+    expect(updatedGlobal.isLegacyCoreMigrationCompleted).toBe(true);
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('does not resurrect a deleted wallet or override later preferences after durable UI completion', async () => {
+    const first = (await dispatch(makeEmptyGlobal())).updatedGlobal;
+    delete first.accounts!.byId['0-ton-testnet'];
+    first.accounts!.byId['2-ton-mainnet'] = {
+      title: 'Later wallet', type: 'mnemonic', byChain: { ton: { address: 'EQlater' } },
+    };
+    first.currentAccountId = '2-ton-mainnet';
+    (setGlobal as jest.Mock).mockClear();
+
+    const { actions, updatedGlobal } = await dispatch(first);
+
+    expect(Object.keys(updatedGlobal.accounts!.byId)).toEqual([
+      '2-ton-mainnet',
+    ]);
+    expect(actions.showError).not.toHaveBeenCalled();
+    expect(actions.switchAccount).not.toHaveBeenCalled();
+    expect(actions.afterSignIn).not.toHaveBeenCalled();
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('keeps an existing UI account name and preferences when completing the handoff', async () => {
+    const global = makeEmptyGlobal();
+    const account = { title: 'My testnet savings', type: 'mnemonic' as const, byChain: { ton: { address: 'kQtest' } } };
+    global.accounts!.byId['0-ton-testnet'] = account;
+    global.currentAccountId = '0-ton-testnet';
+    global.settings.byAccountId['0-ton-testnet'] = { pinnedSlugs: ['custom-token'] };
+    const { actions, updatedGlobal } = await dispatch(global);
+    expect(updatedGlobal.accounts!.byId['0-ton-testnet']).toEqual(account);
+    expect(updatedGlobal.settings.byAccountId['0-ton-testnet']?.pinnedSlugs).toEqual(['custom-token']);
+    expect(actions.switchAccount).not.toHaveBeenCalled();
+    expect(updatedGlobal.isLegacyCoreMigrationCompleted).toBe(true);
+  });
+
+  it('repairs a missing original wallet while keeping the selected existing wallet', async () => {
+    const global = makeEmptyGlobal();
+    const current = { title: 'Selected wallet', type: 'mnemonic' as const, byChain: { ton: { address: 'EQother' } } };
+    global.accounts!.byId['2-ton-mainnet'] = current;
+    global.currentAccountId = '2-ton-mainnet';
+    global.settings.byAccountId['2-ton-mainnet'] = { pinnedSlugs: ['custom-token'] };
+
+    const { actions, updatedGlobal } = await dispatch(global, {
+      type: 'migrateLegacyCoreApplication', currentAccountId: '0-ton-testnet',
+      accounts: [
+        { accountId: '0-ton-testnet', address: 'kQtest' },
+        { accountId: '2-ton-mainnet', address: 'EQother' },
+      ],
+    });
+
+    expect(updatedGlobal.accounts!.byId['0-ton-testnet']).toBeDefined();
+    expect(updatedGlobal.accounts!.byId['2-ton-mainnet']).toEqual(current);
+    expect(updatedGlobal.currentAccountId).toBe('2-ton-mainnet');
+    expect(updatedGlobal.settings.isTestnet).toBe(false);
+    expect(updatedGlobal.settings.byAccountId['2-ton-mainnet']?.pinnedSlugs).toEqual(['custom-token']);
+    expect(actions.switchAccount).not.toHaveBeenCalled();
+    expect(actions.afterSignIn).not.toHaveBeenCalled();
+    expect(persistCache).toHaveBeenCalled();
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('activates the original wallet when the cached selection points at a missing account', async () => {
+    const global = makeEmptyGlobal();
+    global.accounts!.byId['0-ton-testnet'] = {
+      title: 'Recovered wallet', type: 'mnemonic', byChain: { ton: { address: 'kQtest' } },
+    };
+    global.currentAccountId = '9-ton-mainnet';
+
+    const { actions, updatedGlobal } = await dispatch(global);
+
+    expect(callApiWithThrow).not.toHaveBeenCalled();
+    expect(actions.afterSignIn).not.toHaveBeenCalled();
+    getApiUpdateHandler()(updatedGlobal, actions, { type: 'legacyCoreMigrationReady', accountId: '0-ton-testnet' });
+    expect(actions.afterSignIn).toHaveBeenCalled();
+  });
+
+  it('does not replace a conflicting UI account', async () => {
+    const global = makeEmptyGlobal();
+    global.accounts!.byId['0-ton-testnet'] = {
+      title: 'Different wallet', type: 'mnemonic', byChain: { ton: { address: 'EQdifferent' } },
+    };
+
+    const { actions } = await dispatch(global);
+
+    expect(setGlobal).not.toHaveBeenCalled();
+    expect(actions.showError).toHaveBeenCalled();
+    expect(actions.switchAccount).not.toHaveBeenCalled();
+  });
+
+  it('does not acknowledge the API migration until the repaired UI cache is durable', async () => {
+    jest.mocked(persistCache).mockReturnValue(false);
+
+    const { updatedGlobal } = await dispatch(makeEmptyGlobal());
+
+    expect(callApi).not.toHaveBeenCalled();
+    expect(updatedGlobal.isLegacyCoreMigrationCompleted).toBeUndefined();
+  });
+
+  it('leaves SDK confirmation to the initialization barrier after persisting UI completion', async () => {
+    const { updatedGlobal } = await dispatch(makeEmptyGlobal());
+
+    expect(persistCache).toHaveBeenCalled();
+    expect(updatedGlobal.isLegacyCoreMigrationCompleted).toBe(true);
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the in-memory marker when UI cache persistence throws', async () => {
+    jest.mocked(persistCache).mockImplementationOnce(() => {
+      throw new Error('quota exceeded');
+    });
+
+    const { actions, updatedGlobal } = await dispatch(makeEmptyGlobal());
+
+    expect(updatedGlobal.isLegacyCoreMigrationCompleted).toBeUndefined();
+    expect(callApi).not.toHaveBeenCalled();
+    expect(actions.showError).toHaveBeenCalledWith({ error: 'Migration error' });
+  });
+
+  it.each(['removed', 'authChanged'])('ignores a late restore signal when the handoff was %s', async (change) => {
+    const { actions, updatedGlobal } = await dispatch(makeEmptyGlobal());
+    const later = change === 'removed' ? makeEmptyGlobal() : { ...updatedGlobal, auth: { ...updatedGlobal.auth } };
+    getApiUpdateHandler()(later, actions, { type: 'legacyCoreMigrationReady', accountId: '0-ton-testnet' });
+    expect(actions.afterSignIn).not.toHaveBeenCalled();
+  });
+
+  it('normalizes the network even when the account ID was already selected', async () => {
+    const global = makeEmptyGlobal();
+    global.currentAccountId = '0-ton-testnet';
+    global.accounts!.byId['0-ton-testnet'] = {
+      title: 'Testnet', type: 'mnemonic', byChain: { ton: { address: 'kQtest' } },
+    };
+    const { updatedGlobal } = await dispatch(global);
+    expect(updatedGlobal.settings.isTestnet).toBe(true);
+    expect(callApiWithThrow).not.toHaveBeenCalled();
+    expect(persistCache).toHaveBeenCalled();
   });
 });
 

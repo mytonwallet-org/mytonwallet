@@ -4,7 +4,9 @@ import type { LangCode, Theme } from '../../global/types';
 import type { StorageKey } from '../storages/types';
 import type { ApiAnyDisplayError, ApiBaseCurrency, ApiChain } from '../types';
 
-import { APP_ENV, APP_VERSION, IS_ANDROID_DIRECT } from '../../config';
+import {
+  APP_ENV, APP_VERSION, IS_ANDROID_DIRECT, IS_EXTENSION, IS_GRAM_WALLET,
+} from '../../config';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
 import { pause } from '../../util/schedulers';
@@ -15,6 +17,7 @@ import { callBackendGet } from '../common/backend';
 import { hexToBytes } from '../common/utils';
 import { SEC } from '../constants';
 import { handleServerError } from '../errors';
+import { confirmLegacyCoreMigration as confirmLegacyCoreMigrationInStorage } from '../migrations/legacyCore';
 import { storage } from '../storages';
 
 import RECEIVE_GRADIENT_SVGS from '../../assets/receiveGradientSvgs';
@@ -101,6 +104,13 @@ export async function fetchAccountConfigForDebugPurposesOnly() {
 
 export function ping() {
   return true;
+}
+
+export function confirmLegacyCoreMigration() {
+  if (!IS_EXTENSION || !IS_GRAM_WALLET) {
+    throw new Error('Legacy Core Wallet migration is unavailable in this build');
+  }
+  return confirmLegacyCoreMigrationInStorage();
 }
 
 export { setIsAppFocused, getLogs };

@@ -7,7 +7,6 @@ import * as extensionMethods from '.';
 
 addHooks({
   onWindowNeeded: openPopupWindow,
-  onFullLogout: extensionMethods.onFullLogout,
   onDappDisconnected: (_, dapp) => {
     siteMethods.updateSites({
       type: 'disconnectSite',

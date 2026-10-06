@@ -35,6 +35,13 @@ export interface AccountIdParsed {
   network: ApiNetwork;
 }
 
+export interface ApiAccountInitialization {
+  accountId: string;
+  type: 'mnemonic' | 'hardware' | 'view';
+  addressByChain: Partial<Record<ApiChain, string>>;
+  newestActivityTimestamps?: ApiActivityTimestamps;
+}
+
 export interface ApiInitArgs {
   isElectron?: boolean;
   isIosApp?: boolean;
