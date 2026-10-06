@@ -1,11 +1,12 @@
 import type { Connector } from '../../../util/PostMessageConnector';
-import type { ApiInitArgs, OnApiUpdate } from '../../types';
+import type { ApiAccountInitialization, ApiInitArgs, OnApiUpdate } from '../../types';
 import type {
   AllMethods,
   MethodArgsWithMaybePrefix,
   MethodResponseWithMaybePrefix,
 } from '../../types/methods';
 
+import { IS_GRAM_WALLET } from '../../../config';
 import { reportApiChunkLoadError } from '../../../util/chunkLoading';
 import { logDebugApi, logDebugError } from '../../../util/logs';
 import { createConnector, createExtensionConnector } from '../../../util/PostMessageConnector';
@@ -26,6 +27,14 @@ let connector: Connector | undefined;
 let isInitialized = false;
 let initPromise: Promise<void> | undefined;
 let isHealthCheckRunning = false;
+let hasCompletedRestore = false;
+let readUiRestoreState: (() => UiRestoreState) | undefined;
+let initialization: { hasMigrationUpdate: boolean } | undefined;
+
+type UiRestoreState = {
+  current?: ApiAccountInitialization;
+  isLegacyCoreMigrationCompleted?: boolean;
+};
 
 /**
  * What the health check knows about the worker currently in place. Readiness lives HERE rather
@@ -36,17 +45,28 @@ type WorkerState = { createdAt: number; isReady: boolean };
 
 let workerState: WorkerState = { createdAt: 0, isReady: false };
 
-export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
+export function initApi(
+  onUpdate: OnApiUpdate,
+  initArgs: ApiInitArgs,
+  getUiRestoreState?: () => UiRestoreState,
+) {
   updateCallback = onUpdate;
+  readUiRestoreState = getUiRestoreState;
 
   if (!connector) {
     // We use process.env.IS_EXTENSION instead of IS_EXTENSION in order to remove the irrelevant code during bundling
     if (process.env.IS_EXTENSION) {
       const onReconnect = () => {
-        initPromise = trackReadiness(connector!.init(initArgs));
+        initialize(initArgs);
       };
 
-      connector = createExtensionConnector(POPUP_PORT, onUpdate, undefined, onReconnect);
+      const extensionUpdate: OnApiUpdate = IS_GRAM_WALLET ? (update) => {
+        if (initialization && update.type === 'migrateLegacyCoreApplication') {
+          initialization.hasMigrationUpdate = true;
+        }
+        updateCallback(update);
+      } : onUpdate;
+      connector = createExtensionConnector(POPUP_PORT, extensionUpdate, undefined, onReconnect);
 
       createWindowProviderForExtension();
     } else {
@@ -65,7 +85,52 @@ export function initApi(onUpdate: OnApiUpdate, initArgs: ApiInitArgs) {
     isInitialized = true;
   }
 
-  initPromise = trackReadiness(connector.init(initArgs));
+  initialize(initArgs);
+}
+
+function initialize(initArgs: ApiInitArgs) {
+  const attempt = { hasMigrationUpdate: !hasCompletedRestore && Boolean(initialization?.hasMigrationUpdate) };
+  initialization = attempt;
+  const sdkInit = connector!.init(initArgs);
+  if (!process.env.IS_EXTENSION || !IS_GRAM_WALLET) {
+    initPromise = trackReadiness(sdkInit);
+    return;
+  }
+
+  if (hasCompletedRestore) {
+    const reconnect = (async () => {
+      await sdkInit;
+      if (initialization !== attempt) throw new Error('API initialization was replaced');
+      await connector!.request({ name: 'resumeCurrentAccountAfterWorkerStart', args: [] });
+      if (initialization !== attempt) throw new Error('API initialization was replaced');
+    })();
+    initPromise = trackReadiness(reconnect);
+    return;
+  }
+
+  const restore = (async () => {
+    await sdkInit;
+    if (initialization !== attempt) throw new Error('API initialization was replaced');
+    const state = readUiRestoreState?.();
+    if (!state) throw new Error('Missing account initialization state');
+    if (attempt.hasMigrationUpdate && !state.isLegacyCoreMigrationCompleted) {
+      throw new Error('Legacy wallet migration has not completed');
+    }
+    await connector!.request({
+      name: 'restoreAccountAfterInitialization',
+      args: [state.current, attempt.hasMigrationUpdate],
+    });
+    if (initialization !== attempt) throw new Error('API initialization was replaced');
+    if (attempt.hasMigrationUpdate) {
+      await connector!.request({ name: 'confirmLegacyCoreMigration', args: [] });
+      if (initialization !== attempt) throw new Error('API initialization was replaced');
+    }
+    if (attempt.hasMigrationUpdate && state.current) {
+      updateCallback({ type: 'legacyCoreMigrationReady', accountId: state.current.accountId });
+    }
+    hasCompletedRestore = true;
+  })();
+  initPromise = trackReadiness(restore);
 }
 
 /**
@@ -92,9 +157,8 @@ export async function callApi<T extends keyof AllMethods>(
     return undefined;
   }
 
-  await initPromise!;
-
   try {
+    await initPromise!;
     const result = await (connector.request({
       name: fnName,
       args,

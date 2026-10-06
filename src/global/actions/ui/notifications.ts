@@ -3,7 +3,7 @@ import { isKeyCountGreater } from '../../../util/isEmptyObject';
 import { callApi } from '../../../api';
 import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
-  deleteAllNotificationAccounts,
+  deleteNotificationAccounts,
 } from '../../reducers/notifications';
 import { selectAccounts } from '../../selectors';
 import { selectNotificationAddressesSlow } from '../../selectors/notifications';
@@ -67,5 +67,5 @@ addActionHandler('deleteAllNotificationAccounts', async (global, actions, props)
   );
 
   global = getGlobal();
-  setGlobal(deleteAllNotificationAccounts(global));
+  setGlobal(deleteNotificationAccounts(global, accountIds));
 });

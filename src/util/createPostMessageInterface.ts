@@ -222,12 +222,24 @@ async function onMessage(
   switch (data.type) {
     case 'init': {
       const { args, messageId } = data;
-      const promise = typeof api === 'function'
-        ? api('init', origin, onUpdate, ...args)
-        : api.init?.(onUpdate, ...args);
-      await promise;
+      try {
+        const promise = typeof api === 'function'
+          ? api('init', origin, onUpdate, ...args)
+          : api.init?.(onUpdate, ...args);
+        await promise;
+      } catch (err: any) {
+        if (messageId === undefined) throw err;
 
-      if (messageId) {
+        logDebugError('init', err);
+        sendToOrigin({
+          type: 'methodResponse',
+          messageId,
+          error: encodeError(err),
+        });
+        break;
+      }
+
+      if (messageId !== undefined) {
         sendToOrigin({
           type: 'methodResponse',
           messageId,

@@ -50,6 +50,8 @@ export type StorageKey = 'accounts'
   | 'windowState'
   | 'isTonProxyEnabled'
   | 'isDeeplinkHookEnabled'
+  | 'legacyCoreAccountsConverted'
+  | 'legacyCoreMigrationCompleted'
   // For TonConnect SSE
   | 'sseLastEventId'
   // For Agent

@@ -1223,6 +1223,7 @@ export type GlobalState = {
 
   latestAppVersion?: string;
   stateVersion: number;
+  isLegacyCoreMigrationCompleted?: true;
   restrictions: {
     isLimitedRegion: boolean;
     isSwapDisabled: boolean;

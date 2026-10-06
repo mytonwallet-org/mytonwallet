@@ -1,6 +1,7 @@
 import type {
   Account, AccountSettings, AccountState, ToastType,
 } from '../../types';
+import { ApiCommonError } from '../../../api/types';
 import { AppState, AuthState } from '../../types';
 
 import {
@@ -42,7 +43,7 @@ import {
   IS_WINDOWS,
   setScrollbarWidthProperty,
 } from '../../../util/windowEnvironment';
-import { callApi } from '../../../api';
+import { callApi, callApiWithThrow } from '../../../api';
 import { enclave } from '../../../enclave';
 import { errorCodeToMessage } from '../../helpers/errors';
 import { resumeDappConnectAfterWalletCreation } from '../../helpers/resumeDappConnectAfterWalletCreation';
@@ -324,18 +325,24 @@ addActionHandler('signOut', async (global, actions, payload) => {
   const isFromAllAccounts = level !== 'account';
 
   const otherNetwork = network === 'mainnet' ? 'testnet' : 'mainnet';
-  let otherNetworkAccountIds = Object.keys(selectNetworkAccountsMemoized(otherNetwork, global.accounts?.byId)!);
-
-  if (level === 'all' && otherNetworkAccountIds.length > 0) {
-    await callApi('removeNetworkAccounts', otherNetwork);
-    otherNetworkAccountIds = [];
-  }
+  const otherNetworkAccountIds = level === 'all'
+    ? [] : Object.keys(selectNetworkAccountsMemoized(otherNetwork, global.accounts?.byId)!);
 
   if (isFromAllAccounts || accountIds.length === 1) {
-    actions.deleteAllNotificationAccounts({ accountIds });
+    try {
+      if (otherNetworkAccountIds.length) {
+        await callApiWithThrow('removeNetworkAccounts', network);
+      } else {
+        await callApiWithThrow('resetAccounts');
+      }
+    } catch {
+      actions.showError({ error: ApiCommonError.Unexpected });
+      return;
+    }
+    actions.deleteAllNotificationAccounts({
+      accountIds: otherNetworkAccountIds.length ? accountIds : Object.keys(global.accounts!.byId),
+    });
     if (otherNetworkAccountIds.length) {
-      await callApi('removeNetworkAccounts', network);
-
       global = getGlobal();
 
       const nextAccountId = otherNetworkAccountIds[0];
@@ -380,8 +387,6 @@ addActionHandler('signOut', async (global, actions, payload) => {
       actions.closeSettings();
       actions.afterSignOut();
     } else {
-      await callApi('resetAccounts');
-
       actions.afterSignOut({ shouldReset: true });
       actions.init();
     }
@@ -400,9 +405,14 @@ addActionHandler('signOut', async (global, actions, payload) => {
       ? selectNewestActivityTimestamps(global, nextAccountId)
       : undefined;
 
-    await callApi('removeAccount', removingAccountId, nextAccountId, nextNewestActivityTimestamps);
+    try {
+      await callApiWithThrow('removeAccount', removingAccountId, nextAccountId, nextNewestActivityTimestamps);
+    } catch {
+      actions.showError({ error: ApiCommonError.Unexpected });
+      return;
+    }
     await enclave.removeSecret(removingAccountId);
-    actions.deleteNotificationAccount({ accountId: removingAccountId });
+    actions.deleteAllNotificationAccounts({ accountIds: [removingAccountId] });
 
     global = getGlobal();
 

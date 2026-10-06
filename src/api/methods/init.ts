@@ -2,7 +2,7 @@ import type { ApiInitArgs, OnApiUpdate } from '../types';
 
 import { initWindowConnector } from '../../util/windowProvider/connector';
 import { fetchBackendReferrer } from '../common/backend';
-import { connectUpdater, disconnectUpdater, tryMigrateStorage } from '../common/helpers';
+import { connectUpdater, disconnectUpdater, isUpdaterAlive, tryMigrateStorage } from '../common/helpers';
 import { initClientId } from '../common/other';
 import { getProtocolManager, initProtocolManager } from '../dappProtocols';
 import { setEnvironment } from '../environment';
@@ -32,6 +32,8 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
     await tryMigrateStorage(onUpdate, args.accountIds);
   });
 
+  if (!isUpdaterAlive(onUpdate)) throw new Error('API initialization was replaced');
+
   methods.initAccounts(onUpdate);
   methods.initAuth(onUpdate);
   methods.initPolling(onUpdate);
@@ -48,6 +50,7 @@ export default async function init(onUpdate: OnApiUpdate, args: ApiInitArgs) {
   }
 
   await initProtocolManager(onUpdate, environment);
+  if (!isUpdaterAlive(onUpdate)) throw new Error('API initialization was replaced');
 
   if (environment.isDappSupported) {
     methods.initDapps(onUpdate);

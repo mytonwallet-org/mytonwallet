@@ -88,7 +88,9 @@ import { tonConnectGetDeviceInfo } from '../../../../util/tonConnectEnvironment'
 import { fetchExternalMessageBocByHashNormalized } from '../../../chains/ton/toncenter/messages';
 import { checkMultiTransactionDraft, sendSignedTransactions } from '../../../chains/ton/transfer';
 import { parsePayloadBase64, preloadPayloadNfts } from '../../../chains/ton/util/metadata';
-import { getIsRawAddress, getWalletPublicKey, toBase64Address, toRawAddress } from '../../../chains/ton/util/tonCore';
+import {
+  getIsRawAddress, getWalletPublicKey, parseAddress, toBase64Address, toRawAddress,
+} from '../../../chains/ton/util/tonCore';
 import { getContractInfo, getWalletStateInit } from '../../../chains/ton/wallet';
 import {
   fetchStoredChainAccount,
@@ -752,6 +754,26 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         dapp_name: dapp.name,
       });
 
+      const payloadToSign = message.payload;
+      const { network: requestedNetwork, from } = payloadToSign as typeof payloadToSign & {
+        network?: unknown;
+        from?: unknown;
+      };
+      const accountNetwork = toTonConnectNetworkId(parseAccountId(accountId).network);
+      if (requestedNetwork !== undefined && requestedNetwork !== accountNetwork) {
+        throw new BadRequestError(undefined, ApiTransactionError.WrongNetwork);
+      }
+      if (from !== undefined) {
+        const requestedAddress = typeof from === 'string' ? parseAddress(from).address : undefined;
+        if (!requestedAddress) {
+          throw new BadRequestError(undefined, ApiTransactionError.WrongAddress);
+        }
+        const account = await fetchStoredChainAccount(accountId, 'ton');
+        if (toRawAddress(requestedAddress) !== toRawAddress(account.byChain.ton.address)) {
+          throw new BadRequestError(undefined, ApiTransactionError.WrongAddress);
+        }
+      }
+
       await this.openExtensionPopup(true);
 
       this.onUpdate({
@@ -764,7 +786,6 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       const dappPromise = createDappPromise();
       promiseId = dappPromise.promiseId;
       const { promise } = dappPromise;
-      const payloadToSign = message.payload;
       const parsedPayloadToSign = payloadToSign.type === 'cell'
         ? await loadSignDataCellPreview(payloadToSign.cell, payloadToSign.schema)
         : undefined;

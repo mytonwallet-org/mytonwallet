@@ -12,6 +12,7 @@ jest.mock('../../config', () => ({
   ...jest.requireActual('../../config'),
   IS_GRAM_WALLET: true,
   IS_AIR_APP: false,
+  IS_EXTENSION: false,
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

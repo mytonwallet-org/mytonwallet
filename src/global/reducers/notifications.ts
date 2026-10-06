@@ -17,14 +17,17 @@ export function deleteNotificationAccount(
   };
 }
 
-export function deleteAllNotificationAccounts(
+export function deleteNotificationAccounts(
   global: GlobalState,
+  accountIds: string[] = global.pushNotifications.enabledAccounts,
 ): GlobalState {
+  const removed = new Set(accountIds);
+
   return {
     ...global,
     pushNotifications: {
       ...global.pushNotifications,
-      enabledAccounts: [],
+      enabledAccounts: global.pushNotifications.enabledAccounts.filter((accountId) => !removed.has(accountId)),
     },
   };
 }

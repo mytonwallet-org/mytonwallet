@@ -5,6 +5,7 @@ import type { ApiInitArgs, OnApiUpdate } from '../../types';
 import { POPUP_PORT } from './config';
 import { createExtensionInterface } from '../../../util/createPostMessageInterface';
 import { initWindowConnector } from '../../../util/windowProvider/connector';
+import { isUpdaterAlive } from '../../common/helpers';
 import * as extensionMethods from '../../extensionMethods';
 import initExtensionMethods from '../../extensionMethods/init';
 import initApi, { destroy as destroyMethods } from '../../methods/init';
@@ -27,4 +28,6 @@ void createExtensionInterface(POPUP_PORT, async (name: string, origin?: string, 
     // @ts-ignore
     return method(...args as MethodArgs<keyof Methods>);
   }
-}, undefined, destroyMethods);
+}, undefined, (onUpdate) => {
+  if (isUpdaterAlive(onUpdate)) destroyMethods();
+});

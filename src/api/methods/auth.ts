@@ -23,6 +23,7 @@ import type {
 } from '../types';
 import { ApiCommonError, ApiTransactionError } from '../types';
 
+import { IS_EXTENSION, IS_GRAM_WALLET } from '../../config';
 import { parseAccountId } from '../../util/account';
 import { getChainConfig, getChainsByStandard, getOrderedAccountChains, getSupportedChains } from '../../util/chain';
 import isMnemonicPrivateKey from '../../util/isMnemonicPrivateKey';
@@ -40,6 +41,7 @@ import {
   fetchStoredAccounts,
   fetchStoredChainAccount,
   getAccountChains,
+  getCurrentAccountId,
   getNewAccountId,
   removeAccountValue,
   removeNetworkAccountsValue,
@@ -57,6 +59,7 @@ import { bytesToHex, hexToBytes } from '../common/utils';
 import { tokenRepository } from '../db';
 import { getEnvironment } from '../environment';
 import { ApiServerError, handleServerError } from '../errors';
+import { retireLegacyCoreMigration } from '../migrations/legacyCore';
 import { storage } from '../storages';
 import { activateAccount, deactivateAllAccounts } from './accounts';
 import { resetAgentV2 } from './agentV2Lifecycle';
@@ -562,17 +565,19 @@ async function addAccount(network: ApiNetwork, account: ApiAccountAny, preferred
 }
 
 export async function removeNetworkAccounts(network: ApiNetwork) {
-  removeNetworkPollingAccounts(network);
+  if (IS_EXTENSION && IS_GRAM_WALLET) await retireLegacyCoreMigration(`0-ton-${network}`);
+  const currentAccountId = await getCurrentAccountId();
+  const shouldDeactivate = currentAccountId && parseAccountId(currentAccountId).network === network;
 
   await Promise.all([
-    deactivateAllAccounts(),
-    removeNetworkAccountsValue(network, 'accounts'),
+    shouldDeactivate ? deactivateAllAccounts() : undefined,
+    removeNetworkAccountsValue(network, 'accounts').then(() => removeNetworkPollingAccounts(network)),
     getEnvironment().isDappSupported && removeNetworkDapps(network),
   ]);
 }
 
 export async function resetAccounts() {
-  removeAllPollingAccounts();
+  if (IS_EXTENSION && IS_GRAM_WALLET) await retireLegacyCoreMigration();
 
   let agentV2Reset: Promise<void> | undefined;
   if (process.env.NO_EXTRA_FEATURES !== '1') {
@@ -581,7 +586,7 @@ export async function resetAccounts() {
 
   await Promise.all([
     deactivateAllAccounts(),
-    storage.removeItem('accounts'),
+    storage.removeItem('accounts').then(() => removeAllPollingAccounts()),
     getEnvironment().isDappSupported && removeAllDapps(),
     tokenRepository.clear(),
     agentV2Reset,
@@ -593,10 +598,10 @@ export async function removeAccount(
   nextAccountId: string | undefined,
   newestActivityTimestamps?: ApiActivityTimestamps,
 ) {
-  removePollingAccount(accountId);
+  if (IS_EXTENSION && IS_GRAM_WALLET) await retireLegacyCoreMigration(accountId);
 
   await Promise.all([
-    removeAccountValue(accountId, 'accounts'),
+    removeAccountValue(accountId, 'accounts').then(() => removePollingAccount(accountId)),
     getEnvironment().isDappSupported && removeAccountDapps(accountId),
   ]);
 

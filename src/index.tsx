@@ -17,6 +17,7 @@ import { initAgentWriterPrompt } from './util/agent/agentWriterPromptState';
 import { betterView } from './util/betterView';
 import { addChunkLoadErrorListener } from './util/chunkLoading';
 import { initElectron } from './util/electron';
+import { initExtensionWindow } from './util/extensionWindow';
 import { initFocusScrollController } from './util/focusScroll';
 import { forceLoadFonts } from './util/fonts';
 import { logDebug, logSelfXssWarnings } from './util/logs';
@@ -26,6 +27,10 @@ import { IS_ELECTRON, IS_LEDGER_EXTENSION_TAB } from './util/windowEnvironment';
 import App from './components/App';
 
 import './styles/index.scss';
+
+if (process.env.IS_EXTENSION) {
+  initExtensionWindow();
+}
 
 if (DEBUG) {
   // eslint-disable-next-line no-console

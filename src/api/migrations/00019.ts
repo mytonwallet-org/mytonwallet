@@ -6,6 +6,7 @@ import { storage } from '../storages';
 type OldAccount = Omit<ApiAccountAny, 'byChain'> & {
   ton?: ApiTonWallet & { type?: 'ton' };
   tron?: ApiTronWallet & { type?: 'tron' };
+  byChain?: ApiAccountAny['byChain'];
 };
 
 export async function start() {
@@ -15,12 +16,21 @@ export async function start() {
   }
 
   const newAccounts = mapValues(oldAccounts, (oldAccount) => {
-    const { ton, tron, ...account } = oldAccount;
-    if (ton) delete ton.type;
-    if (tron) delete tron.type;
+    const {
+      ton: oldTon, tron: oldTron, byChain, ...account
+    } = oldAccount;
+    const { type: _tonType, ...ton } = oldTon ?? {} as NonNullable<OldAccount['ton']>;
+    const { type: _tronType, ...tron } = oldTron ?? {} as NonNullable<OldAccount['tron']>;
+
     return {
       ...account,
-      byChain: omitUndefined({ ton, tron }),
+      byChain: {
+        ...omitUndefined({
+          ton: oldTon ? ton : undefined,
+          tron: oldTron ? tron : undefined,
+        }),
+        ...byChain,
+      },
     };
   });
 

@@ -1,8 +1,14 @@
 import { logDebugError } from '../../util/logs';
 import { fetchMaybeStoredAccount, fetchStoredAccounts, getCurrentAccountId } from '../common/accounts';
-import { activateAccount, initAccounts, loadAccountsWalletVersions } from './accounts';
+import { callHook } from '../hooks';
+import { storage } from '../storages';
+import { activateAccount, deactivateAllAccounts, initAccounts, loadAccountsWalletVersions } from './accounts';
 import { setActivePollingAccount } from './polling';
 
+jest.mock('../../config', () => ({
+  ...jest.requireActual('../../config'),
+  IS_EXTENSION: true,
+}));
 jest.mock('../common/accounts', () => ({
   fetchMaybeStoredAccount: jest.fn(),
   fetchStoredAccount: jest.fn(),
@@ -106,6 +112,17 @@ describe('activateAccount', () => {
       MISSING_ACCOUNT_ID,
       error,
     );
+  });
+});
+
+describe('deactivateAllAccounts', () => {
+  it('only retires account activity and never owns dApp deletion', async () => {
+    jest.clearAllMocks();
+    await deactivateAllAccounts();
+
+    expect(setActivePollingAccount).toHaveBeenCalledWith(undefined, {});
+    expect(storage.removeItem).toHaveBeenCalledWith('currentAccountId');
+    expect(callHook).not.toHaveBeenCalled();
   });
 });
 

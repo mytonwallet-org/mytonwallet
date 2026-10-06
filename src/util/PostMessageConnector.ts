@@ -322,7 +322,7 @@ export function createReverseExtensionConnector(portName: string) {
     });
 
     port.onDisconnect.addListener(() => {
-      connector.target = nullWorker;
+      if (connector.target === port) connector.target = nullWorker;
     });
   });
 

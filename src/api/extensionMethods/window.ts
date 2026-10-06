@@ -1,13 +1,15 @@
 import extension from 'webextension-polyfill';
 
 import { DEFAULT_PORTRAIT_WINDOW_SIZE } from '../../config';
+import { getExtensionWindowIds } from '../../util/extensionWindow';
 import { createDappPromise, rejectAllDappPromises } from '../common/dappPromises';
 import storage from '../storages/extension';
 
 const { chrome } = self;
 
 let currentWindowId: number | undefined;
-let readyPromise: Promise<void> | undefined;
+let readyPromise: Promise<void> | undefined = createDappPromise('whenPopupReady').promise;
+let ensureWindowPromise: Promise<number> | undefined;
 
 const WINDOW_DEFAULTS = {
   top: 120,
@@ -18,18 +20,18 @@ const MARGIN_RIGHT = 20;
 const WINDOW_STATE_MONITOR_INTERVAL = 3000;
 const MINIMAL_WINDOW = 100;
 
+type WindowBounds = { left: number; top: number; width: number; height: number };
+
 (function init() {
   if (!chrome) {
     return;
   }
 
-  if (chrome.system) {
-    chrome.system.display.getInfo(([firstScreen]) => {
-      if (firstScreen) {
-        WINDOW_DEFAULTS.left = firstScreen.bounds.width - WINDOW_DEFAULTS.width - MARGIN_RIGHT;
-      }
-    });
-  }
+  void getDisplays().then(([firstScreen]) => {
+    if (firstScreen) {
+      WINDOW_DEFAULTS.left = firstScreen.bounds.width - WINDOW_DEFAULTS.width - MARGIN_RIGHT;
+    }
+  });
 
   extension.action.onClicked.addListener(openPopupWindow);
 
@@ -71,43 +73,162 @@ const MINIMAL_WINDOW = 100;
 }());
 
 export async function openPopupWindow() {
-  if (typeof currentWindowId === 'number') {
-    await extension.windows.update(currentWindowId, { focused: true });
-    return readyPromise;
-  }
-
-  const lastWindowId = Number(await storage.getItem('windowId'));
-  if (lastWindowId) {
-    let wasWindowFound: boolean;
-    try {
-      await extension.windows.get(lastWindowId);
-      wasWindowFound = true;
-    } catch (e) {
-      wasWindowFound = false;
-    }
-
-    if (wasWindowFound) {
-      currentWindowId = lastWindowId;
-      await extension.windows.update(lastWindowId, { focused: true });
-      readyPromise = Promise.resolve();
-      return readyPromise;
-    } else {
-      await storage.removeItem('windowId');
-    }
-  }
-
-  await createWindow();
+  await updatePopupWindow({ focused: true });
 
   return readyPromise;
 }
 
+async function updatePopupWindow(updateInfo: Parameters<typeof extension.windows.update>[1]) {
+  const windowId = await ensurePopupWindow();
+
+  try {
+    await applyPopupWindowUpdate(windowId, updateInfo);
+  } catch {
+    if (currentWindowId === windowId) {
+      currentWindowId = undefined;
+      await storage.removeItem('windowId');
+    }
+
+    const recoveredWindowId = await ensurePopupWindow();
+    await applyPopupWindowUpdate(recoveredWindowId, updateInfo);
+  }
+}
+
+async function applyPopupWindowUpdate(windowId: number, updateInfo: Parameters<typeof extension.windows.update>[1]) {
+  if (updateInfo.width !== undefined && updateInfo.height !== undefined && chrome?.system) {
+    const window = await extension.windows.get(windowId);
+    const currentBounds = {
+      left: window.left ?? WINDOW_DEFAULTS.left,
+      top: window.top ?? WINDOW_DEFAULTS.top,
+      width: window.width ?? WINDOW_DEFAULTS.width,
+      height: window.height ?? WINDOW_DEFAULTS.height,
+    };
+    const bounds = await fitBoundsToDisplay({
+      ...currentBounds, width: updateInfo.width, height: updateInfo.height,
+    }, currentBounds);
+    await extension.windows.update(windowId, { ...updateInfo, ...bounds });
+    return;
+  }
+
+  await extension.windows.update(windowId, updateInfo);
+}
+
+async function fitBoundsToDisplay(bounds: WindowBounds, anchor = bounds): Promise<WindowBounds> {
+  const displays = await getDisplays();
+  let selected = displays.find((display) => display.isPrimary) ?? displays[0];
+  let largestOverlap = 0;
+  for (const display of displays) {
+    const area = display.workArea;
+    const width = Math.max(0, Math.min(anchor.left + anchor.width, area.left + area.width)
+      - Math.max(anchor.left, area.left));
+    const height = Math.max(0, Math.min(anchor.top + anchor.height, area.top + area.height)
+      - Math.max(anchor.top, area.top));
+    if (width * height > largestOverlap) {
+      largestOverlap = width * height;
+      selected = display;
+    }
+  }
+  if (!selected) return bounds;
+
+  const area = selected.workArea;
+  const width = Math.min(bounds.width, area.width);
+  const height = Math.min(bounds.height, area.height);
+  return {
+    width,
+    height,
+    left: Math.max(area.left, Math.min(bounds.left, area.left + area.width - width)),
+    top: Math.max(area.top, Math.min(bounds.top, area.top + area.height - height)),
+  };
+}
+
+function getDisplays(): Promise<chrome.system.display.DisplayUnitInfo[]> {
+  if (!chrome?.system?.display?.getInfo) return Promise.resolve([]);
+
+  return new Promise((resolve) => {
+    try {
+      chrome.system.display.getInfo((displays) => {
+        resolve(chrome.runtime.lastError ? [] : displays ?? []);
+      });
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+function ensurePopupWindow() {
+  ensureWindowPromise ??= resolveOrCreatePopupWindow().finally(() => {
+    ensureWindowPromise = undefined;
+  });
+
+  return ensureWindowPromise;
+}
+
+async function resolveOrCreatePopupWindow() {
+  const { windowIds, isComplete } = await getExtensionWindowIds().catch(() => ({
+    windowIds: [], isComplete: false,
+  }));
+  const ownWindowIds = new Set(windowIds);
+  const storedWindowId = await storage.getItem('windowId');
+  const lastWindowId = typeof storedWindowId === 'number' ? storedWindowId : undefined;
+  const candidateIds = Array.from(new Set(
+    [currentWindowId, lastWindowId].filter((windowId): windowId is number => typeof windowId === 'number'),
+  ));
+
+  for (const windowId of candidateIds) {
+    try {
+      const candidate = await extension.windows.get(windowId, { populate: true });
+      if (isOwnPopupWindow(candidate, ownWindowIds)) {
+        bindPopupWindow(windowId);
+        return windowId;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  const existingWindows = await extension.windows.getAll({
+    populate: true,
+    windowTypes: ['popup'],
+  });
+  const existingWindow = existingWindows.find((window) => isOwnPopupWindow(window, ownWindowIds));
+  if (typeof existingWindow?.id === 'number') {
+    bindPopupWindow(existingWindow.id);
+    return existingWindow.id;
+  }
+
+  if (!isComplete) throw new Error('Extension window discovery is incomplete');
+
+  currentWindowId = undefined;
+  readyPromise = undefined;
+  if (typeof lastWindowId === 'number') {
+    await storage.removeItem('windowId');
+  }
+
+  await createWindow();
+  return currentWindowId!;
+}
+
+function isOwnPopupWindow(window: Awaited<ReturnType<typeof extension.windows.get>>, ownWindowIds: Set<number>) {
+  const popupUrl = extension.runtime.getURL('index.html');
+
+  return window.type === 'popup' && (ownWindowIds.has(window.id!) || window.tabs?.some((tab) => (
+    tab.url === popupUrl || tab.pendingUrl === popupUrl
+  )));
+}
+
+function bindPopupWindow(windowId: number) {
+  currentWindowId = windowId;
+  void storage.setItem('windowId', windowId);
+}
+
 async function createWindow(isRetryingWithoutLastState = false): Promise<void> {
+  readyPromise ??= createDappPromise('whenPopupReady').promise;
   const lastState = !isRetryingWithoutLastState ? await storage.getItem('windowState') : undefined;
 
   try {
+    const bounds = await fitBoundsToDisplay({ ...WINDOW_DEFAULTS, ...lastState });
     const window = await extension.windows.create({
-      ...WINDOW_DEFAULTS,
-      ...lastState,
+      ...bounds,
       url: 'index.html',
       type: 'popup',
       focused: true,
@@ -118,8 +239,6 @@ async function createWindow(isRetryingWithoutLastState = false): Promise<void> {
     }
 
     currentWindowId = window.id;
-    readyPromise = createDappPromise('whenPopupReady').promise;
-
     void storage.setItem('windowId', currentWindowId);
   } catch (err) {
     if (!isRetryingWithoutLastState) {
@@ -135,5 +254,5 @@ export async function clearCache() {
 }
 
 export async function updateWindowSize(size: { width: number; height: number }) {
-  await extension.windows.update(currentWindowId!, size);
+  await updatePopupWindow(size);
 }

@@ -1,4 +1,4 @@
-import type { ApiActivityTimestamps, OnApiUpdate, UTXOChain } from '../types';
+import type { ApiAccountInitialization, ApiActivityTimestamps, ApiChain, OnApiUpdate, UTXOChain } from '../types';
 
 import { IS_EXTENSION } from '../../config';
 import { getOrderedAccountChains } from '../../util/chain';
@@ -18,12 +18,49 @@ import {
 import { sendUpdateTokens } from '../common/tokens';
 import { callHook } from '../hooks';
 import { storage } from '../storages';
-import { setActivePollingAccount } from './polling';
+import { resumeCurrentAccountPollingAfterWorkerStart, setActivePollingAccount } from './polling';
 
 let onUpdate: OnApiUpdate;
 
 export function initAccounts(_onUpdate: OnApiUpdate) {
   onUpdate = _onUpdate;
+}
+
+export async function resumeCurrentAccountAfterWorkerStart() {
+  const result = await resumeCurrentAccountPollingAfterWorkerStart();
+  if (result === false) throw new Error('Cold account resume was superseded');
+  if (result === true) loginResolve();
+}
+
+export async function restoreAccountAfterInitialization(
+  current?: ApiAccountInitialization,
+  shouldRequireAccount = true,
+) {
+  if (!current) return;
+  const account = await fetchMaybeStoredAccount(current.accountId);
+  if (!account && !shouldRequireAccount) {
+    await deactivateAllAccounts();
+    return;
+  }
+  assertInitializationAccount(current, account);
+  await activateAccount(current.accountId, current.newestActivityTimestamps);
+}
+
+function assertInitializationAccount(
+  current: ApiAccountInitialization,
+  account: Awaited<ReturnType<typeof fetchMaybeStoredAccount>>,
+) {
+  const type = account?.type === 'ledger' ? 'hardware'
+    : account?.type === 'view' ? 'view'
+      : account?.type === 'ton' || account?.type === 'bip39' ? 'mnemonic' : undefined;
+  const identities = Object.entries(current.addressByChain) as [ApiChain, string][];
+  const doesIdentityMatch = identities.length > 0
+    && identities.every(([chain, address]) => typeof address === 'string'
+      && address.length > 0
+      && account?.byChain[chain]?.address === address);
+  if (!account || type !== current.type || !doesIdentityMatch) {
+    throw new Error('The selected account does not match wallet storage');
+  }
 }
 
 export async function activateAccount(
@@ -137,8 +174,4 @@ export async function fetchStoredAccountSummary(accountId: string) {
 export async function deactivateAllAccounts() {
   void setActivePollingAccount(undefined, {});
   await storage.removeItem('currentAccountId');
-
-  if (IS_EXTENSION) {
-    void callHook('onFullLogout');
-  }
 }
