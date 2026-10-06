@@ -1,0 +1,71 @@
+name: Probe Gram receiver dispatch access
+
+on:
+  push:
+    branches: [deploy/gram-dispatch-token-probe-20261006]
+
+permissions: {}
+
+jobs:
+  probe:
+    if: >-
+      github.repository == 'mytonwallet-org/mytonwallet' &&
+      github.ref == 'refs/heads/deploy/gram-dispatch-token-probe-20261006' && github.event.deleted != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    cache-mode: none
+    steps:
+      - name: Require disabled cache access
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          debug: false
+          retries: 0
+          script: |
+            core.info(`cache-mode=${process.env.ACTIONS_CACHE_MODE || 'missing'}`);
+            if (process.env.ACTIONS_CACHE_MODE !== 'none') core.setFailed('Cache access must be disabled');
+      - name: Dispatch one read-only receiver preflight
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        env:
+          TON_WALLET_DEPLOY_TOKEN: ${{ secrets.TON_WALLET_DEPLOY_TOKEN }}
+        with:
+          debug: false
+          retries: 0
+          script: |
+            let stage = 'credential';
+            let status = 0;
+            try {
+              const token = process.env.TON_WALLET_DEPLOY_TOKEN;
+              if (!token) throw new Error();
+              async function request(path, method = 'GET', body) {
+                status = 0;
+                const response = await fetch(`https://api.github.com/repos/${path}`, {
+                  method, redirect: 'error', signal: AbortSignal.timeout(30000),
+                  headers: {
+                    Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2026-03-10', 'Content-Type': 'application/json',
+                  },
+                  ...(body ? { body: JSON.stringify(body) } : {}),
+                });
+                status = response.status;
+                if (status !== 200) throw new Error();
+                return response.json();
+              }
+              stage = 'source';
+              const source = await request('mytonwallet-org/mytonwallet/commits/master');
+              if (source.sha !== '9698553b71ec6f0fe2f73a2451352a428b2e6bd6') throw new Error();
+              stage = 'receiver';
+              const receiver = await request('ton-blockchain/ton-wallet/commits/master');
+              if (receiver.sha !== '0d53e0abe339bee574e03ce581c0ca7e2848cfe1') throw new Error();
+              stage = 'dispatch';
+              const result = await request('ton-blockchain/ton-wallet/actions/workflows/gram-release.yml/dispatches',
+                'POST', { ref: 'master', return_run_details: true,
+                  inputs: { source_sha: source.sha, version: '26.10.1', mode: 'preflight', rollout_percentage: '5' } });
+              const id = result.workflow_run_id;
+              if (!Number.isSafeInteger(id) || id <= 0) throw new Error();
+              core.info(`dispatch_accepted=true receiver_run_id=${id}`);
+              core.setOutput('receiver_run_id', id);
+              await core.summary.addLink('Receiver preflight',
+                `https://github.com/ton-blockchain/ton-wallet/actions/runs/${id}`).write();
+            } catch {
+              core.setFailed(`Probe failed at ${stage} (HTTP ${status}); inspect the receiver before any retry`);
+            }
