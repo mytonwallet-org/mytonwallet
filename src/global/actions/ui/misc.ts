@@ -622,27 +622,27 @@ addActionHandler('clearIsPinAccepted', (global) => {
   return clearIsPinAccepted(global);
 });
 
-addActionHandler('openOnRampWidgetModal', (global, actions, { chain, provider }) => {
+addActionHandler('openOnRampWidgetModal', (global, actions, params) => {
   // Single choke point for every dispatch site, including deeplinks and menu items with no gate of their own
-  if (!selectIsOnRampAllowed(global, chain, provider)) return;
+  if (!selectIsOnRampAllowed(global, params.chain, params.provider)) return;
 
-  setGlobal({ ...global, chainForOnRampWidgetModal: chain, providerForOnRampWidgetModal: provider });
+  setGlobal({ ...global, onRampWidgetModal: params });
 });
 
 addActionHandler('closeOnRampWidgetModal', (global) => {
-  setGlobal({ ...global, chainForOnRampWidgetModal: undefined, providerForOnRampWidgetModal: undefined });
+  setGlobal({ ...global, onRampWidgetModal: undefined });
 });
 
-addActionHandler('openOffRampWidgetModal', (global) => {
-  const chain = selectDefaultOffRampChain(global);
+addActionHandler('openOffRampWidgetModal', (global, actions, params) => {
+  const chain = params?.chain ?? selectDefaultOffRampChain(global);
 
   if (!selectIsOffRampAllowed(global, chain)) return;
 
-  setGlobal({ ...global, chainForOffRampWidgetModal: chain });
+  setGlobal({ ...global, offRampWidgetModal: { ...params, chain } });
 });
 
 addActionHandler('closeOffRampWidgetModal', (global) => {
-  setGlobal({ ...global, chainForOffRampWidgetModal: undefined });
+  setGlobal({ ...global, offRampWidgetModal: undefined });
 });
 
 addActionHandler('openMediaViewer', (global, actions, {

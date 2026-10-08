@@ -32,7 +32,7 @@ import generateUniqueId from '../../../util/generateUniqueId';
 import { mapValues, pick } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { pause, waitFor } from '../../../util/schedulers';
-import { isSwapPairValid } from '../../../util/swap/isSwapPairValid';
+import { isSwapPairInAccountScope } from '../../../util/swap/isSwapPairValid';
 import { findNativeToken, getChainBySlug, getIsNativeToken, getNativeToken } from '../../../util/tokens';
 import { callApi } from '../../../api';
 import { resolveSwapDefaults } from '../../../api/common/swapDefaults';
@@ -46,6 +46,7 @@ import {
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import {
   getSwapEstimateResetParams,
+  getUsableSwapHint,
   isSwapEstimateInputEqual,
   isSwapFormFilled,
   shouldAvoidSwapEstimation,
@@ -61,6 +62,8 @@ import {
   clearCurrentSwap,
   clearIsPinAccepted,
   updateCurrentSwap,
+  updateTradeAmount,
+  updateTradeCounterToken,
 } from '../../reducers';
 import {
   selectAccount,
@@ -205,6 +208,11 @@ addActionHandler('startSwap', (global, actions, payload) => {
     state: requiredState,
     swapId: generateUniqueId(),
     inputSource: SwapInputSource.In,
+    // A swap started over an open Buy / Sell screen ("Swap again" after a trade) is a plain swap form
+    tradeDirection: undefined,
+    tradeCardCurrency: undefined,
+    tradeAmount: undefined,
+    isTradeAmountInToken: undefined,
   });
 
   if (requiredState === SwapState.Initial && isSwapFormFilled(global)) {
@@ -212,6 +220,45 @@ addActionHandler('startSwap', (global, actions, payload) => {
   }
 
   setGlobal(global);
+});
+
+addActionHandler('startTokenTrade', (global, actions, { tokenSlug, direction }) => {
+  const isBuy = direction === 'buy';
+  // The counter token picked by hand last time comes back; otherwise the pair is resolved from the balances.
+  // The remembered token is dropped only once the swap tokens are loaded and it is not among them.
+  const { swapTokenInfo } = global;
+  const rememberedSlug = selectCurrentAccountState(global)?.tradeCounterTokenSlugs?.[direction];
+  const counterSlug = rememberedSlug && rememberedSlug !== tokenSlug
+    && (!swapTokenInfo.isLoaded || swapTokenInfo.bySlug[rememberedSlug])
+    ? rememberedSlug
+    : undefined;
+  const tokenInSlug = isBuy ? counterSlug : tokenSlug;
+  const tokenOutSlug = isBuy ? tokenSlug : counterSlug;
+
+  global = clearCurrentSwap(global);
+  global = updateCurrentSwap(global, {
+    tokenInSlug,
+    tokenOutSlug,
+    ...fillMissingSwapToken(global, tokenInSlug, tokenOutSlug),
+    state: SwapState.Initial,
+    swapId: generateUniqueId(),
+    inputSource: SwapInputSource.In,
+    tradeDirection: direction,
+  });
+
+  setGlobal(global);
+});
+
+addActionHandler('setTradeAmount', (global, actions, payload) => {
+  return updateTradeAmount(global, payload);
+});
+
+addActionHandler('setTradeCardCurrency', (global, actions, { currency }) => {
+  return updateCurrentSwap(global, { tradeCardCurrency: currency }, true);
+});
+
+addActionHandler('setTradeAmountUnit', (global, actions, { isInToken }) => {
+  return updateCurrentSwap(global, { isTradeAmountInToken: isInToken }, true);
 });
 
 addActionHandler('switchSwapAccount', async (global, actions, { accountId }) => {
@@ -228,6 +275,9 @@ addActionHandler('switchSwapAccount', async (global, actions, { accountId }) => 
     inputSource,
     isMaxAmount,
     slippage,
+    tradeDirection,
+    tradeCardCurrency,
+    isTradeAmountInToken,
   } = global.currentSwap;
 
   await switchAccount(global, accountId);
@@ -238,11 +288,15 @@ addActionHandler('switchSwapAccount', async (global, actions, { accountId }) => 
     swapId: generateUniqueId(),
     tokenInSlug,
     tokenOutSlug,
-    amountIn,
-    amountOut,
+    // The Buy / Sell screen starts empty on the new account: its amount was chosen against the balance of the
+    // previous one
+    ...(tradeDirection ? undefined : { amountIn, amountOut }),
     inputSource,
     isMaxAmount,
     slippage,
+    tradeDirection,
+    tradeCardCurrency,
+    isTradeAmountInToken,
   }));
 });
 
@@ -589,6 +643,9 @@ addActionHandler('setSwapTokenIn', (global, actions, { tokenSlug: newTokenInSlug
     tokenOutSlug: newTokenOutSlug,
     maxAmountFromBackend: undefined,
   });
+  if (global.currentSwap.tradeDirection === 'buy') {
+    global = updateTradeCounterToken(global, 'buy', newTokenInSlug);
+  }
   setGlobal(global);
 });
 
@@ -614,6 +671,9 @@ addActionHandler('setSwapTokenOut', (global, actions, { tokenSlug: newTokenOutSl
     tokenInSlug: newTokenInSlug,
     maxAmountFromBackend: undefined,
   });
+  if (global.currentSwap.tradeDirection === 'sell') {
+    global = updateTradeCounterToken(global, 'sell', newTokenOutSlug);
+  }
   setGlobal(global);
 });
 
@@ -645,29 +705,23 @@ addActionHandler('estimateSwap', async () => {
     const accountChains = selectCurrentAccount(global)?.byChain ?? {};
 
     if (tokenInSlug) {
-      // The swap pairs are loaded not only for the below `isSwapPairValid` call, but also for `TokenSelector` to
-      // highlight the allowed swap pairs. The `loadSwapPairs` can be not awaited when the pair is well-known to be
-      // valid, but we don't do it, because: 1) to keep the code simpler and more reliable, 2) `loadSwapPairs` has no
-      // own concurrent execution protection, it relies on the `estimateSwap` concurrent execution protection.
+      // The swap pairs are loaded for `TokenSelector` to highlight the allowed swap pairs, and to know the pairs that
+      // cannot be estimated by the buy amount. The `loadSwapPairs` is awaited because: 1) to keep the code simpler and
+      // more reliable, 2) `loadSwapPairs` has no own concurrent execution protection, it relies on the `estimateSwap`
+      // concurrent execution protection.
       await loadSwapPairs(tokenInSlug);
 
       if (shouldStop()) return;
       global = getGlobal();
     }
 
-    if (tokenInSlug && tokenOutSlug) {
-      if (!isSwapPairValid(
-        tokenInSlug,
-        tokenOutSlug,
-        global.swapPairs?.bySlug,
-        global.swapVersion,
-        accountChains,
-      )) {
-        return {
-          ...getSwapEstimateResetParams(global),
-          errorType: SwapErrorType.InvalidPair,
-        };
-      }
+    // As in the native apps, a pair missing from the swap pairs is still estimated: the backend answers that it cannot
+    // swap the pair and suggests a way around it
+    if (tokenInSlug && tokenOutSlug && !isSwapPairInAccountScope(tokenInSlug, tokenOutSlug, accountChains)) {
+      return {
+        ...getSwapEstimateResetParams(global),
+        errorType: SwapErrorType.InvalidPair,
+      };
     }
 
     if (!isSwapFormFilled(global)) {
@@ -769,7 +823,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       // Keep the fee that enabled diesel; otherwise the next poll falls back to gasfull and oscillates.
       ...(shouldTryDiesel ? { networkFee: global.currentSwap.networkFee } : undefined),
       errorType,
-      swapHint: estimate && 'hint' in estimate ? estimate.hint : undefined,
+      swapHint: estimate && 'hint' in estimate ? getUsableSwapHint(global, estimate.hint) : undefined,
     };
   }
 

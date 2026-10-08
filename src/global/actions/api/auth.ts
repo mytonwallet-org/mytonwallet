@@ -494,6 +494,12 @@ addActionHandler('createAccount', async (global, actions) => {
 
   setGlobal(global);
 
+  // Polling for the new account starts only here, after the account has been added to `auth.accounts`.
+  // `updateAccountState` drops updates for an account the global does not know yet, and `BalanceStream` sends
+  // balances again only when they change. Balances polled before this point would be lost, and the account would
+  // stay without balances in the global until the next on-chain change.
+  void callApi('activateAccount', accounts[0].accountId);
+
   // Nothing later in the flow reads with the session. An error above keeps it, so the user can retry
   dropAccountCreationSession();
 

@@ -154,6 +154,64 @@
   cursor: var(--custom-cursor, pointer);
 }
 
+// The Buy / Sell asset browser
+
+.tokenSelectSearchWrapperTrade {
+  margin-bottom: 0.5rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0;
+}
+
+.tokenSelectInputWrapperTrade {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  margin: 0 1rem;
+  border-radius: 1.375rem;
+
+  box-shadow: 0 0.375rem 2.25rem 0 #00000014, 0 0 1.25rem 0 #00000008;
+}
+
+// The tabs scroll away with the list, under the sticky search. The top margin collapses with the search's bottom one.
+// The overlay repeats the row's padding and alignment so that its clip-path lands on the same tab
+.categoryTabs {
+  justify-content: safe center !important;
+  margin: 1rem 0 1.5rem;
+  padding: 0 1.25rem;
+}
+
+.categoryTabsOverlay {
+  top: 0;
+
+  justify-content: safe center !important;
+
+  min-width: 100%;
+  padding: 0 1.25rem;
+
+  background-color: var(--color-accent-10o) !important;
+}
+
+.tokenGroupContainerTrade + .tokenGroupContainerTrade {
+  margin-top: 0.5rem;
+}
+
+.tokenGroupHeaderTrade {
+  padding: 0 1rem 0.375rem;
+}
+
+.tokenGroupTitleAccent {
+  font-weight: 700;
+  line-height: 1.125rem;
+  color: var(--color-accent);
+}
+
+.tokenContainerTrade:not(:last-of-type)::after {
+  inset-inline-start: 3.875rem;
+}
+
+.tokenPriceContainerTrade {
+  gap: 0.0625rem;
+}
+
 .tokenContainer {
   cursor: var(--custom-cursor, pointer);
 

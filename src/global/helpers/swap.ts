@@ -1,3 +1,4 @@
+import type { ApiSwapHint } from '../../api/types';
 import type { GlobalState } from '../types';
 import { SwapInputSource, SwapState } from '../types';
 
@@ -95,4 +96,16 @@ export function getSwapEstimateResetParams(global: GlobalState) {
     ourFeePercent: undefined,
     dieselFee: undefined,
   } satisfies Partial<GlobalState['currentSwap']>;
+}
+
+/** Like the native apps, drops a suggestion to get an unknown token or one of the two tokens of the swap */
+export function getUsableSwapHint(global: GlobalState, hint?: ApiSwapHint) {
+  if (hint?.type !== 'intermediate') return hint;
+
+  const { tokenInSlug, tokenOutSlug } = global.currentSwap;
+  const isUsable = Boolean(global.swapTokenInfo.bySlug[hint.token])
+    && hint.token !== tokenInSlug
+    && hint.token !== tokenOutSlug;
+
+  return isUsable ? hint : undefined;
 }

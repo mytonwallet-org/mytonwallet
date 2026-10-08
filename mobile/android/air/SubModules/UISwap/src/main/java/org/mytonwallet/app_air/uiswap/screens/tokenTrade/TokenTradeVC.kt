@@ -536,6 +536,11 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
 
     private fun showConfirm(event: SwapViewModel.Event.ShowConfirm) {
         if (isAutoConfirmSubmitting) return
+        // The duration notice stays on this screen. An active session confirms from here.
+        if (event.request.isBatchTx) {
+            showPasscodeConfirm(event, allowsAutoConfirm = true)
+            return
+        }
         ProtectedActionAuth.confirm(
             onConfirmed = { token ->
                 isAutoConfirmSubmitting = true
@@ -547,7 +552,10 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
         )
     }
 
-    private fun showPasscodeConfirm(event: SwapViewModel.Event.ShowConfirm) {
+    private fun showPasscodeConfirm(
+        event: SwapViewModel.Event.ShowConfirm,
+        allowsAutoConfirm: Boolean = false
+    ) {
         val request = event.request
         push(
             PasscodeConfirmVC(
@@ -570,7 +578,8 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
                 ),
                 task = { passcode ->
                     swapViewModel.doSend(passcode, request, event.addressToReceive)
-                }
+                },
+                allowsAutoConfirm = allowsAutoConfirm
             )
         )
     }

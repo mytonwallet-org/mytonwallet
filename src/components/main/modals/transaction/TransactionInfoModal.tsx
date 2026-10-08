@@ -22,6 +22,7 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
+  selectIsGramDiamondEnabled,
   selectIsHardwareAccount,
   selectNetworkAccounts,
 } from '../../../../global/selectors';
@@ -72,6 +73,7 @@ interface StateProps {
   accounts?: Record<string, Account>;
   isMediaViewerOpen?: boolean;
   isSensitiveDataHidden?: true;
+  isGramDiamondEnabled: boolean;
   isTestnet?: boolean;
   isHardwareAccount: boolean;
   isViewMode: boolean;
@@ -101,6 +103,7 @@ function TransactionInfoModal({
   accounts,
   isMediaViewerOpen,
   isSensitiveDataHidden,
+  isGramDiamondEnabled,
   isTestnet,
   isHardwareAccount,
   isViewMode,
@@ -313,6 +316,7 @@ function TransactionInfoModal({
             isTestnet={isTestnet}
             isOpen={isOpen}
             isSensitiveDataHidden={isSensitiveDataHidden}
+            isGramDiamondEnabled={isGramDiamondEnabled}
             forceShowAddress
             showBothAddresses
             encryptedComment={encryptedComment}
@@ -425,6 +429,7 @@ export default memo(withGlobal((global): StateProps => {
     accounts,
     isMediaViewerOpen: Boolean(global.mediaViewer.mediaId),
     isSensitiveDataHidden: global.settings.isSensitiveDataHidden,
+    isGramDiamondEnabled: selectIsGramDiamondEnabled(global),
     isTestnet: global.settings.isTestnet,
     isHardwareAccount: selectIsHardwareAccount(global),
     isViewMode: selectIsCurrentAccountViewMode(global),

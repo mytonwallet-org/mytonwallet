@@ -212,6 +212,8 @@ describe('importMnemonic', () => {
     await importMnemonic(['mainnet'], DUAL_VALID);
 
     expect(setAccountValue).toHaveBeenCalledWith('0-mainnet', 'accounts', expect.objectContaining({ type: 'ton' }));
+    // The client activates the account once it can receive the polling updates
+    expect(activateAccount).not.toHaveBeenCalled();
   });
 
   it('keeps a discovered Telegram Wallet import TON-only instead of grouping other chains with it', async () => {

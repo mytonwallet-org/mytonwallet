@@ -99,8 +99,15 @@ function RichNumberInput({
 
   useLayoutEffect(() => {
     const newText = clearText(value);
+    // While the field is focused, its text may be a spelling of `value` that is still being typed: `1.` or `1.50`
+    // for the value `1` or `1.5`. Rewriting the field from the value would eat what has just been typed, so such
+    // text is kept. Without focus the value wins, because it may have been set from outside, for example by a
+    // percent button. `handleBlur` applies the same rule when the focus leaves.
+    const shouldKeepTypedText = Boolean(newText)
+      && document.activeElement === inputRef.current
+      && textRef.current.startsWith(newText);
 
-    if (!newText || !textRef.current.startsWith(newText)) {
+    if (!shouldKeepTypedText) {
       updateHtml(newText);
       textRef.current = newText;
     }
@@ -135,6 +142,14 @@ function RichNumberInput({
     if (disabled) return;
 
     unmarkHasFocus();
+
+    // Typed text that has not been accepted as a value gives way to the value
+    const text = clearText(value);
+    if (text !== textRef.current) {
+      updateHtml(text);
+      textRef.current = text;
+    }
+
     onBlur?.();
   });
 

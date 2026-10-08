@@ -12,6 +12,7 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountSettings,
   selectCurrentAccountState,
+  selectCurrentAccountTokenBalance,
   selectDefaultOffRampChain,
   selectDefaultOnRampChain,
   selectIsCurrentAccountViewMode,
@@ -64,6 +65,9 @@ interface StateProps {
   isOffRampDisabled?: boolean;
   onRampChain?: ApiChain;
   receiveChain?: ApiChain;
+  /** Set on a token screen whose token can be bought and sold through the swap */
+  tradeTokenSlug?: string;
+  hasTradeTokenBalance?: boolean;
   stakingStatus: StakingStateStatus;
   theme: Theme;
   accentColorIndex?: number;
@@ -77,6 +81,8 @@ function TopActions({
   isOffRampDisabled,
   onRampChain,
   receiveChain,
+  tradeTokenSlug,
+  hasTradeTokenBalance,
   stakingStatus,
   theme,
   accentColorIndex,
@@ -85,6 +91,7 @@ function TopActions({
   const {
     startTransfer,
     startSwap,
+    startTokenTrade,
     openReceiveModal,
     openOnRampWidgetModal,
     openOffRampWidgetModal,
@@ -99,7 +106,16 @@ function TopActions({
   const containerRef = useRef<HTMLDivElement>();
   useHorizontalScroll({ containerRef, shouldPreventDefault: true });
 
+  const isBuyShown = Boolean(tradeTokenSlug) || !isOnRampDisabled;
+  const isSellShown = tradeTokenSlug ? hasTradeTokenBalance : !isOffRampDisabled;
+
   const handleBuyClick = useLastCallback(() => {
+    if (tradeTokenSlug) {
+      vibrate();
+      startTokenTrade({ tokenSlug: tradeTokenSlug, direction: 'buy' });
+      return;
+    }
+
     if (!onRampChain) return;
 
     vibrate();
@@ -123,7 +139,12 @@ function TopActions({
 
   const handleSellClick = useLastCallback(() => {
     vibrate();
-    openOffRampWidgetModal();
+
+    if (tradeTokenSlug) {
+      startTokenTrade({ tokenSlug: tradeTokenSlug, direction: 'sell' });
+    } else {
+      openOffRampWidgetModal();
+    }
   });
 
   const handleSendClick = useLastCallback(() => {
@@ -152,7 +173,7 @@ function TopActions({
       ref={containerRef}
       className={buildClassName(styles.root, 'no-scrollbar', SWIPE_DISABLED_CLASS_NAME, className)}
     >
-      {!isOnRampDisabled && (
+      {isBuyShown && (
         <ActionButton
           label={lang('Buy')}
           tgsUrl={stickerPaths.iconBuy}
@@ -188,7 +209,7 @@ function TopActions({
           onClick={handleEarnClick}
         />
       )}
-      {!isOffRampDisabled && (
+      {isSellShown && (
         <ActionButton
           label={lang('Sell')}
           tgsUrl={stickerPaths.iconSell}
@@ -222,15 +243,27 @@ export default memo(
 
       // Neither button carries a chain of its own, so each is answered for the very chain its click will open
       const onRampChain = selectDefaultOnRampChain(global);
+      const isSwapDisabled = selectIsSwapDisabled(global);
+
+      // On a token screen, Buy and Sell trade that token; LP tokens and tokens the swap does not know stay with the card widgets
+      const canTradeToken = currentTokenSlug !== undefined
+        && !isSwapDisabled
+        && global.tokenInfo.bySlug[currentTokenSlug]?.type !== 'lp_token'
+        && Boolean(global.swapTokenInfo.bySlug[currentTokenSlug]);
+      const tradeTokenSlug = canTradeToken ? currentTokenSlug : undefined;
 
       return {
         isViewMode: selectIsCurrentAccountViewMode(global),
-        isSwapDisabled: selectIsSwapDisabled(global),
+        isSwapDisabled,
         isEarnHidden,
         isOnRampDisabled: !onRampChain,
         isOffRampDisabled: !selectIsOffRampAllowed(global, selectDefaultOffRampChain(global)),
         onRampChain,
         receiveChain,
+        tradeTokenSlug,
+        hasTradeTokenBalance: tradeTokenSlug
+          ? selectCurrentAccountTokenBalance(global, tradeTokenSlug) > 0n
+          : undefined,
         stakingStatus: stakingState ? getStakingStateStatus(stakingState) : 'inactive',
         theme: global.settings.theme,
         accentColorIndex: selectCurrentAccountSettings(global)?.accentColorIndex,

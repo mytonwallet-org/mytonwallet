@@ -1,7 +1,7 @@
 import type { GlobalState } from '../types';
 import { SwapInputSource } from '../types';
 
-import { getSwapEstimateInputKey, isSwapEstimateInputEqual } from './swap';
+import { getSwapEstimateInputKey, getUsableSwapHint, isSwapEstimateInputEqual } from './swap';
 
 type CurrentSwap = GlobalState['currentSwap'];
 
@@ -62,5 +62,29 @@ describe('isSwapEstimateInputEqual', () => {
 
   it('rejects an estimate made for a different slippage', () => {
     expect(isSwapEstimateInputEqual(makeGlobal(), makeGlobal({ slippage: 1 }))).toBe(false);
+  });
+});
+
+describe('getUsableSwapHint', () => {
+  const global = {
+    ...makeGlobal(),
+    swapTokenInfo: { bySlug: { toncoin: {}, 'ton-eqavlwfdxg': {}, sol: {} } },
+  } as unknown as GlobalState;
+
+  it.each([
+    ['a token outside the pair', 'sol', true],
+    ['the token being paid', 'toncoin', false],
+    ['the token being received', 'ton-eqavlwfdxg', false],
+    ['an unknown token', 'unknown', false],
+  ])('decides on a suggestion of %s', (_name, token, isKept) => {
+    const hint = { type: 'intermediate' as const, token };
+
+    expect(getUsableSwapHint(global, hint)).toBe(isKept ? hint : undefined);
+  });
+
+  it('keeps an external service suggestion', () => {
+    const hint = { type: 'external' as const, providerName: 'Jupiter', url: 'https://jup.ag' };
+
+    expect(getUsableSwapHint(global, hint)).toBe(hint);
   });
 });

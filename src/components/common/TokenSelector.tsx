@@ -10,11 +10,14 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiBaseCurrency, ApiChain, ApiSwapVersion } from '../../api/types';
+import type { ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiSwapVersion } from '../../api/types';
+import type { TradeDirection } from '../../global/types';
 import type { TokenType } from '../../util/tokenSearch';
+import type { TabWithProperties } from '../ui/TabList';
+import type { TradeCategory } from './helpers/buildTradeSections';
 import { type AssetPairs, SettingsState, type UserSwapToken } from '../../global/types';
 
-import { ANIMATED_STICKER_MIDDLE_SIZE_PX } from '../../config';
+import { ANIMATED_STICKER_MIDDLE_SIZE_PX, CURRENCIES } from '../../config';
 import {
   selectAvailableUserForSwapTokens,
   selectCurrentAccount,
@@ -23,7 +26,8 @@ import {
   selectSwapTokens,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { getChainConfig } from '../../util/chain';
+import { calculateTokenPrice } from '../../util/calculatePrice';
+import { getChainConfig, getStablecoinSlugs } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency, getShortCurrencySymbol } from '../../util/formatNumber';
 import { getChainFromAddress } from '../../util/isValidAddress';
@@ -33,6 +37,7 @@ import { isSwapPairValid } from '../../util/swap/isSwapPairValid';
 import { getIsRwaStockToken, getTokenName } from '../../util/tokens';
 import { findTokensByQuery } from '../../util/tokenSearch';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
+import { buildTradeSections, MIN_OWNED_TOKENS_FOR_CATEGORIES, TRADE_CATEGORIES } from './helpers/buildTradeSections';
 
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
@@ -45,7 +50,9 @@ import useSyncEffect from '../../hooks/useSyncEffect';
 import AnimatedIconWithPreview from '../ui/AnimatedIconWithPreview';
 import ModalHeader from '../ui/ModalHeader';
 import SensitiveData from '../ui/SensitiveData';
+import TabList from '../ui/TabList';
 import Transition from '../ui/Transition';
+import FiatCurrencyIcon from './FiatCurrencyIcon';
 import TokenIcon from './TokenIcon';
 import TokenTitle from './TokenTitle';
 
@@ -62,9 +69,13 @@ interface OwnProps {
   searchTokens?: TokenType[];
   noHeader?: boolean;
   searchClassName?: string;
+  /** Turns the picker into the Buy / Sell asset browser: category tabs, fiat currencies and the trade grouping */
+  tradeDirection?: TradeDirection;
+  fiatCurrencies?: ApiBaseCurrency[];
   onClose: NoneToVoidFunction;
   onBack: NoneToVoidFunction;
   onTokenSelect: (token: TokenType) => void;
+  onFiatSelect?: (currency: ApiBaseCurrency) => void;
 }
 
 interface StateProps {
@@ -73,9 +84,11 @@ interface StateProps {
   popularTokens?: TokenType[];
   swapTokens?: UserSwapToken[];
   tokenInSlug?: string;
+  tokenOutSlug?: string;
   pairsBySlug?: Record<string, AssetPairs>;
   swapVersion: ApiSwapVersion;
   baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
   isLoading?: boolean;
   error?: string;
   availableChains?: Partial<Record<ApiChain, unknown>>;
@@ -105,7 +118,9 @@ function TokenSelector({
   shouldFilter,
   shouldUseSwapTokens,
   baseCurrency,
+  currencyRates,
   tokenInSlug,
+  tokenOutSlug,
   pairsBySlug,
   swapVersion,
   isActive,
@@ -116,9 +131,12 @@ function TokenSelector({
   availableChains = EMPTY_OBJECT,
   selectedChain,
   searchTokens,
+  tradeDirection,
+  fiatCurrencies = EMPTY_ARRAY,
   importedSlugs,
   isSensitiveDataHidden,
   onTokenSelect,
+  onFiatSelect,
   onBack,
   onClose,
 }: OwnProps & StateProps) {
@@ -128,6 +146,7 @@ function TokenSelector({
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
   const scrollContainerRef = useRef<HTMLDivElement>();
   const searchInputRef = useRef<HTMLInputElement>();
+  const isTradeMode = Boolean(tradeDirection);
 
   useHistoryBack({
     isActive,
@@ -153,6 +172,7 @@ function TokenSelector({
   const [isResetButtonVisible, setIsResetButtonVisible] = useState(false);
   const [renderingKey, setRenderingKey] = useState(SearchState.Initial);
   const [searchTokenList, setSearchTokenList] = useState<TokenType[]>([]);
+  const [category, setCategory] = useState<TradeCategory>('all');
 
   const selectedChains = useMemo(
     () => selectedChain && new Set(Array.isArray(selectedChain) ? selectedChain : [selectedChain]),
@@ -195,14 +215,71 @@ function TokenSelector({
   const popularTokensWithFilter = useMemo(() => filterTokens(popularTokens), [filterTokens, popularTokens]);
   const swapTokensWithFilter = useMemo(() => filterTokens(swapTokens), [filterTokens, swapTokens]);
 
+  // The token being bought or sold cannot be its own counterpart
+  const screenTokenSlug = tradeDirection === 'buy' ? tokenOutSlug : tradeDirection === 'sell' ? tokenInSlug : undefined;
+
+  // While searching, the browser keeps its sections and lists every match in the order of the search ranking
+  const tradeQuery = debouncedSearchValue.trim();
+  const tradeSections = useMemo(() => {
+    if (!tradeDirection) return undefined;
+
+    const matches = tradeQuery ? findTokensByQuery(lang, swapTokensWithFilter, tradeQuery, importedSlugs) : undefined;
+
+    return buildTradeSections({
+      direction: tradeDirection,
+      category,
+      screenTokenSlug,
+      userTokens: tradeQuery
+        ? findTokensByQuery(lang, userTokensWithFilter, tradeQuery, importedSlugs)
+        : userTokensWithFilter,
+      popularTokens: matches ?? popularTokensWithFilter,
+      swapTokens: matches ?? swapTokensWithFilter,
+      isStablecoin: getIsStablecoin,
+      isSearch: Boolean(matches),
+    });
+  }, [
+    tradeDirection, category, screenTokenSlug, userTokensWithFilter, popularTokensWithFilter, swapTokensWithFilter,
+    tradeQuery, lang, importedSlugs,
+  ]);
+
+  // "Pay With" offers the owned tokens only, so the search is limited to them as well
+  const ownedTokens = useMemo(
+    () => userTokensWithFilter.filter(({ amount, slug }) => amount > 0n && slug !== screenTokenSlug),
+    [userTokensWithFilter, screenTokenSlug],
+  );
+
   const filteredTokenList = useMemo(() => {
-    const tokensToFilter = shouldUseSwapTokens ? swapTokensWithFilter : allTokens;
-    const enabledTokens = tokensToFilter.filter(({ isDisabled }) => !isDisabled);
+    const tokensToFilter = tradeDirection === 'buy'
+      ? ownedTokens
+      : shouldUseSwapTokens ? swapTokensWithFilter : allTokens;
+    const enabledTokens = tokensToFilter.filter(({ isDisabled, slug }) => !isDisabled && slug !== screenTokenSlug);
 
     return debouncedSearchValue
       ? findTokensByQuery(lang, enabledTokens, debouncedSearchValue, importedSlugs)
       : enabledTokens;
-  }, [allTokens, shouldUseSwapTokens, debouncedSearchValue, swapTokensWithFilter, lang, importedSlugs]);
+  }, [
+    allTokens, ownedTokens, tradeDirection, screenTokenSlug, shouldUseSwapTokens, debouncedSearchValue,
+    swapTokensWithFilter, lang, importedSlugs,
+  ]);
+
+  const visibleFiatCurrencies = useMemo(() => {
+    if (!fiatCurrencies.length || (category !== 'all' && category !== 'fiat')) {
+      return EMPTY_ARRAY;
+    }
+
+    const query = debouncedSearchValue.trim().toLowerCase();
+    if (!query) {
+      return fiatCurrencies;
+    }
+
+    return fiatCurrencies.filter((currency) => (
+      currency.toLowerCase().includes(query) || lang(CURRENCIES[currency].name).toLowerCase().includes(query)
+    ));
+  }, [fiatCurrencies, category, debouncedSearchValue, lang]);
+
+  const areCategoriesShown = tradeSections !== undefined && (
+    tradeDirection === 'sell' || ownedTokens.length > MIN_OWNED_TOKENS_FOR_CATEGORIES
+  );
 
   const resetSearch = () => {
     setSearchValue('');
@@ -212,15 +289,21 @@ function TokenSelector({
     setIsResetButtonVisible(Boolean(searchValue.length));
 
     const isValidAddress = !!getImportChainByAddress(searchValue, availableChains);
+    const hasSearchResults = tradeSections
+      ? Boolean(
+        tradeSections.my.length || tradeSections.stablecoins.length || tradeSections.tokens.length
+        || visibleFiatCurrencies.length,
+      )
+      : filteredTokenList.length !== 0 || visibleFiatCurrencies.length !== 0;
     let newRenderingKey = SearchState.Initial;
 
     if (isLoading && isValidAddress) {
       newRenderingKey = SearchState.Loading;
     } else if (token && isValidAddress) {
       newRenderingKey = SearchState.TokenByAddress;
-    } else if (debouncedSearchValue.length && filteredTokenList.length !== 0) {
+    } else if (debouncedSearchValue.length && hasSearchResults) {
       newRenderingKey = SearchState.Search;
-    } else if (filteredTokenList.length === 0) {
+    } else if (!hasSearchResults) {
       newRenderingKey = SearchState.Empty;
     }
 
@@ -229,7 +312,10 @@ function TokenSelector({
     if (newRenderingKey !== SearchState.Initial) {
       setSearchTokenList(filteredTokenList);
     }
-  }, [searchTokenList.length, isLoading, searchValue, debouncedSearchValue, token, filteredTokenList, availableChains]);
+  }, [
+    searchTokenList.length, isLoading, searchValue, debouncedSearchValue, token, filteredTokenList,
+    visibleFiatCurrencies, availableChains, tradeSections,
+  ]);
 
   useEffect(() => {
     const chain = getImportChainByAddress(searchValue, availableChains);
@@ -257,6 +343,16 @@ function TokenSelector({
     onBack();
   });
 
+  const handleFiatClick = useLastCallback((currency: ApiBaseCurrency) => {
+    searchInputRef.current?.blur();
+
+    onFiatSelect?.(currency);
+
+    resetSearch();
+
+    onBack();
+  });
+
   const handleOpenSettings = useLastCallback(() => {
     onClose();
     openSettingsWithState({ state: SettingsState.Assets });
@@ -264,15 +360,23 @@ function TokenSelector({
 
   function renderSearch() {
     return (
-      <div className={styles.tokenSelectSearchWrapper}>
-        <div className={buildClassName(styles.tokenSelectInputWrapper, searchClassName)}>
+      <div
+        className={buildClassName(styles.tokenSelectSearchWrapper, isTradeMode && styles.tokenSelectSearchWrapperTrade)}
+      >
+        <div
+          className={buildClassName(
+            styles.tokenSelectInputWrapper,
+            isTradeMode && styles.tokenSelectInputWrapperTrade,
+            searchClassName,
+          )}
+        >
           <i className={buildClassName(styles.tokenSelectSearchIcon, 'icon-search')} aria-hidden />
           <input
             ref={searchInputRef}
             name="token-search-modal"
             className={styles.tokenSelectInput}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder={lang('Name or Address...')}
+            placeholder={lang(isTradeMode ? 'Search' : 'Name or Address...')}
             value={searchValue}
           />
           <Transition
@@ -298,9 +402,10 @@ function TokenSelector({
 
   function renderToken(currentToken: TokenType) {
     const isAvailable = Boolean(!shouldFilter || currentToken.canSwap);
-    const descriptionText = isAvailable
-      ? getChainNetworkName(currentToken.chain)
-      : lang('Unavailable');
+    // The trade browser shows the chain as a label next to the name, so the network line is left out
+    const descriptionText = !isAvailable
+      ? lang('Unavailable')
+      : isTradeMode ? undefined : getChainNetworkName(currentToken.chain);
 
     const valueText = Number(currentToken.totalValue) > 0
       ? formatCurrency(currentToken.totalValue, shortBaseSymbol)
@@ -313,6 +418,7 @@ function TokenSelector({
         key={currentToken.slug}
         isAvailable={isAvailable}
         isSensitiveDataHidden={isSensitiveDataHidden}
+        isTradeMode={isTradeMode}
         withChainIcon
         descriptionText={descriptionText}
         token={currentToken}
@@ -324,9 +430,11 @@ function TokenSelector({
 
   function renderTokenGroup(tokens: TokenType[], title: string, shouldShowSettings?: boolean) {
     return (
-      <div className={styles.tokenGroupContainer}>
-        <div className={styles.tokenGroupHeader}>
-          <span className={styles.tokenGroupTitle}>{title}</span>
+      <div className={buildClassName(styles.tokenGroupContainer, isTradeMode && styles.tokenGroupContainerTrade)}>
+        <div className={buildClassName(styles.tokenGroupHeader, isTradeMode && styles.tokenGroupHeaderTrade)}>
+          <span className={buildClassName(styles.tokenGroupTitle, isTradeMode && styles.tokenGroupTitleAccent)}>
+            {title}
+          </span>
           {shouldShowSettings && (
             <span
               className={styles.tokenGroupAdditionalTitle}
@@ -341,9 +449,36 @@ function TokenSelector({
     );
   }
 
+  function renderTradeGroup(tokens: TokenType[], title?: string) {
+    if (!tokens.length) return undefined;
+
+    return title ? renderTokenGroup(tokens, title) : renderAllTokens(tokens);
+  }
+
+  function renderFiatGroup() {
+    if (!visibleFiatCurrencies.length) return undefined;
+
+    return (
+      <div className={buildClassName(styles.tokenGroupContainer, styles.tokenGroupContainerTrade)}>
+        <div className={buildClassName(styles.tokenGroupHeader, styles.tokenGroupHeaderTrade)}>
+          <span className={buildClassName(styles.tokenGroupTitle, styles.tokenGroupTitleAccent)}>{lang('Fiat')}</span>
+        </div>
+        {visibleFiatCurrencies.map((currency) => (
+          <FiatCurrencyRow
+            key={currency}
+            currency={currency}
+            baseCurrency={baseCurrency}
+            currencyRates={currencyRates}
+            onSelect={handleFiatClick}
+          />
+        ))}
+      </div>
+    );
+  }
+
   function renderAllTokens(tokens: TokenType[]) {
     return (
-      <div className={styles.tokenGroupContainer}>
+      <div className={buildClassName(styles.tokenGroupContainer, isTradeMode && styles.tokenGroupContainerTrade)}>
         {tokens.map(renderToken)}
       </div>
     );
@@ -408,6 +543,29 @@ function TokenSelector({
   }
 
   function renderTokenGroups() {
+    if (tradeSections) {
+      const myGroup = renderTradeGroup(tradeSections.my, lang('My'));
+
+      if (tradeDirection === 'buy') {
+        return (
+          <>
+            {renderFiatGroup()}
+            {myGroup}
+          </>
+        );
+      }
+
+      return (
+        <>
+          {myGroup}
+          {renderFiatGroup()}
+          {renderTradeGroup(tradeSections.stablecoins, lang('Stablecoins'))}
+          {/* The remaining search matches go without a title, as in the native apps */}
+          {renderTradeGroup(tradeSections.tokens, tradeQuery ? undefined : lang('Tokens'))}
+        </>
+      );
+    }
+
     return (
       <>
         {!shouldHideMyTokens && renderTokenGroup(userTokensWithFilter, lang('MY'), true)}
@@ -423,7 +581,7 @@ function TokenSelector({
       case SearchState.Loading:
         return renderSearchResults();
       case SearchState.Search:
-        return renderAllTokens(searchTokenList);
+        return isTradeMode ? renderTokenGroups() : renderAllTokens(searchTokenList);
       case SearchState.TokenByAddress:
         return renderSearchResults(token);
       case SearchState.Empty:
@@ -435,7 +593,7 @@ function TokenSelector({
     <>
       {!noHeader && (
         <ModalHeader
-          title={lang('Select Token')}
+          title={lang(isTradeMode ? (tradeDirection === 'buy' ? 'Pay With' : 'You Receive') : 'Select Token')}
           onBackButtonClick={onBack}
           onClose={onClose}
         />
@@ -447,6 +605,7 @@ function TokenSelector({
         onScroll={handleContentScroll}
       >
         {renderSearch()}
+        {areCategoriesShown && <CategoryTabs isActive={isActive} category={category} onChange={setCategory} />}
         <Transition name="fade" activeKey={renderingKey}>
           {renderContent}
         </Transition>
@@ -458,7 +617,7 @@ function TokenSelector({
 export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
   const { baseCurrency, isSensitiveDataHidden } = global.settings;
   const { isLoading, token, error } = global.settings.importToken ?? {};
-  const { tokenInSlug } = global.currentSwap ?? {};
+  const { tokenInSlug, tokenOutSlug } = global.currentSwap ?? {};
   const { swapVersion } = global;
   const pairsBySlug = global.swapPairs?.bySlug;
   const userTokens = selectAvailableUserForSwapTokens(global, ownProps.isSwapOut);
@@ -469,12 +628,14 @@ export default memo(withGlobal<OwnProps>((global, ownProps): StateProps => {
 
   return {
     baseCurrency,
+    currencyRates: global.currencyRates,
     isLoading,
     token,
     error,
     pairsBySlug,
     swapVersion,
     tokenInSlug,
+    tokenOutSlug,
     userTokens,
     popularTokens,
     swapTokens,
@@ -488,6 +649,7 @@ function Token({
   token,
   isAvailable,
   isSensitiveDataHidden,
+  isTradeMode,
   withChainIcon,
   descriptionText,
   valueText,
@@ -496,8 +658,9 @@ function Token({
   token: TokenType;
   isAvailable: boolean;
   isSensitiveDataHidden?: true;
+  isTradeMode?: boolean;
   withChainIcon: boolean;
-  descriptionText: string;
+  descriptionText?: string;
   valueText: TeactNode;
   onSelect: (token: TokenType) => void;
 }) {
@@ -510,6 +673,7 @@ function Token({
     <div
       className={buildClassName(
         styles.tokenContainer,
+        isTradeMode && styles.tokenContainerTrade,
         !isAvailable && styles.tokenContainerDisabled,
       )}
       onClick={handleClick}
@@ -518,6 +682,7 @@ function Token({
         <TokenIcon
           token={token}
           withChainIcon={withChainIcon}
+          size={isTradeMode ? 'large' : undefined}
           className={!isAvailable ? styles.tokenLogoDisabled : undefined}
         />
 
@@ -528,17 +693,19 @@ function Token({
             isRwaStock={getIsRwaStockToken(token)}
             isDisabled={!isAvailable}
           />
-          <span
-            className={buildClassName(
-              styles.tokenNetwork,
-              !isAvailable && styles.tokenTextDisabled,
-            )}
-          >
-            {descriptionText}
-          </span>
+          {descriptionText && (
+            <span
+              className={buildClassName(
+                styles.tokenNetwork,
+                !isAvailable && styles.tokenTextDisabled,
+              )}
+            >
+              {descriptionText}
+            </span>
+          )}
         </div>
       </div>
-      <div className={styles.tokenPriceContainer}>
+      <div className={buildClassName(styles.tokenPriceContainer, isTradeMode && styles.tokenPriceContainerTrade)}>
         <SensitiveData
           isActive={isSensitiveDataHidden}
           min={4}
@@ -572,6 +739,84 @@ function Token({
       </div>
     </div>
   );
+}
+
+interface FiatCurrencyRowProps {
+  currency: ApiBaseCurrency;
+  baseCurrency: ApiBaseCurrency;
+  currencyRates: ApiCurrencyRates;
+  onSelect: (currency: ApiBaseCurrency) => void;
+}
+
+const FiatCurrencyRow = memo(({
+  currency,
+  baseCurrency,
+  currencyRates,
+  onSelect,
+}: FiatCurrencyRowProps) => {
+  const lang = useLang();
+
+  // The rates are per US dollar, so one unit of the currency costs the inverse of its rate
+  const rate = Number(currencyRates[currency]);
+  const price = rate ? calculateTokenPrice(1 / rate, baseCurrency, currencyRates) : 0;
+  const priceText = price
+    ? lang('$token_price_value', {
+      value: formatCurrency(price, getShortCurrencySymbol(baseCurrency), undefined, true),
+    })
+    : lang('No Price');
+
+  return (
+    <div
+      className={buildClassName(styles.tokenContainer, styles.tokenContainerTrade)}
+      onClick={() => onSelect(currency)}
+    >
+      <div className={styles.tokenLogoContainer}>
+        <FiatCurrencyIcon currency={currency} size="large" />
+        <div className={styles.nameContainer}>
+          <TokenTitle tokenName={lang(CURRENCIES[currency].name)} />
+        </div>
+      </div>
+      <div className={buildClassName(styles.tokenPriceContainer, styles.tokenPriceContainerTrade)}>
+        <span className={styles.tokenAmount}>{formatCurrency(0, currency)}</span>
+        <span className={styles.tokenValue}>{priceText}</span>
+      </div>
+    </div>
+  );
+});
+
+interface CategoryTabsProps {
+  isActive?: boolean;
+  category: TradeCategory;
+  onChange: (value: TradeCategory) => void;
+}
+
+const CategoryTabs = memo(({ isActive, category, onChange }: CategoryTabsProps) => {
+  const lang = useLang();
+
+  const tabs = useMemo<TabWithProperties[]>(
+    () => TRADE_CATEGORIES.map(({ title }, index) => ({ id: index, title: lang(title) })),
+    [lang],
+  );
+  const activeTab = TRADE_CATEGORIES.findIndex(({ value }) => value === category);
+
+  const handleSwitchTab = useLastCallback((index: number) => {
+    onChange(TRADE_CATEGORIES[index].value);
+  });
+
+  return (
+    <TabList
+      isActive={isActive}
+      tabs={tabs}
+      activeTab={activeTab}
+      className={styles.categoryTabs}
+      overlayClassName={styles.categoryTabsOverlay}
+      onSwitchTab={handleSwitchTab}
+    />
+  );
+});
+
+function getIsStablecoin(slug: string) {
+  return getStablecoinSlugs().has(slug);
 }
 
 function filterAndSortTokens(

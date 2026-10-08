@@ -78,16 +78,22 @@ export function hasEffectiveRampCurrency(baseline: ApiBaseCurrency[], allowed?: 
 }
 
 /**
- * Which currency a ramp surface starts on: the wallet's own currency, then the ruble for users in Russia, then
- * whatever the surface has left. `undefined` means nothing is offered at all, and the caller must close or refuse
- * the surface - naming a currency of its own here is what lets a client offer one the server withdrew.
+ * Which currency to start with. First the one the caller asks for (the Buy / Sell screen opens the modal with
+ * the currency picked there), then the wallet currency, then the ruble for users in Russia, then any currency
+ * that is left. `undefined` means there is no currency to offer, and the caller must close the modal or not open
+ * it. The function does not pick a currency of its own, so a client cannot offer a currency the server has removed.
  */
 export function getDefaultRampCurrency(
   supportedCurrencies: Set<ApiBaseCurrency>,
   baseCurrency: ApiBaseCurrency | undefined,
   countryCode: ApiCountryCode | undefined,
+  requestedCurrency?: ApiBaseCurrency,
 ): ApiBaseCurrency | undefined {
-  const preferences: (ApiBaseCurrency | undefined)[] = [baseCurrency, countryCode === 'RU' ? 'RUB' : undefined];
+  const preferences: (ApiBaseCurrency | undefined)[] = [
+    requestedCurrency,
+    baseCurrency,
+    countryCode === 'RU' ? 'RUB' : undefined,
+  ];
   const preferred = preferences.find((currency) => currency && supportedCurrencies.has(currency));
 
   return preferred ?? [...supportedCurrencies][0];

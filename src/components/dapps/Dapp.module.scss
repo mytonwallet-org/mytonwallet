@@ -9,10 +9,10 @@ $labelSidePadding: 0.5rem;
 .modalDialog {
   // Without this, the content sticks out past the rounded edges of the modal
   overflow: hidden;
-  height: 41rem;
+  height: 42rem;
 
   @supports (height: var(--safe-area-bottom)) {
-    height: calc(41rem + var(--safe-area-bottom));
+    height: calc(42rem + var(--safe-area-bottom));
   }
 
   @media (min-width: 416.01px) {
@@ -679,12 +679,20 @@ $labelSidePadding: 0.5rem;
   background: var(--color-background-first);
 }
 
+// Opens over the transfer modal (`.modalDialog`), so it stays 1rem narrower on each side to keep that modal visible
+.feeDetailsDialog {
+  @media (min-width: 416.01px) {
+    max-width: 22rem !important;
+  }
+}
+
 .feeDetailsText {
   margin: 0 0.5rem;
+  color: var(--color-gray-1);
 }
 
 .feeDetailsWarning {
-  margin: 1.1875rem 0.5rem 0;
+  margin: 1.5rem 0 2rem;
 }
 
 .transactionContent {

@@ -198,7 +198,7 @@
   line-height: 2.375rem;
 
   .fractional {
-    font-size: max(0.75rem, calc(1.375rem * var(--font-size-scale)));
+    font-size: max(0.75rem, calc(var(--input-fraction-font-size, 1.375rem) * var(--font-size-scale)));
     font-weight: 750;
   }
 }
@@ -286,6 +286,12 @@ textarea.input {
 .fractional {
   font-size: max(0.75rem, calc(min(1rem, var(--input-font-size)) * var(--font-size-scale)));
   font-weight: 700;
+  color: var(--input-fraction-color, inherit);
+}
+
+.prefix {
+  font-size: var(--input-prefix-font-size, inherit);
+  color: var(--input-prefix-color, inherit);
 }
 
 .label {

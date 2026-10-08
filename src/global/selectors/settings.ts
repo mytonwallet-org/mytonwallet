@@ -29,6 +29,11 @@ export function selectSeasonalTheme(global: GlobalState) {
   return selectOverriddenValue(global.seasonalTheme, selectSeasonalThemeOverride(global));
 }
 
+// Every build of this release, Gram Wallet included, shows the 3D diamond only after the developer override
+export function selectIsGramDiamondEnabled(global: GlobalState) {
+  return Boolean(selectDeveloperSettingsOverrides(global)?.isGramDiamondEnabled);
+}
+
 /**
  * The 3D card is a motion effect, so it obeys the global animation switch as well as its own
  * setting. A user who turned animations off does not expect the card to keep moving.

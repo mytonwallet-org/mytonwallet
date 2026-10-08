@@ -5,7 +5,11 @@ import type { StoredDappConnection } from '../../api/dappProtocols/storage';
 import type { ConfirmationAsset, ConfirmationRecipient } from './helpers/confirmationHeader';
 
 import { TONCOIN } from '../../config';
-import { selectCurrentAccountId, selectIsMultichainAccount } from '../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectIsGramDiamondEnabled,
+  selectIsMultichainAccount,
+} from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
@@ -38,6 +42,7 @@ interface StateProps {
   isMultichainAccount: boolean;
   areChainBadgesShown?: boolean;
   isSensitiveDataHidden?: true;
+  isGramDiamondEnabled: boolean;
 }
 
 const DAPP_ICON_FALLBACK_CLASS_NAME = buildClassName(styles.dappIconFallback, 'icon-laptop');
@@ -61,6 +66,7 @@ function ConfirmationHeader({
   isMultichainAccount,
   areChainBadgesShown,
   isSensitiveDataHidden,
+  isGramDiamondEnabled,
 }: OwnProps & StateProps) {
   const lang = useLang();
   const isPinPadLayout = getDoesUsePinPad();
@@ -69,7 +75,7 @@ function ConfirmationHeader({
     if (assets.length === 1) {
       const [asset] = assets;
 
-      if (asset.type === 'token' && asset.token.slug === TONCOIN.slug) {
+      if (isGramDiamondEnabled && asset.type === 'token' && asset.token.slug === TONCOIN.slug) {
         return <GramDiamond className={styles.diamond} />;
       }
 
@@ -206,6 +212,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     isMultichainAccount: currentAccountId ? selectIsMultichainAccount(global, currentAccountId) : false,
     areChainBadgesShown,
     isSensitiveDataHidden,
+    isGramDiamondEnabled: selectIsGramDiamondEnabled(global),
   };
 })(ConfirmationHeader));
 

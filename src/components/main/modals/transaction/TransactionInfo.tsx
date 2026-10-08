@@ -67,6 +67,7 @@ interface OwnProps {
   isOpen?: boolean;
   isSensitiveDataHidden?: true;
   isViewMode?: boolean;
+  isGramDiamondEnabled?: boolean;
   stakingStates?: ApiStakingState[];
   isLongUnstakeRequested?: boolean;
   encryptedComment?: string;
@@ -102,6 +103,7 @@ function TransactionInfo({
   isOpen,
   isSensitiveDataHidden,
   isViewMode,
+  isGramDiamondEnabled,
   stakingStates,
   isLongUnstakeRequested,
   encryptedComment,
@@ -366,10 +368,10 @@ function TransactionInfo({
     return buttons.length ? <div className={styles.footer}>{buttons}</div> : undefined;
   }
 
-  // A plain GRAM amount gets the diamond and the hero layout; staking and other typed transactions keep
-  // the regular amount with its sign rules and status. Scam and failed transfers keep the regular amount
-  // too, so their red marking stays.
-  const isGramHero = slug === TONCOIN.slug && !nft && amountDisplayMode === 'normal' && !isScam
+  // A plain GRAM transfer gets the diamond and the hero layout; staking, contract calls and other typed
+  // transactions keep the regular amount with its sign rules and status. Scam and failed transfers keep
+  // the regular amount too, so their red marking stays.
+  const isGramHero = isGramDiamondEnabled && slug === TONCOIN.slug && !transaction?.type && !nft && !isScam
     && status !== 'failed';
 
   return (

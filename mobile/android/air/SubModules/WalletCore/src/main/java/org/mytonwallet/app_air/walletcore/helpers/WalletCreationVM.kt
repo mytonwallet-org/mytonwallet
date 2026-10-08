@@ -93,7 +93,7 @@ class WalletCreationVM(delegate: Delegate) {
                 }
                 WalletCore.activateAccount(
                     primaryAccount.accountId,
-                    notifySDK = false
+                    notifySDK = true
                 ) { res, err ->
                     if (res == null || err != null) {
                         // Should not happen!
@@ -105,6 +105,7 @@ class WalletCreationVM(delegate: Delegate) {
                                     LogMessage.MessagePartPrivacy.PUBLIC
                                 ).build()
                         )
+                        delegate.get()?.showError(err)
                     } else {
                         delegate.get()?.finalizedCreation(primaryAccount, accounts.size)
                     }

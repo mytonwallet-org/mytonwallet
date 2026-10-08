@@ -1,7 +1,7 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
-import type { ApiCurrencyRates, ApiTokenWithPrice } from '../../api/types';
+import type { ApiCurrencyRates, ApiTokenWithPrice, ApiTransactionType } from '../../api/types';
 
 import { LITECOIN, TONCOIN } from '../../config';
 import { pause } from '../../util/schedulers';
@@ -34,7 +34,11 @@ describe('GramDiamond in TransactionInfo', () => {
     root.remove();
   });
 
-  function render(slug: string, token: ApiTokenWithPrice) {
+  function render(
+    slug: string,
+    token: ApiTokenWithPrice,
+    { type, noGramDiamond }: { type?: ApiTransactionType; noGramDiamond?: boolean } = {},
+  ) {
     const transaction = makeMockTransactionActivity({
       id: 'tx-1',
       amount: 101250000000n,
@@ -44,6 +48,7 @@ describe('GramDiamond in TransactionInfo', () => {
       fromAddress: 'UQAsender',
       toAddress: 'UQArecipient',
       slug,
+      type,
     });
 
     TeactDOM.render(
@@ -55,6 +60,7 @@ describe('GramDiamond in TransactionInfo', () => {
         currencyRates={CURRENCY_RATES}
         theme="light"
         isOpen
+        isGramDiamondEnabled={!noGramDiamond}
       />,
       root,
     );
@@ -68,6 +74,22 @@ describe('GramDiamond in TransactionInfo', () => {
     expect(canvas).not.toBeNull();
     expect(mockMountDiamond).toHaveBeenCalledTimes(1);
     expect(mockMountDiamond.mock.calls[0][0]).toBe(canvas);
+  });
+
+  it('keeps the regular amount when the diamond is off', async () => {
+    render(TONCOIN.slug, GRAM_TOKEN, { noGramDiamond: true });
+    await pause(50);
+
+    expect(root.querySelector('canvas')).toBeNull();
+    expect(mockMountDiamond).not.toHaveBeenCalled();
+  });
+
+  it('keeps the regular amount for a typed GRAM transaction', async () => {
+    render(TONCOIN.slug, GRAM_TOKEN, { type: 'callContract' });
+    await pause(50);
+
+    expect(root.querySelector('canvas')).toBeNull();
+    expect(mockMountDiamond).not.toHaveBeenCalled();
   });
 
   it('renders nothing extra for another token', async () => {

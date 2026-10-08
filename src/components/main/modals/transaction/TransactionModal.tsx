@@ -27,6 +27,7 @@ import {
   selectCurrentAccountId,
   selectCurrentAccountState,
   selectIsCurrentAccountViewMode,
+  selectIsGramDiamondEnabled,
   selectIsHardwareAccount,
 } from '../../../../global/selectors';
 import {
@@ -72,6 +73,7 @@ type StateProps = {
   isMediaViewerOpen?: boolean;
   theme: Theme;
   isSensitiveDataHidden?: true;
+  isGramDiamondEnabled: boolean;
   nftsByAddress?: Record<string, ApiNft>;
   accounts?: Record<string, Account>;
   currentAccountId: string;
@@ -97,6 +99,7 @@ function TransactionModal({
   isMediaViewerOpen,
   theme,
   isSensitiveDataHidden,
+  isGramDiamondEnabled,
   nftsByAddress,
   accounts,
   currentAccountId,
@@ -292,6 +295,7 @@ function TransactionModal({
               isOpen={isModalOpen}
               isSensitiveDataHidden={isSensitiveDataHidden}
               isViewMode={isViewMode}
+              isGramDiamondEnabled={isGramDiamondEnabled}
               stakingStates={stakingStates}
               isLongUnstakeRequested={isLongUnstakeRequested}
               encryptedComment={encryptedComment}
@@ -379,6 +383,7 @@ export default memo(
       theme,
       stakingStates,
       isSensitiveDataHidden,
+      isGramDiamondEnabled: selectIsGramDiamondEnabled(global),
       nftsByAddress: byAddress,
       accounts,
       currentAccountId: accountId,

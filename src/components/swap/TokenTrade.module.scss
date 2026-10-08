@@ -1,0 +1,522 @@
+@use "../../styles/mixins";
+
+.form {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+.topCard {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+
+  border-radius: var(--border-radius-default);
+
+  background-color: var(--color-background-first);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 4rem;
+  padding: 0.5625rem 1rem 0.5625rem 0.5625rem;
+}
+
+.headerButtons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.headerButton {
+  width: 2rem !important;
+  max-width: none !important;
+  height: 2rem !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+
+  color: var(--color-close-button-text) !important;
+
+  background-color: var(--color-background-window) !important;
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-close-button-text-hover) !important;
+      background-color: var(--color-close-button-background-hover) !important;
+    }
+  }
+}
+
+.headerIcon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.headerCloseIcon {
+  font-size: 1.875rem;
+  line-height: 1;
+}
+
+.amountArea {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 3rem 1rem 1rem;
+
+  @include mixins.respond-above(xs) {
+    padding-top: 1.375rem;
+  }
+}
+
+.amountBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+
+  width: 100%;
+  height: 5.625rem;
+  padding-inline-start: 0.5rem;
+}
+
+.unitChip {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  max-width: 100%;
+  padding: 0.1875rem 0.5rem;
+  border: none;
+  border-radius: 1rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+
+  background-color: var(--color-background-window);
+
+  @include mixins.transition(background-color 150ms);
+
+  &:disabled {
+    cursor: default;
+  }
+
+  @media (hover: hover) {
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      background-color: var(--color-gray-button-background-light-hover);
+    }
+  }
+}
+
+.unitChipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unitChipIcon {
+  font-size: 1rem;
+}
+
+.amountRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+// The glyphs overhang their boxes at this size and the value is clipped by its own `overflow: hidden`,
+// so the value gets room on every side, and the wrapper is shifted back to keep the text in place
+.amountInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: -0.25rem 0 -0.25rem -0.25rem;
+}
+
+.amountInputWrapper {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.amountValue {
+  --input-font-size: 3.5rem !important;
+  --input-fraction-font-size: 3rem;
+  --input-prefix-font-size: 3.25rem;
+  --input-prefix-color: var(--color-gray-2);
+
+  height: 3.75rem;
+  padding: 0 0.25rem !important;
+  border-radius: 0;
+
+  font-weight: 800;
+  line-height: 3.75rem;
+  letter-spacing: -0.025rem;
+
+  // The placeholder is the sibling without `contenteditable`; its digits are as dim as the currency sign
+  &:not([contenteditable]) {
+    color: var(--color-gray-2);
+  }
+}
+
+.clearButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex: 0 0 auto;
+
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--color-gray-4);
+
+  background: transparent;
+
+  @include mixins.transition(color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-gray-3);
+    }
+  }
+}
+
+// The line takes the full width and has no padding, so the fading text keeps its place
+.feeLine {
+  align-self: stretch;
+
+  margin-top: 5.125rem;
+  margin-bottom: 0.375rem;
+  margin-inline-end: 0.5rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+
+  &.feeLine {
+    height: 1.25rem;
+    text-align: end;
+  }
+
+  @include mixins.respond-above(xs) {
+    margin-top: 2.4375rem;
+  }
+}
+
+.hint {
+  margin-top: 5.0625rem;
+
+  @include mixins.respond-above(xs) {
+    margin-top: 2.375rem;
+  }
+}
+
+// Together with the bottom margin of the fee line, it makes an 8px gap
+.priceImpactWarning {
+  margin-top: 0.125rem;
+}
+
+.priceImpactModalTitle.priceImpactModalTitle {
+  padding-block: 0.25rem;
+  line-height: 1.375rem;
+  white-space: normal;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 1rem;
+
+  padding: 1rem;
+
+  @supports (padding-bottom: var(--safe-area-bottom)) {
+    padding-bottom: max(var(--safe-area-bottom), 1rem);
+  }
+}
+
+.percentRow {
+  display: flex;
+  gap: 0.625rem;
+}
+
+.percentButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex: 1 1 0;
+
+  height: 3rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 1.5rem;
+
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.0625rem;
+  color: var(--color-gray-button-text);
+
+  background-color: var(--color-gray-button-background-light);
+
+  @include mixins.transition("background-color 150ms, opacity 150ms");
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  @media (hover: hover) {
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible {
+      background-color: var(--color-gray-button-background-light-hover);
+    }
+  }
+}
+
+.counterRow {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+
+  width: 100%;
+  height: 3.25rem;
+  padding: 0.75rem 0.875rem 0.75rem 0.75rem;
+  border: none;
+  border-radius: 2rem;
+
+  text-align: start;
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+}
+
+.counterIcon {
+  --chain-icon-size: 0.75rem !important;
+
+  flex-shrink: 0;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+
+.counterIconImage {
+  flex-basis: 1.75rem !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+
+.counterLabel {
+  flex-grow: 1;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+}
+
+.counterValue {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  align-items: center;
+
+  min-width: 0;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+}
+
+.counterAmount {
+  overflow: hidden;
+  color: var(--color-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.counterSymbol {
+  white-space: nowrap;
+}
+
+.counterBadge {
+  padding: 0.0625rem 0.1875rem;
+  border-radius: 0.1875rem;
+
+  font-size: 0.75rem;
+  line-height: 1rem;
+  white-space: nowrap;
+
+  background-color: var(--color-background-window);
+}
+
+.counterCaret {
+  font-size: 0.5rem;
+}
+
+.footer {
+  --background-color: var(--color-background-window);
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: auto;
+}
+
+@keyframes loading-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.loading {
+  animation: loading-pulse 1.2s ease-in-out infinite;
+}
+
+// The details menu
+
+.menuBubble {
+  width: max-content;
+  min-width: 11.875rem;
+  max-width: 17.5rem;
+  padding: 0.3125rem 0;
+
+  box-shadow: 0 0 1.25rem 0 #0000001F;
+}
+
+.menuRow {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  align-items: flex-start;
+
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.875rem 1rem;
+
+  text-align: start;
+
+  @include mixins.separator();
+}
+
+.menuRowButton {
+  cursor: var(--custom-cursor, pointer);
+
+  padding-inline-end: 2.5rem;
+  border: none;
+  border-top: 0.375rem solid var(--color-separator);
+
+  background: transparent;
+
+  &::before {
+    display: none;
+  }
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-interactive-drop-down-menu-hover);
+    }
+  }
+}
+
+.menuRowTitle {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-gray-button-text);
+}
+
+.menuRowValue {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+}
+
+.menuRowError {
+  color: var(--color-red);
+}
+
+.menuRowChevron {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 1rem;
+
+  margin-top: -0.5rem;
+
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--color-gray-3);
+
+  @include mixins.rtl-mirror();
+}
+
+.menuTooltipIcon {
+  font-size: 1rem !important;
+  color: var(--color-gray-3);
+  vertical-align: middle !important;
+}
+
+// The icon stays in place while the provider is unknown and fades in once it is
+.menuProviderHelp {
+  cursor: var(--custom-cursor, pointer);
+
+  display: flex;
+
+  padding: 0;
+  border: none;
+
+  background: transparent;
+
+  @include mixins.transition(opacity 150ms);
+
+  &:disabled {
+    cursor: default;
+    opacity: 0;
+  }
+}
+
+.menuTooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 18.9375rem !important;
+}

@@ -42,6 +42,7 @@ import styles from './OnRampWidgetModal.module.scss';
 interface StateProps {
   chain?: ApiChain;
   provider?: 'moonpay' | 'avanchange';
+  requestedCurrency?: ApiBaseCurrency;
   byChain?: Partial<Record<ApiChain, { address: string }>>;
   countryCode?: ApiCountryCode;
   allowedCurrencies?: ApiBaseCurrency[];
@@ -56,7 +57,7 @@ const ANIMATION_TIMEOUT = 200;
 
 function OnRampWidgetModal({
   chain, byChain, countryCode, allowedCurrencies, baseCurrency, theme, currentAccountId, accountTitle,
-  hasMultipleAccounts, provider: requestedProvider,
+  hasMultipleAccounts, provider: requestedProvider, requestedCurrency,
 }: StateProps) {
   const {
     closeOnRampWidgetModal,
@@ -94,7 +95,7 @@ function OnRampWidgetModal({
   useEffect(() => {
     if (isOpen) {
       // Recompute the default once the modal opens with the actual chain (e.g. RUB for RU users on TON)
-      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode));
+      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode, requestedCurrency));
     } else {
       setIsAnimationInProgress(true);
       setIsLoading(true);
@@ -336,14 +337,15 @@ export default memo(withGlobal((global): StateProps => {
   const currentAccountId = selectCurrentAccountId(global);
   const { byChain, title: accountTitle } = selectAccount(global, currentAccountId!) || {};
   const {
-    chainForOnRampWidgetModal: chain,
+    onRampWidgetModal,
     restrictions: { countryCode },
     settings: { baseCurrency },
   } = global;
 
   return {
-    chain,
-    provider: global.providerForOnRampWidgetModal,
+    chain: onRampWidgetModal?.chain,
+    provider: onRampWidgetModal?.provider,
+    requestedCurrency: onRampWidgetModal?.currency,
     byChain,
     countryCode,
     allowedCurrencies: selectAllowedOnOffRampCurrencies(global),

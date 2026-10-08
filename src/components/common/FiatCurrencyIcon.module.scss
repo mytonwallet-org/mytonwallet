@@ -1,0 +1,26 @@
+.icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-white);
+
+  background: linear-gradient(180deg, #A0DE7E 0%, #54CB68 100%);
+}
+
+.large {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
+}
+
+.small {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 1.0625rem;
+}

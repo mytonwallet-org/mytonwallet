@@ -763,6 +763,11 @@ class SwapVC(
             "showConfirm: fromToken=${request.request.tokenToSend.symbol} toToken=${request.request.tokenToReceive.symbol}"
         )
         view.hideKeyboard()
+        // The duration notice stays on this screen. An active session confirms from here.
+        if (request.isBatchTx) {
+            showPasscodeConfirm(event, allowsAutoConfirm = true)
+            return
+        }
         ProtectedActionAuth.confirm(
             onConfirmed = { token ->
                 isAutoConfirmSubmitting = true
@@ -774,7 +779,10 @@ class SwapVC(
         )
     }
 
-    private fun showPasscodeConfirm(event: SwapViewModel.Event.ShowConfirm) {
+    private fun showPasscodeConfirm(
+        event: SwapViewModel.Event.ShowConfirm,
+        allowsAutoConfirm: Boolean = false
+    ) {
         val request = event.request
         val confirmActionVC = PasscodeConfirmVC(
             context,
@@ -794,7 +802,8 @@ class SwapVC(
             ),
             task = { passcode ->
                 swapViewModel.doSend(passcode, request, event.addressToReceive)
-            }
+            },
+            allowsAutoConfirm = allowsAutoConfirm
         )
         push(confirmActionVC)
     }

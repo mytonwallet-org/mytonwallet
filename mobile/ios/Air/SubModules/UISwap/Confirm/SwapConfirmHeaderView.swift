@@ -21,21 +21,19 @@ struct SwapConfirmHeaderView: ConfirmationContent {
     var body: some View {
         VStack(spacing: 12) {
             SwapOverviewView(fromAmount: fromAmount, toAmount: toAmount)
-            if let batchNotice {
-                Text(batchNotice)
-                    .textStyle(.footnoteEmphasized)
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.air.secondaryFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
+            batchNoticeView
         }
         .padding(.bottom, 12)
     }
 
     var compactRepresentation: some View {
+        VStack(spacing: 8) {
+            compactSummary
+            batchNoticeView
+        }
+    }
+
+    private var compactSummary: some View {
         CompactActionSummary {
             WUIIconViewToken(
                 token: fromAmount.token,
@@ -67,6 +65,20 @@ struct SwapConfirmHeaderView: ConfirmationContent {
                 )
                 .frame(width: 20, height: 20)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var batchNoticeView: some View {
+        if let batchNotice {
+            Text(batchNotice)
+                .textStyle(.footnoteEmphasized)
+                .foregroundStyle(Color.air.secondaryLabel)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.air.secondaryFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
 }

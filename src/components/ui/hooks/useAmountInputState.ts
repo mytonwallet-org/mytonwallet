@@ -155,7 +155,7 @@ function useCurrencySwitch({
   };
 }
 
-function tokenAmountToCurrencyAmount(
+export function tokenAmountToCurrencyAmount(
   amount: string | undefined,
   tokenPrice: number | undefined,
   currencyDecimals: number,
@@ -165,7 +165,7 @@ function tokenAmountToCurrencyAmount(
     : undefined;
 }
 
-function currencyAmountToTokenAmount(
+export function currencyAmountToTokenAmount(
   amount: string | undefined,
   tokenPrice: number | undefined,
   tokenDecimals: number | undefined,
@@ -189,7 +189,7 @@ function tokenAmountFromBigInt(amount: bigint | undefined, decimals: number | un
 }
 
 /** For example, turns '1.2300' into '1.23' */
-function formalizeStringAmount(amount: string | undefined) {
+export function formalizeStringAmount(amount: string | undefined) {
   if (!amount) {
     return undefined;
   }

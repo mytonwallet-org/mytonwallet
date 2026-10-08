@@ -315,6 +315,9 @@ export default defineConfig(({ command, mode }) => {
     },
 
     build: {
+      // Binary data is loaded with `fetch`, and the CSP `connect-src` rule blocks the `data:` URL that an inlined
+      // asset becomes, so small `.bin` files stay separate files
+      assetsInlineLimit: (file: string) => (file.endsWith('.bin') ? false : undefined),
       rolldownOptions: {
         input: { main: path.resolve(ROOT_DIR, 'src/index.html') },
         output: {
