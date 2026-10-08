@@ -84,6 +84,7 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
   let lastFrameTime: number | undefined;
   let time = 0;
   let isReady = false;
+  let isInView = false;
 
   // Rotation angles in degrees
   let yaw = 0;
@@ -230,12 +231,13 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
     }
   }
 
-  // A hidden tab stops drawing and continues from the same angle when it is shown again
+  // A hidden tab or a canvas out of view, such as on an inactive modal slide with `display: none`, stops drawing
+  // and continues from the same angle when it is shown again
   function updatePlayback() {
-    if (document.hidden) {
-      pause();
-    } else {
+    if (isInView && !document.hidden) {
       resume();
+    } else {
+      pause();
     }
   }
 
@@ -253,16 +255,22 @@ function startRendering(canvas: HTMLCanvasElement, scene: DiamondScene, onReady:
     frameId = undefined;
   }
 
+  // The observer reports the initial state right after `observe`, which starts the first frame
+  const observer = new IntersectionObserver((entries) => {
+    isInView = entries[entries.length - 1].isIntersecting;
+    updatePlayback();
+  });
+
+  observer.observe(canvas);
   document.addEventListener('visibilitychange', updatePlayback);
   canvas.addEventListener('pointerdown', handlePointerDown);
   canvas.addEventListener('pointermove', handlePointerMove);
   canvas.addEventListener('pointerup', handlePointerUp);
   canvas.addEventListener('pointercancel', handlePointerUp);
 
-  updatePlayback();
-
   return () => {
     pause();
+    observer.disconnect();
     document.removeEventListener('visibilitychange', updatePlayback);
     canvas.removeEventListener('pointerdown', handlePointerDown);
     canvas.removeEventListener('pointermove', handlePointerMove);

@@ -137,6 +137,24 @@
   }
 }
 
+// Declared before `.destructive` so that an error state painted red wins over the green kind
+.button.green:not(.isSimple) {
+  color: var(--color-green-button-text);
+  background-color: var(--color-green-button-background);
+
+  &.loadingInit {
+    --color-dot: var(--color-green-button-text);
+  }
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      color: var(--color-green-button-text-hover);
+      background-color: var(--color-green-button-background-hover);
+    }
+  }
+}
+
 .button.disabled {
   pointer-events: none;
   cursor: default;

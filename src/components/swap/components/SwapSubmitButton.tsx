@@ -35,6 +35,12 @@ interface OwnProps {
     fromMin?: string;
     fromMax?: string;
   };
+  /** The resting caption. The swap form captions the button with "from → to" when it is absent */
+  label?: string;
+  /** Replaces the caption and paints the button red while a check outside the swap estimate fails */
+  errorText?: string;
+  /** The resting color. Errors paint the button red regardless */
+  kind?: 'green' | 'red';
 }
 
 const BUTTON_ANIMATION_DURATION = 250 + ANIMATION_END_DELAY;
@@ -54,6 +60,9 @@ function SwapSubmitButton({
   canSubmit,
   errorType,
   limits,
+  label,
+  errorText,
+  kind,
 }: OwnProps) {
   const lang = useLang();
 
@@ -80,9 +89,11 @@ function SwapSubmitButton({
 
   const isTouched = Boolean(amountIn || amountOut);
 
-  let text: string | string[] = '$swap_from_to';
+  let text: string | string[] = label ?? '$swap_from_to';
 
-  if (isTouched) {
+  if (errorText) {
+    text = errorText;
+  } else if (isTouched) {
     if (isErrorExist) {
       text = errorMsgByType[errorType] as string;
     } else if (tokenIn?.tokenAddress && isNotEnoughNative) {
@@ -108,7 +119,8 @@ function SwapSubmitButton({
     ))
   );
 
-  const isDestructive = isTouched && shouldShowError;
+  const isDestructive = Boolean(errorText) || kind === 'red' || (isTouched && shouldShowError);
+  const buttonKind = kind === 'green' && !isDestructive ? 'green' : undefined;
 
   const transitionKeyRef = useRef(0);
   const render = useDerivedSignal(() => {
@@ -129,6 +141,7 @@ function SwapSubmitButton({
         <Button
           isPrimary
           isSubmit
+          kind={buttonKind}
           className={styles.footerButton}
           isDisabled={isDisabled}
           isLoading={isLoading}
@@ -139,7 +152,7 @@ function SwapSubmitButton({
         </Button>
       </Transition>
     );
-  }, [isDestructive, isDisabled, isLoading, lang, textStr, tokenIn?.symbol, tokenOut?.symbol]);
+  }, [buttonKind, isDestructive, isDisabled, isLoading, lang, textStr, tokenIn?.symbol, tokenOut?.symbol]);
 
   const renderThrottled = useThrottledSignal(render, BUTTON_ANIMATION_DURATION);
   const rendered = useDerivedState(renderThrottled);

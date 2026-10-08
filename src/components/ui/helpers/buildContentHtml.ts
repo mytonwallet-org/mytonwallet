@@ -28,8 +28,9 @@ export function buildContentHtml(
   const extraSpan = fractionStr || suffixStr ? (
     `<span class="${styles.fractional}">${fractionStr}${suffixStr}</span>`
   ) : '';
+  const prefixSpan = prefix ? `<span class="${styles.prefix}">${prefix}</span>` : '';
 
-  return `${prefix}${formattedWholePart}${extraSpan}`;
+  return `${prefixSpan}${formattedWholePart}${extraSpan}`;
 }
 
 function sanitizeHtml(string: string) {

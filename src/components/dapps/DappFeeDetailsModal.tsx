@@ -40,6 +40,7 @@ function DappFeeDetailsModal({
       isOpen={isOpen}
       isCompact
       title={lang('App Fee Details')}
+      dialogClassName={styles.feeDetailsDialog}
       onClose={onClose}
       onEnter={onClose}
     >

@@ -1,0 +1,228 @@
+@use "../../styles/mixins";
+
+// The portrait sheet opens over the Buy / Sell sheet, which already holds the shared modal backdrop,
+// so it dims that sheet with a tint of its own
+.sheet::before {
+  pointer-events: none;
+  content: "";
+
+  position: fixed;
+  inset: 0;
+
+  opacity: 0;
+  background-color: var(--color-tint);
+
+  @include mixins.transition(opacity var(--transition));
+}
+
+.sheet:global(.open)::before {
+  opacity: 1;
+}
+
+// Doubled to outweigh the compact modal's own `.compact .dialog` width
+.dialog.dialog {
+  max-width: 23.125rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 1rem;
+}
+
+.formSheet {
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+  padding-inline: 1rem;
+
+  @supports (padding-bottom: var(--safe-area-bottom)) {
+    padding-bottom: max(var(--safe-area-bottom), 0.5rem);
+  }
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 3.5rem;
+  padding: 0 1.25rem;
+}
+
+.boundButton {
+  cursor: var(--custom-cursor, pointer);
+
+  flex: 0 0 auto;
+
+  width: 4.5rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 1rem;
+
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  background-color: var(--color-gray-button-background-light);
+
+  @include mixins.transition(background-color 150ms);
+
+  @media (hover: hover) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--color-gray-button-background-light-hover);
+    }
+  }
+}
+
+.valueCard {
+  flex: 0 0 auto;
+  width: 5.75rem;
+  margin: 0;
+}
+
+.valueInputWrapper {
+  height: 3.5rem;
+  padding: 0 !important;
+  border-radius: 1rem;
+  background-color: var(--color-background-first);
+}
+
+.valueInput {
+  --input-font-size: 1.25rem !important;
+  --input-fraction-color: var(--color-gray-2);
+
+  height: 3.5rem;
+  padding: 0 !important;
+
+  font-weight: 800;
+  line-height: 3.5rem;
+  text-align: center;
+}
+
+.sliderArea {
+  --fill: 0;
+  --track-direction: to right;
+
+  position: relative;
+  padding: 0.5rem 1.5rem;
+
+  :global(html[dir="rtl"]) & {
+    --track-direction: to left;
+  }
+}
+
+$thumb-width: 2.5rem;
+$thumb-height: 1.75rem;
+$track-height: 0.375rem;
+$track-color: rgba(120, 120, 120, 0.2);
+$tick-size: 0.25rem;
+$track-overhang: 0.5rem;
+
+// The input's own track is transparent and the thumb overhangs this one by half its width at either end,
+// so the thumb center reaches the end dots. The track itself runs past the thumb's range by `$track-overhang`
+.track {
+  // The filled part ends under the thumb center, which travels between the overhangs
+  --fill-end: calc(#{$track-overhang} + (100% - 2 * #{$track-overhang}) * var(--fill));
+
+  position: absolute;
+  top: calc(0.5rem + ($thumb-height - $track-height) / 2);
+  inset-inline: calc(1.5rem - #{$track-overhang});
+
+  height: $track-height;
+  border-radius: $track-height;
+
+  background: linear-gradient(
+    var(--track-direction),
+    var(--color-accent) 0,
+    var(--color-accent) var(--fill-end),
+    $track-color var(--fill-end),
+    $track-color 100%
+  );
+}
+
+.slider {
+  cursor: var(--custom-cursor, pointer);
+
+  // The thumb covers the dot it stands on
+  position: relative;
+  z-index: 1;
+
+  display: block;
+
+  width: calc(100% + #{$thumb-width});
+  height: $thumb-height;
+  margin: 0 calc(#{$thumb-width} / -2);
+
+  appearance: none;
+  background: transparent;
+
+  &::-webkit-slider-runnable-track {
+    height: $track-height;
+    background: transparent;
+  }
+
+  &::-moz-range-track {
+    height: $track-height;
+    background: transparent;
+  }
+
+  &::-webkit-slider-thumb {
+    width: $thumb-width;
+    height: $thumb-height;
+    margin-top: calc(($track-height - $thumb-height) / 2);
+    border: none;
+    border-radius: $thumb-height;
+
+    appearance: none;
+    background: var(--color-background-first);
+    box-shadow: 0 0.125rem 0.3125rem 0 #0000001F;
+  }
+
+  &::-moz-range-thumb {
+    width: $thumb-width;
+    height: $thumb-height;
+    border: none;
+    border-radius: $thumb-height;
+
+    background: var(--color-background-first);
+    box-shadow: 0 0.125rem 0.3125rem 0 #0000001F;
+  }
+}
+
+// The dots are centered under the thumb positions, from one end of the track to the other
+.ticks {
+  pointer-events: none;
+  position: absolute;
+  top: 1.9375rem;
+  inset-inline: 1.5rem;
+}
+
+.tick {
+  position: absolute;
+  inset-inline-start: var(--position);
+  transform: translateX(-50%);
+
+  width: $tick-size;
+  height: $tick-size;
+  border-radius: 50%;
+
+  background-color: $track-color;
+
+  :global(html[dir="rtl"]) & {
+    transform: translateX(50%);
+  }
+}
+
+.doneButton {
+  width: 100%;
+  max-width: 100% !important;
+  margin-top: 1.5rem;
+}
+
+.doneButtonSheet {
+  margin-top: 1.25rem;
+}

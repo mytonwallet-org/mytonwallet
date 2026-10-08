@@ -40,6 +40,8 @@ import styles from './OffRampWidgetModal.module.scss';
 
 interface StateProps {
   chain?: ApiChain;
+  requestedCurrency?: ApiBaseCurrency;
+  requestedAmount?: string;
   address?: string;
   token?: ApiToken;
   balance?: bigint;
@@ -55,8 +57,8 @@ interface StateProps {
 const ANIMATION_TIMEOUT = 200;
 
 function OffRampWidgetModal({
-  chain, address, token, balance, theme, accountId, accountTitle, hasMultipleAccounts, baseCurrency, countryCode,
-  allowedCurrencies,
+  chain, requestedCurrency, requestedAmount, address, token, balance, theme, accountId, accountTitle,
+  hasMultipleAccounts, baseCurrency, countryCode, allowedCurrencies,
 }: StateProps) {
   const {
     closeOffRampWidgetModal,
@@ -90,6 +92,7 @@ function OffRampWidgetModal({
     address,
     token,
     balance,
+    amount: requestedAmount,
     accountId,
     appTheme,
   });
@@ -104,7 +107,7 @@ function OffRampWidgetModal({
   useEffect(() => {
     if (isOpen) {
       // Recompute the default once the modal opens with the actual chain (e.g. RUB for RU users on TON)
-      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode));
+      setSelectedCurrency(getDefaultRampCurrency(supportedCurrencies, baseCurrency, countryCode, requestedCurrency));
     } else {
       setIsAnimationInProgress(true);
       setIsIframeLoading(true);
@@ -290,16 +293,19 @@ export default memo(withGlobal((global): StateProps => {
   const accountId = global.currentAccountId;
   const account = accountId ? selectAccount(global, accountId) : undefined;
   const {
-    chainForOffRampWidgetModal: chain,
+    offRampWidgetModal,
     restrictions: { countryCode },
     settings: { baseCurrency, theme },
   } = global;
+  const chain = offRampWidgetModal?.chain;
 
   const token = chain ? getNativeToken(chain) : undefined;
   const balance = token?.slug ? selectCurrentAccountTokenBalance(global, token.slug) : undefined;
 
   return {
     chain,
+    requestedCurrency: offRampWidgetModal?.currency,
+    requestedAmount: offRampWidgetModal?.amount,
     address: chain && account?.byChain?.[chain]?.address,
     token,
     balance,

@@ -1,13 +1,18 @@
-import type { GlobalState } from '../types';
-import { SwapState } from '../types';
+import type { ApiSwapAsset } from '../../api/types';
+import type { ActionPayloads, GlobalState, TradeDirection } from '../types';
+import { SwapInputSource, SwapState } from '../types';
 
 import { DEFAULT_SLIPPAGE_VALUE } from '../../config';
+import { Big } from '../../lib/big.js';
+import { isSwapReverseProhibited } from '../../util/swap/isSwapReverseProhibited';
 import { replaceActivityId } from '../helpers/misc';
 import {
   doesSwapChangeRequireEstimation,
   doesSwapChangeRequireEstimationReset,
   getSwapEstimateResetParams,
 } from '../helpers/swap';
+import { selectCurrentAccountState, selectSwapType } from '../selectors';
+import { updateCurrentAccountState } from './misc';
 
 function rawUpdateCurrentSwap(global: GlobalState, update: Partial<GlobalState['currentSwap']>) {
   return {
@@ -49,6 +54,83 @@ export function clearCurrentSwap(global: GlobalState) {
       slippage: DEFAULT_SLIPPAGE_VALUE,
     },
   };
+}
+
+/**
+ * Writes the amount entered on the Buy / Sell screen into the swap form. `tradeAmount` is always in the screen
+ * token, while `amountIn` and `amountOut` are what the backend estimates.
+ *
+ * Sell: the screen token is the one being paid, so the amount goes to `amountIn` as is.
+ *
+ * Buy: the screen token is the one being bought. If the pair can be estimated by the buy amount, the amount goes
+ * to `amountOut`. Otherwise the backend accepts only the paying amount, so `amountIn` is calculated from the USD
+ * prices of both tokens, and the estimate then shows how much is actually bought.
+ *
+ * `isAmountIn` marks an amount in the paying token (the percent buttons on the Buy screen send such amounts). It
+ * goes to `amountIn`, and `tradeAmount` is calculated from it by the USD prices.
+ */
+export function updateTradeAmount(
+  global: GlobalState,
+  { amount, isMaxAmount = false, isAmountIn = false }: ActionPayloads['setTradeAmount'],
+) {
+  const { tradeDirection, tokenInSlug, tokenOutSlug } = global.currentSwap;
+
+  if (tradeDirection !== 'buy') {
+    return updateCurrentSwap(global, {
+      tradeAmount: amount,
+      amountIn: amount,
+      isMaxAmount,
+      inputSource: SwapInputSource.In,
+    });
+  }
+
+  const tokenIn = tokenInSlug ? global.swapTokenInfo.bySlug[tokenInSlug] : undefined;
+  const tokenOut = tokenOutSlug ? global.swapTokenInfo.bySlug[tokenOutSlug] : undefined;
+
+  if (isAmountIn) {
+    return updateCurrentSwap(global, {
+      tradeAmount: convertByUsdPrice(amount, tokenIn, tokenOut),
+      amountIn: amount,
+      isMaxAmount,
+      inputSource: SwapInputSource.In,
+    });
+  }
+
+  const canQuoteByAmountOut = tokenInSlug && tokenOutSlug && !isSwapReverseProhibited(
+    tokenInSlug, tokenOutSlug, selectSwapType(global), global.swapPairs?.bySlug,
+  );
+
+  if (canQuoteByAmountOut) {
+    return updateCurrentSwap(global, {
+      tradeAmount: amount,
+      amountOut: amount,
+      isMaxAmount: false,
+      inputSource: SwapInputSource.Out,
+    });
+  }
+
+  return updateCurrentSwap(global, {
+    tradeAmount: amount,
+    amountIn: convertByUsdPrice(amount, tokenOut, tokenIn),
+    isMaxAmount: false,
+    inputSource: SwapInputSource.In,
+  });
+}
+
+function convertByUsdPrice(amount?: string, from?: ApiSwapAsset, to?: ApiSwapAsset) {
+  if (!amount || !from?.priceUsd || !to?.priceUsd) {
+    return undefined;
+  }
+
+  return Big(amount).mul(from.priceUsd).div(to.priceUsd).round(to.decimals, Big.roundDown).toString();
+}
+
+export function updateTradeCounterToken(global: GlobalState, direction: TradeDirection, tokenSlug: string) {
+  const { tradeCounterTokenSlugs } = selectCurrentAccountState(global) ?? {};
+
+  return updateCurrentAccountState(global, {
+    tradeCounterTokenSlugs: { ...tradeCounterTokenSlugs, [direction]: tokenSlug },
+  });
 }
 
 /** replaceMap: keys - old (removed) activity ids, value - new (added) activity ids */

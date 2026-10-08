@@ -15,7 +15,12 @@ import {
   IS_TELEGRAM_APP,
   SHOULD_CLEANUP_LEGACY_AUTH,
 } from '../../config';
-import { selectCurrentAccountId, selectIsMultichainAccount, selectSeasonalThemeOverride } from '../../global/selectors';
+import {
+  selectCurrentAccountId,
+  selectDeveloperSettingsOverrides,
+  selectIsMultichainAccount,
+  selectSeasonalThemeOverride,
+} from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { copyTextToClipboard } from '../../util/clipboard';
 import { getBuildPlatform, getFlagsValue } from '../../util/getBuildPlatform';
@@ -32,6 +37,7 @@ import useLastCallback from '../../hooks/useLastCallback';
 import Button from '../ui/Button';
 import Dropdown from '../ui/Dropdown';
 import Modal from '../ui/Modal';
+import Switcher from '../ui/Switcher';
 
 import styles from './Settings.module.scss';
 
@@ -51,6 +57,7 @@ interface StateProps {
   canViewAllWalletVersions: boolean;
   authTypes?: AuthType[];
   seasonalThemeOverride?: DeveloperSettingsOverrides['seasonalTheme'];
+  isGramDiamondEnabled?: true;
 }
 
 type SeasonalThemeOverrideOption = NonNullable<DeveloperSettingsOverrides['seasonalTheme']> | 'default';
@@ -95,6 +102,7 @@ function SettingsDeveloperOptions({
   canViewAllWalletVersions,
   authTypes,
   seasonalThemeOverride,
+  isGramDiamondEnabled,
 }: OwnProps & StateProps) {
   const {
     startChangingNetwork,
@@ -137,6 +145,13 @@ function SettingsDeveloperOptions({
     setDeveloperSettingsOverride({
       key: 'seasonalTheme',
       value: newValue === 'default' ? undefined : newValue,
+    });
+  });
+
+  const handleGramDiamondToggle = useLastCallback(() => {
+    setDeveloperSettingsOverride({
+      key: 'isGramDiamondEnabled',
+      value: isGramDiamondEnabled ? undefined : true,
     });
   });
 
@@ -224,6 +239,16 @@ function SettingsDeveloperOptions({
           className={buildClassName(styles.item, styles.item_small)}
           onChange={handleSeasonalThemeOverrideChange}
         />
+
+        <div className={buildClassName(styles.item, styles.item_small)} onClick={handleGramDiamondToggle}>
+          <span className={styles.itemTitle}>{lang('3D Gram Diamond')}</span>
+
+          <Switcher
+            className={styles.menuSwitcher}
+            label={lang('3D Gram Diamond')}
+            checked={Boolean(isGramDiamondEnabled)}
+          />
+        </div>
       </div>
 
       {(isCopyStorageEnabled || canRollbackMigration) && (
@@ -284,6 +309,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     canViewAllWalletVersions,
     authTypes: global.authTypes,
     seasonalThemeOverride: selectSeasonalThemeOverride(global),
+    isGramDiamondEnabled: selectDeveloperSettingsOverrides(global)?.isGramDiamondEnabled,
   };
 })(SettingsDeveloperOptions));
 

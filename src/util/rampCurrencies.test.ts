@@ -141,6 +141,14 @@ describe('getDefaultRampCurrency', () => {
     expect(getDefaultRampCurrency(offer('USD', 'EUR'), 'EUR', undefined)).toBe('EUR');
   });
 
+  it('starts on the requested currency when it is offered, over every other preference', () => {
+    expect(getDefaultRampCurrency(offer('USD', 'EUR', 'RUB'), 'EUR', 'RU', 'USD')).toBe('USD');
+  });
+
+  it('ignores a requested currency that is not offered', () => {
+    expect(getDefaultRampCurrency(offer('USD', 'EUR'), 'EUR', undefined, 'RUB')).toBe('EUR');
+  });
+
   it('prefers the wallet currency over the ruble in Russia', () => {
     expect(getDefaultRampCurrency(offer('USD', 'EUR', 'RUB'), 'EUR', 'RU')).toBe('EUR');
   });

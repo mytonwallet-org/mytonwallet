@@ -489,6 +489,7 @@ async function tryAutoImportTestMnemonic(actions: any) {
   nextGlobal = updateCurrentAccountId(nextGlobal, firstAccount.accountId);
   setGlobal(nextGlobal);
 
+  void callApi('activateAccount', firstAccount.accountId);
   actions.tryAddNotificationAccount({ accountId: firstAccount.accountId });
   actions.afterSignIn();
 }

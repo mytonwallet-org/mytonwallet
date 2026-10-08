@@ -138,6 +138,7 @@ export type DeveloperSettingsOverrideValue<Value> = Exclude<Value, undefined> | 
 
 export interface DeveloperSettingsOverrides {
   seasonalTheme?: DeveloperSettingsOverrideValue<ApiBackendConfig['seasonalTheme']>;
+  isGramDiamondEnabled?: true;
 }
 
 export type DeveloperSettingsOverrideKey = keyof DeveloperSettingsOverrides;
@@ -365,6 +366,21 @@ export enum SwapInputSource {
   In,
   Out,
 }
+
+export type TradeDirection = 'buy' | 'sell';
+
+export type OnRampWidgetModalParams = {
+  chain: ApiChain;
+  provider?: 'moonpay' | 'avanchange';
+  currency?: ApiBaseCurrency;
+};
+
+export type OffRampWidgetModalParams = {
+  chain: ApiChain;
+  currency?: ApiBaseCurrency;
+  /** The amount to sell, in the native token. The whole transferable balance is sold when absent */
+  amount?: string;
+};
 
 export enum SwapErrorType {
   UnexpectedError,
@@ -692,6 +708,8 @@ export interface AccountState {
   isCardMinting?: boolean;
   receiveModalChain?: ApiChain;
   invoiceTokenSlug?: string;
+  /** The counter token the user picked by hand on the Buy / Sell screen, by direction */
+  tradeCounterTokenSlugs?: Partial<Record<TradeDirection, string>>;
 
   dapps?: StoredDappConnection[];
   currentSiteCategoryId?: number;
@@ -922,6 +940,17 @@ export type GlobalState = {
     ourFee?: string;
     ourFeePercent?: number;
     dieselFee?: string;
+    /**
+     * Set while the swap form runs as the token Buy / Sell screen. The screen token is `tokenOutSlug` when
+     * buying and `tokenInSlug` when selling; the other side is the asset picked in "Pay With" / "You Receive".
+     */
+    tradeDirection?: TradeDirection;
+    /** The fiat currency picked on the Buy / Sell screen instead of a counter token. The swap is not estimated then */
+    tradeCardCurrency?: ApiBaseCurrency;
+    /** The amount entered on the Buy / Sell screen, always in the screen token */
+    tradeAmount?: string;
+    /** Whether the Buy / Sell amount field shows token units rather than fiat */
+    isTradeAmountInToken?: boolean;
   };
 
   currentSignature?: {
@@ -1198,9 +1227,8 @@ export type GlobalState = {
   isPromotionModalOpen?: boolean;
   confettiRequestedAt?: number;
   isPinAccepted?: boolean;
-  chainForOnRampWidgetModal?: ApiChain;
-  providerForOnRampWidgetModal?: 'moonpay' | 'avanchange';
-  chainForOffRampWidgetModal?: ApiChain;
+  onRampWidgetModal?: OnRampWidgetModalParams;
+  offRampWidgetModal?: OffRampWidgetModalParams;
   isInvoiceModalOpen?: boolean;
   isReceiveModalOpen?: boolean;
   isVestingModalOpen?: boolean;
@@ -1697,6 +1725,14 @@ export interface ActionPayloads {
 
   // Swap
   submitSwap: { enclaveToken: string };
+  startTokenTrade: { tokenSlug: string; direction: TradeDirection };
+  /**
+   * `amount` is in the screen token unless `isAmountIn` says it is the paying amount, which only differs
+   * when buying. `isMaxAmount` marks the whole balance so the backend subtracts the fee itself.
+   */
+  setTradeAmount: { amount?: string; isMaxAmount?: boolean; isAmountIn?: boolean };
+  setTradeCardCurrency: { currency?: ApiBaseCurrency };
+  setTradeAmountUnit: { isInToken: boolean };
   startSwap: {
     state?: SwapState;
     tokenInSlug?: string;
@@ -1720,13 +1756,13 @@ export interface ActionPayloads {
   updateSwapMfaRequestStatus: undefined;
   setSwapCexAddress: { toAddress: string };
   addSwapToken: { token: UserSwapToken };
-  toggleSwapSettingsModal: { isOpen: boolean };
   updatePendingSwaps: { forceProviderRefresh?: boolean; contextActivities?: ApiActivity[] } | undefined;
 
-  openOnRampWidgetModal: { chain: ApiChain; provider?: 'moonpay' | 'avanchange' };
+  openOnRampWidgetModal: OnRampWidgetModalParams;
   closeOnRampWidgetModal: undefined;
 
-  openOffRampWidgetModal: undefined;
+  /** Without params, the widget sells on the chain of the last transferred token, see `selectDefaultOffRampChain` */
+  openOffRampWidgetModal: OffRampWidgetModalParams | undefined;
   closeOffRampWidgetModal: undefined;
 
   // WalletConnect Pay

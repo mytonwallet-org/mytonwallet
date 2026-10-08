@@ -406,7 +406,7 @@ function Settings({
     return (
       <div className={buildClassName(styles.item, styles.itemMenu)} onClick={handleDeeplinkHookToggle}>
         <img className={styles.menuIcon} src={tonLinksImg} alt={lang('Handle ton:// links')} />
-        {lang('Handle ton:// links')}
+        <span className={styles.itemTitle}>{lang('Handle ton:// links')}</span>
 
         <Switcher
           className={styles.menuSwitcher}

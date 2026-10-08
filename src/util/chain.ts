@@ -1472,6 +1472,20 @@ export const getTrustedUsdtSlugs = /* #__PURE__ */ withCache((): ReadonlySet<str
   );
 });
 
+/** The USDT and USDC variants of every chain, which the Buy / Sell asset picker groups as stablecoins */
+export const getStablecoinSlugs = /* #__PURE__ */ withCache((): ReadonlySet<string> => {
+  return new Set(
+    Object.values(CHAIN_CONFIG).flatMap(({ usdtSlug, usdcSlug }) => {
+      return compact([
+        usdtSlug.mainnet,
+        usdtSlug.testnet,
+        usdcSlug?.mainnet,
+        usdcSlug?.testnet,
+      ]);
+    }),
+  );
+});
+
 export const getDefaultEnabledSlugs = /* #__PURE__ */ withCache((network: ApiNetwork): ReadonlySet<string> => {
   // The TON-forward Gram brand defaults to TON tokens even though it supports every chain, matching Air
   // (`ApiToken.defaultSlugs`). It also spares the legacy wallet.ton.org accounts, whose TON-native mnemonic cannot

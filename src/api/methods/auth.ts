@@ -272,8 +272,6 @@ export async function importMnemonic(
       throw new Error('No primary account found');
     }
 
-    void activateAccount(firstPrimaryAccountId);
-
     return imported;
   } catch (err) {
     logDebugError('importMnemonic', err);
@@ -498,7 +496,6 @@ export async function importPrivateKey(
       byChain: { [chain]: wallet },
     };
     const accountId = await addAccount(network, account);
-    void activateAccount(accountId);
 
     return {
       accountId,

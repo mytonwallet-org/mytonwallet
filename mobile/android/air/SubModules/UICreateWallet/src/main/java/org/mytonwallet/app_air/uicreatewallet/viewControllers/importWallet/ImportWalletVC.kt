@@ -481,7 +481,7 @@ class ImportWalletVC(
     override fun finalizedImport(accountId: String, importedAccountsCount: Int) {
         WalletCore.activateAccount(
             accountId,
-            notifySDK = false
+            notifySDK = true
         ) { res, err ->
             if (res == null || err != null) {
                 // Should not happen!

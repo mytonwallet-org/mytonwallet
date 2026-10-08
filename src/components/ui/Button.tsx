@@ -17,7 +17,7 @@ export type OwnProps = {
   style?: string;
   ariaLabel?: string;
   forFormId?: string;
-  kind?: 'transparent';
+  kind?: 'transparent' | 'green';
   isSubmit?: boolean;
   isPrimary?: boolean;
   isSecondary?: boolean;

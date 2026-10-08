@@ -5,12 +5,9 @@ import type { Theme } from '../../../global/types';
 
 import { SELF_UNIVERSAL_HOST_URL, TONCOIN } from '../../../config';
 import { buildAvanchangeUrl } from '../../../util/avanchange';
-import { getChainConfig } from '../../../util/chain';
-import { toDecimal } from '../../../util/decimals';
-import { getMaxTransferAmount } from '../../../util/fee/transferFee';
+import { fromDecimal, toDecimal } from '../../../util/decimals';
 import { callApi } from '../../../api';
-
-const MOONPAY_CURRENCY: ApiBaseCurrency = 'EUR';
+import { resolveOffRampMaxAmount } from '../modals/helpers/offRamp';
 
 interface UseOffRampUrlParams {
   isOpen: boolean;
@@ -20,6 +17,8 @@ interface UseOffRampUrlParams {
   address?: string;
   token?: ApiToken;
   balance?: bigint;
+  /** The amount to sell, in the native token. The whole transferable balance is sold when absent */
+  amount?: string;
   accountId?: string;
   appTheme: Theme;
 }
@@ -37,6 +36,7 @@ export default function useOffRampUrl({
   address,
   token,
   balance,
+  amount,
   accountId,
   appTheme,
 }: UseOffRampUrlParams): UseOffRampUrlResult {
@@ -67,22 +67,24 @@ export default function useOffRampUrl({
       return;
     }
 
-    const amount = balance && balance > 0n ? toDecimal(balance, TONCOIN.decimals) : undefined;
+    const balanceAmount = balance && balance > 0n ? toDecimal(balance, TONCOIN.decimals) : undefined;
 
     setUrl(buildAvanchangeUrl({
       address,
       give: 'GRAM',
       take: 'CARDRUB',
       type: 'sell',
-      amount,
+      amount: amount ?? balanceAmount,
     }));
     setError(undefined);
     setIsLoading(false);
-  }, [isOpen, isAvanchange, address, balance]);
+  }, [isOpen, isAvanchange, address, balance, amount]);
 
-  // MoonPay (EUR): resolve the off-ramp URL from the backend with the max transferable amount
+  // MoonPay: resolve the off-ramp URL from the backend with the requested or the max transferable amount
   useEffect(() => {
-    if (!isOpen || isAvanchange || !address || !chain || balance === undefined || !tokenSlug || !accountId) {
+    if (
+      !isOpen || isAvanchange || !currency || !address || !chain || balance === undefined || !tokenSlug || !accountId
+    ) {
       return undefined;
     }
 
@@ -92,37 +94,14 @@ export default function useOffRampUrl({
 
     const loadUrl = async () => {
       try {
-        const chainConfig = getChainConfig(chain);
-        let maxAmount: bigint | undefined;
-
-        if (chainConfig.canTransferFullNativeBalance) {
-          maxAmount = balance;
-        } else {
-          const result = await callApi('checkTransactionDraft', chain, {
-            accountId,
-            toAddress: chainConfig.feeCheckAddress,
-            amount: balance,
-          });
-
-          if (isCancelled || !isOpenRef.current) return;
-
-          // A whole-balance draft reports `InsufficientBalance` (fee on top of the amount) and still carries the fee.
-          const { fullFee, canTransferFullBalance } = result?.explainedFee ?? {
-            fullFee: undefined,
-            canTransferFullBalance: false,
-          };
-
-          maxAmount = getMaxTransferAmount({
-            tokenBalance: balance,
-            tokenSlug,
-            fullFee: fullFee?.terms,
-            canTransferFullBalance,
-          });
-        }
+        const maxAmount = await resolveOffRampMaxAmount({ accountId, chain, tokenSlug, balance });
 
         if (isCancelled || !isOpenRef.current) return;
 
-        if (maxAmount === undefined || maxAmount === 0n) {
+        const requestedAmount = amount ? fromDecimal(amount, tokenDecimals) : undefined;
+        const sellAmount = requestedAmount ?? maxAmount;
+
+        if (!sellAmount || !maxAmount || sellAmount > maxAmount) {
           setError('Insufficient balance');
           setIsLoading(false);
           return;
@@ -132,8 +111,8 @@ export default function useOffRampUrl({
           chain,
           address,
           theme: appTheme,
-          currency: MOONPAY_CURRENCY,
-          amount: toDecimal(maxAmount, tokenDecimals),
+          currency,
+          amount: toDecimal(sellAmount, tokenDecimals),
           baseUrl: `${SELF_UNIVERSAL_HOST_URL}/offramp/`,
         });
 
@@ -158,7 +137,7 @@ export default function useOffRampUrl({
     return () => {
       isCancelled = true;
     };
-  }, [accountId, address, appTheme, balance, chain, tokenDecimals, isOpen, isAvanchange, tokenSlug]);
+  }, [accountId, address, appTheme, balance, amount, chain, currency, tokenDecimals, isOpen, isAvanchange, tokenSlug]);
 
   return { url, error, isLoading };
 }

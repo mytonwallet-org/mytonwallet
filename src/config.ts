@@ -121,6 +121,8 @@ export const TRANSACTION_ADDRESS_SHIFT = 4;
 export const WHOLE_PART_DELIMITER = ' '; // https://www.compart.com/en/unicode/U+202F
 
 export const DEFAULT_SLIPPAGE_VALUE = 5;
+// The DEX price impact, in percent, from which a swap is flagged as unfavourable
+export const MAX_PRICE_IMPACT_VALUE = 5;
 
 export const GLOBAL_STATE_CACHE_DISABLED = false;
 // Gram Wallet Web serves the existing wallet.ton.org population, so it must keep reading
@@ -263,7 +265,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-368';
+export const LANG_CACHE_NAME = 'mtw-lang-370';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',

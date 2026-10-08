@@ -3,7 +3,7 @@ import React, {
 } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiActivity } from '../../api/types';
+import type { ApiActivity, ApiBaseCurrency } from '../../api/types';
 import type { Account, GlobalState, UserSwapToken, UserToken } from '../../global/types';
 import { SwapState, SwapType } from '../../global/types';
 
@@ -14,6 +14,7 @@ import {
   selectHasMultipleAccounts,
   selectSwapTokens,
   selectSwapType,
+  selectTradeCardCurrencies,
 } from '../../global/selectors';
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
@@ -38,6 +39,7 @@ import SwapInitial from './SwapInitial';
 import SwapMfaConfirm from './SwapMfaConfirm';
 import SwapPassword from './SwapPassword';
 import SwapWaitTokens from './SwapWaitTokens';
+import TokenTrade from './TokenTrade';
 
 import modalStyles from '../ui/Modal.module.scss';
 import styles from './Swap.module.scss';
@@ -51,6 +53,7 @@ interface StateProps {
   accountId?: string;
   accountTitle?: string;
   hasMultipleAccounts?: boolean;
+  tradeCardCurrencies: ApiBaseCurrency[];
 }
 
 function SwapModal({
@@ -70,6 +73,8 @@ function SwapModal({
     isManualDepositRequired,
     currentCexLabel,
     isBatchTx,
+    tradeDirection,
+    tradeAmount,
   },
   swapType,
   swapTokens,
@@ -78,6 +83,7 @@ function SwapModal({
   accountId,
   accountTitle,
   hasMultipleAccounts,
+  tradeCardCurrencies,
 }: StateProps) {
   const {
     startSwap,
@@ -90,6 +96,8 @@ function SwapModal({
     setSwapTokenIn,
     setSwapTokenOut,
     switchSwapAccount,
+    setTradeCardCurrency,
+    setTradeAmount,
   } = getActions();
   const lang = useLang();
 
@@ -188,6 +196,16 @@ function SwapModal({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     const setToken = renderingKey === SwapState.SelectTokenTo ? setSwapTokenOut : setSwapTokenIn;
     setToken({ tokenSlug: token.slug });
+
+    if (tradeDirection) {
+      setTradeCardCurrency({});
+      // The paying amount depends on the counter token: its price and whether the pair can be quoted by the buy amount
+      setTradeAmount({ amount: tradeAmount });
+    }
+  });
+
+  const handleFiatSelect = useLastCallback((currency: ApiBaseCurrency) => {
+    setTradeCardCurrency({ currency });
   });
 
   const handleStartSwap = useLastCallback(() => {
@@ -233,6 +251,10 @@ function SwapModal({
   function renderContent(isActive: boolean, isFrom: boolean, currentKey: SwapState) {
     switch (currentKey) {
       case SwapState.Initial:
+        if (tradeDirection) {
+          return <TokenTrade key={accountId} isActive={isActive} />;
+        }
+
         return (
           <>
             <div
@@ -344,9 +366,13 @@ function SwapModal({
           <TokenSelector
             isActive={isActive}
             shouldUseSwapTokens
-            shouldFilter={currentKey === SwapState.SelectTokenTo}
+            // The Buy / Sell browser lists every asset as selectable; the pair is checked after the choice
+            shouldFilter={!tradeDirection && currentKey === SwapState.SelectTokenTo}
             isSwapOut={currentKey === SwapState.SelectTokenTo}
+            tradeDirection={tradeDirection}
+            fiatCurrencies={tradeDirection ? tradeCardCurrencies : undefined}
             onTokenSelect={handleTokenSelect}
+            onFiatSelect={handleFiatSelect}
             onBack={handleBackClick}
             onClose={handleModalCloseWithReset}
           />
@@ -364,7 +390,12 @@ function SwapModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
+        className={buildClassName(
+          modalStyles.transition,
+          // The Buy / Sell top card spans the whole slide, so no scrollbar gutter is reserved beside it
+          !tradeDirection && modalStyles.transition_stableScroll,
+          'custom-scroll',
+        )}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}
@@ -390,5 +421,6 @@ export default memo(withGlobal((global): StateProps => {
     accountId: selectCurrentAccountId(global),
     accountTitle: account?.title,
     hasMultipleAccounts: selectHasMultipleAccounts(global),
+    tradeCardCurrencies: selectTradeCardCurrencies(global),
   };
 })(SwapModal));

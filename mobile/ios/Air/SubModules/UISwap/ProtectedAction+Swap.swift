@@ -49,6 +49,8 @@ extension ProtectedAction where HeaderView == SwapConfirmHeaderView, Result == S
                     toAmount: snapshot.confirmation.buying,
                     batchNotice: isBatchTx ? lang("$swap_batch_tx_duration_hint") : nil
                 ),
+                // The duration notice stays on this screen. Biometrics still run here.
+                requiresFreshAuthentication: isBatchTx,
                 prefersNavigationTitleWithCustomHeader: false
             ),
             completion: completion

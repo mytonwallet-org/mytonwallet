@@ -271,9 +271,9 @@
   --z-menu-bubble: calc(var(--z-menu-backdrop) + 1);
   --z-over-menu-bubble: calc(var(--z-menu-bubble) + 1);
   --z-toast: 250;
-  --z-tooltip: 300;
   --z-confetti: 400;
   --z-portal-menu: 2500;
+  --z-tooltip: calc(var(--z-portal-menu) + 1);
   --z-autolock: 3000;
   --z-modal-in-autolock: calc(var(--z-autolock) + 1);
 

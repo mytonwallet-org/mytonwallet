@@ -6,6 +6,7 @@ import type { ApiSwapAsset } from '../../api/types';
 import type { DieselStatus } from '../../global/types';
 import { SwapType } from '../../global/types';
 
+import { MAX_PRICE_IMPACT_VALUE } from '../../config';
 import {
   selectCurrentAccountTokenBalance,
   selectCurrentSwapTokenIn,
@@ -16,6 +17,7 @@ import buildClassName from '../../util/buildClassName';
 import { explainSwapFee } from '../../util/fee/swapFee';
 import { formatCurrency } from '../../util/formatNumber';
 import getSwapRate from '../../util/swap/getSwapRate';
+import { MAX_SLIPPAGE_VALUE } from '../../util/swap/slippage';
 import { findNativeToken, getChainBySlug } from '../../util/tokens';
 
 import useLang from '../../hooks/useLang';
@@ -54,9 +56,6 @@ interface StateProps {
 }
 
 const SLIPPAGE_VALUES = [0.5, 1, 2, 5, 10];
-const MAX_SLIPPAGE_VALUE = 50;
-
-export const MAX_PRICE_IMPACT_VALUE = 5;
 
 function SwapSettingsContent({
   onClose,

@@ -897,6 +897,7 @@ function reduceByAccountId(global: GlobalState) {
       'whitelistedNftAddresses',
       'dappLastOpenedDatesByUrl',
       'dapps',
+      'tradeCounterTokenSlugs',
     ]);
 
     if (state.nfts?.collectionTabs || state.nfts?.ownedMwCardAddresses) {

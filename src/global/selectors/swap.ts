@@ -1,5 +1,7 @@
-import type { ApiBalanceBySlug, ApiBaseCurrency, ApiCurrencyRates, ApiSwapAsset } from '../../api/types';
-import type { AccountSettings, GlobalState, UserSwapToken } from '../types';
+import type {
+  ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiSwapAsset,
+} from '../../api/types';
+import type { AccountSettings, GlobalState, TradeDirection, UserSwapToken } from '../types';
 
 import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
@@ -9,7 +11,11 @@ import {
 import { calculateTokenPrice } from '../../util/calculatePrice';
 import { toBig } from '../../util/decimals';
 import memoize from '../../util/memoize';
+import {
+  getEffectiveRampCurrencies, getOffRampBaselineCurrencies, getOnRampBaselineCurrencies,
+} from '../../util/rampCurrencies';
 import { getSwapType } from '../../util/swap/getSwapType';
+import { getChainBySlug, getIsNativeToken } from '../../util/tokens';
 import withCache from '../../util/withCache';
 import {
   selectCurrentAccount,
@@ -19,6 +25,9 @@ import {
   selectIsHardwareAccount,
 } from './accounts';
 import { selectAccountTokensMemoizedFor } from './tokens';
+import { selectIsOffRampAllowed, selectIsOnRampAllowed } from './transfer';
+
+const EMPTY_CURRENCIES: ApiBaseCurrency[] = [];
 
 function createTokenList(
   swapTokenInfo: GlobalState['swapTokenInfo'],
@@ -233,4 +242,38 @@ export function selectIsSwapDisabled(global: GlobalState) {
   return global.restrictions.isSwapDisabled
     || global.settings.isTestnet
     || selectIsHardwareAccount(global);
+}
+
+const selectTradeCardCurrenciesMemoized = memoize((
+  direction: TradeDirection,
+  chain: ApiChain,
+  allowedCurrencies?: ApiBaseCurrency[],
+) => {
+  const baseline = direction === 'buy' ? getOnRampBaselineCurrencies(chain) : getOffRampBaselineCurrencies(chain);
+
+  return getEffectiveRampCurrencies(baseline, allowedCurrencies);
+});
+
+/**
+ * The fiat currencies the Buy / Sell screen offers next to the counter tokens. Only the native coin of a
+ * chain can be bought or sold for card money, so any other screen token gets an empty list.
+ */
+export function selectTradeCardCurrencies(global: GlobalState): ApiBaseCurrency[] {
+  const { tradeDirection, tokenInSlug, tokenOutSlug } = global.currentSwap;
+  const screenTokenSlug = tradeDirection === 'buy' ? tokenOutSlug : tokenInSlug;
+
+  if (!tradeDirection || !screenTokenSlug || !getIsNativeToken(screenTokenSlug)) {
+    return EMPTY_CURRENCIES;
+  }
+
+  const chain = getChainBySlug(screenTokenSlug);
+  const isAllowed = tradeDirection === 'buy'
+    ? selectIsOnRampAllowed(global, chain)
+    : selectIsOffRampAllowed(global, chain);
+
+  if (!isAllowed) {
+    return EMPTY_CURRENCIES;
+  }
+
+  return selectTradeCardCurrenciesMemoized(tradeDirection, chain, global.restrictions.allowedOnOffRampCurrencies);
 }

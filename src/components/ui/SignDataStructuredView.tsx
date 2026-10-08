@@ -57,12 +57,12 @@ export function SignDataStructuredBlock({
   label, children, className, isExpanded, isText,
 }: SignDataStructuredBlockProps) {
   return (
-    <div className={styles.typedBlock}>
+    <>
       <SignDataLabel>{label}</SignDataLabel>
       <SignDataPayloadField className={className} isExpanded={isExpanded} isText={isText}>
         {children}
       </SignDataPayloadField>
-    </div>
+    </>
   );
 }
 
