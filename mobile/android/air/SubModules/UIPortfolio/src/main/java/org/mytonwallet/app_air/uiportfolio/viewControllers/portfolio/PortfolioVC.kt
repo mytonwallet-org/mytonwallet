@@ -29,10 +29,12 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.pow
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerView
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
+import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
@@ -41,6 +43,7 @@ import org.mytonwallet.app_air.uicomponents.glass.GlassProviders
 import org.mytonwallet.app_air.uicomponents.glass.WGlassView
 import org.mytonwallet.app_air.uicomponents.widgets.WBaseView
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
+import org.mytonwallet.app_air.uicomponents.widgets.WConstraintSet
 import org.mytonwallet.app_air.uicomponents.widgets.WFrameLayout
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -64,6 +67,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.segmentedControlGroup.WSegmentedControlGroup
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioAgentChart
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioChartKind
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioOverview
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.models.PortfolioUiState
@@ -78,6 +82,8 @@ import org.mytonwallet.app_air.walletbasecontext.utils.MHistoryTimePeriod
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 
 @SuppressLint("ViewConstructor")
 class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
@@ -113,12 +119,14 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private val totalPnlSection = createSimpleSection(
         LocaleController.getString("Total P&L"),
         LinearChartView(context).apply { allowNegativeValues = true },
-        PortfolioChartKind.TOTAL_PNL
+        PortfolioChartKind.TOTAL_PNL,
+        PortfolioAgentChart.TOTAL_PNL
     )
     private val dailyPnlSection = createSimpleSection(
         LocaleController.getString("Daily P&L"),
         BarChartView(context),
-        PortfolioChartKind.DAILY_PNL
+        PortfolioChartKind.DAILY_PNL,
+        PortfolioAgentChart.DAILY_PNL
     )
 
     private val shareValueRow = LinearLayout(context).apply {
@@ -722,6 +730,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.pieChartView.legendSignatureView.recolor()
         updateCheckBoxColors(section.stackChartView, section.checkBoxes)
         updateSectionErrorTheme(section.errorView)
+        section.analyzeButton.updateTheme()
     }
 
     private fun showLoadingSection(section: ChartSection, animated: Boolean = false) {
@@ -1342,6 +1351,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val chartCoverView = createChartCoverView()
         val chipGroup = createSeriesChipGroup()
         val errorView = createSectionErrorView { onRetryChart(PortfolioChartKind.NET_WORTH) }
+        val analyzeButton = createAnalyzeButton(PortfolioAgentChart.NET_WORTH)
 
         return ChartSection(
             container = buildSectionContainer(
@@ -1350,7 +1360,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 chartCoverView,
                 chartSkeletonPlaceholder,
                 chipGroup,
-                errorView.container
+                errorView.container,
+                analyzeButton
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -1359,7 +1370,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            errorView = errorView
+            errorView = errorView,
+            analyzeButton = analyzeButton
         )
     }
 
@@ -1404,6 +1416,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val chartCoverView = createChartCoverView()
         val chipGroup = createSeriesChipGroup()
         val errorView = createSectionErrorView { onRetryChart(PortfolioChartKind.NET_WORTH) }
+        val analyzeButton = createAnalyzeButton(PortfolioAgentChart.PORTFOLIO_SHARE)
 
         return ChartSection(
             container = buildSectionContainer(
@@ -1412,7 +1425,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 chartCoverView = chartCoverView,
                 chartSkeletonPlaceholder = chartSkeletonPlaceholder,
                 chipGroup = chipGroup,
-                errorView = errorView.container
+                errorView = errorView.container,
+                analyzeButton = analyzeButton
             ),
             chartFrame = chartFrame,
             chartSkeletonPlaceholder = chartSkeletonPlaceholder,
@@ -1421,7 +1435,47 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             stackChartView = stackChartView,
             pieChartView = pieChartView,
             chipGroup = chipGroup,
-            errorView = errorView
+            errorView = errorView,
+            analyzeButton = analyzeButton
+        )
+    }
+
+    private fun createAnalyzeButton(chart: PortfolioAgentChart): WAgentHintView = WAgentHintView(
+        context,
+        chart.analysisTitle,
+        contentVerticalPadding = 8.dp,
+        animatePressAlpha = false
+    ) {
+        showAgent(chart)
+    }.apply {
+        minimumHeight = ANALYZE_BUTTON_MIN_HEIGHT_DP.dp
+        visibility = if (EnvironmentStore.isAgentChartAnalysisEnabled) View.VISIBLE else View.GONE
+    }
+
+    private fun showAgent(chart: PortfolioAgentChart) {
+        val navigationController = navigationController ?: return
+        val period = viewModel.selectedPeriod
+        val prompt = chart.analysisPrompt(period)
+        val entryPoint = AgentV2EntryPoint(
+            kind = "portfolioChart",
+            chartId = chart.chartId,
+            range = period.value.lowercase(),
+            accountScope = "current",
+            source = "analyzeIt"
+        )
+        if (navigationController.tabBarController?.switchToAgent(
+                prompt,
+                entryPoint = entryPoint
+            ) == true
+        ) {
+            return
+        }
+        navigationController.push(
+            AgentVC(
+                context,
+                initialPrompt = prompt,
+                initialEntryPoint = entryPoint
+            )
         )
     }
 
@@ -1519,7 +1573,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         chartCoverView: View,
         chartSkeletonPlaceholder: View,
         chipGroup: View,
-        errorView: View
+        errorView: View,
+        analyzeButton: View
     ): WView = WView(context).apply {
         addView(
             chartCoverView,
@@ -1533,6 +1588,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         addView(chartFrame, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(chipGroup, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, WRAP_CONTENT))
         addView(errorView, ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT))
+        addView(analyzeButton, createAnalyzeButtonLayoutParams())
         setConstraints {
             toTop(chartHeaderView)
             toCenterX(chartHeaderView)
@@ -1540,7 +1596,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             toCenterX(chartFrame)
             topToBottom(chipGroup, chartFrame)
             toCenterX(chipGroup, ViewConstants.GAP.toFloat())
-            toBottom(chipGroup, ViewConstants.GAP.toFloat())
+            constrainAnalyzeButton(analyzeButton, chipGroup)
             topToTop(chartSkeletonPlaceholder, chartHeaderView, 48f)
             toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
             bottomToBottom(chartSkeletonPlaceholder, chipGroup, ViewConstants.GAP.toFloat())
@@ -1800,6 +1856,9 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         private const val PERIOD_SELECTOR_SECTION_HEIGHT = 64
         private const val SENSITIVE_VALUE_MASK = "***"
         private const val TWO_COLUMN_SECTIONS_MIN_WIDTH_DP = 480
+        private const val ANALYZE_BUTTON_MIN_HEIGHT_DP = 35
+        private const val ANALYZE_BUTTON_TOP_MARGIN_DP = 20f
+        private const val ANALYZE_BUTTON_BOTTOM_MARGIN_DP = 16f
     }
 
     override fun onDestroy() {
@@ -1810,7 +1869,8 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
     private fun createSimpleSection(
         title: String,
         chartView: BaseChartView<*, *>,
-        retryKind: PortfolioChartKind
+        retryKind: PortfolioChartKind,
+        agentChart: PortfolioAgentChart
     ): SimpleChartSection {
         val chartHeaderView = ChartHeaderView(context).apply {
             id = ViewGroup.generateViewId()
@@ -1838,6 +1898,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val chartSkeletonPlaceholder = createChartSkeletonPlaceholder()
         val chartCoverView = createChartCoverView()
         val chipGroup = createSeriesChipGroup()
+        val analyzeButton = createAnalyzeButton(agentChart)
         val container = WView(context).apply {
             addView(
                 chartCoverView,
@@ -1854,6 +1915,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 errorView.container,
                 ConstraintLayout.LayoutParams(MATCH_CONSTRAINT, MATCH_CONSTRAINT)
             )
+            addView(analyzeButton, createAnalyzeButtonLayoutParams())
             setConstraints {
                 toTop(chartHeaderView)
                 toCenterX(chartHeaderView)
@@ -1861,7 +1923,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
                 toCenterX(chartFrame)
                 topToBottom(chipGroup, chartFrame)
                 toCenterX(chipGroup, ViewConstants.GAP.toFloat())
-                toBottom(chipGroup, ViewConstants.GAP.toFloat())
+                constrainAnalyzeButton(analyzeButton, chipGroup)
                 topToTop(chartSkeletonPlaceholder, chartHeaderView, 48f)
                 toCenterX(chartSkeletonPlaceholder, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
                 bottomToBottom(chartSkeletonPlaceholder, chipGroup, ViewConstants.GAP.toFloat())
@@ -1881,8 +1943,24 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
             chartHeaderView = chartHeaderView,
             chartView = chartView,
             chipGroup = chipGroup,
-            errorView = errorView
+            errorView = errorView,
+            analyzeButton = analyzeButton
         )
+    }
+
+    private fun createAnalyzeButtonLayoutParams() =
+        ConstraintLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+            constrainedWidth = true
+        }
+
+    private fun WConstraintSet.constrainAnalyzeButton(analyzeButton: View, chipGroup: View) {
+        if (!EnvironmentStore.isAgentChartAnalysisEnabled) {
+            toBottom(chipGroup, ViewConstants.GAP.toFloat())
+            return
+        }
+        topToBottom(analyzeButton, chipGroup, ANALYZE_BUTTON_TOP_MARGIN_DP)
+        toCenterX(analyzeButton, ViewConstants.HORIZONTAL_PADDINGS.toFloat())
+        toBottom(analyzeButton, ANALYZE_BUTTON_BOTTOM_MARGIN_DP)
     }
 
     private fun applySimpleSectionStyle(section: SimpleChartSection) {
@@ -1912,6 +1990,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         section.chartView.legendSignatureView.recolor()
         updateCheckBoxColors(section.chartView, section.checkBoxes)
         updateSectionErrorTheme(section.errorView)
+        section.analyzeButton.updateTheme()
     }
 
     private fun showSimpleSectionLoading(section: SimpleChartSection, animated: Boolean = false) {
@@ -2056,6 +2135,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val chartView: BaseChartView<*, *>,
         val chipGroup: ChipGroup,
         val errorView: SectionErrorView,
+        val analyzeButton: WAgentHintView,
         val checkBoxes: LinkedHashMap<String, FlatCheckBox> = linkedMapOf(),
         val lineEnabledById: LinkedHashMap<String, Boolean> = linkedMapOf(),
         var chartData: ChartData? = null
@@ -2077,6 +2157,7 @@ class PortfolioVC(context: Context) : WViewControllerWithModelStore(context) {
         val pieChartView: PieChartView,
         val chipGroup: ChipGroup,
         val errorView: SectionErrorView,
+        val analyzeButton: WAgentHintView,
         val checkBoxes: LinkedHashMap<String, FlatCheckBox> = linkedMapOf(),
         val lineEnabledById: LinkedHashMap<String, Boolean> = linkedMapOf(),
         var chartData: StackLinearChartData? = null,

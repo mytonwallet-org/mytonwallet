@@ -8,7 +8,7 @@ import { addActionHandler, getGlobal, setGlobal } from '../../index';
 
 jest.mock('../../../api', () => ({ callApiWithThrow: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../../enclave', () => ({ enclave: { removeSecret: jest.fn(), reset: jest.fn() } }));
-jest.mock('../../../util/agent/agentStorage', () => ({ clearAgentChat: jest.fn() }));
+jest.mock('../../../util/agent/clearLegacyAgentStorage', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('../../../util/notificationSound', () => ({ initializeSounds: jest.fn() }));
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(), getGlobal: jest.fn(), setGlobal: jest.fn(), getActions: jest.fn(() => ({})),

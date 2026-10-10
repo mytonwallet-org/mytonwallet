@@ -62,6 +62,7 @@ public final class MarketVC: WViewController, WalletCoreData.EventsObserver, Sen
 
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        model.refreshIfNeeded()
         let isFirstAppearance = !didCompleteInitialAppearance
         didCompleteInitialAppearance = true
         if isFirstAppearance {

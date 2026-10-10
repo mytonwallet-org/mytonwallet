@@ -12,6 +12,7 @@ public enum Deeplink {
     case sellOnCard
     case sell(Sell)
     case stake
+    case multisend
     case portfolio
     case market
     case mintCard

@@ -82,9 +82,6 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
     public var shouldRestrictBuyNfts: Bool { config?.isLimited == true }
     public var shouldRestrictSites: Bool { config?.isLimited == true }
     public var shouldRestrictSell: Bool { config?.isLimited == true }
-    public var knowledgeBaseVersion: String? { config?.knowledgeBaseVersion }
-    public var agentProtocolVersion: ApiUpdate.UpdateConfig.AgentProtocolVersion { config?.agentProtocolVersion ?? .v1 }
-    public var preferredAgent: ApiUpdate.UpdateConfig.PreferredAgent { config?.preferredAgent ?? .online }
 
     private func handleConfig(_ config: ApiUpdate.UpdateConfig) {
         WalletCoreData.notify(event: .configChanged)
@@ -117,7 +114,6 @@ public class ConfigStore: @unchecked Sendable { // todo: use UnfairLock intead o
     static func cacheableConfig(_ config: ApiUpdate.UpdateConfig) -> ApiUpdate.UpdateConfig {
         var cacheable = config
         cacheable.allowedOnOffRampCurrencies = nil
-        cacheable.agentProtocolVersion = nil
         return cacheable
     }
 

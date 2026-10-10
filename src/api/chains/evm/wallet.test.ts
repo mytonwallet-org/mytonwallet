@@ -12,6 +12,9 @@ jest.mock('../../../util/fetch', () => ({
 jest.mock('../../common/tokens', () => ({
   updateTokens: jest.fn(),
   buildTokenSlug: jest.fn((chain: string, address: string) => `${chain}-${address}`),
+  waitForTokenSlugResolver: jest.fn().mockResolvedValue(
+    (tokens: { chain: string; address: string }[]) => tokens.map(({ chain, address }) => `${chain}-${address}`),
+  ),
 }));
 
 const mockedFetch = jest.mocked(fetchWithRetry);

@@ -11,6 +11,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.core.graphics.ColorUtils
@@ -143,6 +144,7 @@ class InAppBrowserTopBarView(
     }
 
     private fun showOptionsMenu(anchorView: WLabel) {
+        viewController.webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         WMenuPopup.present(
             anchorView,
             options?.map { option ->
@@ -172,7 +174,8 @@ class InAppBrowserTopBarView(
                 verticalOffset = 0
             ),
             backdropStyle = WMenuPopup.BackdropStyle.Transparent,
-            xOffset = (-8).dp
+            xOffset = (-8).dp,
+            onDidDismiss = ::onMenuDismissed
         )
     }
 
@@ -592,6 +595,7 @@ class InAppBrowserTopBarView(
 
     private fun morePressed() {
         val activeUrl = viewController.webView.url ?: viewController.config.url
+        viewController.webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         WMenuPopup.present(
             moreButton,
             listOf(
@@ -639,8 +643,13 @@ class InAppBrowserTopBarView(
             ),
             popupWidth = WRAP_CONTENT,
             positioning = WMenuPopup.Positioning.ALIGNED,
-            backdropStyle = WMenuPopup.BackdropStyle.Transparent
+            backdropStyle = WMenuPopup.BackdropStyle.Transparent,
+            onDidDismiss = ::onMenuDismissed
         )
+    }
+
+    private fun onMenuDismissed() {
+        viewController.webView.setLayerType(View.LAYER_TYPE_NONE, null)
     }
 
     private fun startMarquee() {

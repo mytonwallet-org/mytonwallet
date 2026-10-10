@@ -30,23 +30,34 @@ private let log = Log("ExploreVM")
     private(set) var featuredTitle: String?
 
     private var loadExploreSitesTask: Task<Void, Never>?
+    private var loadDappsTask: Task<Void, Never>?
+    private var retryTask: Task<Void, Never>?
+    private var isActive = false
+    private var didLoadSites = false
+    private var needsDappsRefresh = true
     private var waitingForNetwork = false
+    private let fetchSites: () async throws -> ApiExploreSitesResult
+    private let fetchDapps: (String) async throws -> [ApiDapp]
+    private let accountId: () -> String?
+    private let retryDelay: Duration
 
-    init() {
+    init(
+        fetchSites: @escaping () async throws -> ApiExploreSitesResult = {
+            try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
+        },
+        fetchDapps: @escaping (String) async throws -> [ApiDapp] = { try await Api.getDapps(accountId: $0) },
+        accountId: @escaping () -> String? = { AccountStore.accountId },
+        retryDelay: Duration = .seconds(3)
+    ) {
+        self.fetchSites = fetchSites
+        self.fetchDapps = fetchDapps
+        self.accountId = accountId
+        self.retryDelay = retryDelay
         // Listen for network connection events
         reachability.whenReachable = { [weak self] _ in
             guard let self else { return }
-            if waitingForNetwork {
-                refresh()
-                waitingForNetwork = false
-            }
-            // Improvement:
-            // 1. cyclic retry only when screen visible
-            // 2. stop when disappear
-            // 3. make attempt when appear
-            // 4. not use reachability for retry logic
-            // 5. Decompose data loading from retries logic
-            // 6. ? show loading error / retry button
+            waitingForNetwork = false
+            if isActive { refreshMissingContent() }
         }
         reachability.whenUnreachable = { [weak self] _ in
             self?.waitingForNetwork = true
@@ -57,6 +68,9 @@ private let log = Log("ExploreVM")
     }
 
     isolated deinit {
+        loadExploreSitesTask?.cancel()
+        loadDappsTask?.cancel()
+        retryTask?.cancel()
         reachability.stopNotifier()
     }
 
@@ -64,8 +78,13 @@ private let log = Log("ExploreVM")
 
     func walletCore(event: WalletCoreData.Event) {
         switch event {
-        case .accountChanged: loadDapps()
-        case .dappsCountUpdated: loadDapps()
+        case .accountChanged:
+            invalidateDapps()
+            updateDapps(dapps: [])
+            if isActive { loadDapps() }
+        case .dappsCountUpdated:
+            invalidateDapps()
+            if isActive { loadDapps() }
         case .configChanged: updateRestricted()
         case .lockdownModeChanged: delegate?.didUpdateViewModelData()
         default: break
@@ -73,6 +92,15 @@ private let log = Log("ExploreVM")
     }
 
     // MARK: - Interface methods
+
+    /// Preparation may make one request; only an appearing screen owns retries.
+    func setActive(_ active: Bool) {
+        guard isActive != active else { return }
+        isActive = active
+        retryTask?.cancel()
+        retryTask = nil
+        if active { refreshMissingContent() }
+    }
 
     func refresh() {
         loadExploreSites()
@@ -83,6 +111,7 @@ private let log = Log("ExploreVM")
     // MARK: - Update Data Model
 
     func updateExploreSites(_ result: ApiExploreSitesResult) {
+        didLoadSites = true
         featuredTitle = result.featuredTitle
         exploreSites = OrderedDictionary(result.sites.map { ($0.url, $0) }, uniquingKeysWith: { $1 })
         exploreCategories = OrderedDictionary(result.categories.map { ($0.id, $0) }, uniquingKeysWith: { $1 })
@@ -100,41 +129,65 @@ private let log = Log("ExploreVM")
 
     // MARK: - Side Effects: Data Loading
 
-    func loadExploreSites() {
-        guard loadExploreSitesTask == nil || loadExploreSitesTask?.isCancelled == true else { return }
+    private func loadExploreSites() {
+        guard loadExploreSitesTask == nil else { return }
 
-        loadExploreSitesTask = Task { [weak self] in
+        loadExploreSitesTask = Task { [weak self, fetchSites] in
             do {
-                let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
+                let result = try await fetchSites()
+                guard !Task.isCancelled else { return }
                 self?.updateExploreSites(result)
             } catch {
+                guard !Task.isCancelled else { return }
                 log.error("failed to fetch explore sites \(error, .public)")
-                if let self, !waitingForNetwork { // Improvement: retry logic should not depend on reachability
-                    try? await Task.sleep(for: .seconds(3))
-                    if !Task.isCancelled {
-                        if exploreSites.isEmpty {
-                            refresh()
-                        }
-                    }
-                }
             }
-            if !Task.isCancelled {
-                self?.loadExploreSitesTask = nil
-            }
+            self?.loadExploreSitesTask = nil
+            self?.scheduleRetry()
         }
     }
 
     private func loadDapps() {
-        Task {
+        guard loadDappsTask == nil else { return }
+        guard let accountId = accountId() else {
+            needsDappsRefresh = false
+            updateDapps(dapps: [])
+            return
+        }
+        loadDappsTask = Task { [weak self, fetchDapps] in
             do {
-                if let accountId = AccountStore.accountId {
-                    let dapps = try await Api.getDapps(accountId: accountId)
-                    self.updateDapps(dapps: dapps)
-                }
+                let dapps = try await fetchDapps(accountId)
+                guard !Task.isCancelled else { return }
+                self?.needsDappsRefresh = false
+                self?.updateDapps(dapps: dapps)
             } catch {
-                try? await Task.sleep(for: .seconds(3))
-                loadDapps()
+                guard !Task.isCancelled else { return }
+                self?.needsDappsRefresh = true
+                log.error("failed to fetch connected dapps \(error, .public)")
             }
+            self?.loadDappsTask = nil
+            self?.scheduleRetry()
+        }
+    }
+
+    private func invalidateDapps() {
+        loadDappsTask?.cancel()
+        loadDappsTask = nil
+        needsDappsRefresh = true
+    }
+
+    private func refreshMissingContent() {
+        if !didLoadSites { loadExploreSites() }
+        if needsDappsRefresh { loadDapps() }
+    }
+
+    private func scheduleRetry() {
+        guard isActive, !waitingForNetwork, retryTask == nil,
+              !didLoadSites || needsDappsRefresh else { return }
+        retryTask = Task { [weak self, retryDelay] in
+            do { try await Task.sleep(for: retryDelay) } catch { return }
+            guard let self, isActive else { return }
+            retryTask = nil
+            refreshMissingContent()
         }
     }
 }

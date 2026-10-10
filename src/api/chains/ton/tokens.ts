@@ -13,6 +13,7 @@ import { UNKNOWN_TOKEN } from '../../../config';
 import { raceWithAbortSignal, throwIfAborted } from '../../../util/abortSignal';
 import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { fetchJsonWithProxy } from '../../../util/fetch';
+import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import withCacheAsync from '../../../util/withCacheAsync';
 import { fetchJettonMetadata, fixBase64ImageData, parsePayloadBase64 } from './util/metadata';
@@ -26,7 +27,9 @@ import {
   resolveTokenWalletAddress,
   toBase64Address, toRawAddress,
 } from './util/tonCore';
-import { buildTokenSlug, getTokenByAddress, updateTokens } from '../../common/tokens';
+import {
+  buildTokenSlug, getTokenByAddress, updateTokens, waitForTokenSlugResolver,
+} from '../../common/tokens';
 import { extractMetadata, getProxiedImage } from './toncenter/metadata';
 import { callToncenterV3, fetchMetadata } from './toncenter/other';
 import { DEFAULT_DECIMALS, TOKEN_TRANSFER_FORWARD_AMOUNT } from './constants';
@@ -58,7 +61,7 @@ async function getTokenBalances(network: ApiNetwork, address: string, signal?: A
   const parsed = await Promise.all(
     jettonWallets.map((wallet) => parseTokenBalance(network, wallet, metadata, signal)),
   );
-  return parsed.filter(Boolean);
+  return compact(parsed);
 }
 
 const JETTON_WALLETS_LIMIT = 1000;
@@ -482,8 +485,17 @@ export async function loadTokenBalances(
   sendUpdateTokens: NoneToVoidFunction,
   signal?: AbortSignal,
 ): Promise<ApiBalanceBySlug> {
-  const tokenBalances = await getTokenBalances(network, address, signal);
+  const parsedBalances = await getTokenBalances(network, address, signal);
   throwIfAborted(signal);
+
+  // The balances are parsed concurrently, so their slugs are assigned here, together, right before the cache gets the
+  // tokens
+  const resolveTokenSlugs = await waitForTokenSlugResolver(signal);
+  const slugs = resolveTokenSlugs(parsedBalances.map(({ token }) => ({ chain: 'ton', address: token.tokenAddress! })));
+  const tokenBalances = parsedBalances.map(({ token, balance }, i) => {
+    const slug = slugs[i];
+    return { slug, balance, token: { ...token, slug } };
+  });
   const tokens: ApiTokenWithMaybePrice[] = tokenBalances.map(({ token }) => ({
     ...token,
     priceUsd: undefined,

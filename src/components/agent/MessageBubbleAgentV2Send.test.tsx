@@ -1,32 +1,26 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
-import type { AgentActionProposal } from '../../api/agentV2/protocol/types';
+import type { AgentPersistedActionV2, AgentV2LiveAction } from '../../api/agentV2/protocol/types';
 import type { AgentV2ActionPresentation } from '../../api/agentV2/types';
 import type { AgentMessage } from '../../global/types';
 
 import { pause } from '../../util/schedulers';
 
-import AgentV2IncomingMessage from '../agentV2/AgentV2IncomingMessage';
 import MessageBubble from './MessageBubble';
 
 const COPY: Record<string, string> = {
-  $agent_notice_wallet_unavailable: 'Wallet data is unavailable right now.',
+  $agent_error_generic: 'Agent could not complete the request. Please try again.',
   $agent_semantic_web_digest: 'Web results',
-  $agent_action_review_transfer: 'Review transfer',
-  $agent_action_open_receive: 'Open receive',
-  $agent_action_open_send: 'Open Send',
-  $agent_action_hide_spam: 'Hide spam assets',
-  $agent_action_open_link: 'Open link',
-  $agent_action_open_token: 'Open token',
-  $agent_action_open_transaction: 'Open transaction',
-  $agent_action_open_agent: 'Open Agent',
+  Continue: 'Continue',
 };
 const ACTIVE_DRAFT_EXPIRES_AT = new Date(Date.now() + 10 * 60_000).toISOString();
 
 jest.mock('../../hooks/useLang', () => ({
   __esModule: true,
   default: () => (key: string) => COPY[key] ?? key,
+  LangProvider: ({ children }: { children: unknown }) => children,
+  useLangForCode: () => (key: string) => COPY[key] ?? key,
 }));
 
 describe('MessageBubble Agent V2 actions', () => {
@@ -42,16 +36,30 @@ describe('MessageBubble Agent V2 actions', () => {
     root.remove();
   });
 
+  it('renders arbitrary model titles literally while dispatching the same typed action', async () => {
+    const action = { ...sendAction(), title: 'Проверить перевод 🪙' };
+    const onAction = jest.fn();
+    TeactDOM.render(
+      <MessageBubble
+        message={message(action, sendPresentation())}
+        isDisabled={false}
+        onAction={onAction}
+      />, root);
+    await pause(20);
+    const button = root.querySelector('button')!;
+    expect(button.textContent).toBe(action.title);
+    button.click();
+    await pause(0);
+    expect(onAction).toHaveBeenCalledWith(1, action);
+  });
+
   it('renders prepared Send as the standard action button and invokes the typed action', async () => {
     const action = sendAction();
     const onAction = jest.fn();
     TeactDOM.render(
       <MessageBubble
         message={message(action, sendPresentation())}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -59,6 +67,7 @@ describe('MessageBubble Agent V2 actions', () => {
     await pause(20);
 
     expect(root.textContent).toBe('Review transfer');
+    expect(root.querySelectorAll('button[data-agent-action-kind="send"]')).toHaveLength(1);
     expect(root.querySelector('section')).toBeNull();
     const reviewButton = getReviewButton(root);
     expect(reviewButton.disabled).toBe(false);
@@ -74,10 +83,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={message(action, sendPresentation())}
-        areLinksEnabled={false}
         isDisabled
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -89,10 +95,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={message(action, { kind: 'inactive' })}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -112,10 +115,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={message(action, { ...sendPresentation(), expiresAt: farFuture })}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={jest.fn()}
       />,
       root,
@@ -130,10 +130,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={message(action, { ...sendPresentation(), expiresAt: '2000-01-01T00:00:00.000Z' })}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={jest.fn()}
       />,
       root,
@@ -150,10 +147,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={messageWithActions(actions)}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -161,11 +155,7 @@ describe('MessageBubble Agent V2 actions', () => {
     await pause(20);
 
     expect(root.textContent).toContain('Open receive');
-    expect(root.textContent).toContain('Hide spam assets');
     expect(root.textContent).toContain('Open link');
-    expect(root.textContent).toContain('Open token');
-    expect(root.textContent).toContain('Open transaction');
-    expect(root.textContent).toContain('Open Agent');
     expect(onAction).not.toHaveBeenCalled();
 
     Array.from(root.querySelectorAll('button')).forEach((button) => button.click());
@@ -183,10 +173,7 @@ describe('MessageBubble Agent V2 actions', () => {
     TeactDOM.render(
       <MessageBubble
         message={inactiveMessage}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -213,10 +200,7 @@ describe('MessageBubble Agent V2 actions', () => {
           feeStatus: 'calculated_in_wallet',
           warningCodes: [],
         })}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         onAction={onAction}
       />,
       root,
@@ -239,19 +223,16 @@ describe('MessageBubble Agent V2 actions', () => {
           text: '',
           isOutgoing: false,
           timestamp: Date.now(),
-          semanticContent: { kind: 'notice', schemaVersion: 1, code: 'wallet_data_unavailable' },
+          semanticContent: { kind: 'notice', schemaVersion: 1, code: 'agent_unavailable' },
         }}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
       />,
       root,
     );
     await pause(20);
 
     const incomingMessage = root.querySelector('[data-agent-v2-message-role="assistant"]');
-    expect(incomingMessage?.textContent).toBe('Wallet data is unavailable right now.');
+    expect(incomingMessage?.textContent).toBe('Agent could not complete the request. Please try again.');
     expect(incomingMessage?.querySelector('section')).toBeNull();
   });
 
@@ -264,16 +245,28 @@ describe('MessageBubble Agent V2 actions', () => {
           isOutgoing: false,
           timestamp: Date.now(),
         }}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
       />,
       root,
     );
     await pause(20);
 
     expect(root.textContent).toContain('Open Agent');
+    expect(root.querySelector('button')).toBeNull();
+  });
+
+  it('preserves literal wallet links in code without creating an action', async () => {
+    TeactDOM.render(
+      <MessageBubble
+        message={{ ...messageWithActions([]), text: '`[Receive](mtw://receive)`' }}
+        isDisabled={false}
+      />,
+      root,
+    );
+    await pause(100);
+
+    expect(root.querySelector('code')?.textContent).toBe('[Receive](mtw://receive)');
+    expect(root.querySelector('a')).toBeNull();
     expect(root.querySelector('button')).toBeNull();
   });
 
@@ -287,10 +280,7 @@ describe('MessageBubble Agent V2 actions', () => {
           isOutgoing: false,
           timestamp: Date.now(),
         }}
-        areLinksEnabled={false}
         isDisabled={false}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         textRevealPresentation={{
           key: 'v2:1:1',
           status: 'active',
@@ -307,23 +297,14 @@ describe('MessageBubble Agent V2 actions', () => {
 });
 
 function sendAction() {
-  return {
-    id: '66666666-6666-4666-8666-666666666666',
-    kind: 'send' as const,
-    labelCode: 'review_transfer' as const,
-    draftId: '77777777-7777-4777-8777-777777777777',
-    draftExpiresAt: ACTIVE_DRAFT_EXPIRES_AT,
-    sourceToolCallId: '88888888-8888-4888-8888-888888888888',
-    effect: 'open_wallet_review' as const,
-    localDraftRequired: true as const,
-    requiresConfirmation: true as const,
-  };
+  return { ...sendFormAction(), title: 'Review transfer' };
 }
 
-function sendFormAction(): Extract<AgentActionProposal, { kind: 'send'; effect: 'open_send' }> {
+function sendFormAction(): Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> {
   return {
     id: '66666666-6666-4666-8666-666666666660',
     kind: 'send',
+    title: 'Open Send',
     labelCode: 'open_send',
     effect: 'open_send',
     contextBinding: {
@@ -354,7 +335,7 @@ function sendPresentation(): Extract<AgentV2ActionPresentation, { kind: 'send' }
 }
 
 function message(
-  action: Extract<AgentActionProposal, { kind: 'send' }>,
+  action: Extract<AgentV2LiveAction | AgentPersistedActionV2, { kind: 'send' }>,
   presentation: AgentV2ActionPresentation,
 ): AgentMessage {
   return {
@@ -367,7 +348,7 @@ function message(
   };
 }
 
-function messageWithActions(actions: AgentActionProposal[]): AgentMessage {
+function messageWithActions(actions: AgentV2LiveAction[]): AgentMessage {
   return {
     id: 1,
     text: '',
@@ -377,11 +358,12 @@ function messageWithActions(actions: AgentActionProposal[]): AgentMessage {
   };
 }
 
-function nonSendActions(): AgentActionProposal[] {
+function nonSendActions(): AgentV2LiveAction[] {
   return [
     {
       id: '66666666-6666-4666-8666-666666666661',
       kind: 'receive',
+      title: 'Open receive',
       labelCode: 'open_receive',
       effect: 'open_receive',
       contextBinding: {
@@ -394,48 +376,12 @@ function nonSendActions(): AgentActionProposal[] {
       requiresConfirmation: false,
     },
     {
-      id: '66666666-6666-4666-8666-666666666662',
-      kind: 'hideSpamAssets',
-      labelCode: 'hide_spam_assets',
-      sourceToolCallId: '88888888-8888-4888-8888-888888888888',
-      assetRefs: ['spam-one'],
-      contextBinding: {
-        sessionId: '99999999-9999-4999-8999-999999999999',
-        revision: 1,
-        activeAccountRef: 'current',
-      },
-      effect: 'hide_spam_assets',
-      localMutationRequired: true,
-      requiresConfirmation: false,
-    },
-    {
       id: '66666666-6666-4666-8666-666666666663',
-      kind: 'openUrl',
+      schemaVersion: 1,
+      kind: 'openDapp',
+      title: 'Open link',
       labelCode: 'open_external_link',
       url: 'https://example.com/help',
-      requiresConfirmation: true,
-    },
-    {
-      id: '66666666-6666-4666-8666-666666666664',
-      kind: 'openToken',
-      labelCode: 'open_token',
-      slug: 'toncoin',
-      chain: 'ton',
-      requiresConfirmation: true,
-    },
-    {
-      id: '66666666-6666-4666-8666-666666666665',
-      kind: 'openTransaction',
-      labelCode: 'open_transaction',
-      chain: 'ton',
-      transactionRef: 'transaction-hash',
-      requiresConfirmation: true,
-    },
-    {
-      id: '66666666-6666-4666-8666-666666666666',
-      kind: 'openAgent',
-      labelCode: 'open_agent',
-      entryPoint: { kind: 'agentTab' },
       requiresConfirmation: true,
     },
   ];

@@ -9,19 +9,16 @@ const fixtureDirectory = path.join(repositoryRoot, 'tests/fixtures/agentV2');
 const manifestPath = path.join(generatedDirectory, 'manifest.json');
 const inventoryPath = path.join(fixtureDirectory, 'public-contract-fixture-inventory.v1.json');
 const filterCatalogPath = path.join(generatedDirectory, 'wallet-filter-fields.v1.json');
+const publicTypesPath = path.join(generatedDirectory, 'public.ts');
+const publicConstantsPath = path.join(generatedDirectory, 'constants.ts');
 const staleArtifactPaths = [
   path.join(generatedDirectory, 'agent-v2-public.schema.json'),
   path.join(generatedDirectory, 'fixtures'),
-  path.join(generatedDirectory, 'public.ts'),
 ];
 
 const manifest = readJson(manifestPath);
-if (manifest.schemaVersion !== 3 || manifest.protocolVersion !== 2) {
+if (manifest.schemaVersion !== 5 || manifest.protocolVersion !== 3) {
   throw new Error('Unsupported Agent V2 client contract manifest');
-}
-if (!/^[0-9a-f]{40}$/u.test(manifest.sourceCommit)) throw new Error('Invalid Agent V2 source commit');
-if ('schemaSha256' in manifest || 'generatedTypesSha256' in manifest || 'supportedRoots' in manifest) {
-  throw new Error('Agent V2 manifest still references backend-owned contract artifacts');
 }
 for (const filename of staleArtifactPaths) {
   if (fs.existsSync(filename)) throw new Error(`Stale Agent V2 artifact: ${path.relative(repositoryRoot, filename)}`);
@@ -29,6 +26,8 @@ for (const filename of staleArtifactPaths) {
 
 assertDigest(inventoryPath, manifest.fixtureInventorySha256);
 assertDigest(filterCatalogPath, manifest.walletFilterCatalogSha256);
+assertDigest(publicTypesPath, manifest.publicTypesSha256);
+assertDigest(publicConstantsPath, manifest.publicConstantsSha256);
 
 const inventory = readJson(inventoryPath);
 if (
@@ -70,17 +69,7 @@ for (const filename of inventory.files) {
   readJson(fixturePath);
 }
 
-const forbiddenPatterns = ['generated/public', 'schemaSha256'];
-for (const filename of walkSourceFiles(path.join(repositoryRoot, 'src/api/agentV2'))) {
-  const source = fs.readFileSync(filename, 'utf8');
-  for (const pattern of forbiddenPatterns) {
-    if (source.includes(pattern)) {
-      throw new Error(`Forbidden Agent V2 contract dependency in ${path.relative(repositoryRoot, filename)}`);
-    }
-  }
-}
-
-process.stdout.write(`Agent V2 client contract ${manifest.sourceCommit.slice(0, 7)} is internally consistent.\n`);
+process.stdout.write(`Agent V2 client contract of protocol ${manifest.protocolVersion} is internally consistent.\n`);
 
 function assertDigest(filename, expected) {
   const actual = createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
@@ -89,12 +78,4 @@ function assertDigest(filename, expected) {
 
 function readJson(filename) {
   return JSON.parse(fs.readFileSync(filename, 'utf8'));
-}
-
-function walkSourceFiles(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const filename = path.join(directory, entry.name);
-    if (entry.isDirectory()) return entry.name === 'generated' ? [] : walkSourceFiles(filename);
-    return /\.(?:ts|tsx|mjs)$/u.test(entry.name) ? [filename] : [];
-  });
 }

@@ -58,7 +58,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showAddToken()
     static func showAddWallet(network: ApiNetwork)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
-    static func showAgent(query: String?)
+    static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?)
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     static func showAssetsAndActivity()
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
@@ -123,7 +123,11 @@ public extension AppActionsProtocol {
     }
 
     static func showAgent() {
-        showAgent(query: nil)
+        showAgent(query: nil, entryPoint: nil)
+    }
+
+    static func showAgent(query: String?) {
+        showAgent(query: query, entryPoint: nil)
     }
 
     static func showAssets(
@@ -199,7 +203,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showAddToken() { }
     static func showAddWallet(network: ApiNetwork) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
-    static func showAgent(query: String?) { }
+    static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) { }
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) { }
     static func showAssetsAndActivity() { }
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) { }

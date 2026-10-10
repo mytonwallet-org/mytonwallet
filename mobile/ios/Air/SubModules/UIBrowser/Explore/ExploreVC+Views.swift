@@ -67,16 +67,23 @@ extension ExploreVC {
         fileprivate private(set) var shouldShowWhiteBackground: Bool = false
         fileprivate private(set) var scrollToTopTrigger: UInt64 = 0
         fileprivate private(set) var scrollToTopAnimated: Bool = true
+        fileprivate private(set) var isActive = false
 
         init() {}
 
-        func updateBrowsing(sections: [SectionItem], animated: Bool = true) {
-            if animated {
-                withAnimation {
-                    self.shouldShowWhiteBackground = false
-                    self.content = .browsing(sections)
-                }
+        func setActive(_ active: Bool) { isActive = active }
+
+        func updateBrowsing(sections: [SectionItem], animated: Bool) {
+            let hasContent: Bool
+            if case .browsing(let previousSections) = content {
+                hasContent = !previousSections.isEmpty
             } else {
+                hasContent = false
+            }
+            let animated = animated && hasContent
+            var transaction = Transaction(animation: animated ? .default : nil)
+            transaction.disablesAnimations = !animated
+            withTransaction(transaction) {
                 self.shouldShowWhiteBackground = false
                 self.content = .browsing(sections)
             }
@@ -249,7 +256,7 @@ extension ExploreScreenDappFolderVM {
                                  connectedDappsLayout: connectedDappsLayout,
                                  showTrending: showTrending)
 
-    viewState.updateBrowsing(sections: sections)
+    viewState.updateBrowsing(sections: sections, animated: false)
 
     return ExploreVC.ScreenView(viewState: viewState, viewOutput: viewOutput)
         .overlay(alignment: .bottom) {
@@ -495,6 +502,7 @@ extension ExploreVC {
         private func trendingDappsView(sites: [ApiSite]) -> some View {
             AutoScrollingTrendingView(
                 sites: sites,
+                isActive: viewState.isActive,
                 spacing: trendingDappsInterItemHSpacing,
                 viewOutput: viewOutput,
                 itemWidth: { trendingDappViewWidth(basedOn: $0) }
@@ -538,6 +546,7 @@ extension ExploreVC {
 @available(iOS 17.0, *)
 private struct AutoScrollingTrendingView: View {
     let sites: [ApiSite]
+    let isActive: Bool
     let spacing: Double
     let viewOutput: ExploreVC.ViewOutput
     let itemWidth: (CGFloat) -> CGFloat
@@ -547,6 +556,12 @@ private struct AutoScrollingTrendingView: View {
 
     @State private var currentIndex: Int = 0
     @State private var autoScrollTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var canAutoScroll: Bool {
+        isActive && scenePhase == .active && !reduceMotion && AppStorageHelper.animations && sites.count > 1
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -573,10 +588,12 @@ private struct AutoScrollingTrendingView: View {
                     .onEnded { _ in startAutoScroll(delay: Self.manualScrollPause, proxy: proxy) }
             )
             .onAppear {
-                if sites.count > 1 {
-                    startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy)
-                }
+                startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy)
             }
+            .onChange(of: isActive) { _ in startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy) }
+            .onChange(of: scenePhase) { _ in startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy) }
+            .onChange(of: reduceMotion) { _ in startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy) }
+            .onChange(of: sites.count) { _ in startAutoScroll(delay: Self.autoScrollInterval, proxy: proxy) }
             .onDisappear {
                 cancelAutoScroll()
             }
@@ -584,11 +601,11 @@ private struct AutoScrollingTrendingView: View {
     }
 
     private func startAutoScroll(delay: UInt64, proxy: ScrollViewProxy) {
-        guard sites.count > 1 else { return }
         cancelAutoScroll()
+        guard canAutoScroll else { return }
         autoScrollTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: delay)
-            while !Task.isCancelled {
+            while !Task.isCancelled && canAutoScroll {
                 currentIndex = (currentIndex + 1) % sites.count
                 withAnimation(.spring(duration: 0.5)) {
                     proxy.scrollTo(currentIndex, anchor: .leading)

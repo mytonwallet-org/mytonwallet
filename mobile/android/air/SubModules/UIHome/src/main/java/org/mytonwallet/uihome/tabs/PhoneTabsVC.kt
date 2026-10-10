@@ -100,6 +100,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
@@ -377,13 +378,13 @@ class PhoneTabsVC(context: Context) :
     private val topAvatarIconView by lazy {
         AccountIconView(
             context,
-            AccountIconView.Usage.ViewItem(16f.dp)
+            AccountIconView.Usage.ViewItem(14f.dp)
         )
     }
     private val alternateTopAvatarIconView by lazy {
         AccountIconView(
             context,
-            AccountIconView.Usage.ViewItem(16f.dp)
+            AccountIconView.Usage.ViewItem(14f.dp)
         ).apply {
             alpha = 0f
             isInvisible = true
@@ -1421,14 +1422,19 @@ class PhoneTabsVC(context: Context) :
         window?.dismissToRoot()
     }
 
-    override fun switchToAgent(prompt: String?, pinnedMessageId: String?): Boolean {
+    override fun switchToAgent(
+        prompt: String?,
+        pinnedMessageId: String?,
+        entryPoint: AgentV2EntryPoint
+    ): Boolean {
         navigationController?.popToRoot(false)
         window?.dismissToRoot()
         navigationController?.push(
             AgentVC(
                 context,
                 initialPrompt = prompt,
-                initialPinnedMessageId = pinnedMessageId
+                initialPinnedMessageId = pinnedMessageId,
+                initialEntryPoint = entryPoint
             )
         )
         return true

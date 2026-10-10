@@ -17,8 +17,8 @@ import {
   selectUserTokenMemoized,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { calcVestingAmountByStatus } from '../../../../util/vesting';
 import { IS_TOUCH_ENV } from '../../../../util/windowEnvironment';
-import { calcVestingAmountByStatus } from '../../helpers/calcVestingAmountByStatus';
 
 import useHistoryBack from '../../../../hooks/useHistoryBack';
 import useLang from '../../../../hooks/useLang';

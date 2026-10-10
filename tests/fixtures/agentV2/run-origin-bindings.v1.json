@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contractVersion": "agent-run-origin-bindings-v1",
   "baseRequest": {
-    "protocolVersion": 2,
+    "protocolVersion": 3,
     "clientRunId": "00000000-0000-4000-8000-000000000001",
     "expectedThreadRevision": 0,
     "context": {
@@ -16,26 +16,11 @@
       }
     },
     "capabilities": {
-      "protocolVersion": 2,
-      "streamFormat": "ndjson",
-      "supportedEventTypes": [
-        "run_start",
-        "thread",
-        "message_start",
-        "text_delta",
-        "message_content_end",
-        "followups",
-        "input_continuations",
-        "message_end",
-        "rate_limit",
-        "error"
-      ],
-      "supportedTools": [],
+      "protocolVersion": 3,
       "supportedActions": [],
-      "supportsFollowups": true,
-      "supportsInputContinuations": true,
-      "supportsMessageEdit": true,
-      "supportsRegenerate": true
+      "features": [
+        "followups"
+      ]
     },
     "walletContext": {
       "mode": "none",
@@ -70,95 +55,20 @@
     "followupOf": {
       "messageId": "00000000-0000-4000-8000-000000000006",
       "followupId": "followup-1"
-    },
-    "continuationOf": {
-      "messageId": "00000000-0000-4000-8000-000000000007",
-      "continuationId": "continuation-1"
-    },
-    "walletScopeSelectionOf": {
-      "sourceAssistantMessageId": "00000000-0000-4000-8000-000000000008",
-      "choiceId": "choice_aaaaaaaaaaaaaaaaaaaaaa"
     }
-  },
-  "walletConversationContext": {
-    "schemaVersion": 5,
-    "sourceAssistantMessageId": "00000000-0000-4000-8000-000000000008",
-    "sessionId": "00000000-0000-4000-8000-000000000009",
-    "revision": 1,
-    "operation": "account.inventory",
-    "query": {
-      "schemaVersion": 5,
-      "operation": "account.inventory",
-      "accountSelector": {
-        "kind": "anchored",
-        "scopeAnchor": "scope_bbbbbbbbbbbbbbbbbbbbbb",
-        "label": "Main"
-      },
-      "chains": [
-        "ton"
-      ]
-    },
-    "scopeChoices": [
-      {
-        "choiceId": "choice_aaaaaaaaaaaaaaaaaaaaaa",
-        "scopeAnchor": "scope_bbbbbbbbbbbbbbbbbbbbbb",
-        "label": "Main",
-        "ordinal": 1,
-        "chains": [
-          "ton"
-        ]
-      }
-    ],
-    "expiresAt": "2026-08-12T00:00:00.000Z"
   },
   "cases": [
     { "id": "append.no-origin", "expectedValid": true, "inputKind": "append", "origins": [] },
     { "id": "append.entry-point", "expectedValid": true, "inputKind": "append", "origins": ["entryPoint"] },
     { "id": "append.followup", "expectedValid": true, "inputKind": "append", "origins": ["followupOf"] },
-    { "id": "append.continuation", "expectedValid": true, "inputKind": "append", "origins": ["continuationOf"] },
-    { "id": "append.wallet-scope-selection", "expectedValid": true, "inputKind": "append", "origins": ["walletScopeSelectionOf"] },
     { "id": "append.entry-point+followup", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "followupOf"] },
-    { "id": "append.entry-point+continuation", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "continuationOf"] },
-    { "id": "append.entry-point+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "walletScopeSelectionOf"] },
-    { "id": "append.followup+continuation", "expectedValid": false, "inputKind": "append", "origins": ["followupOf", "continuationOf"] },
-    { "id": "append.followup+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["followupOf", "walletScopeSelectionOf"] },
-    { "id": "append.continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["continuationOf", "walletScopeSelectionOf"] },
-    { "id": "append.entry-point+followup+continuation", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "followupOf", "continuationOf"] },
-    { "id": "append.entry-point+followup+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "followupOf", "walletScopeSelectionOf"] },
-    { "id": "append.entry-point+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "append.followup+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "append", "origins": ["followupOf", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "append.all-origins", "expectedValid": false, "inputKind": "append", "origins": ["entryPoint", "followupOf", "continuationOf", "walletScopeSelectionOf"] },
     { "id": "edit.no-origin", "expectedValid": true, "inputKind": "edit", "origins": [] },
     { "id": "edit.entry-point", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint"] },
     { "id": "edit.followup", "expectedValid": false, "inputKind": "edit", "origins": ["followupOf"] },
-    { "id": "edit.continuation", "expectedValid": false, "inputKind": "edit", "origins": ["continuationOf"] },
-    { "id": "edit.wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["walletScopeSelectionOf"] },
     { "id": "edit.entry-point+followup", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "followupOf"] },
-    { "id": "edit.entry-point+continuation", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "continuationOf"] },
-    { "id": "edit.entry-point+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "walletScopeSelectionOf"] },
-    { "id": "edit.followup+continuation", "expectedValid": false, "inputKind": "edit", "origins": ["followupOf", "continuationOf"] },
-    { "id": "edit.followup+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["followupOf", "walletScopeSelectionOf"] },
-    { "id": "edit.continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["continuationOf", "walletScopeSelectionOf"] },
-    { "id": "edit.entry-point+followup+continuation", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "followupOf", "continuationOf"] },
-    { "id": "edit.entry-point+followup+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "followupOf", "walletScopeSelectionOf"] },
-    { "id": "edit.entry-point+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "edit.followup+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "edit", "origins": ["followupOf", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "edit.all-origins", "expectedValid": false, "inputKind": "edit", "origins": ["entryPoint", "followupOf", "continuationOf", "walletScopeSelectionOf"] },
     { "id": "regenerate.no-origin", "expectedValid": true, "inputKind": "regenerate", "origins": [] },
     { "id": "regenerate.entry-point", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint"] },
     { "id": "regenerate.followup", "expectedValid": false, "inputKind": "regenerate", "origins": ["followupOf"] },
-    { "id": "regenerate.continuation", "expectedValid": false, "inputKind": "regenerate", "origins": ["continuationOf"] },
-    { "id": "regenerate.wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["walletScopeSelectionOf"] },
-    { "id": "regenerate.entry-point+followup", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "followupOf"] },
-    { "id": "regenerate.entry-point+continuation", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "continuationOf"] },
-    { "id": "regenerate.entry-point+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "walletScopeSelectionOf"] },
-    { "id": "regenerate.followup+continuation", "expectedValid": false, "inputKind": "regenerate", "origins": ["followupOf", "continuationOf"] },
-    { "id": "regenerate.followup+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["followupOf", "walletScopeSelectionOf"] },
-    { "id": "regenerate.continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["continuationOf", "walletScopeSelectionOf"] },
-    { "id": "regenerate.entry-point+followup+continuation", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "followupOf", "continuationOf"] },
-    { "id": "regenerate.entry-point+followup+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "followupOf", "walletScopeSelectionOf"] },
-    { "id": "regenerate.entry-point+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "regenerate.followup+continuation+wallet-scope-selection", "expectedValid": false, "inputKind": "regenerate", "origins": ["followupOf", "continuationOf", "walletScopeSelectionOf"] },
-    { "id": "regenerate.all-origins", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "followupOf", "continuationOf", "walletScopeSelectionOf"] }
+    { "id": "regenerate.entry-point+followup", "expectedValid": false, "inputKind": "regenerate", "origins": ["entryPoint", "followupOf"] }
   ]
 }

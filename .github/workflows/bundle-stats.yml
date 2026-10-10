@@ -16,7 +16,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: Detect web changes
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Check changed paths
+        id: filter
+        run: |
+          WEB="true"
+          if bash dev/web-untouched.sh actions HEAD~1 HEAD; then
+            WEB="false"
+          fi
+          echo "web=$WEB" >> "$GITHUB_OUTPUT"
+          echo "web=$WEB"
+
   bundle_stats:
+    needs: detect-changes
+    # A failed detection leaves the output empty, and that runs the job
+    if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
     runs-on: ubuntu-latest
     steps:
       # Use the event's merge commit so the workflow and its build scripts share one source tree.

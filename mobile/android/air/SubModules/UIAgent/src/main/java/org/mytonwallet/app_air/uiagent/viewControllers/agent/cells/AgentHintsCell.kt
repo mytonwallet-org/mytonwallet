@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatImageView
@@ -15,7 +16,7 @@ import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
 import kotlin.math.roundToInt
-import org.mytonwallet.app_air.uiagent.processors.AgentHint
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -143,7 +144,23 @@ class AgentHintsCell(context: Context) :
                 )
             }
             for (hint in hints) {
-                val card = WAgentHintView(context, hint.title) { onHintTap?.invoke(hint) }
+                val card = WAgentHintView(context, hint.title) { onHintTap?.invoke(hint) }.apply {
+                    contentDescription = hint.title
+                    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+                    accessibilityDelegate = object : AccessibilityDelegate() {
+                        override fun onInitializeAccessibilityNodeInfo(
+                            host: View,
+                            info: AccessibilityNodeInfo
+                        ) {
+                            super.onInitializeAccessibilityNodeInfo(host, info)
+                            info.className = android.widget.Button::class.java.name
+                        }
+                    }
+                }
+                for (childIndex in 0 until card.childCount) {
+                    card.getChildAt(childIndex).importantForAccessibility =
+                        IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                }
                 val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
                     if (column.childCount > 0) topMargin = CARD_SPACING.dp
                 }
@@ -162,6 +179,15 @@ class AgentHintsCell(context: Context) :
     fun updateTheme() {
         for (i in 0 until column.childCount) {
             (column.getChildAt(i) as? WAgentHintView)?.updateTheme()
+        }
+    }
+
+    fun setCardsEnabled(enabled: Boolean) {
+        for (i in 0 until column.childCount) {
+            (column.getChildAt(i) as? WAgentHintView)?.apply {
+                isEnabled = enabled
+                isClickable = enabled
+            }
         }
     }
 

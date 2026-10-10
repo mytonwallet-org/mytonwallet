@@ -15,7 +15,7 @@ public enum UniversalSearchFeatureRoute: Sendable {
         network: ApiNetwork,
         addressOrDomainByChain: [String: String]
     )
-    case agent(query: String?)
+    case agent(query: String?, entryPoint: ApiAgentV2EntryPoint = .agentTab)
     case website(url: URL, title: String?)
     case google(query: String)
 }

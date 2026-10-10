@@ -1,6 +1,6 @@
 import type {
-  AgentActionProposal,
   AgentPersistedActionV2,
+  AgentV2LiveAction,
 } from '../../../api/agentV2/protocol/types';
 import type {
   AgentV2ActionPresentation,
@@ -15,6 +15,8 @@ import type {
 } from './agentV2MessagesState';
 import type { TextRevealPresentations } from './textRevealPresentation';
 
+import { agentUiTrace } from './agentDevelopmentTiming';
+import { findAgentV2MessageId } from './agentV2MessagesState';
 import {
   createTextRevealPresentation,
   updateTextRevealPresentation,
@@ -40,6 +42,7 @@ export interface AgentV2StreamControllerDependencies {
 export interface AgentV2StreamController {
   advanceTextRevealGeneration: NoneToVoidFunction;
   bindMessageSource: (messageId: number, sourceId: string) => void;
+  createLocalMessageId: () => number;
   consumeTextRevealSession: (messageId: number, key: string) => void;
   dispose: NoneToVoidFunction;
   flushDeltas: NoneToVoidFunction;
@@ -67,9 +70,8 @@ export interface AgentV2StreamController {
 export function createAgentV2StreamController(
   dependencies: AgentV2StreamControllerDependencies,
 ): AgentV2StreamController {
-  const messageIdBySourceId = new Map<string, number>();
-  const sourceIdByMessageId = new Map<number, string>();
   const pendingDeltas = new Map<string, string>();
+  const textFrameTraces = new Set<string>();
   let nextMessageId = 1;
   let actionLifecycleGeneration = 0;
   let actionPresentationGeneration = 0;
@@ -83,14 +85,15 @@ export function createAgentV2StreamController(
       textRevealGeneration += 1;
     },
     bindMessageSource,
+    createLocalMessageId,
     consumeTextRevealSession,
     dispose,
     flushDeltas,
-    findMessageId: (sourceId) => messageIdBySourceId.get(sourceId),
+    findMessageId: (sourceId) => findAgentV2MessageId(dependencies.getState(), sourceId),
     getActionLifecycleGeneration: () => actionLifecycleGeneration,
     getActionPresentationGeneration: () => actionPresentationGeneration,
     getMessageId,
-    getSourceId: (messageId) => sourceIdByMessageId.get(messageId),
+    getSourceId: (messageId) => dependencies.getState().sourceIdByMessageId[messageId],
     handleUpdate,
     invalidateActionPresentations,
     loadSendActionPresentations,
@@ -112,6 +115,8 @@ export function createAgentV2StreamController(
   }
 
   function handleUpdate(update: AgentV2ClientUpdate) {
+    const trace = update.developmentTraceId ? agentUiTrace(update.developmentTraceId) : undefined;
+    trace?.markOnce('ui_update_received');
     if (isDisposed) return;
     switch (update.kind) {
       case 'runtimeReady':
@@ -127,11 +132,20 @@ export function createAgentV2StreamController(
             isOutgoing: false,
             timestamp: dependencies.now(),
             isStreaming: true,
+            ...(update.responseLanguage ? { responseLanguage: update.responseLanguage } : {}),
           },
         });
         break;
       case 'textDelta':
         appendTextDelta(update.messageId, update.delta);
+        if (trace && !textFrameTraces.has(trace.traceId)) {
+          textFrameTraces.add(trace.traceId);
+          if (textFrameTraces.size > 32) textFrameTraces.delete(textFrameTraces.values().next().value!);
+          dependencies.requestFrame(() => {
+            trace.markOnce('ui_text_committed');
+            dependencies.requestFrame(() => trace.markOnce('ui_text_frame'));
+          });
+        }
         break;
       case 'messageContentEnded':
         flushDeltas();
@@ -143,13 +157,6 @@ export function createAgentV2StreamController(
       case 'followupsAvailable':
         dependencies.dispatch({
           kind: 'followupsAvailable',
-          messageId: getMessageId(update.messageId),
-          items: update.items,
-        });
-        break;
-      case 'inputContinuationsAvailable':
-        dependencies.dispatch({
-          kind: 'inputContinuationsAvailable',
           messageId: getMessageId(update.messageId),
           items: update.items,
         });
@@ -168,6 +175,16 @@ export function createAgentV2StreamController(
           );
         }
         break;
+      case 'answerTablesChanged':
+        flushDeltas();
+        dependencies.dispatch({ kind: 'answerTablesChanged', messageId: getMessageId(update.messageId),
+          tables: update.tables, tableReferences: update.tableReferences });
+        break;
+      case 'answerLinkAdded':
+        flushDeltas();
+        dependencies.dispatch({ kind: 'answerLinkAdded', messageId: getMessageId(update.messageId),
+          link: update.link });
+        break;
       case 'semanticContentAvailable':
         dependencies.dispatch({
           kind: 'semanticContentAvailable',
@@ -182,7 +199,6 @@ export function createAgentV2StreamController(
           clientRunId: update.clientRunId,
           messageId: getMessageId(update.messageId),
           finishReason: update.finishReason,
-          ...(update.walletControls ? { walletControls: update.walletControls } : {}),
         });
         break;
       case 'threadChanged':
@@ -248,7 +264,7 @@ export function createAgentV2StreamController(
   function flushDeltas() {
     if (!pendingDeltas.size) return;
     const deltas = [...pendingDeltas].flatMap(([sourceId, delta]) => {
-      const messageId = messageIdBySourceId.get(sourceId);
+      const messageId = findAgentV2MessageId(dependencies.getState(), sourceId);
       return messageId === undefined ? [] : [[messageId, delta] as [number, string]];
     });
     pendingDeltas.clear();
@@ -274,7 +290,7 @@ export function createAgentV2StreamController(
   }
 
   function terminalizeTextRevealPresentations(sourceId?: string) {
-    const messageId = sourceId ? messageIdBySourceId.get(sourceId) : undefined;
+    const messageId = sourceId ? findAgentV2MessageId(dependencies.getState(), sourceId) : undefined;
     dependencies.setTextRevealPresentations((current) => Object.fromEntries(
       Object.entries(current).map(([currentMessageId, presentation]) => {
         const shouldFail = messageId !== undefined
@@ -306,49 +322,46 @@ export function createAgentV2StreamController(
       text,
       isOutgoing: message.role === 'user',
       timestamp: new Date(message.createdAt).getTime(),
+      ...(message.responseLanguage ? { responseLanguage: message.responseLanguage } : {}),
       ...(semanticContent ? { semanticContent } : {}),
-      ...(message.walletControls ? { walletControls: message.walletControls } : {}),
+      ...(message.content?.kind === 'markdown' && message.content.tables ? {
+        tables: message.content.tables, tableReferences: message.content.tableReferences,
+      } : {}),
+      ...(message.content?.kind === 'markdown' && message.content.links?.length
+        ? { links: message.content.links } : {}),
       ...(message.actions?.length ? { actions: message.actions } : {}),
       ...(Object.keys(actionPresentations).length ? { actionPresentations } : {}),
       ...(message.followups?.length ? { followups: message.followups } : {}),
-      ...(message.inputContinuations?.length ? { inputContinuations: message.inputContinuations } : {}),
       ...(message.error ? { error: message.error } : {}),
       ...(message.error?.retryable ? { isRetryAvailable: true } : {}),
     };
   }
 
+  function createLocalMessageId() {
+    const current = dependencies.getState();
+    for (const { id } of current.messages) nextMessageId = Math.max(nextMessageId, id + 1);
+    for (const id in current.sourceIdByMessageId) nextMessageId = Math.max(nextMessageId, Number(id) + 1);
+    return nextMessageId++;
+  }
+
   function getMessageId(sourceId: string) {
-    const existingId = messageIdBySourceId.get(sourceId);
-    if (existingId) return existingId;
-    const messageId = nextMessageId;
-    nextMessageId += 1;
-    messageIdBySourceId.set(sourceId, messageId);
-    sourceIdByMessageId.set(messageId, sourceId);
+    const existingId = findAgentV2MessageId(dependencies.getState(), sourceId);
+    if (existingId !== undefined) return existingId;
+    const messageId = createLocalMessageId();
+    dependencies.dispatch({ kind: 'messageSourceReserved', messageId, sourceId });
     return messageId;
   }
 
   function bindMessageSource(messageId: number, sourceId: string) {
-    const previousSourceId = sourceIdByMessageId.get(messageId);
-    if (previousSourceId === sourceId) return;
-    if (previousSourceId && messageIdBySourceId.get(previousSourceId) === messageId) {
-      messageIdBySourceId.delete(previousSourceId);
-    }
-    const previousMessageId = messageIdBySourceId.get(sourceId);
-    if (previousMessageId !== undefined && previousMessageId !== messageId) {
-      sourceIdByMessageId.delete(previousMessageId);
-    }
-    messageIdBySourceId.set(sourceId, messageId);
-    sourceIdByMessageId.set(messageId, sourceId);
     dependencies.dispatch({ kind: 'messageSourceBound', messageId, sourceId });
   }
 
   function pruneMessageArtifacts(retainedMessageIds: Set<number>) {
-    sourceIdByMessageId.forEach((sourceId, messageId) => {
-      if (retainedMessageIds.has(messageId)) return;
-      sourceIdByMessageId.delete(messageId);
-      if (messageIdBySourceId.get(sourceId) === messageId) messageIdBySourceId.delete(sourceId);
-      pendingDeltas.delete(sourceId);
-    });
+    for (const sourceId of pendingDeltas.keys()) {
+      const messageId = findAgentV2MessageId(dependencies.getState(), sourceId);
+      if (messageId === undefined || !retainedMessageIds.has(messageId)) pendingDeltas.delete(sourceId);
+    }
+    dependencies.dispatch({ kind: 'messageSourcesPruned', retainedMessageIds });
     dependencies.setTextRevealPresentations((current) => Object.fromEntries(
       Object.entries(current).filter(([messageId]) => retainedMessageIds.has(Number(messageId))),
     ));
@@ -357,8 +370,7 @@ export function createAgentV2StreamController(
   function resetMessageArtifacts() {
     if (deltaFrameId !== undefined) dependencies.cancelFrame(deltaFrameId);
     deltaFrameId = undefined;
-    messageIdBySourceId.clear();
-    sourceIdByMessageId.clear();
+    dependencies.dispatch({ kind: 'messageSourcesReset' });
     nextMessageId = 1;
     pendingDeltas.clear();
     invalidateActionPresentations();
@@ -383,7 +395,7 @@ export function createAgentV2StreamController(
 
   function reloadSendActionPresentations(generation: number) {
     dependencies.getState().messages.forEach((message) => {
-      const sourceId = sourceIdByMessageId.get(message.id);
+      const sourceId = dependencies.getState().sourceIdByMessageId[message.id];
       if (!sourceId) return;
       message.actions?.forEach((action) => {
         if (action.kind === 'send') void loadActionPresentation(sourceId, action.id, generation);
@@ -408,7 +420,7 @@ export function createAgentV2StreamController(
     presentation: AgentV2ActionPresentation,
     generation = actionPresentationGeneration,
   ) {
-    const messageId = messageIdBySourceId.get(sourceId);
+    const messageId = findAgentV2MessageId(dependencies.getState(), sourceId);
     if (generation !== actionPresentationGeneration || messageId === undefined) return;
     dependencies.dispatch({ kind: 'actionPresentationChanged', messageId, actionId, presentation });
   }
@@ -419,6 +431,6 @@ function assertUnreachable(value: never): never {
 }
 
 export type AgentV2SendAction = Extract<
-  AgentActionProposal | AgentPersistedActionV2,
+  AgentV2LiveAction | AgentPersistedActionV2,
   { kind: 'send' }
 >;

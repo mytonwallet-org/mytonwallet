@@ -13,14 +13,22 @@ import DropdownMenu from '../ui/DropdownMenu';
 
 interface OwnProps {
   className?: string;
+  onReportProblem?: NoneToVoidFunction;
   onClearChat: NoneToVoidFunction;
 }
 
-const MENU_ITEMS: DropdownItem<'clear'>[] = [
+type MenuHandler = 'report' | 'clear';
+
+const MENU_ITEMS: DropdownItem<MenuHandler>[] = [
   { value: 'clear', name: 'Clear Chat', fontIcon: 'menu-trash', isDangerous: true },
 ];
 
-function AgentMenu({ className, onClearChat }: OwnProps) {
+const REPORTABLE_MENU_ITEMS: DropdownItem<MenuHandler>[] = [
+  { value: 'report', name: 'Report a Problem', fontIcon: 'exclamation' },
+  ...MENU_ITEMS,
+];
+
+function AgentMenu({ className, onReportProblem, onClearChat }: OwnProps) {
   const lang = useLang();
   const [isMenuOpen, openMenu, closeMenu] = useFlag();
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>();
@@ -48,8 +56,10 @@ function AgentMenu({ className, onClearChat }: OwnProps) {
     setMenuAnchor(undefined);
   });
 
-  const handleMenuSelect = useLastCallback((value: 'clear') => {
-    if (value === 'clear') {
+  const handleMenuSelect = useLastCallback((value: MenuHandler) => {
+    if (value === 'report') {
+      onReportProblem?.();
+    } else if (value === 'clear') {
       onClearChat();
     }
   });
@@ -74,7 +84,7 @@ function AgentMenu({ className, onClearChat }: OwnProps) {
           withPortal
           menuAnchor={menuAnchor}
           menuPositionX="right"
-          items={MENU_ITEMS}
+          items={onReportProblem ? REPORTABLE_MENU_ITEMS : MENU_ITEMS}
           shouldTranslateOptions
           getTriggerElement={getTriggerElement}
           getRootElement={getRootElement}

@@ -5,10 +5,12 @@ import type {
   JsonObject,
 } from '../wireReader';
 
+import { AGENT_ERROR_CODES, AGENT_RETRYABLE_ERROR_CODES } from '../../generated/constants';
 import {
+  AgentV2CompatibilityError,
   array,
   fail,
-  literal,
+  integer,
   oneOf,
   string,
 } from '../wireReader';
@@ -16,81 +18,9 @@ import {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FOLLOWUP_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-export const ERROR_CODES = new Set([
-  'invalid_request',
-  'invalid_event',
-  'network_error',
-  'device_id_invalid',
-  'device_token_missing',
-  'device_token_invalid',
-  'device_token_expired',
-  'device_token_rate_limited',
-  'profile_id_invalid',
-  'idempotency_mismatch',
-  'thread_revision_conflict',
-  'thread_not_found',
-  'thread_run_in_progress',
-  'run_not_found',
-  'run_interrupted',
-  'run_replay_expired',
-  'run_budget_exceeded',
-  'output_limit_reached',
-  'rate_limited',
-  'user_quota_exhausted',
-  'context_too_large_retryable',
-  'tool_unsupported',
-  'tool_scope_mismatch',
-  'tool_result_already_submitted',
-  'tool_rejected',
-  'wallet_context_changed',
-  'tool_timeout',
-  'tool_failed',
-  'tool_result_too_large',
-  'market_data_unavailable',
-  'action_unsupported',
-  'message_not_found',
-  'message_not_editable',
-  'regenerate_target_invalid',
-  'followup_reference_invalid',
-  'input_continuation_reference_invalid',
-  'feedback_target_invalid',
-  'feedback_revision_conflict',
-  'provider_timeout',
-  'provider_unavailable',
-  'provider_capability_unavailable',
-  'agent_capacity_exhausted',
-  'provider_error',
-  'empty_response',
-  'internal_error',
-  'profile_deleted',
-]);
+export const ERROR_CODES: ReadonlySet<string> = new Set(AGENT_ERROR_CODES);
 
-export const RETRYABLE_ERROR_CODES = new Set([
-  'network_error',
-  'device_token_missing',
-  'device_token_invalid',
-  'device_token_expired',
-  'device_token_rate_limited',
-  'thread_revision_conflict',
-  'thread_run_in_progress',
-  'run_interrupted',
-  'run_budget_exceeded',
-  'output_limit_reached',
-  'rate_limited',
-  'user_quota_exhausted',
-  'context_too_large_retryable',
-  'wallet_context_changed',
-  'tool_timeout',
-  'tool_failed',
-  'market_data_unavailable',
-  'feedback_revision_conflict',
-  'provider_timeout',
-  'provider_unavailable',
-  'agent_capacity_exhausted',
-  'provider_error',
-  'empty_response',
-  'internal_error',
-]);
+export const RETRYABLE_ERROR_CODES: ReadonlySet<string> = new Set(AGENT_RETRYABLE_ERROR_CODES);
 
 export function uuid(value: unknown, path: string): string {
   const result = string(value, path);
@@ -105,7 +35,8 @@ export function followupUuid(value: unknown, path: string): string {
 }
 
 export function protocol(value: JsonObject, path: string) {
-  literal(value.protocolVersion, 2, `${path}.protocolVersion`);
+  const version = integer(value.protocolVersion, `${path}.protocolVersion`, 1);
+  if (version !== 3) throw new AgentV2CompatibilityError(`${path}.protocolVersion`, undefined, version);
 }
 
 export function validateEnumArray(value: unknown, path: string, limit: number, allowed: string[]) {

@@ -9,6 +9,8 @@ import WalletContext
 private let persistenceLog = Log("UniversalSearchPersistence")
 
 enum UniversalSearchFeatureAttributeKey {
+    static let agentHintID = SearchAttributeKey("universal-search.agent-hint-id")
+    static let agentHintCatalogVersion = SearchAttributeKey("universal-search.agent-hint-catalog-version")
     static let query = SearchAttributeKey("universal-search.query")
     static let subtitle = SearchAttributeKey("universal-search.subtitle")
     static let title = SearchAttributeKey("universal-search.title")
@@ -54,6 +56,14 @@ struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
             ],
             attributes: [
                 SearchAttribute(
+                    key: UniversalSearchFeatureAttributeKey.agentHintID,
+                    value: suggestion.id
+                ),
+                SearchAttribute(
+                    key: UniversalSearchFeatureAttributeKey.agentHintCatalogVersion,
+                    value: suggestion.catalogVersion
+                ),
+                SearchAttribute(
                     key: UniversalSearchFeatureAttributeKey.title,
                     value: suggestion.title
                 ),
@@ -72,7 +82,7 @@ struct UniversalSearchAgentSuggestionSource: UniversalSearchSource {
     }
 
     private static func loadLiveSuggestions(langCode: String) async throws -> [AgentSuggestion] {
-        try await AgentSuggestionProvider.suggestions(langCode: langCode)
+        try await AgentSearchProvider.shared.loadSuggestions(langCode: langCode)
     }
 }
 
@@ -134,9 +144,7 @@ struct UniversalSearchAgentConversationSource: UniversalSearchSource {
     }
 
     private static func loadLiveSnapshot() async -> AgentConversationSearchSnapshot? {
-        await MainActor.run {
-            AgentStore.shared.conversationSearchSnapshot()
-        }
+        await AgentSearchProvider.shared.loadConversationSearchSnapshot()
     }
 }
 

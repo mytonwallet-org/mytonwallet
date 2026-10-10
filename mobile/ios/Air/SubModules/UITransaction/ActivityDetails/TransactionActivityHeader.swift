@@ -19,7 +19,12 @@ struct TransactionActivityHeader: View {
     }
 
     private var showsDiamond: Bool {
-        IS_DEBUG_OR_TESTFLIGHT && transaction.slug == TONCOIN_SLUG && transaction.type == nil && transaction.nft == nil
+        IS_GRAM_WALLET
+            && transaction.slug == TONCOIN_SLUG
+            && transaction.type == nil
+            && transaction.nft == nil
+            && transaction.status != .failed
+            && !ApiActivity.transaction(transaction).isScamTransaction
     }
     
     var body: some View {

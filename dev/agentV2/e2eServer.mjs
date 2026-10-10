@@ -25,6 +25,7 @@ const CONTENT_TYPES = {
 };
 let state = createState();
 const pendingResponses = new Set();
+let completePendingRun;
 
 const server = createServer(async (request, response) => {
   try {
@@ -86,6 +87,17 @@ function handleControlRequest(request, response, url, body) {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__agent-v2-control/complete-run') {
+    if (!completePendingRun) {
+      writeJson(response, 409, { error: 'No pending run.' });
+      return;
+    }
+    completePendingRun();
+    completePendingRun = undefined;
+    writeJson(response, 200, publicState());
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/__agent-v2-control/state') {
     writeJson(response, 200, publicState());
     return;
@@ -103,7 +115,7 @@ function handleAgentRequest(request, response, url, body) {
 
   if (request.method === 'POST' && url.pathname === '/api/v2/device-token') {
     writeJson(response, 200, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       deviceId: body.deviceId,
       deviceToken: `adt_v2.${'a'.repeat(43)}`,
       expiresAt: '2099-08-11T09:00:00.000Z',
@@ -113,19 +125,17 @@ function handleAgentRequest(request, response, url, body) {
 
   if (request.method === 'GET' && url.pathname === '/api/v2/hints') {
     writeJson(response, 200, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       catalogVersion: 'agent-starter-hints-v1',
       items: [],
-      serverCapabilities: { webSearch: 'disabled' },
     });
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/v2/capabilities') {
     writeJson(response, 200, {
-      protocolVersion: 2,
-      portfolioPositions: 'disabled',
-      walletQuery: 'disabled',
+      protocolVersion: 3,
+      walletQuery: { status: 'disabled' },
     });
     return;
   }
@@ -133,27 +143,22 @@ function handleAgentRequest(request, response, url, body) {
   if (request.method === 'GET' && url.pathname === '/api/v2/availability') {
     writeJson(response, 200, state.scenario === 'capacity-error' && state.runCount > 0
       ? {
-        protocolVersion: 2,
+        protocolVersion: 3,
         state: 'capacity_exhausted',
         resetAt: '2099-08-12T09:00:00.000Z',
       }
-      : { protocolVersion: 2, state: 'available' });
+      : { protocolVersion: 3, state: 'available' });
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/v2/quota') {
     state.quotaRequestCount += 1;
-    writeJson(response, 200, { protocolVersion: 2, quota: getQuota() });
+    writeJson(response, 200, { protocolVersion: 3, quota: getQuota() });
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/v2/threads/default') {
-    writeJson(response, 200, { protocolVersion: 2, thread: threadSummary(), created: false });
-    return;
-  }
-
-  if (request.method === 'GET' && url.pathname === `/api/v2/threads/${THREAD_ID}`) {
-    writeJson(response, 200, { protocolVersion: 2, thread: threadSummary() });
+    writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), created: false });
     return;
   }
 
@@ -161,8 +166,8 @@ function handleAgentRequest(request, response, url, body) {
     const isOlderPage = url.searchParams.get('cursor') === 'older';
     const messages = isOlderPage ? state.olderMessages : state.messages;
     writeJson(response, 200, {
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages,
       ...(!isOlderPage && state.olderMessages.length ? { nextCursor: 'older' } : {}),
     });
@@ -174,7 +179,7 @@ function handleAgentRequest(request, response, url, body) {
     state.messages = [];
     state.olderMessages = [];
     state.revision += 1;
-    writeJson(response, 200, { protocolVersion: 2, thread: threadSummary(), duplicate: false });
+    writeJson(response, 200, { protocolVersion: 3, thread: threadSummary(), duplicate: false });
     return;
   }
 
@@ -186,12 +191,12 @@ function handleAgentRequest(request, response, url, body) {
   const cancelMatch = url.pathname.match(/^\/api\/v2\/runs\/([^/]+)\/cancel$/u);
   if (request.method === 'POST' && cancelMatch) {
     state.cancelBodies.push({ runId: cancelMatch[1], body });
-    if (state.scenario === 'hanging-run') {
+    if (state.scenario === 'wallet-switch') {
       holdResponse(response);
       return;
     }
     writeJson(response, 200, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       runId: cancelMatch[1],
       state: 'cancelled',
       lastSequence: 3,
@@ -200,7 +205,7 @@ function handleAgentRequest(request, response, url, body) {
   }
 
   writeJson(response, 404, {
-    protocolVersion: 2,
+    protocolVersion: 3,
     error: { code: 'invalid_request', retryable: false },
   });
 }
@@ -212,7 +217,7 @@ function handleRun(response, body) {
   if (state.scenario === 'quota-retry' && state.runCount === 1) {
     state.wasQuotaDenied = true;
     writeJson(response, 429, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       error: {
         code: 'user_quota_exhausted',
         retryable: true,
@@ -225,7 +230,7 @@ function handleRun(response, body) {
 
   if (state.scenario === 'admission-retry' && state.runCount <= 3) {
     writeJson(response, 503, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       error: {
         code: 'provider_unavailable',
         retryable: true,
@@ -236,7 +241,7 @@ function handleRun(response, body) {
 
   if (state.scenario === 'terminal-action-error' && state.runCount > 1 && state.runCount <= 4) {
     writeJson(response, 503, {
-      protocolVersion: 2,
+      protocolVersion: 3,
       error: {
         code: 'provider_unavailable',
         retryable: true,
@@ -248,22 +253,15 @@ function handleRun(response, body) {
   const runId = uuid(100 + state.runCount);
   const messageId = uuid(200 + state.runCount);
   const userMessage = body.input?.message;
-  const answerDeltas = getAnswerDeltas(userMessage?.text);
-  const answerText = answerDeltas.join('');
+  const answerParts = getAnswerParts(userMessage?.text);
+  const answerText = answerParts.filter((part) => typeof part === 'string').join('');
+  const answerLinks = answerParts.filter((part) => typeof part !== 'string' && !part.messageId).map(({ link }) => link);
   const activityEvents = state.scenario === 'run-activity' ? [
-    event(runId, { type: 'run_activity', sequence: 2, code: 'request.planning', status: 'active' }),
-    event(runId, { type: 'run_activity', sequence: 3, code: 'request.planning', status: 'completed' }),
-    event(runId, { type: 'run_activity', sequence: 4, code: 'web.searching', status: 'active' }),
-    event(runId, { type: 'run_activity', sequence: 5, code: 'web.searching', status: 'completed' }),
-    event(runId, { type: 'run_activity', sequence: 6, code: 'web.reading_sources', status: 'active' }),
-    event(runId, {
-      type: 'run_activity',
-      sequence: 7,
-      code: 'web.reading_sources',
-      status: 'completed',
-      detail: { kind: 'source_count', count: 4 },
-    }),
-    event(runId, { type: 'run_activity', sequence: 8, code: 'answer.writing', status: 'active' }),
+    event(runId, { type: 'run_activity', sequence: 2, code: 'web.searching', status: 'active' }),
+    event(runId, { type: 'run_activity', sequence: 3, code: 'web.searching', status: 'completed' }),
+    event(runId, { type: 'run_activity', sequence: 4, code: 'web.reading_sources', status: 'active' }),
+    event(runId, { type: 'run_activity', sequence: 5, code: 'web.reading_sources', status: 'completed' }),
+    event(runId, { type: 'run_activity', sequence: 6, code: 'data.reading_market', status: 'active' }),
   ] : [];
   const messageStartSequence = activityEvents.length + 2;
   const baseEvents = [
@@ -282,18 +280,34 @@ function handleRun(response, body) {
       role: 'assistant',
       contentKind: 'markdown',
     }),
-    ...answerDeltas.map((delta, index) => event(runId, {
+    ...answerParts.map((part, index) => event(runId, typeof part === 'string' ? {
       type: 'text_delta',
       sequence: index + messageStartSequence + 1,
       messageId,
-      delta,
+      delta: part,
+    } : {
+      type: 'text_link',
+      sequence: index + messageStartSequence + 1,
+      messageId,
+      ...part,
     })),
   ];
 
-  if (state.scenario === 'hanging-run') {
+  const continuedDeltas = getContinuedDeltas();
+  if (continuedDeltas) {
     writeNdjsonHeaders(response);
     baseEvents.forEach((item) => response.write(`${JSON.stringify(item)}\n`));
     holdResponse(response);
+    completePendingRun = () => {
+      let sequence = baseEvents.length + 1;
+      state.revision += 1;
+      persistCompletedRun(userMessage, messageId, runId, answerText + continuedDeltas.join(''), [], answerLinks);
+      response.end([
+        ...continuedDeltas.map((delta) => event(runId, { type: 'text_delta', sequence: sequence++, messageId, delta })),
+        event(runId, { type: 'thread', sequence: sequence++, thread: threadSummary(2) }),
+        event(runId, { type: 'message_end', sequence, messageId, finishReason: 'complete' }),
+      ].map((item) => `${JSON.stringify(item)}\n`).join(''));
+    };
     return;
   }
 
@@ -312,7 +326,7 @@ function handleRun(response, body) {
         code: 'provider_error',
         retryable: true,
       }),
-      actionEvent(runId, messageId, 6, openUrlAction()),
+      actionEvent(runId, messageId, 6, openDappAction()),
       event(runId, { type: 'thread', sequence: 7, thread: nextThreadSummary(2) }),
       event(runId, { type: 'message_end', sequence: 8, messageId, finishReason: 'complete' }),
     ]);
@@ -330,7 +344,7 @@ function handleRun(response, body) {
       ...baseEvents,
       event(runId, {
         type: 'error',
-        sequence: answerDeltas.length + messageStartSequence + 1,
+        sequence: answerParts.length + messageStartSequence + 1,
         messageId,
         ...error,
       }),
@@ -339,25 +353,9 @@ function handleRun(response, body) {
   }
 
   const extraEvents = [];
-  let sequence = answerDeltas.length + messageStartSequence + 1;
-  if (state.scenario === 'continuation' && state.runCount === 1) {
-    extraEvents.push(event(runId, {
-      type: 'input_continuations',
-      sequence: sequence++,
-      messageId,
-      items: [{
-        id: 'continuation-amount',
-        kind: 'collect_input',
-        code: 'prepare_send_amount',
-        scenario: 'prepare-send',
-        field: 'amount',
-      }],
-      createdAt: FIXED_TIME,
-    }));
-  }
+  let sequence = answerParts.length + messageStartSequence + 1;
   if (state.scenario === 'receive-navigation') {
     extraEvents.push(actionEvent(runId, messageId, sequence++, receiveAction(body)));
-    extraEvents.push(actionEvent(runId, messageId, sequence++, openUrlAction()));
   }
 
   state.revision += 1;
@@ -367,11 +365,11 @@ function handleRun(response, body) {
     event(runId, { type: 'thread', sequence: sequence++, thread: threadSummary(2) }),
     event(runId, { type: 'message_end', sequence, messageId, finishReason: 'complete' }),
   ];
-  persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents);
+  persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents, answerLinks);
   writeNdjsonSlowly(response, events, state.scenario === 'run-activity' ? 650 : 150);
 }
 
-function persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents) {
+function persistCompletedRun(userMessage, messageId, runId, answerText, extraEvents, links = []) {
   if (userMessage?.id && userMessage.text) {
     state.messages.push({
       id: userMessage.id,
@@ -387,9 +385,6 @@ function persistCompletedRun(userMessage, messageId, runId, answerText, extraEve
   const actions = extraEvents
     .filter((item) => item.type === 'action')
     .map((item) => projectPersistedAction(item.action));
-  const inputContinuations = extraEvents
-    .filter((item) => item.type === 'input_continuations')
-    .flatMap((item) => item.items);
   const followups = extraEvents
     .filter((item) => item.type === 'followups')
     .flatMap((item) => item.items);
@@ -398,11 +393,10 @@ function persistCompletedRun(userMessage, messageId, runId, answerText, extraEve
     threadId: THREAD_ID,
     role: 'assistant',
     status: 'complete',
-    content: { kind: 'markdown', text: answerText },
+    content: { kind: 'markdown', text: answerText, ...(links.length ? { links } : {}) },
     createdAt: FIXED_TIME,
     runId,
     ...(actions.length ? { actions } : {}),
-    ...(inputContinuations.length ? { inputContinuations } : {}),
     ...(followups.length ? { followups } : {}),
   });
 }
@@ -439,11 +433,12 @@ function projectPersistedAction(action) {
         id: action.id,
         kind: action.kind,
         labelCode: action.labelCode,
+        title: action.title,
         effect: action.effect,
         localDraftRequired: action.localDraftRequired,
         requiresConfirmation: action.requiresConfirmation,
       };
-    case 'openUrl':
+    case 'openSettings':
       return { ...action, schemaVersion: 3 };
     default:
       throw new Error(`Unsupported Agent action: ${action.kind}`);
@@ -456,6 +451,7 @@ function receiveAction(runBody) {
     id: uuid(301),
     kind: 'receive',
     labelCode: 'open_receive',
+    title: 'Open receive',
     effect: 'open_receive',
     contextBinding: {
       sessionId: walletContext?.sessionId ?? WALLET_SESSION_ID,
@@ -468,12 +464,14 @@ function receiveAction(runBody) {
   };
 }
 
-function openUrlAction() {
+function openDappAction() {
   return {
     id: uuid(302),
-    kind: 'openUrl',
+    schemaVersion: 1,
+    kind: 'openDapp',
     labelCode: 'open_external_link',
-    url: 'https://example.com/agent-v2-action',
+    title: 'Open app',
+    url: 'https://fragment.com/',
     requiresConfirmation: true,
   };
 }
@@ -483,22 +481,52 @@ function actionEvent(runId, messageId, sequence, action) {
 }
 
 function event(runId, value) {
-  return { protocolVersion: 2, runId, ...value };
+  return { protocolVersion: 3, runId, ...value };
 }
 
-function getAnswerDeltas(text) {
+// A string is a text delta; an object is the rest of a `text_link` event, published before its label
+function getAnswerParts(text) {
+  if (state.scenario === 'answer-links') {
+    return ['Read the ', { link: { textOffset: 9, textLength: 8, url: 'https://docs.ton.org/develop' } }, 'TON '];
+  }
+  if (state.scenario === 'receive-navigation') {
+    return [
+      'Choose a wallet action or open ',
+      { link: { textOffset: 31, textLength: 10, url: 'mtw://settings/appearance' } },
+      'Appearance',
+      '.',
+    ];
+  }
+  if (state.scenario === 'answer-link-events') {
+    return [
+      'Open ',
+      { link: { textOffset: 5, textLength: 8, url: 'https://ton.org/' } },
+      'TON site',
+      ', ',
+      { link: { textOffset: 15, textLength: 4, url: 'javascript:alert(1)' } },
+      'docs',
+      ' and ',
+      { messageId: 'not-a-message-id', link: { textOffset: 24, textLength: 4, url: 'https://ton.org/dev' } },
+      'blog',
+      '.',
+    ];
+  }
   return [getAnswerText(text)];
 }
 
+// Text deltas a held run streams once the test completes it
+function getContinuedDeltas() {
+  if (state.scenario === 'wallet-switch') return [' The response continued after switching wallets.'];
+  if (state.scenario === 'answer-links') return ['docs', ' before you build.'];
+  return undefined;
+}
+
 function getAnswerText(text) {
-  if (state.scenario === 'continuation' && state.runCount === 1) return 'How much TON should I prepare?';
-  if (state.scenario === 'continuation') return `Continuation accepted: ${text}`;
   if (state.scenario === 'quota-retry') return `Quota request completed: ${text}`;
   if (state.scenario === 'admission-retry') return `Recovered response: ${text}`;
-  if (state.scenario === 'receive-navigation') return 'Choose a wallet action.';
   if (state.scenario === 'terminal-action-error') return 'This response will fail.';
   if (state.scenario === 'capacity-error') return 'A partial response was started.';
-  if (state.scenario === 'hanging-run') return 'Partial response that must not cross accounts.';
+  if (state.scenario === 'wallet-switch') return 'Partial response before switching wallets.';
   return `Deterministic response: ${text}`;
 }
 
@@ -525,10 +553,6 @@ function threadSummary(messageIncrement = 0) {
   return {
     id: THREAD_ID,
     revision: state.revision,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt: FIXED_TIME,
     updatedAt: FIXED_TIME,
     lastActivityAt: FIXED_TIME,
@@ -632,6 +656,7 @@ function holdResponse(response) {
 }
 
 function releasePendingResponses() {
+  completePendingRun = undefined;
   pendingResponses.forEach((response) => response.destroy());
   pendingResponses.clear();
 }

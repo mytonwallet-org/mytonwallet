@@ -15,17 +15,6 @@ extension ApiUpdate {
             case valentine = "valentine"
         }
 
-        public enum PreferredAgent: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
-            case local
-            case online
-            case hybrid
-        }
-
-        public enum AgentProtocolVersion: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
-            case v1
-            case v2
-        }
-
         public var type = "updateConfig"
         public var isLimited: Bool?
         public var isCopyStorageEnabled: Bool?
@@ -33,9 +22,6 @@ extension ApiUpdate {
         public var countryCode: String?
         public var isAppUpdateRequired: Bool?
         public var seasonalTheme: SeasonalTheme?
-        public var knowledgeBaseVersion: String?
-        public var agentProtocolVersion: AgentProtocolVersion?
-        public var preferredAgent: PreferredAgent?
         public var allowedOnOffRampCurrencies: [String]?
 
         private enum CodingKeys: String, CodingKey {
@@ -46,9 +32,6 @@ extension ApiUpdate {
             case countryCode
             case isAppUpdateRequired
             case seasonalTheme
-            case knowledgeBaseVersion
-            case agentProtocolVersion
-            case preferredAgent
             case allowedOnOffRampCurrencies
         }
 
@@ -61,9 +44,6 @@ extension ApiUpdate {
             countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
             isAppUpdateRequired = try container.decodeIfPresent(Bool.self, forKey: .isAppUpdateRequired)
             seasonalTheme = try? container.decodeIfPresent(SeasonalTheme.self, forKey: .seasonalTheme)
-            knowledgeBaseVersion = try? container.decodeIfPresent(String.self, forKey: .knowledgeBaseVersion)
-            agentProtocolVersion = try? container.decodeIfPresent(AgentProtocolVersion.self, forKey: .agentProtocolVersion)
-            preferredAgent = try? container.decodeIfPresent(PreferredAgent.self, forKey: .preferredAgent)
             // A malformed value must read as an absent field: on iOS that is the fail-closed branch.
             allowedOnOffRampCurrencies = try? container.decodeIfPresent([String].self, forKey: .allowedOnOffRampCurrencies)
         }

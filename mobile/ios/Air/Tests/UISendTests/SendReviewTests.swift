@@ -115,7 +115,7 @@ final class SendReviewTests: XCTestCase {
         let model = TokenSendModel(
             accountContext: AccountContext(source: .constant(account)),
             configuration: .init(
-                mode: .send, initialAddress: nil, initialAmount: nil,
+                mode: .send, initialAddress: nil, initialAmount: nil, isMaxAmount: false,
                 initialTokenSlug: TONCOIN_SLUG, jettonAddress: nil,
                 initialComment: "", binaryPayload: nil, stateInit: nil
             ),

@@ -30,7 +30,7 @@ export interface AgentV2HydrationControllerDependencies {
     isRetryable: boolean;
   };
   dispatch: (action: AgentV2MessagesStateAction) => void;
-  getDefaultThread: () => Promise<AgentDefaultThreadResponseV2 | undefined>;
+  getDefaultThread: () => Promise<AgentV2MutationResult<AgentDefaultThreadResponseV2> | undefined>;
   getHints: (langCode: string) => Promise<AgentHintsResponseV2 | undefined>;
   getLangCode: () => AgentHint['langCode'];
   getMessages: (
@@ -38,7 +38,6 @@ export interface AgentV2HydrationControllerDependencies {
     cursor?: string,
   ) => Promise<AgentV2MutationResult<AgentV2ThreadHydration> | undefined>;
   getState: () => AgentV2MessagesState;
-  getUnavailableError: () => string;
   isConsentAccepted: () => boolean;
   loadAvailability: () => Promise<unknown>;
   loadUserQuota: () => Promise<unknown>;
@@ -105,18 +104,18 @@ export function createAgentV2HydrationController(
     dependencies.dispatch({ kind: 'hydrationStarted', shouldClearError: !isFailureSilent });
     const defaultThread = await dependencies.getDefaultThread();
     if (!isHydrationCurrent(requestId)) return;
-    const thread = defaultThread?.thread;
-    if (!thread) {
-      finishHydrationFailure(isFailureSilent, dependencies.getUnavailableError());
+    if (!defaultThread?.ok) {
+      finishHydrationFailure(isFailureSilent, dependencies.buildHistoryError(defaultThread?.error).message);
       return;
     }
+    const thread = defaultThread.value.thread;
 
     const langCode = dependencies.getLangCode();
     const [hydrationResult, hintsResponse] = await Promise.all([
       dependencies.getMessages(thread.id),
-      dependencies.getHints(langCode),
-      dependencies.loadAvailability(),
-      dependencies.loadUserQuota(),
+      dependencies.getHints(langCode).catch(() => undefined),
+      dependencies.loadAvailability().catch(() => undefined),
+      dependencies.loadUserQuota().catch(() => undefined),
     ]);
     if (!isHydrationCurrent(requestId)) return;
     if (!hydrationResult?.ok) {

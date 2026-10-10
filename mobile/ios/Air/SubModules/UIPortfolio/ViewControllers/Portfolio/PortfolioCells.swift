@@ -64,6 +64,24 @@ enum PortfolioGraphKind: String {
     case dailyPnl
     case portfolioShare
 
+    var analysisTitle: String {
+        switch self {
+        case .totalValue: lang("Compare with last month")
+        case .totalPnl: lang("Best & worst performers")
+        case .dailyPnl: lang("Biggest profit today")
+        case .portfolioShare: lang("Check allocation")
+        }
+    }
+
+    func analysisPrompt(for range: PortfolioTimeRange) -> String {
+        switch self {
+        case .totalValue: lang("$agent_prompt_portfolio_compare")
+        case .totalPnl: L10n.agentPromptPortfolioPerformers(period: range.fullTitle)
+        case .dailyPnl: L10n.agentPromptPortfolioBestDay(period: range.fullTitle)
+        case .portfolioShare: lang("$agent_prompt_portfolio_share")
+        }
+    }
+
     var chartType: ChartType {
         switch self {
         case .totalValue:
@@ -118,6 +136,8 @@ struct PortfolioChartTileCellConfiguration {
     let fadesCurrentData: Bool
     let hidesVerticalAxisLabels: Bool
     let onLimitedHistoryTap: (() -> Void)?
+    let analyzeTitle: String
+    let onAnalyze: (() -> Void)?
 }
 
 class PortfolioTileCell: UICollectionViewCell {
@@ -150,6 +170,7 @@ class PortfolioTileCell: UICollectionViewCell {
 final class PortfolioChartTileCell: PortfolioTileCell {
     private var onRetry: (() -> Void)?
     private var onLimitedHistoryTap: (() -> Void)?
+    private var onAnalyze: (() -> Void)?
     private var onPreferredHeightChanged: (() -> Void)?
     private var chartSignature: String?
     private var chartPieVisible: Bool?
@@ -175,6 +196,8 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     private let errorTitleLabel = UILabel()
     private let retryButton = UIButton(type: .system)
     private let refreshIndicator = UIActivityIndicatorView(style: .medium)
+    private let analyzeButton = AgentSuggestionButton()
+    private let analyzeContainer = UIView()
     private let stateHeightConstraint: NSLayoutConstraint
 
     override init(frame: CGRect) {
@@ -191,6 +214,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         super.prepareForReuse()
         onRetry = nil
         onLimitedHistoryTap = nil
+        onAnalyze = nil
         onPreferredHeightChanged = nil
         chartSignature = nil
         chartPieVisible = nil
@@ -203,6 +227,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         refreshIndicator.stopAnimating()
         loadingIndicator.stopAnimating()
         chartView.alpha = 1
+        analyzeButton.resetPressedAppearance()
     }
 
     @discardableResult
@@ -213,10 +238,14 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     ) -> Bool {
         self.onRetry = onRetry
         self.onLimitedHistoryTap = configuration.onLimitedHistoryTap
+        self.onAnalyze = configuration.onAnalyze
         self.onPreferredHeightChanged = onPreferredHeightChanged
 
         updateLocalizedStrings()
         titleLabel.attributedText = makeSectionHeaderTitle(configuration.title)
+        analyzeButton.configure(title: configuration.analyzeTitle, showsArrow: true)
+        analyzeContainer.isHidden = configuration.onAnalyze == nil
+        panelContainer.directionalLayoutMargins.bottom = analyzeContainer.isHidden ? portfolioChartPanelInset : 0
 
         if configuration.isRefreshing {
             refreshIndicator.startAnimating()
@@ -294,6 +323,16 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
         headerContainer.addSubview(titleLabel)
 
+        analyzeButton.translatesAutoresizingMaskIntoConstraints = false
+        analyzeButton.accessibilityIdentifier = "Portfolio.Analyze"
+        analyzeButton.addTarget(self, action: #selector(analyzeButtonPressed), for: .touchUpInside)
+        analyzeContainer.translatesAutoresizingMaskIntoConstraints = false
+        analyzeContainer.addSubview(analyzeButton)
+
+        refreshIndicator.hidesWhenStopped = true
+        refreshIndicator.translatesAutoresizingMaskIntoConstraints = false
+        headerContainer.addSubview(refreshIndicator)
+
         panelContainer.translatesAutoresizingMaskIntoConstraints = false
         panelContainer.backgroundColor = .air.groupedItem
         panelContainer.layer.cornerRadius = 26
@@ -302,7 +341,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         panelContainer.directionalLayoutMargins = .init(
             top: portfolioChartPanelInset,
             leading: portfolioChartPanelHorizontalInset,
-            bottom: portfolioChartPanelInset,
+            bottom: 0,
             trailing: portfolioChartPanelHorizontalInset
         )
 
@@ -316,6 +355,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         stateHeightConstraint.isActive = true
 
         chartView.translatesAutoresizingMaskIntoConstraints = false
+        chartView.visibilityBottomInset = 0
         chartView.apply(
             themeProvider: makePortfolioChartTheme(for:),
             strings: makePortfolioChartStrings(),
@@ -359,10 +399,6 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         errorStack.addArrangedSubview(retryButton)
         stateContainer.addSubview(errorStack)
 
-        refreshIndicator.translatesAutoresizingMaskIntoConstraints = false
-        refreshIndicator.hidesWhenStopped = true
-        tileContentView.addSubview(refreshIndicator)
-
         rootStack.translatesAutoresizingMaskIntoConstraints = false
         rootStack.axis = .vertical
         rootStack.alignment = .fill
@@ -370,6 +406,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         rootStack.addArrangedSubview(headerContainer)
         rootStack.addArrangedSubview(panelContainer)
         panelStack.addArrangedSubview(stateContainer)
+        panelStack.addArrangedSubview(analyzeContainer)
         panelContainer.addSubview(panelStack)
         tileContentView.addSubview(rootStack)
 
@@ -379,18 +416,25 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             rootStack.trailingAnchor.constraint(equalTo: tileContentView.trailingAnchor),
             rootStack.bottomAnchor.constraint(equalTo: tileContentView.bottomAnchor),
 
-            refreshIndicator.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
+            refreshIndicator.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor, constant: 4),
             refreshIndicator.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -portfolioChartPanelInset),
 
-            headerContainer.heightAnchor.constraint(equalToConstant: 39),
+            headerContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 39),
             titleLabel.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: portfolioChartPanelInset),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: headerContainer.trailingAnchor, constant: -portfolioChartPanelInset),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: refreshIndicator.leadingAnchor, constant: -8),
+            titleLabel.topAnchor.constraint(greaterThanOrEqualTo: headerContainer.topAnchor, constant: 4),
             titleLabel.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -9),
 
             panelStack.topAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.topAnchor),
             panelStack.leadingAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.leadingAnchor),
             panelStack.trailingAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.trailingAnchor),
             panelStack.bottomAnchor.constraint(equalTo: panelContainer.layoutMarginsGuide.bottomAnchor),
+
+            analyzeButton.topAnchor.constraint(equalTo: analyzeContainer.topAnchor, constant: 20),
+            analyzeButton.bottomAnchor.constraint(equalTo: analyzeContainer.bottomAnchor, constant: -16),
+            analyzeButton.centerXAnchor.constraint(equalTo: analyzeContainer.centerXAnchor),
+            analyzeButton.widthAnchor.constraint(lessThanOrEqualTo: analyzeContainer.widthAnchor, constant: -32),
+            analyzeButton.heightAnchor.constraint(equalToConstant: AgentSuggestionButton.height),
 
             chartView.topAnchor.constraint(equalTo: stateContainer.topAnchor),
             chartView.leadingAnchor.constraint(equalTo: stateContainer.leadingAnchor),
@@ -561,6 +605,11 @@ final class PortfolioChartTileCell: PortfolioTileCell {
     @objc
     private func retryButtonPressed() {
         onRetry?()
+    }
+
+    @objc
+    private func analyzeButtonPressed() {
+        onAnalyze?()
     }
 
     private func applyDetailsPresentation(

@@ -13,13 +13,9 @@ private enum AgentComposerMetrics {
     static let contentHorizontalInset: CGFloat = 14
     static let contentVerticalInset: CGFloat = 10
     static let sendButtonInset: CGFloat = 6
-    static let buttonSpacing: CGFloat = 12
     static let sendButtonWidth: CGFloat = 40
     static let sendButtonHeight: CGFloat = 32
-    static let hintsButtonWidth: CGFloat = 24
-    static let hintsButtonHeight: CGFloat = 24
-    static let reservedTrailingTextInsetWithoutHints: CGFloat = 56
-    static let reservedTrailingTextInsetWithHints: CGFloat = 92
+    static let reservedTrailingTextInset: CGFloat = 56
 }
 
 final class AgentComposerTextView: UITextView {
@@ -62,18 +58,13 @@ final class AgentComposerView: UIView {
     private let inputBackgroundView = AgentMaterialBackgroundView(cornerRadius: AgentComposerMetrics.inputCornerRadius)
     private let textView = AgentComposerTextView()
     private let placeholderLabel = UILabel()
-    private let hintsButton = UIButton(type: .system)
     private let sendButton = UIButton(type: .system)
     private let dismissPanGestureRecognizer = UIPanGestureRecognizer()
-    private var isHintsToggleVisible = false
 
     private lazy var inputHeightConstraint = inputBackgroundView.heightAnchor.constraint(equalToConstant: AgentComposerMetrics.minInputHeight)
-    private lazy var hintsButtonWidthConstraint = hintsButton.widthAnchor.constraint(equalToConstant: 0)
-    private lazy var hintsButtonTrailingConstraint = hintsButton.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor)
 
     var onDraftTextChanged: (() -> Void)?
     var onSend: (() -> Void)?
-    var onHintsToggle: (() -> Void)?
     var onBeginEditing: (() -> Void)?
     var onEndEditing: (() -> Void)?
     var onLayoutHeightChanged: (() -> Void)?
@@ -127,7 +118,6 @@ final class AgentComposerView: UIView {
         textView.textColor = UIColor.label
         textView.tintColor = .tintColor
         placeholderLabel.textColor = .air.secondaryLabel
-        updateHintsButtonAppearance()
         setSendEnabled(sendButton.isEnabled)
     }
 
@@ -160,18 +150,6 @@ final class AgentComposerView: UIView {
         textView.selectedRange = NSRange(location: text.utf16.count, length: 0)
     }
 
-    func setHintsToggleVisible(_ isVisible: Bool, isSelected: Bool) {
-        isHintsToggleVisible = isVisible
-        hintsButton.isSelected = isSelected
-        hintsButton.isHidden = !isVisible
-        hintsButtonWidthConstraint.constant = isVisible ? AgentComposerMetrics.hintsButtonWidth : 0
-        hintsButtonTrailingConstraint.constant = isVisible ? -AgentComposerMetrics.buttonSpacing : 0
-        updateTrailingTextInset()
-        updateHintsButtonAppearance()
-        setNeedsLayout()
-        updateInputHeightIfNeeded()
-    }
-
     private func setupViews() {
         translatesAutoresizingMaskIntoConstraints = false
 
@@ -199,23 +177,6 @@ final class AgentComposerView: UIView {
 
         var buttonConfiguration = UIButton.Configuration.plain()
         buttonConfiguration.contentInsets = .zero
-        hintsButton.configuration = buttonConfiguration
-        hintsButton.translatesAutoresizingMaskIntoConstraints = false
-        hintsButton.tintAdjustmentMode = .normal
-        hintsButton.backgroundColor = .clear
-        hintsButton.setImage(
-            UIImage(named: "ShowHints", in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-            for: .normal
-        )
-        hintsButton.setImage(
-            UIImage(named: "HideHints", in: AirBundle, compatibleWith: nil)?.withRenderingMode(.alwaysTemplate),
-            for: .selected
-        )
-        hintsButton.contentHorizontalAlignment = .center
-        hintsButton.contentVerticalAlignment = .center
-        hintsButton.imageView?.contentMode = .center
-        hintsButton.addTarget(self, action: #selector(hintsButtonPressed), for: .touchUpInside)
-
         sendButton.configuration = buttonConfiguration
         sendButton.translatesAutoresizingMaskIntoConstraints = false
         sendButton.tintAdjustmentMode = .normal
@@ -238,7 +199,6 @@ final class AgentComposerView: UIView {
         addSubview(inputBackgroundView)
         inputBackgroundView.contentView.addSubview(textView)
         inputBackgroundView.contentView.addSubview(placeholderLabel)
-        inputBackgroundView.contentView.addSubview(hintsButton)
         inputBackgroundView.contentView.addSubview(sendButton)
 
         NSLayoutConstraint.activate([
@@ -258,18 +218,13 @@ final class AgentComposerView: UIView {
                 constant: AgentComposerMetrics.contentHorizontalInset
             ),
             placeholderLabel.trailingAnchor.constraint(
-                lessThanOrEqualTo: hintsButton.leadingAnchor,
+                lessThanOrEqualTo: sendButton.leadingAnchor,
                 constant: -8
             ),
             placeholderLabel.topAnchor.constraint(
                 equalTo: inputBackgroundView.contentView.topAnchor,
                 constant: AgentComposerMetrics.contentVerticalInset
             ),
-
-            hintsButtonTrailingConstraint,
-            hintsButtonWidthConstraint,
-            hintsButton.heightAnchor.constraint(equalToConstant: AgentComposerMetrics.hintsButtonHeight),
-            hintsButton.centerYAnchor.constraint(equalTo: sendButton.centerYAnchor),
 
             sendButton.trailingAnchor.constraint(
                 equalTo: inputBackgroundView.contentView.trailingAnchor,
@@ -283,13 +238,8 @@ final class AgentComposerView: UIView {
             sendButton.heightAnchor.constraint(equalToConstant: AgentComposerMetrics.sendButtonHeight)
         ])
 
-        setHintsToggleVisible(false, isSelected: false)
         updatePlaceholderVisibility()
         updateInputHeightIfNeeded()
-    }
-
-    @objc private func hintsButtonPressed() {
-        onHintsToggle?()
     }
 
     @objc private func sendButtonPressed() {
@@ -312,14 +262,8 @@ final class AgentComposerView: UIView {
         placeholderLabel.isHidden = !(textView.text?.isEmpty ?? true)
     }
 
-    private func updateTrailingTextInset() {
-        updateTextContainerInsets()
-    }
-
     private func updateTextContainerInsets() {
-        let reservedInset = isHintsToggleVisible
-            ? AgentComposerMetrics.reservedTrailingTextInsetWithHints
-            : AgentComposerMetrics.reservedTrailingTextInsetWithoutHints
+        let reservedInset = AgentComposerMetrics.reservedTrailingTextInset
         if effectiveUserInterfaceLayoutDirection == .rightToLeft {
             textView.textContainerInset = UIEdgeInsets(
                 top: AgentComposerMetrics.contentVerticalInset,
@@ -335,15 +279,6 @@ final class AgentComposerView: UIView {
                 right: reservedInset
             )
         }
-    }
-
-    private func updateHintsButtonAppearance() {
-        hintsButton.tintColor = .air.secondaryLabel
-        var buttonConfiguration = hintsButton.configuration ?? .plain()
-        buttonConfiguration.baseForegroundColor = .air.secondaryLabel
-        buttonConfiguration.baseBackgroundColor = .clear
-        hintsButton.configuration = buttonConfiguration
-        hintsButton.backgroundColor = .clear
     }
 
     private func updateInputHeightIfNeeded() {

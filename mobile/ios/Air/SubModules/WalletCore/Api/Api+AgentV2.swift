@@ -1,10 +1,6 @@
 import Foundation
 
 extension Api {
-    @concurrent public static func getAgentV2RuntimeStatus() async throws -> ApiAgentV2RuntimeStatus {
-        try await bridge.callApi("getAgentV2RuntimeStatus", decoding: ApiAgentV2RuntimeStatus.self)
-    }
-
     @concurrent public static func getAgentV2Consent() async throws -> Bool {
         try await bridge.callApi("getAgentV2Consent", decoding: Bool.self)
     }
@@ -36,8 +32,20 @@ extension Api {
         try await bridge.callApiVoid("getAgentV2UserQuota")
     }
 
+    @concurrent public static func getAgentV2ProblemReportAvailability() async throws -> Bool {
+        try await bridge.callApi("getAgentV2ProblemReportAvailability", decoding: Bool.self)
+    }
+
+    @concurrent public static func setAgentV2ChatActive(_ isActive: Bool) async throws {
+        try await bridge.callApiVoid("setAgentV2ChatActive", isActive)
+    }
+
     @concurrent public static func getAgentV2DefaultThread() async throws -> ApiAgentV2DefaultThreadResponse {
-        try await bridge.callApi("getAgentV2DefaultThread", decoding: ApiAgentV2DefaultThreadResponse.self)
+        let result = try await bridge.callApi(
+            "getAgentV2DefaultThread",
+            decoding: ApiAgentV2MutationResult<ApiAgentV2DefaultThreadResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "getAgentV2DefaultThread")
     }
 
     @concurrent public static func getAgentV2Messages(
@@ -56,15 +64,19 @@ extension Api {
     }
 
     @concurrent public static func startAgentV2Run(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
-        try await bridge.callApi("startAgentV2Run", command, decoding: ApiAgentV2RunResult.self)
+        let result = try await bridge.callApi("startAgentV2Run", command, decoding: ApiAgentV2RunResult.self)
+        try await bridge.waitForPendingUpdates()
+        return result
     }
 
     @concurrent public static func retryAgentV2Run(clientRunId: String) async throws -> ApiAgentV2RunResult? {
-        try await bridge.callApiOptional(
+        let result = try await bridge.callApiOptional(
             "retryAgentV2Run",
             clientRunId,
             decodingOptional: ApiAgentV2RunResult.self
         )
+        try await bridge.waitForPendingUpdates()
+        return result
     }
 
     @concurrent public static func cancelAgentV2Run(runId: String) async throws -> ApiAgentV2RunCancelResponse {
@@ -81,6 +93,19 @@ extension Api {
             expectedRevision,
             decoding: ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse>.self
         )
+    }
+
+    @concurrent public static func reportAgentV2Problem(
+        threadId: String,
+        report: ApiAgentV2ProblemReport
+    ) async throws -> ApiAgentV2ProblemReportResponse {
+        let result = try await bridge.callApi(
+            "reportAgentV2Problem",
+            threadId,
+            report,
+            decoding: ApiAgentV2MutationResult<ApiAgentV2ProblemReportResponse>.self
+        )
+        return try requireAgentV2OperationValue(result, methodName: "reportAgentV2Problem")
     }
 
     @concurrent public static func getAgentV2ActionPresentation(

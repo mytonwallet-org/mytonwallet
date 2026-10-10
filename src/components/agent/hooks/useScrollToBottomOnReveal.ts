@@ -3,17 +3,17 @@ import { useEffect, useRef } from '../../../lib/teact/teact';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 export default function useScrollToBottomOnReveal(
-  isAtBottomRef: React.RefObject<boolean>,
+  getShouldFollow: () => boolean,
   scrollToBottom: NoneToVoidFunction,
 ) {
   const frameRef = useRef<number>();
 
   const handleTextRevealProgress = useLastCallback(() => {
-    if (!isAtBottomRef.current || frameRef.current !== undefined) return;
+    if (!getShouldFollow() || frameRef.current !== undefined) return;
 
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = undefined;
-      if (isAtBottomRef.current) {
+      if (getShouldFollow()) {
         scrollToBottom();
       }
     });

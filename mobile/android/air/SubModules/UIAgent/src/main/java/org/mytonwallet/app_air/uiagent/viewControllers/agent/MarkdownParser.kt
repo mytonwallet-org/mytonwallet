@@ -4,10 +4,14 @@ import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.text.style.LeadingMarginSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
+import android.text.style.TabStopSpan
 import android.text.style.TypefaceSpan
 import android.util.Patterns
+import kotlin.math.ceil
+import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
 import org.mytonwallet.app_air.uicomponents.helpers.spans.WClickableSpan
 import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 
@@ -28,6 +32,7 @@ object MarkdownParser {
     data class TableCell(
         val text: String,
         val header: Boolean = false,
+        val isPlainText: Boolean = false,
         val alignment: TableAlignment = TableAlignment.START,
         val verticalAlignment: TableVerticalAlignment = TableVerticalAlignment.TOP,
         val columnSpan: Int = 1,
@@ -49,7 +54,12 @@ object MarkdownParser {
         ) : Block
     }
 
+    private class PassiveLinkSpan
+
     private val urlPattern: Regex by lazy { Patterns.WEB_URL.toRegex() }
+
+    /** ASCII punctuation that a backslash escapes, as the agent writes it and the server escapes link labels */
+    internal const val ESCAPABLE_CHARACTERS = "\\`*_{}[]()<>#+-.!~|="
     private val htmlTableOpenPattern = Regex("(?i)<\\s*table(?:\\s|>|$)")
     private val htmlTableClosePattern = Regex("(?i)</\\s*table\\s*>")
     private val htmlTableTokenPattern = Regex(
@@ -70,6 +80,12 @@ object MarkdownParser {
     private val htmlTagPattern = Regex("(?is)<[^>]+>")
     private val numericHtmlEntityPattern = Regex("&#(?:x([0-9a-fA-F]+)|([0-9]+));")
     private val tableDelimiterPattern = Regex("^:?-{3,}:?$")
+
+    private val listPrefixPattern = Regex("^([-+*]|([0-9]+)[.)])[\\t ]+")
+    private val codeFencePattern = Regex("^[\\t ]*```[^`]*$")
+    private val markdownLinkPattern = Regex(
+        """\[((?:\\.|[^\]\\\n])+)\]\(((?:https?://|mtw://)(?:\\.|[^()\\\s]|\((?:\\.|[^()\\\s])*\))+)\)"""
+    )
 
     fun parseBlocks(text: String): List<Block> {
         val blocks = mutableListOf<Block>()
@@ -183,104 +199,101 @@ object MarkdownParser {
         flushText()
     }
 
+    /**
+     * Renders Markdown with answer links marked by `AgentTextLinks` as link spans. `detectsUrls` also links bare
+     * URLs, which an answer from the server carries as answer links instead.
+     */
     fun parse(
         text: String,
         codeColor: Int,
         linkColor: Int?,
-        onUrlClick: ((String) -> Unit)? = null
+        onUrlClick: ((String) -> Unit)? = null,
+        detectsUrls: Boolean = true,
+        textSize: Float = 16f,
+        isStreaming: Boolean = false
     ): SpannableStringBuilder {
-        val displayText = stripHtmlTableMarkupForDisplay(text)
+        val lines = stripHtmlTableMarkupForDisplay(text)
+            .replace("\r\n", "\n").replace('\r', '\n').split('\n')
         val result = SpannableStringBuilder()
-        var i = 0
-        val len = displayText.length
-
-        while (i < len) {
-            when {
-                // Code block: ```...```
-                displayText.startsWith("```", i) -> {
-                    val contentStart = run {
-                        val afterTicks = i + 3
-                        val lineEnd = displayText.indexOf('\n', afterTicks)
-                        if (lineEnd >= 0) lineEnd + 1 else afterTicks
-                    }
-                    val end = displayText.indexOf("```", contentStart)
-                    if (end >= 0) {
-                        val code = displayText.substring(contentStart, end).trimEnd('\n')
-                        val spanStart = result.length
-                        result.append(code)
-                        applyCodeSpan(result, spanStart, result.length, codeColor)
-                        i = end + 3
-                        if (i < len && displayText[i] == '\n') i++
-                    } else {
-                        result.append("```")
-                        i += 3
-                    }
+        var index = 0
+        while (index < lines.size) {
+            if (index > 0) result.append('\n')
+            val line = lines[index]
+            if (codeFencePattern.matches(line)) {
+                val codeLines = mutableListOf<String>()
+                index++
+                while (index < lines.size && lines[index].trim() != "```") {
+                    codeLines.add(lines[index++])
                 }
+                val start = result.length
+                result.append(codeLines.joinToString("\n"))
+                applyCodeSpan(result, start, result.length, codeColor)
+                if (index < lines.size) index++
+                continue
+            }
+            val isArriving = isStreaming && index == lines.lastIndex
+            if (isArriving && line in listOf("-", "+", "*")) {
+                index++
+                continue
+            }
+            val prefix = listPrefixPattern.find(line)
+                ?.takeIf { isArriving || line.substring(it.value.length).isNotBlank() }
+            val start = result.length
+            if (prefix != null) {
+                val number = prefix.groupValues[2]
+                result.append(if (number.isEmpty()) "•\t" else "$number.\t")
+            }
+            result.append(
+                parseInline(
+                    if (prefix == null) line else line.substring(prefix.value.length),
+                    codeColor,
+                    linkColor,
+                    onUrlClick,
+                    detectsUrls,
+                    isArriving
+                )
+            )
+            if (prefix != null) {
+                val indent = ceil(textSize * 1.5f).toInt()
+                result.setSpan(
+                    LeadingMarginSpan.Standard(0, indent),
+                    start,
+                    result.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                result.setSpan(
+                    TabStopSpan.Standard(indent),
+                    start,
+                    result.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            index++
+        }
+        applyAnswerLinks(result, linkColor, onUrlClick)
+        if (onUrlClick != null && detectsUrls) applyUrlSpans(result, linkColor, onUrlClick)
+        return result
+    }
 
-                // Inline code: `...`
-                displayText[i] == '`' -> {
-                    val end = displayText.indexOf('`', i + 1)
-                    if (end >= 0 && !displayText.substring(i + 1, end).contains('\n')) {
-                        val spanStart = result.length
-                        result.append(displayText.substring(i + 1, end))
-                        applyCodeSpan(result, spanStart, result.length, codeColor)
-                        i = end + 1
-                    } else {
-                        result.append('`')
-                        i++
-                    }
-                }
-
-                // Bold: **...**
-                displayText.startsWith("**", i) -> {
-                    val end = displayText.indexOf("**", i + 2)
-                    if (end >= 0) {
-                        val spanStart = result.length
-                        result.append(parseInline(displayText.substring(i + 2, end), codeColor))
-                        result.setSpan(
-                            StyleSpan(Typeface.BOLD),
-                            spanStart,
-                            result.length,
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                        )
-                        i = end + 2
-                    } else {
-                        result.append("**")
-                        i += 2
-                    }
-                }
-
-                // Italic: *...*
-                displayText[i] == '*' && i + 1 < len && displayText[i + 1] != ' ' -> {
-                    val end = displayText.indexOf('*', i + 1)
-                    if (end >= 0 && !displayText.substring(i + 1, end).contains('\n')) {
-                        val spanStart = result.length
-                        result.append(parseInline(displayText.substring(i + 1, end), codeColor))
-                        result.setSpan(
-                            StyleSpan(Typeface.ITALIC),
-                            spanStart,
-                            result.length,
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                        )
-                        i = end + 1
-                    } else {
-                        result.append('*')
-                        i++
-                    }
-                }
-
-                else -> {
-                    result.append(displayText[i])
-                    i++
-                }
+    private fun applyAnswerLinks(
+        sb: SpannableStringBuilder,
+        linkColor: Int?,
+        onClick: ((String) -> Unit)?
+    ) {
+        val delete: (Int, Int) -> Unit = { start, end -> sb.delete(start, end) }
+        // `parse` has already read the escapes in the text, labels included
+        AgentTextLinks.resolve(sb, removesLabelEscapes = false, delete) { start, end, url ->
+            if (onClick != null && sb.getSpans(start, end, TypefaceSpan::class.java)
+                    .none { it.family == "monospace" }
+            ) {
+                sb.setSpan(
+                    WClickableSpan(url, linkColor, onClick),
+                    start,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
         }
-
-        if (onUrlClick != null) {
-            applyUrlSpans(result, linkColor, onUrlClick)
-        }
-
-        return result
     }
 
     private fun applyUrlSpans(
@@ -296,6 +309,11 @@ object MarkdownParser {
             val isInsideCode = sb.getSpans(matchStart, matchEnd, TypefaceSpan::class.java)
                 .any { it.family == "monospace" }
             if (isInsideCode) continue
+            if (sb.getSpans(matchStart, matchEnd, WClickableSpan::class.java).isNotEmpty() ||
+                sb.getSpans(matchStart, matchEnd, PassiveLinkSpan::class.java).isNotEmpty()
+            ) {
+                continue
+            }
 
             var url = match.value
             if (!url.startsWith("http://", ignoreCase = true) &&
@@ -303,6 +321,7 @@ object MarkdownParser {
             ) {
                 url = "https://$url"
             }
+            if (!AgentTextLinks.isOpenable(url)) continue
             sb.setSpan(
                 WClickableSpan(url, linkColor, onClick),
                 matchStart,
@@ -312,30 +331,171 @@ object MarkdownParser {
         }
     }
 
-    private fun parseInline(text: String, codeColor: Int): SpannableStringBuilder {
+    private fun parseInline(
+        text: String,
+        codeColor: Int,
+        linkColor: Int?,
+        onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
+        isArriving: Boolean
+    ): SpannableStringBuilder {
         val result = SpannableStringBuilder()
         var i = 0
-        val len = text.length
-
-        while (i < len) {
-            if (text[i] == '`') {
-                val end = text.indexOf('`', i + 1)
-                if (end >= 0) {
-                    val spanStart = result.length
-                    result.append(text.substring(i + 1, end))
-                    applyCodeSpan(result, spanStart, result.length, codeColor)
-                    i = end + 1
-                } else {
-                    result.append('`')
-                    i++
+        while (i < text.length) {
+            if (isEscapeAt(text, i)) {
+                result.append(text[i + 1])
+                i += 2
+                continue
+            }
+            if (isArriving && (text[i] == '*' || text[i] == '`') &&
+                text.substring(i).all { it == '*' || it == '`' }
+            ) {
+                break
+            }
+            val link = markdownLinkPattern.matchAt(text, i)
+            if (link != null && i > 0 && text[i - 1] == '!') {
+                val start = result.length
+                result.append(link.value)
+                result.setSpan(
+                    PassiveLinkSpan(),
+                    start,
+                    result.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                i += link.value.length
+                continue
+            }
+            if (link != null) {
+                val label =
+                    parseInline(link.groupValues[1], codeColor, linkColor, null, false, false)
+                val destination = removeMarkdownEscapes(link.groupValues[2])
+                val start = result.length
+                result.append(label)
+                if (!destination.startsWith("mtw://")) {
+                    if (detectsUrls && onUrlClick != null &&
+                        AgentTextLinks.isOpenable(destination)
+                    ) {
+                        result.setSpan(
+                            WClickableSpan(destination, linkColor, onUrlClick),
+                            start,
+                            result.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    } else {
+                        val passiveStart = result.length
+                        result.append(" ($destination)")
+                        result.setSpan(
+                            PassiveLinkSpan(),
+                            passiveStart,
+                            result.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
                 }
+                i += link.value.length
+                continue
+            }
+            val marker = when {
+                text[i] == '`' -> "`"
+                text.startsWith("**", i) -> "**"
+                text[i] == '*' && (i == 0 || !text[i - 1].isLetterOrDigit()) -> "*"
+                else -> null
+            }
+            if (marker != null) {
+                val contentStart = i + marker.length
+                val end = if (marker == "`") {
+                    indexOfUnescaped(text, marker, contentStart)
+                } else {
+                    indexOfStyleEnd(text, marker, contentStart)
+                }
+                val hasContent = contentStart < text.length &&
+                    (marker == "`" || !text[contentStart].isWhitespace())
+                if (hasContent && (end > contentStart || (isArriving && end < 0))) {
+                    val contentEnd = if (end < 0) text.length else end
+                    val content = text.substring(contentStart, contentEnd)
+                    val start = result.length
+                    if (marker == "`") {
+                        result.append(removeMarkdownEscapes(content))
+                        applyCodeSpan(result, start, result.length, codeColor)
+                    } else {
+                        result.append(
+                            parseInline(
+                                content,
+                                codeColor,
+                                linkColor,
+                                onUrlClick,
+                                detectsUrls,
+                                isArriving && end < 0
+                            )
+                        )
+                        result.setSpan(
+                            StyleSpan(
+                                if (marker ==
+                                    "**"
+                                ) {
+                                    Typeface.BOLD
+                                } else {
+                                    Typeface.ITALIC
+                                }
+                            ),
+                            start,
+                            result.length,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
+                    i = if (end < 0) text.length else end + marker.length
+                    continue
+                }
+            }
+            result.append(text[i++])
+        }
+        return result
+    }
+
+    private fun indexOfStyleEnd(text: String, marker: String, from: Int): Int {
+        var index = from
+        while (index < text.length) {
+            if (isEscapeAt(text, index)) {
+                index += 2
+            } else if (text[index] == '`') {
+                val end = indexOfUnescaped(text, "`", index + 1)
+                index = if (end < 0) index + 1 else end + 1
+            } else if (text[index] == '*') {
+                var end = index + 1
+                while (end < text.length && text[end] == '*') end++
+                val count = end - index
+                if (marker == "**" && count >= 2) return index + count % 2
+                if (marker == "*" && count % 2 == 1) return end - 1
+                index = end
             } else {
-                result.append(text[i])
-                i++
+                index++
             }
         }
+        return -1
+    }
 
-        return result
+    private fun removeMarkdownEscapes(text: String): String = buildString {
+        var index = 0
+        while (index < text.length) {
+            if (isEscapeAt(text, index)) index++
+            append(text[index++])
+        }
+    }
+
+    private fun isEscapeAt(text: String, index: Int) =
+        text[index] == '\\' && index + 1 < text.length && text[index + 1] in ESCAPABLE_CHARACTERS
+
+    /** The index of `delimiter` in `text` from `from` that no backslash escapes, or -1 */
+    private fun indexOfUnescaped(text: String, delimiter: String, from: Int): Int {
+        var index = text.indexOf(delimiter, from)
+        while (index > 0 && isEscaped(text, index)) index = text.indexOf(delimiter, index + 1)
+        return index
+    }
+
+    private fun isEscaped(text: String, index: Int): Boolean {
+        var backslashes = 0
+        while (index - backslashes > 0 && text[index - backslashes - 1] == '\\') backslashes++
+        return backslashes % 2 == 1
     }
 
     private fun applyCodeSpan(sb: SpannableStringBuilder, start: Int, end: Int, color: Int) {
@@ -422,8 +582,6 @@ object MarkdownParser {
         if (!hasUnescapedPipe(headerLine)) return null
 
         val header = splitTableRow(headerLine)
-        if (header.size < 2) return null
-
         val delimiter = splitTableRow(lines[headerIndex + 1].trimEnd('\r'))
         if (delimiter.size != header.size) return null
         val alignments = delimiter.map { parseAlignment(it) ?: return null }

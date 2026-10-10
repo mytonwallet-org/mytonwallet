@@ -211,6 +211,7 @@ Receiving Address: آدرس دریافت
 Contract Address: آدرس قرارداد
 Fee: کارمزد
 Edit: ویرایش
+Regenerate: تولید دوباره
 Confirm: تأیید
 Data Signed: داده امضا شد
 Details: جزئیات
@@ -1284,8 +1285,6 @@ $agent_consent_feature_actions: اقدامات پشتیبانی‌شده مان�
 $agent_consent_feature_context: از زمینه کیف پول استفاده کنید تا پاسخ‌ها بتوانند به دارایی‌ها و آدرس‌های مرتبط ارجاع دهند.
 $agent_consent_disclosure_text: با ضربه زدن روی اجازه دادن به عامل، به %app_name% اجازه می‌دهید که پیام‌های عامل و زمینه مرتبط کیف پول شما را به %app_name% Agent (agent.mywallet.io) و Anthropic Claude API، ارائه‌دهنده هوش مصنوعی شخص ثالث ما، برای پردازش درخواست‌های شما ارسال کند. زمینه کیف پول ممکن است شامل آدرس‌های کیف پول، موجودی‌ها، توکن‌ها، فعالیت و جزئیات اقدام درخواست‌شده باشد. داده‌ها تنها برای ارائه پاسخ‌های عامل و آماده‌سازی اقداماتی که درخواست می‌کنید استفاده می‌شوند.
 $agent_consent_search_disclosure_text: برای جست‌وجوی وب، فقط عبارت‌های جست‌وجو ممکن است به Serper ارسال شوند؛ زمینه کیف پول و تاریخچه گفت‌وگو ارسال نمی‌شوند.
-$agent_consent_debug_reset_button: بازنشانی وضعیت رضایت عامل
-$agent_consent_debug_reset_footer: هنگام باز کردن تب عامل، صفحه رضایت عامل را دوباره نمایش می‌دهد.
 $settings_token_change_threshold: آستانه تغییر %
 $settings_token_change_threshold_description: تغییرات درصدی ۲۴ ساعته کمتر از آستانه انتخاب‌شده را پنهان می‌کند.
 $settings_token_change_threshold_off: خاموش
@@ -1303,18 +1302,19 @@ Retry: تلاش دوباره
 $agent_chat_running: در حال اجرا در پس‌زمینه
 $agent_connection_interrupted: اتصال عامل قطع شد. دوباره تلاش کنید.
 $agent_history_unavailable: امکان بارگذاری تاریخچه چت وجود ندارد. دوباره تلاش کنید.
+$agent_secret_words_removed: "[کلمات محرمانه حذف شد و ارسال نشد]"
 $agent_activity_analyzing_request: در حال تحلیل درخواست شما…
 $agent_activity_wallet: در حال خواندن اطلاعات کیف پول…
 $agent_activity_transactions: در حال بررسی فعالیت کیف پول…
 $agent_activity_portfolio: در حال بارگذاری اطلاعات پرتفوی…
 $agent_activity_assets: در حال جستجوی دارایی‌ها…
 $agent_activity_addresses: در حال بررسی آدرس‌های ذخیره شده…
-$agent_activity_transfer: در حال آماده‌سازی انتقال…
-$agent_activity_market_quote: در حال خواندن آخرین قیمت توکن…
 $agent_activity_planning: در حال برنامه‌ریزی پاسخ…
 $agent_activity_planning_completed: برنامه پاسخ آماده است
 $agent_activity_web_searching: در حال جستجو در وب…
 $agent_activity_web_searching_completed: منابع مرتبط یافت شدند
+$agent_activity_help_searching: در حال جستجو در مرکز راهنمایی…
+$agent_activity_help_searching_completed: مرکز راهنمایی بررسی شد
 $agent_activity_web_reading_sources: در حال بررسی منابع…
 $agent_activity_web_reading_sources_completed: "منابع بررسی شدند: %count%"
 $agent_activity_web_reading_sources_completed_generic: منابع بررسی شدند
@@ -1327,181 +1327,18 @@ $agent_activity_computing_completed: محاسبات کامل شد
 $agent_activity_writing: در حال نوشتن پاسخ…
 $agent_activity_writing_completed: پاسخ آماده است
 $agent_activity_preparing_response: در حال آماده‌سازی پاسخ شما…
-$agent_receive_tokens: دریافت توکن
-$agent_portfolio_total: ارزش کل سبد
-$agent_portfolio_value_is: ارزش سبد شما
-$agent_portfolio_24h_change: تغییر ۲۴ ساعته
-$agent_portfolio_top_contributor: بیشترین سهم امروز
-$agent_portfolio_open_tracker: باز کردن سبد
-$agent_portfolio_analysis: تحلیل سبد
-$agent_portfolio_insufficient: داده کافی برای تحلیل کامل سبد وجود ندارد.
-$agent_portfolio_partial: بخشی از داده‌های سبد در دسترس نیست و تحلیل ناقص است.
-$agent_portfolio_current_only: ساختار فعلی پرتفوی موجود است. عملکرد تاریخی در حال حاضر در دسترس نیست.
-$agent_portfolio_stale: ممکن است داده‌های سبد قدیمی باشند.
-$agent_portfolio_summary_up: ارزش سبد شما در ۲۴ ساعت گذشته افزایش یافته است.
-$agent_portfolio_summary_down: ارزش سبد شما در ۲۴ ساعت گذشته کاهش یافته است.
-$agent_portfolio_summary_flat: ارزش سبد شما در ۲۴ ساعت گذشته ثابت بوده است.
-$agent_portfolio_summary_ready: تحلیل سبد شما آماده است.
-$agent_portfolio_chart_title: ارزش سبد در گذر زمان
-$agent_portfolio_largest_positions: بزرگ‌ترین موقعیت‌ها
-$agent_portfolio_asset: دارایی
-$agent_portfolio_position_value: ارزش
-$agent_portfolio_share: سهم
-$agent_portfolio_observations: چه چیزی برجسته است
-$agent_portfolio_insight_performance_title: حرکت پرتفوی
-$agent_portfolio_insight_performance_text: بررسی کنید که ارزش پرتفوی در دوره انتخابی چگونه حرکت کرده است.
-$agent_portfolio_insight_concentration_title: تمرکز
-$agent_portfolio_insight_concentration_text: تمرکز در تخصیص موجود را بررسی کنید؛ دارایی‌های حذف شده ممکن است تصویر کل پرتفوی را تغییر دهند.
-$agent_portfolio_insight_chain_split_title: توزیع شبکه
-$agent_portfolio_insight_chain_split_text: میزان در معرض بودن شبکه را در تخصیص موجود بررسی کنید؛ دارایی‌های حذف شده ممکن است تصویر کل پرتفوی را تغییر دهند.
-$agent_portfolio_insight_data_quality_title: کیفیت داده‌ها
-$agent_portfolio_insight_data_quality_text: هنگام تفسیر این تحلیل، پوشش داده‌ها و تازگی آن را در نظر بگیرید.
 $agent_market_analysis_title: تحلیل بازار
-$agent_market_as_of: تا تاریخ
-$agent_market_closed_1d: آخرین کندل روزانه بسته‌شده
-$agent_market_thesis: فرضیه تکنیکی
-$agent_market_fear_greed_sentiment: احساسات بازار مبتنی بر بیت‌کوین
-$agent_market_fear_greed_index: شاخص ترس و طمع (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: رژیم بازار
-$agent_market_fear_greed_risk_on: احساسات ریسک‌پذیر
-$agent_market_fear_greed_risk_off: احساسات ریسک‌گریز
-$agent_market_fear_greed_neutral: احساسات خنثی
-$agent_market_fear_greed_source: منبع
-$agent_market_timeframes: ساختار بازار
-$agent_market_structure_bullish: اوج‌های بالاتر و کف‌های بالاتر
-$agent_market_structure_bearish: اوج‌های پایین‌تر و کف‌های پایین‌تر
-$agent_market_structure_range: محدوده
-$agent_market_structure_transition: انتقال
-$agent_market_structure_unavailable: ساختار موجود نیست
-$agent_market_event_none: شکست تایید نشده
-$agent_market_event_break_up: شکست بالای ساختار
-$agent_market_event_break_down: شکست پایین ساختار
-$agent_market_event_retest_up: بازآزمایی صعودی
-$agent_market_event_retest_down: بازآزمایی نزولی
-$agent_market_live_approaching_upper: نزدیک شدن به مرز بالایی
-$agent_market_live_approaching_lower: نزدیک شدن به مرز پایین
-$agent_market_level_map: سطوح کلیدی
-$agent_market_level_primary: سطح اولیه
-$agent_market_level_secondary: سطح ثانویه
-$agent_market_level_context: سطح زمینه
-$agent_market_levels_unavailable: سطوح ساختاری تایید شده در دسترس نیستند.
-$agent_market_profile_poc_full: مرکز حجم (POC)
-$agent_market_profile_value_area_full: مرزهای ناحیه ارزش (VAL/VAH)
-$agent_market_profile_hvn_full: ناحیه حجم بالا (HVN)
-$agent_market_profile_lvn_full: راهروی حجم پایین (LVN)
-$agent_market_profile_current_day: روز فعلی UTC
-$agent_market_profile_previous_day: روز گذشته UTC
-$agent_market_profile_previous_week: هفته گذشته UTC
-$agent_market_profile_rolling_30d: 30 جلسه گذشته UTC
-$agent_market_profile_above: قیمت بالاتر از ناحیه ارزش
-$agent_market_profile_inside: قیمت درون ناحیه ارزش
-$agent_market_profile_below: قیمت پایین‌تر از ناحیه ارزش
-$agent_market_factors: عوامل کلیدی
-$agent_market_factor_structure: "ساختار روزانه: %direction%"
-$agent_market_factor_levels: مناطق حمایت %supports% و مقاومت %resistances% برای این افق تأیید شده‌اند.
-$agent_market_factor_profile: "توزیع حجم: %position%."
-$agent_market_factor_profile_unavailable: نمایه حجم در دسترس نیست؛ سناریو بر اساس ساختار قیمت است.
-$agent_market_factor_timeframe_alignment: "ساختار بازه زمانی — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "رژیم فعلی: %active%. سناریوی شرطی: %conditional% پس از %activation%."
-$agent_market_factor_no_active_scenario: "هیچ سناریویی تأیید نشده است. سناریوی شرطی: %conditional% پس از %activation%."
-$agent_market_primary_scenario: سناریوی اصلی
-$agent_market_current_regime: رژیم تأیید شده فعلی
-$agent_market_conditional_scenario: سناریوی شرطی
-$agent_market_no_active_scenario: در حال حاضر هیچ سناریویی تأیید نشده است.
-$agent_market_calculated_fallback: "تحلیل محاسبه شده: توضیح مدل به طور موقت در دسترس نیست."
-$agent_market_other_horizons: افق‌های درخواست شده دیگر
-$agent_market_horizon_3d: 3 روز
-$agent_market_horizon_7d: 7 روز
-$agent_market_horizon_30d: 30 روز
-$agent_market_scenario_bullish: شکست صعودی
-$agent_market_scenario_range: تعادل بازه
-$agent_market_scenario_bearish: شکست نزولی
-$agent_market_scenario_unavailable: سناریوی ساختاری برای این افق در دسترس نیست.
-$agent_market_confidence: اطمینان
-$agent_market_confidence_low: کم
-$agent_market_confidence_medium: متوسط
-$agent_market_activation: فعال‌سازی
-$agent_market_path: مسیر
-$agent_market_terminal: منطقه نهایی
-$agent_market_invalidation: باطل‌سازی
-$agent_market_expected_range: دامنه سناریو
-$agent_market_rationale: دلیل
-$agent_market_condition_above: بسته شدن بالاتر
-$agent_market_condition_below: بسته شدن پایین‌تر
-$agent_market_condition_inside: بسته شدن در داخل
-$agent_market_condition_outside: بسته شدن در خارج
-$agent_market_condition_waiting: در انتظار تأیید
-$agent_market_condition_approaching: در حال نزدیک شدن
-$agent_market_condition_triggered: تأیید شده
-$agent_market_scenario_zone: منطقه سناریو
-$agent_market_expected_move: پوشش نوسان
-$agent_market_volatility_envelope: پوشش نوسان کلی
-$agent_market_expected_move_note: حرکت مشروط، نه یک احتمال
-$agent_market_risk_caveat: سناریوها مشروط هستند و توصیه معاملاتی محسوب نمی‌شوند.
-$agent_market_partial_coverage: بخشی از شواهد بازار در دسترس نیست؛ اعتماد محدود است.
-$agent_market_thesis_bullish: ساختار تأیید شده ادامه حرکت بالای مقاومت را ترجیح می‌دهد در حالی که باطل‌سازی زیر نزدیک‌ترین حمایت باقی می‌ماند.
-$agent_market_thesis_bearish: ساختار تأیید شده ادامه حرکت پایین‌تر از حمایت را ترجیح می‌دهد در حالی که باطل‌سازی بالای نزدیک‌ترین مقاومت باقی می‌ماند.
-$agent_market_thesis_range: قیمت بین حمایت و مقاومت تأیید شده متعادل باقی مانده است.
-$agent_market_thesis_mixed: چارچوب‌های زمانی تناقض دارند، بنابراین تأیید در مرز ساختاری از شاخص‌های جهت‌دار مهم‌تر است.
-$agent_market_thesis_insufficient: شواهد موجود برای تأیید یک ساختار جهت‌دار کافی نیست.
-$agent_market_thesis_unconfirmed: هیچ سناریویی تأیید نشده است؛ قبل از اتخاذ یک موقعیت جهت‌دار منتظر بسته شدن مرز ساختاری باشید.
-$agent_semantic_asset_search: جستجوی دارایی
-$agent_semantic_web_digest: نتایج وب
-$agent_semantic_no_results: هیچ نتیجه‌ای یافت نشد
-$agent_semantic_wallets: کیف پول‌ها
-$agent_semantic_wallet: کیف پول
-$agent_semantic_balance: موجودی
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: معمولی
-$agent_semantic_access_view_only: فقط مشاهده
-$agent_semantic_wallets_unpriced: موقعیت‌های %amount% در مجموع‌های نمایش داده شده لحاظ نشده‌اند زیرا قیمتی ندارند.
-$agent_semantic_wallets_stale: برخی از موجودی‌های کیف پول ممکن است قدیمی باشند.
-$agent_semantic_wallets_unavailable: برخی از موجودی‌های کیف پول در دسترس نیستند.
-$agent_semantic_wallets_partial: برخی از داده‌های کیف پول ناقص هستند.
-$agent_semantic_status: وضعیت
-$agent_semantic_quantity: تعداد
-$agent_semantic_time: زمان
-$agent_semantic_partial: برخی داده‌ها در دسترس نیستند.
-$agent_semantic_pending: در انتظار
-$agent_semantic_confirmed: تأیید شده
-$agent_semantic_completed: تکمیل شده
-$agent_semantic_failed: ناموفق
-$agent_semantic_expired: منقضی شده
-$agent_semantic_active: فعال
-$agent_semantic_unstaking: خارج کردن از استیک
-$agent_semantic_ready: آماده
-$agent_semantic_frozen: منجمد
-$agent_semantic_locked: قفل شده
-$agent_semantic_fungible: توکن
-$agent_semantic_nft: NFT
-$agent_semantic_staking: استیکینگ
-$agent_semantic_vesting: مرحله‌بندی
-$agent_semantic_vault: خزانه
-$agent_semantic_transfer: انتقال
-$agent_semantic_swap: تبادل
-$agent_semantic_stake: استیک
-$agent_semantic_unstake: آن‌استیک
-$agent_semantic_contract: قرارداد
-$agent_semantic_unknown: فعالیت
-$agent_semantic_spam_transactions: تراکنش‌های اسپم
-$agent_semantic_spam_assets: دارایی‌های اسپم
-$agent_semantic_hidden_assets: دارایی‌های مخفی
-$agent_semantic_hidden_assets_warning: نام دارایی‌های مخفی ممکن است گمراه‌کننده باشد. آن‌ها به صورت متن ساده نمایش داده می‌شوند و نمی‌توان به عنوان لینک بازشان کرد.
-$agent_semantic_quarantine_warning: این موارد به عنوان اسپم گزارش شده‌اند. به نام‌ها یا لینک‌هایشان اعتماد نکنید.
-$agent_semantic_redacted_asset: نام مخفی
-$agent_semantic_omitted_spam: "اسپم فیلتر شده: %amount%"
-$agent_semantic_omitted_spam_minimum: "اسپم فیلتر شده: حداقل %amount%"
-$agent_semantic_omitted_hidden: "دارایی‌های مخفی حذف شدند: %amount%"
-$agent_semantic_omitted_hidden_minimum: "دارایی‌های مخفی حذف شدند: حداقل %amount%"
-$agent_semantic_suspicious: "نام‌های ناامن مخفی شدند: %amount%"
-$agent_semantic_suspicious_minimum: "نام‌های ناامن مخفی شدند: حداقل %amount%"
-$agent_semantic_suspicious_shown: "نام‌های احتمالا ناامن: %amount%"
-$agent_semantic_suspicious_shown_minimum: "نام‌های احتمالا ناامن: حداقل %amount%"
-$agent_semantic_omitted_rows: داده‌ها خیلی زیاد است. %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
-$agent_semantic_omitted_rows_minimum: داده‌ها خیلی زیاد است. حداقل %amount% ردیف اضافی شامل نشده‌اند. دوره یا فیلترها را محدود کنید.
-$agent_semantic_update_required: برای نمایش این پاسخ، برنامه را به‌روزرسانی کنید.
+Analyze it: تحلیل کن
+Check allocation: بررسی ترکیب دارایی‌ها
+Compare with last month: "مقایسه با ماه گذشته"
+Best & worst performers: "بهترین و بدترین عملکردها"
+Biggest profit today: "بیشترین سود امروز"
+$agent_prompt_portfolio_share: "میزان تنوع سبد دارایی من را تحلیل کن و هرگونه تمرکز بر دارایی‌های خاص را مشخص کن."
+$agent_prompt_portfolio_compare: "ارزش فعلی سبد دارایی من را با ارزش آن در یک ماه پیش مقایسه کن."
+$agent_prompt_portfolio_performers: "کدام دارایی‌های سبد من از نظر سود و زیان در دوره انتخاب‌شده (%period%) بهترین و بدترین عملکرد را داشتند؟"
+$agent_prompt_portfolio_best_day: "در کدام روز از دوره انتخاب‌شده (%period%) سبد دارایی من بیشترین سود را داشت؟"
+$agent_prompt_token_price: "قیمت %token% را تحلیل کن."
+$agent_hint_capabilities_title: چه کارهایی می‌توانی انجام دهی؟
 $agent_hint_portfolio_title: عملکرد پرتفوی
 $agent_hint_portfolio_prompt: عملکرد پرتفوی من را تحلیل کنید.
 $agent_hint_swap_title: سواپ‌ها چگونه کار می‌کنند
@@ -1512,167 +1349,17 @@ $agent_hint_security_title: امنیت کیف پول
 $agent_hint_security_prompt: نشان دهید چگونه کیف پولم را امن نگه دارم.
 $agent_hint_receive_title: دریافت توکن‌ها
 $agent_hint_receive_prompt: به من کمک کنید تا توکن‌ها را دریافت کنم.
-$agent_action_review_transfer: بررسی انتقال
-$agent_action_open_receive: باز کردن دریافت
-$agent_action_open_send: باز کردن ارسال
-$agent_action_open_staking: باز کردن استیکینگ
-$agent_action_open_swap: باز کردن سواپ
-$agent_activity_swap: در حال آماده‌سازی سواپ
-$agent_action_hide_spam: پنهان کردن دارایی‌های اسپم
-$agent_action_open_link: باز کردن لینک
-$agent_action_open_agent: باز کردن عامل
-$agent_action_open_token: باز کردن توکن در کیف پول
-$agent_action_open_transaction: باز کردن تراکنش
-$agent_input_asset: وارد کردن دارایی
-$agent_input_timeframe: وارد کردن بازه زمانی
-$agent_input_amount: وارد کردن مقدار
-$agent_input_recipient: وارد کردن گیرنده
-$agent_input_swap_details: وارد کردن جزئیات سواپ
-$agent_notice_agent_unavailable: عامل در حال حاضر در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.
-$agent_notice_analysis_unavailable: نتوانستیم این تحلیل را کامل کنیم. لطفاً دوباره تلاش کنید.
-$agent_notice_analysis_planning_unavailable: نتوانستیم به اندازه کافی از درخواست را تفسیر کنیم تا تحلیل را آماده کنیم.
-$agent_notice_analysis_source_unavailable: داده‌های مورد نیاز برای این تحلیل در حال حاضر در دسترس نیست.
-$agent_notice_analysis_stale_evidence: داده‌های موجود خیلی قدیمی هستند تا بتوان این تحلیل را به‌طور ایمن انجام داد.
-$agent_notice_analysis_inconsistent_snapshot: داده‌های مورد نیاز در طول تحلیل تغییر کردند. لطفاً دوباره تلاش کنید.
-$agent_notice_analysis_compute_failed: نتوانستیم محاسبه درخواست شده را انجام دهیم.
-$agent_notice_analysis_deadline_exceeded: تحلیل بیش از حد طول کشید تا تکمیل شود. لطفاً دوباره تلاش کنید.
-$agent_notice_analysis_result_too_large: نتیجه تحلیل خیلی بزرگ است تا بتوان آن را به‌طور ایمن ارائه داد.
-$agent_notice_analysis_answer_generation_failed: ما داده‌ها را جمع‌آوری کردیم اما نتوانستیم پاسخ را آماده کنیم. لطفاً دوباره تلاش کنید.
-$agent_notice_asset_not_found: دارایی درخواستی پیدا نشد.
-$agent_notice_clarification_required: اطلاعات بیشتری برای ادامه نیاز است.
-$agent_notice_clarification_asset: مشخص کنید که کدام دارایی رمزنگاری را می‌خواهید استفاده کنید.
-$agent_notice_clarification_network: مشخص کنید که کدام شبکه بلاک‌چین را می‌خواهید استفاده کنید.
-$agent_notice_clarification_query: مطمئن نیستم که درخواست را درست متوجه شده باشم. بگویید چه چیزی می‌خواهید بدانید یا انجام دهید.
-$agent_notice_clarification_quote_currency: از چه ارز نقل‌قولی باید استفاده کنم؟
-$agent_notice_clarification_staking_product: از چه محصول استیکینگ باید استفاده کنم؟
-$agent_notice_clarification_time_horizon: از چه افق زمانی باید استفاده کنم؟
-$agent_notice_clarification_price_assumption: از چه فرض قیمت باید استفاده کنم؟
-$agent_notice_repair_unrecognized_input: نمی‌توانم این پیام را بفهمم. بگویید چه چیزی می‌خواستید بدانید یا انجام دهید و من تلاش می‌کنم کمک کنم.
-$agent_notice_repair_ambiguous_request: مطمئن نیستم درخواست را درست متوجه شده باشم. چه چیزی می‌خواهید بدانید یا انجام دهید؟
-$agent_notice_repair_multiple_requests: چندین درخواست در آن پیام مشاهده می‌کنم. با کدام یک باید شروع کنیم؟
-$agent_notice_consent_required: دسترسی به داده‌های کیف پول را برای ادامه مجاز کنید.
 $agent_notice_content_over_budget: نتیجه خیلی بزرگ است و نمی‌توان آن را به طور کامل نمایش داد.
-$agent_notice_empty_result: نتایج مطابقتی یافت نشد.
-$agent_notice_market_unavailable: داده‌های بازار در حال حاضر در دسترس نیست.
-$agent_notice_market_analysis_unavailable: نتوانستیم تحلیل بازار را آماده کنیم. لطفاً دوباره تلاش کنید.
-$agent_notice_market_analysis_asset_unsupported: تحلیل این سکه در حال حاضر پشتیبانی نمی‌شود.
-$agent_notice_market_analysis_timeframe_unsupported: تحلیل برای این دوره در حال حاضر پشتیبانی نمی‌شود.
-$agent_notice_market_quote_resolved: "%asset% در حال حاضر معادل %price% %currency% ارزش دارد. تغییر ۲۴ ساعته: %change%%."
-$agent_notice_market_quote_price_unavailable: قیمت فعلی برای %asset% در دسترس نیست.
-$agent_notice_market_quote_ambiguous: "چندین توکن مطابقت دارند: %assets%. شبکه یا آدرس قرارداد را مشخص کنید."
-$agent_notice_market_quote_not_found: هیچ توکن مطابقتی برای این درخواست قیمت یافت نشد.
-$agent_notice_market_quote_planning_unavailable: درخواست قیمت قابل تفسیر نبود.
-$agent_notice_market_quote_capability_unavailable: جستجوی قیمت در این برنامه در دسترس نیست.
-$agent_notice_market_quote_wallet_context_unavailable: زمینه کیف پول مورد نیاز برای این جستجوی قیمت در دسترس نیست.
-$agent_notice_market_quote_currency_unsupported: ارز منتخب برای نقل قول برای این جستجوی قیمت پشتیبانی نمی‌شود.
-$agent_notice_market_quote_unavailable: قیمت فعلی برای این توکن در دسترس نیست.
-$agent_notice_market_quote_wallet_context_changed: کیف پول فعال قبل از اینکه جستجوی قیمت کامل شود تغییر کرد.
-$agent_notice_market_quote_timeout: جستجوی قیمت زمان‌بندی آن به پایان رسید.
-$agent_notice_market_quote_tool_failed: سرویس قیمت نتوانست جستجو را کامل کند.
-$agent_notice_market_quote_invalid_result: پاسخ قیمت قابل تأیید نبود.
-$agent_notice_market_quote_cancelled: جستجوی قیمت لغو شد.
-$agent_notice_portfolio_unavailable: داده‌های پرتفوی در حال حاضر در دسترس نیست.
-$agent_notice_receive_details_required: رمزارز و شبکه مورد نظر برای واریز را مشخص کنید.
-$agent_notice_receive_asset_required: رمزارز مورد نظر برای واریز را مشخص کنید.
-$agent_notice_receive_network_required: شبکه مورد نظر برای واریز را مشخص کنید.
-$agent_notice_receive_ready: صفحه دریافت شما آماده باز شدن است.
-$agent_notice_receive_memo_not_required: هنگام تأمین مالی آدرس My Wallet خود، یادداشت لازم نیست — فیلد را خالی بگذارید.
-$agent_notice_receive_unavailable: دریافت برای این کیف پول در دسترس نیست.
-$agent_notice_receive_planning_unavailable: درخواست دریافت قابل تفسیر نبود. آن را دوباره بیان کنید یا دریافت را باز کنید.
-$agent_notice_receive_active_account_unavailable: کیف پول فعال در دسترس نیست. کیف پول را تغییر دهید و دوباره امتحان کنید.
-$agent_notice_receive_client_unavailable: دریافت از طریق عامل در این برنامه در دسترس نیست. به جای آن دریافت را باز کنید.
-$agent_notice_receive_chain_unsupported: این کیف پول از %requested_network% پشتیبانی نمی‌کند. شبکه فعال %active_network% است.
-$agent_notice_receive_active_network_mismatch: شبکه فعال %active_network% است. برای دریافت، به %requested_network% تغییر دهید.
-$agent_notice_retry_required: لطفاً دوباره درخواست را امتحان کنید.
-$agent_notice_send_details_required: جزئیات انتقال گمشده را اضافه کنید تا ادامه دهید.
-$agent_notice_send_form_amount_required: ارسال را باز کنید، سپس مقدار را در فرم انتقال وارد کنید.
-$agent_notice_send_ready: البته — انتقال آماده است. قبل از ارسال جزئیات را مرور کنید.
-$agent_notice_send_ready_inferred_asset: به نظر می‌رسد منظور شما %symbol% بوده است. انتقال را آماده کرده‌ام — قبل از ارسال جزئیات را مرور کنید.
-$agent_notice_send_missing_amount: می‌خواهید چقدر ارسال کنید؟
-$agent_notice_send_missing_asset: می‌خواهید کدام ارز را ارسال کنید؟
-$agent_notice_send_missing_recipient: می‌خواهید آن را به چه کسی ارسال کنید؟
-$agent_notice_send_no_sendable_balance: کیف پول فعال در حال حاضر موجودی قابل دسترسی برای ارسال ندارد.
-$agent_notice_send_unavailable: انتقال به‌طور ایمن قابل آماده‌سازی نبود. از ارسال استفاده کنید یا بعداً دوباره تلاش کنید.
-$agent_notice_staking_ready: استیکینگ آماده باز شدن است.
-$agent_notice_staking_unavailable: استیکینگ از طریق عامل در حال حاضر در دسترس نیست. به جای آن استیکینگ را از کیف پول باز کنید.
-$agent_notice_staking_planning_unavailable: درخواست استیکینگ قابل تفسیر نبود. آن را دوباره بیان کنید یا استیکینگ را باز کنید.
-$agent_notice_staking_active_account_unavailable: کیف پول فعال در دسترس نیست. کیف پول‌ها را تغییر دهید و دوباره تلاش کنید.
-$agent_notice_staking_view_only: استیکینگ برای کیف پول فقط مشاهده‌ای در دسترس نیست. به کیف پولی که می‌توانید با آن امضا کنید، تغییر دهید.
-$agent_notice_staking_client_unavailable: استیکینگ از طریق عامل در این برنامه در دسترس نیست. به جای آن استیکینگ را از کیف پول باز کنید.
-$agent_notice_staking_asset_unavailable: استیکینگ این دارایی در کیف پول فعال در دسترس نیست. یک دارایی استیکینگ موجود دیگر را انتخاب کنید.
-$agent_notice_staking_amount_invalid: مقدار استیکینگ درخواست شده قابل استفاده نیست. مقدار دیگری را در استیکینگ وارد کنید.
-$agent_notice_staking_wallet_context_changed: گزینه‌های استیکینگ کیف پول فعال تغییر کرده‌اند. از عامل بخواهید دوباره استیکینگ را آماده کند.
-$agent_notice_swap_ready_indicative: "برآورد تقریبی: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. قیمت اجرایی، کارمزدها، لغزش و تأثیر قیمت در بخش مبادله بارگذاری خواهند شد."
-$agent_notice_swap_ready_price_unavailable: قیمت تقریبی محلی برای %from_symbol% → %to_symbol% در دسترس نیست. برای بارگذاری قیمت اجرایی، کارمزدها و لغزش، بخش مبادله را باز کنید.
-$agent_notice_swap_details_source_asset: دارایی رمزنگاری برای مبادله را مشخص کنید.
-$agent_notice_swap_details_destination_asset: دارایی رمزنگاری برای دریافت را مشخص کنید.
-$agent_notice_swap_details_amount: یک مقدار مثبت رمزنگاری مشخص کنید.
-$agent_notice_swap_details_direction: برای ادامه، دارایی منبع، دارایی مقصد و مقدار را مشخص کنید.
-$agent_notice_swap_details_candidates: "منطبق با %prompt%: %candidates%."
-$agent_notice_swap_unavailable: آماده‌سازی مبادله از طریق عامل در حال حاضر در دسترس نیست. به جای آن بخش مبادله را از کیف پول باز کنید.
-$agent_notice_swap_planning_unavailable: درخواست مبادله قابل تفسیر نبود. هر دو دارایی رمزنگاری و یک مقدار را مشخص کنید.
-$agent_notice_swap_active_account_unavailable: کیف پول فعال در دسترس نیست. کیف پول‌ها را تغییر داده و دوباره تلاش کنید.
-$agent_notice_swap_view_only: آماده‌سازی مبادله برای کیف پول فقط نمایشی در دسترس نیست. به کیف پولی که می‌توانید با آن امضا کنید، تغییر دهید.
-$agent_notice_swap_client_unavailable: آماده‌سازی مبادله از طریق عامل در این برنامه در دسترس نیست. به جای آن بخش مبادله را از کیف پول باز کنید.
-$agent_notice_swap_wallet_context_changed: کیف پول فعال قبل از تکمیل آماده‌سازی مبادله تغییر کرد. دوباره امتحان کنید.
-$agent_notice_swap_timeout: آماده‌سازی مبادله زمان‌بندی آن به اتمام رسید. دوباره امتحان کنید.
-$agent_notice_swap_tool_failed: کیف پول نتوانست این مبادله را آماده کند. دوباره امتحان کنید یا مبادله را باز کنید.
-$agent_notice_swap_invalid_result: مبادله آماده‌شده قابل تأیید نبود. دوباره امتحان کنید.
-$agent_notice_send_asset_not_held: این دارایی در کیف پول فعال موجود نیست. دارایی یا کیف پول دیگری انتخاب کنید.
-$agent_notice_send_insufficient_balance: برای این انتقال موجودی کافی نیست. مقدار را کاهش دهید یا کیف پول را تغییر دهید.
-$agent_notice_send_recipient_not_found: هیچ کیف پول خودی یا آدرس ذخیره شده‌ای مطابق پیدا نشد.
-$agent_notice_send_recipient_not_found_named: هیچ کیف پول خودی یا آدرس ذخیره شده‌ای با نام “%recipient%” پیدا نشد.
-$agent_notice_send_recipient_ambiguous: بیش از یک کیف پول یا مخاطب ممکن است مطابق باشد. گیرنده را مشخص کنید.
-$agent_notice_send_address_book_unavailable: دفترچه آدرس فعلی قابل بارگذاری نبود. دوباره امتحان کنید یا در ارسال مخاطب را انتخاب کنید.
-$agent_notice_send_recipient_matching_unavailable: دفترچه آدرس موجود است، اما عامل نتوانست نام گیرنده را به طور واضح مطابقت دهد. نام را مشخص کنید یا در ارسال مخاطب را انتخاب کنید.
-$agent_notice_send_intent_extraction_unavailable: کدام دارایی را می‌خواهید ارسال کنید؟
-$agent_notice_send_intent_provider_unavailable: خدمت پردازش فرمان به طور موقت در دسترس نیست. دوباره امتحان کنید یا از ارسال استفاده کنید.
-$agent_notice_send_invalid_recipient: آدرس گیرنده نامعتبر است.
-$agent_notice_send_recipient_unresolved: گیرنده قابل شناسایی نبود.
-$agent_notice_send_recipient_inactive: حساب گیرنده غیرفعال است.
-$agent_notice_send_memo_required: این انتقال به یادداشت نیاز دارد.
-$agent_notice_send_wallet_not_initialized: کیف پول گیرنده راه‌اندازی نشده است.
-$agent_notice_send_active_account_unavailable: کیف پول فعال در دسترس نیست. کیف پول‌ها را تغییر دهید.
-$agent_notice_send_chain_unsupported: این کیف پول نمی‌تواند در شبکه انتخاب شده ارسال انجام دهد. شبکه یا کیف پول را تغییر دهید.
-$agent_notice_send_client_unavailable: انتقال از طریق عامل در این برنامه در دسترس نیست. از گزینه ارسال استفاده کنید.
-$agent_notice_send_view_only: یک کیف پول فقط برای مشاهده نمی‌تواند وجه ارسال کند. کیف پول را تغییر دهید.
-$agent_notice_send_offline: برای آماده‌سازی این انتقال به اینترنت متصل شوید.
-$agent_notice_send_wallet_context_changed: کیف پول فعال تغییر کرده است. دوباره انتقال را آماده کنید.
-$agent_notice_send_source_wallet_selection_required: عامل فقط می‌تواند این انتقال را از کیف پول فعلی آماده کند. به کیف پول نام‌برده تغییر دهید و دوباره تلاش کنید.
-$agent_notice_send_validation_failed: جزئیات انتقال، اعتبارسنجی کیف پول را گذر نکرد.
-$agent_notice_tool_unavailable: این عملیات در مشتری فعلی در دسترس نیست.
-$agent_notice_wallet_unavailable: داده‌های کیف پول در حال حاضر در دسترس نیستند.
-$agent_notice_wallet_filter_ambiguous: یک کیف پول یا دارایی را انتخاب کنید تا درخواست محدودتر شود.
-$agent_notice_web_unavailable: جستجوی وب در حال حاضر در دسترس نیست.
-$agent_notice_web_capability_unavailable: جستجوی وب توسط پیکربندی فعلی عامل پشتیبانی نمی‌شود.
-$agent_notice_web_planning_failed: عامل نتوانست پرس‌وجوی جستجو را آماده کند.
-$agent_notice_web_budget_denied: حد جستجوی وب به پایان رسیده است. لطفاً دوباره بعداً تلاش کنید.
-$agent_notice_web_provider_rate_limited: ارائه‌دهنده جستجو به طور موقت درخواست‌ها را محدود کرده است. لطفاً بعداً دوباره تلاش کنید.
-$agent_notice_web_provider_unavailable: ارائه‌دهنده جستجو پاسخ نداد. لطفاً بعداً دوباره تلاش کنید.
-$agent_notice_web_no_results: جستجو انجام شد، اما نتیجه مرتبطی یافت نشد.
-$agent_notice_web_invalid_sources: نتایج جستجو دریافت شدند، اما از بررسی‌های ایمنی عبور نکردند.
-$agent_notice_web_synthesis_timeout: نتایجی یافت شدند، اما پردازش آن‌ها زمان زیادی طول کشید.
-$agent_notice_web_synthesis_invalid: نتایجی پیدا شد، اما عامل نتوانست یک خلاصه معتبر تولید کند.
-$agent_notice_web_synthesis_unavailable: نتایجی پیدا شد، اما مدل خلاصه‌سازی در حال حاضر در دسترس نیست.
-$agent_notice_web_policy_rejected: خلاصه تولید شد، اما از بررسی کیفیت عبور نکرد.
+$agent_notice_web_search_no_results: اطلاعاتی مطابق با درخواست شما پیدا نشد.
 $agent_error_session: جلسه عامل شما منقضی شده است. عامل را دوباره باز کنید و دوباره امتحان کنید.
 $agent_error_limit: درخواست قابل تکمیل نیست، زیرا سقف استفاده از عامل پر شده است.
 $agent_error_tool: یک عملیات کیف پول نمی‌تواند تکمیل شود. لطفاً دوباره تلاش کنید.
 $agent_error_conversation_updated: گفتگو به‌روز شد. لطفاً دوباره درخواست را امتحان کنید.
 $agent_error_generic: عامل نتوانست درخواست را تکمیل کند. لطفاً دوباره تلاش کنید.
+$agent_error_invalid_response: پاسخ عامل خوانده نشد. لطفاً دوباره تلاش کنید.
 $agent_error_update_required: برای ادامه برنامه را به‌روزرسانی کنید.
-$agent_semantic_transactions: تراکنش‌ها
-$agent_semantic_positions: موقعیت‌ها
-$agent_semantic_market: نمای کلی بازار
 $agent_wallet_page_navigation: صفحات داده کیف پول
-$agent_wallet_page_previous: ← قبلی
-$agent_wallet_page_next: بعدی →
 $agent_wallet_page_indicator: "%current% از %total%"
-$agent_portfolio_unpriced: شامل نشده
-$agent_portfolio_unpriced_value: شامل نشده
-$agent_portfolio_more_positions: +%count% بیشتر
-$agent_portfolio_history_on: تاریخچه در شبکه %network%
-$agent_portfolio_no_activity: هیچ فعالیت اخیر وجود ندارد.
 Clear Chat: پاک کردن گفتگو
 Unsupported link: لینک پشتیبانی‌نشده
 My Wallet Features: قابلیت‌های My Wallet
@@ -1708,10 +1395,13 @@ Manage Assets: مدیریت دارایی‌ها
 Pulse: نبض
 Edit Message: ویرایش پیام
 Toggle Hints: تغییر وضعیت راهنمایی‌ها
-AgentErrorResponseFailed: "خطا: دریافت پاسخ ناموفق بود"
-AgentErrorConnectionFailed: "خطا: اتصال ناموفق بود"
 Scroll To Bottom: پیمایش به پایین
 $agent_clear_chat_confirm: آیا مطمئن هستید که می‌خواهید تاریخچه گفتگو را پاک کنید؟
+Report a Problem: گزارش مشکل
+$agent_report_problem_description: پیام‌های اخیر این گفتگو برای کمک به رفع مشکل به تیم ما ارسال می‌شود.
+$agent_report_problem_sent: متشکریم! گزارش شما ارسال شد.
+$agent_report_problem_failed: ارسال گزارش ناموفق بود. لطفاً دوباره تلاش کنید.
+$agent_report_problem_rate_limited: اخیراً چند گزارش ارسال کرده‌اید. لطفاً بعداً دوباره تلاش کنید.
 $unknown_swap_token: توکن ناشناخته در لینک مبادله. از توکن‌های پیش‌فرض استفاده شد.
 $action_not_available_view_mode: این اقدام برای کیف پول‌های مشاهده در دسترس نیست
 Deposit: واریز
@@ -2290,6 +1980,7 @@ Tokenized Gold: طلای توکن‌شده
 Index Funds: صندوق‌های شاخص
 Search token or stock: جستجوی توکن یا سهام
 "Activity Failed to Load": "بارگیری فعالیت ناموفق بود"
+"$agent_source_bea_attribution": "این محصول از API داده‌های دفتر تحلیل اقتصادی (BEA) استفاده می‌کند، اما مورد تأیید یا گواهی BEA نیست."
 "Address was copied!": "آدرس کپی شد!"
 "Allow App Lock": "اجازهٔ قفل برنامه"
 "An error occurred": "خطایی رخ داد"

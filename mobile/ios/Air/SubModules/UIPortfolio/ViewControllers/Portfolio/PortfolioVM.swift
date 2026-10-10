@@ -69,6 +69,17 @@ enum PortfolioTimeRange: String, CaseIterable, Equatable, Hashable, Sendable {
         }
     }
 
+    var fullTitle: String {
+        switch self {
+        case .all: lang("$period_all")
+        case .year: lang("$period_year")
+        case .threeMonths: lang("$period_3months")
+        case .month: lang("$period_month")
+        case .week: lang("$period_week")
+        case .day: lang("$period_day")
+        }
+    }
+
     var density: String {
         switch self {
         case .day:

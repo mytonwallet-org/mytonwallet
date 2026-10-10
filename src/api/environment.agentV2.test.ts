@@ -21,10 +21,10 @@ describe('Agent V2 API environment', () => {
     expect(environment.isAgentV2Enabled).toBe(agentOverride === 'v2');
   });
 
-  it('keeps Agent V2 disabled in Android builds', () => {
-    const { setEnvironment } = loadEnvironment('v2');
+  it('enables Agent V2 on Android despite V1 overrides', () => {
+    const { setEnvironment } = loadEnvironment('v1');
 
-    expect(setEnvironment({ isAndroidApp: true }).isAgentV2Enabled).toBe(false);
+    expect(setEnvironment({ agentOverride: 'v1', isAndroidApp: true }).isAgentV2Enabled).toBe(true);
   });
 });
 

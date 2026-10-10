@@ -448,7 +448,7 @@ class HeaderActionsView(
                     Item(
                         Identifier.SWAP,
                         context.requireDrawableCompat(R.drawable.ic_header_swap_outline),
-                        LocaleController.getString("Swap")
+                        LocaleController.getString("Trade")
                     )
                 )
                 if (showEarn) {

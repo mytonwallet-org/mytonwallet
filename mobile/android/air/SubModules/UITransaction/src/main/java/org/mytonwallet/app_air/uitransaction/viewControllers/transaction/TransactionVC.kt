@@ -467,7 +467,9 @@ class TransactionVC(
                 headerView.removeAllViews()
                 transactionHeaderView = null
                 swapHeaderView = null
-                nftHeaderView = NftHeaderView(WeakReference(this), transaction)
+                nftHeaderView = NftHeaderView(WeakReference(this), transaction) { nft ->
+                    WalletCore.notifyEvent(WalletEvent.OpenNft(showingAccountId, nft))
+                }
                 headerView.addView(nftHeaderView)
             } else {
                 if (transactionHeaderView != null) {
@@ -820,13 +822,40 @@ class TransactionVC(
             }
         }
 
+        detailsRowViews.addAll(createIdRows(idRowsKey()))
+
+        detailsRowViews.forEach { v.addView(it) }
+        detailsRowViews.lastOrNull()?.setLast(true)
+
+        layoutDetailsRows(v)
+        v
+    }
+
+    private data class IdRowsKey(
+        val swapProviderName: String?,
+        val hasSwapProviderId: Boolean,
+        val swapTransactionIds: List<SwapTransactionIdItem>,
+        val hasTransactionId: Boolean
+    )
+
+    private var idRowsKey: IdRowsKey? = null
+
+    private fun idRowsKey(): IdRowsKey {
         val swapTransaction = transaction as? MApiTransaction.Swap
-        val swapTransactionIds = getSwapTransactionIdItems(swapTransaction)
-        val swapProviderName = swapTransaction?.cex?.providerName?.takeIf { it.isNotEmpty() }
-        if (!swapTransaction?.cex?.transactionId.isNullOrEmpty()) {
+        return IdRowsKey(
+            swapProviderName = swapTransaction?.cex?.providerName?.takeIf { it.isNotEmpty() },
+            hasSwapProviderId = !swapTransaction?.cex?.transactionId.isNullOrEmpty(),
+            swapTransactionIds = getSwapTransactionIdItems(swapTransaction),
+            hasTransactionId = transaction.getTxIdentifier()?.isNotEmpty() == true
+        )
+    }
+
+    private fun createIdRows(key: IdRowsKey): List<KeyValueRowView> {
+        val rows = ArrayList<KeyValueRowView>()
+        if (key.hasSwapProviderId) {
             val providerIdRow = KeyValueRowView(
                 context,
-                swapProviderName?.let {
+                key.swapProviderName?.let {
                     LocaleController.getString("Swap ID for %provider%").replace("%provider%", it)
                 } ?: LocaleController.getString("Swap ID"),
                 "",
@@ -834,10 +863,10 @@ class TransactionVC(
                 isLast = false
             )
             swapProviderIdRow = providerIdRow
-            detailsRowViews.add(providerIdRow)
+            rows.add(providerIdRow)
         }
-        if (swapTransactionIds.isNotEmpty()) {
-            swapTransactionIds.forEach { item ->
+        if (key.swapTransactionIds.isNotEmpty()) {
+            key.swapTransactionIds.forEach { item ->
                 val row = KeyValueRowView(
                     context,
                     LocaleController.getString(item.label),
@@ -845,10 +874,10 @@ class TransactionVC(
                     mode = KeyValueRowView.Mode.SECONDARY,
                     isLast = false
                 )
-                detailsRowViews.add(row)
+                rows.add(row)
                 swapTransactionIdRows.add(SwapTransactionIdRow(row, item))
             }
-        } else if (shouldShowViewInExplorer && swapProviderIdRow == null) {
+        } else if (key.hasTransactionId && swapProviderIdRow == null) {
             val txIdRow = KeyValueRowView(
                 context,
                 LocaleController.getString("Transaction ID"),
@@ -857,15 +886,44 @@ class TransactionVC(
                 isLast = false
             )
             transactionIdRow = txIdRow
-            detailsRowViews.add(txIdRow)
+            rows.add(txIdRow)
         }
+        idRowsKey = key
+        return rows
+    }
 
-        detailsRowViews.forEach { v.addView(it) }
-        detailsRowViews.lastOrNull()?.setLast(true)
+    private fun updateIdRows() {
+        val currentKey = idRowsKey ?: return
+        val key = idRowsKey()
+        if (key != currentKey) {
+            val oldRows = listOfNotNull(swapProviderIdRow, transactionIdRow) +
+                swapTransactionIdRows.map { it.row }
+            oldRows.forEach { transactionDetails.removeView(it) }
+            detailsRowViews.removeAll(oldRows.toSet())
+            swapProviderIdRow = null
+            transactionIdRow = null
+            swapTransactionIdRows.clear()
+            val newRows = createIdRows(key)
+            newRows.forEach { transactionDetails.addView(it) }
+            detailsRowViews.addAll(newRows)
+            layoutDetailsRows(transactionDetails)
+        }
+        updateIdRowValues()
+    }
 
+    private fun updateIdRowValues() {
+        transactionIdRow?.setValue(transactionIdValue)
+        swapProviderIdRow?.setValue(swapProviderIdValue)
+        swapTransactionIdRows.forEach {
+            it.row.setValue(swapTransactionIdValue(it))
+        }
+    }
+
+    private fun layoutDetailsRows(v: WView) {
         v.setConstraints {
             toTop(transactionDetailsLabel, 16f)
             detailsRowViews.forEachIndexed { index, rowView ->
+                clear(rowView.id, ConstraintSet.BOTTOM)
                 if (index == 0) {
                     topToBottom(rowView, transactionDetailsLabel, 0f)
                 } else {
@@ -876,7 +934,6 @@ class TransactionVC(
             toBottom(detailsRowViews.last())
             toStart(transactionDetailsLabel, 20f)
         }
-        v
     }
 
     private val cexFooter by lazy { CexActivityDetailsFooter(context) }
@@ -1194,11 +1251,7 @@ class TransactionVC(
         transactionAddressHeader?.updateTheme()
         transactionAddressView?.updateTheme()
         transactionDetailsLabel.setTextColor(WColor.Tint.color)
-        transactionIdRow?.setValue(transactionIdValue)
-        swapProviderIdRow?.setValue(swapProviderIdValue)
-        swapTransactionIdRows.forEach {
-            it.row.setValue(swapTransactionIdValue(it))
-        }
+        updateIdRowValues()
 
         separatorDrawable.invalidateSelf()
     }
@@ -1407,6 +1460,7 @@ class TransactionVC(
         reloadTransactionAddressView()
         actionsView.resetTabs(generateActions())
         loadActivityDetails()
+        updateIdRows()
         updateFeeRow()
     }
 
@@ -1906,6 +1960,7 @@ class TransactionVC(
                     transaction = adjustTransactionStatusForUi(res)
                     updateCexFooter()
                     updateEstimatedTimeRow(res)
+                    updateIdRows()
                 }
                 updateFeeRow()
             }

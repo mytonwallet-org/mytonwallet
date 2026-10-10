@@ -15,10 +15,10 @@ import {
   selectEnabledTokensCountMemoizedFor,
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
+import { calcVestingAmountByStatus } from '../../../../util/vesting';
 import { IS_TOUCH_ENV, REM, STICKY_CARD_INTERSECTION_THRESHOLD } from '../../../../util/windowEnvironment';
 import windowSize from '../../../../util/windowSize';
 import { calcSafeAreaTop } from '../../helpers/calcSafeAreaTop';
-import { calcVestingAmountByStatus } from '../../helpers/calcVestingAmountByStatus';
 import { getScrollableContainer } from '../../helpers/scrollableContainer';
 
 import useElementVisibility from '../../../../hooks/useElementVisibility';

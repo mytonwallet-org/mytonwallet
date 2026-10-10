@@ -41,18 +41,18 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         public let id: String
         public let dequeueCell: @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell
         private let onWillDisplay: (@MainActor (UICollectionViewCell) -> Void)?
-        private let appearance: UICollectionLayoutListConfiguration.Appearance?
+        private let usesInsetGroupedMargins: Bool
 
         public var itemIdentifiers: [String] { [id] }
 
         public init(
             id: String,
-            appearance: UICollectionLayoutListConfiguration.Appearance? = nil,
+            usesInsetGroupedMargins: Bool = false,
             dequeueCell: @escaping @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell,
             willDisplay: (@MainActor (UICollectionViewCell) -> Void)? = nil
         ) {
             self.id = id
-            self.appearance = appearance
+            self.usesInsetGroupedMargins = usesInsetGroupedMargins
             self.dequeueCell = dequeueCell
             self.onWillDisplay = willDisplay
         }
@@ -70,11 +70,21 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
 
         public func makeLayoutSection(layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
-            guard let appearance else { return nil }
-            var configuration = UICollectionLayoutListConfiguration(appearance: appearance)
-            configuration.backgroundColor = .clear
-            configuration.showsSeparators = false
-            let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+            guard usesInsetGroupedMargins else { return nil }
+            let listSection = NSCollectionLayoutSection.list(
+                using: UICollectionLayoutListConfiguration(appearance: .insetGrouped),
+                layoutEnvironment: layoutEnvironment
+            )
+            let size = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1),
+                heightDimension: .estimated(plainSectionEstimatedHeight)
+            )
+            let item = NSCollectionLayoutItem(layoutSize: size)
+            let group = NSCollectionLayoutGroup.vertical(layoutSize: size, subitems: [item])
+            let section = NSCollectionLayoutSection(group: group)
+            // Keep UIKit's asymmetric margins without its rounded list-cell clipping.
+            section.contentInsetsReference = listSection.contentInsetsReference
+            section.contentInsets = listSection.contentInsets
             section.contentInsets.top = 0
             section.contentInsets.bottom = 16
             return section
@@ -114,7 +124,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     private var pendingContentReplacementCompletion: (@MainActor @Sendable () -> Void)?
     private var pendingContentReplacementUpdates: (@MainActor @Sendable () -> Void)?
     private let nftAnimationPlaybackCoordinator = NftAnimationPlaybackCoordinator()
-    private var isViewVisibleForNftAnimationPlayback = false
+    private var isViewVisible = false
     private var nftAnimationPlaybackEligibleIDs = Set<String>()
 
 
@@ -128,18 +138,23 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     private var pendingHomeTraceRequests: [UInt64] = []
     private var pendingHomeTraceCauses = Set<UInt64>()
 
+    public var shouldAnimateContentUpdates: Bool {
+        isViewVisible && viewIfLoaded?.window != nil && UIView.areAnimationsEnabled
+            && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+    }
+
     // MARK: - Misc
 
     open override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        self.isViewVisibleForNftAnimationPlayback = true
+        self.isViewVisible = true
         self.updateNftAnimationPlaybackActivity()
         self.updateVisibleActivityNftAnimationPlayback()
     }
 
     open override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        self.isViewVisibleForNftAnimationPlayback = false
+        self.isViewVisible = false
         self.updateNftAnimationPlaybackActivity()
     }
 
@@ -593,6 +608,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     
     open func applySnapshot(_ snapshot: NSDiffableDataSourceSnapshot<Section, Row>, animatingDifferences: Bool = true) {
         guard let dataSource else { return }
+        let animatingDifferences = animatingDifferences && shouldAnimateContentUpdates
         if !usesBackgroundSnapshotDiffing {
             enqueueMainThreadSnapshot(snapshot, animatingDifferences: animatingDifferences, notifiesDidApply: true)
             return
@@ -627,7 +643,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         }
         pendingMainThreadSnapshot = (
             snapshot,
-            animatingDifferences || pending?.animatingDifferences == true,
+            // A geometry/restoration request must stay silent after this batch leaves its
+            // performWithoutAnimation scope, even if a data refresh is coalesced with it.
+            animatingDifferences && pending?.animatingDifferences != false,
             notifiesDidApply || pending?.notifiesDidApply == true
         )
         if collectionView.tracesHomeUpdates, HomeTrace.isEnabled {
@@ -660,7 +678,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             self.pendingHomeTraceRequests.removeAll(keepingCapacity: true)
             self.pendingHomeTraceCauses.removeAll(keepingCapacity: true)
             let startedAt = HomeTrace.isEnabled ? HomeTrace.now : 0
-            let applyID = self.collectionView.traceHome("snapshot.apply.begin", "requests=\(requests) causes=\(causes) rows=\(pending.snapshot.numberOfItems) reconfigure=\(pending.snapshot.reconfiguredItemIdentifiers.count) animated=\(pending.animatingDifferences)")
+            let animatingDifferences = pending.animatingDifferences && self.shouldAnimateContentUpdates
+            let applyID = self.collectionView.traceHome("snapshot.apply.begin", "requests=\(requests) causes=\(causes) rows=\(pending.snapshot.numberOfItems) reconfigure=\(pending.snapshot.reconfiguredItemIdentifiers.count) animated=\(animatingDifferences)")
             let apply = { [self] in
                 HomeTrace.$cause.withValue(applyID) {
                     // Coordinated geometry updates can reconfigure an offscreen section.
@@ -680,16 +699,18 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                         }
                         replacementCompletion?()
                     }
-                    self.dataSource?.apply(snapshot, animatingDifferences: pending.animatingDifferences, completion: completion)
+                    self.dataSource?.apply(snapshot, animatingDifferences: animatingDifferences, completion: completion)
                 }
             }
-            if replacementUpdates != nil, pending.animatingDifferences {
+            if replacementUpdates != nil, animatingDifferences {
                 UIView.animateAdaptive(duration: 0.3) {
                     apply()
                     self.view.layoutIfNeeded()
                 }
-            } else {
+            } else if animatingDifferences {
                 apply()
+            } else {
+                UIView.performWithoutAnimation(apply)
             }
         }
     }
@@ -736,8 +757,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         collectionView.collectionViewLayout.invalidateLayout(with: context)
     }
 
-    public func reconfigureCustomSection(id: String) {
+    public func reconfigureCustomSection(id: String, animated: Bool = true) {
         guard let dataSource, let dataProvider = customSectionDataProvider(id: id) else { return }
+        let animated = animated && shouldAnimateContentUpdates
         let currentSnapshot = pendingMainThreadSnapshot?.snapshot ?? preparingMainThreadSnapshot ?? dataSource.snapshot()
         let rows = customRows(for: dataProvider).filter(currentSnapshot.itemIdentifiers.contains)
         collectionView.traceHome("section.reconfigure", "section=\(id) rows=\(rows.count) pendingSnapshot=\(pendingMainThreadSnapshot != nil)")
@@ -749,14 +771,14 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             }
             var snapshot = currentSnapshot
             snapshot.reconfigureItems(rows)
-            enqueueMainThreadSnapshot(snapshot, animatingDifferences: true, notifiesDidApply: false)
+            enqueueMainThreadSnapshot(snapshot, animatingDifferences: animated, notifiesDidApply: false)
             return
         }
         queue.async {
             var snapshot = currentSnapshot
             snapshot.reconfigureItems(rows)
             // @MainActor annotation conflicts with the docs which allow calling consistently on the background thread
-            dataSource.apply(snapshot, animatingDifferences: true) {
+            dataSource.apply(snapshot, animatingDifferences: animated) {
                 DispatchQueue.main.async {
                     self.updateSkeletonViewsIfNeeded(animateAlondside: nil)
                     self.updateVisibleActivityNftAnimationPlayback()
@@ -873,7 +895,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     public func updateVisibleActivityNftAnimationPlayback() {
         // Rotation builds a new Home before it appears. Its scroll/layout callbacks
         // must not force another layout just to prepare playback for an inactive view.
-        guard isViewVisibleForNftAnimationPlayback, isViewLoaded, dataSource != nil else {
+        guard isViewVisible, isViewLoaded, dataSource != nil else {
             return
         }
 
@@ -908,7 +930,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     }
 
     private var isNftAnimationPlaybackActive: Bool {
-        self.isViewVisibleForNftAnimationPlayback && self.viewIfLoaded?.window != nil
+        self.isViewVisible && self.viewIfLoaded?.window != nil
     }
 
     private func updateNftAnimationPlaybackActivity() {

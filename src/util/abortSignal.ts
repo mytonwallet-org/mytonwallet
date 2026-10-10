@@ -59,6 +59,25 @@ export function mergeAbortSignals(...signals: Array<AbortSignal | null | undefin
   return { signal: controller.signal, cleanup };
 }
 
+export function mergeAbortSignalsWithTimeout(
+  milliseconds: number,
+  ...signals: Array<AbortSignal | null | undefined>
+): { signal: AbortSignal; cleanup: () => void } {
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timeoutController.abort(new DOMException('The operation timed out.', 'TimeoutError'));
+  }, milliseconds);
+  const merged = mergeAbortSignals(timeoutController.signal, ...signals);
+
+  return {
+    signal: merged.signal ?? timeoutController.signal,
+    cleanup() {
+      clearTimeout(timeoutId);
+      merged.cleanup();
+    },
+  };
+}
+
 export function pauseWithAbortSignal(milliseconds: number, signal?: AbortSignal | null): Promise<void> {
   if (signal?.aborted) return Promise.reject(getAbortReason(signal));
 

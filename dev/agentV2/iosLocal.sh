@@ -112,17 +112,13 @@ build_install_and_launch_air() {
 wait_ready "$AGENT_BASE_URL"
 
 cd "$ROOT_DIR"
-AGENT_OVERRIDE=v2 \
   AGENT_API_URL="$AGENT_BASE_URL/api" \
   MOBILE_SDK_SKIP_IOS_LOCALIZATIONS=1 \
   npm run mobile:build:dev
 
 IOS_AGENT_BUNDLE="$ROOT_DIR/mobile/ios/App/App/Resources/MyTonWallet/JS/mytonwallet-sdk.js"
-IOS_AGENT_CONFIG="$ROOT_DIR/mobile/ios/App/App/Resources/MyTonWallet/JS/agent-override-config.json"
-if ! grep -Fq "const AGENT_API_URL = \"$AGENT_BASE_URL/api\"" "$IOS_AGENT_BUNDLE" \
-  || ! grep -Fq '"override":"v2"' "$IOS_AGENT_CONFIG" \
-  || ! grep -Fq "\"agentApiBaseUrl\":\"$AGENT_BASE_URL/api\"" "$IOS_AGENT_CONFIG"; then
-  echo "Air SDK was built without the required local Agent V2 configuration" >&2
+if ! grep -Fq "AGENT_API_URL = \"$AGENT_BASE_URL/api\"" "$IOS_AGENT_BUNDLE"; then
+  echo "Air SDK was built without the required local Agent API URL" >&2
   exit 1
 fi
 

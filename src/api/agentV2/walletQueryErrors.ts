@@ -1,6 +1,7 @@
 import type { AgenticWalletToolErrorCode } from './protocol/types';
 
 import { ApiServerError } from '../errors';
+import { classifyAgentV2Error } from './errors';
 
 export class WalletQueryProjectionError extends Error {
   constructor(
@@ -23,13 +24,16 @@ export function isRetryableWalletSourceError(error: unknown) {
       || error.statusCode === 429
       || error.statusCode >= 500;
   }
-  if (error instanceof DOMException) {
-    return error.name === 'NetworkError' || error.name === 'TimeoutError';
-  }
-  if (error instanceof TypeError) {
-    return /failed to fetch|fetch failed|load failed|networkerror|offline/iu.test(error.message);
-  }
+  if (classifyAgentV2Error(error).kind === 'network') return true;
   if (!error || typeof error !== 'object') return false;
   const code = 'code' in error ? error.code : undefined;
   return code === 'NETWORK_ERROR' || code === 'TIMEOUT' || code === 'SERVER_ERROR';
+}
+
+export function invalid(message: string) {
+  return new WalletQueryProjectionError('invalid_arguments', message, false);
+}
+
+export function unavailable(message: string) {
+  return new WalletQueryProjectionError('stale_data_unavailable', message, true);
 }

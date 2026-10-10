@@ -100,6 +100,8 @@ sealed class WalletEvent {
 
     data class OpenToken(val slug: String) : WalletEvent()
 
+    data class OpenNft(val accountId: String, val nft: ApiNft) : WalletEvent()
+
     data class OpenNftCollection(val accountId: String, val nft: ApiNft) : WalletEvent()
 
     data class OpenNftList(val name: String?, val accountId: String, val nfts: List<ApiNft>) :

@@ -58,7 +58,15 @@ data class InstallAttribution(
 }
 
 private val OWNED_REFERRER_ROOTS =
-    listOf("mywallet.io", "mytonwallet.io", "mytonwallet.org", "mytonwallet.app", "my.tt")
+    listOf(
+        "mywallet.io",
+        "mytonwallet.io",
+        "mytonwallet.org",
+        "mytonwallet.app",
+        "my.tt",
+        "gramwallet.io",
+        "gramwallet.app"
+    )
 private val REFERRER_DOMAIN_PATTERN =
     Regex("^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 

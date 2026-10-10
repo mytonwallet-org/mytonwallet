@@ -12,7 +12,7 @@
   <string name="app_blog_url" translatable="false">https://mywallet.io/en/blog</string>
   <string name="app_terms_of_use_url" translatable="false">https://gramwallet.io/terms-of-use</string>
   <string name="app_privacy_policy_url" translatable="false">https://gramwallet.io/privacy-policy</string>
-  <string name="app_install_url" translatable="false">https://gramwallet.io/android-store</string>
+  <string name="app_install_url" translatable="false">https://gramwallet.io/android-store?utm_source=app_share</string>
   <string name="bot_username" translatable="false">MyTonWalletBot</string>
   <string name="app_cards_url" translatable="false">https://cards.mytonwallet.io</string>
   <string name="app_help_url" translatable="false">https://help.mywallet.io</string>

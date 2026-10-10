@@ -31,12 +31,16 @@ final class TokenExpandableChartView: UIView {
     static let collapsedHeight = CGFloat(60)
     private static let expandedChartMaxHeight = CGFloat(200)
     private static let expandedChartTrailingOffset = CGFloat(-12)
+    private static let analyzeButtonSpacing = CGFloat(20)
     private static var expandedChartHeight: CGFloat {
         let height = 0.36 * (screenWidth - 32 - 6)
         return min(height, expandedChartMaxHeight)
     }
-    static var expandedHeight: CGFloat {
-        30 + 16 + 76 + expandedChartHeight
+    private var analyzeButtonInset: CGFloat {
+        onAnalyze == nil ? 0 : Self.analyzeButtonSpacing + AgentSuggestionButton.height
+    }
+    private var expandedHeight: CGFloat {
+        30 + 16 + 76 + Self.expandedChartHeight + analyzeButtonInset
     }
 
     private let parentProcessorQueue = DispatchQueue(label: "TokenExpandableChartView")
@@ -58,6 +62,7 @@ final class TokenExpandableChartView: UIView {
     private var historyData: [[Double]]? = nil
     private let graph = CompactLineChart()
     private var onPeriodChange: ((ApiPriceHistoryPeriod) -> Void)? = nil
+    private var onAnalyze: (() -> Void)?
 
     private var selectedRange: ClosedRange<CGFloat> = 0...1
     private weak var toggleChartRecognizer: UITapGestureRecognizer?
@@ -74,10 +79,21 @@ final class TokenExpandableChartView: UIView {
         }
     }
 
-    func configure(token: ApiToken, historyData: [[Double]]?, onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void) {
+    func configure(token: ApiToken,
+                   historyData: [[Double]]?,
+                   onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
+                   onAnalyze: (() -> Void)?) {
         self.token = token
         self.historyData = historyData
         self.onPeriodChange = onPeriodChange
+        self.onAnalyze = onAnalyze
+        analyzeButton.configure(title: lang("Analyze it"), showsArrow: true)
+        analyzeButton.isHidden = onAnalyze == nil
+        analyzeButton.isUserInteractionEnabled = isExpanded && onAnalyze != nil
+        timeFrameBottomConstraint.constant = -16 - analyzeButtonInset
+        if isExpanded && !isTogglingChart {
+            heightConstraint.constant = expandedHeight
+        }
 
         fillLabels()
 
@@ -91,6 +107,7 @@ final class TokenExpandableChartView: UIView {
     }
 
     private var heightConstraint: NSLayoutConstraint!
+    private var timeFrameBottomConstraint: NSLayoutConstraint!
     private var arrowTrailingConstraint: NSLayoutConstraint!
 
     private var chartAnimationViewTopAnchor: NSLayoutConstraint!
@@ -220,6 +237,18 @@ final class TokenExpandableChartView: UIView {
         return switcherView
     }()
 
+    private lazy var analyzeButton: AgentSuggestionButton = {
+        let button = AgentSuggestionButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.alpha = 0
+        button.isUserInteractionEnabled = false
+        button.accessibilityIdentifier = "Token.Analyze"
+        button.addAction(UIAction { [weak self] _ in
+            self?.onAnalyze?()
+        }, for: .touchUpInside)
+        return button
+    }()
+
     private lazy var topBarView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -237,6 +266,7 @@ final class TokenExpandableChartView: UIView {
         addSubview(lineChartAnimationView)
         addSubview(arrowImageView)
         addSubview(timeFrameSwitcherView)
+        addSubview(analyzeButton)
         addSubview(topBarView)
         addSubview(loadingIndicator)
         addSubview(noPriceDataLabel)
@@ -244,7 +274,8 @@ final class TokenExpandableChartView: UIView {
         timeFrameSwitcherView.selectedSegmentIndex = timePeriods.firstIndex(where: { it in
             it.rawValue == AppStorageHelper.selectedCurrentTokenPeriod()
         }) ?? 0
-        heightConstraint = heightAnchor.constraint(equalToConstant: AppStorageHelper.isTokenChartExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight)
+        heightConstraint = heightAnchor.constraint(equalToConstant: AppStorageHelper.isTokenChartExpanded ? expandedHeight : Self.collapsedHeight)
+        timeFrameBottomConstraint = timeFrameSwitcherView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16 - analyzeButtonInset)
         arrowTrailingConstraint = arrowImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18)
         chartAnimationViewTrailingAnchor = lineChartAnimationView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -33)
         chartAnimationViewTopAnchor = lineChartAnimationView.topAnchor.constraint(equalTo: topAnchor, constant: 11.33)
@@ -337,10 +368,15 @@ final class TokenExpandableChartView: UIView {
             rangeChart.bottomAnchor.constraint(equalTo: timeFrameSwitcherView.topAnchor, constant: -12),
             rangeChart.heightAnchor.constraint(equalToConstant: 30),
 
-            timeFrameSwitcherView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            timeFrameBottomConstraint,
             timeFrameSwitcherView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             timeFrameSwitcherView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             timeFrameSwitcherView.heightAnchor.constraint(equalToConstant: 28),
+
+            analyzeButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            analyzeButton.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -32),
+            analyzeButton.heightAnchor.constraint(equalToConstant: AgentSuggestionButton.height),
+            analyzeButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
 
             heightConstraint
         ])
@@ -509,6 +545,7 @@ final class TokenExpandableChartView: UIView {
         isTogglingChart = true
         isExpanded = !isExpanded
         expandedChart.isUserInteractionEnabled = isExpanded
+        analyzeButton.isUserInteractionEnabled = isExpanded && onAnalyze != nil
 
         parentProcessorQueue.async {
             self.locker.wait()
@@ -528,7 +565,7 @@ final class TokenExpandableChartView: UIView {
     }
 
     private func _toggleChartImpl(instant: Bool) {
-        let targetHeight = isExpanded ? TokenExpandableChartView.expandedHeight : TokenExpandableChartView.collapsedHeight
+        let targetHeight = isExpanded ? expandedHeight : Self.collapsedHeight
 
         let collapsedSnapshotFrame = collapsedChart.snapshotFrame()
         let collapsedGeometry = ChartAnimationGeometry(
@@ -574,6 +611,7 @@ final class TokenExpandableChartView: UIView {
                 rangeChart.alpha = historyData?.isEmpty ?? true ? 0 : max(0, 1 - 2 * progress)
                 timeFrameSwitcherView.alpha = max(0, 1 - 2 * progress)
             }
+            analyzeButton.alpha = timeFrameSwitcherView.alpha
 
             layoutIfNeeded()
             onHeightChange()

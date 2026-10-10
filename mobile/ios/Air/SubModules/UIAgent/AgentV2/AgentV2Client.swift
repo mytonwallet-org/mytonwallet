@@ -2,30 +2,28 @@ import Foundation
 import WalletCore
 
 @MainActor
-protocol AgentV2Client: AnyObject {
-    func runtimeStatus() async throws -> ApiAgentV2RuntimeStatus
+protocol AgentV2Client: AnyObject, Sendable {
     func consent() async throws -> Bool
     func acceptConsent() async throws
     func updateHostContext(_ context: ApiAgentV2HostContext?) async throws
     func hints() async throws -> ApiAgentV2HintsResponse
     func loadAvailability() async
     func loadUserQuota() async
+    func problemReportAvailability() async -> Bool
+    func setChatActive(_ isActive: Bool) async
     func defaultThread() async throws -> ApiAgentV2DefaultThreadResponse
     func messages(threadId: String, cursor: String?, limit: Int) async throws -> ApiAgentV2ThreadHydration
     func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult
     func retryRun(clientRunId: String) async throws -> ApiAgentV2RunResult?
     func cancelRun(_ runId: String) async
     func clearThread(id: String, revision: Int) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse>
+    func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws
     func actionPresentation(messageId: String, actionId: String) async throws -> ApiAgentV2ActionPresentation
     func resolveAction(messageId: String, actionId: String) async throws -> ApiAgentV2ResolvedAction
 }
 
 @MainActor
 final class LiveAgentV2Client: AgentV2Client {
-    func runtimeStatus() async throws -> ApiAgentV2RuntimeStatus {
-        try await Api.getAgentV2RuntimeStatus()
-    }
-
     func consent() async throws -> Bool {
         try await Api.getAgentV2Consent()
     }
@@ -50,6 +48,14 @@ final class LiveAgentV2Client: AgentV2Client {
         try? await Api.getAgentV2UserQuota()
     }
 
+    func problemReportAvailability() async -> Bool {
+        (try? await Api.getAgentV2ProblemReportAvailability()) == true
+    }
+
+    func setChatActive(_ isActive: Bool) async {
+        try? await Api.setAgentV2ChatActive(isActive)
+    }
+
     func defaultThread() async throws -> ApiAgentV2DefaultThreadResponse {
         try await Api.getAgentV2DefaultThread()
     }
@@ -72,6 +78,10 @@ final class LiveAgentV2Client: AgentV2Client {
 
     func clearThread(id: String, revision: Int) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse> {
         try await Api.clearAgentV2Thread(threadId: id, expectedRevision: revision)
+    }
+
+    func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws {
+        _ = try await Api.reportAgentV2Problem(threadId: threadId, report: report)
     }
 
     func actionPresentation(messageId: String, actionId: String) async throws -> ApiAgentV2ActionPresentation {

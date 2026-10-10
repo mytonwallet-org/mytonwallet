@@ -35,7 +35,7 @@ struct MfaView: View {
                     await model.primaryAction(mfa: mfa)
                 }
             } onAddInGramWallet: {
-                UIApplication.shared.open(URL(string: "https://apps.apple.com/us/app/gram-wallet/id6763345750")!)
+                UIApplication.shared.open(URL(string: "https://gramwallet.io/ios-store?utm_source=mfa")!)
             }
             .onReceive(pollingTimer) { _ in
                 Task {

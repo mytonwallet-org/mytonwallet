@@ -1,4 +1,5 @@
-import { requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
+import { requestForcedReflow, requestMeasure, requestMutation } from '../../lib/fasterdom/fasterdom';
+import { isAnimatingScroll, restartScrollAnimation } from '../../util/animateScroll';
 
 const STICK_TO_BOTTOM_THRESHOLD = 16;
 
@@ -19,29 +20,31 @@ export function updateAgentV2InputBarSpacing(
       element.style.setProperty('--agent-input-bar-height', value);
       layoutElement.style.setProperty('--agent-input-bar-height', value);
       onUpdated?.();
-      if (
-        pinnedScrollHeight === undefined
-        || !resolveShouldStickToBottom(shouldStickToBottom)
-      ) {
-        return;
-      }
+      requestForcedReflow(() => {
+        if (
+          pinnedScrollHeight === undefined
+          || !resolveShouldStickToBottom(shouldStickToBottom)
+        ) {
+          return;
+        }
 
-      scrollInstantly(element, pinnedScrollHeight);
-      requestAnimationFrame(() => {
-        requestMeasure(() => {
-          if (
-            !element.isConnected
-            || !resolveShouldStickToBottom(shouldStickToBottom)
-            || !getIsAgentV2ScrolledToBottom(element)
-          ) {
-            return;
-          }
+        if (isAnimatingScroll(element)) {
+          restartScrollAnimation();
+          return;
+        }
 
-          const nextScrollHeight = element.scrollHeight;
-          requestMutation(() => {
-            if (element.isConnected && resolveShouldStickToBottom(shouldStickToBottom)) {
-              scrollInstantly(element, nextScrollHeight);
+        scrollInstantly(element, pinnedScrollHeight);
+        requestAnimationFrame(() => {
+          requestMeasure(() => {
+            if (
+              !element.isConnected
+              || !resolveShouldStickToBottom(shouldStickToBottom)
+              || !getIsAgentV2ScrolledToBottom(element)
+            ) {
+              return;
             }
+
+            scrollInstantly(element, element.scrollHeight);
           });
         });
       });
@@ -58,6 +61,6 @@ function resolveShouldStickToBottom(value: boolean | (() => boolean)) {
 }
 
 function scrollInstantly(element: HTMLElement, top: number) {
-  // `.custom-scroll` is smooth by default, so assigning `scrollTop` would animate layout corrections.
+  // `.custom-scroll` is smooth by default, so assigning `scrollTop` would animate layout corrections
   element.scrollTo({ top, behavior: 'instant' });
 }

@@ -50,6 +50,8 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         } else {
             navigationController.setViewControllers([Self.makeNavigationStackPlaceholder()], animated: false)
         }
+        // Complete removal before the adaptive root reparents the outgoing stack.
+        navigationController.viewIfLoaded?.layoutIfNeeded()
         return stack
     }
 

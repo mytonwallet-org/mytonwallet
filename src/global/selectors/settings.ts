@@ -1,6 +1,6 @@
 import type { DeveloperSettingsOverrideValue, GlobalState } from '../types';
 
-import { ANIMATION_LEVEL_MIN } from '../../config';
+import { ANIMATION_LEVEL_MIN, IS_GRAM_WALLET } from '../../config';
 
 function selectOverriddenValue<Value>(
   originalValue: Value | undefined,
@@ -29,9 +29,9 @@ export function selectSeasonalTheme(global: GlobalState) {
   return selectOverriddenValue(global.seasonalTheme, selectSeasonalThemeOverride(global));
 }
 
-// Every build of this release, Gram Wallet included, shows the 3D diamond only after the developer override
+// Gram Wallet always shows the 3D diamond for GRAM, other builds only after the developer override
 export function selectIsGramDiamondEnabled(global: GlobalState) {
-  return Boolean(selectDeveloperSettingsOverrides(global)?.isGramDiamondEnabled);
+  return IS_GRAM_WALLET || Boolean(selectDeveloperSettingsOverrides(global)?.isGramDiamondEnabled);
 }
 
 /**

@@ -1,12 +1,12 @@
-import React, { memo, useRef } from '../../lib/teact/teact';
+import React, { memo } from '../../lib/teact/teact';
 
 import type { AgentHint } from '../../global/types';
 
 import buildClassName from '../../util/buildClassName';
 
-import useHorizontalScroll from '../../hooks/useHorizontalScroll';
 import useShowTransition from '../../hooks/useShowTransition';
 
+import followupStyles from '../agentV2/AgentV2Conversation.module.scss';
 import styles from './AgentHints.module.scss';
 
 interface OwnProps {
@@ -18,8 +18,6 @@ interface OwnProps {
 const CLOSE_ANIMATION_DURATION_MS = 250;
 
 function AgentHints({ isOpen, hints, onHintClick }: OwnProps) {
-  const containerRef = useRef<HTMLDivElement>();
-
   const { ref, shouldRender } = useShowTransition<HTMLDivElement>({
     isOpen: isOpen && Boolean(hints?.length),
     withShouldRender: true,
@@ -27,25 +25,20 @@ function AgentHints({ isOpen, hints, onHintClick }: OwnProps) {
     closeDuration: CLOSE_ANIMATION_DURATION_MS,
   });
 
-  useHorizontalScroll({ containerRef, isDisabled: !shouldRender || !isOpen });
-
   if (!shouldRender) return undefined;
 
   return (
-    <div ref={ref} className={buildClassName(styles.wrapper)}>
-      <div ref={containerRef} className={styles.panel}>
-        {hints!.map((hint, index) => (
+    <div ref={ref} className={styles.wrapper}>
+      <i className={buildClassName(styles.icon, 'icon-agent')} aria-hidden />
+      <div className={styles.list}>
+        {hints!.map((hint) => (
           <button
             key={hint.id}
             type="button"
-            className={styles.hint}
-            style={`--hint-index: ${index}`}
+            className={followupStyles.followupButton}
             onClick={() => onHintClick(hint)}
           >
-            <span className={styles.inner}>
-              <span className={styles.title}>{hint.title}</span>
-              <span className={styles.subtitle}>{hint.subtitle}</span>
-            </span>
+            <span className={followupStyles.followupLabel}>{hint.title}</span>
           </button>
         ))}
       </div>

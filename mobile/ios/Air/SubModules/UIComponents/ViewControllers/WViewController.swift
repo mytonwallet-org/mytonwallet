@@ -142,6 +142,7 @@ open class WViewController: UIViewController {
     public func addCustomNavigationBarBackground(
         color: UIColor?,
         navItemTransparent: Bool = true,
+        maxEdgeSize: CGFloat? = nil,
         inside scrollView: UIScrollView? = nil
     ) -> UIView {
         
@@ -152,13 +153,13 @@ open class WViewController: UIViewController {
         let bottomExtension: CGFloat = 18
         let topOverscan: CGFloat = 20
         let alpha: CGFloat
-        let maxEdgeSize: CGFloat
+        let defaultMaxEdgeSize: CGFloat
         
         if #available(iOS 26.0, *) {
-            maxEdgeSize = 64
+            defaultMaxEdgeSize = 64
             alpha = 0.85
         } else {
-            maxEdgeSize = 28
+            defaultMaxEdgeSize = 28
             alpha = 0.95
         }
         
@@ -166,7 +167,7 @@ open class WViewController: UIViewController {
             content: color ?? .air.sheetBackground,
             alpha: alpha,
             topOverscan: topOverscan,
-            maxEdgeSize: maxEdgeSize
+            maxEdgeSize: maxEdgeSize ?? defaultMaxEdgeSize
         )
         customBackground.translatesAutoresizingMaskIntoConstraints = false
         if let scrollView {

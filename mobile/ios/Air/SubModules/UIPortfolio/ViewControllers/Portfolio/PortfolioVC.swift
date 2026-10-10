@@ -869,7 +869,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .totalValue),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
-            }
+            },
+            analyzeTitle: PortfolioGraphKind.totalValue.analysisTitle,
+            onAnalyze: nil
         )
     }
 
@@ -886,7 +888,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .totalPnl),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
-            }
+            },
+            analyzeTitle: PortfolioGraphKind.totalPnl.analysisTitle,
+            onAnalyze: nil
         )
     }
 
@@ -903,7 +907,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .dailyPnl),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
-            }
+            },
+            analyzeTitle: PortfolioGraphKind.dailyPnl.analysisTitle,
+            onAnalyze: nil
         )
     }
 
@@ -920,7 +926,9 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             hidesVerticalAxisLabels: shouldHideVerticalAxisLabels(for: .portfolioShare),
             onLimitedHistoryTap: { [weak self] in
                 self?.showLimitedHistoryToast()
-            }
+            },
+            analyzeTitle: PortfolioGraphKind.portfolioShare.analysisTitle,
+            onAnalyze: nil
         )
     }
 

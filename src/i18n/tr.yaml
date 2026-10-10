@@ -215,6 +215,7 @@ Receiving Address: Alıcı adresi
 Contract Address: Sözleşme adresi
 Fee: Ücret
 Edit: Düzenle
+Regenerate: Yeniden oluştur
 Confirm: Onayla
 Data Signed: Veri imzalandı
 Details: Detaylar
@@ -1284,8 +1285,6 @@ $agent_consent_feature_actions: Gönderme, alma ve staking gibi desteklenen işl
 $agent_consent_feature_context: Yanıtların ilgili varlıklara ve adreslere referans verebilmesi için cüzdan bağlamını kullanın.
 $agent_consent_disclosure_text: Asistana İzin Ver düğmesine dokunarak %app_name% uygulamasının Asistan mesajlarınızı ve ilgili cüzdan bağlamınızı %app_name% Agent (agent.mywallet.io) ile üçüncü taraf AI sağlayıcımız Anthropic Claude API'ye isteklerinizi işlemek üzere göndermesine izin verirsiniz. Cüzdan bağlamı cüzdan adreslerini, bakiyeleri, tokenları, etkinliği ve istenen işlem ayrıntılarını içerebilir. Veriler yalnızca Asistan yanıtları sağlamak ve istediğiniz işlemleri hazırlamak için kullanılır.
 $agent_consent_search_disclosure_text: Web aramalarında Serper'a yalnızca arama sorguları gönderilebilir; cüzdan bağlamı ve sohbet geçmişi gönderilmez.
-$agent_consent_debug_reset_button: Asistan onay durumunu sıfırla
-$agent_consent_debug_reset_footer: Asistan sekmesi açıldığında Asistan onay ekranını tekrar gösterir.
 $settings_token_change_threshold: "% Değişim Eşiği"
 $settings_token_change_threshold_description: Seçilen eşiğin altındaki 24 saatlik yüzde değişimlerini gizler.
 $settings_token_change_threshold_off: Kapalı
@@ -1303,18 +1302,19 @@ Retry: Tekrar dene
 $agent_chat_running: Arka planda çalışıyor
 $agent_connection_interrupted: Asistan bağlantısı kesildi. Tekrar deneyin.
 $agent_history_unavailable: Sohbet geçmişi yüklenemedi. Tekrar deneyin.
+$agent_secret_words_removed: "[gizli kelimeler kaldırıldı ve gönderilmedi]"
 $agent_activity_analyzing_request: İsteğiniz analiz ediliyor…
 $agent_activity_wallet: Cüzdan verileri okunuyor…
 $agent_activity_transactions: Cüzdan hareketleri inceleniyor…
 $agent_activity_portfolio: Portföy verileri yükleniyor…
 $agent_activity_assets: Varlıklar aranıyor…
 $agent_activity_addresses: Kaydedilmiş adresler kontrol ediliyor…
-$agent_activity_transfer: Transfer hazırlanıyor…
-$agent_activity_market_quote: En güncel token fiyatı okunuyor…
 $agent_activity_planning: Yanıt planlanıyor…
 $agent_activity_planning_completed: Cevap planı hazır
 $agent_activity_web_searching: İnternette arama yapılıyor…
 $agent_activity_web_searching_completed: İlgili kaynaklar bulundu.
+$agent_activity_help_searching: Yardım Merkezi'nde aranıyor…
+$agent_activity_help_searching_completed: Yardım Merkezi kontrol edildi
 $agent_activity_web_reading_sources: Kaynaklar inceleniyor…
 $agent_activity_web_reading_sources_completed: "İncelenen kaynaklar: %count%"
 $agent_activity_web_reading_sources_completed_generic: İncelenen kaynaklar
@@ -1327,181 +1327,18 @@ $agent_activity_computing_completed: Hesaplamalar tamamlandı.
 $agent_activity_writing: Yanıt yazılıyor…
 $agent_activity_writing_completed: Cevap hazır
 $agent_activity_preparing_response: Yanıtınız hazırlanıyor…
-$agent_receive_tokens: Token al
-$agent_portfolio_total: Toplam portföy değeri
-$agent_portfolio_value_is: Portföyünüzün değeri
-$agent_portfolio_24h_change: 24 saatlik değişim
-$agent_portfolio_top_contributor: Bugünün en büyük katkısı
-$agent_portfolio_open_tracker: Portföyü aç
-$agent_portfolio_analysis: Portföy analizi
-$agent_portfolio_insufficient: Tam analiz için yeterli portföy verisi yok.
-$agent_portfolio_partial: Bazı portföy verileri kullanılamıyor, bu nedenle analiz kısmi.
-$agent_portfolio_current_only: Mevcut portföy yapısı mevcuttur. Geçmiş performans verileri şu anda mevcut değildir.
-$agent_portfolio_stale: Portföy verileri güncel olmayabilir.
-$agent_portfolio_summary_up: Portföyünüz son 24 saatte yükseldi.
-$agent_portfolio_summary_down: Portföyünüz son 24 saatte düştü.
-$agent_portfolio_summary_flat: Portföyünüz son 24 saatte sabit kaldı.
-$agent_portfolio_summary_ready: Portföy analiziniz hazır.
-$agent_portfolio_chart_title: Zaman içinde portföy değeri
-$agent_portfolio_largest_positions: En büyük pozisyonlar
-$agent_portfolio_asset: Varlık
-$agent_portfolio_position_value: Değer
-$agent_portfolio_share: Pay
-$agent_portfolio_observations: Öne çıkanlar
-$agent_portfolio_insight_performance_title: Portföy hareketi
-$agent_portfolio_insight_performance_text: Seçilen dönem boyunca portföy değerinin nasıl değiştiğini inceleyin.
-$agent_portfolio_insight_concentration_title: Konsantrasyon
-$agent_portfolio_insight_concentration_text: Mevcut tahsisat içindeki yoğunlaşmayı gözden geçirin; atlanan varlıklar, portföyün genel görünümünü değiştirebilir.
-$agent_portfolio_insight_chain_split_title: Ağ dağıtımı
-$agent_portfolio_insight_chain_split_text: Mevcut tahsisat dahilindeki ağ görünürlüğünü gözden geçirin; atlanan varlıklar, portföyün genel görünümünü değiştirebilir.
-$agent_portfolio_insight_data_quality_title: Veri kalitesi
-$agent_portfolio_insight_data_quality_text: Bu analizi yorumlarken veri kapsamını ve güncelliğini göz önünde bulundurun.
 $agent_market_analysis_title: Piyasa analizi
-$agent_market_as_of: Şu an itibariyle
-$agent_market_closed_1d: Son kapanan 1D mumu
-$agent_market_thesis: Teknik görünüm
-$agent_market_fear_greed_sentiment: Bitcoin tabanlı piyasa duyarlılığı
-$agent_market_fear_greed_index: Korku ve Açgözlülük endeksi (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: Piyasa rejimi
-$agent_market_fear_greed_risk_on: Risk alma eğilimi
-$agent_market_fear_greed_risk_off: Riskten kaçınma eğilimi
-$agent_market_fear_greed_neutral: Nötr duyarlılık
-$agent_market_fear_greed_source: Kaynak
-$agent_market_timeframes: Piyasa yapısı
-$agent_market_structure_bullish: Daha yüksek zirveler ve daha yüksek dipler
-$agent_market_structure_bearish: Daha düşük zirveler ve daha düşük dipler
-$agent_market_structure_range: Yatay bant
-$agent_market_structure_transition: Geçiş
-$agent_market_structure_unavailable: Yapı mevcut değil
-$agent_market_event_none: Onaylanmış kırılım yok
-$agent_market_event_break_up: Yapı üzerinde kırılım
-$agent_market_event_break_down: Yapı altında kırılım
-$agent_market_event_retest_up: Yükseliş yönlü yeniden test
-$agent_market_event_retest_down: Düşüş yönlü yeniden test
-$agent_market_live_approaching_upper: Üst sınıra yaklaşıyor
-$agent_market_live_approaching_lower: Alt sınıra yaklaşıyor
-$agent_market_level_map: Ana seviyeler
-$agent_market_level_primary: Birincil seviye
-$agent_market_level_secondary: İkincil seviye
-$agent_market_level_context: Bağlam düzeyi
-$agent_market_levels_unavailable: Onaylanmış yapısal seviyeler kullanılamıyor.
-$agent_market_profile_poc_full: hacim merkezi (POC)
-$agent_market_profile_value_area_full: değer alanı sınırları (VAL/VAH)
-$agent_market_profile_hvn_full: yüksek hacimli alan (HVN)
-$agent_market_profile_lvn_full: düşük hacimli koridor (LVN)
-$agent_market_profile_current_day: Mevcut UTC günü
-$agent_market_profile_previous_day: Önceki UTC günü
-$agent_market_profile_previous_week: Önceki UTC haftası
-$agent_market_profile_rolling_30d: Son 30 UTC oturumu
-$agent_market_profile_above: Değer alanının üzerindeki fiyat
-$agent_market_profile_inside: Değer alanı içindeki fiyat
-$agent_market_profile_below: Fiyat, değer alanının altında
-$agent_market_factors: Temel faktörler
-$agent_market_factor_structure: "Günlük yapı: %direction%"
-$agent_market_factor_levels: Bu zaman aralığı için %supports% destek ve %resistances% direnç bölgesi onaylandı.
-$agent_market_factor_profile: "Hacim dağılımı: %position%."
-$agent_market_factor_profile_unavailable: Hacim profili mevcut değil; senaryo fiyat yapısına bağlıdır.
-$agent_market_factor_timeframe_alignment: "Zaman dilimi yapısı — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Mevcut rejim: %active%. Şartlı senaryo: %activation%'den sonra %conditional%."
-$agent_market_factor_no_active_scenario: "Hiçbir senaryo doğrulanmadı. Şartlı senaryo: %activation%'den sonra %conditional%."
-$agent_market_primary_scenario: Birincil senaryo
-$agent_market_current_regime: Mevcut onaylanmış piyasa rejimi
-$agent_market_conditional_scenario: Şartlı senaryo
-$agent_market_no_active_scenario: Şu an için hiçbir senaryo doğrulanmış değil.
-$agent_market_calculated_fallback: "Hesaplamalı analiz: Model açıklaması geçici olarak kullanılamıyor."
-$agent_market_other_horizons: İstenen diğer zaman aralıkları
-$agent_market_horizon_3d: 3 gün
-$agent_market_horizon_7d: 7 gün
-$agent_market_horizon_30d: 30 gün
-$agent_market_scenario_bullish: Yükseliş yönlü kırılma
-$agent_market_scenario_range: Aralık dengesi
-$agent_market_scenario_bearish: Düşüş yönlü kırılma
-$agent_market_scenario_unavailable: Bu zaman dilimi için yapısal senaryo mevcut değil.
-$agent_market_confidence: Güven
-$agent_market_confidence_low: Düşük
-$agent_market_confidence_medium: Orta
-$agent_market_activation: Tetiklenme
-$agent_market_path: Yol
-$agent_market_terminal: Hedef bölge
-$agent_market_invalidation: Geçersizlik seviyesi
-$agent_market_expected_range: Senaryo aralığı
-$agent_market_rationale: Gerekçe
-$agent_market_condition_above: üzerinde kapanış
-$agent_market_condition_below: altında kapanış
-$agent_market_condition_inside: içinde kapanış
-$agent_market_condition_outside: dışında kapanış
-$agent_market_condition_waiting: Onay bekleniyor
-$agent_market_condition_approaching: Yaklaşıyor
-$agent_market_condition_triggered: Onaylandı
-$agent_market_scenario_zone: senaryo bölgesi
-$agent_market_expected_move: Volatilite zarfı
-$agent_market_volatility_envelope: Genel oynaklık aralığı
-$agent_market_expected_move_note: Şartlı hamle, olasılık değil.
-$agent_market_risk_caveat: Senaryolar koşulludur ve alım satım tavsiyesi niteliği taşımaz.
-$agent_market_partial_coverage: Piyasa verilerinin bir kısmı mevcut değil; güven sınırlı.
-$agent_market_thesis_bullish: Doğrulanan yapı, direnç seviyesinin üzerinde devamı desteklerken, en yakın destek seviyesinin altında geçersizlik olasılığı devam etmektedir.
-$agent_market_thesis_bearish: Doğrulanan yapı, destek seviyesinin altında devam etmeyi desteklerken, geçersizleşme en yakın direnç seviyesinin üzerinde kalmaya devam eder.
-$agent_market_thesis_range: Fiyat, teyit edilmiş destek ve direnç seviyeleri arasında dengede kalmaya devam ediyor.
-$agent_market_thesis_mixed: Zaman dilimleri çelişiyor, bu nedenle yapısal sınırda doğrulama, yön göstergelerinden daha önemlidir.
-$agent_market_thesis_insufficient: Mevcut kanıtlar, yönlü bir yapıyı doğrulamak için yeterli değildir.
-$agent_market_thesis_unconfirmed: Henüz hiçbir senaryo doğrulanmadı; yönlü bir durum benimsemeden önce yapısal bir sınırın kapanmasını bekleyin.
-$agent_semantic_asset_search: Varlık araması
-$agent_semantic_web_digest: Web sonuçları
-$agent_semantic_no_results: Sonuç bulunamadı.
-$agent_semantic_wallets: Cüzdanlar
-$agent_semantic_wallet: Cüzdan
-$agent_semantic_balance: Bakiye
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Normal
-$agent_semantic_access_view_only: Salt okunur
-$agent_semantic_wallets_unpriced: Fiyatı olmadığı için %amount% pozisyon görüntülenen toplamlara dahil edilmedi.
-$agent_semantic_wallets_stale: Bazı cüzdan bakiyeleri güncel olmayabilir.
-$agent_semantic_wallets_unavailable: Bazı cüzdan bakiyelerine erişilemiyor.
-$agent_semantic_wallets_partial: Cüzdan verilerinin bazıları eksik.
-$agent_semantic_status: Durum
-$agent_semantic_quantity: Miktar
-$agent_semantic_time: Zaman
-$agent_semantic_partial: Bazı veriler mevcut değil.
-$agent_semantic_pending: Bekliyor
-$agent_semantic_confirmed: Onaylandı
-$agent_semantic_completed: Tamamlandı
-$agent_semantic_failed: Başarısız
-$agent_semantic_expired: Süresi doldu
-$agent_semantic_active: Aktif
-$agent_semantic_unstaking: Staking'den çıkılıyor
-$agent_semantic_ready: Hazır
-$agent_semantic_frozen: Dondurulmuş
-$agent_semantic_locked: Kilitli
-$agent_semantic_fungible: Token
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Staking
-$agent_semantic_vesting: Hak ediş
-$agent_semantic_vault: Kasa
-$agent_semantic_transfer: Aktarım
-$agent_semantic_swap: Takas
-$agent_semantic_stake: Stake Et
-$agent_semantic_unstake: Staking'den Çık
-$agent_semantic_contract: Sözleşme
-$agent_semantic_unknown: Aktivite
-$agent_semantic_spam_transactions: Spam işlemleri
-$agent_semantic_spam_assets: Spam varlıklar
-$agent_semantic_hidden_assets: Gizli varlıklar
-$agent_semantic_hidden_assets_warning: Gizli varlık adları yanıltıcı olabilir. Bunlar düz metin olarak gösterilir ve bağlantı olarak açılamaz.
-$agent_semantic_quarantine_warning: Bu öğeler spam olarak bildirildi. İsimlerine veya bağlantılarına güvenmeyin.
-$agent_semantic_redacted_asset: İsim gizli
-$agent_semantic_omitted_spam: "Filtrelenmiş spam: %amount%"
-$agent_semantic_omitted_spam_minimum: "Filtrelenmiş spam: en az %amount%"
-$agent_semantic_omitted_hidden: "Gizli varlıklar atlandı: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Gizli varlıklar atlandı: en az %amount%"
-$agent_semantic_suspicious: "Güvenli olmayan isimler gizlendi: %amount%"
-$agent_semantic_suspicious_minimum: "Güvenli olmayan isimler gizlendi: en az %amount%"
-$agent_semantic_suspicious_shown: "Potansiyel olarak güvenli olmayan isimler: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Potansiyel olarak güvenli olmayan isimler: en az %amount%"
-$agent_semantic_omitted_rows: Çok fazla veri var. %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
-$agent_semantic_omitted_rows_minimum: Çok fazla veri var. En az %amount% ek satır dahil edilmedi. Dönemi veya filtreleri daraltın.
-$agent_semantic_update_required: Bu yanıtın görüntülenmesi için uygulamayı güncelleyin.
+Analyze it: Analiz et
+Check allocation: Dağılımı incele
+Compare with last month: "Geçen ayla karşılaştır"
+Best & worst performers: "En iyi ve en kötü varlıklar"
+Biggest profit today: "Bugünün en yüksek kârı"
+$agent_prompt_portfolio_share: "Portföyümün ne kadar çeşitlendirilmiş olduğunu analiz et ve belirli varlıklardaki yoğunlaşmaları belirle."
+$agent_prompt_portfolio_compare: "Portföyümün güncel değerini bir ay önceki değeriyle karşılaştır."
+$agent_prompt_portfolio_performers: "Seçilen dönemde (%period%) portföyümdeki hangi varlıklar kâr ve zarar açısından en iyi ve en kötü performansı gösterdi?"
+$agent_prompt_portfolio_best_day: "Seçilen dönemde (%period%) portföyüm hangi gün en yüksek kârı sağladı?"
+$agent_prompt_token_price: "%token% fiyatını analiz et."
+$agent_hint_capabilities_title: Neler yapabilirsin?
 $agent_hint_portfolio_title: Portföy performansı
 $agent_hint_portfolio_prompt: Portföy performansımı analiz et.
 $agent_hint_swap_title: Takaslar nasıl çalışır?
@@ -1512,167 +1349,17 @@ $agent_hint_security_title: Cüzdan güvenliği
 $agent_hint_security_prompt: Cüzdanımı nasıl güvende tutacağımı bana gösterin.
 $agent_hint_receive_title: Token alma
 $agent_hint_receive_prompt: Token almama yardım et.
-$agent_action_review_transfer: Transferi incele
-$agent_action_open_receive: Alma ekranını aç
-$agent_action_open_send: Gönder ekranını aç
-$agent_action_open_staking: Staking ekranını aç
-$agent_action_open_swap: Takas ekranını aç
-$agent_activity_swap: Takas hazırlanıyor
-$agent_action_hide_spam: Spam varlıkları gizle
-$agent_action_open_link: Bağlantıyı aç
-$agent_action_open_agent: Asistan'ı aç
-$agent_action_open_token: Tokenı cüzdanda aç
-$agent_action_open_transaction: İşlemi aç
-$agent_input_asset: Varlığı girin
-$agent_input_timeframe: Zaman aralığını girin
-$agent_input_amount: Miktarı girin
-$agent_input_recipient: Alıcıyı girin
-$agent_input_swap_details: Takas detaylarını girin
-$agent_notice_agent_unavailable: Asistan şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.
-$agent_notice_analysis_unavailable: Bu analizi tamamlayamadık. Lütfen tekrar deneyin.
-$agent_notice_analysis_planning_unavailable: Analizi hazırlayabilmek için talebin yeterli kısmını yorumlayamadık.
-$agent_notice_analysis_source_unavailable: Bu analiz için gerekli veriler şu anda mevcut değil.
-$agent_notice_analysis_stale_evidence: Mevcut veriler bu analizi güvenli bir şekilde tamamlamak için çok eski.
-$agent_notice_analysis_inconsistent_snapshot: Analiz sırasında gerekli veriler değişti. Lütfen tekrar deneyin.
-$agent_notice_analysis_compute_failed: İstenen hesaplamayı tamamlayamadık.
-$agent_notice_analysis_deadline_exceeded: Analiz işlemi çok uzun sürdü. Lütfen tekrar deneyin.
-$agent_notice_analysis_result_too_large: Analiz sonucu, güvenli bir şekilde sunulamayacak kadar büyük.
-$agent_notice_analysis_answer_generation_failed: Verileri topladık ancak cevabı hazırlayamadık. Lütfen tekrar deneyin.
-$agent_notice_asset_not_found: İstenen varlık bulunamadı.
-$agent_notice_clarification_required: Devam etmek için daha fazla ayrıntıya ihtiyaç var.
-$agent_notice_clarification_asset: Kullanmak istediğiniz kripto para birimini belirtin.
-$agent_notice_clarification_network: Kullanmak istediğiniz blockchain ağını belirtin.
-$agent_notice_clarification_query: İsteği tam olarak anlamadım. Ne öğrenmek veya ne yapmak istediğinizi söyleyin.
-$agent_notice_clarification_quote_currency: Hangi karşıt para birimini kullanmalıyım?
-$agent_notice_clarification_staking_product: Hangi staking ürününü kullanmalıyım?
-$agent_notice_clarification_time_horizon: Hangi zaman dilimini kullanmalıyım?
-$agent_notice_clarification_price_assumption: Hangi fiyat varsayımını kullanmalıyım?
-$agent_notice_repair_unrecognized_input: O mesajı anlayamadım. Ne öğrenmek veya yapmak istediğinizi söyleyin, yardımcı olmaya çalışırım.
-$agent_notice_repair_ambiguous_request: İsteği doğru anladığımdan emin değilim. Ne öğrenmek veya yapmak istersiniz?
-$agent_notice_repair_multiple_requests: Mesajda birkaç talep görüyorum. Hangisinden başlayalım?
-$agent_notice_consent_required: Cüzdan verilerine erişime devam edilmesine izin verin.
 $agent_notice_content_over_budget: Sonuç çok büyük olduğu için tamamı görüntülenemiyor.
-$agent_notice_empty_result: Eşleşen sonuç bulunamadı.
-$agent_notice_market_unavailable: Piyasa verileri şu anda mevcut değil.
-$agent_notice_market_analysis_unavailable: Piyasa analizini hazırlayamadık. Lütfen tekrar deneyin.
-$agent_notice_market_analysis_asset_unsupported: Bu kripto para birimi için analiz şu anda desteklenmiyor.
-$agent_notice_market_analysis_timeframe_unsupported: Bu döneme ilişkin analiz şu anda desteklenmiyor.
-$agent_notice_market_quote_resolved: "%asset% şu anda %price% %currency% değerinde. 24 saatlik değişim: %change%%."
-$agent_notice_market_quote_price_unavailable: "%asset% için şu anda fiyat bilgisi mevcut değil."
-$agent_notice_market_quote_ambiguous: "Birkaç token eşleşiyor: %assets%. Ağ veya sözleşme adresini belirtin."
-$agent_notice_market_quote_not_found: Bu fiyat talebi için eşleşen bir token bulunamadı.
-$agent_notice_market_quote_planning_unavailable: Fiyat talebi yorumlanamadı.
-$agent_notice_market_quote_capability_unavailable: Bu uygulamada fiyat sorgulama özelliği mevcut değil.
-$agent_notice_market_quote_wallet_context_unavailable: Bu fiyat sorgusu için gereken cüzdan bağlamı kullanılamıyor.
-$agent_notice_market_quote_currency_unsupported: Seçilen karşıt para birimi bu fiyat sorgusu için desteklenmiyor.
-$agent_notice_market_quote_unavailable: Bu token için güncel fiyat bilgisi mevcut değil.
-$agent_notice_market_quote_wallet_context_changed: Fiyat sorgulaması tamamlanmadan önce aktif cüzdan değişti.
-$agent_notice_market_quote_timeout: Fiyat sorgulama işlemi zaman aşımına uğradı.
-$agent_notice_market_quote_tool_failed: Fiyat hizmeti sorguyu tamamlayamadı.
-$agent_notice_market_quote_invalid_result: Fiyat bilgisi doğrulanamadı.
-$agent_notice_market_quote_cancelled: Fiyat sorgulama işlemi iptal edildi.
-$agent_notice_portfolio_unavailable: Portföy verileri şu anda kullanılamıyor.
-$agent_notice_receive_details_required: Para yatırmak için kripto varlığını ve ağı belirtin.
-$agent_notice_receive_asset_required: Para yatırmak için kripto varlığını belirtin.
-$agent_notice_receive_network_required: Para yatırmak için ağı belirtin.
-$agent_notice_receive_ready: Alma ekranınız açılmaya hazır.
-$agent_notice_receive_memo_not_required: Kendi My Wallet adresinize para yatırırken not (memo) gerekli değildir; alanı boş bırakın.
-$agent_notice_receive_unavailable: Bu cüzdanda para alma özelliği kullanılamıyor.
-$agent_notice_receive_planning_unavailable: Alma isteği yorumlanamadı. İsteği yeniden ifade edin veya Alma ekranını açın.
-$agent_notice_receive_active_account_unavailable: Aktif cüzdan kullanılamıyor. Lütfen başka bir cüzdan kullanarak tekrar deneyin.
-$agent_notice_receive_client_unavailable: Bu uygulamada Asistan üzerinden alma işlemi kullanılamıyor. Bunun yerine Alma ekranını açın.
-$agent_notice_receive_chain_unsupported: Bu cüzdan %requested_network%'yi desteklemiyor. Aktif ağ %active_network%'dir.
-$agent_notice_receive_active_network_mismatch: Aktif ağ %active_network%. Bu ağdan almak için %requested_network% ağına geçin.
-$agent_notice_retry_required: Lütfen isteği tekrar deneyin.
-$agent_notice_send_details_required: Devam etmek için eksik transfer bilgilerini ekleyin.
-$agent_notice_send_form_amount_required: Gönder ekranını açın, ardından transfer formuna tutarı girin.
-$agent_notice_send_ready: Elbette, transfer hazır. Göndermeden önce detayları gözden geçirin.
-$agent_notice_send_ready_inferred_asset: Sanırım %symbol% demek istediniz. Transferi hazırladım, göndermeden önce ayrıntıları gözden geçirin.
-$agent_notice_send_missing_amount: Ne kadar göndermek istersiniz?
-$agent_notice_send_missing_asset: Hangi para birimini göndermek istersiniz?
-$agent_notice_send_missing_recipient: Kime göndermek istersiniz?
-$agent_notice_send_no_sendable_balance: Aktif cüzdanda şu anda gönderilebilecek kullanılabilir bakiye bulunmamaktadır.
-$agent_notice_send_unavailable: Transfer güvenli bir şekilde hazırlanamadı. Gönder ekranını kullanın veya daha sonra tekrar deneyin.
-$agent_notice_staking_ready: Staking ekranı açılmaya hazır.
-$agent_notice_staking_unavailable: Asistan üzerinden staking şu anda kullanılamıyor. Bunun yerine cüzdandan Staking ekranını açın.
-$agent_notice_staking_planning_unavailable: Staking isteği yorumlanamadı. İsteği yeniden ifade edin veya Staking ekranını açın.
-$agent_notice_staking_active_account_unavailable: Aktif cüzdan kullanılamıyor. Lütfen başka bir cüzdan kullanarak tekrar deneyin.
-$agent_notice_staking_view_only: Salt okunur bir cüzdanda staking kullanılamaz. İmza atabildiğiniz bir cüzdana geçin.
-$agent_notice_staking_client_unavailable: Bu uygulamada Asistan üzerinden staking kullanılamıyor. Bunun yerine cüzdandan Staking ekranını açın.
-$agent_notice_staking_asset_unavailable: Aktif cüzdanda bu varlık için staking kullanılamıyor. Staking destekleyen başka bir varlık seçin.
-$agent_notice_staking_amount_invalid: İstenen staking tutarı kullanılamıyor. Staking ekranında başka bir tutar girin.
-$agent_notice_staking_wallet_context_changed: Aktif cüzdanın staking seçenekleri değişti. Asistan'dan staking işlemini tekrar hazırlamasını isteyin.
-$agent_notice_swap_ready_indicative: "Tahmini değer: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. Uygulanabilir teklif, ücretler, kayma ve fiyat etkisi Takas ekranında yüklenecek."
-$agent_notice_swap_ready_price_unavailable: "%from_symbol% → %to_symbol% için yerel tahmini fiyat kullanılamıyor. Uygulanabilir teklifi, ücretleri ve kaymayı yüklemek için Takas ekranını açın."
-$agent_notice_swap_details_source_asset: Takas edilecek kripto varlığını belirtin.
-$agent_notice_swap_details_destination_asset: Alınacak kripto varlığını belirtin.
-$agent_notice_swap_details_amount: Pozitif bir kripto tutarı belirtin.
-$agent_notice_swap_details_direction: Devam etmek için kaynak varlığı, hedef varlığı ve tutarı belirtin.
-$agent_notice_swap_details_candidates: "%prompt% Eşleşmeler: %candidates%."
-$agent_notice_swap_unavailable: Asistan üzerinden takas hazırlama şu anda kullanılamıyor. Bunun yerine cüzdandan Takas ekranını açın.
-$agent_notice_swap_planning_unavailable: Takas isteği yorumlanamadı. Her iki kripto varlığını ve tutarı belirtin.
-$agent_notice_swap_active_account_unavailable: Aktif cüzdan kullanılamıyor. Cüzdan değiştirip tekrar deneyin.
-$agent_notice_swap_view_only: Salt okunur bir cüzdanda takas hazırlanamaz. İmza atabildiğiniz bir cüzdana geçin.
-$agent_notice_swap_client_unavailable: Bu uygulamada Asistan üzerinden takas hazırlama kullanılamıyor. Bunun yerine cüzdandan Takas ekranını açın.
-$agent_notice_swap_wallet_context_changed: Takas hazırlığı tamamlanmadan aktif cüzdan değişti. Tekrar deneyin.
-$agent_notice_swap_timeout: Takas hazırlığı zaman aşımına uğradı. Tekrar deneyin.
-$agent_notice_swap_tool_failed: Cüzdan bu takası hazırlayamadı. Tekrar deneyin veya Takas ekranını açın.
-$agent_notice_swap_invalid_result: Hazırlanan takas doğrulanamadı. Tekrar deneyin.
-$agent_notice_send_asset_not_held: Bu varlık aktif cüzdanınızda mevcut değil. Lütfen başka bir varlık veya cüzdan seçin.
-$agent_notice_send_insufficient_balance: Bu transfer için yeterli bakiye yok. Miktarı azaltın veya cüzdan değiştirin.
-$agent_notice_send_recipient_not_found: Eşleşen bir cüzdan veya kayıtlı adres bulunamadı.
-$agent_notice_send_recipient_not_found_named: "\"%recipient%\" adında bir cüzdan veya kayıtlı adres bulunamadı."
-$agent_notice_send_recipient_ambiguous: Birden fazla cüzdan veya kişi eşleşebilir. Alıcıyı belirtin.
-$agent_notice_send_address_book_unavailable: Mevcut adres defteri yüklenemedi. Tekrar deneyin veya Gönder bölümünden ilgili kişiyi seçin.
-$agent_notice_send_recipient_matching_unavailable: Adres defteri kullanılabilir durumda, ancak Asistan alıcı adını kesin olarak eşleştiremedi. Adı belirtin veya Gönder ekranında kişiyi seçin.
-$agent_notice_send_intent_extraction_unavailable: Hangi varlığı göndermek istersiniz?
-$agent_notice_send_intent_provider_unavailable: Komut işleme hizmeti geçici olarak kullanılamıyor. Tekrar deneyin veya Gönder'i kullanın.
-$agent_notice_send_invalid_recipient: Alıcı adresi geçersiz.
-$agent_notice_send_recipient_unresolved: Alıcı çözümlenemedi.
-$agent_notice_send_recipient_inactive: Alıcı hesabı devre dışı.
-$agent_notice_send_memo_required: Bu transfer için bir not gereklidir.
-$agent_notice_send_wallet_not_initialized: Alıcı cüzdanı başlatılmadı.
-$agent_notice_send_active_account_unavailable: Aktif cüzdan kullanılamıyor. Lütfen cüzdan değiştirin.
-$agent_notice_send_chain_unsupported: Bu cüzdan seçilen ağ üzerinden gönderim yapamaz. Lütfen ağı veya cüzdanı değiştirin.
-$agent_notice_send_client_unavailable: Bu uygulamada Asistan transferleri kullanılamıyor. Bunun yerine Gönder ekranını kullanın.
-$agent_notice_send_view_only: Sadece görüntüleme özelliği olan bir cüzdan para gönderemez. Cüzdanınızı değiştirin.
-$agent_notice_send_offline: Bu transferi hazırlamak için internete bağlanın.
-$agent_notice_send_wallet_context_changed: Aktif cüzdan değişti. Transferi tekrar hazırlayın.
-$agent_notice_send_source_wallet_selection_required: Asistan bu transferi yalnızca mevcut cüzdandan hazırlayabilir. Belirtilen cüzdana geçip tekrar deneyin.
-$agent_notice_send_validation_failed: Transfer bilgileri cüzdan doğrulamasından geçemedi.
-$agent_notice_tool_unavailable: Bu işlem mevcut istemcide kullanılamıyor.
-$agent_notice_wallet_unavailable: Cüzdan verilerine şu anda erişilemiyor.
-$agent_notice_wallet_filter_ambiguous: İsteği daraltmak için bir cüzdan veya varlık seçin.
-$agent_notice_web_unavailable: Web araması şu anda kullanılamıyor.
-$agent_notice_web_capability_unavailable: Mevcut Asistan yapılandırması web aramasını desteklemiyor.
-$agent_notice_web_planning_failed: Asistan arama sorgusunu hazırlayamadı.
-$agent_notice_web_budget_denied: Web arama limitine ulaşıldı. Lütfen daha sonra tekrar deneyin.
-$agent_notice_web_provider_rate_limited: Arama sağlayıcısı istekleri geçici olarak sınırlandırdı. Lütfen daha sonra tekrar deneyin.
-$agent_notice_web_provider_unavailable: Arama sağlayıcısı yanıt vermedi. Lütfen daha sonra tekrar deneyin.
-$agent_notice_web_no_results: Arama tamamlandı, ancak ilgili sonuç bulunamadı.
-$agent_notice_web_invalid_sources: Arama sonuçları alındı, ancak güvenlik kontrollerinden geçemediler.
-$agent_notice_web_synthesis_timeout: Sonuçlar bulundu, ancak bunların işlenmesi çok uzun sürdü.
-$agent_notice_web_synthesis_invalid: Sonuçlar bulundu, ancak Asistan geçerli bir özet oluşturamadı.
-$agent_notice_web_synthesis_unavailable: Sonuçlar bulundu, ancak özetleme modeli şu anda kullanılamıyor.
-$agent_notice_web_policy_rejected: Özet oluşturuldu, ancak kalite kontrollerinden geçemedi.
+$agent_notice_web_search_no_results: İsteğinizle eşleşen bilgi bulunamadı.
 $agent_error_session: Asistan oturumunuzun süresi doldu. Asistan'ı yeniden açıp tekrar deneyin.
 $agent_error_limit: Asistan sınırına ulaşıldığı için istek tamamlanamıyor.
 $agent_error_tool: Cüzdan işlemi tamamlanamadı. Lütfen tekrar deneyin.
 $agent_error_conversation_updated: Konuşma güncellendi. Lütfen isteği tekrar deneyin.
 $agent_error_generic: Asistan isteği tamamlayamadı. Lütfen tekrar deneyin.
+$agent_error_invalid_response: Ajanın yanıtı okunamadı. Lütfen tekrar deneyin.
 $agent_error_update_required: Devam etmek için uygulamayı güncelleyin.
-$agent_semantic_transactions: İşlemler
-$agent_semantic_positions: Pozisyonlar
-$agent_semantic_market: Piyasa görünümü
 $agent_wallet_page_navigation: Cüzdan veri sayfaları
-$agent_wallet_page_previous: ← Önceki
-$agent_wallet_page_next: Sonraki →
 $agent_wallet_page_indicator: "%current% / %total%"
-$agent_portfolio_unpriced: Dahil değil
-$agent_portfolio_unpriced_value: dahil değil
-$agent_portfolio_more_positions: +%count% daha fazla
-$agent_portfolio_history_on: "%network% geçmişi"
-$agent_portfolio_no_activity: Yakın zamanda etkinlik yok.
 Clear Chat: Sohbeti temizle
 Unsupported link: Bu bağlantı desteklenmiyor
 My Wallet Features: My Wallet Özellikleri
@@ -1717,10 +1404,13 @@ Manage Assets: Varlıkları yönet
 Pulse: Nabız
 Edit Message: Mesajı düzenle
 Toggle Hints: İpuçlarını değiştir
-AgentErrorResponseFailed: "Hata: Yanıt alınamadı"
-AgentErrorConnectionFailed: "Hata: Bağlantı başarısız"
 Scroll To Bottom: Alta kaydır
 $agent_clear_chat_confirm: Sohbet geçmişini temizlemek istediğinizden emin misiniz?
+Report a Problem: Sorun bildir
+$agent_report_problem_description: Bu sohbetin son mesajları, sorunu çözmemize yardımcı olmak için ekibimize gönderilecek.
+$agent_report_problem_sent: Teşekkürler! Bildiriminiz gönderildi.
+$agent_report_problem_failed: Bildirim gönderilemedi. Lütfen tekrar deneyin.
+$agent_report_problem_rate_limited: Son zamanlarda birkaç bildirim gönderdiniz. Lütfen daha sonra tekrar deneyin.
 $unknown_swap_token: Swap bağlantısında bilinmeyen token. Varsayılan tokenlar kullanıldı.
 $action_not_available_view_mode: Bu işlem Görüntüleme Cüzdanları için kullanılamaz
 Deposit: Yatır
@@ -2298,6 +1988,7 @@ Tokenized Gold: Tokenize Altın
 Index Funds: Endeks Fonları
 Search token or stock: Token veya hisse ara
 "Activity Failed to Load": "Etkinlik yüklenemedi"
+"$agent_source_bea_attribution": "Bu ürün, Ekonomik Analiz Bürosu (BEA) Veri API’sini kullanır ancak BEA tarafından desteklenmez veya onaylanmaz."
 "Address was copied!": "Adres kopyalandı!"
 "Allow App Lock": "Uygulama kilidine izin ver"
 "An error occurred": "Bir hata oluştu"

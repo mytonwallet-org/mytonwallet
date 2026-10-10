@@ -305,6 +305,9 @@ private func parseMtwUrl(_ url: URL) -> Deeplink? {
     case "stake":
         return .stake
 
+    case "multisend":
+        return .multisend
+
     case "portfolio":
         return .portfolio
 
@@ -544,7 +547,7 @@ func splitAttributionDeeplink(_ url: URL) -> AttributedDeeplink {
         snapshot = InstallAttributionSnapshot(channel: source, attributionKind: "utm", utmMedium: detail("utm_medium"), utmCampaign: detail("utm_campaign"), utmContent: detail("utm_content"))
     } else if let rawDomain = parameters["attribution_referrer"] {
         let domain = rawDomain.lowercased().hasSuffix(".") ? String(rawDomain.lowercased().dropLast()) : rawDomain.lowercased()
-        let owned = ["mywallet.io", "mytonwallet.io", "mytonwallet.org", "mytonwallet.app", "my.tt"]
+        let owned = ["mywallet.io", "mytonwallet.io", "mytonwallet.org", "mytonwallet.app", "my.tt", "gramwallet.io", "gramwallet.app"]
         if domain.utf8.count <= 253,
            !domain.unicodeScalars.contains(where: { $0.value < 32 || (127...159).contains($0.value) }),
            domain.range(of: "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$", options: .regularExpression) == (domain.startIndex..<domain.endIndex),

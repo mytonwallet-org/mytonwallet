@@ -34,6 +34,7 @@ interface AgentV2Fixture {
   send: (text: string) => Promise<void>;
   sendFromPage: (page: Page, text: string) => Promise<void>;
   getState: () => Promise<AgentV2MockState>;
+  completeRun: () => Promise<void>;
   blockedExternalRequests: string[];
 }
 
@@ -51,6 +52,10 @@ export const test = base.extend<{ agentV2: AgentV2Fixture }>({
       send: (text) => sendMessage(page, text),
       sendFromPage: (targetPage, text) => sendMessage(targetPage, text),
       getState: () => getMockState(request),
+      completeRun: async () => {
+        const response = await request.post('/__agent-v2-control/complete-run');
+        expect(response.ok()).toBe(true);
+      },
       blockedExternalRequests,
     });
 
@@ -172,8 +177,7 @@ async function seedViewWallet(page: Page, withSecondaryAccount: boolean) {
 }
 
 async function openAgent(page: Page) {
-  await page.goto('/?agent=v2&r=agent-v2-e2e', { waitUntil: 'domcontentloaded' });
-  await expect.poll(() => new URL(page.url()).searchParams.has('agent')).toBe(false);
+  await page.goto('/?r=agent-v2-e2e', { waitUntil: 'domcontentloaded' });
   const agentTab = page.getByRole('button', { name: 'Agent', exact: true }).last();
   await agentTab.waitFor({ state: 'visible', timeout: 30_000 });
   await agentTab.click();

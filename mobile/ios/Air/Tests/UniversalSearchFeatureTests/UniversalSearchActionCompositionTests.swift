@@ -72,13 +72,23 @@ struct UniversalSearchActionCompositionTests {
             .presentation(for: emptySnapshot(query: "Send 10 USDT to mom"), context: context)
 
         #expect(presentation.preselectedItemID == "agent-action:send 10 usdt to mom")
-        guard case .some(.agent(let query)) = presentation.routesByItemID[
+        guard case .some(.agent(let query, let entryPoint)) = presentation.routesByItemID[
             "agent-action:send 10 usdt to mom"
         ] else {
             Issue.record("Expected an Agent route")
             return
         }
         #expect(query == "Send 10 USDT to mom")
+        #expect(entryPoint == .agentTab)
+    }
+
+    @Test(arguments: ["staking risks", "неизвестные слова", "  staking\nrisks  "])
+    func `unmatched multiword text selects Agent in any language`(query: String) {
+        let presentation = UniversalSearchResultsPresenter(resolver: { _, _ in nil })
+            .presentation(for: emptySnapshot(query: query), context: context)
+
+        #expect(presentation.sections.map(\.id) == ["ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == presentation.sections.first?.items.first?.id)
     }
 
     @Test
@@ -130,25 +140,21 @@ struct UniversalSearchActionCompositionTests {
     }
 
     @Test
-    func `missing agent conversation uses a start row without a pending query`() throws {
-        let suggestion = SearchDocument(
-            id: SearchEntityID("agent-suggestion:portfolio"),
-            kind: .agentAction,
-            fields: [SearchField("Track my portfolio", kind: .title)],
-            attributes: [
-                SearchAttribute(
-                    key: UniversalSearchFeatureAttributeKey.title,
-                    value: "Track my portfolio"
-                ),
-                SearchAttribute(
-                    key: UniversalSearchFeatureAttributeKey.query,
-                    value: "Analyze my wallet portfolio and explain what stands out."
-                ),
+    func `missing agent conversation keeps starter metadata and opens a start row without a query`() async throws {
+        let source = UniversalSearchAgentSuggestionSource { _ in
+            [
+                .init(
+                    id: "portfolio.performance",
+                    catalogVersion: "agent-starter-hints-v1",
+                    title: "Track my portfolio",
+                    prompt: "Analyze my wallet portfolio and explain what stands out."
+                )
             ]
-        )
+        }
+        let sourceSnapshot = try await source.snapshot(for: context)
         let browse = UniversalSearchBrowseSnapshot(
             recentDocuments: [],
-            trendingDocuments: [suggestion],
+            trendingDocuments: sourceSnapshot.documents,
             corpusRevision: 1,
             corpusDocumentCount: 1,
             generatedAt: Date(timeIntervalSince1970: 1)
@@ -166,13 +172,66 @@ struct UniversalSearchActionCompositionTests {
         #expect(emptyConversationChats.items.count == 1)
         let suggestions = try #require(presentation.sections.dropFirst().first)
         #expect(suggestions.id == "agent-suggestions")
-        #expect(suggestions.items.map(\.id) == ["agent-suggestion:portfolio"])
-        guard case .some(.agent(let emptyConversationQuery)) = presentation
+        #expect(suggestions.items.map(\.id) == ["agent-suggestion:portfolio.performance"])
+        guard case .some(.agent(let prompt, let hintEntryPoint)) = presentation
+            .routesByItemID["agent-suggestion:portfolio.performance"] else {
+            Issue.record("Expected a starter hint route")
+            return
+        }
+        #expect(prompt == "Analyze my wallet portfolio and explain what stands out.")
+        #expect(hintEntryPoint == .emptyState(hintId: "portfolio.performance", catalogVersion: "agent-starter-hints-v1"))
+        guard case .some(.agent(let emptyConversationQuery, let entryPoint)) = presentation
             .routesByItemID[startItem.id] else {
             Issue.record("Expected the empty conversation row to open Agent")
             return
         }
         #expect(emptyConversationQuery == nil)
+        #expect(entryPoint == .agentTab)
+    }
+
+    @Test
+    func `localized starter and identical typed question preserve their respective origins`() async throws {
+        let source = UniversalSearchAgentSuggestionSource { _ in
+            [
+                .init(
+                    id: "learn.security",
+                    catalogVersion: "catalog-from-server",
+                    title: "Безопасность кошелька",
+                    prompt: "Расскажи, как защитить мой кошелёк."
+                )
+            ]
+        }
+        let sourceSnapshot = try await source.snapshot(for: context)
+        let document = try #require(sourceSnapshot.documents.first)
+        let presenter = UniversalSearchResultsPresenter()
+        let browse = presenter.browsePresentation(
+            for: UniversalSearchBrowseSnapshot(
+                recentDocuments: [],
+                trendingDocuments: sourceSnapshot.documents,
+                corpusRevision: 1,
+                corpusDocumentCount: 1,
+                generatedAt: Date(timeIntervalSince1970: 1)
+            ),
+            context: context
+        )
+        guard case .some(.agent(let prompt, let entryPoint)) = browse.routesByItemID[document.id.rawValue] else {
+            Issue.record("Expected the localized starter hint route")
+            return
+        }
+        #expect(prompt == "Расскажи, как защитить мой кошелёк.")
+        #expect(entryPoint == .emptyState(hintId: "learn.security", catalogVersion: "catalog-from-server"))
+
+        let typed = presenter.presentation(
+            for: snapshot(query: "Расскажи, как защитить мой кошелёк.", document: document),
+            context: context
+        )
+        let askAgent = try #require(typed.sections.first { $0.id == "ask-agent" }?.items.first)
+        guard case .some(.agent(let typedPrompt, let typedEntryPoint)) = typed.routesByItemID[askAgent.id] else {
+            Issue.record("Expected the typed question route")
+            return
+        }
+        #expect(typedPrompt == "Расскажи, как защитить мой кошелёк.")
+        #expect(typedEntryPoint == .agentTab)
     }
 
     private func emptySnapshot(query: String) -> UniversalSearchResultSnapshot {

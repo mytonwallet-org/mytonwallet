@@ -41,6 +41,28 @@ object NftStore : IStore {
 
     private val mintingAccountIds = ConcurrentHashMap.newKeySet<String>()
 
+    private val fullyLoadedChainsByAccount = ConcurrentHashMap<String, MutableSet<MBlockchain>>()
+
+    // A network is read in full from the final update of a full load until another one starts
+    fun recordFullLoad(
+        accountId: String,
+        chain: MBlockchain,
+        isFullLoading: Boolean,
+        isStreamComplete: Boolean
+    ) {
+        if (!isFullLoading && isStreamComplete) {
+            fullyLoadedChainsByAccount.getOrPut(accountId) {
+                ConcurrentHashMap.newKeySet()
+            }.add(chain)
+        } else {
+            fullyLoadedChainsByAccount[accountId]?.remove(chain)
+        }
+    }
+
+    // The networks whose NFTs were read in full since launch, as the web app keeps them
+    fun getFullyLoadedChains(accountId: String): Set<MBlockchain> =
+        fullyLoadedChainsByAccount[accountId]?.toSet().orEmpty()
+
     fun isCardMinting(accountId: String): Boolean = mintingAccountIds.contains(accountId)
 
     fun setCardMinting(accountId: String, isMinting: Boolean) {
@@ -561,6 +583,7 @@ object NftStore : IStore {
         cacheReads.remove(accountId)
         pendingNewMtwCardsByAccount.remove(accountId)
         mintingAccountIds.remove(accountId)
+        fullyLoadedChainsByAccount.remove(accountId)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.remove(accountId) }
     }
 
@@ -608,6 +631,7 @@ object NftStore : IStore {
         ignoredExpiringAddressesByAccount.clear()
         pendingNewMtwCardsByAccount.clear()
         mintingAccountIds.clear()
+        fullyLoadedChainsByAccount.clear()
         checkOwnershipHandler.removeCallbacks(checkOwnershipRunnable)
         synchronized(checkOwnershipAccountIds) { checkOwnershipAccountIds.clear() }
         paletteExtractor = null
@@ -621,6 +645,7 @@ object NftStore : IStore {
         cachedNftCollections.clear()
         cachedHasHiddenNfts.clear()
         cachedHasUnverifiedNfts.clear()
+        fullyLoadedChainsByAccount.clear()
     }
 
     private fun clearActiveNftData() {

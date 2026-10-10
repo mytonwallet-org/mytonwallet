@@ -58,7 +58,7 @@ jest.mock('../../../util/chunkLoading', () => ({ reportApiChunkLoadError: jest.f
 jest.mock('../../../util/logs', () => ({
   ...jest.requireActual('../../../util/logs'), logDebugError: jest.fn(), logDebugApi: jest.fn(),
 }));
-jest.mock('../../../util/agent/agentStorage', () => ({ clearAgentChat: jest.fn() }));
+jest.mock('../../../util/agent/clearLegacyAgentStorage', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('../../../util/notificationSound', () => ({ initializeSounds: jest.fn() }));
 jest.mock('../../index', () => ({
   addActionHandler: jest.fn(), getGlobal: jest.fn(), setGlobal: jest.fn(), getActions: jest.fn(),

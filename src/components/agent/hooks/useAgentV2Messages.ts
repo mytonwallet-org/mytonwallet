@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from '../../../lib/teact/teact';
 import { getActions, getGlobal } from '../../../global';
 
 import type {
-  AgentActionProposal,
   AgentHintsResponseV2,
   AgentPersistedActionV2,
   AgentPublicFollowUpV2,
-  AgentPublicInputContinuationV1,
   AgentUserQuotaV2,
+  AgentV2LiveAction,
 } from '../../../api/agentV2/protocol/types';
 import type {
   AgentV2ActionPresentation,
@@ -15,31 +14,35 @@ import type {
   AgentV2HostContextSnapshot,
   AgentV2IncompatibleHistoryMessage,
   AgentV2ResolvedAction,
-  AgentV2WalletConversationControl,
 } from '../../../api/agentV2/types';
-import type { AgentHint } from '../../../global/types';
+import type { AgentHint, AgentMessage } from '../../../global/types';
+import type { LangFn } from '../../../hooks/useLang';
+import type { AgentProblemReportOutcome } from '../AgentConversationShell';
 import type { AgentRunActivityType } from '../AgentRunActivity';
 import type { AgentV2HydrationController } from './agentV2HydrationController';
 import type { AgentV2RunController } from './agentV2RunController';
 import type { AgentV2SendAction, AgentV2StreamController } from './agentV2StreamController';
 import type { TextRevealPresentations } from './textRevealPresentation';
-import type {
-  UseAgentMessagesProps,
-  UseAgentMessagesResult,
-} from './useAgentMessages';
 
-import { getAppliedAgentV2CustomWriterInstruction } from '../../../util/agent/agentWriterPrompt';
+import { buildAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
+import { buildAgentBuiltinDapps } from '../../../global/agentV2/builtinDapps';
+import { selectCurrentAccountState } from '../../../global/selectors';
+import { isAgentLinkUrl } from '../../../util/agent/agentLinkUrl';
 import {
   cancelAgentV2ActiveRunReplays,
+  subscribeToAgentV2RuntimeReady,
   subscribeToAgentV2Updates,
 } from '../../../util/agentV2Updates';
 import { getIsSupportedChain } from '../../../util/chain';
-import { processDeeplink } from '../../../util/deeplink';
+import {
+  isSelfDeeplink, parseDeeplinkTransferParams, processDeeplink,
+} from '../../../util/deeplink';
 import { SELF_PROTOCOL } from '../../../util/deeplink/constants';
 import { logDebugError } from '../../../util/logs';
 import { openUrl } from '../../../util/openUrl';
 import { callApi } from '../../../api';
-import { buildAgentV2SendAuthorityKey } from '../../../api/agentV2/sendActionAuthority';
+import { getAgentV2ActionAvailability } from '../../../api/agentV2/actionAvailability';
+import { getSecretPhraseWordList, removeSecretPhrases } from '../../../api/agentV2/secretPhrase';
 import {
   isAgentV2ComposerBlocked,
   selectAgentV2ComposerStatus,
@@ -48,8 +51,9 @@ import {
   getAgentV2ErrorText,
   getAgentV2HintCopy,
 } from '../../agentV2/agentV2Copy';
-import { buildAgentV2HostContext } from '../../agentV2/buildHostContext';
 import { buildAgentV2HydrationError } from '../../agentV2/hydrationError';
+import { findSiteByUrl, openSite } from '../../explore/helpers/utils';
+import { buildAgentV2SendAuthorityKey } from '../helpers/sendActionAuthority';
 import { createAgentV2HydrationController } from './agentV2HydrationController';
 import {
   type AgentV2MessagesStateAction,
@@ -57,6 +61,7 @@ import {
   reduceAgentV2MessagesState,
   selectAgentV2Activity,
   selectIsAgentV2InputDisabled,
+  selectIsAgentV2RunActive,
 } from './agentV2MessagesState';
 import { createAgentV2RunController } from './agentV2RunController';
 import { createAgentV2StreamController } from './agentV2StreamController';
@@ -69,7 +74,23 @@ interface AgentV2Controllers {
   stream: AgentV2StreamController;
 }
 
-export interface UseAgentV2MessagesResult extends UseAgentMessagesResult {
+interface UseAgentV2MessagesProps {
+  isActive?: boolean;
+  lang: LangFn;
+}
+
+export interface UseAgentV2MessagesResult {
+  messages: AgentMessage[];
+  hints?: AgentHint[];
+  isInitialLoadComplete: boolean;
+  isInputDisabled: boolean;
+  isRunActive: boolean;
+  textRevealPresentations: TextRevealPresentations;
+  clearChat: NoneToVoidFunction;
+  /** Present while the server takes problem reports */
+  reportProblem?: (messageId: number | undefined, comment: string) => Promise<AgentProblemReportOutcome>;
+  consumeTextRevealSession: (messageId: number, key: string) => void;
+  settleTextRevealSession: (messageId: number, key: string) => void;
   activity?: AgentRunActivityType;
   hasOlderMessages: boolean;
   isLoadingOlderMessages: boolean;
@@ -77,24 +98,16 @@ export interface UseAgentV2MessagesResult extends UseAgentMessagesResult {
   isConsentAccepted?: boolean;
   composerStatus?: AgentV2ComposerStatus;
   userQuota?: AgentUserQuotaV2;
-  sendMessage: (
-    text: string,
-    editMessageId?: number,
-    inputContinuation?: {
-      messageId: number;
-      continuation: AgentPublicInputContinuationV1;
-    },
-  ) => void;
+  sendMessage: (text: string, editMessageId?: number) => void;
   sendHint: (hint: AgentHint) => void;
   sendFollowup: (messageId: number, followup: AgentPublicFollowUpV2) => void;
-  sendWalletControl: (messageId: number, control: AgentV2WalletConversationControl) => void;
   acceptConsent: NoneToVoidFunction;
   retryMessage: (messageId: number) => void;
   retryAdmission: NoneToVoidFunction;
   refreshExpiredComposerStatus: NoneToVoidFunction;
   activateAction: (
     messageId: number,
-    action: AgentActionProposal | AgentPersistedActionV2,
+    action: AgentV2LiveAction | AgentPersistedActionV2,
   ) => void;
 }
 
@@ -103,31 +116,26 @@ const ERROR_MESSAGE_ID = -1;
 export default function useAgentV2Messages({
   isActive,
   lang,
-}: UseAgentMessagesProps): UseAgentV2MessagesResult {
+}: UseAgentV2MessagesProps): UseAgentV2MessagesResult {
   const {
     openReceiveModal,
-    openTransactionInfo,
-    setAgentMeta,
-    setSwapAmountIn,
-    showTokenActivity,
     setSwapAmountOut,
+    showError,
     startSwap,
     startTransfer,
-    switchToAgent,
-    switchToWallet,
-    toggleTokenVisibility,
   } = getActions();
   const langCode = lang.code ?? 'en';
   const [state, setState] = useState(INITIAL_AGENT_V2_MESSAGES_STATE);
   const [textRevealPresentations, setTextRevealPresentations] = useState<TextRevealPresentations>({});
+  const [isProblemReportAvailable, setIsProblemReportAvailable] = useState(false);
   const stateRef = useRef(state);
   const langRef = useRef(lang);
   const wasActiveRef = useRef(isActive);
   const controllersRef = useRef<AgentV2Controllers>();
   const dispatch = useLastCallback((action: AgentV2MessagesStateAction) => {
-    setState((current) => reduceAgentV2MessagesState(current, action));
+    stateRef.current = reduceAgentV2MessagesState(stateRef.current, action);
+    setState(stateRef.current);
   });
-  stateRef.current = state;
   langRef.current = lang;
 
   if (!controllersRef.current) {
@@ -154,7 +162,6 @@ export default function useAgentV2Messages({
         ? callApi('getAgentV2Messages', threadId, cursor)
         : callApi('getAgentV2Messages', threadId),
       getState: () => stateRef.current,
-      getUnavailableError: () => langRef.current('Agent is unavailable.'),
       isConsentAccepted: () => stateRef.current.isConsentAccepted === true,
       loadAvailability: () => callApi('getAgentV2Availability'),
       loadUserQuota: () => callApi('getAgentV2UserQuota'),
@@ -181,23 +188,33 @@ export default function useAgentV2Messages({
       retryRun: (clientRunId) => callApi('retryAgentV2Run', clientRunId),
       resetHistory: hydration.resetHistory,
       startRun: async (command) => {
-        const customWriterInstruction = getAppliedAgentV2CustomWriterInstruction();
         const hostContext = buildAgentV2HostContext(getGlobal());
         const synchronized = await synchronizeHostContext(hostContext);
         if (synchronized === undefined) return undefined;
-        return callApi('startAgentV2Run', {
-          ...command,
-          ...(customWriterInstruction ? { customWriterInstruction } : {}),
-        });
+        return callApi('startAgentV2Run', command);
       },
       stream,
+      hideSecretPhrases: (text) => removeSecretPhrases(
+        text, getSecretPhraseWordList(), langRef.current('$agent_secret_words_removed'),
+      ),
     });
     controllersRef.current = { hydration, run, stream };
   }
   const controllers = controllersRef.current;
 
-  const messageCount = state.messages.length;
-  const lastMessageTimestamp = state.messages.at(-1)?.timestamp;
+  useEffect(() => {
+    function updateChatActivity() {
+      void callApi('setAgentV2ChatActive', Boolean(isActive && state.isConsentAccepted)).catch(() => undefined);
+    }
+
+    const unsubscribe = subscribeToAgentV2RuntimeReady(updateChatActivity);
+    updateChatActivity();
+    return () => {
+      unsubscribe();
+      void callApi('setAgentV2ChatActive', false).catch(() => undefined);
+    };
+  }, [isActive, state.isConsentAccepted]);
+
   const composerStatus = selectAgentV2ComposerStatus(
     state.availability,
     state.userQuota,
@@ -206,9 +223,17 @@ export default function useAgentV2Messages({
   );
   const isComposerBlocked = isAgentV2ComposerBlocked(composerStatus);
   const messages = useMemo(() => {
+    const lastAdmittedUserMessageIndex = state.messages.reduce((lastIndex, { id, isOutgoing }, index) => (
+      isOutgoing && state.sourceIdByMessageId[id] ? index : lastIndex
+    ), -1);
+    const visibleMessages = state.messages.map((message, index) => (
+      message.error && index < lastAdmittedUserMessageIndex
+        ? { ...message, error: undefined, isRetryAvailable: undefined }
+        : message
+    ));
     if (state.admissionFailure && state.admissionFailure.retryMessageId === undefined) {
       return [
-        ...state.messages,
+        ...visibleMessages,
         {
           id: ERROR_MESSAGE_ID,
           text: '',
@@ -219,9 +244,9 @@ export default function useAgentV2Messages({
         },
       ];
     }
-    if (!state.error) return state.messages;
+    if (!state.error) return visibleMessages;
     return [
-      ...state.messages,
+      ...visibleMessages,
       {
         id: ERROR_MESSAGE_ID,
         text: state.error.cause ? '' : state.error.text,
@@ -230,10 +255,11 @@ export default function useAgentV2Messages({
         ...(state.error.cause ? { error: state.error.cause } : {}),
       },
     ];
-  }, [state.admissionFailure, state.error, state.messages]);
+  }, [state.admissionFailure, state.error, state.messages, state.sourceIdByMessageId]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAgentV2Updates((update) => {
+      if (controllers.run.isCancelledRunUpdate(update)) return;
       controllers.stream.handleUpdate(update);
       controllers.hydration.handleUpdate(update);
       controllers.run.handleUpdate(update);
@@ -275,9 +301,18 @@ export default function useAgentV2Messages({
     void controllers.hydration.refreshHints();
   }, [controllers, isActive, langCode, state.hintsLangCode, state.isConsentAccepted, state.thread]);
 
+  const threadId = state.thread?.id;
   useEffect(() => {
-    setAgentMeta({ messageCount, lastTimestamp: lastMessageTimestamp });
-  }, [lastMessageTimestamp, messageCount, setAgentMeta]);
+    if (!isActive || !threadId) return undefined;
+
+    let isCurrent = true;
+    void callApi('getAgentV2ProblemReportAvailability').then((isAvailable) => {
+      if (isCurrent) setIsProblemReportAvailable(Boolean(isAvailable));
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [isActive, threadId]);
 
   const acceptConsent = useLastCallback(() => {
     void callApi('acceptAgentV2Consent').then((isConsentAccepted) => {
@@ -289,7 +324,7 @@ export default function useAgentV2Messages({
 
   const activateAction = useLastCallback((
     messageId: number,
-    action: AgentActionProposal | AgentPersistedActionV2,
+    action: AgentV2LiveAction | AgentPersistedActionV2,
   ) => {
     const sourceId = controllers.stream.getSourceId(messageId);
     if (!sourceId) return;
@@ -311,13 +346,38 @@ export default function useAgentV2Messages({
     });
   });
 
+  const reportProblem = useLastCallback(async (
+    messageId: number | undefined,
+    comment: string,
+  ): Promise<AgentProblemReportOutcome> => {
+    const { thread } = stateRef.current;
+    if (!thread) return 'failed';
+    // The connection error bubble has no stored message and reports the conversation. An answer that lost its stored
+    // message since the form opened is not reported as the conversation in its place.
+    const sourceId = messageId === undefined || messageId === ERROR_MESSAGE_ID
+      ? undefined
+      : controllers.stream.getSourceId(messageId);
+    if (messageId !== undefined && messageId !== ERROR_MESSAGE_ID && !sourceId) return 'failed';
+    const result = await callApi('reportAgentV2Problem', thread.id, {
+      ...(sourceId ? { messageId: sourceId } : {}),
+      ...(comment ? { comment } : {}),
+    });
+    if (result?.ok) return 'sent';
+    // A server that has switched reports off refuses them, and asking again takes the report items away
+    void callApi('getAgentV2ProblemReportAvailability').then((isAvailable) => {
+      setIsProblemReportAvailable(Boolean(isAvailable));
+    });
+    return result?.error.code === 'rate_limited' ? 'rateLimited' : 'failed';
+  });
+
   const refreshExpiredComposerStatus = useLastCallback(() => {
     dispatch({ kind: 'composerStatusExpired' });
   });
 
   const retryMessage = useLastCallback((messageId: number) => {
-    const retryMessageId = stateRef.current.admissionFailure?.retryMessageId;
-    if (messageId === ERROR_MESSAGE_ID || messageId === retryMessageId) {
+    const admissionFailure = stateRef.current.admissionFailure;
+    if (messageId === ERROR_MESSAGE_ID
+      || (messageId === admissionFailure?.retryMessageId && admissionFailure.clientRunId)) {
       controllers.run.retryAdmission();
       return;
     }
@@ -330,6 +390,7 @@ export default function useAgentV2Messages({
     activity: selectAgentV2Activity(state),
     isInitialLoadComplete: state.isConsentAccepted === true && !state.isLoading,
     isInputDisabled: selectIsAgentV2InputDisabled(state, isComposerBlocked),
+    isRunActive: selectIsAgentV2RunActive(state),
     textRevealPresentations,
     hasOlderMessages: Boolean(state.nextCursor),
     isLoadingOlderMessages: state.isLoadingOlderMessages,
@@ -340,8 +401,8 @@ export default function useAgentV2Messages({
     sendMessage: controllers.run.sendMessage,
     sendHint: controllers.run.sendHint,
     sendFollowup: controllers.run.sendFollowup,
-    sendWalletControl: controllers.run.sendWalletControl,
     clearChat: controllers.run.clearChat,
+    reportProblem: isProblemReportAvailable ? reportProblem : undefined,
     acceptConsent,
     retryMessage,
     retryAdmission: controllers.run.retryAdmission,
@@ -401,23 +462,13 @@ export default function useAgentV2Messages({
       const currentMessage = stateRef.current.messages.find((message) => message.id === messageId);
       if (
         !currentMessage?.actions?.some(({ id }) => id === action.id)
-        || (resolved?.kind !== 'reviewSend' && resolved?.kind !== 'sendForm')
+        || resolved?.kind !== 'sendForm'
       ) {
         controllers.stream.setActionPresentation(sourceId, action.id, { kind: 'inactive' }, presentationGeneration);
         return;
       }
 
-      if (resolved.kind === 'reviewSend') {
-        startTransfer({
-          tokenSlug: resolved.review.tokenSlug,
-          amount: BigInt(resolved.review.amountAtomic),
-          toAddress: resolved.review.toAddress,
-          ...(resolved.review.comment ? { comment: resolved.review.comment } : {}),
-          shouldRequireFreshAuth: true,
-        });
-      } else {
-        dispatchResolvedAction(resolved);
-      }
+      dispatchResolvedAction(resolved);
     } catch {
       controllers.stream.setActionPresentation(sourceId, action.id, { kind: 'inactive' }, presentationGeneration);
     }
@@ -429,55 +480,76 @@ export default function useAgentV2Messages({
         if (getIsSupportedChain(resolved.chain)) openReceiveModal({ chain: resolved.chain });
         return;
       case 'openStaking': {
-        switchToWallet();
         void processDeeplink(buildStakingDeeplink(resolved));
         return;
       }
       case 'openSwap':
-        switchToWallet();
-        if (resolved.amountSide === 'source') {
+        if (isSelfDeeplink(resolved.url)) {
+          const global = getGlobal();
+          if (!getAgentV2ActionAvailability(buildAgentV2HostContext(global)).canPrepareSwap) return;
+          const tokensBySlug = global.swapTokenInfo?.bySlug;
+          if ((resolved.tokenInSlug && !tokensBySlug?.[resolved.tokenInSlug])
+            || (resolved.tokenOutSlug && !tokensBySlug?.[resolved.tokenOutSlug])) {
+            showError({ error: '$unknown_swap_token' });
+            return;
+          }
           startSwap({
             tokenInSlug: resolved.tokenInSlug,
             tokenOutSlug: resolved.tokenOutSlug,
-            amountIn: resolved.amount,
+            amountIn: resolved.amountSide === 'source' ? resolved.amount : undefined,
           });
-          setSwapAmountIn({ amount: resolved.amount });
-        } else {
-          startSwap({ tokenInSlug: resolved.tokenInSlug, tokenOutSlug: resolved.tokenOutSlug });
-          setSwapAmountOut({ amount: resolved.amount });
+          if (resolved.amountSide === 'destination' && resolved.amount) {
+            setSwapAmountOut({ amount: resolved.amount });
+          }
+        } else if (isSafeHttpsUrl(resolved.url)) {
+          void openUrl(resolved.url);
         }
         return;
-      case 'sendForm':
+      case 'sendForm': {
+        if (resolved.url === 'mtw://send') {
+          startTransfer({ shouldRequireFreshAuth: true });
+          return;
+        }
+        const url = new URL(resolved.url);
+        if (url.protocol !== 'mtw:' || url.hostname !== 'send') return;
+        const global = getGlobal();
+        const params = parseDeeplinkTransferParams(resolved.url, global);
+        if (!params) return;
+        const { error, ...transferParams } = params;
+        // The runtime already matched the asset; the parser sees no held tokens until balances load
+        const requestedTokenSlug = error === '$dont_have_required_token' && !selectCurrentAccountState(global)?.balances
+          ? url.searchParams.get('token') ?? undefined
+          : undefined;
+        if (error && !requestedTokenSlug) {
+          showError({ error });
+          return;
+        }
+        const tokenSlug = requestedTokenSlug || transferParams.tokenSlug;
+        // As the Max button does before the fee is known: the form takes the fee off once it has it
+        const maxAmount = resolved.isMaxAmount && tokenSlug
+          ? selectCurrentAccountState(global)?.balances?.bySlug[tokenSlug]
+          : undefined;
         startTransfer({
-          tokenSlug: resolved.tokenSlug,
-          amount: undefined,
-          toAddress: resolved.toAddress,
-          comment: undefined,
+          ...transferParams,
+          tokenSlug,
+          ...(maxAmount ? { amount: maxAmount } : {}),
           shouldRequireFreshAuth: true,
         });
         return;
-      case 'reviewSend':
-        return;
-      case 'hideSpamAssets':
-        resolved.slugs.forEach((slug) => toggleTokenVisibility({ slug, shouldShow: false }));
-        return;
-      case 'openUrl':
-        if (isSafeHttpsUrl(resolved.url)) void openUrl(resolved.url, { isExternal: true });
-        return;
-      case 'openToken':
-        if (getIsSupportedChain(resolved.chain)) {
-          showTokenActivity({ slug: resolved.slug });
-          switchToWallet();
+      }
+      case 'openDapp': {
+        const global = getGlobal();
+        // A stored button to a screen of the app, such as Multisend, opens it as an answer link does
+        if ((resolved.url.startsWith(SELF_PROTOCOL) && isAgentLinkUrl(resolved.url))
+          || buildAgentBuiltinDapps(global).some(({ url }) => url === resolved.url)) {
+          void processDeeplink(resolved.url);
+          return;
         }
+        const site = findSiteByUrl(global.exploreData?.sites, resolved.url);
+        if (!site || (global.restrictions.isLimitedRegion && site.canBeRestricted)) return;
+        openSite(site.url, site.isExternal, site.name);
         return;
-      case 'openTransaction':
-        if (getIsSupportedChain(resolved.chain) && resolved.transactionRef.trim()) {
-          openTransactionInfo({ txHash: resolved.transactionRef, chain: resolved.chain });
-        }
-        return;
-      case 'openAgent':
-        switchToAgent();
-        return;
+      }
       case 'inactive':
         return;
       default:
@@ -535,7 +607,7 @@ function reportIncompatibleHistoryMessages(
 async function synchronizeHostContext(hostContext: AgentV2HostContextSnapshot) {
   const result = await callApi('updateAgentV2HostContext', hostContext);
   if (!result?.ok) return undefined;
-  if (result.value.authorityChanged) cancelAgentV2ActiveRunReplays();
+  if (result.value.authorityChanged && !result.value.preservesActiveRuns) cancelAgentV2ActiveRunReplays();
   return result.value.authorityChanged;
 }
 
@@ -551,7 +623,7 @@ function isSafeHttpsUrl(value: string) {
 function mapHints(
   response: AgentHintsResponseV2,
   langCode: AgentHint['langCode'],
-  lang: UseAgentMessagesProps['lang'],
+  lang: UseAgentV2MessagesProps['lang'],
 ): AgentHint[] {
   return response.items.map((hint) => {
     const copy = getAgentV2HintCopy(hint.id, lang);
@@ -559,7 +631,7 @@ function mapHints(
       id: hint.id,
       langCode,
       title: copy.title,
-      subtitle: copy.prompt,
+      subtitle: copy.subtitle,
       prompt: copy.prompt,
     };
   });

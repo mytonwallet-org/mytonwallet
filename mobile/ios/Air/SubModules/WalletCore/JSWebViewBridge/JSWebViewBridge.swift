@@ -101,8 +101,38 @@ public class JSWebViewBridge: UIViewController {
     private var readinessWatchdog: Task<Void, Never>?
 
     // Token deltas must reach stores in delivery order, including JSON decoding
-    private let updateQueue = DispatchQueue(label: "onUpdate", qos: .background)
-    private let storage = JSBridgeStorage()
+    private let updateQueue: DispatchQueue
+    private let storage: JSBridgeStorage
+
+    public override init(nibName: String? = nil, bundle: Bundle? = nil) {
+        updateQueue = DispatchQueue(label: "onUpdate", qos: .userInitiated)
+        storage = JSBridgeStorage()
+        super.init(nibName: nibName, bundle: bundle)
+    }
+
+    required public init?(coder: NSCoder) {
+        updateQueue = DispatchQueue(label: "onUpdate", qos: .userInitiated)
+        storage = JSBridgeStorage()
+        super.init(coder: coder)
+    }
+
+    init(storage: JSBridgeStorage, updateQueue: DispatchQueue, webView: WKWebView? = nil) {
+        self.storage = storage
+        self.updateQueue = updateQueue
+        self.webView = webView
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    func replaceWebView(_ webView: WKWebView?) {
+        self.webView?.removeFromSuperview()
+        self.webView = webView
+    }
+
+    /// The web view that sent a message, while it remains the bridge's current runtime.
+    private func currentWebView(_ source: WKWebView?) -> WKWebView? {
+        guard let source, source === webView else { return nil }
+        return source
+    }
 
     func waitForPendingUpdates() async {
         await withCheckedContinuation { continuation in
@@ -148,8 +178,7 @@ public class JSWebViewBridge: UIViewController {
         StartupTrace.markOnce("bridge.recreateWebView")
         onBridgeReady = onCompletion
         isApiReady = false
-        webView?.removeFromSuperview()
-        webView = nil
+        replaceWebView(nil)
 
         let webViewConfiguration = WKWebViewConfiguration()
         
@@ -186,10 +215,10 @@ public class JSWebViewBridge: UIViewController {
         // this way through URLSession; this puts the web view on the same footing.
         webViewConfiguration.applicationNameForUserAgent = Self.clientUserAgentToken
         // create web view
-        webView = WKWebView(
+        replaceWebView(WKWebView(
             frame: CGRect(x: 0, y: 0, width: 1, height: 1),
             configuration: webViewConfiguration
-        )
+        ))
         webView?.navigationDelegate = self
         webView?.uiDelegate = self
         #if DEBUG
@@ -471,8 +500,7 @@ public class JSWebViewBridge: UIViewController {
         let waiters = bridgeReadyWaiters
         bridgeReadyWaiters.removeAll()
         waiters.forEach { $0.resume() }
-        webView?.removeFromSuperview()
-        webView = nil
+        replaceWebView(nil)
     }
 }
 
@@ -482,7 +510,38 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
         assert(Thread.isMainThread)
         nonisolated(unsafe) let body = message.body
         let messageName = message.name
-        let storage = storage
+        let sourceWebView = message.webView
+        // A replaced web view keeps running while it has pending calls, so only the current one reaches native handlers.
+        guard messageName == "log" || currentWebView(sourceWebView) != nil else { return }
+        if messageName == "nativeCall",
+           let data = body as? [String: Any],
+           let requestNumber = data["requestNumber"] as? Int,
+           let methodName = data["methodName"] as? String,
+           let method = JSBridgeStorage.Method(rawValue: methodName) {
+            let key = data["arg0"] as? String
+            // Enqueue synchronously so storage stays ordered without waiting for update decoding.
+            storage.enqueue(method, key: key, value: data["arg1"] as? String) { [weak self] result in
+                Task { @MainActor in
+                    guard let sourceWebView = self?.currentWebView(sourceWebView) else { return }
+                    do {
+                        switch result {
+                        case .success(.value(let value)):
+                            try await sourceWebView.nativeCallOk(requestNumber: requestNumber, result: value)
+                        case .success(.keys(let keys)):
+                            try await sourceWebView.nativeCallOk(requestNumber: requestNumber, result: keys)
+                        case .success(.void):
+                            try await sourceWebView.nativeCallOkVoid(requestNumber: requestNumber)
+                        case .failure(let error):
+                            log.fault("native storage failed method=\(methodName, .public) key=\(key ?? "missing", .public) error=\(error.localizedDescription, .public)")
+                            try await sourceWebView.nativeCallError(requestNumber: requestNumber, error: error.localizedDescription)
+                        }
+                    } catch {
+                        log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
+                    }
+                }
+            }
+            return
+        }
         updateQueue.async {
             assert(!Thread.isMainThread)
             nonisolated(unsafe) let data = body as? [String: Any]
@@ -500,34 +559,13 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                       let methodName = data?["methodName"] as? String else {
                     return
                 }
-                if let method = JSBridgeStorage.Method(rawValue: methodName) {
-                    let key = data?["arg0"] as? String
-                    storage.enqueue(method, key: key, value: data?["arg1"] as? String) { result in
-                        Task { @MainActor in
-                            do {
-                                switch result {
-                                case .success(.value(let value)):
-                                    try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: value)
-                                case .success(.keys(let keys)):
-                                    try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: keys)
-                                case .success(.void):
-                                    try await self.webView?.nativeCallOkVoid(requestNumber: requestNumber)
-                                case .failure(let error):
-                                    log.fault("native storage failed method=\(methodName, .public) key=\(key ?? "missing", .public) error=\(error.localizedDescription, .public)")
-                                    try await self.webView?.nativeCallError(requestNumber: requestNumber, error: error.localizedDescription)
-                                }
-                            } catch {
-                                log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
-                            }
-                        }
-                    }
-                    return
-                }
                 Task { @MainActor in
+                    // The runtime may have been replaced while this call waited behind earlier updates.
+                    guard self.currentWebView(sourceWebView) != nil else { return }
 
                     func completeNativeCallOk(result: sending Any?) async {
                         do {
-                            _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: result)
+                            _ = try await self.currentWebView(sourceWebView)?.nativeCallOk(requestNumber: requestNumber, result: result)
                         } catch {
                             log.fault("Error injecting \(methodName) response to JavaScript: \(error)")
                         }
@@ -548,7 +586,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         guard let id = data?["arg0"] as? String, !id.isEmpty else {
                             Task {
                                 do {
-                                    _ = try await self.webView?.nativeCallError(
+                                    _ = try await self.currentWebView(sourceWebView)?.nativeCallError(
                                         requestNumber: requestNumber,
                                         error: "exportSecret failed: Missing id"
                                     )
@@ -561,7 +599,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         guard let token = data?["arg1"] as? String, !token.isEmpty else {
                             Task {
                                 do {
-                                    _ = try await self.webView?.nativeCallError(
+                                    _ = try await self.currentWebView(sourceWebView)?.nativeCallError(
                                         requestNumber: requestNumber,
                                         error: "exportSecret failed: Missing token"
                                     )
@@ -575,11 +613,11 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         Task {
                             do {
                                 let secret = try await EnclaveManager.shared.exportSecret(id: id, token: EnclaveToken(token))
-                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: secret)
+                                _ = try await self.currentWebView(sourceWebView)?.nativeCallOk(requestNumber: requestNumber, result: secret)
                             } catch {
                                 log.error("exportSecret failed: \(error, .public)")
                                 do {
-                                    _ = try await self.webView?.nativeCallError(
+                                    _ = try await self.currentWebView(sourceWebView)?.nativeCallError(
                                         requestNumber: requestNumber,
                                         error: "exportSecret failed: \(error.localizedDescription)"
                                     )
@@ -599,7 +637,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                                 if response == nil {
                                     log.error("exchangeWithLedger error!")
                                 }
-                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: response)
+                                _ = try await self.currentWebView(sourceWebView)?.nativeCallOk(requestNumber: requestNumber, result: response)
                             } catch {
                                 log.fault("Error injecting exchangeWithLedger response to JavaScript: \(error)")
                             }
@@ -611,7 +649,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                                 if response == nil {
                                     log.error("isLedgerJettonIdSupported error!")
                                 }
-                                _ = try await self.webView?.nativeCallOk(requestNumber: requestNumber, result: response)
+                                _ = try await self.currentWebView(sourceWebView)?.nativeCallOk(requestNumber: requestNumber, result: response)
                             } catch {
                                 log.fault("Error injecting isLedgerJettonIdSupported response to JavaScript: \(error)")
                             }
@@ -623,7 +661,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                                 if response == nil {
                                     log.error("isLedgerUnsafeSupported error!")
                                 }
-                                _ = try await self.webView?.callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
+                                _ = try await self.currentWebView(sourceWebView)?.callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
                                     "requestNumber": requestNumber,
                                     "result": response as Any
                                 ], contentWorld: .page)
@@ -639,7 +677,7 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                                     log.error("getLedgerDeviceModel error!")
                                 }
                                 let json = try? response?.json()
-                                _ = try await self.webView?.callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
+                                _ = try await self.currentWebView(sourceWebView)?.callAsyncJavaScript(NATIVE_CALL_OK, arguments: [
                                     "requestNumber": requestNumber,
                                     "result": json as Any,
                                 ], contentWorld: .page)

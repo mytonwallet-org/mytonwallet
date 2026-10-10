@@ -225,12 +225,15 @@ describe('startSwap', () => {
   });
 
   it('sells a funded token when only the token to buy is given', () => {
-    getActions().startSwap({ tokenOutSlug: SOLANA.slug });
+    getActions().startSwap({ tokenOutSlug: TRX.slug });
 
     expect(getGlobal().currentSwap).toMatchObject({
       tokenInSlug: TON_USDT_MAINNET.slug,
-      tokenOutSlug: SOLANA.slug,
+      tokenOutSlug: TRX.slug,
+      state: SwapState.Initial,
     });
+    expect(getGlobal().currentSwap.amountIn).toBeUndefined();
+    expect(getGlobal().currentSwap.amountOut).toBeUndefined();
   });
 
   it('pays with the default token when the account has nothing to pair with the token to buy', () => {

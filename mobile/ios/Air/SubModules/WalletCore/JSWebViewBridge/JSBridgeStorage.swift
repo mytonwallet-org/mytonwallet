@@ -23,7 +23,7 @@ final class JSBridgeStorage: Sendable {
         self.provider = provider
     }
 
-    // Submit directly from the bridge's serial update queue to preserve storage ordering.
+    // Submit synchronously from the bridge's main-actor message handler to preserve storage ordering.
     // Keychain IPC can block, so it needs its own queue rather than the main actor or update queue.
     func enqueue(
         _ method: Method,

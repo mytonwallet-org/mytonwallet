@@ -1,79 +1,165 @@
 /* eslint-disable no-null/no-null -- Query fixtures exercise the nullable detail result. */
-import type { ApiActivity, ApiPortfolioHistoryResponse } from '../types';
-import type { AgentToolCall, AgentWalletDataQueryArgsV5 } from './protocol/types';
-import type { AgentV2HostContextSnapshot } from './types';
-import type {
-  FetchPortfolioPnlChange,
-  WalletQueryMaterializationDependencies,
-} from './walletQueryMaterializer';
+import type { ApiActivity } from '../types';
+import type { AgentApiChain, AgentToolCall, AgentWalletDataQueryArgs } from './protocol/types';
+import type { AgentV2HostContextSnapshot, AgentV2HostPosition } from './types';
+import type { WalletQueryMaterializationDependencies } from './walletQueryTypes';
 
-import { ApiServerError } from '../errors';
+import { getSupportedChains } from '../../util/chain';
+import * as cache from '../common/cache';
 import contractManifest from './generated/manifest.json';
+import { hostUiCapabilities } from './testing/hostUiCapabilities';
 import { materializeWalletQuery } from './walletQueryMaterializer';
 import { resolveWalletQueryScope } from './walletQueryScope';
 import { AgentV2WalletSession } from './walletSession';
 
 const NOW = '2026-08-10T12:00:00.000Z';
 const MESSAGE_ID = '11111111-1111-4111-8111-111111111111';
+const CHAIN_CASES = [
+  { name: 'runtime catalog', chains: [...getSupportedChains()] },
+  { name: '65 future chains', chains: Array.from({ length: 65 }, (_, index) => `future-chain-${index}`) },
+];
 
 describe('wallet query materializer', () => {
-  it('searches the catalog and active held assets using exact canonical identifiers', async () => {
+  it('rejects token search on the client', async () => {
+    await expect(runQuery(sessionWithHost(), assetsArgs('TON'))).rejects.toMatchObject({
+      code: 'invalid_arguments',
+    });
+  });
+
+  it('requires only the requested position sources before confirming an empty result', async () => {
     const source = host();
-    source.assetCatalog!.push({
-      slug: 'catalog-zero-only', chain: 'ton', symbol: 'CATZERO', decimals: 9,
-    });
-    source.accounts[2].holdings.push({
-      asset: { slug: 'stale-only', chain: 'ton', symbol: 'STALEONLY', decimals: 9 },
-      balance: '1', valuationStatus: 'unpriced',
-    });
+    source.accounts[0].holdings = [];
+    source.accounts[0].positions = [];
+    source.accounts[0].nftLoadedChains = [];
+    source.accounts[0].domainStates = {
+      fungible: { state: 'fresh' },
+      staking: { state: 'notLoaded' },
+      vesting: { state: 'notLoaded' },
+      vault: { state: 'unavailable' },
+    };
     const session = new AgentV2WalletSession();
     session.update(source);
-    const native = await runQuery(session, assetsArgs('toncoin'));
-    const legacyAlias = await runQuery(session, assetsArgs('GRAM'));
-    const prefix = await runQuery(session, assetsArgs('tonc'));
-    const partial = await runQuery(session, assetsArgs('coin'));
-    const typo = await runQuery(session, assetsArgs('toncoim'));
-    const address = await runQuery(session, assetsArgs('0x2222222222222222222222222222222222222222'));
-    const ambiguous = await runQuery(session, assetsArgs('USD₮'));
-    const holdingOnly = await runQuery(session, assetsArgs('PRIVATE'));
-    const catalogZero = await runQuery(session, assetsArgs('CATZERO'));
-    const staleOnly = await runQuery(session, assetsArgs('STALEONLY'));
+    const query = positionsArgs({ riskMode: 'all', visibilityMode: 'all', includeZero: false });
+    const refreshWalletHoldings = jest.fn().mockResolvedValue(new Map());
 
-    expect(native).toMatchObject({
-      operation: 'assets.search',
-      resolution: 'unique',
-      assets: [{ asset: { slug: 'toncoin' }, matchQuality: 'exact', matchedOn: 'slug' }],
+    for (const kind of ['nft', 'staking', 'vesting'] as const) {
+      const result = await runQuery(session, { ...query, positionKinds: [kind] }, { refreshWalletHoldings });
+      expect(result).toMatchObject({
+        positions: [],
+        coverage: {
+          status: 'unavailable', accountsIncluded: 0,
+          sourceOutcomes: [{ status: 'not_loaded', reason: 'unknown' }],
+        },
+      });
+      expect(result.coverage).not.toHaveProperty('emptyReason');
+    }
+    expect(refreshWalletHoldings).not.toHaveBeenCalled();
+    expect(await runQuery(session, { ...query, positionKinds: ['fungible'] })).toMatchObject({
+      positions: [],
+      coverage: { status: 'complete', emptyReason: 'no_matching_rows' },
     });
-    expect(legacyAlias).toMatchObject({ resolution: 'no_match', assets: [] });
-    expect(prefix).toMatchObject({ resolution: 'no_match', assets: [] });
-    expect(partial).toMatchObject({ resolution: 'no_match', assets: [] });
-    expect(typo).toMatchObject({ resolution: 'no_match', assets: [] });
-    expect(address).toMatchObject({
-      resolution: 'unique',
-      assets: [{ asset: { slug: 'usdt-ethereum' }, matchQuality: 'exact', matchedOn: 'address' }],
+    const mixed = await runQuery(session, { ...query, positionKinds: ['fungible', 'nft'] });
+    expect(mixed).toMatchObject({
+      positions: [],
+      coverage: { status: 'partial', sourceOutcomes: [{ status: 'not_loaded' }] },
     });
-    expect(ambiguous).toMatchObject({
-      resolution: 'ambiguous',
-      assets: [
-        { asset: { slug: 'usdt-ethereum' }, matchQuality: 'exact', matchedOn: 'symbol' },
-        { asset: { slug: 'usdton' }, matchQuality: 'exact', matchedOn: 'symbol' },
-      ],
+    expect(mixed.coverage).not.toHaveProperty('emptyReason');
+
+    source.accounts[0].nftLoadedChains = ['ton'];
+    session.update(source);
+    expect(await runQuery(session, { ...query, positionKinds: ['nft'] })).toMatchObject({
+      positions: [],
+      coverage: {
+        status: 'complete', emptyReason: 'no_matching_rows',
+        sourceOutcomes: [{ status: 'complete_empty' }],
+      },
     });
-    expect(holdingOnly).toMatchObject({
-      resolution: 'unique',
-      assets: [{ asset: { slug: 'private-only' }, matchQuality: 'exact', matchedOn: 'symbol' }],
+  });
+
+  it('needs the NFTs of the networks read alone to be read in full', async () => {
+    const source = host();
+    source.accounts[0].chains = ['ton', 'solana'];
+    source.accounts[0].addresses = { ton: 'EQ-main-private-address', solana: 'solana-main-private-address' };
+    source.accounts[0].nftLoadedChains = ['ton'];
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const readNfts = (chains: AgentApiChain[]) => runQuery(session, {
+      ...positionsArgs({ riskMode: 'all', visibilityMode: 'all', includeZero: false }), positionKinds: ['nft'], chains,
     });
-    expect(catalogZero).toMatchObject({
-      resolution: 'unique',
-      assets: [{ asset: { slug: 'catalog-zero-only' } }],
+
+    expect(await readNfts(['ton'])).toMatchObject({ coverage: { status: 'complete' } });
+    for (const chains of [['solana'], []]) {
+      expect(await readNfts(chains)).toMatchObject({ coverage: { sourceOutcomes: [{ status: 'not_loaded' }] } });
+    }
+  });
+
+  it('reads no vesting as complete while the backend keeps vesting off', async () => {
+    const source = host();
+    // The web host waits for a TON account's vesting, and the native hosts read none
+    source.accounts[0].domainStates = { ...source.accounts[0].domainStates, vesting: { state: 'notLoaded' } };
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const query = { ...positionsArgs({ riskMode: 'exclude', visibilityMode: 'all', includeZero: false }),
+      positionKinds: ['fungible' as const, 'staking' as const, 'vesting' as const] };
+    expect((await runQuery(session, query)).coverage.limitations).toContain('source_partial');
+
+    // The production config has no `isVestingEnabled`
+    jest.spyOn(cache, 'getBackendConfigCacheSync')
+      .mockReturnValue({} as ReturnType<typeof cache.getBackendConfigCacheSync>);
+    try {
+      const { coverage } = await runQuery(session, query);
+      expect(coverage.limitations).not.toContain('source_partial');
+      expect(coverage.sourceOutcomes).toEqual([expect.objectContaining({ status: 'complete' })]);
+    } finally {
+      jest.restoreAllMocks();
+    }
+  });
+
+  it('keeps streamed NFT rows partial and preserves missing sources after refreshing balances', async () => {
+    const source = host();
+    source.accounts[0].nftLoadedChains = [];
+    source.accounts[0].domainStates = {
+      fungible: { state: 'notLoaded' },
+      staking: { state: 'notLoaded' },
+      vesting: { state: 'notLoaded' },
+      vault: { state: 'unavailable' },
+    };
+    source.accounts[0].positions = [{
+      id: 'streamed-nft', kind: 'nft', chain: 'ton', label: 'Collectible', valuationStatus: 'not_applicable',
+    }];
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const query = positionsArgs({ riskMode: 'all', visibilityMode: 'all', includeZero: false });
+    const refreshWalletHoldings = jest.fn().mockResolvedValue(new Map([['main', {
+      byChain: { ton: { toncoin: 2_000_000_000n } }, failedChains: [],
+    }]]));
+    const nfts = await runQuery(session, { ...query, positionKinds: ['nft'] }, { refreshWalletHoldings });
+    expect(nfts).toMatchObject({
+      positions: [{ positionKind: 'nft' }],
+      coverage: { status: 'partial', sourceOutcomes: [{ status: 'not_loaded' }] },
     });
-    expect(staleOnly).toMatchObject({ resolution: 'no_match', assets: [] });
+    expect(refreshWalletHoldings).not.toHaveBeenCalled();
+
+    const all = await runQuery(session, query, { refreshWalletHoldings });
+    expect(all).toMatchObject({
+      coverage: { status: 'partial', limitations: expect.arrayContaining(['source_partial']) },
+      positions: expect.arrayContaining([expect.objectContaining({ positionKind: 'fungible', quantity: '2' })]),
+    });
+    expect(all.coverage).not.toHaveProperty('emptyReason');
+    expect(refreshWalletHoldings).toHaveBeenCalledTimes(1);
+
+    const inventory = await runQuery(session, {
+      operation: 'account.inventory', accountSelector: { kind: 'current' },
+      chains: [], includePortfolioTotals: true,
+    }, { refreshWalletHoldings });
+    expect(inventory).toMatchObject({
+      accounts: [{ portfolioTotalStatus: 'partial' }], coverage: { status: 'partial' },
+    });
   });
 
   it('returns safe inventory metadata for every account with reason-bound addresses', async () => {
     const session = sessionWithHost();
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'account.inventory',
       accountSelector: { kind: 'explicitAll' },
       chains: [],
@@ -121,7 +207,6 @@ describe('wallet query materializer', () => {
     session.update(source);
 
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'account.inventory',
       accountSelector: { kind: 'explicitAll' },
       chains: [],
@@ -151,21 +236,51 @@ describe('wallet query materializer', () => {
     });
   });
 
+  it.each(CHAIN_CASES)('preserves every $name chain and reason-bound inventory address', async ({ chains }) => {
+    const source = buildMultiChainHost(chains);
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const result = await runQuery(session, {
+      operation: 'account.inventory', accountSelector: { kind: 'current' },
+      chains: [...chains], includePublicAddressReason: 'receive',
+    });
+
+    expect(result.operation).toBe('account.inventory');
+    if (result.operation !== 'account.inventory') throw new Error('Expected inventory');
+    expect(result.accounts).toHaveLength(1);
+    expect(result.accounts[0].chains).toEqual(chains);
+    expect(result.accounts[0].publicAddresses).toEqual(chains.map((chain) => ({
+      chain, address: source.accounts[0].addresses[chain], disclosureReason: 'receive',
+    })));
+    expect(result.resolvedScope).toEqual({
+      kind: 'current', accounts: [{ accountRef: session.snapshot().accountRefs.get('main')!, accountLabel: 'Main' }],
+    });
+    expect(result.coverage).toMatchObject({
+      status: 'complete', accountsRequested: 1, accountsIncluded: 1, rowsOmitted: 0, limitations: [],
+    });
+  });
+
   it('retains wallet metadata when portfolio totals are stale or unavailable', async () => {
     const source = host();
+    source.accounts[0].nftLoadedChains = [];
     source.accounts[0].domainStates = {
       ...source.accounts[0].domainStates,
-      positions: { state: 'unavailable' },
+      fungible: { state: 'unavailable' },
+      staking: { state: 'unavailable' },
+      vesting: { state: 'unavailable' },
+      vault: { state: 'unavailable' },
     };
     source.accounts[1].domainStates = {
       ...source.accounts[1].domainStates,
-      positions: { state: 'stale' },
+      fungible: { state: 'stale' },
+      staking: { state: 'stale' },
+      vesting: { state: 'stale' },
+      vault: { state: 'stale' },
     };
     const session = new AgentV2WalletSession();
     session.update(source);
 
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'account.inventory',
       accountSelector: { kind: 'explicitAll' },
       chains: [],
@@ -251,7 +366,6 @@ describe('wallet query materializer', () => {
       riskMode: 'all', visibilityMode: 'all', includeZero: true,
     }));
     const portfolio = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'portfolio.aggregate',
       accountSelector: { kind: 'current' },
       chains: ['ton'],
@@ -260,15 +374,7 @@ describe('wallet query materializer', () => {
       riskMode: 'all',
       visibilityMode: 'all',
     });
-    const historyResponse = history();
-    historyResponse.datasets = [{
-      assetId: 1,
-      contractAddress: '',
-      symbol: sensitiveSymbol,
-      points: historyResponse.points!,
-    }];
     const valueSeries = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'value.series',
       accountSelector: { kind: 'current' },
       chains: [],
@@ -276,18 +382,15 @@ describe('wallet query materializer', () => {
       assetSelectors: [{ slug: 'unsafe-held' }],
       range: '3m',
       maxPoints: 64,
-    }, { fetchPortfolioHistory: () => Promise.resolve(historyResponse) });
-    const assetSearch = await runQuery(session, assetsArgs(sensitiveSymbol));
+    });
 
     expect(positions.operation).toBe('positions.list');
     expect(portfolio.operation).toBe('portfolio.aggregate');
     expect(valueSeries.operation).toBe('value.series');
-    expect(assetSearch.operation).toBe('assets.search');
     if (
       positions.operation !== 'positions.list'
       || portfolio.operation !== 'portfolio.aggregate'
       || valueSeries.operation !== 'value.series'
-      || assetSearch.operation !== 'assets.search'
     ) return;
     const fungible = positions.positions.find(({ asset }) => asset.slug === 'unsafe-held')!;
     const nft = positions.positions.find(({ asset }) => asset.slug === 'unsafe-nft')!;
@@ -297,13 +400,10 @@ describe('wallet query materializer', () => {
       label: 'ZERO', asset: { symbol: 'ZERO' },
     });
     expect(portfolio.aggregates.find(({ label }) => label === 'Asset')).toBeDefined();
-    expect(valueSeries.series).toEqual([expect.objectContaining({
-      label: 'Asset', asset: expect.objectContaining({ slug: 'unsafe-held', symbol: 'Asset', name: 'Asset' }),
-    })]);
-    expect(assetSearch.assets).toEqual([expect.objectContaining({
+    expect(valueSeries.historyAccounts).toEqual([expect.objectContaining({
       asset: expect.objectContaining({ slug: 'unsafe-held', symbol: 'Asset', name: 'Asset' }),
     })]);
-    expect(JSON.stringify({ positions, portfolio, valueSeries, assetSearch })).not.toMatch(
+    expect(JSON.stringify({ positions, portfolio, valueSeries })).not.toMatch(
       new RegExp(`${sensitiveSymbol}|${sensitiveName}|${positionAddress}|${collectionHash}`, 'u'),
     );
   });
@@ -312,7 +412,7 @@ describe('wallet query materializer', () => {
     const source = host();
     source.accounts[0] = {
       ...source.accounts[0],
-      domainStates: { ...source.accounts[0].domainStates, positions: { state: 'stale' } },
+      domainStates: { ...source.accounts[0].domainStates, fungible: { state: 'stale' } },
     };
     const session = new AgentV2WalletSession();
     session.update(source);
@@ -329,6 +429,41 @@ describe('wallet query materializer', () => {
     if (result.operation !== 'positions.list') return;
     expect(result.positions.find(({ asset }) => asset.slug === 'toncoin')).toMatchObject({ quantity: '5' });
     expect(result.positions.find(({ asset }) => asset.slug === 'toncoin')).not.toHaveProperty('availableQuantity');
+  });
+
+  it('projects vesting under its own asset and never substitutes the native token for a missing asset', async () => {
+    const source = host();
+    const mycoin = {
+      slug: 'ton-eqcfvnlrbn', chain: 'ton', symbol: 'MY', name: 'My Wallet Coin',
+      tokenAddress: 'EQ-mycoin-minter', decimals: 9,
+    };
+    source.accounts[0].positions = [{
+      id: 'vesting-1', kind: 'vesting', chain: 'ton', label: 'Vesting',
+      asset: mycoin, quantity: '12.5', valuationStatus: 'unpriced', status: 'frozen',
+    }, {
+      // Native hosts send untyped JSON, so the SDK still meets positions that lack a required asset
+      id: 'vesting-2', kind: 'vesting', chain: 'ton', label: 'Vesting', quantity: '3', valuationStatus: 'unpriced',
+    } as AgentV2HostPosition, {
+      id: 'staking-1', kind: 'staking', chain: 'ton', label: 'Staking', quantity: '4', valuationStatus: 'unpriced',
+    } as AgentV2HostPosition];
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const args: Extract<AgentWalletDataQueryArgs, { operation: 'positions.list' }> = {
+      ...positionsArgs({ riskMode: 'all', visibilityMode: 'all', includeZero: true }),
+      positionKinds: ['staking', 'vesting'],
+    };
+    const all = await runQuery(session, args);
+    const byMycoin = await runQuery(session, { ...args, assetSelectors: [{ slug: mycoin.slug }] });
+
+    expect(all.operation).toBe('positions.list');
+    expect(byMycoin.operation).toBe('positions.list');
+    if (all.operation !== 'positions.list' || byMycoin.operation !== 'positions.list') return;
+    expect(all.positions).toEqual([expect.objectContaining({
+      positionKind: 'vesting', asset: mycoin, quantity: '12.5', decimals: 9,
+      valuationStatus: 'unpriced', status: 'frozen',
+    })]);
+    expect(all.coverage).toMatchObject({ status: 'partial', rowsOmitted: 2 });
+    expect(byMycoin.positions.map(({ positionKind }) => positionKind)).toEqual(['vesting']);
   });
 
   it('never reads stale or deleted accounts and reports explicit-all coverage honestly', async () => {
@@ -350,35 +485,64 @@ describe('wallet query materializer', () => {
     });
   });
 
-  it('ports portfolio totals, allocations, position coverage, and value history writeback', async () => {
-    const session = sessionWithHost();
-    const fetchPortfolioHistory = jest.fn(() => Promise.resolve(history()));
-    const fetchPortfolioPnlChange = jest.fn(() => Promise.resolve({
-      status: 'ok',
-      base: 'USD',
-      amount: 4.5,
-      percent: 18,
-      startTs: Date.parse('2026-05-12T00:00:00.000Z'),
-      endTs: Date.parse(NOW),
-    }));
-    const onPortfolioHistory = jest.fn();
+  it('hands only the current wallet sources to the backend', async () => {
+    const source = host();
+    source.accounts[1].portfolioWalletKeys = ['ton:EQ-savings-private-address'];
+    const session = new AgentV2WalletSession();
+    session.update(source);
     const result = await runQuery(session, {
-      schemaVersion: 5,
-      operation: 'portfolio.aggregate',
-      accountSelector: { kind: 'current' },
-      chains: [],
-      range: '3m',
-      groupBy: ['asset', 'network'],
-      riskMode: 'exclude',
-      visibilityMode: 'visible',
+      operation: 'portfolio.aggregate', accountSelector: { kind: 'current' },
+      chains: [], range: '1m', groupBy: ['account'], riskMode: 'all', visibilityMode: 'all',
+      historySource: 'backend',
+    });
+    expect(result.operation).toBe('portfolio.aggregate');
+    if (result.operation !== 'portfolio.aggregate') throw new Error('Expected portfolio');
+    expect(result.positions.length).toBeGreaterThan(0);
+    expect(result.series).toEqual([]);
+    expect(result.rangePnl).toBeUndefined();
+    expect(result.historyAccounts?.map(({ accountRef }) => accountRef)).toEqual(
+      result.resolvedScope.accounts.map(({ accountRef }) => accountRef),
+    );
+    expect(result.historyAccounts?.flatMap(({ wallets }) => wallets)).toEqual(['ton:EQ-main-private-address']);
+  });
+
+  it.each(CHAIN_CASES)('preserves every $name history wallet key within the current account', async ({ chains }) => {
+    const source = buildMultiChainHost(chains);
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const queries: AgentWalletDataQueryArgs[] = [{
+      operation: 'value.series', accountSelector: { kind: 'current' },
+      chains: [], metric: 'portfolio_value', assetSelectors: [], range: '1m', maxPoints: 64,
     }, {
-      fetchPortfolioHistory,
-      fetchPortfolioPnlChange,
-      onPortfolioHistory,
+      operation: 'portfolio.aggregate', accountSelector: { kind: 'current' },
+      chains: [], range: '1m', groupBy: ['account'], riskMode: 'all', visibilityMode: 'all',
+      historySource: 'backend',
+    }];
+    const accountRef = session.snapshot().accountRefs.get('main')!;
+    const wallets = chains.map((chain) => `${chain}:${source.accounts[0].addresses[chain]}`);
+
+    for (const query of queries) {
+      const result = await runQuery(session, query);
+      expect(result.operation).toBe(query.operation);
+      if (result.operation !== 'value.series' && result.operation !== 'portfolio.aggregate') {
+        throw new Error('Expected history result');
+      }
+      expect(result.historyAccounts).toEqual([{ accountRef, wallets }]);
+      expect(result.resolvedScope).toEqual({ kind: 'current', accounts: [{ accountRef, accountLabel: 'Main' }] });
+      expect(result.coverage).toMatchObject({
+        status: 'complete', accountsRequested: 1, accountsIncluded: 1, rowsOmitted: 0, limitations: [],
+      });
+      expect(result.series).toEqual([]);
+    }
+  });
+
+  it('returns current portfolio totals and allocations without reading history', async () => {
+    const result = await runQuery(sessionWithHost(), {
+      operation: 'portfolio.aggregate', accountSelector: { kind: 'current' },
+      chains: [], range: '3m', groupBy: ['asset', 'network'], riskMode: 'exclude', visibilityMode: 'visible',
     });
 
-    expect(result.operation).toBe('portfolio.aggregate');
-    if (result.operation !== 'portfolio.aggregate') return;
+    if (result.operation !== 'portfolio.aggregate') throw new Error('Expected portfolio');
     expect(result.total).toEqual({ value: '25.5', baseCurrency: 'USD', unpricedCount: 1 });
     expect(result.allocations).toEqual([
       expect.objectContaining({ asset: expect.objectContaining({ slug: 'toncoin' }), value: '25.5', percent: '100' }),
@@ -386,79 +550,9 @@ describe('wallet query materializer', () => {
     expect(result.aggregates).toEqual(expect.arrayContaining([
       expect.objectContaining({ groupKind: 'network', label: 'ton', value: '25.5', unpricedCount: 1 }),
     ]));
-    expect(result).toMatchObject({
-      rangePnl: {
-        semantics: 'portfolio_pnl',
-        range: '3m',
-        amount: '4.5',
-        percent: '18',
-        baseCurrency: 'USD',
-        startAt: '2026-05-12T00:00:00.000Z',
-        endAt: NOW,
-      },
-    });
-    expect(result.series[0].points).toHaveLength(3);
-    expect(onPortfolioHistory).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'main', range: '3M' }));
-    expect(fetchPortfolioPnlChange).toHaveBeenCalledWith(
-      ['ton:EQ-main-private-address'],
-      'USD',
-      expect.objectContaining({ density: '1d' }),
-      expect.objectContaining({ signal: expect.any(AbortSignal), timeoutMs: 15_000 }),
-    );
-  });
-
-  it('keeps the portfolio snapshot when the optional PnL source rejects the request', async () => {
-    const source = host();
-    source.accounts[1].portfolioWalletKeys = ['ton:EQ-savings-private-address'];
-    source.accounts[0].holdings = source.accounts[0].holdings.filter(({ riskVerdict, visibility }) => (
-      !riskVerdict && visibility !== 'hidden'
-    ));
-    const session = new AgentV2WalletSession();
-    session.update(source);
-    const fetchPortfolioHistory = jest.fn(() => Promise.resolve(history()));
-    const fetchPortfolioPnlChange = jest.fn(() => Promise.reject(
-      new ApiServerError('Unsupported wallet set', 422),
-    ));
-    const result = await runQuery(session, {
-      schemaVersion: 5,
-      operation: 'portfolio.aggregate',
-      accountSelector: { kind: 'explicitAll' },
-      accountFilter: { viewOnly: 'include' },
-      chains: [],
-      range: '3m',
-      groupBy: ['account', 'asset', 'network'],
-      riskMode: 'all',
-      visibilityMode: 'all',
-    }, {
-      fetchPortfolioHistory,
-      fetchPortfolioPnlChange,
-    });
-
-    expect(result.operation).toBe('portfolio.aggregate');
-    if (result.operation !== 'portfolio.aggregate') return;
-    expect(result.total).toEqual({ value: '75.5', baseCurrency: 'USD', unpricedCount: 1 });
-    expect(result.positions).not.toHaveLength(0);
-    expect(result.series).toHaveLength(2);
-    expect(result.series.every(({ points }) => points.length === 3)).toBe(true);
+    expect(result.series).toEqual([]);
     expect(result).not.toHaveProperty('rangePnl');
-  });
-
-  it('does not mask a programming failure from the optional PnL reader', async () => {
-    const session = sessionWithHost();
-    const failure = new Error('Broken PnL decoder');
-
-    await expect(runQuery(session, {
-      schemaVersion: 5,
-      operation: 'portfolio.aggregate',
-      accountSelector: { kind: 'current' },
-      chains: [],
-      range: '3m',
-      groupBy: ['asset', 'network'],
-      riskMode: 'exclude',
-      visibilityMode: 'visible',
-    }, {
-      fetchPortfolioPnlChange: jest.fn(() => Promise.reject(failure)),
-    })).rejects.toBe(failure);
+    expect(result).not.toHaveProperty('historyAccounts');
   });
 
   it.each([
@@ -476,9 +570,9 @@ describe('wallet query materializer', () => {
       source.accounts[1].portfolioWalletKeys = ['ton:EQ-savings-private-address'];
       const session = new AgentV2WalletSession();
       session.update(source);
-      const args: Extract<AgentWalletDataQueryArgsV5, { operation: 'portfolio.aggregate' }> = {
-        schemaVersion: 5,
+      const args: Extract<AgentWalletDataQueryArgs, { operation: 'portfolio.aggregate' }> = {
         operation: 'portfolio.aggregate',
+        historySource: 'backend',
         accountSelector: { kind: 'explicitAll' },
         accountFilter: { viewOnly },
         chains: [],
@@ -492,18 +586,14 @@ describe('wallet query materializer', () => {
         accountId === snapshot.host!.activeAccountId
       ))!;
       const authority = await session.walletAuthorityBinding();
-      const resolution = await resolveWalletQueryScope({
+      const resolution = resolveWalletQueryScope({
         args,
         authorityBinding: {
           ...authority,
           accountScope: 'explicitAll',
           activeAccountRef: snapshot.accountRefs.get(active.accountId)!,
-          deviceId: 'device',
-          messageId: MESSAGE_ID,
-          threadId: 'thread',
         },
         call: queryCall(session, args, 'explicitAll'),
-        queryDigest: 'f'.repeat(64),
         session,
       });
 
@@ -513,29 +603,12 @@ describe('wallet query materializer', () => {
       expect(resolution.materializationScope.accountIds).toEqual(expectedAccountIds);
       expect(resolution.materializationScope.accountsRequested).toBe(expectedLabels.length);
 
-      const fetchPortfolioPnlChangeMock = jest.fn(
-        (..._args: Parameters<FetchPortfolioPnlChange>) => Promise.resolve({
-          status: 'ok',
-          base: 'USD',
-          amount: 1,
-          percent: 2,
-          startTs: Date.parse('2026-05-12T00:00:00.000Z'),
-          endTs: Date.parse(NOW),
-        }),
-      );
-      const fetchPortfolioPnlChange: NonNullable<
-        WalletQueryMaterializationDependencies['fetchPortfolioPnlChange']
-      > = fetchPortfolioPnlChangeMock;
-
       const result = await materializeWalletQuery({
         session,
         authorityBinding: {
           ...authority,
           accountScope: 'explicitAll',
           activeAccountRef: snapshot.accountRefs.get(active.accountId)!,
-          deviceId: 'device',
-          messageId: MESSAGE_ID,
-          threadId: 'thread',
         },
         args,
         call: queryCall(session, args, 'explicitAll'),
@@ -543,43 +616,15 @@ describe('wallet query materializer', () => {
         signal: new AbortController().signal,
         scope: resolution.materializationScope,
         resolvedScope: resolution.resolvedScope,
-        fetchPortfolioPnlChange,
       });
       expect(result.coverage.accountsRequested).toBe(expectedLabels.length);
       if (result.operation !== 'portfolio.aggregate') throw new Error('Expected a portfolio aggregate result');
       expect(result.resolvedScope.accounts.map(({ accountLabel }) => accountLabel)).toEqual(expectedLabels);
-      expect(fetchPortfolioPnlChangeMock).toHaveBeenCalledTimes(1);
-      expect(fetchPortfolioPnlChangeMock.mock.calls[0][0]).toEqual(expectedWalletKeys);
+      expect(result.historyAccounts?.flatMap(({ wallets }) => wallets)).toEqual(expectedWalletKeys);
     },
   );
 
-  it('does not mix chain-scoped portfolio totals with whole-account history', async () => {
-    const session = sessionWithHost();
-    const fetchPortfolioHistory = jest.fn(() => Promise.resolve(history()));
-    const fetchPortfolioPnlChange = jest.fn();
-    const result = await runQuery(session, {
-      schemaVersion: 5,
-      operation: 'portfolio.aggregate',
-      accountSelector: { kind: 'current' },
-      chains: ['ton'],
-      range: '3m',
-      groupBy: ['asset'],
-      riskMode: 'exclude',
-      visibilityMode: 'visible',
-    }, { fetchPortfolioHistory, fetchPortfolioPnlChange });
-
-    expect(result.operation).toBe('portfolio.aggregate');
-    if (result.operation !== 'portfolio.aggregate') return;
-    expect(result.total.value).toBe('25.5');
-    expect(result.series).toEqual([]);
-    expect(result.coverage).toMatchObject({
-      status: 'partial', rowsOmitted: 1, limitations: expect.arrayContaining(['source_partial']),
-    });
-    expect(fetchPortfolioHistory).not.toHaveBeenCalled();
-    expect(fetchPortfolioPnlChange).not.toHaveBeenCalled();
-  });
-
-  it('accounts for position, allocation, and history point truncation', async () => {
+  it('accounts for position and allocation truncation', async () => {
     const source = host();
     const holdings = Array.from({ length: 101 }, (_, index) => ({
       asset: { slug: `asset-${index}`, chain: 'ton' as const, symbol: `A${index}`, decimals: 9 },
@@ -589,7 +634,6 @@ describe('wallet query materializer', () => {
     const session = new AgentV2WalletSession();
     session.update(source);
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'portfolio.aggregate',
       accountSelector: { kind: 'current' },
       chains: [],
@@ -597,21 +641,45 @@ describe('wallet query materializer', () => {
       groupBy: ['asset'],
       riskMode: 'exclude',
       visibilityMode: 'visible',
-    }, {
-      fetchPortfolioHistory: () => Promise.resolve({
-        ...history(),
-        points: Array.from({ length: 70 }, (_, index) => [1_754_828_800 + index * 60, index + 1]),
-      }),
     });
 
     expect(result.operation).toBe('portfolio.aggregate');
     if (result.operation !== 'portfolio.aggregate') return;
     expect(result.positions).toHaveLength(100);
     expect(result.allocations).toHaveLength(100);
-    expect(result.series[0].points).toHaveLength(64);
+    expect(result.series).toEqual([]);
     expect(result.coverage).toMatchObject({
-      status: 'partial', rowsOmitted: 9, limitations: expect.arrayContaining(['row_limit']),
+      status: 'partial', rowsOmitted: 3, limitations: expect.arrayContaining(['row_limit']),
     });
+  });
+
+  it.each([
+    ['week', 'rolling_weeks', '2026-08-03T12:00:00.000Z'],
+    ['month', 'rolling_months', '2026-07-10T12:00:00.000Z'],
+    ['six months', 'rolling_months', '2026-02-10T12:00:00.000Z'],
+  ] as const)('filters transaction rows for %s using inclusive start and exclusive end', async (
+    _period, rangeKind, fromInclusive,
+  ) => {
+    const from = Date.parse(fromInclusive);
+    const to = Date.parse(NOW);
+    const times = [to, to - 1, from + 1, from, from - 1];
+    const fetchPastActivities = jest.fn(() => Promise.resolve({
+      activities: times.map((time, index) => transaction(String(index + 1).repeat(64), time, 1_000_000_000n)),
+      hasMore: false,
+    }));
+    const result = await runQuery(sessionWithHost(), {
+      ...transactionsArgs('list'), accountSelector: { kind: 'current' },
+      filters: { schemaVersion: 1, catalogDigest: contractManifest.walletFilterCatalogSha256, clauses: [{
+        field: 'transaction.timestamp', operator: 'timestamp_range',
+        range: { rangeKind, fromInclusive, toExclusive: NOW, timeZone: 'UTC', resolvedAt: NOW },
+      }] },
+    }, { fetchPastActivities });
+    expect(result.operation).toBe('transactions.list');
+    if (result.operation !== 'transactions.list') throw new Error('Expected transaction list');
+    expect(result.transactions.map(({ timestamp }) => timestamp)).toEqual(
+      [to - 1, from + 1, from].map((time) => new Date(time).toISOString()),
+    );
+    expect(result.coverage.status).toBe('complete');
   });
 
   it('builds globally ordered self-contained transaction rows without raw hashes or addresses', async () => {
@@ -792,7 +860,6 @@ describe('wallet query materializer', () => {
     );
 
     const inventory = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'account.inventory',
       accountSelector: { kind: 'explicitAll' },
       chains: [],
@@ -802,7 +869,6 @@ describe('wallet query materializer', () => {
       accountSelector: { kind: 'explicitAll' },
     });
     const valueSeries = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'value.series',
       accountSelector: { kind: 'explicitAll' },
       chains: [],
@@ -810,7 +876,7 @@ describe('wallet query materializer', () => {
       assetSelectors: [],
       range: '3m',
       maxPoints: 64,
-    }, { fetchPortfolioHistory: () => Promise.resolve(history()) });
+    });
 
     expect(inventory.operation).toBe('account.inventory');
     expect(positions.operation).toBe('positions.list');
@@ -822,8 +888,8 @@ describe('wallet query materializer', () => {
     ) return;
     expect(inventory.accounts.slice(0, 2).map(({ accountLabel }) => accountLabel)).toEqual(['Wallet', 'Wallet']);
     expect(new Set(positions.positions.map(({ accountLabel }) => accountLabel))).toEqual(new Set(['Wallet']));
-    expect(valueSeries.series).not.toHaveLength(0);
-    expect(new Set(valueSeries.series.map(({ label }) => label))).toEqual(new Set(['Wallet']));
+    expect(valueSeries.historyAccounts).not.toHaveLength(0);
+    expect(valueSeries.series).toEqual([]);
   });
 
   it('expands a bounded activity window before advancing so equal-timestamp peers are not lost', async () => {
@@ -852,7 +918,7 @@ describe('wallet query materializer', () => {
     const session = sessionWithHost();
     const hash = 'd'.repeat(64);
     const result = await runQuery(session, {
-      schemaVersion: 5, operation: 'transactions.detail', accountSelector: { kind: 'current' }, hash,
+      operation: 'transactions.detail', accountSelector: { kind: 'current' }, hash,
     }, {
       fetchPastActivities: () => Promise.resolve({
         activities: [transaction(hash, Date.parse(NOW), 1n)], hasMore: false,
@@ -873,7 +939,6 @@ describe('wallet query materializer', () => {
     const requestedHash = `0x${bareHash.toUpperCase()}`;
     const fetchActivityDetails = jest.fn(() => Promise.resolve(transaction(bareHash, Date.parse(NOW), 1n)));
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'transactions.detail',
       accountSelector: { kind: 'current' },
       hash: requestedHash,
@@ -896,7 +961,6 @@ describe('wallet query materializer', () => {
     const session = sessionWithHost();
     const sourceHash = `A${'b'.repeat(42)}`;
     const result = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'transactions.detail',
       accountSelector: { kind: 'current' },
       hash: sourceHash.toLocaleLowerCase('en-US'),
@@ -909,52 +973,16 @@ describe('wallet query materializer', () => {
     expect(result).toMatchObject({ operation: 'transactions.detail', transaction: null });
   });
 
-  it('omits unscoped portfolio value history and chain-mismatched position history', async () => {
-    const session = sessionWithHost();
-    const fetchPortfolioHistory = jest.fn(() => Promise.resolve({
-      ...history(),
-      datasets: [{ assetId: 1, contractAddress: '', symbol: 'TON', points: history().points! }],
-    }));
-    const portfolioValue = await runQuery(session, {
-      schemaVersion: 5,
-      operation: 'value.series',
-      accountSelector: { kind: 'current' },
-      chains: ['ton'],
-      metric: 'portfolio_value',
-      assetSelectors: [],
-      range: '3m',
-      maxPoints: 64,
-    }, { fetchPortfolioHistory });
-    const positionValue = await runQuery(session, {
-      schemaVersion: 5,
-      operation: 'value.series',
-      accountSelector: { kind: 'current' },
-      chains: ['ethereum'],
-      metric: 'position_value',
-      assetSelectors: [{ slug: 'toncoin', chain: 'ton' }],
-      range: '3m',
-      maxPoints: 64,
-    }, { fetchPortfolioHistory });
-
-    expect(portfolioValue).toMatchObject({
-      operation: 'value.series',
-      series: [],
-      coverage: { status: 'unavailable', limitations: expect.arrayContaining(['source_unavailable']) },
-    });
-    expect(positionValue).toMatchObject({ operation: 'value.series', series: [] });
-    expect(fetchPortfolioHistory).toHaveBeenCalledTimes(1);
-  });
-
   it('returns opaque per-account contact bindings and a masked display address', async () => {
     const session = sessionWithHost();
     const args = {
-      schemaVersion: 5,
       operation: 'contacts.list' as const,
       accountSelector: { kind: 'explicitAll' },
       query: 'treasury',
       chains: ['ton'],
+      ownWalletChains: ['ton'],
       pageSize: 10,
-    } satisfies AgentWalletDataQueryArgsV5;
+    } satisfies AgentWalletDataQueryArgs;
     const result = await runQuery(session, args);
     const secondSessionResult = await runQuery(sessionWithHost(), args);
 
@@ -972,11 +1000,11 @@ describe('wallet query materializer', () => {
 
   it('returns another own wallet as an opaque recipient candidate', async () => {
     const result = await runQuery(sessionWithHost(), {
-      schemaVersion: 5,
       operation: 'contacts.list',
       accountSelector: { kind: 'current' },
       query: 'savings',
       chains: ['ton'],
+      ownWalletChains: ['ton'],
       pageSize: 10,
     });
 
@@ -994,6 +1022,63 @@ describe('wallet query materializer', () => {
     expect(JSON.stringify(result)).not.toContain('EQ-savings-private-address');
   });
 
+  it('builds Send recipient context from all profile wallets and address books on every chain', async () => {
+    const source = host();
+    source.accounts[1].savedAddresses!.push({
+      id: 'secondary-sol', name: 'Workshop', chain: 'solana', address: 'solana-workshop-private',
+    });
+    source.accounts[1].chains = ['tron'];
+    source.accounts[1].addresses = { tron: 'tron-vault-private' };
+    source.accounts[1].isViewOnly = true;
+    source.savedAddresses = [
+      { id: 'profile-only', name: 'Partner', chain: 'ethereum', address: '0x-partner-private' },
+      { id: 'duplicate', name: 'Workshop', chain: 'solana', address: 'solana-workshop-private' },
+    ];
+    const session = new AgentV2WalletSession();
+    session.update(source);
+    const result = await runQuery(session, {
+      operation: 'contacts.list', accountSelector: { kind: 'current' },
+      purpose: 'send_recipient_resolution', query: null, chains: [], ownWalletChains: ['ton', 'tron'], pageSize: 100,
+    });
+    expect(result.operation).toBe('contacts.list');
+    if (result.operation !== 'contacts.list') throw new Error('Expected contacts');
+    expect(result.coverage).toMatchObject({ status: 'complete', rowsOmitted: 0 });
+    expect(result.contacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Workshop', chain: 'solana' }),
+      expect.objectContaining({ name: 'Savings', chain: 'tron' }),
+      expect.objectContaining({ name: 'Main', chain: 'ton' }),
+      expect.objectContaining({ name: 'Treasury', chain: 'ton' }),
+      expect.objectContaining({ name: 'Partner', chain: 'ethereum' }),
+    ]));
+    expect(result.contacts.filter(({ name }) => name === 'Workshop')).toHaveLength(1);
+    expect(JSON.stringify(result)).not.toContain('solana-workshop-private');
+    expect(JSON.stringify(result)).not.toContain('tron-vault-private');
+    // A transfer on TON lists the own wallets on TON alone, Savings has none, and every saved address still
+    const onTon = await runQuery(session, {
+      operation: 'contacts.list', accountSelector: { kind: 'current' },
+      purpose: 'send_recipient_resolution', query: null, chains: [], ownWalletChains: ['ton'], pageSize: 100,
+    });
+    if (onTon.operation !== 'contacts.list') throw new Error('Expected contacts');
+    expect(onTon.coverage).toMatchObject({ status: 'complete', rowsOmitted: 0 });
+    expect(onTon.contacts.map(({ name, chain }) => `${name}:${chain}`)).toEqual(expect.arrayContaining([
+      'Workshop:solana', 'Partner:ethereum', 'Main:ton',
+    ]));
+    expect(onTon.contacts.some(({ name }) => name === 'Savings')).toBe(false);
+    // An address book read without networks for own wallets lists the saved addresses alone
+    const savedOnly = await runQuery(session, {
+      operation: 'contacts.list', accountSelector: { kind: 'current' },
+      purpose: 'send_recipient_resolution', query: null, chains: [], ownWalletChains: [], pageSize: 100,
+    });
+    if (savedOnly.operation !== 'contacts.list') throw new Error('Expected contacts');
+    expect(savedOnly.contacts.map(({ name }) => name)).toEqual(expect.arrayContaining(['Workshop', 'Partner']));
+    expect(savedOnly.contacts.some(({ name }) => name === 'Main' || name === 'Savings')).toBe(false);
+    const scoped = await runQuery(session, {
+      operation: 'contacts.list', accountSelector: { kind: 'current' },
+      query: 'Workshop', chains: [], ownWalletChains: [], pageSize: 100,
+    });
+    expect(scoped).toMatchObject({ contacts: [] });
+  });
+
   it('masks contact names that equal or contain their raw address', async () => {
     const source = host();
     const rawAddress = `0x${'12'.repeat(20)}`;
@@ -1005,11 +1090,11 @@ describe('wallet query materializer', () => {
     const session = new AgentV2WalletSession();
     session.update(source);
     const contacts = await runQuery(session, {
-      schemaVersion: 5,
       operation: 'contacts.list',
       accountSelector: { kind: 'current' },
       query: null,
       chains: ['ethereum'],
+      ownWalletChains: ['ethereum'],
       pageSize: 10,
     });
     const activity = transaction('9'.repeat(64), Date.parse(NOW), 1n);
@@ -1083,7 +1168,7 @@ describe('wallet query materializer', () => {
 
 async function runQuery(
   session: AgentV2WalletSession,
-  args: AgentWalletDataQueryArgsV5,
+  args: AgentWalletDataQueryArgs,
   overrides: Partial<WalletQueryMaterializationDependencies> = {},
 ) {
   const snapshot = session.snapshot();
@@ -1109,9 +1194,6 @@ async function runQuery(
     ...authority,
     accountScope,
     activeAccountRef: snapshot.accountRefs.get(active.accountId)!,
-    deviceId: 'device',
-    messageId: MESSAGE_ID,
-    threadId: 'thread',
   };
   const call = queryCall(session, args, accountScope);
   const dependencies: WalletQueryMaterializationDependencies = {
@@ -1148,7 +1230,7 @@ async function runQuery(
 
 function queryCall(
   session: AgentV2WalletSession,
-  args: AgentWalletDataQueryArgsV5,
+  args: AgentWalletDataQueryArgs,
   accountScope: 'current' | 'selected' | 'explicitAll',
 ): AgentToolCall {
   const snapshot = session.snapshot();
@@ -1156,7 +1238,6 @@ function queryCall(
   return {
     id: '22222222-2222-4222-8222-222222222222',
     name: 'wallet.data.query',
-    version: 5,
     arguments: args,
     scopes: ['wallet.data.read'],
     timeoutMs: 15_000,
@@ -1180,17 +1261,16 @@ function queryCall(
   };
 }
 
-function assetsArgs(query: string): AgentWalletDataQueryArgsV5 {
-  return { schemaVersion: 5, operation: 'assets.search', query, chains: [], pageSize: 10 };
+function assetsArgs(query: string): AgentWalletDataQueryArgs {
+  return { operation: 'assets.search', query, chains: [], pageSize: 10 };
 }
 
 function positionsArgs(options: {
   riskMode: 'exclude' | 'only' | 'all';
   visibilityMode: 'visible' | 'hidden' | 'all';
   includeZero: boolean;
-}): Extract<AgentWalletDataQueryArgsV5, { operation: 'positions.list' }> {
+}): Extract<AgentWalletDataQueryArgs, { operation: 'positions.list' }> {
   return {
-    schemaVersion: 5,
     operation: 'positions.list',
     accountSelector: { kind: 'current' },
     chains: [],
@@ -1204,9 +1284,8 @@ function positionsArgs(options: {
 
 function transactionsArgs(
   _mode: 'list',
-): Extract<AgentWalletDataQueryArgsV5, { operation: 'transactions.list' }> {
+): Extract<AgentWalletDataQueryArgs, { operation: 'transactions.list' }> {
   return {
-    schemaVersion: 5,
     operation: 'transactions.list',
     accountSelector: { kind: 'explicitAll' },
     chains: [],
@@ -1233,31 +1312,36 @@ function transaction(hash: string, timestamp: number, amount: bigint, incoming =
   };
 }
 
-function history(): ApiPortfolioHistoryResponse {
-  return {
-    status: 'ok',
-    base: 'USD',
-    density: '1d',
-    points: [[1_754_828_800, 20], [1_754_915_200, 22], [1_755_001_600, 25.5]],
-  };
-}
-
 function sessionWithHost() {
   const session = new AgentV2WalletSession();
   session.update(host());
   return session;
 }
 
+function buildMultiChainHost(chains: string[]): AgentV2HostContextSnapshot {
+  const source = host();
+  source.activeNetwork = chains[0];
+  source.accounts[0].chains = [...chains];
+  source.accounts[0].addresses = Object.fromEntries(chains.map((chain) => [chain, `address-main-${chain}`]));
+  source.accounts[0].portfolioWalletKeys = chains.map((chain) => `${chain}:${source.accounts[0].addresses[chain]}`);
+  source.accounts[0].holdings = [];
+  source.accounts[1].portfolioWalletKeys = ['ton:EQ-savings-private-address'];
+  return source;
+}
+
 function host(): AgentV2HostContextSnapshot {
   const fresh = {
     accounts: { state: 'fresh' as const },
-    positions: { state: 'fresh' as const },
+    fungible: { state: 'fresh' as const },
+    staking: { state: 'fresh' as const },
+    vesting: { state: 'fresh' as const },
+    vault: { state: 'fresh' as const },
     transactions: { state: 'fresh' as const },
     contacts: { state: 'fresh' as const },
     value_series: { state: 'stale' as const },
   };
   return {
-    platform: 'classic',
+    platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
     client: 'web',
     lang: 'en',
     baseCurrency: 'USD',
@@ -1300,6 +1384,7 @@ function host(): AgentV2HostContextSnapshot {
         balance: '1', valuationStatus: 'unpriced', visibility: 'hidden',
       }],
       savedAddresses: [],
+      nftLoadedChains: [...getSupportedChains()],
       domainStates: fresh,
     }, {
       accountId: 'savings',
@@ -1316,6 +1401,7 @@ function host(): AgentV2HostContextSnapshot {
       savedAddresses: [{
         id: 'treasury', name: 'Treasury', chain: 'ton', address: 'EQ-treasury-private-address',
       }],
+      nftLoadedChains: [...getSupportedChains()],
       domainStates: fresh,
     }, {
       accountId: 'old',
@@ -1330,6 +1416,7 @@ function host(): AgentV2HostContextSnapshot {
         balance: '777', fiatValue: '777', valuationStatus: 'valued',
       }],
       savedAddresses: [],
+      nftLoadedChains: [...getSupportedChains()],
       domainStates: fresh,
     }, {
       accountId: 'deleted',
@@ -1341,6 +1428,7 @@ function host(): AgentV2HostContextSnapshot {
       addresses: { ton: 'EQ-deleted-private-address' },
       holdings: [],
       savedAddresses: [],
+      nftLoadedChains: [...getSupportedChains()],
       domainStates: fresh,
     }],
     savedAddresses: [],

@@ -33,8 +33,6 @@ describe('AgentInputBar quota status', () => {
         onInput={jest.fn()}
         onKeyDown={jest.fn()}
         onSend={jest.fn()}
-        onClearInput={jest.fn()}
-        onHintsToggle={jest.fn()}
       />,
       root,
     );
@@ -70,8 +68,6 @@ describe('AgentInputBar quota status', () => {
         onInput={jest.fn()}
         onKeyDown={jest.fn()}
         onSend={jest.fn()}
-        onClearInput={jest.fn()}
-        onHintsToggle={jest.fn()}
       />,
       root,
     );

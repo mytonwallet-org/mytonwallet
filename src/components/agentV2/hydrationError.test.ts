@@ -5,7 +5,7 @@ import { buildAgentV2HydrationError } from './hydrationError';
 
 const lang = ((key: string) => ({
   $agent_connection_interrupted: 'Connection message',
-  $agent_history_unavailable: 'History message',
+  $agent_error_generic: 'Request message',
 }[key] ?? key)) as LangFn;
 
 describe('Agent V2 hydration errors', () => {
@@ -25,7 +25,7 @@ describe('Agent V2 hydration errors', () => {
     });
   });
 
-  it('maps backend failures to a history error without exposing the server message', () => {
+  it('preserves backend failure categories without exposing the server message', () => {
     const error: AgentV2OperationError = {
       code: 'invalid_request',
       retryable: false,
@@ -33,7 +33,7 @@ describe('Agent V2 hydration errors', () => {
 
     expect(buildAgentV2HydrationError(error, lang)).toEqual({
       code: 'invalid_request',
-      message: 'History message',
+      message: 'Request message',
       isRetryable: false,
     });
   });

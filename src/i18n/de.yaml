@@ -215,6 +215,7 @@ Receiving Address: Empfangs adresse
 Contract Address: Vertragsadresse
 Fee: Gebühr
 Edit: Bearbeiten
+Regenerate: Erneut generieren
 Confirm: Bestätigen
 Data Signed: Daten signiert
 Details: Details
@@ -1291,8 +1292,6 @@ $agent_consent_feature_actions: Bereiten Sie unterstützte Aktionen wie Senden, 
 $agent_consent_feature_context: Verwenden Sie Wallet-Kontext, damit Antworten relevante Assets und Adressen berücksichtigen können.
 $agent_consent_disclosure_text: Wenn Sie auf „Agent erlauben“ tippen, erlauben Sie %app_name%, Ihre Agent-Nachrichten und relevanten Wallet-Kontext an %app_name% Agent (agent.mywallet.io) und die Anthropic Claude API, unseren externen KI-Anbieter, zu senden, um Ihre Anfragen zu verarbeiten. Der Wallet-Kontext kann Wallet-Adressen, Guthaben, Token, Aktivität und Details zu angeforderten Aktionen enthalten. Daten werden nur verwendet, um Agent-Antworten bereitzustellen und von Ihnen angeforderte Aktionen vorzubereiten.
 $agent_consent_search_disclosure_text: Bei Websuchen können nur Suchanfragen an Serper gesendet werden; Wallet-Kontext und Chatverlauf werden nicht gesendet.
-$agent_consent_debug_reset_button: Agent-Zustimmung zurücksetzen
-$agent_consent_debug_reset_footer: Zeigt den Agent-Zustimmungsbildschirm beim Öffnen des Agent-Tabs erneut an.
 $settings_token_change_threshold: Schwellenwert für %-Änderung
 $settings_token_change_threshold_description: Blendet 24-Stunden-Änderungen unter dem ausgewählten Schwellenwert aus.
 $settings_token_change_threshold_off: Aus
@@ -1310,18 +1309,19 @@ Retry: Erneut versuchen
 $agent_chat_running: Wird im Hintergrund ausgeführt
 $agent_connection_interrupted: Agentenverbindung wurde unterbrochen. Bitte erneut versuchen.
 $agent_history_unavailable: Chatverlauf konnte nicht geladen werden. Bitte erneut versuchen.
+$agent_secret_words_removed: "[Geheimwörter entfernt und nicht gesendet]"
 $agent_activity_analyzing_request: Ihre Anfrage wird analysiert…
 $agent_activity_wallet: Wallet-Daten werden gelesen…
 $agent_activity_transactions: Wallet-Aktivität wird überprüft…
 $agent_activity_portfolio: Portfolio-Daten werden geladen…
 $agent_activity_assets: Nach Assets wird gesucht…
 $agent_activity_addresses: Gespeicherte Adressen werden überprüft…
-$agent_activity_transfer: Überweisung wird vorbereitet…
-$agent_activity_market_quote: Neuester Token-Preis wird gelesen…
 $agent_activity_planning: Antwort wird geplant…
 $agent_activity_planning_completed: Antwortplan fertig
 $agent_activity_web_searching: Web wird durchsucht…
 $agent_activity_web_searching_completed: Relevante Quellen gefunden
+$agent_activity_help_searching: Hilfezentrum wird durchsucht…
+$agent_activity_help_searching_completed: Hilfezentrum geprüft
 $agent_activity_web_reading_sources: Quellen werden überprüft…
 $agent_activity_web_reading_sources_completed: "Quellen überprüft: %count%"
 $agent_activity_web_reading_sources_completed_generic: Quellen überprüft
@@ -1334,181 +1334,18 @@ $agent_activity_computing_completed: Berechnungen abgeschlossen
 $agent_activity_writing: Antwort wird geschrieben…
 $agent_activity_writing_completed: Antwort fertig
 $agent_activity_preparing_response: Ihre Antwort wird vorbereitet…
-$agent_receive_tokens: Token empfangen
-$agent_portfolio_total: Gesamtwert des Portfolios
-$agent_portfolio_value_is: Ihr Portfoliowert beträgt
-$agent_portfolio_24h_change: Änderung in 24 Std.
-$agent_portfolio_top_contributor: Größter Beitrag heute
-$agent_portfolio_open_tracker: Portfolio öffnen
-$agent_portfolio_analysis: Portfolioanalyse
-$agent_portfolio_insufficient: Für eine vollständige Analyse sind nicht genügend Portfoliodaten vorhanden.
-$agent_portfolio_partial: Einige Portfoliodaten fehlen. Die Analyse ist daher unvollständig.
-$agent_portfolio_current_only: Die aktuelle Portfoliostruktur ist verfügbar. Historische Leistung ist derzeit nicht verfügbar.
-$agent_portfolio_stale: Die Portfoliodaten könnten veraltet sein.
-$agent_portfolio_summary_up: Ihr Portfolio ist in den letzten 24 Stunden gestiegen.
-$agent_portfolio_summary_down: Ihr Portfolio ist in den letzten 24 Stunden gefallen.
-$agent_portfolio_summary_flat: Ihr Portfolio blieb in den letzten 24 Stunden stabil.
-$agent_portfolio_summary_ready: Ihre Portfolioanalyse ist verfügbar.
-$agent_portfolio_chart_title: Portfoliowert im Zeitverlauf
-$agent_portfolio_largest_positions: Größte Positionen
-$agent_portfolio_asset: Vermögenswert
-$agent_portfolio_position_value: Wert
-$agent_portfolio_share: Anteil
-$agent_portfolio_observations: Was auffällt
-$agent_portfolio_insight_performance_title: Portfoliobewegung
-$agent_portfolio_insight_performance_text: Überprüfen Sie, wie sich der Portfoliowert im ausgewählten Zeitraum entwickelt hat.
-$agent_portfolio_insight_concentration_title: Konzentration
-$agent_portfolio_insight_concentration_text: Überprüfen Sie die Konzentration innerhalb der verfügbaren Zuweisung; ausgelassene Vermögenswerte können das Gesamtbild des Portfolios verändern.
-$agent_portfolio_insight_chain_split_title: Netzwerkverteilung
-$agent_portfolio_insight_chain_split_text: Überprüfen Sie die Netzwerkaussetzung innerhalb der verfügbaren Zuweisung; ausgelassene Vermögenswerte können das Gesamtbild des Portfolios verändern.
-$agent_portfolio_insight_data_quality_title: Datenqualität
-$agent_portfolio_insight_data_quality_text: Berücksichtigen Sie die Datenabdeckung und Aktualität bei der Interpretation dieser Analyse.
 $agent_market_analysis_title: Marktanalyse
-$agent_market_as_of: Stand
-$agent_market_closed_1d: Letzte geschlossene 1D-Kerze
-$agent_market_thesis: Technische These
-$agent_market_fear_greed_sentiment: Bitcoin-basierte Marktstimmung
-$agent_market_fear_greed_index: Angst-&-Gier-Index (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: Marktregime
-$agent_market_fear_greed_risk_on: Risikofreudige Stimmung
-$agent_market_fear_greed_risk_off: Risikovermeidende Stimmung
-$agent_market_fear_greed_neutral: Neutrale Stimmung
-$agent_market_fear_greed_source: Quelle
-$agent_market_timeframes: Marktstruktur
-$agent_market_structure_bullish: Höhere Hochs und höhere Tiefs
-$agent_market_structure_bearish: Niedrigere Hochs und niedrigere Tiefs
-$agent_market_structure_range: Bereich
-$agent_market_structure_transition: Übergang
-$agent_market_structure_unavailable: Struktur nicht verfügbar
-$agent_market_event_none: Kein bestätigter Durchbruch
-$agent_market_event_break_up: Durchbruch über die Struktur
-$agent_market_event_break_down: Durchbruch unter die Struktur
-$agent_market_event_retest_up: Bullisher Retest
-$agent_market_event_retest_down: Bearisher Retest
-$agent_market_live_approaching_upper: Annäherung an die obere Grenze
-$agent_market_live_approaching_lower: Annäherung an die untere Grenze
-$agent_market_level_map: Schlüsselbereiche
-$agent_market_level_primary: Primärer Bereich
-$agent_market_level_secondary: Sekundärer Bereich
-$agent_market_level_context: Kontextbereich
-$agent_market_levels_unavailable: Bestätigte Strukturlevel sind nicht verfügbar.
-$agent_market_profile_poc_full: Volumenzentrum (POC)
-$agent_market_profile_value_area_full: Wertebereichsgrenzen (VAL/VAH)
-$agent_market_profile_hvn_full: Hochvolumenbereich (HVN)
-$agent_market_profile_lvn_full: Niedrigvolumenkorridor (LVN)
-$agent_market_profile_current_day: Aktueller UTC-Tag
-$agent_market_profile_previous_day: Vorheriger UTC-Tag
-$agent_market_profile_previous_week: Vorherige UTC-Woche
-$agent_market_profile_rolling_30d: Letzte 30 UTC-Sitzungen
-$agent_market_profile_above: Preis über dem Wertebereich
-$agent_market_profile_inside: Preis innerhalb des Wertebereichs
-$agent_market_profile_below: Preis unter dem Wertebereich
-$agent_market_factors: Schlüsselfaktoren
-$agent_market_factor_structure: "Tägliche Struktur: %direction%"
-$agent_market_factor_levels: "%supports% Unterstützungs- und %resistances% Widerstandszonen sind für diesen Horizont bestätigt."
-$agent_market_factor_profile: "Volumenverteilung: %position%."
-$agent_market_factor_profile_unavailable: Volumenprofil ist nicht verfügbar; das Szenario stützt sich auf die Preisstruktur.
-$agent_market_factor_timeframe_alignment: "Zeitrahmenstruktur — 1T: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Aktuelles Regime: %active%. Bedingtes Szenario: %conditional% nach %activation%."
-$agent_market_factor_no_active_scenario: "Kein Szenario ist bestätigt. Bedingtes Szenario: %conditional% nach %activation%."
-$agent_market_primary_scenario: Primäres Szenario
-$agent_market_current_regime: Aktuell bestätigtes Regime
-$agent_market_conditional_scenario: Bedingtes Szenario
-$agent_market_no_active_scenario: Derzeit ist kein Szenario bestätigt.
-$agent_market_calculated_fallback: "Berechnete Analyse: Die Modellerklärung ist vorübergehend nicht verfügbar."
-$agent_market_other_horizons: Andere angeforderte Horizonte
-$agent_market_horizon_3d: 3 Tage
-$agent_market_horizon_7d: 7 Tage
-$agent_market_horizon_30d: 30 Tage
-$agent_market_scenario_bullish: Bullischer Ausbruch
-$agent_market_scenario_range: Range-Balance
-$agent_market_scenario_bearish: Bärischer Zusammenbruch
-$agent_market_scenario_unavailable: Strukturelles Szenario ist für diesen Horizont nicht verfügbar.
-$agent_market_confidence: Vertrauen
-$agent_market_confidence_low: Niedrig
-$agent_market_confidence_medium: Mittel
-$agent_market_activation: Aktivierung
-$agent_market_path: Pfad
-$agent_market_terminal: Endzone
-$agent_market_invalidation: Ungültigmachung
-$agent_market_expected_range: Szenariobereich
-$agent_market_rationale: Begründung
-$agent_market_condition_above: Schlusskurs darüber
-$agent_market_condition_below: Schlusskurs darunter
-$agent_market_condition_inside: Schlusskurs innerhalb
-$agent_market_condition_outside: Schlusskurs außerhalb
-$agent_market_condition_waiting: Warten auf Bestätigung
-$agent_market_condition_approaching: Annäherung
-$agent_market_condition_triggered: Bestätigt
-$agent_market_scenario_zone: Szenariozone
-$agent_market_expected_move: Volatilitätshülle
-$agent_market_volatility_envelope: Gesamte Volatilitätshülle
-$agent_market_expected_move_note: Bedingte Bewegung, keine Wahrscheinlichkeit
-$agent_market_risk_caveat: Szenarien sind bedingt und stellen keine Handelsempfehlung dar.
-$agent_market_partial_coverage: Ein Teil der Marktdaten ist nicht verfügbar; das Vertrauen ist begrenzt.
-$agent_market_thesis_bullish: Die bestätigte Struktur begünstigt eine Fortsetzung über dem Widerstand, während die Ungültigmachung unter der nächsten Unterstützung bleibt.
-$agent_market_thesis_bearish: Die bestätigte Struktur begünstigt eine Fortsetzung unterhalb der Unterstützung, während die Ungültigmachung über dem nächsten Widerstand bleibt.
-$agent_market_thesis_range: Der Preis bleibt zwischen bestätigter Unterstützung und Widerstand im Gleichgewicht.
-$agent_market_thesis_mixed: Zeitrahmen stehen im Widerspruch, daher ist die Bestätigung an der strukturellen Grenze wichtiger als Richtungsindikatoren.
-$agent_market_thesis_insufficient: Verfügbare Beweise reichen nicht aus, um eine Richtungsstruktur zu bestätigen.
-$agent_market_thesis_unconfirmed: Kein Szenario ist bestätigt; warten Sie auf einen Schlusskurs an der strukturellen Grenze, bevor Sie eine Richtungsannahme treffen.
-$agent_semantic_asset_search: Anlagevermögenssuche
-$agent_semantic_web_digest: Web-Ergebnisse
-$agent_semantic_no_results: Keine Ergebnisse
-$agent_semantic_wallets: Wallets
-$agent_semantic_wallet: Wallet
-$agent_semantic_balance: Kontostand
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Regulär
-$agent_semantic_access_view_only: Nur Ansicht
-$agent_semantic_wallets_unpriced: "%amount%-Positionen sind in den angezeigten Gesamtsummen nicht enthalten, da sie keinen Preis haben."
-$agent_semantic_wallets_stale: Einige Wallet-Guthaben können veraltet sein.
-$agent_semantic_wallets_unavailable: Einige Wallet-Guthaben sind nicht verfügbar.
-$agent_semantic_wallets_partial: Einige Wallet-Daten sind unvollständig.
-$agent_semantic_status: Status
-$agent_semantic_quantity: Menge
-$agent_semantic_time: Zeit
-$agent_semantic_partial: Einige Daten sind nicht verfügbar.
-$agent_semantic_pending: Ausstehend
-$agent_semantic_confirmed: Bestätigt
-$agent_semantic_completed: Abgeschlossen
-$agent_semantic_failed: Fehlgeschlagen
-$agent_semantic_expired: Abgelaufen
-$agent_semantic_active: Aktiv
-$agent_semantic_unstaking: Unstaking
-$agent_semantic_ready: Bereit
-$agent_semantic_frozen: Eingefroren
-$agent_semantic_locked: Gesperrt
-$agent_semantic_fungible: Token
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Staking
-$agent_semantic_vesting: Vesting
-$agent_semantic_vault: Tresor
-$agent_semantic_transfer: Übertragen
-$agent_semantic_swap: Tauschen
-$agent_semantic_stake: Staken
-$agent_semantic_unstake: Unstaken
-$agent_semantic_contract: Vertrag
-$agent_semantic_unknown: Aktivität
-$agent_semantic_spam_transactions: Spam-Transaktionen
-$agent_semantic_spam_assets: Spam-Vermögenswerte
-$agent_semantic_hidden_assets: Verborgene Vermögenswerte
-$agent_semantic_hidden_assets_warning: Verborgene Vermögensnamen können irreführend sein. Sie werden als Klartext angezeigt und können nicht als Links geöffnet werden.
-$agent_semantic_quarantine_warning: Diese Elemente wurden als Spam gemeldet. Vertrauen Sie ihren Namen oder Links nicht.
-$agent_semantic_redacted_asset: Name verborgen
-$agent_semantic_omitted_spam: "Gefilterter Spam: %amount%"
-$agent_semantic_omitted_spam_minimum: "Gefilterter Spam: mindestens %amount%"
-$agent_semantic_omitted_hidden: "Verborgene Vermögenswerte ausgelassen: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Verborgene Vermögenswerte ausgelassen: mindestens %amount%"
-$agent_semantic_suspicious: "Unsichere Namen verborgen: %amount%"
-$agent_semantic_suspicious_minimum: "Unsichere Namen verborgen: mindestens %amount%"
-$agent_semantic_suspicious_shown: "Potentiell unsichere Namen: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Potentiell unsichere Namen: mindestens %amount%"
-$agent_semantic_omitted_rows: Es gibt zu viele Daten. %amount% zusätzliche Zeilen wurden nicht eingeschlossen. Zeitraum oder Filter eingrenzen.
-$agent_semantic_omitted_rows_minimum: Es gibt zu viele Daten. Mindestens %amount% zusätzliche Zeilen wurden nicht eingeschlossen. Zeitraum oder Filter eingrenzen.
-$agent_semantic_update_required: Aktualisieren Sie die App, um diese Antwort anzuzeigen.
+Analyze it: Analysieren
+Check allocation: Aufteilung prüfen
+Compare with last month: "Mit letztem Monat vergleichen"
+Best & worst performers: "Beste & schlechteste Anlagen"
+Biggest profit today: "Höchster Gewinn heute"
+$agent_prompt_portfolio_share: "Analysiere, wie diversifiziert mein Portfolio ist, und zeige Konzentrationen auf einzelne Anlagen auf."
+$agent_prompt_portfolio_compare: "Vergleiche den aktuellen Wert meines Portfolios mit seinem Wert vor einem Monat."
+$agent_prompt_portfolio_performers: "Welche Anlagen in meinem Portfolio haben im ausgewählten Zeitraum (%period%) bei Gewinn und Verlust am besten und am schlechtesten abgeschnitten?"
+$agent_prompt_portfolio_best_day: "An welchem Tag im ausgewählten Zeitraum (%period%) hat mein Portfolio den höchsten Gewinn erzielt?"
+$agent_prompt_token_price: "Analysiere den Preis von %token%."
+$agent_hint_capabilities_title: Was kannst du?
 $agent_hint_portfolio_title: Portfolioleistung
 $agent_hint_portfolio_prompt: Analysieren Sie meine Portfolioleistung.
 $agent_hint_swap_title: Wie Swaps funktionieren
@@ -1519,167 +1356,17 @@ $agent_hint_security_title: Wallet-Sicherheit
 $agent_hint_security_prompt: Zeigen Sie mir, wie ich meine Wallet sicher halte.
 $agent_hint_receive_title: Token empfangen
 $agent_hint_receive_prompt: Helfen Sie mir, Token zu empfangen.
-$agent_action_review_transfer: Übertragung überprüfen
-$agent_action_open_receive: Empfang öffnen
-$agent_action_open_send: Senden öffnen
-$agent_action_open_staking: Staking öffnen
-$agent_action_open_swap: Swap öffnen
-$agent_activity_swap: Swap wird vorbereitet
-$agent_action_hide_spam: Spam-Vermögenswerte ausblenden
-$agent_action_open_link: Link öffnen
-$agent_action_open_agent: Agent öffnen
-$agent_action_open_token: Token in Wallet öffnen
-$agent_action_open_transaction: Transaktion öffnen
-$agent_input_asset: Vermögenswert eingeben
-$agent_input_timeframe: Zeitrahmen eingeben
-$agent_input_amount: Betrag eingeben
-$agent_input_recipient: Empfänger eingeben
-$agent_input_swap_details: Swap-Details eingeben
-$agent_notice_agent_unavailable: Der Agent ist gerade nicht verfügbar. Bitte versuchen Sie es später erneut.
-$agent_notice_analysis_unavailable: Wir konnten diese Analyse nicht abschließen. Bitte versuchen Sie es erneut.
-$agent_notice_analysis_planning_unavailable: Wir konnten nicht genügend der Anfrage interpretieren, um die Analyse vorzubereiten.
-$agent_notice_analysis_source_unavailable: Die für diese Analyse benötigten Daten sind derzeit nicht verfügbar.
-$agent_notice_analysis_stale_evidence: Die verfügbaren Daten sind zu alt, um die Analyse sicher abzuschließen.
-$agent_notice_analysis_inconsistent_snapshot: Die erforderlichen Daten haben sich während der Analyse geändert. Bitte versuchen Sie es erneut.
-$agent_notice_analysis_compute_failed: Wir konnten die angeforderte Berechnung nicht abschließen.
-$agent_notice_analysis_deadline_exceeded: Die Analyse hat zu lange gedauert. Bitte versuchen Sie es erneut.
-$agent_notice_analysis_result_too_large: Das Analyseergebnis ist zu groß, um es sicher darzustellen.
-$agent_notice_analysis_answer_generation_failed: Wir haben die Daten gesammelt, konnten die Antwort jedoch nicht vorbereiten. Bitte versuchen Sie es erneut.
-$agent_notice_asset_not_found: Der angeforderte Vermögenswert wurde nicht gefunden.
-$agent_notice_clarification_required: Weitere Details sind erforderlich, um fortzufahren.
-$agent_notice_clarification_asset: Geben Sie an, welches Krypto-Asset Sie verwenden möchten.
-$agent_notice_clarification_network: Geben Sie an, welches Blockchain-Netzwerk Sie verwenden möchten.
-$agent_notice_clarification_query: Ich bin mir nicht sicher, ob ich die Anfrage verstanden habe. Sagen Sie mir, was Sie wissen oder tun möchten.
-$agent_notice_clarification_quote_currency: Welche Angebotswährung soll ich verwenden?
-$agent_notice_clarification_staking_product: Welches Staking-Produkt soll ich verwenden?
-$agent_notice_clarification_time_horizon: Welchen Zeithorizont soll ich verwenden?
-$agent_notice_clarification_price_assumption: Welche Preisannahme soll ich verwenden?
-$agent_notice_repair_unrecognized_input: Ich konnte diese Nachricht nicht verstehen. Sagen Sie mir, was Sie wissen oder tun wollten, und ich werde versuchen zu helfen.
-$agent_notice_repair_ambiguous_request: Ich bin mir nicht sicher, ob ich die Anfrage richtig verstanden habe. Was möchten Sie wissen oder tun?
-$agent_notice_repair_multiple_requests: Ich sehe mehrere Anfragen in dieser Nachricht. Mit welcher sollen wir anfangen?
-$agent_notice_consent_required: Erlauben Sie den Zugriff auf Wallet-Daten, um fortzufahren.
 $agent_notice_content_over_budget: Das Ergebnis ist zu groß, um es vollständig anzuzeigen.
-$agent_notice_empty_result: Es wurden keine passenden Ergebnisse gefunden.
-$agent_notice_market_unavailable: Marktdaten sind derzeit nicht verfügbar.
-$agent_notice_market_analysis_unavailable: Wir konnten die Marktanalyse nicht vorbereiten. Bitte versuchen Sie es erneut.
-$agent_notice_market_analysis_asset_unsupported: Eine Analyse für diese Münze wird derzeit nicht unterstützt.
-$agent_notice_market_analysis_timeframe_unsupported: Eine Analyse für diesen Zeitraum wird derzeit nicht unterstützt.
-$agent_notice_market_quote_resolved: "%asset% ist derzeit %price% %currency% wert. 24-Stunden-Änderung: %change%%."
-$agent_notice_market_quote_price_unavailable: Es ist derzeit kein aktueller Preis für %asset% verfügbar.
-$agent_notice_market_quote_ambiguous: "Mehrere Tokens stimmen überein: %assets%. Geben Sie das Netzwerk oder die Vertragsadresse an."
-$agent_notice_market_quote_not_found: Für diese Preisanfrage wurde kein passendes Token gefunden.
-$agent_notice_market_quote_planning_unavailable: Die Preisanfrage konnte nicht interpretiert werden.
-$agent_notice_market_quote_capability_unavailable: Die Preisanzeige ist in dieser App nicht verfügbar.
-$agent_notice_market_quote_wallet_context_unavailable: Der für diese Preisabfrage benötigte Wallet-Kontext ist nicht verfügbar.
-$agent_notice_market_quote_currency_unsupported: Die ausgewählte Angebotswährung wird für diese Preisanzeige nicht unterstützt.
-$agent_notice_market_quote_unavailable: Für dieses Token ist kein aktueller Preis verfügbar.
-$agent_notice_market_quote_wallet_context_changed: Die aktive Wallet hat sich geändert, bevor die Preisabfrage abgeschlossen wurde.
-$agent_notice_market_quote_timeout: Die Preisanzeige hat ein Zeitlimit überschritten.
-$agent_notice_market_quote_tool_failed: Der Preisdienst konnte die Anzeige nicht abschließen.
-$agent_notice_market_quote_invalid_result: Die Preisantwort konnte nicht verifiziert werden.
-$agent_notice_market_quote_cancelled: Die Preisanzeige wurde abgebrochen.
-$agent_notice_portfolio_unavailable: Portfoliodaten sind derzeit nicht verfügbar.
-$agent_notice_receive_details_required: Geben Sie die Kryptowährung und das Netzwerk für die Einzahlung an.
-$agent_notice_receive_asset_required: Geben Sie die Kryptowährung für die Einzahlung an.
-$agent_notice_receive_network_required: Geben Sie das Netzwerk für die Einzahlung an.
-$agent_notice_receive_ready: Ihr Empfangsbildschirm ist bereit zum Öffnen.
-$agent_notice_receive_memo_not_required: Bei einer Einzahlung auf Ihre eigene My Wallet-Adresse ist kein Memo erforderlich — lassen Sie das Feld leer.
-$agent_notice_receive_unavailable: Empfangen ist für diese Wallet nicht verfügbar.
-$agent_notice_receive_planning_unavailable: Die Empfangsanfrage konnte nicht interpretiert werden. Formulieren Sie sie um oder öffnen Sie Empfangen.
-$agent_notice_receive_active_account_unavailable: Die aktive Wallet ist nicht verfügbar. Wechseln Sie die Wallet und versuchen Sie es erneut.
-$agent_notice_receive_client_unavailable: Empfangen über den Agenten ist in dieser App nicht verfügbar. Öffnen Sie stattdessen Empfangen.
-$agent_notice_receive_chain_unsupported: Diese Wallet unterstützt %requested_network% nicht. Das aktive Netzwerk ist %active_network%.
-$agent_notice_receive_active_network_mismatch: Das aktive Netzwerk ist %active_network%. Wechseln Sie zu %requested_network%, um dort zu empfangen.
-$agent_notice_retry_required: Bitte versuchen Sie die Anfrage erneut.
-$agent_notice_send_details_required: Fügen Sie die fehlenden Überweisungsdetails hinzu, um fortzufahren.
-$agent_notice_send_form_amount_required: Öffnen Sie Senden und geben Sie dann den Betrag im Überweisungsformular ein.
-$agent_notice_send_ready: Natürlich — die Überweisung ist bereit. Überprüfen Sie die Details, bevor Sie senden.
-$agent_notice_send_ready_inferred_asset: Es sieht so aus, als hätten Sie %symbol% gemeint. Ich habe die Überweisung vorbereitet — überprüfen Sie die Details, bevor Sie senden.
-$agent_notice_send_missing_amount: Wie viel möchten Sie senden?
-$agent_notice_send_missing_asset: Welche Währung möchten Sie senden?
-$agent_notice_send_missing_recipient: An wen möchten Sie senden?
-$agent_notice_send_no_sendable_balance: Die aktive Wallet hat derzeit kein verfügbares Guthaben zum Senden.
-$agent_notice_send_unavailable: Die Überweisung konnte nicht sicher vorbereitet werden. Verwenden Sie Senden oder versuchen Sie es später erneut.
-$agent_notice_staking_ready: Staking ist bereit zum Öffnen.
-$agent_notice_staking_unavailable: Staking über den Agenten ist momentan nicht verfügbar. Öffnen Sie stattdessen Staking in der Wallet.
-$agent_notice_staking_planning_unavailable: Die Staking-Anfrage konnte nicht interpretiert werden. Formulieren Sie sie um oder öffnen Sie Staking.
-$agent_notice_staking_active_account_unavailable: Die aktive Wallet ist nicht verfügbar. Wechseln Sie die Wallet und versuchen Sie es erneut.
-$agent_notice_staking_view_only: Staking ist für eine schreibgeschützte Wallet nicht verfügbar. Wechseln Sie zu einer Wallet, mit der Sie signieren können.
-$agent_notice_staking_client_unavailable: Staking über den Agenten ist in dieser App nicht verfügbar. Öffnen Sie stattdessen Staking in der Wallet.
-$agent_notice_staking_asset_unavailable: Staking für dieses Asset ist in der aktiven Wallet nicht verfügbar. Wählen Sie ein anderes verfügbares Staking-Asset.
-$agent_notice_staking_amount_invalid: Der angeforderte Staking-Betrag kann nicht verwendet werden. Geben Sie im Staking einen anderen Betrag ein.
-$agent_notice_staking_wallet_context_changed: Die Staking-Optionen der aktiven Wallet haben sich geändert. Bitten Sie den Agenten, Staking erneut vorzubereiten.
-$agent_notice_swap_ready_indicative: "Indikative Schätzung: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. Das ausführbare Angebot, Gebühren, Slippage und Preiswirkung werden im Swap geladen."
-$agent_notice_swap_ready_price_unavailable: Der lokale indikative Preis für %from_symbol% → %to_symbol% ist nicht verfügbar. Öffnen Sie Swap, um das ausführbare Angebot, die Gebühren und die Slippage zu laden.
-$agent_notice_swap_details_source_asset: Geben Sie das Krypto-Asset an, das getauscht werden soll.
-$agent_notice_swap_details_destination_asset: Geben Sie das Krypto-Asset an, das empfangen werden soll.
-$agent_notice_swap_details_amount: Geben Sie einen positiven Krypto-Betrag an.
-$agent_notice_swap_details_direction: Geben Sie das Quell-Asset, das Ziel-Asset und den Betrag an, um fortzufahren.
-$agent_notice_swap_details_candidates: "%prompt% stimmt mit %candidates% überein."
-$agent_notice_swap_unavailable: Die Swap-Vorbereitung über den Agenten ist momentan nicht verfügbar. Öffnen Sie stattdessen Swap in der Wallet.
-$agent_notice_swap_planning_unavailable: Die Swap-Anfrage konnte nicht interpretiert werden. Geben Sie sowohl die Krypto-Assets als auch einen Betrag an.
-$agent_notice_swap_active_account_unavailable: Die aktive Wallet ist nicht verfügbar. Wechseln Sie die Wallet und versuchen Sie es erneut.
-$agent_notice_swap_view_only: Swap-Vorbereitung ist für eine Nur-Lese-Wallet nicht verfügbar. Wechseln Sie zu einer Wallet, mit der Sie signieren können.
-$agent_notice_swap_client_unavailable: Die Swap-Vorbereitung über den Agenten ist in dieser App nicht verfügbar. Öffnen Sie stattdessen Swap in der Wallet.
-$agent_notice_swap_wallet_context_changed: Die aktive Wallet wurde gewechselt, bevor die Swap-Vorbereitung abgeschlossen war. Versuchen Sie es erneut.
-$agent_notice_swap_timeout: Die Swap-Vorbereitung hat zu lange gedauert. Versuchen Sie es erneut.
-$agent_notice_swap_tool_failed: Die Wallet konnte diesen Swap nicht vorbereiten. Versuchen Sie es erneut oder öffnen Sie Swap.
-$agent_notice_swap_invalid_result: Der vorbereitete Swap konnte nicht überprüft werden. Versuchen Sie es erneut.
-$agent_notice_send_asset_not_held: Dieses Asset ist in der aktiven Wallet nicht verfügbar. Wählen Sie ein anderes Asset oder eine andere Wallet.
-$agent_notice_send_insufficient_balance: Es ist nicht genug Guthaben für diese Überweisung vorhanden. Verringern Sie den Betrag oder wechseln Sie die Wallet.
-$agent_notice_send_recipient_not_found: Es wurde keine passende eigene Wallet oder gespeicherte Adresse gefunden.
-$agent_notice_send_recipient_not_found_named: Es wurde keine eigene Wallet oder gespeicherte Adresse mit dem Namen „%recipient%“ gefunden.
-$agent_notice_send_recipient_ambiguous: Mehr als eine Wallet oder ein Kontakt könnte passen. Geben Sie den Empfänger an.
-$agent_notice_send_address_book_unavailable: Das aktuelle Adressbuch konnte nicht geladen werden. Versuchen Sie es erneut oder wählen Sie den Kontakt in Senden aus.
-$agent_notice_send_recipient_matching_unavailable: Das Adressbuch ist verfügbar, aber der Agent konnte den Empfängernamen nicht eindeutig zuordnen. Geben Sie den Namen an oder wählen Sie den Kontakt in Senden aus.
-$agent_notice_send_intent_extraction_unavailable: Welches Asset möchten Sie senden?
-$agent_notice_send_intent_provider_unavailable: Der Befehlsverarbeitungsdienst ist vorübergehend nicht verfügbar. Versuchen Sie es erneut oder verwenden Sie Senden.
-$agent_notice_send_invalid_recipient: Die Empfängeradresse ist ungültig.
-$agent_notice_send_recipient_unresolved: Der Empfänger konnte nicht aufgelöst werden.
-$agent_notice_send_recipient_inactive: Das Empfängerkonto ist inaktiv.
-$agent_notice_send_memo_required: Für diese Überweisung wird eine Mitteilung benötigt.
-$agent_notice_send_wallet_not_initialized: Die Empfängerbrieftasche ist nicht initialisiert.
-$agent_notice_send_active_account_unavailable: Die aktive Wallet ist nicht verfügbar. Wechseln Sie die Wallet.
-$agent_notice_send_chain_unsupported: Diese Wallet kann im ausgewählten Netzwerk nicht senden. Wechseln Sie das Netzwerk oder die Wallet.
-$agent_notice_send_client_unavailable: Überweisungen über den Agenten sind in dieser App nicht verfügbar. Verwenden Sie stattdessen Senden.
-$agent_notice_send_view_only: Eine schreibgeschützte Wallet kann kein Guthaben senden. Wechseln Sie die Wallet.
-$agent_notice_send_offline: Mit dem Internet verbinden, um diese Überweisung vorzubereiten.
-$agent_notice_send_wallet_context_changed: Die aktive Wallet hat sich geändert. Bereiten Sie die Überweisung erneut vor.
-$agent_notice_send_source_wallet_selection_required: Der Agent kann diese Überweisung nur von der aktuellen Wallet vorbereiten. Wechseln Sie zur benannten Wallet und versuchen Sie es erneut.
-$agent_notice_send_validation_failed: Die Überweisungsdetails haben die Wallet-Validierung nicht bestanden.
-$agent_notice_tool_unavailable: Diese Operation ist im aktuellen Client nicht verfügbar.
-$agent_notice_wallet_unavailable: Wallet-Daten sind momentan nicht verfügbar.
-$agent_notice_wallet_filter_ambiguous: Wählen Sie eine Wallet oder ein Asset, um die Anfrage einzugrenzen.
-$agent_notice_web_unavailable: Die Websuche ist momentan nicht verfügbar.
-$agent_notice_web_capability_unavailable: Die Websuche wird von der aktuellen Agent-Konfiguration nicht unterstützt.
-$agent_notice_web_planning_failed: Der Agent konnte die Suchanfrage nicht vorbereiten.
-$agent_notice_web_budget_denied: Das Websuchlimit wurde erreicht. Bitte versuchen Sie es später erneut.
-$agent_notice_web_provider_rate_limited: Der Suchanbieter hat die Anfragen vorübergehend begrenzt. Bitte versuchen Sie es später erneut.
-$agent_notice_web_provider_unavailable: Der Suchanbieter hat nicht geantwortet. Bitte versuchen Sie es später erneut.
-$agent_notice_web_no_results: Die Suche wurde abgeschlossen, aber es wurden keine relevanten Ergebnisse gefunden.
-$agent_notice_web_invalid_sources: Suchergebnisse wurden empfangen, aber sie haben die Sicherheitsprüfungen nicht bestanden.
-$agent_notice_web_synthesis_timeout: Es wurden Ergebnisse gefunden, aber deren Verarbeitung hat zu lange gedauert.
-$agent_notice_web_synthesis_invalid: Ergebnisse wurden gefunden, aber der Agent konnte keine gültige Zusammenfassung erstellen.
-$agent_notice_web_synthesis_unavailable: Ergebnisse wurden gefunden, aber das Zusammenfassungsmodell ist derzeit nicht verfügbar.
-$agent_notice_web_policy_rejected: Die Zusammenfassung wurde erstellt, hat jedoch die Qualitätsprüfungen nicht bestanden.
+$agent_notice_web_search_no_results: Es konnten keine passenden Informationen zu Ihrer Anfrage gefunden werden.
 $agent_error_session: Ihre Agent-Sitzung ist abgelaufen. Öffnen Sie den Agent erneut und versuchen Sie es erneut.
 $agent_error_limit: Die Anfrage kann nicht abgeschlossen werden, da ein Limit für den Agent erreicht wurde.
 $agent_error_tool: Eine Wallet-Operation konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.
 $agent_error_conversation_updated: Das Gespräch wurde aktualisiert. Bitte führen Sie die Anfrage erneut aus.
 $agent_error_generic: Der Agent konnte die Anfrage nicht abschließen. Bitte versuchen Sie es erneut.
+$agent_error_invalid_response: Die Antwort des Agenten konnte nicht gelesen werden. Bitte versuche es erneut.
 $agent_error_update_required: Aktualisieren Sie die App, um fortzufahren.
-$agent_semantic_transactions: Transaktionen
-$agent_semantic_positions: Positionen
-$agent_semantic_market: Marktübersicht
 $agent_wallet_page_navigation: Wallet-Datenseiten
-$agent_wallet_page_previous: ← Zurück
-$agent_wallet_page_next: Weiter →
 $agent_wallet_page_indicator: "%current% von %total%"
-$agent_portfolio_unpriced: Nicht enthalten
-$agent_portfolio_unpriced_value: nicht enthalten
-$agent_portfolio_more_positions: +%count% mehr
-$agent_portfolio_history_on: Verlauf zu %network%
-$agent_portfolio_no_activity: Keine aktuellen Aktivitäten.
 Clear Chat: Chat löschen
 Unsupported link: Dieser Link wird nicht unterstützt
 My Wallet Features: My Wallet-Funktionen
@@ -1723,10 +1410,13 @@ Manage Assets: Assets verwalten
 Pulse: Puls
 Edit Message: Nachricht bearbeiten
 Toggle Hints: Hinweise umschalten
-AgentErrorResponseFailed: "Fehler: Antwort konnte nicht abgerufen werden"
-AgentErrorConnectionFailed: "Fehler: Verbindung fehlgeschlagen"
 Scroll To Bottom: Nach unten scrollen
 $agent_clear_chat_confirm: Sind Sie sicher, dass Sie den Chatverlauf löschen möchten?
+Report a Problem: Problem melden
+$agent_report_problem_description: Die letzten Nachrichten dieses Chats werden an unser Team gesendet, damit wir das Problem beheben können.
+$agent_report_problem_sent: Vielen Dank! Ihre Meldung wurde gesendet.
+$agent_report_problem_failed: Die Meldung konnte nicht gesendet werden. Bitte versuchen Sie es erneut.
+$agent_report_problem_rate_limited: Sie haben kürzlich mehrere Meldungen gesendet. Bitte versuchen Sie es später erneut.
 $unknown_swap_token: Unbekannter Token im Swap-Link. Standard-Token wurden verwendet.
 $action_not_available_view_mode: Diese Aktion ist für View Wallets nicht verfügbar
 Deposit: Einzahlen
@@ -2308,6 +1998,7 @@ Tokenized Gold: Tokenisiertes Gold
 Index Funds: Indexfonds
 Search token or stock: Token oder Aktie suchen
 "Activity Failed to Load": "Aktivität konnte nicht geladen werden"
+"$agent_source_bea_attribution": "Dieses Produkt verwendet die Daten-API des Bureau of Economic Analysis (BEA), wird jedoch vom BEA weder unterstützt noch zertifiziert."
 "Address was copied!": "Adresse kopiert!"
 "Allow App Lock": "App-Sperre erlauben"
 "An error occurred": "Ein Fehler ist aufgetreten"

@@ -97,7 +97,7 @@ public final class UniversalSearchIndexService: WalletCoreData.EventsObserver, @
         browserHistoryLoadedCancellable = BrowserHistoryStore.shared.onChanged.sink { [weak self] in
             self?.scheduleRefresh(sourceIDs: [UniversalSearchBrowserHistorySource.id])
         }
-        agentConversationChangedCancellable = AgentStore.shared.conversationChanged.sink {
+        agentConversationChangedCancellable = AgentSearchProvider.shared.conversationChanged.sink {
             [weak self] in
             self?.scheduleRefresh(sourceIDs: [UniversalSearchAgentConversationSource.id])
         }

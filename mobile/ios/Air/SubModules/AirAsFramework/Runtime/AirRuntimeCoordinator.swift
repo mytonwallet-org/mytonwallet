@@ -4,6 +4,7 @@ import UserNotifications
 import UIDapp
 import UIInAppBrowser
 import UIComponents
+import UIAgent
 import UniversalSearchFeature
 import WalletContext
 import WalletCore
@@ -77,6 +78,7 @@ final class AirRuntimeCoordinator: NSObject {
     // until the wallet is ready and unlocked.
     func reset() {
         _isWalletReady = false
+        AgentEntryPoint.setWalletReady(false)
         universalSearchIndexService?.setWalletReady(false)
         didSchedulePushPermissionRequest = false
         startupImportError = nil
@@ -313,6 +315,7 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
 
     func walletIsReady(isReady: Bool) {
         _isWalletReady = isReady
+        AgentEntryPoint.setWalletReady(isReady)
         if isReady {
             let indexService = universalSearchIndexService
                 ?? UniversalSearchFeatureFactory.sharedIndexService
@@ -343,6 +346,7 @@ extension AirRuntimeCoordinator: WalletContextDelegate {
         // Restart lifecycle subscriptions with WalletCore rather than carrying
         // pending work from the previous wallet session into the next one.
         universalSearchIndexService?.stop()
+        AgentEntryPoint.setWalletReady(false)
         WalletCoreData.removeObservers()
         _isWalletReady = false
         StartupTrace.reset(flow: "restart-app")
@@ -409,6 +413,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
             case .stake:
                 AppActions.showEarn(accountContext: accountContext, tokenSlug: nil)
+
+            case .multisend:
+                AppActions.showMultisend()
 
             case .portfolio:
                 AppActions.showPortfolio(accountContext: accountContext)

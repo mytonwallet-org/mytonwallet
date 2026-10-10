@@ -1,9 +1,10 @@
-import type { AgentMarketFearGreedRegimeV1, AgentMarketPriceZoneV1, AgentToolCall } from './types';
+import type { AgentToolCall, AgentWalletDataQueryArgs, AgentWalletTransactionsListArgs } from './types';
 
+import { getSupportedChains } from '../../../util/chain';
 import compatibilityFixture from '../../../../tests/fixtures/agentV2/client-wire-compatibility.v1.json';
 import navigationFixture from '../../../../tests/fixtures/agentV2/navigation-action-projection.v1.json';
 import contractManifest from '../generated/manifest.json';
-import { buildAgentMarketAnalysisV6Fixture } from './agentMarketAnalysisTestFixture';
+import { decodeAgentV2WalletSnapshotAck } from './decoders/coreRun';
 import {
   AgentV2CompatibilityError,
   AgentV2ContractError,
@@ -14,15 +15,50 @@ import {
   decodeAgentV2StreamEvent,
   decodeAgentV2StreamFrame,
   decodeAgentV2ToolArguments,
-  decodeAgentV2WalletQueryCapabilitiesV2,
 } from './transportContracts';
-import { array as readWireArray, object as readWireObject } from './wireReader';
+import { object as readWireObject } from './wireReader';
 
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const MESSAGE_ID = '22222222-2222-4222-8222-222222222222';
 const THREAD_ID = '33333333-3333-4333-8333-333333333333';
 const TOOL_CALL_ID = '44444444-4444-4444-8444-444444444444';
 const WALLET_SESSION_ID = '55555555-5555-4555-8555-555555555555';
+const WALLET_CHAIN_LISTS = [
+  { name: 'runtime catalog', chains: [...getSupportedChains()] },
+  { name: 'future catalog', chains: Array.from({ length: 65 }, (_, index) => `future-chain-${index}`) },
+];
+const INVALID_WALLET_CHAIN_LISTS = [
+  { name: 'duplicate identifiers', chains: ['ton', 'ton'] },
+  { name: 'empty identifiers', chains: [''] },
+  { name: 'oversized identifiers', chains: ['x'.repeat(33)] },
+];
+const WALLET_TRANSACTIONS_QUERY_ARGUMENTS: AgentWalletTransactionsListArgs = {
+  operation: 'transactions.list', accountSelector: { kind: 'current' }, chains: [],
+  filters: { schemaVersion: 1, catalogDigest: contractManifest.walletFilterCatalogSha256, clauses: [] },
+  riskMode: 'all', pageSize: 50,
+};
+const WALLET_QUERY_CHAIN_ARGUMENTS: Exclude<AgentWalletDataQueryArgs, { operation: 'transactions.detail' }>[] = [
+  { operation: 'account.inventory', accountSelector: { kind: 'current' }, chains: [] },
+  { operation: 'assets.search', query: 'TON', chains: [], pageSize: 10 },
+  {
+    operation: 'positions.list', accountSelector: { kind: 'current' }, chains: [], assetSelectors: [],
+    positionKinds: ['fungible'], riskMode: 'all', visibilityMode: 'all', includeZero: true,
+    sort: 'wallet_order', pageSize: 100,
+  },
+  {
+    operation: 'portfolio.aggregate', accountSelector: { kind: 'current' }, chains: [], range: '1m',
+    groupBy: ['network'], riskMode: 'all', visibilityMode: 'all',
+  },
+  WALLET_TRANSACTIONS_QUERY_ARGUMENTS,
+  {
+    operation: 'contacts.list', accountSelector: { kind: 'current' }, query: 'Mom', chains: [], ownWalletChains: [],
+    pageSize: 100,
+  },
+  {
+    operation: 'value.series', accountSelector: { kind: 'current' }, chains: [], metric: 'portfolio_value',
+    assetSelectors: [], range: '1m', maxPoints: 2,
+  },
+];
 
 interface CompatibilityFixtureGroup {
   schema: string;
@@ -30,9 +66,105 @@ interface CompatibilityFixtureGroup {
 }
 
 describe('Agent V2 client wire compatibility contract', () => {
+  it('rejects retired frontend market quote calls', () => {
+    const toolCall = {
+      id: TOOL_CALL_ID, name: 'market.asset.quote', version: 1,
+      maxResultBytes: 16_384, scopes: ['market.data.read'], timeoutMs: 15_000,
+      arguments: {
+        schemaVersion: 1, quoteCurrency: 'USD',
+        selector: { kind: 'asset', asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' } },
+      },
+      walletContextSession: {
+        sessionId: WALLET_SESSION_ID, revision: 1, activeAccountRef: 'wallet-1',
+        accountScope: 'current', activeNetwork: 'ton',
+      },
+    };
+    expect(() => decodeAgentV2StreamEvent(event({ type: 'tool_call', sequence: 3, toolCall })))
+      .toThrow(AgentV2ContractError);
+  });
+
+  it('keeps history text and cursor when optional metadata is malformed', () => {
+    const message = { ...persistedMessage(MESSAGE_ID, 'assistant', { kind: 'markdown', text: 'Saved answer' }),
+      chains: [123] };
+    const page = decodeAgentV2Messages({ protocolVersion: 3, thread: threadSummary(),
+      messages: [message], nextCursor: 'next-page' });
+    expect(page.messages).toHaveLength(1);
+    expect(page.messages[0]).toMatchObject({ id: MESSAGE_ID, content: { kind: 'markdown', text: 'Saved answer' } });
+    expect(page.nextCursor).toBe('next-page');
+  });
+
+  it('drops a malformed answer link without failing its message', () => {
+    const link = { textOffset: 0, textLength: 4, url: 'https://help.mywallet.io/' };
+    const malformed = [
+      { messageId: 'not-a-uuid', link },
+      { messageId: MESSAGE_ID, link: { ...link, url: 'http://a.io' } },
+    ];
+    for (const value of malformed) {
+      const frame = decodeAgentV2StreamFrame(event({ type: 'text_link', sequence: 3, ...value }));
+      expect(frame).toMatchObject({ disposition: 'ignore', wireType: 'text_link' });
+      expect(frame).not.toHaveProperty('incompleteMessageId');
+    }
+  });
+
+  it('keeps a stored answer whole while dropping links it cannot place', () => {
+    const link = { textOffset: 4, textLength: 4, url: 'https://help.mywallet.io/' };
+    const page = decodeAgentV2Messages({ protocolVersion: 3, thread: threadSummary(), messages: [
+      persistedMessage(MESSAGE_ID, 'assistant', { kind: 'markdown', text: 'See Help', links: [
+        link, { ...link, textOffset: 6 }, { ...link, textOffset: 0, url: 'http://help.mywallet.io/' },
+      ] }),
+      persistedMessage(RUN_ID, 'assistant', { kind: 'markdown', text: 'Saved', links: 'broken' }),
+    ] });
+
+    expect(page.messages.map(({ content }) => content)).toEqual([
+      { kind: 'markdown', text: 'See Help', links: [link] },
+      { kind: 'markdown', text: 'Saved' },
+    ]);
+    expect(page.messages.map(({ error }) => error)).toEqual([undefined, undefined]);
+    expect(page.incompatibleMessages).toBeUndefined();
+  });
+
   it('decodes every fixture group with its live transport reader', () => {
     expect(compatibilityFixture.schemaVersion).toBe(1);
     compatibilityFixture.fixtures.forEach(decodeCompatibilityFixtureGroup);
+  });
+
+  it.each([
+    { query: 'Studio' },
+    { chains: ['ton'] },
+    { accountSelector: { kind: 'explicitAll' } },
+    { purpose: 'untrusted-purpose' },
+  ])('rejects filtered or unbound Send recipient context: %j', (change) => {
+    const groups: CompatibilityFixtureGroup[] = compatibilityFixture.fixtures;
+    const value = groups.flatMap(({ values }) => values).find((value) => {
+      const candidate = readWireObject(value, '$');
+      return candidate.type === 'tool_call'
+        && readWireObject(readWireObject(candidate.toolCall, '$.toolCall').arguments, '$.arguments').purpose
+        === 'send_recipient_resolution';
+    });
+    const candidate = readWireObject(value, '$');
+    const call = readWireObject(candidate.toolCall, '$.toolCall');
+    const decoded = decodeAgentV2StreamEvent({ ...candidate, toolCall: {
+      ...call, arguments: { ...readWireObject(call.arguments, '$.arguments'), ...change },
+    } });
+    if (decoded.type !== 'tool_call') throw new Error('Expected recipient tool call');
+    expect(() => decodeCompatibilityFixtureGroup({
+      schema: 'AgentStreamEventV2', values: [decoded],
+    })).toThrow(AgentV2ContractError);
+  });
+
+  it('rejects a fixture tool call with an incompatible wallet filter catalog', () => {
+    const toolCall = decodeWalletQueryArguments(WALLET_TRANSACTIONS_QUERY_ARGUMENTS);
+    const value = event({ type: 'tool_call', sequence: 3, toolCall: {
+      ...toolCall,
+      arguments: {
+        ...WALLET_TRANSACTIONS_QUERY_ARGUMENTS,
+        filters: { ...WALLET_TRANSACTIONS_QUERY_ARGUMENTS.filters, catalogDigest: 'a'.repeat(64) },
+      },
+    } });
+    expect(decodeAgentV2StreamEvent(value)).toMatchObject({ type: 'tool_call' });
+    expect(() => decodeCompatibilityFixtureGroup({
+      schema: 'AgentStreamEventV2', values: [value],
+    })).toThrow(AgentV2ContractError);
   });
 
   it('rejects unsupported fixture schemas', () => {
@@ -43,34 +175,138 @@ describe('Agent V2 client wire compatibility contract', () => {
   });
 });
 
-describe('Agent V2 feature capability negotiation', () => {
-  it('treats an omitted staking offer capability as disabled', () => {
-    expect(decodeAgentV2FeatureCapabilities({
-      protocolVersion: 2,
-      portfolioPositions: 'disabled',
-    })).toEqual({
-      protocolVersion: 2,
-      portfolioPositions: 'disabled',
-      stakingCatalog: 'disabled',
-      stakingOffer: 'disabled',
-      walletQuery: 'disabled',
+describe.each(WALLET_CHAIN_LISTS)('Agent V2 wallet query chain lists: $name', ({ chains }) => {
+  it.each(WALLET_QUERY_CHAIN_ARGUMENTS)('preserves every chain in $operation', (args) => {
+    const decoded = decodeWalletQueryArguments({ ...args, chains: [...chains] });
+
+    expect(decoded.arguments).toEqual({ ...args, chains });
+  });
+
+  it('preserves every transaction chain filter value', () => {
+    const decoded = decodeWalletQueryArguments(createWalletChainFilterArguments([...chains]));
+
+    expect(decoded.arguments).toEqual(createWalletChainFilterArguments(chains));
+  });
+});
+
+describe.each(INVALID_WALLET_CHAIN_LISTS)('Agent V2 wallet query invalid chain lists: $name', ({ chains }) => {
+  it.each(WALLET_QUERY_CHAIN_ARGUMENTS)('rejects invalid chain identifiers in $operation', (args) => {
+    expect(() => decodeWalletQueryArguments({ ...args, chains })).toThrow(AgentV2ContractError);
+  });
+
+  it('rejects invalid transaction chain filter values', () => {
+    expect(() => decodeWalletQueryArguments(createWalletChainFilterArguments(chains))).toThrow(AgentV2ContractError);
+  });
+});
+
+describe('Agent V2 wallet query bounds of a host that lists every network', () => {
+  it('reads a 300-row contact page and a 600 KiB result budget, and nothing larger', () => {
+    const contacts = (pageSize: number): AgentWalletDataQueryArgs => ({
+      operation: 'contacts.list', accountSelector: { kind: 'current' }, query: 'Mom', chains: [], ownWalletChains: [],
+      pageSize,
     });
+    expect(decodeWalletQueryArguments(contacts(300), 614_400).arguments).toMatchObject({ pageSize: 300 });
+    expect(() => decodeWalletQueryArguments(contacts(301))).toThrow(AgentV2ContractError);
+    expect(() => decodeWalletQueryArguments(WALLET_TRANSACTIONS_QUERY_ARGUMENTS, 614_401))
+      .toThrow(AgentV2ContractError);
   });
 
-  it('accepts an explicitly available staking offer capability', () => {
-    expect(decodeAgentV2FeatureCapabilities({
-      protocolVersion: 2,
-      portfolioPositions: 'disabled',
-      stakingOffer: 'available',
-    })).toMatchObject({ stakingOffer: 'available' });
+  it('reads the networks of own wallets on every contacts read', () => {
+    const recipients = {
+      // eslint-disable-next-line no-null/no-null -- The query contract uses null for no filter.
+      operation: 'contacts.list', accountSelector: { kind: 'current' }, query: null, chains: [], pageSize: 300,
+      purpose: 'send_recipient_resolution', ownWalletChains: ['ton'],
+    } satisfies AgentWalletDataQueryArgs;
+    expect(decodeWalletQueryArguments(recipients).arguments).toMatchObject({ ownWalletChains: ['ton'] });
+    const { ownWalletChains, ...withoutNetworks } = recipients;
+    expect(() => decodeWalletQueryArguments(withoutNetworks as unknown as AgentWalletDataQueryArgs))
+      .toThrow(AgentV2ContractError);
+    expect(() => decodeWalletQueryArguments({ ...recipients, ownWalletChains: ['ton', 'ton'] }))
+      .toThrow(AgentV2ContractError);
+  });
+});
+
+describe('writer-authored presentation', () => {
+  const action = { id: TOOL_CALL_ID, schemaVersion: 1, kind: 'openDapp', labelCode: 'open_external_link',
+    title: 'Открыть приложение', url: 'https://app.ston.fi/', requiresConfirmation: true };
+  const event = { type: 'action', protocolVersion: 3, runId: RUN_ID, messageId: MESSAGE_ID,
+    sequence: 2, action };
+
+  it('preserves titles on live and persisted actions without changing their destination', () => {
+    expect(decodeAgentV2StreamEvent(event)).toMatchObject({ action });
+    expect(decodeAgentV2PersistedAction({ ...action, schemaVersion: 3 }))
+      .toMatchObject({ title: action.title, url: action.url, requiresConfirmation: true });
   });
 
-  it('accepts an explicitly available global staking catalog capability', () => {
-    expect(decodeAgentV2FeatureCapabilities({
-      protocolVersion: 2,
-      portfolioPositions: 'disabled',
-      stakingCatalog: 'available',
-    })).toMatchObject({ stakingCatalog: 'available' });
+  it('ignores additive action presentation fields while keeping the validated destination', () => {
+    expect(decodeAgentV2StreamEvent({ ...event, action: { ...action, futureCaption: 'New label' } }))
+      .toEqual(event);
+    expect(decodeAgentV2PersistedAction({ ...action, schemaVersion: 3, futureCaption: 'New label' }))
+      .toEqual({ ...action, schemaVersion: 3 });
+  });
+
+  it.each([undefined, '', ' ', ' Open', 'Open ', 'x'.repeat(81), 'Open\nnow', 123])(
+    'rejects invalid title %j on both live and persisted actions', (title) => {
+      expect(() => decodeAgentV2StreamEvent({ ...event, action: { ...action, title } }))
+        .toThrow(AgentV2ContractError);
+      expect(() => decodeAgentV2PersistedAction({ ...action, schemaVersion: 3, title })).toThrow(AgentV2ContractError);
+    },
+  );
+
+  const table = { id: 't1', content: { kind: 'display', headers: ['Актив', 'Количество'],
+    rows: [['[Token](https://example.com)', '12.500000001 TON']], notes: ['Данные неполные'] } };
+  const tableEvent = { type: 'table_data', protocolVersion: 3, runId: RUN_ID, messageId: MESSAGE_ID,
+    sequence: 2, table };
+
+  it.each(['contacts', 'valueSeries', 'walletQuery'])('rejects retired table kind %s', (kind) => {
+    expect(() => decodeAgentV2StreamEvent({ ...tableEvent,
+      table: { id: 't1', content: { kind, outcome: 'complete', rows: [] } },
+    })).toThrow(AgentV2ContractError);
+  });
+
+  it('reads ready strings literally and tolerates unknown optional table fields', () => {
+    expect(decodeAgentV2StreamEvent({ ...tableEvent,
+      table: { ...table, content: { ...table.content, futureProperty: true } } }))
+      .toMatchObject({ table });
+  });
+
+  it.each([[[]], [['one']], [['one', 'two', 'three']], [['one', 123]]])(
+    'rejects a malformed ready row %j', (row) => {
+      expect(() => decodeAgentV2StreamEvent({ ...tableEvent,
+        table: { ...table, content: { ...table.content, rows: [row] } } })).toThrow(AgentV2ContractError);
+    },
+  );
+});
+
+describe('Agent V2 feature capabilities', () => {
+  const walletQuery = {
+    status: 'available',
+    filterCatalog: { version: 1, digest: 'a'.repeat(64), requiresClientTimeZone: true },
+  };
+
+  const problemReport = { status: 'available' };
+
+  it('decodes the nested capabilities and ignores additive fields', () => {
+    const value = { protocolVersion: 3, walletQuery, problemReport };
+    expect(decodeAgentV2FeatureCapabilities({ ...value, portfolioPositions: 'available' })).toEqual(value);
+    const disabled = {
+      protocolVersion: 3, walletQuery: { status: 'disabled' }, problemReport: { status: 'disabled' },
+    };
+    expect(decodeAgentV2FeatureCapabilities(disabled)).toEqual(disabled);
+    expect(decodeAgentV2FeatureCapabilities({ protocolVersion: 3, walletQuery }))
+      .toEqual({ protocolVersion: 3, walletQuery, problemReport: { status: 'disabled' } });
+    expect(decodeAgentV2FeatureCapabilities({ protocolVersion: 3, walletQuery, problemReport: { status: 'on' } }))
+      .toEqual({ protocolVersion: 3, walletQuery, problemReport: { status: 'disabled' } });
+  });
+
+  it.each([
+    { status: 'available' },
+    { status: 'disabled', filterCatalog: walletQuery.filterCatalog },
+    { ...walletQuery, filterCatalog: { ...walletQuery.filterCatalog, digest: 'A'.repeat(64) } },
+  ])('rejects an inconsistent wallet-query capability %j', (value) => {
+    expect(() => decodeAgentV2FeatureCapabilities({
+      protocolVersion: 3, walletQuery: value, problemReport,
+    })).toThrow(AgentV2ContractError);
   });
 });
 
@@ -96,20 +332,9 @@ describe('Agent V2 staking offer tool contract', () => {
     },
   } as const;
 
-  it('decodes only the exact read-only staking offer tool', () => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'tool_call', sequence: 3, toolCall,
-    }))).toMatchObject({ type: 'tool_call', toolCall });
-  });
-
-  it.each([
-    ['wrong scope', { scopes: ['wallet.data.read'] }],
-    ['wrong timeout', { timeoutMs: 5_001 }],
-    ['wrong result bound', { maxResultBytes: 16_385 }],
-  ])('rejects a staking offer tool call with %s', (_case, override) => {
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'tool_call', sequence: 3, toolCall: { ...toolCall, ...override },
-    }))).toThrow(AgentV2ContractError);
+  it('rejects the retired client staking read tool', () => {
+    expect(() => decodeAgentV2StreamEvent(event({ type: 'tool_call', sequence: 3, toolCall })))
+      .toThrow(AgentV2ContractError);
   });
 
   it('rejects unsafe staking offer arguments before execution', () => {
@@ -121,241 +346,53 @@ describe('Agent V2 staking offer tool contract', () => {
 });
 
 describe('Agent V2 semantic public contract', () => {
-  it('decodes required Receive fields and ignores future display-only arguments', () => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_details_required',
-        arguments: {
-          receiveFields: ['asset', 'network'],
-          futureDisplay: { emphasis: 'funding' },
-        },
-      },
-    }))).toMatchObject({
-      content: {
-        code: 'receive_details_required',
-        arguments: { receiveFields: ['asset', 'network'] },
-      },
-    });
-  });
+  it.each(['agent_unavailable', 'content_over_budget', 'web_search_no_results'])(
+    'keeps the code-only notice %s on live and persisted notices', (code) => {
+      const content = { kind: 'notice', schemaVersion: 1, code };
+      const extended = { ...content, clarificationText: 'Do not replace the localized notice', futureProperty: true };
+      expect(decodeAgentV2StreamEvent(event({
+        type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: extended,
+      }))).toMatchObject({ content });
+      const page = decodeAgentV2Messages({
+        protocolVersion: 3, thread: threadSummary(),
+        messages: [persistedMessage(MESSAGE_ID, 'assistant', { kind: 'semantic', content: extended })],
+      });
+      expect(page.messages[0].content).toEqual({ kind: 'semantic', content });
+    },
+  );
 
-  it.each([
-    undefined,
-    [],
-    ['asset', 'asset'],
-    ['asset', 'future_field'],
-  ])('rejects invalid required Receive fields: %j', (receiveFields) => {
+  it.each(['empty_result', 'clarification_required', 'wallet_data_unavailable', 'action_description_unavailable'])(
+    'does not synthesize an agent answer for retired notice %s', (code) => {
+      expect(decodeAgentV2StreamEvent(event({
+        type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID,
+        content: { kind: 'notice', schemaVersion: 1, code },
+      }))).toMatchObject({ content: { kind: 'clientUnsupported', schemaVersion: 1 } });
+    },
+  );
+
+  it.each([undefined, 42, {}])('rejects malformed operational notice code %j', (code) => {
     expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_details_required',
-        ...(receiveFields === undefined ? {} : { arguments: { receiveFields } }),
-      },
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it.each([
-    'quote_currency',
-    'staking_product',
-    'time_horizon',
-    'price_assumption',
-  ] as const)('decodes the %s analysis clarification field', (field) => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'clarification_required',
-        arguments: { field },
-      },
-    }))).toMatchObject({ content: { arguments: { field } } });
-  });
-
-  it.each([
-    'unrecognized_input',
-    'ambiguous_request',
-    'multiple_requests',
-  ] as const)('decodes the %s conversational repair reason', (repairReason) => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'clarification_required',
-        arguments: { field: 'query', repairReason },
-      },
-    }))).toMatchObject({ content: { arguments: { field: 'query', repairReason } } });
-  });
-
-  it('ignores an unknown future conversational repair reason', () => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'clarification_required',
-        arguments: { field: 'query', repairReason: 'future_reason' },
-      },
-    }))).toMatchObject({ content: { arguments: { field: 'query' } } });
-  });
-
-  it('rejects a conversational repair reason on a targeted field clarification', () => {
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'clarification_required',
-        arguments: { field: 'asset', repairReason: 'ambiguous_request' },
-      },
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it.each([
-    'planning_unavailable',
-    'source_unavailable',
-    'stale_evidence',
-    'inconsistent_snapshot',
-    'compute_failed',
-    'deadline_exceeded',
-    'result_too_large',
-    'answer_generation_failed',
-  ] as const)('decodes the %s analysis failure', (analysisFailure) => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'analysis_unavailable',
-        arguments: { analysisFailure },
-      },
-    }))).toMatchObject({ content: { arguments: { analysisFailure } } });
-  });
-
-  it('rejects an analysis-unavailable notice without its closed failure reason', () => {
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: { kind: 'notice', schemaVersion: 1, code: 'analysis_unavailable' },
+      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID,
+      content: { kind: 'notice', schemaVersion: 1, code },
     }))).toThrow(AgentV2ContractError);
   });
 
   it('accepts contentKind and ignores an obsolete optional display marker', () => {
     expect(decodeAgentV2StreamEvent(event({
       type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant',
-      contentKind: 'semantic', textFormat: 'agentMarkdownV2',
-    }))).toMatchObject({ contentKind: 'semantic' });
+      contentKind: 'semantic', responseLanguage: 'ru', textFormat: 'agentMarkdownV2',
+    }))).toMatchObject({ contentKind: 'semantic', responseLanguage: 'ru' });
   });
 
-  it.each(semanticContents())('accepts semantic content variant $kind', (content) => {
+  it('keeps an unfamiliar well-formed response language and drops a malformed one', () => {
     expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ type: 'semantic_content', content });
-  });
-
-  it('validates optional fiat metadata in portfolio activity amounts', () => {
-    const content = {
-      kind: 'portfolio',
-      schemaVersion: 1,
-      view: 'networkActivity',
-      outcome: 'complete',
-      payload: {
-        id: MESSAGE_ID,
-        status: 'complete',
-        accountScope: 'current',
-        chain: 'ton',
-        generatedAt: '2026-08-06T12:00:00.000Z',
-        hasMore: false,
-        rows: [{
-          kind: 'transfer',
-          timestamp: '2026-08-06T11:00:00.000Z',
-          status: 'completed',
-          amount: {
-            value: '1',
-            valueType: 'decimal',
-            decimals: 9,
-            symbol: 'TON',
-            slug: 'toncoin',
-            chain: 'ton',
-            fiat: {
-              value: '5.25',
-              currency: 'USD',
-              rate: '5.25',
-              asOf: '2026-08-06T11:00:00.000Z',
-            },
-          },
-        }],
-      },
-    } as const;
-
+      type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant',
+      contentKind: 'markdown', responseLanguage: 'it',
+    }))).toMatchObject({ responseLanguage: 'it' });
     expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content });
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        ...content,
-        payload: {
-          ...content.payload,
-          rows: [{
-            ...content.payload.rows[0],
-            amount: {
-              ...content.payload.rows[0].amount,
-              fiat: { ...content.payload.rows[0].amount.fiat, value: 'not-a-number' },
-            },
-          }],
-        },
-      },
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it('decodes typed Receive failures and ignores future display-only arguments', () => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_unavailable',
-        arguments: {
-          receiveFailure: 'chain_unsupported',
-          requestedChain: 'tron',
-          activeChain: 'ton',
-          futureDisplay: { emphasis: 'network' },
-        },
-      },
-    }))).toMatchObject({
-      type: 'semantic_content',
-      content: {
-        arguments: {
-          receiveFailure: 'chain_unsupported',
-          requestedChain: 'tron',
-          activeChain: 'ton',
-        },
-      },
-    });
+      type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant',
+      contentKind: 'markdown', responseLanguage: 'not a language',
+    }))).not.toHaveProperty('responseLanguage');
   });
 
   it('decodes persisted targeted Receive V3 without wallet authority fields', () => {
@@ -364,6 +401,7 @@ describe('Agent V2 semantic public contract', () => {
       schemaVersion: 3,
       kind: 'receive',
       labelCode: 'open_receive',
+      title: 'Review prepared action',
       effect: 'open_receive',
       targetNetwork: 'tron',
       localDraftRequired: false,
@@ -387,6 +425,7 @@ describe('Agent V2 semantic public contract', () => {
       id: TOOL_CALL_ID,
       kind: 'stake',
       labelCode: 'open_staking',
+      title: 'Review prepared action',
       effect: 'open_staking',
       contextBinding: {
         sessionId: WALLET_SESSION_ID,
@@ -411,6 +450,7 @@ describe('Agent V2 semantic public contract', () => {
       schemaVersion: 2,
       kind: 'stake',
       labelCode: 'open_staking',
+      title: 'Review prepared action',
       effect: 'open_staking',
       contextBinding: {
         sessionId: WALLET_SESSION_ID,
@@ -442,6 +482,27 @@ describe('Agent V2 semantic public contract', () => {
   });
 
   it.each([
+    { prefill: { amount: '2' }, isValid: false },
+    { prefill: { recipient: { kind: 'address', chain: 'ton', address: 'EQ-recipient' } }, isValid: true },
+    { prefill: { comment: 'Payment' }, isValid: true },
+  ])('decodes only asset-independent Send prefills without an asset: %j', ({ prefill, isValid }) => {
+    const groups: CompatibilityFixtureGroup[] = compatibilityFixture.fixtures;
+    const value = groups.filter(({ schema }) => schema === 'AgentStreamEventV2')
+      .flatMap(({ values }) => values).find((value) => {
+        const candidate = readWireObject(value, '$');
+        if (candidate.type !== 'action') return false;
+        const action = readWireObject(candidate.action, '$.action');
+        return action.effect === 'open_send' && action.asset === undefined && action.recipient === undefined;
+      });
+    const candidate = readWireObject(value, '$');
+    const decode = () => decodeAgentV2StreamEvent({ ...candidate,
+      action: { ...readWireObject(candidate.action, '$.action'), ...prefill },
+    });
+    if (isValid) expect(decode()).toMatchObject({ action: prefill });
+    else expect(decode).toThrow(AgentV2ContractError);
+  });
+
+  it.each([
     { kind: 'savedAddress', addressRef: 'address-mother' },
     { kind: 'address', chain: 'ton', address: 'EQ-user-authored-address' },
     { kind: 'domain', chain: 'ton', domain: 'mother.ton' },
@@ -450,6 +511,7 @@ describe('Agent V2 semantic public contract', () => {
       id: TOOL_CALL_ID,
       kind: 'send',
       labelCode: 'open_send',
+      title: 'Review prepared action',
       effect: 'open_send',
       contextBinding: {
         sessionId: WALLET_SESSION_ID,
@@ -468,8 +530,8 @@ describe('Agent V2 semantic public contract', () => {
     }))).toMatchObject({ action });
   });
 
-  it('rejects a live Send-form action without a resolved recipient', () => {
-    expect(() => decodeAgentV2StreamEvent(event({
+  it('decodes a live Send-form action without a recipient prefill', () => {
+    const decoded = decodeAgentV2StreamEvent(event({
       type: 'action',
       sequence: 3,
       messageId: MESSAGE_ID,
@@ -477,6 +539,7 @@ describe('Agent V2 semantic public contract', () => {
         id: TOOL_CALL_ID,
         kind: 'send',
         labelCode: 'open_send',
+        title: 'Review prepared action',
         effect: 'open_send',
         contextBinding: {
           sessionId: WALLET_SESSION_ID,
@@ -488,561 +551,129 @@ describe('Agent V2 semantic public contract', () => {
         localDraftRequired: false,
         requiresConfirmation: false,
       },
-    }))).toThrow(AgentV2ContractError);
-  });
+    }));
 
-  it('decodes bounded Staking failures and fails soft for future reasons', () => {
-    const content = {
-      kind: 'notice',
-      schemaVersion: 1,
-      code: 'staking_unavailable',
-      arguments: { stakeFailure: 'view_only_staking_forbidden', futureDisplay: 'compact' },
-    } as const;
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { arguments: { stakeFailure: 'view_only_staking_forbidden' } } });
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        ...content,
-        arguments: { stakeFailure: 'future_staking_policy' },
-      },
-    }))).toMatchObject({ content: { code: 'staking_unavailable', arguments: {} } });
+    expect(decoded).toMatchObject({
+      type: 'action',
+      action: { kind: 'send', effect: 'open_send', asset: { slug: 'gram', chain: 'ton' } },
+    });
+    expect(decoded).not.toHaveProperty('action.recipient');
   });
 
   it('decodes Swap display extensions while keeping executable action fields closed', () => {
-    const semanticContent = {
-      kind: 'notice',
-      schemaVersion: 1,
-      code: 'swap_ready',
-      arguments: {
-        swapReady: {
-          sourceAsset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', futureLabel: 'Gram' },
-          destinationAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT' },
-          amount: { value: '10', valueType: 'decimal', side: 'source', futureUnit: 'token' },
-          quote: {
-            status: 'unavailable',
-            reason: 'price_unavailable',
-            observedAt: '2026-08-18T12:00:00.000Z',
-            futureDisplay: { emphasis: 'estimate' },
-          },
-          futureDisplay: { density: 'compact' },
-        },
-      },
-    } as const;
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: semanticContent,
-    }))).toMatchObject({
-      content: {
-        code: 'swap_ready',
-        arguments: {
-          swapReady: {
-            sourceAsset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-            amount: { value: '10', side: 'source' },
-            quote: { status: 'unavailable', reason: 'price_unavailable' },
-          },
-        },
-      },
-    });
-
     const action = swapActionFixture();
     expect(decodeAgentV2StreamEvent(event({
       type: 'action', sequence: 4, messageId: MESSAGE_ID, action,
     }))).toMatchObject({ action });
     expect(() => decodeAgentV2StreamEvent(event({
       type: 'action', sequence: 4, messageId: MESSAGE_ID,
-      action: { ...action, url: 'https://my.tt/swap' },
+      action: { ...action, url: 'javascript:invalid' },
     }))).toThrow(AgentV2ContractError);
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'action', sequence: 4, messageId: MESSAGE_ID,
-      action: { ...action, sourceAsset: { ...action.sourceAsset, chain: 'base' } },
-    }))).toThrow(AgentV2ContractError);
-
-    const { sourceToolCallId: _sourceToolCallId, contextBinding: _contextBinding, ...persisted } = action;
+    const { contextBinding: _contextBinding, ...persisted } = action;
     expect(decodeAgentV2PersistedAction(persisted)).toEqual(persisted);
     expect(() => decodeAgentV2PersistedAction({ ...persisted, sourceToolCallId: TOOL_CALL_ID }))
       .toThrow(AgentV2ContractError);
   });
 
-  it('decodes the Receive memo requirement and ignores unknown future values', () => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_ready',
-        arguments: { receiveMemoRequirement: 'not_required' },
-      },
-    }))).toMatchObject({
-      type: 'semantic_content',
-      content: { arguments: { receiveMemoRequirement: 'not_required' } },
-    });
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_ready',
-        arguments: { receiveMemoRequirement: 'future_policy' },
-      },
-    }))).toMatchObject({
-      type: 'semantic_content',
-      content: { code: 'receive_ready', arguments: {} },
-    });
+  it.each([...getSupportedChains(), 'future-chain'])('decodes live and persisted Swap assets on %s', (chain) => {
+    const fixture = swapActionFixture();
+    const action = {
+      ...fixture,
+      sourceAsset: { ...fixture.sourceAsset, chain },
+      destinationAsset: { ...fixture.destinationAsset, chain },
+    };
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action', sequence: 4, messageId: MESSAGE_ID, action,
+    }))).toMatchObject({ disposition: 'handle', event: { action } });
+    const { contextBinding: _contextBinding, ...persisted } = action;
+    expect(decodeAgentV2PersistedAction(persisted)).toEqual(persisted);
   });
 
-  it('decodes a network-specific clarification field', () => {
+  it.each(['', 'x'.repeat(33), undefined, 1])('rejects a malformed Swap chain %s', (chain) => {
+    const fixture = swapActionFixture();
+    const action = { ...fixture, destinationAsset: { ...fixture.destinationAsset, chain } };
+    expect(() => decodeAgentV2StreamEvent(event({
+      type: 'action', sequence: 4, messageId: MESSAGE_ID, action,
+    }))).toThrow(AgentV2ContractError);
+    const { contextBinding: _contextBinding, ...persisted } = action;
+    expect(() => decodeAgentV2PersistedAction(persisted)).toThrow(AgentV2ContractError);
+  });
+
+  it('decodes a partial Swap without inventing a source asset or amount in live and persisted actions', () => {
+    const { sourceAsset: _sourceAsset, amount: _amount, ...fixture } = swapActionFixture();
+    const action = {
+      ...fixture,
+      destinationAsset: { slug: 'trx', chain: 'tron', symbol: 'TRX', decimals: 6 },
+      url: 'https://my.tt/swap?out=trx',
+    };
     expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'clarification_required',
-        arguments: { field: 'network' },
-      },
-    }))).toMatchObject({
-      type: 'semantic_content',
-      content: { arguments: { field: 'network' } },
-    });
+      type: 'action', sequence: 4, messageId: MESSAGE_ID, action,
+    }))).toMatchObject({ action });
+    const { contextBinding: _contextBinding, ...persisted } = action;
+    expect(decodeAgentV2PersistedAction(persisted)).toEqual(persisted);
   });
 
   it.each([
-    { receiveFailure: 'future_reason', requestedChain: 'tron', activeChain: 'ton' },
-    { receiveFailure: 'chain_unsupported', requestedChain: '', activeChain: 'ton' },
-    { receiveFailure: 'active_network_mismatch', requestedChain: 'tron' },
-  ])('fails soft for unknown or incomplete Receive arguments: %#', (argumentsValue) => {
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'receive_unavailable',
-        arguments: argumentsValue,
-      },
-    }))).toMatchObject({
-      type: 'semantic_content',
-      content: { code: 'receive_unavailable' },
-    });
+    ['malformed provided asset', { sourceAsset: false, amount: undefined }],
+    ['malformed provided amount', { amount: false }],
+    ['source amount without source asset', { sourceAsset: undefined }],
+    ['destination amount without destination asset', {
+      destinationAsset: undefined, amount: { value: '10', valueType: 'decimal', side: 'destination' },
+    }],
+  ])('rejects a partial Swap with %s in live and persisted actions', (_name, change) => {
+    const action = { ...swapActionFixture(), ...change };
+    expect(() => decodeAgentV2StreamEvent(event({
+      type: 'action', sequence: 4, messageId: MESSAGE_ID, action,
+    }))).toThrow(AgentV2ContractError);
+    const { contextBinding: _contextBinding, ...persisted } = action;
+    expect(() => decodeAgentV2PersistedAction(persisted)).toThrow(AgentV2ContractError);
   });
 
   it.each([
-    ['empty market overview evidence', () => ({ ...marketOverviewContent(), evidence: {} })],
-    ['market overview without coverage', () => {
-      const content = cloneJson(marketOverviewContent());
-      const { coverage: _coverage, ...evidence } = content.evidence;
-      return { ...content, evidence };
-    }],
-    ['portfolio analysis without account scope', () => {
-      const content = cloneJson(portfolioAnalysisContent());
-      const { accountScope: _accountScope, ...payload } = content.payload;
-      return { ...content, payload };
-    }],
-    ['portfolio analysis without total value timestamp', () => {
-      const content = cloneJson(portfolioAnalysisContent());
-      const { asOf: _asOf, ...totalValue } = content.payload.totalValue;
-      return { ...content, payload: { ...content.payload, totalValue } };
-    }],
-    ['portfolio analysis without signals', () => {
-      const content = cloneJson(portfolioAnalysisContent());
-      const { signals: _signals, ...payload } = content.payload;
-      return { ...content, payload };
-    }],
-    ['portfolio analysis without freshness', () => {
-      const content = cloneJson(portfolioAnalysisContent());
-      const { freshness: _freshness, ...dataQuality } = content.payload.dataQuality;
-      return { ...content, payload: { ...content.payload, dataQuality } };
-    }],
-  ] as const)('rejects incomplete required semantic fields: %s', (_label, buildContent) => {
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: buildContent(),
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it('keeps historical V5 market analysis compatible', () => {
-    const content = {
-      kind: 'market', schemaVersion: 1, view: 'analysis', outcome: 'partial',
-      evidence: { schemaVersion: 5, futureDisplay: { mode: 'historical' } },
-    };
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content });
-  });
-
-  it('accepts bounded V6 market analysis and ignores future display-only fields', () => {
-    const content = readWireObject(buildAgentMarketAnalysisV6Fixture(), '$');
-    const evidence = readWireObject(content.evidence, '$.evidence');
-    const levelMaps = readWireObject(evidence.levelMaps, '$.evidence.levelMaps');
-    evidence.futureDisplay = { density: 'compact' };
-    readWireObject(levelMaps['7d'], '$.evidence.levelMaps.7d').futureLabel = 'weekly';
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6, futureDisplay: { density: 'compact' } } } });
-  });
-
-  it('validates the optional active scenario against exactly one confirmed path', () => {
-    const mismatched = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    mismatched.evidence.scenarioTrees['7d'].activeScenario = 'bearish_breakdown';
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: mismatched,
-    }))).toThrow('Invalid Agent V2 contract at $.content.evidence.scenarioTrees.7d.activeScenario');
-
-    const ambiguous = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const bearish = ambiguous.evidence.scenarioTrees['7d'].paths.find(({ kind }) => kind === 'bearish_breakdown');
-    if (!bearish || bearish.status !== 'eligible') throw new Error('Expected bearish path');
-    bearish.activation.state = 'triggered';
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: ambiguous,
-    }))).toThrow('Invalid Agent V2 contract at $.content.evidence.scenarioTrees.7d.activeScenario');
-
-    const absent = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    delete absent.evidence.scenarioTrees['7d'].activeScenario;
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: absent,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6 } } });
-  });
-
-  it('accepts the optional Fear & Greed regime and tolerates future display-only fields', () => {
-    const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    content.fearGreedRegime = {
-      ...fearGreedRegime(),
-      futureDisplay: { emphasis: 'compact' },
-    } as AgentMarketFearGreedRegimeV1;
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({
-      content: {
-        evidence: { schemaVersion: 6 },
-        fearGreedRegime: {
-          latestValue: 63,
-          regime: 'risk_on',
-          futureDisplay: { emphasis: 'compact' },
-        },
-      },
+    ['an unknown asset field', { asset: { slug: 'gram', chain: 'ton', network: 'mainnet' } }],
+    ['an unknown recipient kind', { recipient: { kind: 'contact', contactId: 'contact-mother' } }],
+    ['an unknown effect', { effect: 'sign_transfer' }],
+  ])('drops a Send action with %s without failing its message', (_, change) => {
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { ...sendActionFixture(), ...change },
+    }))).toEqual({
+      disposition: 'ignore',
+      envelope: { protocolVersion: 3, runId: RUN_ID, sequence: 3 },
+      wireType: 'action',
+      boundary: expect.any(String),
     });
   });
 
-  it.each([
-    ['invalid date', (value: Record<string, unknown>) => { value.asOfDate = '2026-02-30'; }],
-    ['out-of-range index', (value: Record<string, unknown>) => { value.latestValue = 101; }],
-    ['non-fixed SMA', (value: Record<string, unknown>) => { value.sma30 = '58.25'; }],
-    ['out-of-range SMA', (value: Record<string, unknown>) => { value.sma365 = '100.00000001'; }],
-    ['unknown regime', (value: Record<string, unknown>) => { value.regime = 'bullish'; }],
-    ['non-canonical digest', (value: Record<string, unknown>) => { value.seriesDigest = 'A'.repeat(64); }],
-    ['forged source', (value: Record<string, unknown>) => {
-      value.source = { ...readWireObject(value.source, '$.source'), provider: 'coingecko' };
-    }],
-  ] as const)('drops a malformed optional Fear & Greed regime fail-soft: %s', (_label, mutate) => {
-    const content = readWireObject(cloneJson(buildAgentMarketAnalysisV6Fixture()), '$');
-    const regime = readWireObject(fearGreedRegime(), '$.fearGreedRegime');
-    mutate(regime);
-    content.fearGreedRegime = regime;
-
-    const decoded = decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }));
-    expect(decoded).toMatchObject({ content: { kind: 'market', evidence: { schemaVersion: 6 } } });
-    expect(decoded).not.toHaveProperty('content.fearGreedRegime');
-  });
-
-  it('accepts a validated node on a hidden third map zone without cataloging it', () => {
-    const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const map = content.evidence.levelMaps['7d'];
-    if (map.status !== 'available') throw new Error('Expected available fixture level map');
-    const fillerZone = cloneJson(map.resistances[0]);
-    fillerZone.id = 'level.7d.resistance.visible-filler';
-    fillerZone.lower = '1920.00000000';
-    fillerZone.upper = '1940.00000000';
-    removeMarketNodeSources(fillerZone);
-    const hiddenZone = cloneJson(map.resistances[0]);
-    hiddenZone.id = 'level.7d.resistance.hidden-hvn';
-    hiddenZone.lower = '1950.00000000';
-    hiddenZone.upper = '1970.00000000';
-    hiddenZone.sources.push({
-      kind: 'volume_profile_hvn',
-      timeframe: 'profile',
-      evidenceRef: 'profile.previous_week.hvn.2',
-    });
-    map.resistances.push(fillerZone, hiddenZone);
-    map.coverage.candidateCount += 2;
-    map.coverage.zoneCount += 2;
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6 } } });
-  });
-
-  it('accepts up to 72 sources in a V6 market price zone', () => {
-    const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const map = content.evidence.levelMaps['7d'];
-    if (map.status !== 'available') throw new Error('Expected available fixture level map');
-    const zone = map.resistances[0];
-    const source = zone.sources[0];
-    zone.sources = Array.from({ length: 72 }, () => ({ ...source }));
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6 } } });
-  });
-
-  it('accepts cataloged node evidence from a range condition zone outside the rendered path', () => {
-    const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const map = content.evidence.levelMaps['7d'];
-    if (map.status !== 'available') throw new Error('Expected available fixture level map');
-    const scenario = content.evidence.scenarioTrees['7d'].paths.find(({ kind }) => kind === 'range_balance');
-    if (!scenario || scenario.status !== 'eligible') throw new Error('Expected eligible range scenario');
-    const conditionZoneIds = [map.supports[0].id, map.resistances[0].id];
-    scenario.activation.zoneIds = conditionZoneIds;
-    scenario.invalidation.zoneIds = conditionZoneIds;
-    scenario.evidenceRefs.push('profile.previous_week.hvn.1');
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6 } } });
-  });
-
-  it('rejects more than 72 sources in a V6 market price zone', () => {
-    const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const map = content.evidence.levelMaps['7d'];
-    if (map.status !== 'available') throw new Error('Expected available fixture level map');
-    const zone = map.resistances[0];
-    const source = zone.sources[0];
-    zone.sources = Array.from({ length: 73 }, () => ({ ...source }));
-
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toThrow('Invalid Agent V2 contract at $.content.evidence.levelMaps.7d.resistances[0].sources');
-  });
-
-  it('keeps historical V6 level and scenario policy V1 compatible', () => {
-    const content = historicalMarketAnalysisV6Fixture();
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ content: { evidence: { schemaVersion: 6 } } });
-  });
-
-  it('rejects mismatched, cross-horizon, unbounded and invented V6 node refs', () => {
-    const mutations: Array<(content: ReturnType<typeof buildAgentMarketAnalysisV6Fixture>) => void> = [
-      (content) => { getFixtureHvnSource(content).evidenceRef = 'profile.previous_week.lvn.1'; },
-      (content) => { getFixtureHvnSource(content).evidenceRef = 'profile.current_day.hvn.1'; },
-      (content) => { getFixtureHvnSource(content).evidenceRef = 'profile.previous_week.hvn.3'; },
-      (content) => { getFixtureHvnSource(content).timeframe = 'period'; },
-      (content) => {
-        content.evidence.evidenceCatalog.push({
-          id: 'profile.previous_week.hvn.2', family: 'profile', available: true, claimable: true,
-        });
-      },
-      (content) => {
-        getFixturePrimaryPath(content).evidenceRefs.push('profile.previous_week.hvn.2');
-      },
-    ];
-
-    mutations.forEach((mutate) => {
-      const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-      mutate(content);
-      expect(() => decodeAgentV2StreamEvent(event({
-        type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-      }))).toThrow(AgentV2ContractError);
-    });
-  });
-
-  it('rejects B2 node semantics under V1 policies and LVN outside a primary transit step', () => {
-    const v1Map = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    v1Map.evidence.levelMaps['7d'].policyVersion = 'market-level-map-v1';
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: v1Map,
-    }))).toThrow(AgentV2ContractError);
-
-    const v1Tree = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    v1Tree.evidence.scenarioTrees['7d'].policyVersion = 'market-structural-scenarios-v1';
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: v1Tree,
-    }))).toThrow(AgentV2ContractError);
-
-    const nonTransitLvn = cloneJson(buildAgentMarketAnalysisV6Fixture());
-    const transit = getFixturePrimaryPath(nonTransitLvn).path.find(({ role }) => role === 'transit');
-    if (!transit) throw new Error('Expected fixture transit step');
-    transit.role = 'target';
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: nonTransitLvn,
-    }))).toThrow(AgentV2ContractError);
-
-    const mixedPolicies = historicalMarketAnalysisV6Fixture();
-    for (const horizon of ['3d', '7d', '30d'] as const) {
-      mixedPolicies.evidence.scenarioTrees[horizon].policyVersion = 'market-structural-scenarios-v2';
-    }
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: mixedPolicies,
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it('rejects malformed or misplaced LVN transit evidence', () => {
-    const mutations: Array<(content: ReturnType<typeof buildAgentMarketAnalysisV6Fixture>) => void> = [
-      (content) => {
-        const transit = getFixtureTransit(content);
-        transit.zone.id = 'profile.previous_week.lvn.2';
-      },
-      (content) => {
-        const transit = getFixtureTransit(content);
-        transit.zone.lower = '1660.00000000';
-        transit.zone.upper = '1680.00000000';
-      },
-      (content) => {
-        getFixtureTransit(content).zone.touchCount = 1;
-      },
-      (content) => {
-        const path = getFixturePrimaryPath(content);
-        path.evidenceRefs = path.evidenceRefs.filter((reference) => (
-          reference !== 'profile.previous_week.lvn.1'
-        ));
-      },
-      (content) => {
-        const transit = getFixtureTransit(content);
-        transit.zone.upper = transit.zone.lower;
-      },
-    ];
-
-    mutations.forEach((mutate) => {
-      const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-      mutate(content);
-      expect(() => decodeAgentV2StreamEvent(event({
-        type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-      }))).toThrow(AgentV2ContractError);
-    });
-  });
-
-  it('rejects reordered horizons and malformed required V6 market facts', () => {
-    const reordered = readWireObject(cloneJson(buildAgentMarketAnalysisV6Fixture()), '$');
-    const reorderedEvidence = readWireObject(reordered.evidence, '$.evidence');
-    reorderedEvidence.requestedHorizons = ['7d', '3d', '30d'];
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: reordered,
-    }))).toThrow(AgentV2ContractError);
-
-    const malformed = readWireObject(cloneJson(buildAgentMarketAnalysisV6Fixture()), '$');
-    const malformedEvidence = readWireObject(malformed.evidence, '$.evidence');
-    const structures = readWireArray(malformedEvidence.structures, '$.evidence.structures');
-    const firstStructure = readWireObject(structures[0], '$.evidence.structures[0]');
-    readWireObject(firstStructure.snapshot, '$.evidence.structures[0].snapshot').points = [{ close: '1857' }];
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: malformed,
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it('rejects unsafe diagnostic model text in V6 market analysis', () => {
-    const content = readWireObject(cloneJson(buildAgentMarketAnalysisV6Fixture()), '$');
-    const analysis = readWireObject(content.analysis, '$.analysis');
-    analysis.summary = 'Raw OBV 123.12345678 from https://provider.example';
-
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it('preserves bounded web-search failure reasons and rejects unknown ones', () => {
-    const content = {
-      kind: 'notice',
-      schemaVersion: 1,
-      code: 'web_search_unavailable',
-      arguments: { webSearchFailure: 'synthesis_timeout' },
-    };
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ type: 'semantic_content', content });
-
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
+  it('keeps a well-formed Send action and fails the message of a malformed one', () => {
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: sendActionFixture(),
+    }))).toMatchObject({ disposition: 'handle' });
+    // Any network of the wallet: the resolver checks that the app supports it
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action',
       sequence: 3,
       messageId: MESSAGE_ID,
-      content: {
-        ...content,
-        arguments: { webSearchFailure: 'private_provider_error' },
-      },
-    }))).toThrow(AgentV2ContractError);
+      action: { ...sendActionFixture(), asset: { slug: 'robinhood', chain: 'robinhood' } },
+    }))).toMatchObject({ disposition: 'handle' });
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { ...sendActionFixture(), amount: '1e5' },
+    }))).toMatchObject({ disposition: 'ignore', incompleteMessageId: MESSAGE_ID });
   });
 
-  it('preserves bounded Send failure reasons and validates aggregate ordering', () => {
-    const content = {
-      kind: 'notice',
-      schemaVersion: 1,
-      code: 'send_unavailable',
-      arguments: { sendFailure: 'recipient_ambiguous' },
-    };
+  it('drops a persisted action with an unknown executable field without failing its message', () => {
+    const { contextBinding: _contextBinding, ...persisted } = swapActionFixture();
+    const decoded = decodeAgentV2Messages({
+      protocolVersion: 3,
+      thread: threadSummary(),
+      messages: [{
+        ...persistedMessage(MESSAGE_ID, 'assistant'),
+        actions: [persisted, { ...persisted, id: TOOL_CALL_ID, amount: { ...persisted.amount, unit: 'fiat' } }],
+      }],
+    });
 
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ type: 'semantic_content', content });
-
-    const namedRecipientContent = {
-      ...content,
-      arguments: { sendFailure: 'recipient_not_found', recipientLabel: 'Pavel Durov' },
-    };
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: namedRecipientContent,
-    }))).toMatchObject({ type: 'semantic_content', content: namedRecipientContent });
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        ...namedRecipientContent,
-        arguments: {
-          ...namedRecipientContent.arguments,
-          recipientLabel: 'x'.repeat(513),
-        },
-      },
-    }))).toThrow(AgentV2ContractError);
-
-    const aggregateContent = {
-      ...content,
-      arguments: {
-        sendFailure: 'recipient_ambiguous',
-        sendFailures: ['recipient_ambiguous', 'insufficient_balance'],
-      },
-    };
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content: aggregateContent,
-    }))).toMatchObject({ type: 'semantic_content', content: aggregateContent });
-
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        ...content,
-        arguments: { sendFailure: 'private_matcher_error' },
-      },
-    }))).toThrow(AgentV2ContractError);
-
-    for (const sendFailures of [
-      ['insufficient_balance', 'recipient_ambiguous'],
-      ['recipient_ambiguous', 'recipient_ambiguous'],
-      ['recipient_ambiguous'],
-      ['recipient_ambiguous', 'prepare_unavailable'],
-      ['recipient_not_found', 'recipient_ambiguous'],
-      ['asset_not_held', 'insufficient_balance'],
-    ]) {
-      expect(() => decodeAgentV2StreamEvent(event({
-        type: 'semantic_content',
-        sequence: 3,
-        messageId: MESSAGE_ID,
-        content: { ...content, arguments: { ...aggregateContent.arguments, sendFailures } },
-      }))).toThrow(AgentV2ContractError);
-    }
+    expect(decoded.messages[0].actions).toEqual([persisted]);
+    expect(decoded.messages[0].error).toBeUndefined();
+    expect(decoded.incompatibleMessages).toBeUndefined();
   });
 
   it('redacts unknown semantic variants and keeps the known-event decoder strict', () => {
@@ -1059,7 +690,7 @@ describe('Agent V2 semantic public contract', () => {
       widget: { kind: 'legacyWidget', version: 1, payload: {} },
     }))).toEqual({
       disposition: 'ignore',
-      envelope: { protocolVersion: 2, runId: RUN_ID, sequence: 3 },
+      envelope: { protocolVersion: 3, runId: RUN_ID, sequence: 3 },
       wireType: 'widget',
     });
   });
@@ -1074,37 +705,44 @@ describe('Agent V2 semantic public contract', () => {
     expect(() => decodeAgentV2StreamFrame(event(wireEvent))).toThrow(AgentV2ContractError);
   });
 
-  it('does not soften unknown protocol versions or executable tool names', () => {
+  it('does not soften unknown protocol versions', () => {
     expect(() => decodeAgentV2StreamFrame({
       ...event({ type: 'future_optional', sequence: 3 }),
-      protocolVersion: 3,
+      protocolVersion: 4,
     })).toThrow(AgentV2CompatibilityError);
-    expect(() => decodeAgentV2StreamFrame(event({
-      type: 'tool_call',
-      sequence: 3,
-      toolCall: {
-        id: TOOL_CALL_ID,
-        name: 'future.tool',
-        version: 1,
-        scopes: ['wallet.data.read'],
-        timeoutMs: 1_000,
-        walletContextSession: {
-          sessionId: WALLET_SESSION_ID,
-          revision: 1,
-          accountScope: 'current',
-          activeAccountRef: 'account_current',
-        },
-        arguments: {},
+  });
+
+  it('hands a tool call with an unknown name back for rejection and keeps a malformed one fatal', () => {
+    const toolCall = {
+      id: TOOL_CALL_ID,
+      name: 'future.tool',
+      version: 1,
+      scopes: ['wallet.data.read'],
+      timeoutMs: 1_000,
+      walletContextSession: {
+        sessionId: WALLET_SESSION_ID,
+        revision: 1,
+        accountScope: 'current',
+        activeAccountRef: 'account_current',
       },
-    }))).toThrow();
+      arguments: {},
+    };
+    expect(decodeAgentV2StreamFrame(event({ type: 'tool_call', sequence: 3, toolCall }))).toEqual({
+      disposition: 'unsupportedTool',
+      envelope: { protocolVersion: 3, runId: RUN_ID, sequence: 3 },
+      toolCall: { id: TOOL_CALL_ID, name: 'future.tool' },
+    });
+    expect(() => decodeAgentV2StreamFrame(event({
+      type: 'tool_call', sequence: 3, toolCall: { ...toolCall, id: 'invalid' },
+    }))).toThrow(AgentV2ContractError);
   });
 
   it.each([
     { kind: 'notice', schemaVersion: 1, code: 'future_notice' },
-    { kind: 'notice', schemaVersion: 1, code: 'market_quote', arguments: { marketQuote: { status: 'future' } } },
+    { kind: 'market', schemaVersion: 1, view: 'overview' },
+    { kind: 'notice', schemaVersion: 1, code: 'market_quote' },
     { kind: 'walletQuery', schemaVersion: 1, queryKind: 'future', outcome: 'complete' },
     { kind: 'portfolio', schemaVersion: 1, view: 'future' },
-    { kind: 'market', schemaVersion: 1, view: 'overview', outcome: 'future' },
     { kind: 'assetSearch', schemaVersion: 1, outcome: 'future' },
     { kind: 'webDigest', schemaVersion: 1, outcome: 'future' },
     { kind: 'notice', schemaVersion: 2, code: 'empty_result' },
@@ -1116,20 +754,6 @@ describe('Agent V2 semantic public contract', () => {
     });
   });
 
-  it('rejects malformed payload for a known semantic renderer branch', () => {
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'semantic_content',
-      sequence: 3,
-      messageId: MESSAGE_ID,
-      content: {
-        kind: 'notice',
-        schemaVersion: 1,
-        code: 'market_quote',
-        arguments: { marketQuote: { status: 'resolved' } },
-      },
-    }))).toThrow(AgentV2ContractError);
-  });
-
   it('decodes markdown and semantic persisted content while ignoring optional extensions', () => {
     const { chains: _chains, ...userWithoutChains } = persistedMessage(
       '44444444-4444-4444-8444-444444444444',
@@ -1137,8 +761,8 @@ describe('Agent V2 semantic public contract', () => {
       { kind: 'markdown', text: 'Hello' },
     );
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [
         userWithoutChains,
         persistedMessage(MESSAGE_ID, 'assistant', {
@@ -1149,16 +773,16 @@ describe('Agent V2 semantic public contract', () => {
     expect(decoded.messages[0].content).toEqual({ kind: 'markdown', text: 'Hello' });
     expect(decoded.messages[1].content?.kind).toBe('semantic');
     expect(decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [{ ...persistedMessage(MESSAGE_ID, 'assistant'), text: 'legacy' }],
     }).messages).toHaveLength(1);
   });
 
   it('keeps persisted semantic messages with unsupported renderer content', () => {
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [persistedMessage(MESSAGE_ID, 'assistant', {
         kind: 'semantic',
         content: { kind: 'notice', schemaVersion: 1, code: 'future_notice' },
@@ -1172,12 +796,38 @@ describe('Agent V2 semantic public contract', () => {
     });
   });
 
+  it('keeps the response language on persisted assistant messages', () => {
+    const decoded = decodeAgentV2Messages({
+      protocolVersion: 3,
+      thread: threadSummary(),
+      messages: [{
+        ...persistedMessage(MESSAGE_ID, 'assistant', { kind: 'markdown', text: 'Ответ' }),
+        responseLanguage: 'ru',
+      }],
+    });
+
+    expect(decoded.messages[0].responseLanguage).toBe('ru');
+  });
+
+  it('keeps unfamiliar well-formed persisted languages without rejecting the message', () => {
+    const decoded = decodeAgentV2Messages({
+      protocolVersion: 3,
+      thread: threadSummary(),
+      messages: [{
+        ...persistedMessage(MESSAGE_ID, 'assistant', { kind: 'markdown', text: 'Ciao' }),
+        responseLanguage: 'it',
+      }],
+    });
+
+    expect(decoded.messages[0].responseLanguage).toBe('it');
+  });
+
   it('keeps messages after dropping unknown persisted controls and reports malformed messages', () => {
     const contractMessageId = '77777777-7777-4777-8777-777777777777';
     const compatibilityMessageId = '88888888-8888-4888-8888-888888888888';
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [
         persistedMessage(contractMessageId, 'assistant', { kind: 'markdown', text: 42 }),
         {
@@ -1215,9 +865,9 @@ describe('Agent V2 semantic public contract', () => {
       type: 'action', sequence: 3, messageId: MESSAGE_ID,
       action: { kind: 'receive', schemaVersion: 4 },
     }))).toMatchObject({ disposition: 'ignore', wireType: 'action' });
-    expect(() => decodeAgentV2StreamFrame(event({
-      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { kind: 'openUrl' },
-    }))).toThrow(AgentV2ContractError);
+    expect(decodeAgentV2StreamFrame(event({
+      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { kind: 'openDapp' },
+    }))).toMatchObject({ disposition: 'ignore', incompleteMessageId: MESSAGE_ID });
     expect(decodeAgentV2StreamFrame(event({
       type: 'followups', sequence: 3, messageId: MESSAGE_ID,
       items: [{ kind: 'futureFollowup' }, supportedFollowup],
@@ -1226,41 +876,17 @@ describe('Agent V2 semantic public contract', () => {
       event: { items: [supportedFollowup] },
     });
     expect(decodeAgentV2StreamFrame(event({
-      type: 'input_continuations', sequence: 3, messageId: MESSAGE_ID,
-      items: [{ kind: 'futureContinuation' }],
-    }))).toMatchObject({ disposition: 'ignore', wireType: 'input_continuations' });
-    expect(decodeAgentV2StreamFrame(event({
       type: 'tool_status', sequence: 3, toolCallId: TOOL_CALL_ID, status: 'future',
     }))).toMatchObject({ disposition: 'ignore', wireType: 'tool_status' });
-    const toolStatus = decodeAgentV2StreamFrame(event({
-      type: 'tool_status', sequence: 3, toolCallId: TOOL_CALL_ID,
-      status: 'running', detailCode: 'future_detail',
-    }));
-    expect(toolStatus).toMatchObject({
-      disposition: 'handle',
-      event: { status: 'running' },
-    });
-    if (toolStatus.disposition !== 'handle') throw new Error('Expected handled tool status');
-    expect(toolStatus.event).not.toHaveProperty('detailCode');
     expect(decodeAgentV2StreamFrame(event({
       type: 'run_activity', sequence: 3, code: 'future.phase', status: 'active',
     }))).toMatchObject({ disposition: 'ignore', wireType: 'run_activity' });
     expect(decodeAgentV2StreamFrame(event({
       type: 'run_activity', sequence: 3, code: 'web.reading_sources', status: 'completed',
-      detail: { kind: 'source_count', count: 4 },
     }))).toMatchObject({
       disposition: 'handle',
-      event: {
-        type: 'run_activity',
-        code: 'web.reading_sources',
-        status: 'completed',
-        detail: { kind: 'source_count', count: 4 },
-      },
+      event: { type: 'run_activity', code: 'web.reading_sources', status: 'completed' },
     });
-    expect(() => decodeAgentV2StreamFrame(event({
-      type: 'run_activity', sequence: 3, code: 'web.reading_sources', status: 'completed',
-      detail: { kind: 'source_count', count: 12 },
-    }))).toThrow(AgentV2ContractError);
     const retryableError = decodeAgentV2StreamFrame(event({
       type: 'error', sequence: 3, code: 'future_retryable', retryable: true,
       retryAfterMs: 'not-applicable', resetAt: 'not-applicable',
@@ -1280,14 +906,12 @@ describe('Agent V2 semantic public contract', () => {
     });
     const messageEnd = decodeAgentV2StreamFrame(event({
       type: 'message_end', sequence: 3, messageId: MESSAGE_ID,
-      finishReason: 'future_finish', walletConversationContext: { malformed: true },
+      finishReason: 'future_finish',
     }));
     expect(messageEnd).toMatchObject({
       disposition: 'handle',
       event: { finishReason: 'run_interrupted' },
     });
-    if (messageEnd.disposition !== 'handle') throw new Error('Expected handled message end');
-    expect(messageEnd.event).not.toHaveProperty('walletConversationContext');
   });
 
   it('decodes a bounded model-owned follow-up', () => {
@@ -1312,13 +936,12 @@ describe('Agent V2 semantic public contract', () => {
   });
 
   it.each([
-    { text: '' },
-    { text: ' Detailed analysis' },
-    { text: 'Detailed\nanalysis' },
-    { text: '**Detailed analysis**' },
-    { text: 'x'.repeat(81) },
-    { extra: true },
-  ])('filters an invalid model-owned follow-up item: %o', (override) => {
+    '',
+    ' Detailed analysis',
+    'Detailed\nanalysis',
+    '**Detailed analysis**',
+    'x'.repeat(81),
+  ])('filters an invalid model-owned follow-up item: %o', (text) => {
     expect(decodeAgentV2StreamFrame(event({
       type: 'followups',
       sequence: 3,
@@ -1326,8 +949,7 @@ describe('Agent V2 semantic public contract', () => {
       items: [{
         id: 'adadadad-adad-4dad-8dad-adadadadadad',
         kind: 'suggested_prompt',
-        text: 'Explain market analysis.',
-        ...override,
+        text,
       }],
     }))).toMatchObject({ disposition: 'ignore', wireType: 'followups' });
   });
@@ -1413,62 +1035,33 @@ describe('Agent V2 semantic public contract', () => {
       prompt: 'Future prompt',
       intent: 'future_intent',
     };
-    const unsupportedScenarioContinuation = {
-      id: 'future-scenario-continuation',
-      kind: 'collect_input',
-      code: 'prepare_send_amount',
-      scenario: 'future-scenario',
-      field: 'amount',
-    };
-    const unsupportedFieldContinuation = {
-      id: 'future-field-continuation',
-      kind: 'collect_input',
-      code: 'prepare_send_amount',
-      scenario: 'prepare-send',
-      field: 'future-field',
-    };
 
     expect(decodeAgentV2StreamFrame(event({
       type: 'followups', sequence: 3, messageId: MESSAGE_ID,
       items: [unsupportedFollowup, unsupportedKindFollowup],
     }))).toMatchObject({ disposition: 'ignore', wireType: 'followups' });
-    expect(decodeAgentV2StreamFrame(event({
-      type: 'input_continuations', sequence: 3, messageId: MESSAGE_ID,
-      items: [unsupportedScenarioContinuation, unsupportedFieldContinuation],
-    }))).toMatchObject({ disposition: 'ignore', wireType: 'input_continuations' });
 
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [{
         ...persistedMessage(MESSAGE_ID, 'assistant'),
         followups: [unsupportedFollowup, unsupportedKindFollowup],
-        inputContinuations: [unsupportedScenarioContinuation, unsupportedFieldContinuation],
       }],
     });
     expect(decoded.messages).toHaveLength(1);
     expect(decoded.messages[0].followups).toBeUndefined();
-    expect(decoded.messages[0].inputContinuations).toBeUndefined();
   });
 
-  it.each([
-    { type: 'followups', sequence: 3, messageId: MESSAGE_ID, items: [] },
-    { type: 'input_continuations', sequence: 3, messageId: MESSAGE_ID, items: [] },
-    { type: 'followups', sequence: 3, items: [{ kind: 'futureFollowup' }] },
-    {
-      type: 'input_continuations',
-      sequence: 3,
-      messageId: 'invalid',
-      items: [{ kind: 'futureContinuation' }],
-    },
-  ])('rejects malformed known control output before compatibility filtering', (wireEvent) => {
-    expect(() => decodeAgentV2StreamFrame(event(wireEvent))).toThrow(AgentV2ContractError);
+  it('rejects malformed known control output before compatibility filtering', () => {
+    const malformed = event({ type: 'followups', sequence: 3, items: [{ kind: 'futureFollowup' }] });
+    expect(() => decodeAgentV2StreamFrame(malformed)).toThrow(AgentV2ContractError);
   });
 
   it('normalizes unknown persisted errors without preserving timing extensions', () => {
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [{
         ...persistedMessage(MESSAGE_ID, 'assistant'),
         error: { code: 'future_error', retryable: true, retryAfterMs: 'future' },
@@ -1476,31 +1069,6 @@ describe('Agent V2 semantic public contract', () => {
     });
 
     expect(decoded.messages[0].error).toEqual({ code: 'internal_error', retryable: true });
-  });
-
-  it('decodes persisted input continuations', () => {
-    const message = {
-      ...persistedMessage(MESSAGE_ID, 'assistant'),
-      inputContinuations: [{
-        id: 'prepare-send-amount',
-        kind: 'collect_input',
-        code: 'prepare_send_amount',
-        scenario: 'prepare-send',
-        field: 'amount',
-      }, {
-        id: 'prepare-swap-destination',
-        kind: 'collect_input',
-        code: 'prepare_swap_destination_asset',
-        scenario: 'prepare-swap',
-        field: 'asset',
-      }],
-    };
-
-    expect(decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
-      messages: [message],
-    }).messages[0].inputContinuations).toEqual(message.inputContinuations);
   });
 
   it.each([
@@ -1524,72 +1092,23 @@ describe('Agent V2 semantic public contract', () => {
     'decodes executable live and persisted V3 navigation action $id',
     ({ live, expectedPersisted }) => {
       expect(decodeAgentV2StreamEvent(event({
-        type: 'action', sequence: 3, messageId: MESSAGE_ID, action: live,
+        type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { ...live, title: 'Review prepared action' },
       }))).toMatchObject({ action: live });
       expect(decodeAgentV2Messages({
-        protocolVersion: 2,
-        threadId: THREAD_ID,
-        messages: [{ ...persistedMessage(MESSAGE_ID, 'assistant'), actions: [expectedPersisted] }],
-      }).messages[0].actions).toEqual([expectedPersisted]);
-    },
-  );
-
-  it('accepts configured navigation chains while rejecting unknown and wallet-only chain expansion', () => {
-    const navigationAction = {
-      id: TOOL_CALL_ID,
-      schemaVersion: 3,
-      kind: 'openTransaction',
-      labelCode: 'open_transaction',
-      chain: 'robinhood',
-      transactionRef: 'transaction-1',
-      requiresConfirmation: true,
-    } as const;
-    expect(decodeAgentV2PersistedAction(navigationAction)).toEqual(navigationAction);
-    expect(() => decodeAgentV2PersistedAction({
-      ...navigationAction,
-      chain: 'bitcoin',
-    })).toThrow(AgentV2ContractError);
-
-    const sendAction = {
-      id: TOOL_CALL_ID,
-      kind: 'send',
-      labelCode: 'open_send',
-      effect: 'open_send',
-      contextBinding: {
-        sessionId: WALLET_SESSION_ID,
-        revision: 1,
-        activeAccountRef: 'account-current',
-        activeNetwork: 'robinhood',
-      },
-      asset: { slug: 'robinhood', chain: 'robinhood' },
-      recipient: {
-        kind: 'address',
-        chain: 'robinhood',
-        address: '0x0000000000000000000000000000000000000000',
-      },
-      localDraftRequired: false,
-      requiresConfirmation: false,
-    } as const;
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'action', sequence: 3, messageId: MESSAGE_ID, action: sendAction,
-    }))).toThrow(AgentV2ContractError);
-  });
-
-  it.each(navigationFixture.legacyReadCases)(
-    'keeps legacy navigation readable for $kind',
-    (legacy) => {
-      expect(decodeAgentV2Messages({
-        protocolVersion: 2,
-        threadId: THREAD_ID,
-        messages: [{ ...persistedMessage(MESSAGE_ID, 'assistant'), actions: [legacy] }],
-      }).messages[0].actions).toEqual([legacy]);
+        protocolVersion: 3,
+        thread: threadSummary(),
+        messages: [{
+          ...persistedMessage(MESSAGE_ID, 'assistant'),
+          actions: [{ ...expectedPersisted, title: 'Review prepared action' }],
+        }],
+      }).messages[0].actions).toEqual([{ ...expectedPersisted, title: 'Review prepared action' }]);
     },
   );
 
   it('drops a persisted action with an unknown schema version without deleting its message', () => {
     const decoded = decodeAgentV2Messages({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [{
         ...persistedMessage(MESSAGE_ID, 'assistant'),
         actions: [navigationFixture.invalidV3[0]],
@@ -1601,14 +1120,16 @@ describe('Agent V2 semantic public contract', () => {
   });
 
   it.each(navigationFixture.invalidV3.slice(1).map((action, index) => [index + 1, action] as const))(
-    'skips a message with malformed persisted V3 navigation action %s',
+    'preserves a message while rejecting malformed persisted V3 navigation action %s',
     (_index, action) => {
       const decoded = decodeAgentV2Messages({
-        protocolVersion: 2,
-        threadId: THREAD_ID,
+        protocolVersion: 3,
+        thread: threadSummary(),
         messages: [{ ...persistedMessage(MESSAGE_ID, 'assistant'), actions: [action] }],
       });
-      expect(decoded.messages).toEqual([]);
+      expect(decoded.messages).toHaveLength(1);
+      expect(decoded.messages[0].actions).toBeUndefined();
+      expect(decoded.messages[0].error?.code).toBe('invalid_event');
       expect(decoded.incompatibleMessages).toEqual([
         expect.objectContaining({
           index: 0,
@@ -1621,12 +1142,12 @@ describe('Agent V2 semantic public contract', () => {
 
   it('accepts code-only hints and ignores optional server-authored fields', () => {
     expect(decodeAgentV2Hints({
-      protocolVersion: 2,
+      protocolVersion: 3,
       catalogVersion: 'agent-starter-hints-v1',
-      items: [{ id: 'receive.tokens', requiredCapabilities: ['receive_action'] }],
+      items: [{ id: 'receive.tokens', requiredCapabilities: ['receive_action'] }, { id: 'future.hint' }],
     }).items).toHaveLength(1);
     expect(decodeAgentV2Hints({
-      protocolVersion: 2,
+      protocolVersion: 3,
       catalogVersion: 'agent-starter-hints-v1',
       items: [{
         id: 'receive.tokens', requiredCapabilities: ['receive_action'],
@@ -1635,25 +1156,10 @@ describe('Agent V2 semantic public contract', () => {
     }).items).toHaveLength(1);
   });
 
-  it('accepts wallet-query capabilities without presentation negotiation', () => {
-    const value = {
-      protocolVersion: 2,
-      status: 'available',
-      supportedToolVersions: [5],
-      filterCatalog: { version: 1, digest: 'a'.repeat(64), requiresClientTimeZone: true },
-    };
-    expect(decodeAgentV2WalletQueryCapabilitiesV2(value)).toEqual(value);
-    expect(decodeAgentV2WalletQueryCapabilitiesV2({
-      ...value,
-      presentation: { textFormat: 'agentMarkdownV2', walletConversationContext: 'message_end_v1' },
-    })).toMatchObject(value);
-  });
-
-  it('accepts the flat backend wallet-query V5 transaction frame', () => {
+  it('accepts the flat backend wallet-query transaction frame', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       maxResultBytes: 98_304,
@@ -1666,7 +1172,6 @@ describe('Agent V2 semantic public contract', () => {
         activeNetwork: 'ton',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'transactions.list',
         accountSelector: { kind: 'current' },
         chains: [],
@@ -1702,7 +1207,6 @@ describe('Agent V2 semantic public contract', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       maxResultBytes: 98_304,
@@ -1716,8 +1220,8 @@ describe('Agent V2 semantic public contract', () => {
         activeNetwork: 'ton',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'portfolio.aggregate',
+        historySource: 'backend',
         accountSelector: { kind: 'explicitAll' },
         accountFilter: { viewOnly: 'exclude' },
         chains: [],
@@ -1754,7 +1258,6 @@ describe('Agent V2 semantic public contract', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       maxResultBytes: 98_304,
@@ -1767,7 +1270,6 @@ describe('Agent V2 semantic public contract', () => {
         activeNetwork: 'ton',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'transactions.list',
         accountSelector: { kind: 'current' },
         chains: [],
@@ -1790,11 +1292,10 @@ describe('Agent V2 semantic public contract', () => {
     });
   });
 
-  it('accepts the backend wallet-query V5 position policy fields', () => {
+  it('accepts the backend wallet-query position policy fields', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       maxResultBytes: 98_304,
@@ -1807,7 +1308,6 @@ describe('Agent V2 semantic public contract', () => {
         activeNetwork: 'ton',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'positions.list',
         accountSelector: { kind: 'current' },
         assetSelectors: [],
@@ -1846,7 +1346,6 @@ describe('Agent V2 semantic public contract', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       maxResultBytes: 98_304,
@@ -1857,7 +1356,6 @@ describe('Agent V2 semantic public contract', () => {
         activeAccountRef: 'account_current',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'transactions.detail',
         accountSelector: { kind: 'current' },
         hash,
@@ -1871,7 +1369,6 @@ describe('Agent V2 semantic public contract', () => {
     const toolCall = {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       scopes: ['wallet.data.read'],
       timeoutMs: 30_000,
       walletContextSession: {
@@ -1881,7 +1378,6 @@ describe('Agent V2 semantic public contract', () => {
         activeAccountRef: 'account_current',
       },
       arguments: {
-        schemaVersion: 5,
         operation: 'transactions.detail',
         accountSelector: { kind: 'current' },
         hash: `0X${'A'.repeat(64)}`,
@@ -1947,86 +1443,10 @@ describe('Agent V2 semantic public contract', () => {
         quantity: '100',
       }],
     },
-  ])('accepts wallet-query policy semantic content for $queryKind', (content) => {
+  ])('rejects retired wallet-query presentation for $queryKind', (content) => {
     expect(decodeAgentV2StreamEvent(event({
       type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID, content,
-    }))).toMatchObject({ type: 'semantic_content', content });
-  });
-
-  it('decodes account overview rows tolerantly and marks malformed neighbors partial', () => {
-    const decoded = decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID,
-      content: {
-        kind: 'walletQuery', schemaVersion: 1, queryKind: 'accounts',
-        outcome: 'complete', hasMore: false, futureDisplay: true,
-        rows: [{
-          accountLabel: 'Main | **literal**', accessMode: 'regular',
-          portfolioTotalStatus: 'complete', futureDisplay: 'ok',
-          portfolioTotal: { value: '42.5', baseCurrency: 'USD', unpricedCount: 0, futureRate: 'ok' },
-        }, {
-          accountLabel: 'Watch', accessMode: 'view_only',
-          portfolioTotalStatus: 'unavailable',
-        }, {
-          accountLabel: 'Broken', accessMode: 'regular',
-          portfolioTotalStatus: 'complete',
-        }],
-      },
-    }));
-
-    expect(decoded).toMatchObject({
-      content: {
-        queryKind: 'accounts', outcome: 'partial',
-        rows: [{
-          accountLabel: 'Main | **literal**', accessMode: 'regular',
-          portfolioTotal: { value: '42.5', baseCurrency: 'USD', unpricedCount: 0 },
-        }, {
-          accountLabel: 'Watch', accessMode: 'view_only', portfolioTotalStatus: 'unavailable',
-        }],
-      },
-    });
-  });
-
-  it('accepts the choice-only backend wallet conversation context V5 shape', () => {
-    const context = {
-      schemaVersion: 5,
-      sourceAssistantMessageId: MESSAGE_ID,
-      sessionId: WALLET_SESSION_ID,
-      revision: 1,
-      operation: 'positions.list',
-      query: {
-        schemaVersion: 5,
-        operation: 'positions.list',
-        accountSelector: { kind: 'named', label: 'Savings' },
-        assetSelectors: [],
-        chains: [],
-        positionKinds: ['fungible'],
-        riskMode: 'exclude',
-        visibilityMode: 'visible',
-        includeZero: false,
-        sort: 'wallet_order',
-        pageSize: 100,
-      },
-      scopeChoices: [{
-        choiceId: `choice_${'a'.repeat(22)}`,
-        scopeAnchor: `scope_${'b'.repeat(22)}`,
-        label: 'Savings',
-        ordinal: 2,
-        chains: ['ton'],
-      }],
-      expiresAt: '2026-08-07T15:15:00.000Z',
-    };
-
-    expect(decodeAgentV2StreamEvent(event({
-      type: 'message_end', sequence: 8, messageId: MESSAGE_ID, finishReason: 'complete',
-      walletConversationContext: context,
-    }))).toMatchObject({ walletConversationContext: context });
-    expect(() => decodeAgentV2StreamEvent(event({
-      type: 'message_end', sequence: 8, messageId: MESSAGE_ID, finishReason: 'complete',
-      walletConversationContext: {
-        ...context,
-        query: { ...context.query, riskMode: 'future' },
-      },
-    }))).toThrow(AgentV2ContractError);
+    }))).toMatchObject({ type: 'semantic_content', content: { kind: 'clientUnsupported', schemaVersion: 1 } });
   });
 
   it('accepts code-only terminal errors and ignores optional server extensions', () => {
@@ -2038,40 +1458,65 @@ describe('Agent V2 semantic public contract', () => {
       userMessage: 'Server-authored copy',
     }))).toMatchObject({ code: 'tool_failed' });
   });
-
-  it('keeps safe wallet rows when a neighboring display row is malformed', () => {
-    const decoded = decodeAgentV2StreamEvent(event({
-      type: 'semantic_content', sequence: 3, messageId: MESSAGE_ID,
-      content: {
-        kind: 'walletQuery', schemaVersion: 1, queryKind: 'transactions',
-        outcome: 'complete', hasMore: false, futureDisplay: true,
-        rows: [
-          {
-            chain: 'ton', transactionType: 'transfer', status: 'completed',
-            timestamp: '2026-08-07T15:15:00.000Z', assetSymbol: 'TON', futureDisplay: 'ok',
-          },
-          { chain: 'ton', transactionType: 'transfer', status: 'completed', timestamp: 'invalid' },
-        ],
-      },
-    }));
-
-    expect(decoded).toMatchObject({
-      content: {
-        outcome: 'partial',
-        rows: [{ assetSymbol: 'TON' }],
-      },
-    });
-  });
 });
+
+function decodeWalletQueryArguments(args: AgentWalletDataQueryArgs, maxResultBytes = 98_304) {
+  const decoded = decodeAgentV2StreamEvent(event({
+    type: 'tool_call', sequence: 3,
+    toolCall: {
+      id: TOOL_CALL_ID, name: 'wallet.data.query', arguments: args,
+      scopes: ['wallet.data.read'], timeoutMs: 30_000, maxResultBytes,
+      intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
+      walletContextSession: {
+        sessionId: WALLET_SESSION_ID, revision: 1, accountScope: 'current',
+        activeAccountRef: 'account_current', activeNetwork: 'ton',
+      },
+    },
+  }));
+  if (decoded.type !== 'tool_call') throw new Error('Expected tool_call');
+  return decodeAgentV2ToolArguments(decoded.toolCall);
+}
+
+function createWalletChainFilterArguments(values: string[]): AgentWalletTransactionsListArgs {
+  return {
+    ...WALLET_TRANSACTIONS_QUERY_ARGUMENTS,
+    filters: {
+      ...WALLET_TRANSACTIONS_QUERY_ARGUMENTS.filters,
+      clauses: [{ field: 'transaction.chain', operator: 'in', values }],
+    },
+  };
+}
+
+function sendActionFixture() {
+  return {
+    id: TOOL_CALL_ID,
+    kind: 'send' as const,
+    labelCode: 'open_send' as const,
+    title: 'Review prepared action',
+    effect: 'open_send' as const,
+    contextBinding: {
+      sessionId: WALLET_SESSION_ID,
+      revision: 1,
+      activeAccountRef: 'account-current',
+      activeNetwork: 'ton',
+    },
+    asset: { slug: 'gram', chain: 'ton' as const },
+    recipient: { kind: 'savedAddress' as const, addressRef: 'address-mother' },
+    amount: '1.5',
+    localDraftRequired: false as const,
+    requiresConfirmation: false as const,
+  };
+}
 
 function swapActionFixture() {
   return {
     id: '66666666-6666-4666-8666-666666666666',
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     kind: 'swap' as const,
     labelCode: 'open_swap' as const,
+    title: 'Review prepared action',
     effect: 'open_swap' as const,
-    sourceToolCallId: TOOL_CALL_ID,
+    url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
     contextBinding: {
       sessionId: WALLET_SESSION_ID,
       revision: 1,
@@ -2086,13 +1531,28 @@ function swapActionFixture() {
 }
 
 function event(value: Record<string, unknown>) {
-  return { protocolVersion: 2, runId: RUN_ID, ...value };
+  return { protocolVersion: 3, runId: RUN_ID, ...value };
 }
 
 function decodeCompatibilityFixtureGroup(fixture: CompatibilityFixtureGroup) {
   switch (fixture.schema) {
     case 'AgentStreamEventV2':
-      fixture.values.forEach((value) => expect(decodeAgentV2StreamEvent(value)).toBeDefined());
+      fixture.values.forEach((value) => {
+        const decoded = decodeAgentV2StreamEvent(value);
+        expect(decoded).toBeDefined();
+        if (decoded.type === 'tool_call') {
+          expect(decodeAgentV2ToolArguments(decoded.toolCall)).toBeDefined();
+        }
+      });
+      break;
+    case 'AgentHintsResponseV2':
+      fixture.values.forEach((value) => expect(decodeAgentV2Hints(value)).toBeDefined());
+      break;
+    case 'AgentWalletSnapshotAckV1':
+      fixture.values.forEach((value) => expect(decodeAgentV2WalletSnapshotAck(value)).toBeDefined());
+      break;
+    case 'AgentFeatureCapabilitiesResponseV2':
+      fixture.values.forEach((value) => expect(decodeAgentV2FeatureCapabilities(value)).toBeDefined());
       break;
     case 'AgentThreadMessagesPageV2':
       fixture.values.forEach((value) => expect(decodeAgentV2Messages(value)).toBeDefined());
@@ -2102,86 +1562,15 @@ function decodeCompatibilityFixtureGroup(fixture: CompatibilityFixtureGroup) {
   }
 }
 
-function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function fearGreedRegime(): AgentMarketFearGreedRegimeV1 {
+function threadSummary() {
   return {
-    schemaVersion: 1,
-    policyVersion: 'fear-greed-sma-regime-v1',
-    basis: 'closed_utc_daily',
-    asOfDate: '2026-08-09',
-    latestValue: 63,
-    sma30: '58.25000000',
-    sma365: '51.50000000',
-    regime: 'risk_on',
-    seriesDigest: 'a'.repeat(64),
-    source: {
-      provider: 'alternative_me',
-      endpoint: 'alternative.fng',
-      attributionRequired: true,
-      attributionLabel: 'Alternative.me',
-      attributionUrl: 'https://alternative.me/crypto/fear-and-greed-index/',
-    },
+    id: THREAD_ID,
+    revision: 1,
+    createdAt: '2026-08-06T12:00:00.000Z',
+    updatedAt: '2026-08-06T12:00:00.000Z',
+    lastActivityAt: '2026-08-06T12:00:00.000Z',
+    messageCount: 1,
   };
-}
-
-function isMarketNodeRef(reference: string) {
-  return /^profile\.[^.]+\.(?:hvn|lvn)\./u.test(reference);
-}
-
-function removeMarketNodeSources(zone: AgentMarketPriceZoneV1) {
-  zone.sources = zone.sources.filter(({ evidenceRef }) => !isMarketNodeRef(evidenceRef));
-}
-
-function getFixtureHvnSource(content: ReturnType<typeof buildAgentMarketAnalysisV6Fixture>) {
-  const map = content.evidence.levelMaps['7d'];
-  if (map.status !== 'available') throw new Error('Expected available fixture level map');
-  const source = map.supports[0].sources.find(({ kind }) => kind === 'volume_profile_hvn');
-  if (!source) throw new Error('Expected fixture HVN source');
-  return source;
-}
-
-function getFixturePrimaryPath(content: ReturnType<typeof buildAgentMarketAnalysisV6Fixture>) {
-  const path = content.evidence.scenarioTrees['7d'].paths.find((candidate) => (
-    candidate.status === 'eligible' && candidate.priority === 'primary'
-  ));
-  if (!path || path.status !== 'eligible') throw new Error('Expected fixture primary path');
-  return path;
-}
-
-function getFixtureTransit(content: ReturnType<typeof buildAgentMarketAnalysisV6Fixture>) {
-  const transit = getFixturePrimaryPath(content).path.find(({ role }) => role === 'transit');
-  if (!transit) throw new Error('Expected fixture transit step');
-  return transit;
-}
-
-function historicalMarketAnalysisV6Fixture() {
-  const content = cloneJson(buildAgentMarketAnalysisV6Fixture());
-  for (const horizon of ['3d', '7d', '30d'] as const) {
-    const map = content.evidence.levelMaps[horizon];
-    map.policyVersion = 'market-level-map-v1';
-    if (map.status === 'available') {
-      [...map.supports, ...map.resistances, ...(map.equilibrium ? [map.equilibrium] : [])]
-        .forEach(removeMarketNodeSources);
-    }
-    const tree = content.evidence.scenarioTrees[horizon];
-    delete tree.activeScenario;
-    tree.policyVersion = 'market-structural-scenarios-v1';
-    tree.paths.forEach((path) => {
-      if (path.status !== 'eligible') return;
-      path.path = path.path.filter(({ role }) => role !== 'transit');
-      path.path.forEach(({ zone }) => removeMarketNodeSources(zone));
-      removeMarketNodeSources(path.terminalZone);
-      path.evidenceRefs = path.evidenceRefs.filter((reference) => !isMarketNodeRef(reference));
-    });
-  }
-  content.evidence.evidenceCatalog = content.evidence.evidenceCatalog
-    .filter(({ id }) => !isMarketNodeRef(id));
-  content.analysis.consideredEvidence = content.analysis.consideredEvidence
-    .filter((reference) => !isMarketNodeRef(reference));
-  return content;
 }
 
 function persistedMessage(id: string, role: 'user' | 'assistant', content?: unknown) {
@@ -2197,118 +1586,7 @@ function persistedMessage(id: string, role: 'user' | 'assistant', content?: unkn
 }
 
 function semanticContents() {
-  return [
-    { kind: 'notice', schemaVersion: 1, code: 'wallet_data_unavailable' },
-    { kind: 'notice', schemaVersion: 1, code: 'send_form_amount_required' },
-    {
-      kind: 'walletQuery', schemaVersion: 1, queryKind: 'transactions', outcome: 'empty', hasMore: false, rows: [],
-    },
-    {
-      kind: 'portfolio', schemaVersion: 1, view: 'positions', outcome: 'complete',
-      payload: {
-        id: MESSAGE_ID,
-        status: 'complete',
-        accountScope: 'current',
-        baseCurrency: 'USD',
-        generatedAt: '2026-08-06T12:00:00.000Z',
-        positions: [],
-        unpriced: [],
-        omittedUnpricedAssetCount: 0,
-        dataQuality: { coverage: 'complete', limitations: [] },
-      },
-    },
-    portfolioAnalysisContent(),
-    marketOverviewContent(),
-    {
-      kind: 'assetSearch', schemaVersion: 1, outcome: 'ambiguous',
-      candidates: [
-        { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-        { slug: 'wrapped-ton', chain: 'ton', symbol: 'WTON' },
-      ],
-    },
-    { kind: 'webDigest', schemaVersion: 1, outcome: 'empty', items: [] },
-  ];
-}
-
-function portfolioAnalysisContent() {
-  return {
-    kind: 'portfolio',
-    schemaVersion: 1,
-    view: 'analysis',
-    outcome: 'complete',
-    narrativeStatus: 'provider_accepted',
-    payload: {
-      id: 'portfolio-analysis-1',
-      status: 'complete',
-      accountScope: 'current',
-      baseCurrency: 'USD',
-      range: '1d',
-      generatedAt: '2026-08-06T12:00:00.000Z',
-      totalValue: { value: '100', currency: 'USD', asOf: '2026-08-06T12:00:00.000Z' },
-      signals: [{
-        id: 'signal-1',
-        category: 'performance',
-        severity: 'info',
-        confidence: 'high',
-        relevance: 'focused',
-        code: 'portfolio_stable',
-      }],
-      dataQuality: {
-        freshness: { asOf: '2026-08-06T12:00:00.000Z', isStale: false },
-      },
-    },
-  };
-}
-
-function marketOverviewContent() {
-  const source = {
-    provider: 'binance',
-    endpoint: 'binance.ticker_price',
-    attributionRequired: true,
-    attributionLabel: 'Binance',
-    attributionUrl: 'https://www.binance.com/',
-  };
-  const freshness = {
-    source: 'fresh_fetch',
-    isStale: false,
-    asOf: '2026-08-06T12:00:00.000Z',
-    maxStaleMs: 60_000,
-  };
-  const assetChange = (slug: string, symbol: string) => ({
-    asset: { slug, chain: 'ton', symbol },
-    quote: { price: '1.25', quoteCurrency: 'USDT', asOf: '2026-08-06T12:00:00.000Z' },
-    change: {
-      timeframe: '1d',
-      fromAt: '2026-08-05T12:00:00.000Z',
-      toAt: '2026-08-06T12:00:00.000Z',
-      percent: '2.5',
-    },
-    freshness,
-    quoteSource: source,
-    changeSource: source,
-  });
-  return {
-    kind: 'market',
-    schemaVersion: 1,
-    view: 'overview',
-    outcome: 'partial',
-    evidence: {
-      schemaVersion: 2,
-      basketVersion: 'market-overview-v2',
-      timeframe: '1d',
-      quoteCurrency: 'USDT',
-      generatedAt: '2026-08-06T12:00:00.000Z',
-      scope: 'selected_assets',
-      direction: 'up',
-      directionBasis: 'latest_closed_candle',
-      assets: [assetChange('toncoin', 'TON'), assetChange('bitcoin', 'BTC')],
-      coverage: {
-        requestedAssetCount: 3,
-        usableAssetCount: 2,
-        isComplete: false,
-        missingAssets: [{ slug: 'ethereum', chain: 'ethereum', symbol: 'ETH' }],
-      },
-      limitations: ['partial_asset_coverage'],
-    },
-  };
+  return ['agent_unavailable', 'content_over_budget', 'web_search_no_results'].map((code) => ({
+    kind: 'notice', schemaVersion: 1, code,
+  }));
 }

@@ -3,190 +3,48 @@
   "contractVersion": "agent-navigation-action-projection-v1",
   "projectionCases": [
     {
-      "id": "open-url",
+      "id": "open-dapp",
       "live": {
-        "id": "10000000-0000-4000-8000-000000000001",
-        "kind": "openUrl",
+        "id": "10000000-0000-4000-8000-000000000006",
+        "schemaVersion": 1,
+        "kind": "openDapp",
         "labelCode": "open_external_link",
-        "url": "https://example.com/help",
+        "url": "https://fragment.com/",
         "requiresConfirmation": true
       },
       "expectedPersisted": {
-        "id": "10000000-0000-4000-8000-000000000001",
+        "id": "10000000-0000-4000-8000-000000000006",
         "schemaVersion": 3,
-        "kind": "openUrl",
+        "kind": "openDapp",
         "labelCode": "open_external_link",
-        "url": "https://example.com/help",
+        "url": "https://fragment.com/",
         "requiresConfirmation": true
       }
-    },
-    {
-      "id": "open-token-without-address",
-      "live": {
-        "id": "10000000-0000-4000-8000-000000000002",
-        "kind": "openToken",
-        "labelCode": "open_token",
-        "slug": "toncoin",
-        "chain": "ton",
-        "requiresConfirmation": true
-      },
-      "expectedPersisted": {
-        "id": "10000000-0000-4000-8000-000000000002",
-        "schemaVersion": 3,
-        "kind": "openToken",
-        "labelCode": "open_token",
-        "slug": "toncoin",
-        "chain": "ton",
-        "requiresConfirmation": true
-      }
-    },
-    {
-      "id": "open-token-with-address",
-      "live": {
-        "id": "10000000-0000-4000-8000-000000000003",
-        "kind": "openToken",
-        "labelCode": "open_token",
-        "slug": "tether",
-        "chain": "ton",
-        "tokenAddress": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
-        "requiresConfirmation": true
-      },
-      "expectedPersisted": {
-        "id": "10000000-0000-4000-8000-000000000003",
-        "schemaVersion": 3,
-        "kind": "openToken",
-        "labelCode": "open_token",
-        "slug": "tether",
-        "chain": "ton",
-        "tokenAddress": "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
-        "requiresConfirmation": true
-      }
-    },
-    {
-      "id": "open-transaction",
-      "live": {
-        "id": "10000000-0000-4000-8000-000000000004",
-        "kind": "openTransaction",
-        "labelCode": "open_transaction",
-        "chain": "ton",
-        "transactionRef": "transaction-1",
-        "requiresConfirmation": true
-      },
-      "expectedPersisted": {
-        "id": "10000000-0000-4000-8000-000000000004",
-        "schemaVersion": 3,
-        "kind": "openTransaction",
-        "labelCode": "open_transaction",
-        "chain": "ton",
-        "transactionRef": "transaction-1",
-        "requiresConfirmation": true
-      }
-    },
-    {
-      "id": "open-agent",
-      "live": {
-        "id": "10000000-0000-4000-8000-000000000005",
-        "kind": "openAgent",
-        "labelCode": "open_agent",
-        "entryPoint": {
-          "kind": "agentTab"
-        },
-        "requiresConfirmation": true
-      },
-      "expectedPersisted": {
-        "id": "10000000-0000-4000-8000-000000000005",
-        "schemaVersion": 3,
-        "kind": "openAgent",
-        "labelCode": "open_agent",
-        "entryPoint": {
-          "kind": "agentTab"
-        },
-        "requiresConfirmation": true
-      }
-    }
-  ],
-  "legacyReadCases": [
-    {
-      "id": "20000000-0000-4000-8000-000000000001",
-      "kind": "openUrl",
-      "labelCode": "open_external_link",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000002",
-      "kind": "openToken",
-      "labelCode": "open_token",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000003",
-      "kind": "openTransaction",
-      "labelCode": "open_transaction",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000004",
-      "kind": "openAgent",
-      "labelCode": "open_agent",
-      "requiresConfirmation": true
     }
   ],
   "invalidV3": [
     {
       "id": "30000000-0000-4000-8000-000000000002",
       "schemaVersion": 2,
-      "kind": "openUrl",
+      "kind": "openDapp",
       "labelCode": "open_external_link",
-      "url": "https://example.com/help",
+      "url": "https://fragment.com/",
       "requiresConfirmation": true
     },
     {
       "id": "30000000-0000-4000-8000-000000000003",
       "schemaVersion": 3,
-      "kind": "openUrl",
+      "kind": "openDapp",
       "labelCode": "open_external_link",
       "requiresConfirmation": true
     },
     {
       "id": "30000000-0000-4000-8000-000000000004",
       "schemaVersion": 3,
-      "kind": "openUrl",
+      "kind": "openDapp",
       "labelCode": "open_external_link",
-      "url": "https://example.com/help",
-      "slug": "forbidden",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000005",
-      "schemaVersion": 3,
-      "kind": "openToken",
-      "labelCode": "open_token",
-      "slug": "toncoin",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000006",
-      "schemaVersion": 3,
-      "kind": "openToken",
-      "labelCode": "open_token",
-      "slug": "toncoin",
-      "chain": "ton",
-      "tokenAddress": "",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000007",
-      "schemaVersion": 3,
-      "kind": "openTransaction",
-      "labelCode": "open_transaction",
-      "chain": "ton",
-      "requiresConfirmation": true
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000008",
-      "schemaVersion": 3,
-      "kind": "openAgent",
-      "labelCode": "open_agent",
+      "url": "https://fragment.com/",
+      "section": "appearance",
       "requiresConfirmation": true
     }
   ]

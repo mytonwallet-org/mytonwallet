@@ -1,7 +1,7 @@
 import type {
   AgentToolCall,
   AgentToolResultAckV2,
-  AgentWalletConversationContextV5,
+  AgentWalletQueryCapabilityV1,
 } from '../types';
 import type {
   JsonObject,
@@ -35,11 +35,14 @@ import {
 const FULL_TRANSACTION_HASH_PATTERN = /^(?:(?:0[xX])?[A-Fa-f0-9]{64}|[A-Za-z0-9+/_-]{43,126}={0,2})$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
-const SAFE_STAKING_PRODUCT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/u;
-
 const MIN_TOOL_TIMEOUT_MS = 100;
 
 const MAX_TOOL_TIMEOUT_MS = 30_000;
+
+// Both wallet tools may ask for results of up to 600 KiB, which fits a directory of accounts on every network
+const MAX_TOOL_RESULT_BYTES = 614_400;
+
+const MAX_CONTACT_PAGE_SIZE = 300;
 
 const TOOL_NAMES = /* @__PURE__ */ new Set(/* @__PURE__ */ AGENT_V2_TOOL_CONTRACTS.map(({ name }) => name));
 
@@ -81,30 +84,8 @@ function validateToolArguments(tool: AgentToolCall, path: string) {
   const args = object(tool.arguments, `${path}.arguments`);
 
   switch (tool.name) {
-    case 'action.send.prepare':
-      object(args.asset, `${path}.arguments.asset`);
-      object(args.amount, `${path}.arguments.amount`);
-      object(args.recipient, `${path}.arguments.recipient`);
-      break;
-    case 'action.swap.prepare': {
-      strictKeys(args, `${path}.arguments`, [
-        'schemaVersion', 'sourceSelector', 'destinationSelector', 'amount',
-      ]);
-      literal(args.schemaVersion, 1, `${path}.arguments.schemaVersion`);
-      validateSwapSelector(args.sourceSelector, `${path}.arguments.sourceSelector`);
-      validateSwapSelector(args.destinationSelector, `${path}.arguments.destinationSelector`);
-      const amount = object(args.amount, `${path}.arguments.amount`);
-      strictKeys(amount, `${path}.arguments.amount`, ['value', 'valueType', 'side']);
-      const value = boundedString(amount.value, `${path}.arguments.amount.value`, 1, 128);
-      if (!/^[0-9]+(?:\.[0-9]+)?$/u.test(value) || !/[1-9]/u.test(value)) {
-        fail(`${path}.arguments.amount.value`);
-      }
-      literal(amount.valueType, 'decimal', `${path}.arguments.amount.valueType`);
-      oneOf(amount.side, new Set(['source', 'destination']), `${path}.arguments.amount.side`);
-      break;
-    }
     case 'wallet.data.query': {
-      validateWalletDataQueryV5(args, `${path}.arguments`);
+      validateWalletDataQuery(args, `${path}.arguments`);
       break;
     }
     case 'wallet.directory.query': {
@@ -113,96 +94,25 @@ function validateToolArguments(tool: AgentToolCall, path: string) {
       literal(args.purpose, 'send_wallet_resolution', `${path}.arguments.purpose`);
       break;
     }
-    case 'market.asset.quote': {
-      const isAssetQuote = 'quoteAsset' in args;
-      strictKeys(args, `${path}.arguments`, [
-        'schemaVersion', isAssetQuote ? 'quoteAsset' : 'quoteCurrency', 'selector',
-      ]);
-      literal(args.schemaVersion, 1, `${path}.arguments.schemaVersion`);
-      if (isAssetQuote) {
-        validateMarketAssetIdentity(args.quoteAsset, `${path}.arguments.quoteAsset`);
-      } else {
-        const quoteCurrency = boundedString(args.quoteCurrency, `${path}.arguments.quoteCurrency`, 3, 8);
-        if (!/^[A-Z]{3,8}$/u.test(quoteCurrency)) fail(`${path}.arguments.quoteCurrency`);
-      }
-      const selector = object(args.selector, `${path}.arguments.selector`);
-      const kind = oneOf(selector.kind, new Set(['query', 'asset']), `${path}.arguments.selector.kind`);
-      if (kind === 'query') {
-        strictKeys(selector, `${path}.arguments.selector`, ['kind', 'query', 'chain']);
-        boundedString(selector.query, `${path}.arguments.selector.query`, 1, 160);
-        if (selector.chain !== undefined) {
-          oneOf(selector.chain, new Set(['ton', 'tron', 'solana', 'ethereum']), `${path}.arguments.selector.chain`);
-        }
-      } else {
-        strictKeys(selector, `${path}.arguments.selector`, ['kind', 'asset']);
-        validateMarketAssetIdentity(selector.asset, `${path}.arguments.selector.asset`);
-      }
-      break;
-    }
-    case 'staking.offer.read': {
-      strictKeys(args, `${path}.arguments`, ['schemaVersion', 'productId', 'asset']);
-      literal(args.schemaVersion, 1, `${path}.arguments.schemaVersion`);
-      const productId = boundedString(args.productId, `${path}.arguments.productId`, 1, 64);
-      if (!SAFE_STAKING_PRODUCT_ID_PATTERN.test(productId)) fail(`${path}.arguments.productId`);
-      validateAssetIdentity(args.asset, `${path}.arguments.asset`);
-      break;
-    }
-    case 'staking.offers.list': {
-      strictKeys(args, `${path}.arguments`, ['schemaVersion']);
-      literal(args.schemaVersion, 1, `${path}.arguments.schemaVersion`);
-      break;
-    }
+    default:
+      fail(`${path}.name`);
   }
-}
-
-function validateSwapSelector(value: unknown, path: string) {
-  const selector = object(value, path);
-  strictKeys(selector, path, ['kind', 'query', 'chain']);
-  literal(selector.kind, 'query', `${path}.kind`);
-  boundedString(selector.query, `${path}.query`, 1, 160);
-  if (selector.chain !== undefined) {
-    oneOf(selector.chain, new Set(['ton', 'tron', 'solana', 'ethereum']), `${path}.chain`);
-  }
-}
-
-function validateAssetIdentity(value: unknown, path: string) {
-  const result = object(value, path);
-  strictKeys(result, path, ['slug', 'chain', 'symbol', 'name', 'tokenAddress', 'decimals']);
-  boundedString(result.slug, `${path}.slug`, 1, 128);
-  boundedString(result.chain, `${path}.chain`, 1, 32);
-  boundedString(result.symbol, `${path}.symbol`, 1, 32);
-  if (result.name !== undefined) boundedString(result.name, `${path}.name`, 1, 160);
-  if (result.tokenAddress !== undefined) boundedString(result.tokenAddress, `${path}.tokenAddress`, 1, 256);
-  if (result.decimals !== undefined) boundedInteger(result.decimals, `${path}.decimals`, 0, 255);
-}
-
-function validateMarketAssetIdentity(value: unknown, path: string) {
-  validateAssetIdentity(value, path);
-  const result = object(value, path);
-  oneOf(result.chain, new Set(['ton', 'tron', 'solana', 'ethereum']), `${path}.chain`);
 }
 
 export function toolCall(value: unknown, path: string) {
   const result = object(value, path);
   uuid(result.id, `${path}.id`);
   const name = oneOf<AgentToolCall['name']>(result.name, TOOL_NAMES, `${path}.name`);
-  boundedInteger(result.version, `${path}.version`, 1, 100);
   if (result.maxResultBytes !== undefined) {
-    boundedInteger(result.maxResultBytes, `${path}.maxResultBytes`, 1, 98_304);
+    boundedInteger(result.maxResultBytes, `${path}.maxResultBytes`, 1, MAX_TOOL_RESULT_BYTES);
   }
   const scopes = array(result.scopes, `${path}.scopes`);
   if (scopes.length !== 1 || scopes[0] !== TOOL_SCOPES[name]) fail(`${path}.scopes`);
   boundedInteger(result.timeoutMs, `${path}.timeoutMs`, MIN_TOOL_TIMEOUT_MS, MAX_TOOL_TIMEOUT_MS);
-  if (name === 'staking.offer.read' || name === 'staking.offers.list') {
-    literal(result.version, 1, `${path}.version`);
-    literal(result.maxResultBytes, 16_384, `${path}.maxResultBytes`);
-    literal(result.timeoutMs, 15_000, `${path}.timeoutMs`);
-  }
   validateIntentSource(result, path);
   validateScopeIntent(result, path);
   if (name === 'wallet.directory.query') {
-    literal(result.version, 1, `${path}.version`);
-    boundedInteger(result.maxResultBytes, `${path}.maxResultBytes`, 1, 32_768);
+    boundedInteger(result.maxResultBytes, `${path}.maxResultBytes`, 1, MAX_TOOL_RESULT_BYTES);
     directorySession(result.directorySession, `${path}.directorySession`);
     directoryGrant(result.directoryGrant, `${path}.directoryGrant`);
     if (result.walletContextSession !== undefined) fail(`${path}.walletContextSession`);
@@ -227,16 +137,15 @@ export function decodeAgentV2ToolArguments(tool: AgentToolCall): AgentToolCall {
   return tool;
 }
 
-function validateWalletDataQueryV5(args: JsonObject, path: string) {
-  literal(args.schemaVersion, 5, `${path}.schemaVersion`);
+function validateWalletDataQuery(args: JsonObject, path: string) {
   const operation = oneOf(args.operation, new Set([
     'account.inventory', 'assets.search', 'positions.list', 'portfolio.aggregate',
     'transactions.list', 'transactions.detail', 'contacts.list', 'value.series',
   ]), `${path}.operation`);
   if (operation === 'assets.search') {
-    strictKeys(args, path, ['schemaVersion', 'operation', 'query', 'chains', 'pageSize']);
+    strictKeys(args, path, ['operation', 'query', 'chains', 'pageSize']);
     boundedString(args.query, `${path}.query`, 1, 160);
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
     boundedInteger(args.pageSize, `${path}.pageSize`, 1, 10);
     return;
   }
@@ -244,13 +153,13 @@ function validateWalletDataQueryV5(args: JsonObject, path: string) {
   validateWalletAccountSelector(args.accountSelector, `${path}.accountSelector`, true);
   if (operation === 'account.inventory') {
     strictKeys(args, path, [
-      'schemaVersion', 'operation', 'accountSelector', 'chains', 'includePublicAddressReason',
+      'operation', 'accountSelector', 'chains', 'includePublicAddressReason',
       'includePortfolioTotals',
     ]);
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
     if (args.includePublicAddressReason !== undefined) {
       oneOf(args.includePublicAddressReason, new Set([
-        'receive', 'wallet_location', 'prepare_validation',
+        'receive', 'wallet_location', 'prepare_validation', 'chain_lookup',
       ]), `${path}.includePublicAddressReason`);
     }
     if (args.includePortfolioTotals !== undefined) {
@@ -263,10 +172,10 @@ function validateWalletDataQueryV5(args: JsonObject, path: string) {
   }
   if (operation === 'positions.list') {
     strictKeys(args, path, [
-      'schemaVersion', 'operation', 'accountSelector', 'chains', 'assetSelectors',
+      'operation', 'accountSelector', 'chains', 'assetSelectors',
       'positionKinds', 'riskMode', 'visibilityMode', 'includeZero', 'sort', 'pageSize',
     ]);
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
     const assets = array(args.assetSelectors, `${path}.assetSelectors`, 10);
     assets.forEach((item, index) => validateAssetSelector(item, `${path}.assetSelectors[${index}]`));
     validateRequiredEnumArray(args.positionKinds, `${path}.positionKinds`, 5, [
@@ -281,9 +190,10 @@ function validateWalletDataQueryV5(args: JsonObject, path: string) {
   }
   if (operation === 'portfolio.aggregate') {
     strictKeys(args, path, [
-      'schemaVersion', 'operation', 'accountSelector', 'accountFilter', 'chains', 'range', 'groupBy',
-      'riskMode', 'visibilityMode',
+      'operation', 'accountSelector', 'accountFilter', 'chains', 'range', 'groupBy',
+      'riskMode', 'visibilityMode', 'historySource',
     ]);
+    if (args.historySource !== undefined) oneOf(args.historySource, new Set(['backend']), `${path}.historySource`);
     if (args.accountFilter !== undefined) {
       if (object(args.accountSelector, `${path}.accountSelector`).kind !== 'explicitAll') fail(path);
       const accountFilter = object(args.accountFilter, `${path}.accountFilter`);
@@ -294,7 +204,7 @@ function validateWalletDataQueryV5(args: JsonObject, path: string) {
         `${path}.accountFilter.viewOnly`,
       );
     }
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
     validateHistoryRange(args.range, `${path}.range`);
     validateRequiredEnumArray(args.groupBy, `${path}.groupBy`, 4, [
       'account', 'asset', 'network', 'position_type',
@@ -305,34 +215,40 @@ function validateWalletDataQueryV5(args: JsonObject, path: string) {
   }
   if (operation === 'transactions.list') {
     strictKeys(args, path, [
-      'schemaVersion', 'operation', 'accountSelector', 'chains', 'filters', 'riskMode', 'pageSize',
+      'operation', 'accountSelector', 'chains', 'filters', 'riskMode', 'pageSize',
     ]);
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
     validateWalletFilterSet(args.filters, `${path}.filters`);
     oneOf(args.riskMode, new Set(['exclude', 'only', 'all']), `${path}.riskMode`);
     boundedInteger(args.pageSize, `${path}.pageSize`, 1, 50);
     return;
   }
   if (operation === 'transactions.detail') {
-    strictKeys(args, path, ['schemaVersion', 'operation', 'accountSelector', 'hash']);
+    strictKeys(args, path, ['operation', 'accountSelector', 'hash']);
     const hash = boundedString(args.hash, `${path}.hash`, 43, 128);
     if (!FULL_TRANSACTION_HASH_PATTERN.test(hash)) fail(`${path}.hash`);
     return;
   }
   if (operation === 'contacts.list') {
     strictKeys(args, path, [
-      'schemaVersion', 'operation', 'accountSelector', 'query', 'chains', 'pageSize',
+      'operation', 'accountSelector', 'query', 'chains', 'ownWalletChains', 'pageSize', 'purpose',
     ]);
     if (!isWireNull(args.query)) boundedString(args.query, `${path}.query`, 1, 120);
-    validateUniqueStringArray(args.chains, `${path}.chains`, 16);
-    boundedInteger(args.pageSize, `${path}.pageSize`, 1, 100);
+    validateUniqueStringArray(args.chains, `${path}.chains`);
+    validateUniqueStringArray(args.ownWalletChains, `${path}.ownWalletChains`);
+    boundedInteger(args.pageSize, `${path}.pageSize`, 1, MAX_CONTACT_PAGE_SIZE);
+    if (args.purpose !== undefined) {
+      literal(args.purpose, 'send_recipient_resolution', `${path}.purpose`);
+      literal(object(args.accountSelector, `${path}.accountSelector`).kind, 'current', `${path}.accountSelector.kind`);
+      if (!isWireNull(args.query) || array(args.chains, `${path}.chains`).length) fail(path);
+    }
     return;
   }
   strictKeys(args, path, [
-    'schemaVersion', 'operation', 'accountSelector', 'chains', 'metric', 'assetSelectors',
+    'operation', 'accountSelector', 'chains', 'metric', 'assetSelectors',
     'range', 'maxPoints',
   ]);
-  validateUniqueStringArray(args.chains, `${path}.chains`, 16);
+  validateUniqueStringArray(args.chains, `${path}.chains`);
   const metric = oneOf(args.metric, new Set(['portfolio_value', 'position_value']), `${path}.metric`);
   const assets = array(args.assetSelectors, `${path}.assetSelectors`, 5);
   if (metric === 'position_value' && !assets.length) fail(`${path}.assetSelectors`);
@@ -390,7 +306,7 @@ function validateWalletFilterSet(value: unknown, path: string) {
           ? ['pending', 'pendingTrusted', 'confirmed', 'completed', 'failed', 'expired']
           : field === 'transaction.direction' ? ['incoming', 'outgoing', 'self'] : undefined;
         if (allowed) validateEnumArray(clause.values, `${clausePath}.values`, allowed.length, allowed);
-        else validateUniqueStringArray(clause.values, `${clausePath}.values`, 16);
+        else validateUniqueStringArray(clause.values, `${clausePath}.values`);
         if (!array(clause.values, `${clausePath}.values`).length) fail(`${clausePath}.values`);
       }
     }
@@ -402,21 +318,15 @@ function validateWalletAccountSelector(value: unknown, path: string, extended: b
   const selectorKind = oneOf(
     selector.kind,
     new Set(extended
-      ? ['current', 'named', 'ordinal', 'anchored', 'explicitAll']
+      ? ['current', 'named', 'ordinal', 'explicitAll']
       : ['current', 'named', 'explicitAll']),
     `${path}.kind`,
   );
   strictKeys(selector, path, selectorKind === 'named' ? ['kind', 'label']
     : selectorKind === 'ordinal' ? ['kind', 'index']
-      : selectorKind === 'anchored' ? ['kind', 'scopeAnchor', 'label'] : ['kind']);
-  if (selectorKind === 'named' || selectorKind === 'anchored') {
-    boundedString(selector.label, `${path}.label`, 1, 80);
-  }
+      : ['kind']);
+  if (selectorKind === 'named') boundedString(selector.label, `${path}.label`, 1, 80);
   if (selectorKind === 'ordinal') boundedInteger(selector.index, `${path}.index`, 1, 100);
-  if (selectorKind === 'anchored') {
-    const anchor = boundedString(selector.scopeAnchor, `${path}.scopeAnchor`, 28, 134);
-    if (!/^scope_[A-Za-z0-9_-]{22,128}$/u.test(anchor)) fail(`${path}.scopeAnchor`);
-  }
   return selectorKind;
 }
 
@@ -451,8 +361,8 @@ function validateIntentSource(tool: JsonObject, path: string) {
   }
 }
 
-function validateUniqueStringArray(value: unknown, path: string, maxLength: number) {
-  const items = array(value, path, maxLength)
+function validateUniqueStringArray(value: unknown, path: string) {
+  const items = array(value, path)
     .map((item, index) => boundedString(item, `${path}[${index}]`, 1, 32));
   if (new Set(items).size !== items.length) fail(path);
 }
@@ -508,7 +418,7 @@ function validateToolAccountScope(tool: AgentToolCall, path: string) {
     const selector = object(args.accountSelector, `${path}.arguments.accountSelector`);
     const expected = selector.kind === 'explicitAll'
       ? 'explicitAll'
-      : ['named', 'ordinal', 'anchored'].includes(String(selector.kind)) ? 'selected' : 'current';
+      : ['named', 'ordinal'].includes(String(selector.kind)) ? 'selected' : 'current';
     if (sessionScope !== expected) fail(`${path}.walletContextSession.accountScope`);
     if (sessionScope === 'explicitAll') {
       if (tool.scopeIntent?.reason !== 'explicit_all_wallet_query') fail(`${path}.scopeIntent`);
@@ -519,101 +429,22 @@ function validateToolAccountScope(tool: AgentToolCall, path: string) {
     }
     return;
   }
-  if (sessionScope !== 'current' || tool.scopeIntent !== undefined) fail(`${path}.walletContextSession.accountScope`);
 }
 
-export function walletConversationContextV5(
-  value: unknown,
-  path: string,
-): asserts value is AgentWalletConversationContextV5 {
+/** The wallet-query feature of /capabilities: its status and, when available, the filter catalog it reads */
+export function walletQueryCapability(value: unknown, path: string): AgentWalletQueryCapabilityV1 {
   const result = object(value, path);
-  strictKeys(result, path, [
-    'schemaVersion', 'sourceAssistantMessageId', 'sessionId', 'revision', 'operation',
-    'query', 'scopeChoices', 'expiresAt',
-  ]);
-  literal(result.schemaVersion, 5, `${path}.schemaVersion`);
-  uuid(result.sourceAssistantMessageId, `${path}.sourceAssistantMessageId`);
-  uuid(result.sessionId, `${path}.sessionId`);
-  boundedInteger(result.revision, `${path}.revision`, 1, Number.MAX_SAFE_INTEGER);
-  const operation = oneOf(result.operation, new Set([
-    'account.inventory', 'positions.list', 'portfolio.aggregate', 'transactions.list',
-    'transactions.detail', 'contacts.list', 'value.series',
-  ]), `${path}.operation`);
-  const query = object(result.query, `${path}.query`);
-  validateWalletDataQueryV5(query, `${path}.query`);
-  if (query.operation !== operation) fail(`${path}.query.operation`);
-  timestamp(result.expiresAt, `${path}.expiresAt`);
-  const choices = array(result.scopeChoices, `${path}.scopeChoices`, 5);
-  if (!choices.length) fail(`${path}.scopeChoices`);
-  choices.forEach((item, index) => {
-    const choicePath = `${path}.scopeChoices[${index}]`;
-    const choice = object(item, choicePath);
-    strictKeys(choice, choicePath, ['choiceId', 'scopeAnchor', 'label', 'ordinal', 'chains']);
-    const choiceId = boundedString(choice.choiceId, `${choicePath}.choiceId`, 29, 135);
-    if (!/^choice_[A-Za-z0-9_-]{22,128}$/u.test(choiceId)) fail(`${choicePath}.choiceId`);
-    const anchor = boundedString(choice.scopeAnchor, `${choicePath}.scopeAnchor`, 28, 134);
-    if (!/^scope_[A-Za-z0-9_-]{22,128}$/u.test(anchor)) fail(`${choicePath}.scopeAnchor`);
-    boundedString(choice.label, `${choicePath}.label`, 1, 80);
-    boundedInteger(choice.ordinal, `${choicePath}.ordinal`, 1, 100);
-    if (choice.chains !== undefined) validateUniqueStringArray(choice.chains, `${choicePath}.chains`, 16);
-  });
-}
-
-export function decodeAgentV2WalletConversationContextV5(
-  value: unknown,
-): AgentWalletConversationContextV5 {
-  walletConversationContextV5(value, '$');
-  return value;
-}
-
-export function decodeAgentV2WalletQueryCapabilitiesV2(
-  value: unknown,
-): {
-    protocolVersion: 2;
-    status: 'available' | 'disabled';
-    supportedToolVersions: 5[];
-    filterCatalog?: {
-      version: 1;
-      digest: string;
-      requiresClientTimeZone: true;
-    };
-  } {
-  const result = object(value, '$');
-  protocol(result, '$');
-  const status = oneOf<'available' | 'disabled'>(
-    result.status,
-    new Set(['available', 'disabled']),
-    '$.status',
-  );
-  const versions = array(result.supportedToolVersions, '$.supportedToolVersions', 1);
-  versions.forEach((version, index) => {
-    literal(version, 5, `$.supportedToolVersions[${index}]`);
-  });
-  if (new Set(versions).size !== versions.length) fail('$.supportedToolVersions');
-  if (status === 'available') {
-    if (JSON.stringify(versions) !== '[5]') fail('$.supportedToolVersions');
-    const filterCatalog = object(result.filterCatalog, '$.filterCatalog');
-    literal(filterCatalog.version, 1, '$.filterCatalog.version');
-    const digest = boundedString(filterCatalog.digest, '$.filterCatalog.digest', 64, 64);
-    if (!/^[a-f0-9]{64}$/u.test(digest)) fail('$.filterCatalog.digest');
-    literal(filterCatalog.requiresClientTimeZone, true, '$.filterCatalog.requiresClientTimeZone');
-    return {
-      protocolVersion: 2,
-      status,
-      supportedToolVersions: [5],
-      filterCatalog: {
-        version: 1,
-        digest,
-        requiresClientTimeZone: true,
-      },
-    };
-  } else if (
-    versions.length
-    || result.filterCatalog !== undefined
-  ) {
-    fail('$.supportedToolVersions');
+  const status = oneOf<'available' | 'disabled'>(result.status, new Set(['available', 'disabled']), `${path}.status`);
+  if (status === 'disabled') {
+    if (result.filterCatalog !== undefined) fail(`${path}.filterCatalog`);
+    return { status };
   }
-  return { protocolVersion: 2, status, supportedToolVersions: [] };
+  const filterCatalog = object(result.filterCatalog, `${path}.filterCatalog`);
+  literal(filterCatalog.version, 1, `${path}.filterCatalog.version`);
+  const digest = boundedString(filterCatalog.digest, `${path}.filterCatalog.digest`, 64, 64);
+  if (!/^[a-f0-9]{64}$/u.test(digest)) fail(`${path}.filterCatalog.digest`);
+  literal(filterCatalog.requiresClientTimeZone, true, `${path}.filterCatalog.requiresClientTimeZone`);
+  return { status, filterCatalog: { version: 1, digest, requiresClientTimeZone: true } };
 }
 
 export function decodeAgentV2ToolResultAck(value: unknown): AgentToolResultAckV2 {
@@ -625,7 +456,7 @@ export function decodeAgentV2ToolResultAck(value: unknown): AgentToolResultAckV2
   literal(result.accepted, true, '$.accepted');
   const duplicate = result.duplicate === undefined ? undefined : boolean(result.duplicate, '$.duplicate');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     runId,
     toolCallId,
     clientToolResultId,

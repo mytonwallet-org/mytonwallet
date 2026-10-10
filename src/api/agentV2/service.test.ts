@@ -2,9 +2,11 @@ import type { OnApiUpdate } from '../types';
 import type { AgentV2RuntimeDependencies } from './runtime';
 import type { AgentV2WalletToolDispatcherDependencies } from './walletTools';
 
+import { AgentV2CompatibilityError, AgentV2ContractError } from './protocol/wireReader';
 import { clearAgentV2PersistentState } from './persistentState';
 import {
   destroyAgentV2,
+  getAgentV2DefaultThread,
   getAgentV2Runtime,
   initAgentV2,
   updateAgentV2HostContext,
@@ -12,7 +14,7 @@ import {
 
 type MockRuntime = jest.Mocked<Pick<
   import('./runtime').AgentV2Runtime,
-  'destroy' | 'getConsent' | 'setToolExecutor' | 'updateHostContext'
+  'getDefaultThread' | 'destroy' | 'getConsent' | 'getRunLifecycleGeneration' | 'setToolExecutor' | 'updateHostContext'
 >> & {
   dependencies: AgentV2RuntimeDependencies;
 };
@@ -25,8 +27,10 @@ jest.mock('./runtime', () => ({
   AgentV2Runtime: jest.fn().mockImplementation((dependencies: AgentV2RuntimeDependencies) => {
     const instance: MockRuntime = {
       dependencies,
+      getDefaultThread: jest.fn(),
       destroy: jest.fn(() => Promise.resolve()),
       getConsent: jest.fn(() => Promise.resolve(true)),
+      getRunLifecycleGeneration: jest.fn(() => 0),
       setToolExecutor: jest.fn(),
       updateHostContext: jest.fn(() => Promise.resolve(false)),
     };
@@ -67,6 +71,16 @@ describe('Agent V2 service lifecycle', () => {
 
   afterAll(() => {
     globalThis.fetch = originalFetch;
+  });
+
+  it.each([
+    [new AgentV2ContractError('$.thread.revision'), 'invalid_event'],
+    [new AgentV2CompatibilityError('$.protocolVersion', undefined, 3), 'client_update_required'],
+    [new TypeError('Failed to fetch'), 'network_error'],
+  ])('preserves default-thread failure across the worker boundary: %s', async (error, code) => {
+    await initAgentV2(jest.fn());
+    mockRuntimeInstances[0].getDefaultThread.mockRejectedValue(error);
+    await expect(getAgentV2DefaultThread()).resolves.toMatchObject({ ok: false, error: { code } });
   });
 
   it('tears down the current runtime before activating its replacement', async () => {
@@ -160,15 +174,12 @@ describe('Agent V2 service lifecycle', () => {
     const secondOnUpdate = jest.fn() as jest.MockedFunction<OnApiUpdate>;
     await initAgentV2(secondOnUpdate);
     const secondRuntimeDependencies = mockRuntimeInstances[1].dependencies;
-    const secondDispatcherDependencies = mockDispatcherDependencies[1];
     firstOnUpdate.mockClear();
     secondOnUpdate.mockClear();
 
     firstRuntimeDependencies.onUpdate({ kind: 'userQuotaChanged' });
-    firstDispatcherDependencies.onPortfolioHistory?.({} as never);
     await firstDispatcherDependencies.getConsent();
     secondRuntimeDependencies.onUpdate({ kind: 'userQuotaChanged' });
-    secondDispatcherDependencies.onPortfolioHistory?.({} as never);
 
     expect(firstOnUpdate).not.toHaveBeenCalled();
     expect(firstRuntime.getConsent).toHaveBeenCalledTimes(1);
@@ -177,9 +188,7 @@ describe('Agent V2 service lifecycle', () => {
       type: 'agentV2',
       update: { kind: 'userQuotaChanged' },
     });
-    expect(secondOnUpdate).toHaveBeenNthCalledWith(2, {
-      type: 'agentV2PortfolioHistory',
-    });
+    expect(secondOnUpdate).toHaveBeenCalledTimes(1);
   });
 
   it('publishes a new runtime generation after every successful activation', async () => {
@@ -208,6 +217,7 @@ describe('Agent V2 service lifecycle', () => {
       throw new Error('Invalid Agent V2 update');
     }
     mockRuntimeInstances[0].updateHostContext.mockResolvedValueOnce(true);
+    mockRuntimeInstances[0].getRunLifecycleGeneration.mockReturnValueOnce(0).mockReturnValueOnce(1);
 
     await expect(updateAgentV2HostContext()).resolves.toEqual({
       ok: true,
@@ -222,7 +232,22 @@ describe('Agent V2 service lifecycle', () => {
 
     await expect(staleDelivery).resolves.toEqual({
       ok: false,
-      error: { code: 'network_error', retryable: true },
+      error: { code: 'internal_error', retryable: false },
+    });
+  });
+
+  it('preserves active runs when a wallet authority update leaves their lifecycle current', async () => {
+    const onUpdate = jest.fn() as jest.MockedFunction<OnApiUpdate>;
+    await initAgentV2(onUpdate);
+    const ready = onUpdate.mock.calls.at(-1)![0];
+    if (ready.type !== 'agentV2' || ready.update.kind !== 'runtimeReady') {
+      throw new Error('Invalid Agent V2 update');
+    }
+    mockRuntimeInstances[0].updateHostContext.mockResolvedValueOnce(true);
+
+    await expect(updateAgentV2HostContext()).resolves.toEqual({
+      ok: true,
+      value: { authorityChanged: true, generation: ready.update.generation, preservesActiveRuns: true },
     });
   });
 

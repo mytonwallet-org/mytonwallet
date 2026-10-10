@@ -11,7 +11,6 @@ import {
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../config';
 import { parseAccountId } from '../../../util/account';
-import { setBackendAgentProtocolVersion } from '../../../util/agent/agentProtocolVersion';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { buildCollectionByKey, omitUndefined, unique } from '../../../util/iteratees';
 import { openUrl } from '../../../util/openUrl';
@@ -413,11 +412,8 @@ addActionHandler('apiUpdate', (global, actions, update) => {
         isAppUpdateRequired,
         swapVersion,
         seasonalTheme,
-        agentProtocolVersion,
         allowedOnOffRampCurrencies,
       } = update;
-
-      setBackendAgentProtocolVersion(agentProtocolVersion);
 
       const normalizedRampCurrencies = normalizeAllowedOnOffRampCurrencies(allowedOnOffRampCurrencies);
       const previousRampCurrencies = global.restrictions.allowedOnOffRampCurrencies;

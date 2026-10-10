@@ -1,30 +1,66 @@
+@use "../../styles/mixins";
+
 .root {
+  // The gradient ends with its first color so the shimmer can loop over it
+  --activity-gradient: linear-gradient(90deg, #2C92F0 0%, #00BEFF 20%, #B656FF 50%, #00BEFF 80%, #2C92F0 100%);
+
   display: flex;
   flex-shrink: 0;
+  gap: 0.25rem;
   align-items: center;
   align-self: flex-start;
 
   max-width: 85%;
-  min-height: 1.5rem;
   margin-top: 0.625rem;
-  margin-inline-start: 0.5625rem;
+  margin-inline-start: 0.5rem;
+  padding-block: 0.4375rem;
+  padding-inline: 0.625rem 0.75rem;
 
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
   line-height: 1.25rem;
-  color: var(--color-gray-1);
+
+  // Appears after the question it answers has settled in place
+  animation: agent-activity-appear 200ms ease-out 250ms backwards;
+
+  :global(html.theme-dark) & {
+    --activity-gradient: linear-gradient(90deg, #469CEC 0%, #00BEFF 20%, #B656FF 50%, #00BEFF 80%, #469CEC 100%);
+  }
+
+  &:global(.closing) {
+    opacity: 0;
+  }
+
+  @include mixins.transition(opacity 200ms ease);
 }
 
-.indicator {
+// Inside the message the gap above comes from the message itself, and the spot is already in view
+.answerPlaceholder {
+  margin-top: 0;
+  animation: none;
+
+  // The arriving bubble takes the flow position, so the fading placeholder is lifted onto it
+  &:global(.closing) {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+  }
+}
+
+.icon,
+.text {
+  color: transparent;
+  background-image: var(--activity-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  @include mixins.gradient-shimmer(5s);
+}
+
+.icon {
   flex: 0 0 auto;
-
-  width: 0.4375rem;
-  height: 0.4375rem;
-  margin-inline-end: 0.5rem;
-  border-radius: 50%;
-
-  background: var(--color-accent);
-
-  animation: agent-activity-pulse 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .text {
@@ -34,12 +70,15 @@
   white-space: nowrap;
 }
 
-:global(html.animation-level-0) .indicator { animation: none; }
+:global(html.animation-level-0) .root { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .indicator { animation: none; }
+  .root { animation: none; }
 }
 
-@keyframes agent-activity-pulse {
-  50% { opacity: 0.35; }
+@keyframes agent-activity-appear {
+  from {
+    transform: translateY(2rem);
+    opacity: 0;
+  }
 }

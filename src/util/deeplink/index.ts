@@ -88,7 +88,7 @@ const EXPLORER_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Portfolio,
 ]);
 
-export const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
+const SETTINGS_SECTION_MAP: Record<string, SettingsState> = {
   appearance: SettingsState.Appearance,
   assets: SettingsState.Assets,
   language: SettingsState.Language,
@@ -110,6 +110,7 @@ const VIEW_MODE_ALLOWED_COMMANDS = new Set([
   DeeplinkCommand.Portfolio,
   DeeplinkCommand.Market,
   DeeplinkCommand.Agent,
+  DeeplinkCommand.Settings,
 ]);
 
 const OPEN_IN_NATIVE_DELAY_MS = 2000;

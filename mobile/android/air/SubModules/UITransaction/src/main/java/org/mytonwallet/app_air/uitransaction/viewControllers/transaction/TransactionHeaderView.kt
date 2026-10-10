@@ -36,7 +36,6 @@ import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
 import org.mytonwallet.app_air.uicomponents.widgets.sensitiveDataContainer.WSensitiveDataContainer
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.views.LabelAndIconView
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
@@ -49,6 +48,7 @@ import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionStatus
 import org.mytonwallet.app_air.walletcore.moshi.ApiTransactionType
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
@@ -69,9 +69,12 @@ class TransactionHeaderView(
     private val colorSpan = WForegroundColorSpan()
     private val isGramTransfer: Boolean
         get() = ApplicationContextHolder.isGramApp &&
-            (DEBUG_MODE || ApplicationContextHolder.isBetaApp) &&
             (transaction as? MApiTransaction.Transaction)?.let {
-                it.slug == TONCOIN_SLUG && it.type == null
+                it.slug == TONCOIN_SLUG &&
+                    it.type == null &&
+                    it.nft == null &&
+                    !it.isScam &&
+                    it.status != ApiTransactionStatus.FAILED
             } == true
 
     private val tokenIconView = IconView(context, 80.dp, chainSize = 26.dp)

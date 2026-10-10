@@ -18,6 +18,7 @@ import './api/settings';
 import './api/mfa';
 import './api/portfolio';
 import './apiUpdates/initial';
+import './apiUpdates/agentV2';
 import './apiUpdates/activities';
 import './apiUpdates/dapp';
 import './apiUpdates/walletConnectPay';

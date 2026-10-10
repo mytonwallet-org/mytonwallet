@@ -1,5 +1,6 @@
 import type { AgentStreamEventV2 } from './protocol/types';
 
+import { logDebug } from '../../util/logs';
 import { decodeAgentV2StreamFrame } from './protocol/transportContracts';
 
 const MAX_LINE_BYTES = 128 * 1024;
@@ -20,18 +21,32 @@ export class AgentV2StreamTransportError extends Error {
   }
 }
 
+// A journaled tool call that this client cannot run
+export interface AgentV2UnsupportedToolCall {
+  type: 'unsupported_tool_call';
+  protocolVersion: 3;
+  runId: string;
+  sequence: number;
+  toolCall: { id: string; name: string };
+}
+
+export type AgentV2StreamItem = AgentStreamEventV2 | AgentV2UnsupportedToolCall;
+
 export interface AgentV2StreamBinding {
   clientRunId: string;
   runId?: string;
   lastSequence: number;
   rawBySequence: Map<number, string>;
   rawBytes?: number;
+  incompleteMessageIds?: Set<string>;
+  ignoredTableIds?: Set<string>;
+  text?: { messageId: string; anchor: number; value: string; isSealed: boolean };
 }
 
 export async function* parseAgentV2Ndjson(
   body: ReadableStream<Uint8Array>,
   binding: AgentV2StreamBinding,
-): AsyncGenerator<AgentStreamEventV2> {
+): AsyncGenerator<AgentV2StreamItem> {
   const reader = body.getReader();
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let buffered = '';
@@ -97,7 +112,7 @@ export async function* parseAgentV2Ndjson(
 }
 
 interface AcceptedLine {
-  event: AgentStreamEventV2;
+  event: AgentV2StreamItem;
   commit: () => void;
 }
 
@@ -110,6 +125,29 @@ function acceptLine(line: string, binding: AgentV2StreamBinding): AcceptedLine |
   }
   const frame = decodeAgentV2StreamFrame(parsed);
   const envelope = frame.disposition === 'handle' ? frame.event : frame.envelope;
+  if (frame.disposition === 'handle' && frame.event.type === 'text_draft') {
+    const draft = frame.event;
+    if (draft.runId !== binding.runId) {
+      throw new AgentV2StreamProtocolError('Agent V2 draft run binding changed');
+    }
+    const text = binding.text;
+    if (!text || text.isSealed || text.messageId !== draft.messageId || text.anchor !== draft.sequence) {
+      return undefined;
+    }
+    return acceptText(draft, binding, () => undefined);
+  }
+  const isActivity = frame.disposition === 'handle' ? frame.event.type === 'run_activity'
+    : frame.disposition === 'ignore' && frame.wireType === 'run_activity';
+  if (isActivity && 'ephemeral' in envelope && envelope.ephemeral === true) {
+    if (!binding.runId || envelope.runId !== binding.runId) {
+      throw new AgentV2StreamProtocolError('Agent V2 activity run binding changed');
+    }
+    if (envelope.sequence > binding.lastSequence) {
+      throw new AgentV2StreamProtocolError('Agent V2 activity precedes its journal anchor', true);
+    }
+    if (envelope.sequence < binding.lastSequence || frame.disposition !== 'handle') return undefined;
+    return { event: frame.event, commit: () => undefined };
+  }
   const previous = binding.rawBySequence.get(envelope.sequence);
 
   if (envelope.sequence <= binding.lastSequence) {
@@ -136,14 +174,79 @@ function acceptLine(line: string, binding: AgentV2StreamBinding): AcceptedLine |
   }
 
   rememberRawLine(binding, envelope.sequence, line);
-  if (frame.disposition === 'ignore') {
+  if (frame.disposition === 'handle' && frame.event.type === 'message_start') {
+    binding.ignoredTableIds = undefined;
+  }
+  if (frame.disposition === 'handle' && frame.event.type === 'table_reference'
+    && binding.ignoredTableIds?.has(frame.event.reference.tableId)) {
     binding.lastSequence = envelope.sequence;
     return undefined;
   }
+  if (frame.disposition === 'ignore') {
+    if (frame.ignoredTableId) {
+      binding.ignoredTableIds ??= new Set();
+      binding.ignoredTableIds.add(frame.ignoredTableId);
+    }
+    if (frame.incompleteMessageId) {
+      binding.incompleteMessageIds ??= new Set();
+      binding.incompleteMessageIds.add(frame.incompleteMessageId);
+    }
+    logDebug('AgentV2 optional event', { operation: 'stream', category: 'ignored',
+      format: frame.wireType, boundary: frame.boundary });
+    binding.lastSequence = envelope.sequence;
+    return undefined;
+  }
+  if (frame.disposition === 'unsupportedTool') {
+    const { runId, sequence } = envelope;
+    return {
+      event: { type: 'unsupported_tool_call', protocolVersion: 3, runId, sequence, toolCall: frame.toolCall },
+      commit: () => {
+        binding.lastSequence = sequence;
+      },
+    };
+  }
+  const commit = () => {
+    binding.lastSequence = envelope.sequence;
+    if (frame.event.type === 'message_start') {
+      binding.text = { messageId: frame.event.messageId, anchor: envelope.sequence, value: '', isSealed: false };
+    } else if ((frame.event.type === 'message_content_end' || frame.event.type === 'message_end') && binding.text) {
+      binding.text.isSealed = true;
+    }
+  };
+  if (frame.event.type === 'text_delta' && frame.event.offset !== undefined) {
+    return acceptText(frame.event, binding, commit);
+  }
+  return { event: frame.event, commit };
+}
+
+function acceptText(
+  event: Extract<AgentStreamEventV2, { type: 'text_delta' | 'text_draft' }>,
+  binding: AgentV2StreamBinding,
+  commitSequence: () => void,
+): AcceptedLine | undefined {
+  const text = binding.text;
+  const offset = event.offset!;
+  if (!text || text.messageId !== event.messageId || offset > text.value.length) {
+    if (event.type === 'text_draft') return undefined;
+    throw new AgentV2StreamProtocolError('Agent V2 text contains an offset gap', true);
+  }
+  const overlap = Math.min(event.delta.length, text.value.length - offset);
+  if (text.value.slice(offset, offset + overlap) !== event.delta.slice(0, overlap)) {
+    throw new AgentV2StreamProtocolError('Agent V2 text contains conflicting overlap');
+  }
+  const delta = event.delta.slice(overlap);
+  if (text.value.length + delta.length > 200000) {
+    throw new AgentV2StreamProtocolError('Agent V2 text exceeds the message limit');
+  }
+  if (!delta) {
+    commitSequence();
+    return undefined;
+  }
   return {
-    event: frame.event,
+    event: { ...event, type: 'text_delta', offset: text.value.length, delta },
     commit: () => {
-      binding.lastSequence = envelope.sequence;
+      text.value += delta;
+      commitSequence();
     },
   };
 }

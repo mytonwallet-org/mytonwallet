@@ -1,6 +1,6 @@
 import type { ApiNetwork } from '../../../types';
 
-import { buildTokenSlug, getTokenBySlug, updateTokens } from '../../../common/tokens';
+import { buildTokenSlug, getTokenBySlug, updateTokens, waitForTokenSlugResolver } from '../../../common/tokens';
 import { fetchAssetsByAddresses } from '../wallet';
 
 export async function updateTokensMetadataByAddress(network: ApiNetwork, addresses: string[], signal?: AbortSignal) {
@@ -16,6 +16,10 @@ export async function updateTokensMetadataByAddress(network: ApiNetwork, address
 
   if (uncachedTokenAddresses.length) {
     const fetched = await fetchAssetsByAddresses(network, uncachedTokenAddresses, signal);
-    await updateTokens(fetched);
+    // The tokens fetched together may share a backend slug, so their slugs are assigned together, right before the
+    // cache gets them
+    const resolveTokenSlugs = await waitForTokenSlugResolver(signal);
+    const fetchedSlugs = resolveTokenSlugs(fetched.map((token) => ({ chain: 'solana', address: token.tokenAddress! })));
+    await updateTokens(fetched.map((token, i) => ({ ...token, slug: fetchedSlugs[i] })));
   }
 }

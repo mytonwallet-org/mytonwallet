@@ -92,6 +92,6 @@ function Harness({
   isAtBottomRef: React.RefObject<boolean>;
   scrollToBottom: NoneToVoidFunction;
 }) {
-  latestProgressHandler = useScrollToBottomOnReveal(isAtBottomRef, scrollToBottom);
+  latestProgressHandler = useScrollToBottomOnReveal(() => isAtBottomRef.current, scrollToBottom);
   return undefined;
 }

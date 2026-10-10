@@ -1,80 +1,82 @@
-import type { ApiActivity, ApiPortfolioHistoryResponse } from '../types';
+import type { ApiActivity } from '../types';
 import type {
-  AgentActionProposal,
+  AgentFeatureCapabilitiesResponseV2,
   AgentPersistedActionV2,
   AgentToolCall,
-  AgentWalletDataQueryArgsV5,
+  AgentV2LiveAction,
+  AgentWalletDataQueryArgs,
 } from './protocol/types';
-import type { AgentV2SendDraftStore, AgentV2StoredSendDraft } from './sendDraftStore';
 import type { AgentV2HostContextSnapshot } from './types';
-import type { AgentWalletScopeStore } from './walletScopeStore';
 import type { AgentV2WalletToolDispatcherDependencies } from './walletTools';
 
-import { getLogs } from '../../util/logs';
+import { getSupportedChains } from '../../util/chain';
 import contractManifest from './generated/manifest.json';
+import { hostUiCapabilities } from './testing/hostUiCapabilities';
+import { AgentV2ActionResolver } from './actionResolver';
 import { AgentV2WalletSession } from './walletSession';
 import { AgentV2WalletToolDispatcher } from './walletTools';
 
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const THREAD_ID = '22222222-2222-4222-8222-222222222222';
-const OTHER_THREAD_ID = '22222222-2222-4222-8222-222222222223';
 const MESSAGE_ID = '33333333-3333-4333-8333-333333333333';
 const TOOL_CALL_ID = '44444444-4444-4444-8444-444444444444';
-const OTHER_TOOL_CALL_ID = '44444444-4444-4444-8444-444444444445';
 const ACTION_ID = '55555555-5555-4555-8555-555555555555';
 const RESULT_ID = '66666666-6666-4666-8666-666666666666';
 const SECOND_RESULT_ID = '77777777-7777-4777-8777-777777777777';
-const DRAFT_ID = '99999999-9999-4999-8999-999999999999';
 const SEND_ACTION_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const NOW = '2026-08-10T12:00:00.000Z';
 const NOW_MS = Date.parse(NOW);
 const FULL_TRANSACTION_HASH = 'b'.repeat(64);
 const MAX_RESULT_BYTES = 98_304;
+const CHAIN_LISTS = [
+  { name: 'runtime catalog', chains: [...getSupportedChains()] },
+  { name: 'future networks', chains: ['ton', ...Array.from({ length: 64 }, (_, index) => `future-chain-${index}`)] },
+];
 
 interface SetupOptions extends Partial<Omit<AgentV2WalletToolDispatcherDependencies, 'session'>> {
   host?: AgentV2HostContextSnapshot;
 }
 
 interface QueryVariant {
-  args: AgentWalletDataQueryArgsV5;
+  args: AgentWalletDataQueryArgs;
   expected: Record<string, unknown>;
-  operation: AgentWalletDataQueryArgsV5['operation'];
+  operation: AgentWalletDataQueryArgs['operation'];
 }
 
-describe('AgentV2WalletToolDispatcher', () => {
-  it('advertises the live wallet query, Send preparation, and market quote tools', () => {
-    const { session } = setup();
+describe('AgentV2 wallet tools and actions', () => {
+  it('rejects wallet reads when the server filter catalog differs from the client build', async () => {
+    const { dispatcher, session } = setup();
+    session.updateFeatureCapabilities(featureCapabilities('0'.repeat(64)));
 
-    expect(session.buildContext().capabilities.supportedTools).toEqual([
-      {
-        name: 'wallet.data.query',
-        version: 5,
-        scopes: ['wallet.data.read'],
-        timeoutMs: 30_000,
-        maxResultBytes: MAX_RESULT_BYTES,
-      },
-      {
-        name: 'wallet.directory.query',
-        version: 1,
-        scopes: ['wallet.directory.read'],
-        timeoutMs: 30_000,
-        maxResultBytes: 32_768,
-      },
-      {
-        name: 'action.send.prepare',
-        version: 1,
-        scopes: ['action.send.prepare'],
-        timeoutMs: 15_000,
-        maxResultBytes: MAX_RESULT_BYTES,
-      },
-      {
-        name: 'market.asset.quote',
-        version: 1,
-        scopes: ['market.data.read'],
-        timeoutMs: 5_000,
-        maxResultBytes: 16_384,
-      },
-    ]);
+    await expect(dispatcher.execute(queryCall(session, positionsListArgs()), execution())).resolves.toMatchObject({
+      status: 'rejected', error: { code: 'capability_unsupported', retryable: false },
+    });
+  });
+
+  it('rejects a legacy frontend price call even when local prices are available', async () => {
+    const { dispatcher, session } = setup();
+    const call = { ...queryCall(session, positionsListArgs()), name: 'market.asset.quote', version: 1,
+      scopes: ['market.data.read'], timeoutMs: 15_000, maxResultBytes: 16_384,
+      arguments: { schemaVersion: 1, selector: { kind: 'asset', asset: {
+        slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9,
+      } }, quoteCurrency: 'USD' } } as unknown as AgentToolCall;
+    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
+      status: 'rejected', error: { code: 'tool_unsupported' },
+    });
+  });
+
+  it('rejects retired Send preparation calls', async () => {
+    const { dispatcher, session } = setup();
+    const call = {
+      ...queryCall(session, positionsListArgs()), name: 'action.send.prepare', version: 1,
+      scopes: ['action.send.prepare'],
+      arguments: { asset: { slug: 'toncoin', chain: 'ton' },
+        amount: { value: '1', valueType: 'decimal' },
+        recipient: { kind: 'address', chain: 'ton', address: 'EQ-user-recipient' } },
+    } as unknown as AgentToolCall;
+    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
+      status: 'rejected', error: { code: 'tool_unsupported' },
+    });
   });
 
   it('returns every non-deleted wallet through the purpose-bound directory tool', async () => {
@@ -108,7 +110,7 @@ describe('AgentV2WalletToolDispatcher', () => {
   it('rejects a wallet directory grant that is not bound to the current message', async () => {
     const { dispatcher, session } = setup();
     const call = directoryCall(session);
-    call.directoryGrant!.messageId = RUN_ID;
+    call.directoryGrant.messageId = RUN_ID;
 
     await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
       toolName: 'wallet.directory.query',
@@ -117,411 +119,28 @@ describe('AgentV2WalletToolDispatcher', () => {
     });
   });
 
-  it('resolves a market quote from the current local catalog without a backend market call', async () => {
-    const { dispatcher, session } = setup();
-
-    const response = await dispatcher.execute(quoteCall(session, 'TON'), execution());
-
-    expect(response).toMatchObject({
-      toolName: 'market.asset.quote',
-      status: 'success',
-      result: {
-        schemaVersion: 1,
-        freshness: { asOf: NOW, source: 'store', isStale: false },
-        redaction: { level: 'minimal', omittedFields: [], maxResultBytes: 16_384 },
-        result: {
-          schemaVersion: 1,
-          status: 'resolved',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-          price: '2.5',
-          quoteCurrency: 'USD',
-          percentChange24h: '-1.25',
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('returns a typed unavailable quote when the client cannot provide the exact currency', async () => {
-    const { dispatcher, session } = setup();
-    const call = quoteCall(session, 'TON');
-    if (!('quoteCurrency' in call.arguments)) throw new Error('Expected a currency quote call');
-    call.arguments.quoteCurrency = 'USDT';
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      toolName: 'market.asset.quote',
-      status: 'success',
-      result: {
-        result: {
-          schemaVersion: 1,
-          status: 'price_unavailable',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('resolves an asset cross-rate from two prices in the same local snapshot', async () => {
-    const host = hostContext();
-    host.assetCatalog![2].priceUsd = '1';
-    const { dispatcher, session } = setup({ host });
-    const call = quoteCall(session, 'TON');
-    call.arguments = {
-      schemaVersion: 1,
-      selector: { kind: 'asset', asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' } },
-      quoteAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT' },
-    };
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      toolName: 'market.asset.quote',
-      status: 'success',
-      result: {
-        result: {
-          schemaVersion: 1,
-          status: 'resolved',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-          price: '2.5',
-          quoteAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT' },
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('returns price_unavailable when either side of an asset cross-rate has no current price', async () => {
-    const { dispatcher, session } = setup();
-    const call = quoteCall(session, 'TON');
-    call.arguments = {
-      schemaVersion: 1,
-      selector: { kind: 'asset', asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' } },
-      quoteAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT' },
-    };
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      result: {
-        result: {
-          schemaVersion: 1,
-          status: 'price_unavailable',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('reads the exact current staking offer without position, balance, or action eligibility', async () => {
-    const host = hostContext();
-    host.accounts[0].accountType = 'viewOnly';
-    host.accounts[0].isViewOnly = true;
-    host.accounts[0].holdings[0].balance = '0';
-    const { dispatcher, session } = setup({ host });
-    enableStakingOffer(session);
-
-    const response = await dispatcher.execute(stakingOfferCall(session), execution());
-
-    expect(response).toMatchObject({
-      toolName: 'staking.offer.read',
-      status: 'success',
-      result: {
-        schemaVersion: 1,
-        freshness: { asOf: NOW, source: 'store', isStale: false },
-        redaction: { level: 'minimal', omittedFields: [], maxResultBytes: 16_384 },
-        result: {
-          schemaVersion: 1,
-          status: 'available',
-          productId: 'liquid',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-          annualYield: '14.09',
-          yieldType: 'APY',
-          depositAvailability: 'available',
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('lists the global staking catalog for a view-only wallet with zero balances', async () => {
-    const host = hostContext();
-    host.accounts[0].accountType = 'viewOnly';
-    host.accounts[0].isViewOnly = true;
-    host.accounts[0].holdings = [];
-    host.stakingOffers = [];
-    const assets = new Map([
-      ['toncoin', { slug: 'toncoin', chain: 'ton' as const, symbol: 'TON', decimals: 9 }],
-      ['ton-usde', { slug: 'ton-usde', chain: 'ton' as const, symbol: 'USDe', decimals: 6 }],
-    ]);
-    const { dispatcher, session } = setup({
-      host,
-      getTokenBySlug: (slug) => assets.get(slug),
-      getStakingCatalog: () => Promise.resolve({
-        hasPartialCoverage: false,
-        products: [
-          {
-            productId: 'liquid', tokenSlug: 'toncoin', annualYield: 4.5, yieldType: 'APY',
-            depositAvailability: 'available',
-          },
-          {
-            productId: 'ethena', tokenSlug: 'ton-usde', annualYield: 8, yieldType: 'APY',
-            depositAvailability: 'disabled', disabledReason: 'protocol_disabled',
-          },
-          {
-            productId: 'unknown', tokenSlug: 'missing', annualYield: 1, yieldType: 'APR',
-            depositAvailability: 'available',
-          },
-        ],
-      }),
-    });
-    enableStakingCatalog(session);
-
-    const response = await dispatcher.execute(stakingCatalogCall(session), execution());
-
-    expect(response).toMatchObject({
-      toolName: 'staking.offers.list',
-      status: 'success',
-      result: {
-        freshness: { source: 'network', isStale: false },
-        warnings: [{ code: 'partial_coverage' }],
-        result: {
-          status: 'resolved',
-          offers: [
-            { productId: 'liquid', asset: { slug: 'toncoin', symbol: 'TON' }, depositAvailability: 'available' },
-            {
-              productId: 'ethena', asset: { slug: 'ton-usde', symbol: 'USDe' },
-              depositAvailability: 'disabled', disabledReason: 'protocol_disabled',
-            },
-          ],
-        },
-      },
-    });
-  });
-
-  it('matches a minimal staking asset selector to the richer local offer identity', async () => {
-    const { dispatcher, session } = setup();
-    enableStakingOffer(session);
-    const call = stakingOfferCall(session);
-    call.arguments.asset = { slug: 'toncoin', chain: 'ton', symbol: 'TON' };
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: {
-        result: {
-          status: 'available',
-          asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', name: 'Toncoin', decimals: 9 },
-        },
-      },
-    });
-  });
-
-  it('reads the selected product from multiple locally advertised staking offers', async () => {
-    const host = hostContext();
-    const usde = {
-      slug: 'ton-eqaib6kmdf', chain: 'ton' as const, symbol: 'USDe', name: 'Ethena USDe',
-      tokenAddress: 'EQ-usde', decimals: 6,
-    };
-    host.assetCatalog!.push(usde);
-    host.stakingOffers!.push({
-      productId: 'ethena',
-      asset: usde,
-      annualYield: '8.25',
-      yieldType: 'APY',
-      availability: 'available',
-    });
-    const { dispatcher, session } = setup({ host });
-    enableStakingOffer(session);
-    const call = stakingOfferCall(session);
-    call.arguments = { schemaVersion: 1, productId: 'ethena', asset: usde };
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: { result: { status: 'available', productId: 'ethena', asset: usde, annualYield: '8.25' } },
-    });
-  });
-
-  it.each([
-    ['product_not_found', { productId: 'unknown-product' }],
-    ['asset_mismatch', { asset: { slug: 'usdton', chain: 'ton', symbol: 'USDT', decimals: 6 } }],
-  ] as const)('returns typed %s for an offer selector mismatch', async (reason, argumentsOverride) => {
-    const { dispatcher, session } = setup();
-    enableStakingOffer(session);
-    const call = stakingOfferCall(session);
-    call.arguments = { ...call.arguments, ...argumentsOverride };
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: { result: { status: 'unavailable', reason, readAt: NOW } },
-    });
-  });
-
-  it('reads the current yield but preserves disabled deposit availability', async () => {
-    const host = hostContext();
-    host.stakingOffers![0].availability = 'disabled';
-    const { dispatcher, session } = setup({ host });
-    enableStakingOffer(session);
-
-    await expect(dispatcher.execute(stakingOfferCall(session), execution())).resolves.toMatchObject({
-      status: 'success',
-      result: {
-        result: {
-          status: 'available',
-          productId: 'liquid',
-          annualYield: '14.09',
-          depositAvailability: 'disabled',
-          readAt: NOW,
-        },
-      },
-    });
-  });
-
-  it('reads the current staking policy after a background offer refresh', async () => {
-    const { dispatcher, host, session } = setup();
-    enableStakingOffer(session);
-    const call = stakingOfferCall(session);
-    session.update({
-      ...host,
-      stakingOffers: [{ ...host.stakingOffers![0], annualYield: '15' }],
-    });
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: { result: { status: 'available', annualYield: '15' } },
-    });
-  });
-
-  it.each(['classic', 'ios'] as const)(
-    'prepares and resolves a source-sided Swap through the exact tool/action binding on %s',
-    async (platform) => {
-      const host = swapHostContext();
-      host.platform = platform;
-      host.client = platform === 'classic' ? 'web' : 'native';
-      const { dispatcher, session } = setup({ host });
-      const call = swapPrepareCall(session, {
-        sourceQuery: 'TON',
-        destinationQuery: 'USDT',
-        destinationChain: 'ton',
-        amount: '10',
-        amountSide: 'source',
-      });
-
-      const response = await dispatcher.execute(call, execution());
-
-      expect(response).toMatchObject({
-        status: 'success',
-        toolName: 'action.swap.prepare',
-        result: {
-          freshness: { asOf: NOW, source: 'store', isStale: false },
-          redaction: { level: 'minimal', omittedFields: [], maxResultBytes: 16_384 },
-          result: {
-            schemaVersion: 1,
-            status: 'ready',
-            sourceAsset: { slug: 'toncoin', chain: 'ton', symbol: 'TON' },
-            destinationAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT' },
-            amount: { value: '10', valueType: 'decimal', side: 'source' },
-            quote: {
-              status: 'resolved',
-              kind: 'indicative_spot',
-              from: { value: '10', slug: 'toncoin' },
-              to: { value: '25', slug: 'usdton' },
-              observedAt: NOW,
-            },
-          },
-        },
-      });
-      if (response.status !== 'success' || response.toolName !== 'action.swap.prepare'
-        || response.result.result.status !== 'ready') throw new Error('Expected a prepared Swap');
-      const action = swapAction(session, call, response.result.result);
-      await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-
-      expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({
-        kind: 'openSwap',
-        tokenInSlug: 'toncoin',
-        tokenOutSlug: 'usdton',
-        amount: '10',
-        amountSide: 'source',
-      });
-      expect(dispatcher.resolveAction(OTHER_THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-    },
-  );
-
-  it('keeps Swap preparation actionable when a local price is unavailable', async () => {
-    const host = swapHostContext();
-    delete host.swapAssetCatalog![1].priceUsd;
-    const { dispatcher, session } = setup({ host });
-    const call = swapPrepareCall(session, {
-      sourceQuery: 'TON',
-      destinationQuery: 'USDT',
-      destinationChain: 'ton',
-      amount: '10',
-      amountSide: 'destination',
-    });
-
-    const response = await dispatcher.execute(call, execution());
-
-    expect(response).toMatchObject({
-      status: 'success',
-      result: { result: {
-        status: 'ready',
-        quote: { status: 'unavailable', reason: 'price_unavailable', observedAt: NOW },
-      } },
-    });
-    if (response.status !== 'success' || response.toolName !== 'action.swap.prepare'
-      || response.result.result.status !== 'ready') throw new Error('Expected a prepared Swap');
-    const action = swapAction(session, call, response.result.result);
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'openSwap', amount: '10', amountSide: 'destination',
-    });
-  });
-
-  it('returns bounded Swap ambiguity and same-asset outcomes without retaining an action', async () => {
-    const host = swapHostContext();
-    host.swapAssetCatalog!.push({
-      slug: 'trx-usdt', chain: 'tron', symbol: 'USDT', name: 'Tether USD', decimals: 6, priceUsd: '1',
-    });
-    const { dispatcher, session } = setup({ host });
-    const ambiguousCall = swapPrepareCall(session, {
-      sourceQuery: 'TON', destinationQuery: 'USDT', amount: '1', amountSide: 'source',
-    });
-    const sameAssetCall = swapPrepareCall(session, {
-      sourceQuery: 'TON', destinationQuery: 'TON', amount: '1', amountSide: 'source',
-    });
-
-    await expect(dispatcher.execute(ambiguousCall, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: { result: {
-        status: 'asset_ambiguous',
-        side: 'destination',
-        candidates: [
-          expect.objectContaining({ slug: 'usdton', chain: 'ton' }),
-          expect.objectContaining({ slug: 'trx-usdt', chain: 'tron' }),
-        ],
-        hasMore: false,
-      } },
-    });
-    await expect(dispatcher.execute(sameAssetCall, execution())).resolves.toMatchObject({
-      status: 'success',
-      result: { result: { status: 'same_asset', asset: { slug: 'toncoin', chain: 'ton' } } },
-    });
-  });
-
-  it('revalidates live and persisted Swap actions against current wallet authority', async () => {
+  it('rejects the retired client Swap preparation tool', async () => {
     const { dispatcher, session } = setup({ host: swapHostContext() });
-    const call = swapPrepareCall(session, {
-      sourceQuery: 'USDT',
-      sourceChain: 'ton',
-      destinationQuery: 'TON',
-      amount: '10',
-      amountSide: 'destination',
+    const call = {
+      ...directoryCall(session),
+      name: 'action.swap.prepare',
+      scopes: ['action.swap.prepare'],
+      arguments: { schemaVersion: 1 },
+    } as unknown as AgentToolCall;
+    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
+      status: 'rejected', error: { code: 'tool_unsupported' },
     });
-    const response = await dispatcher.execute(call, execution());
-    if (response.status !== 'success' || response.toolName !== 'action.swap.prepare'
-      || response.result.result.status !== 'ready') throw new Error('Expected a prepared Swap');
-    const action = swapAction(session, call, response.result.result);
-    const persisted = persistedSwapAction(action);
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
+  });
 
-    expect(dispatcher.resolvePersistedAction(THREAD_ID, MESSAGE_ID, persisted)).toMatchObject({
-      kind: 'openSwap', tokenInSlug: 'usdton', tokenOutSlug: 'toncoin', amountSide: 'destination',
+  it('revalidates live and persisted Swap actions against current wallet authority', () => {
+    const { actions, session } = setup({ host: swapHostContext() });
+    const action = swapAction(session);
+    const persisted = { ...persistedSwapAction(action), id: 'persisted-swap' };
+    actions.registerPersistedAction(THREAD_ID, MESSAGE_ID, persisted);
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toMatchObject({
+      kind: 'openSwap', url: action.url,
     });
     const host = session.snapshot().host!;
     const refreshedPrices = {
@@ -531,13 +150,12 @@ describe('AgentV2WalletToolDispatcher', () => {
     expect(session.update(refreshedPrices)).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: false,
     });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'openSwap', tokenInSlug: 'usdton', tokenOutSlug: 'toncoin', amountSide: 'destination',
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toMatchObject({
+      kind: 'openSwap', url: action.url,
     });
-    expect(dispatcher.resolvePersistedAction(THREAD_ID, MESSAGE_ID, persisted)).toMatchObject({
-      kind: 'openSwap', tokenInSlug: 'usdton', tokenOutSlug: 'toncoin', amountSide: 'destination',
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toMatchObject({
+      kind: 'openSwap', url: action.url,
     });
     const expandedCatalog = {
       ...refreshedPrices,
@@ -548,27 +166,76 @@ describe('AgentV2WalletToolDispatcher', () => {
     expect(session.update(expandedCatalog)).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: true,
     });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'openSwap', tokenInSlug: 'usdton', tokenOutSlug: 'toncoin', amountSide: 'destination',
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toMatchObject({
+      kind: 'openSwap', url: action.url,
     });
-    expect(dispatcher.resolvePersistedAction(THREAD_ID, MESSAGE_ID, persisted)).toMatchObject({
-      kind: 'openSwap', tokenInSlug: 'usdton', tokenOutSlug: 'toncoin', amountSide: 'destination',
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toMatchObject({
+      kind: 'openSwap', url: action.url,
     });
-    session.update({ ...expandedCatalog, swapAssetCatalog: expandedCatalog.swapAssetCatalog.slice(0, 1) });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-    expect(dispatcher.resolvePersistedAction(THREAD_ID, MESSAGE_ID, persisted)).toEqual({ kind: 'inactive' });
+    session.update({ ...expandedCatalog, swapAssetCatalog: [], assetCatalog: [] });
+    const openSwap = {
+      kind: 'openSwap',
+      url: action.url,
+      tokenInSlug: 'toncoin',
+      tokenOutSlug: 'usdton',
+      amount: '10',
+      amountSide: 'source',
+    };
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual(openSwap);
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toEqual(openSwap);
+    session.update({ ...expandedCatalog, isTestnet: true });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toEqual({ kind: 'inactive' });
   });
 
-  it.each(getQueryVariants())('executes the exact $operation V5 variant', async ({ args, expected, operation }) => {
+  it('keeps an unsupported exact-buy Swap inactive in live and restored history', () => {
+    const { actions, session } = setup({ host: swapHostContext() });
+    const action = {
+      ...swapAction(session),
+      destinationAsset: { slug: 'sol', chain: 'solana', symbol: 'SOL', decimals: 9 },
+      amount: { value: '1', valueType: 'decimal' as const, side: 'destination' as const },
+    };
+    const persisted = { ...persistedSwapAction(action), id: 'persisted-swap' };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    actions.registerPersistedAction(THREAD_ID, MESSAGE_ID, persisted);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toEqual({ kind: 'inactive' });
+
+    const supported = { ...action, destinationAsset: swapAction(session).destinationAsset };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, supported);
+    expect(actions.resolveAction(MESSAGE_ID, supported.id)).toMatchObject({
+      kind: 'openSwap', amount: '1', amountSide: 'destination',
+    });
+  });
+
+  it('opens a partial Swap in live and restored history', () => {
+    const host = swapHostContext();
+    const { actions, session } = setup({ host });
+    const action = {
+      ...swapAction(session),
+      sourceAsset: undefined,
+      destinationAsset: { slug: 'trx', chain: 'tron', symbol: 'TRX', decimals: 6 },
+      amount: undefined,
+      url: 'https://my.tt/swap?out=trx',
+    };
+    const persisted = { ...persistedSwapAction(action), id: 'persisted-partial-swap' };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    actions.registerPersistedAction(THREAD_ID, MESSAGE_ID, persisted);
+
+    const resolved = { kind: 'openSwap', url: action.url, tokenOutSlug: 'trx' };
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual(resolved);
+    expect(actions.resolveAction(MESSAGE_ID, persisted.id)).toEqual(resolved);
+  });
+
+  it.each(getQueryVariants())('executes the exact $operation variant', async ({ args, expected, operation }) => {
     const { dispatcher, session } = setup();
     const call = queryCall(session, args);
 
     const response = await dispatcher.execute(call, execution());
 
     expect(response).toMatchObject({
-      protocolVersion: 2,
+      protocolVersion: 3,
       runId: RUN_ID,
       threadId: THREAD_ID,
       toolCallId: TOOL_CALL_ID,
@@ -583,7 +250,6 @@ describe('AgentV2WalletToolDispatcher', () => {
           maxResultBytes: MAX_RESULT_BYTES,
         },
         result: {
-          schemaVersion: 5,
           operation,
           status: 'resolved',
           ...expected,
@@ -595,11 +261,103 @@ describe('AgentV2WalletToolDispatcher', () => {
     }
   });
 
+  it.each(CHAIN_LISTS)('queries the final $name chain within the byte budget', async ({ chains }) => {
+    const host = hostContext();
+    const lastChain = chains[chains.length - 1];
+    host.accounts[0].chains = [...chains];
+    host.accounts[0].addresses = Object.fromEntries(chains.map((chain) => [chain, `${chain}-public-address`]));
+    host.accounts[0].holdings = [{
+      asset: { slug: 'final-chain-asset', chain: lastChain, symbol: 'LAST', decimals: 9 },
+      balance: '5', availableBalance: '4', fiatValue: '10', valuationStatus: 'valued',
+    }];
+    const { dispatcher, session } = setup({ host });
+    const call = queryCall(session, { ...positionsListArgs(), chains: [...chains] });
+
+    const response = await dispatcher.execute(call, execution());
+
+    expect(response).toMatchObject({
+      status: 'success',
+      result: { result: {
+        operation: 'positions.list', status: 'resolved',
+        positions: [{ chain: lastChain, asset: { slug: 'final-chain-asset' }, quantity: '5' }],
+        coverage: { status: 'complete', accountsRequested: 1, accountsIncluded: 1, rowsOmitted: 0 },
+      } },
+    });
+    expect(serializedByteLength(response)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+  });
+
+  it.each(CHAIN_LISTS)('keeps the complete $name in directory and history tool results', async ({ chains }) => {
+    const host = hostContext();
+    const walletKeys = chains.map((chain) => `${chain}:${chain}-public-address`);
+    host.accounts[0].chains = [...chains];
+    host.accounts[0].portfolioWalletKeys = walletKeys;
+    const { dispatcher, session } = setup({ host });
+    const directory = directoryCall(session);
+
+    const directoryResponse = await dispatcher.execute(directory, execution());
+    expect(directoryResponse).toMatchObject({
+      status: 'success',
+      result: { result: {
+        status: 'complete',
+        accounts: [{ chains }, { chains: ['ton'] }],
+        coverage: { accountsRequested: 2, accountsIncluded: 2, rowsOmitted: 0 },
+      } },
+    });
+    expect(serializedByteLength(directoryResponse)).toBeLessThanOrEqual(directory.maxResultBytes);
+
+    const history = queryCall(session, {
+      operation: 'value.series', accountSelector: { kind: 'current' }, chains: [],
+      metric: 'portfolio_value', assetSelectors: [], range: '3m', maxPoints: 64,
+    });
+    const historyResponse = await dispatcher.execute(history, execution());
+    expect(historyResponse).toMatchObject({
+      status: 'success',
+      result: { result: {
+        operation: 'value.series', status: 'resolved',
+        historyAccounts: [{ wallets: walletKeys }],
+        coverage: { status: 'complete', accountsRequested: 1, accountsIncluded: 1, rowsOmitted: 0 },
+      } },
+    });
+    expect(serializedByteLength(historyResponse)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+
+    history.maxResultBytes = 512;
+    const rejectedHistory = await dispatcher.execute(history, execution());
+    expect(rejectedHistory).toMatchObject({
+      status: 'rejected', error: { code: 'result_too_large', retryable: false },
+    });
+    expect(rejectedHistory).not.toHaveProperty('result');
+  });
+
+  it('rejects a directory exceeding its byte budget without shortening chain lists', async () => {
+    const host = hostContext();
+    const chains = CHAIN_LISTS[1].chains;
+    host.accounts = Array.from({ length: 100 }, (_, index) => ({
+      ...host.accounts[0], accountId: `wallet-${index}`, label: `Wallet ${index}`, chains: [...chains],
+    }));
+    host.activeAccountId = host.accounts[0].accountId;
+    const { dispatcher, session } = setup({ host });
+    expect(session.buildContext().capabilities.features).toContain('walletDirectory');
+
+    const response = await dispatcher.execute(directoryCall(session), execution());
+
+    expect(response).toMatchObject({ status: 'rejected', error: { code: 'result_too_large', retryable: false } });
+    expect(response).not.toHaveProperty('result');
+    for (const account of session.buildWalletDirectory(NOW).accounts) {
+      expect(account.chains).toEqual(chains);
+    }
+  });
+
+  it('does not resolve token names on the client', async () => {
+    const { dispatcher, session } = setup();
+    await expect(dispatcher.execute(queryCall(session, assetsSearchArgs('TON')), execution()))
+      .resolves.toMatchObject({ status: 'rejected', error: { code: 'invalid_arguments' } });
+  });
+
   it('checks consent on every direct execution', async () => {
     let isConsentAccepted = true;
     const getConsent = jest.fn(() => Promise.resolve(isConsentAccepted));
     const { dispatcher, session } = setup({ getConsent });
-    const call = queryCall(session, assetsSearchArgs('TON'));
+    const call = queryCall(session, positionsListArgs());
 
     await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({ status: 'success' });
     isConsentAccepted = false;
@@ -616,7 +374,7 @@ describe('AgentV2WalletToolDispatcher', () => {
     const ids = [RESULT_ID, SECOND_RESULT_ID];
     const randomUuid = jest.fn(() => ids.shift()!);
     const { dispatcher, session } = setup({ randomUuid });
-    const call = queryCall(session, assetsSearchArgs('TON'));
+    const call = queryCall(session, positionsListArgs());
 
     const first = await dispatcher.execute(call, execution());
     const second = await dispatcher.execute(call, execution());
@@ -624,19 +382,6 @@ describe('AgentV2WalletToolDispatcher', () => {
     expect(first).toMatchObject({ status: 'success', clientToolResultId: RESULT_ID });
     expect(second).toMatchObject({ status: 'success', clientToolResultId: SECOND_RESULT_ID });
     expect(randomUuid).toHaveBeenCalledTimes(2);
-  });
-
-  it.each([1, 2, 3, 4])('rejects legacy wallet.data.query@%i', async (version) => {
-    const { dispatcher, session } = setup();
-    const call = {
-      ...queryCall(session, assetsSearchArgs('TON')),
-      version,
-    } as unknown as AgentToolCall;
-
-    await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({
-      status: 'rejected',
-      error: { code: 'tool_unsupported', retryable: false },
-    });
   });
 
   it.each([
@@ -649,7 +394,7 @@ describe('AgentV2WalletToolDispatcher', () => {
   ])('rejects the removed %s tool name', async (name) => {
     const { dispatcher, session } = setup();
     const call = {
-      ...queryCall(session, assetsSearchArgs('TON')),
+      ...queryCall(session, positionsListArgs()),
       name,
     } as unknown as AgentToolCall;
 
@@ -663,16 +408,15 @@ describe('AgentV2WalletToolDispatcher', () => {
     {},
     { schemaVersion: 4, operation: 'assets.search', query: 'TON', chains: [], pageSize: 10 },
     {
-      schemaVersion: 5,
       semanticFrame: { operation: 'transactions.list' },
       accountSelector: { kind: 'current' },
       reads: [],
     },
-  ])('rejects malformed or legacy V5 arguments before materialization', async (argumentsValue) => {
+  ])('rejects malformed or legacy arguments before materialization', async (argumentsValue) => {
     const fetchPastActivities = jest.fn(defaultFetchPastActivities);
     const { dispatcher, session } = setup({ fetchPastActivities });
     const call = {
-      ...queryCall(session, assetsSearchArgs('TON')),
+      ...queryCall(session, positionsListArgs()),
       arguments: argumentsValue,
     } as unknown as AgentToolCall;
 
@@ -698,12 +442,11 @@ describe('AgentV2WalletToolDispatcher', () => {
     expect(fetchPastActivities).not.toHaveBeenCalled();
   });
 
-  it('returns scope anchors in scope-required choices without declaring them redacted', async () => {
+  it('returns reason-only clarification for an ambiguous wallet name', async () => {
     const host = hostContext();
     host.accounts[1].label = 'Duplicate';
     host.accounts.push(secondaryAccount('account-three', 'Duplicate'));
-    const scopeStore = createScopeStore();
-    const { dispatcher, session } = setup({ host, scopeStore });
+    const { dispatcher, session } = setup({ host });
     const call = queryCall(session, {
       ...positionsListArgs(),
       accountSelector: { kind: 'named', label: 'Duplicate' },
@@ -715,485 +458,27 @@ describe('AgentV2WalletToolDispatcher', () => {
       status: 'success',
       toolName: 'wallet.data.query',
       result: {
-        redaction: { omittedFields: expect.not.arrayContaining(['scopeAnchor']) },
         result: {
-          schemaVersion: 5,
           operation: 'positions.list',
           status: 'scope_resolution_required',
           reason: 'ambiguous',
-          choices: [
-            expect.objectContaining({ label: 'Duplicate', scopeAnchor: expect.stringMatching(/^scope_/u) }),
-            expect.objectContaining({ label: 'Duplicate', scopeAnchor: expect.stringMatching(/^scope_/u) }),
-          ],
         },
       },
     });
     if (result.status !== 'success' || result.toolName !== 'wallet.data.query') {
       throw new Error('Expected a wallet query result');
     }
-    expect(result.result.redaction.omittedFields).not.toContain('scopeAnchor');
-    expect(scopeStore.issue).toHaveBeenCalledTimes(2);
   });
 
-  it('binds a spam action to the exact source call and asset ref after execution', async () => {
-    const { dispatcher, session } = setup();
-    const call = queryCall(session, {
-      ...positionsListArgs(),
-      riskMode: 'all',
-    });
-    const result = await dispatcher.execute(call, execution());
-    if (result.status !== 'success' || result.toolName !== 'wallet.data.query') {
-      throw new Error('Expected a wallet query result');
-    }
-    const queryResult = result.result.result;
-    if (queryResult.operation !== 'positions.list' || queryResult.status !== 'resolved') {
-      throw new Error('Expected resolved positions');
-    }
-    const assetRef = queryResult.positions.find(({ riskVerdict }) => riskVerdict === 'spam')?.assetRef;
-    if (!assetRef) throw new Error('Expected an opaque spam asset ref');
-    const snapshot = session.snapshot();
-    const action: Extract<AgentActionProposal, { kind: 'hideSpamAssets' }> = {
-      id: ACTION_ID,
-      kind: 'hideSpamAssets',
-      labelCode: 'hide_spam_assets',
-      sourceToolCallId: call.id,
-      assetRefs: [assetRef],
-      contextBinding: {
-        sessionId: snapshot.sessionId,
-        revision: snapshot.revision,
-        activeAccountRef: call.walletContextSession.activeAccountRef,
-      },
-      effect: 'hide_spam_assets',
-      localMutationRequired: true,
-      requiresConfirmation: false,
-    };
-    const wrongSource = { ...action, id: SEND_ACTION_ID, sourceToolCallId: OTHER_TOOL_CALL_ID };
-
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, wrongSource);
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, wrongSource)).toEqual({ kind: 'inactive' });
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({
-      kind: 'hideSpamAssets',
-      slugs: ['spam-token'],
-    });
-    expect(dispatcher.resolveAction(OTHER_THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, {
-      ...action,
-      assetRefs: ['asset_wrong'],
-    })).toEqual({ kind: 'inactive' });
-  });
-
-  it('prepares, presents, and resolves a Send only through the exact checked action binding', async () => {
-    const checker = jest.fn(() => Promise.resolve({
-      resolvedAddress: 'EQ-resolved-recipient',
-      isToAddressNew: true,
-    }));
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({
-      checkTransactionDraft: checker,
-      randomUuid: () => ids.shift()!,
-    });
-    const call = sendPrepareCall(session);
-    const context = execution();
-
-    const result = await dispatcher.execute(call, context);
-
-    expect(checker).toHaveBeenCalledWith('ton', {
-      accountId: 'account-main',
-      toAddress: 'EQ-user-recipient',
-      amount: 1_250_000_000n,
-      payload: { type: 'comment', text: 'hello', shouldEncrypt: false },
-    }, context.signal);
-    expect(JSON.stringify(result)).not.toContain('EQ-user-recipient');
-    expect(result).toMatchObject({
-      status: 'success',
-      toolName: 'action.send.prepare',
-      result: {
-        result: {
-          draftId: DRAFT_ID,
-          action: {
-            id: SEND_ACTION_ID,
-            kind: 'send',
-            sourceToolCallId: call.id,
-            requiresConfirmation: true,
-          },
-          summary: {
-            primaryAmount: { value: '1.25', symbol: 'TON' },
-            destination: { kind: 'external', disclosure: 'hidden' },
-            sendWarnings: [{ code: 'new_address', disposition: 'review' }],
-          },
-        },
-      },
-    });
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'send',
-      status: 'active',
-      amount: { value: '1.25', symbol: 'TON' },
-      recipient: { kind: 'external' },
-      warningCodes: ['new_address'],
-    });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({
-      kind: 'reviewSend',
-      draftId: DRAFT_ID,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'toncoin',
-        amountAtomic: '1250000000',
-        toAddress: 'EQ-resolved-recipient',
-        comment: 'hello',
-      },
-    });
-    expect(dispatcher.resolveAction(THREAD_ID, 'wrong-message', action)).toEqual({ kind: 'inactive' });
-
-    const host = session.snapshot().host!;
-    session.update({
-      ...host,
-      accounts: host.accounts.map((account, index) => (
-        index === 1 ? { ...account, label: 'Drifted Savings' } : account
-      )),
-    });
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'send',
-      status: 'active',
-    });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend',
-      draftId: DRAFT_ID,
-    });
-
-    session.update({
-      ...session.snapshot().host!,
-      activeAccountId: 'account-savings',
-    });
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-  });
-
-  it('scrubs an address-bearing active account label from Send output', async () => {
-    const host = hostContext();
-    const rawAddress = `0x${'12'.repeat(20)}`;
-    host.accounts[0].label = `Main ${rawAddress}`;
-    host.accounts[0].addresses.ethereum = rawAddress;
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({ host, randomUuid: () => ids.shift()! });
-    const call = sendPrepareCall(session);
-
-    const result = await dispatcher.execute(call, execution());
-
-    expect(JSON.stringify(result)).not.toContain(rawAddress);
-    expect(result).toMatchObject({
-      status: 'success',
-      toolName: 'action.send.prepare',
-      result: { result: { summary: { account: { label: 'Wallet' } } } },
-    });
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'send', accountLabel: 'Wallet',
-    });
-  });
-
-  it('retains prepared Send through profile updates and clears it after active sender changes', async () => {
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({ randomUuid: () => ids.shift()! });
-    const result = await dispatcher.execute(sendPrepareCall(session), execution());
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    const host = session.snapshot().host!;
-
-    session.update({
-      ...host,
-      accounts: host.accounts.map((account, index) => (
-        index === 1 ? { ...account, label: 'Renamed Savings' } : account
-      )),
-    });
-    dispatcher.clear(undefined, { shouldRetainRevalidatedActions: true });
-
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend', draftId: DRAFT_ID,
-    });
-
-    const currentHost = session.snapshot().host!;
-    session.update({
-      ...currentHost,
-      accounts: currentHost.accounts.map((account, index) => (
-        index === 0 ? { ...account, addresses: { ton: 'EQ-changed-sender' } } : account
-      )),
-    });
-    dispatcher.clear(undefined, { shouldRetainRevalidatedActions: true });
-
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-  });
-
-  it('restores only an unexpired Send draft with matching sender authority', async () => {
-    let now = NOW_MS;
-    const sendDraftStore = new MemorySendDraftStore();
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({
-      sendDraftStore,
-      now: () => now,
-      randomUuid: () => ids.shift()!,
-    });
-    const result = await dispatcher.execute(sendPrepareCall(session), execution());
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-
-    const restored = new AgentV2WalletToolDispatcher({
-      session,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    const storedDraft = await sendDraftStore.get(DRAFT_ID);
-    expect(storedDraft).toMatchObject({
-      threadId: THREAD_ID,
-      assistantMessageId: MESSAGE_ID,
-      actionId: action.id,
-      sourceToolCallId: action.sourceToolCallId,
-      expiresAt: Date.parse(action.draftExpiresAt),
-      authorityBinding: JSON.stringify({
-        accountId: 'account-main',
-        accountType: 'regular',
-        network: 'ton',
-        address: 'EQ-main-private-address',
-        chains: ['ton'],
-      }),
-    });
-    await restored.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(restored.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend', draftId: DRAFT_ID, chain: 'ton',
-    });
-
-    const reloadedSession = new AgentV2WalletSession();
-    await reloadedSession.reset();
-    reloadedSession.update(hostContext());
-    const restoredAfterRuntimeRestart = new AgentV2WalletToolDispatcher({
-      session: reloadedSession,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    await restoredAfterRuntimeRestart.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(restoredAfterRuntimeRestart.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend', draftId: DRAFT_ID, chain: 'ton',
-    });
-
-    const hostWithUpdatedSwapCatalog = {
-      ...session.snapshot().host!,
-      swapAssetCatalog: [{
-        slug: 'toncoin',
-        symbol: 'TON',
-        chain: 'ton' as const,
-        decimals: 9,
-      }],
-    };
-    session.update(hostWithUpdatedSwapCatalog);
-    const restoredAfterUnrelatedRevision = new AgentV2WalletToolDispatcher({
-      session,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    await restoredAfterUnrelatedRevision.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(restoredAfterUnrelatedRevision.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend', draftId: DRAFT_ID, chain: 'ton',
-    });
-
-    const host = session.snapshot().host!;
-    session.update({
-      ...host,
-      accounts: host.accounts.map((account, index) => (
-        index === 1 ? { ...account, label: 'Drifted Savings' } : account
-      )),
-    });
-    const drifted = new AgentV2WalletToolDispatcher({
-      session,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    await drifted.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(drifted.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'reviewSend', draftId: DRAFT_ID,
-    });
-
-    const profileUpdatedHost = session.snapshot().host!;
-    session.update({
-      ...profileUpdatedHost,
-      accounts: profileUpdatedHost.accounts.map((account, index) => (
-        index === 0 ? { ...account, addresses: { ton: 'EQ-changed-sender' } } : account
-      )),
-    });
-    const senderChanged = new AgentV2WalletToolDispatcher({
-      session,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    await senderChanged.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(senderChanged.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-
-    now = Date.parse(action.draftExpiresAt);
-    const expired = new AgentV2WalletToolDispatcher({
-      session,
-      sendDraftStore,
-      now: () => now,
-      getConsent: () => Promise.resolve(true),
-    });
-    await expired.hydrateAction(THREAD_ID, MESSAGE_ID, action);
-    expect(expired.resolvePersistedAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-  });
-
-  it('deletes a late persisted Send binding after wallet authority changes', async () => {
-    const sendDraftStore = new DelayedBindingSendDraftStore();
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({
-      sendDraftStore,
-      randomUuid: () => ids.shift()!,
-    });
-    const result = await dispatcher.execute(sendPrepareCall(session), execution());
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-
-    const registration = dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    await sendDraftStore.bindingStarted;
-    const host = session.snapshot().host!;
-    session.update({
-      ...host,
-      accounts: host.accounts.map((account, index) => (
-        index === 0 ? { ...account, addresses: { ton: 'EQ-changed-sender' } } : account
-      )),
-    });
-    sendDraftStore.finishBinding();
-    await registration;
-
-    await expect(sendDraftStore.get(DRAFT_ID)).resolves.toBeUndefined();
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({ kind: 'inactive' });
-  });
-
-  it('scrubs an identifier-shaped asset symbol from Send output', async () => {
-    const host = hostContext();
-    const sensitiveSymbol = 'A'.repeat(32);
-    host.accounts[0].holdings[0].asset.symbol = sensitiveSymbol;
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({ host, randomUuid: () => ids.shift()! });
-    const call = sendPrepareCall(session);
-
-    const result = await dispatcher.execute(call, execution());
-
-    expect(JSON.stringify(result)).not.toContain(sensitiveSymbol);
-    expect(result).toMatchObject({
-      status: 'success',
-      toolName: 'action.send.prepare',
-      result: { result: { summary: { primaryAmount: { symbol: 'Asset' } } } },
-    });
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'send', amount: { value: '1.25', symbol: 'Asset' },
-    });
-  });
-
-  it('scrubs an address-bearing saved contact label from Send output', async () => {
-    const host = hostContext();
-    const rawAddress = `0x${'34'.repeat(20)}`;
-    host.accounts[0].savedAddresses![0] = {
-      id: 'alice', name: `Alice ${rawAddress}`, chain: 'ton', address: rawAddress,
-    };
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({ host, randomUuid: () => ids.shift()! });
-    const addressRef = session.resolveSavedAddressRefs('account-main', 'alice')!.addressRef;
-    const call = sendPrepareCall(session);
-    call.arguments = {
-      ...call.arguments as import('./protocol/types').ActionSendPrepareArgs,
-      recipient: { kind: 'savedAddress', addressRef },
-    };
-    const context = execution();
-
-    const result = await dispatcher.execute(call, context);
-
-    expect(JSON.stringify(result)).not.toContain(rawAddress);
-    expect(result).toMatchObject({
-      status: 'success',
-      toolName: 'action.send.prepare',
-      result: {
-        result: {
-          summary: { destination: { kind: 'savedAddress', label: expect.stringMatching(/[·…]/u) } },
-        },
-      },
-    });
-    if (result.status !== 'success' || result.toolName !== 'action.send.prepare') {
-      throw new Error('Expected a prepared Send');
-    }
-    const { action } = result.result.result;
-    await dispatcher.registerAction(THREAD_ID, MESSAGE_ID, action);
-    expect(dispatcher.getActionPresentation(THREAD_ID, MESSAGE_ID, action)).toMatchObject({
-      kind: 'send', recipient: { kind: 'savedAddress', label: expect.stringMatching(/[·…]/u) },
-    });
-  });
-
-  it('prepares a Send to another own wallet through its opaque address reference', async () => {
-    const checker = jest.fn(() => Promise.resolve({ resolvedAddress: 'EQ-resolved-recipient' }));
-    const ids = [RESULT_ID, DRAFT_ID, SEND_ACTION_ID];
-    const { dispatcher, session } = setup({
-      checkTransactionDraft: checker,
-      randomUuid: () => ids.shift()!,
-    });
-    const addressRef = session.resolveWalletAddressRefs('account-savings', 'ton')!.addressRef;
-    const call = sendPrepareCall(session);
-    call.arguments = {
-      ...call.arguments as import('./protocol/types').ActionSendPrepareArgs,
-      recipient: { kind: 'savedAddress', addressRef },
-    };
-    const context = execution();
-
-    const result = await dispatcher.execute(call, context);
-
-    expect(checker).toHaveBeenCalledWith('ton', expect.objectContaining({
-      accountId: 'account-main',
-      toAddress: 'EQ-account-savings-private-address',
-    }), context.signal);
-    expect(JSON.stringify(result)).not.toContain('EQ-account-savings-private-address');
-    expect(result).toMatchObject({
-      status: 'success',
-      toolName: 'action.send.prepare',
-      result: {
-        result: {
-          summary: { destination: { kind: 'savedAddress', label: 'Savings' } },
-        },
-      },
-    });
-  });
-
-  it('resolves a live Send-form action through an opaque saved address reference', () => {
-    const { dispatcher, session } = setup();
+  it('resolves a saved-recipient Send form', () => {
+    const { actions, session } = setup({ host: hostContext() });
     const snapshot = session.snapshot();
     const addressRef = session.resolveWalletAddressRefs('account-savings', 'ton')!.addressRef;
-    const action: Extract<AgentActionProposal, { kind: 'send'; effect: 'open_send' }> = {
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
       id: SEND_ACTION_ID,
       kind: 'send',
       labelCode: 'open_send',
+      title: 'Review prepared action',
       effect: 'open_send',
       contextBinding: {
         sessionId: snapshot.sessionId,
@@ -1207,24 +492,190 @@ describe('AgentV2WalletToolDispatcher', () => {
       requiresConfirmation: false,
     };
 
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
       kind: 'sendForm',
-      tokenSlug: 'toncoin',
-      toAddress: 'EQ-account-savings-private-address',
+      url: 'mtw://send/ton:EQ-account-savings-private-address?token=toncoin',
     });
     expect(JSON.stringify(action)).not.toContain('EQ-account-savings-private-address');
+  });
+
+  it('asks the host for the most it can send only of a named asset', () => {
+    const { actions, session } = setup({ host: hostContext() });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: { sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton' },
+      asset: { slug: 'toncoin', chain: 'ton' },
+      isMaxAmount: true,
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:?token=toncoin', isMaxAmount: true,
+    });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, { ...action, asset: undefined });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+  });
+
+  it('opens a Send form with the recipient and comment when the wallet lacks the requested asset', () => {
+    const host = hostContext();
+    host.accounts[0].holdings = [];
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const addressRef = session.resolveWalletAddressRefs('account-savings', 'ton')!.addressRef;
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: { sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton' },
+      recipient: { kind: 'savedAddress', addressRef },
+      comment: 'Coffee',
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-account-savings-private-address?text=Coffee',
+    });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, { ...action, comment: undefined });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-account-savings-private-address',
+    });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, { ...action, recipient: undefined, comment: 'Coffee for mom+dad' });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:?text=Coffee%20for%20mom%2Bdad',
+    });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, {
+      ...action, recipient: { kind: 'savedAddress', addressRef: 'unknown-ref' },
+    });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+  });
+
+  it('opens an unfilled Send form without holdings', () => {
+    const host = hostContext();
+    host.accounts[0].holdings = [];
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: { sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton' },
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'sendForm', url: 'mtw://send' });
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({ status: 'active' });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, { ...action, amount: '3' });
+    expect(actions.resolveAction(MESSAGE_ID, action.id))
+      .toEqual({ kind: 'inactive' });
+    host.activeAccountId = 'account-savings';
+    session.update(host);
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'sendForm', url: 'mtw://send' });
+  });
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])('resolves Android Send forms with view-only=%s, asset=%s', (isViewOnly, hasAsset) => {
+    const host = hostContext();
+    host.platform = 'android';
+    host.uiCapabilities = hostUiCapabilities('android');
+    host.client = 'native';
+    host.accounts[0].isViewOnly = isViewOnly;
+    host.accounts[0].accountType = isViewOnly ? 'viewOnly' : 'regular';
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: {
+        sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton',
+      },
+      ...(hasAsset ? { asset: { slug: 'toncoin', chain: 'ton' } } : {}),
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    if (isViewOnly) {
+      expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+      expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    } else {
+      expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+        kind: 'sendForm', url: hasAsset ? 'mtw://send/ton:?token=toncoin' : 'mtw://send',
+      });
+      expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({ status: 'active' });
+    }
+  });
+
+  it('keeps Send inactive on a view-only wallet and opens it after a switch to one that can send', () => {
+    const host = hostContext();
+    host.accounts[0].isViewOnly = true;
+    host.accounts[0].accountType = 'viewOnly';
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: {
+        sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton',
+      },
+      asset: { slug: 'toncoin', chain: 'ton' }, amount: '5',
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+
+    host.activeAccountId = 'account-savings';
+    session.update(host);
+
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:?token=toncoin&amount=5000000000',
+    });
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({ status: 'active' });
+  });
+
+  it('opens Send using a contact saved in a different profile wallet', () => {
+    const host = hostContext();
+    host.accounts[1].savedAddresses = [{
+      id: 'secondary-recipient', name: 'Studio', chain: 'ton', address: 'EQ-studio-private-address',
+    }];
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const addressRef = session.resolveSavedAddressRefs(host.accounts[1].accountId, 'secondary-recipient')!.addressRef;
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: {
+        sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton',
+      },
+      asset: { slug: 'toncoin', chain: 'ton' }, recipient: { kind: 'savedAddress', addressRef },
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-studio-private-address?token=toncoin',
+    });
+    host.accounts[1].savedAddresses = [];
+    session.update(host);
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
   });
 
   it.each([
     [{ kind: 'address', chain: 'ton', address: 'EQ-user-authored-address' }, 'EQ-user-authored-address'],
     [{ kind: 'domain', chain: 'ton', domain: 'mother.ton' }, 'mother.ton'],
+    [{ kind: 'address', chain: 'ton', address: `0:${'ab'.repeat(32)}` }, `0:${'ab'.repeat(32)}`],
   ] as const)('resolves a live Send-form action with a direct recipient', (recipient, toAddress) => {
-    const { dispatcher, session } = setup();
+    const { actions, session } = setup();
     const snapshot = session.snapshot();
-    const action: Extract<AgentActionProposal, { kind: 'send'; effect: 'open_send' }> = {
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
       id: SEND_ACTION_ID,
       kind: 'send',
       labelCode: 'open_send',
+      title: 'Review prepared action',
       effect: 'open_send',
       contextBinding: {
         sessionId: snapshot.sessionId,
@@ -1238,34 +689,184 @@ describe('AgentV2WalletToolDispatcher', () => {
       requiresConfirmation: false,
     };
 
-    expect(dispatcher.resolveAction(THREAD_ID, MESSAGE_ID, action)).toEqual({
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
       kind: 'sendForm',
-      tokenSlug: 'toncoin',
-      toAddress,
+      url: `mtw://send/ton:${toAddress}?token=toncoin`,
     });
   });
 
-  it('rejects Send preparation when wallet authority drifts during the checker call', async () => {
+  it('resolves a zero-balance Send-form asset on another supported account chain without a recipient', () => {
     const host = hostContext();
-    const checker = jest.fn(() => {
-      host.accounts[1].label = 'Changed during check';
-      return Promise.resolve({ resolvedAddress: 'EQ-resolved-recipient' });
+    host.accounts[0].chains.push('ethereum');
+    host.accounts[0].addresses.ethereum = '0x-account-main-private-address';
+    host.accounts[0].holdings.push({
+      asset: { slug: 'ethereum', chain: 'ethereum', symbol: 'ETH', name: 'Ethereum', decimals: 18 },
+      balance: '0',
+      availableBalance: '0',
+      valuationStatus: 'unpriced',
     });
-    const { dispatcher, session } = setup({ host, checkTransactionDraft: checker });
-    const call = sendPrepareCall(session);
-    const before = session.snapshot();
-
-    const result = await dispatcher.execute(call, execution());
-    const after = session.snapshot();
-
-    expect(checker).toHaveBeenCalledTimes(1);
-    expect(after.sessionId).toBe(before.sessionId);
-    expect(after.revision).toBe(before.revision);
-    expect(result).toMatchObject({
-      status: 'rejected',
-      error: { code: 'wallet_context_changed', retryable: false },
+    host.assetCatalog!.push({
+      slug: 'ethereum', chain: 'ethereum', symbol: 'ETH', name: 'Ethereum', decimals: 18,
     });
-    expect(result).not.toHaveProperty('result');
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID,
+      kind: 'send',
+      labelCode: 'open_send',
+      title: 'Review prepared action',
+      effect: 'open_send',
+      contextBinding: {
+        sessionId: snapshot.sessionId,
+        revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!,
+        activeNetwork: 'ton',
+      },
+      asset: { slug: 'ethereum', chain: 'ethereum' },
+      localDraftRequired: false,
+      requiresConfirmation: false,
+    };
+
+    action.amount = '7.25';
+    action.comment = 'Invoice & delivery';
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm',
+      url: 'mtw://send/ethereum:?token=ethereum&amount=7250000000000000000&text=Invoice%20%26%20delivery',
+    });
+  });
+
+  it('resolves a cross-network Send-form action from the selected asset', () => {
+    const host = hostContext();
+    const ethereumAsset = {
+      slug: 'ethereum', chain: 'ethereum' as const, symbol: 'ETH', name: 'Ethereum', decimals: 18,
+    };
+    host.assetCatalog!.push(ethereumAsset);
+    host.accounts[0].chains.push('ethereum');
+    host.accounts[0].addresses.ethereum = '0x1234567890123456789012345678901234567890';
+    host.accounts[0].holdings.push({
+      asset: ethereumAsset,
+      balance: '0',
+      availableBalance: '0',
+      valuationStatus: 'unpriced',
+    });
+    const { actions, session } = setup({ host });
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID,
+      kind: 'send',
+      labelCode: 'open_send',
+      title: 'Review prepared action',
+      effect: 'open_send',
+      contextBinding: {
+        sessionId: snapshot.sessionId,
+        revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!,
+        activeNetwork: 'tron',
+      },
+      asset: { slug: 'ethereum', chain: 'ethereum' },
+      recipient: {
+        kind: 'address',
+        chain: 'ethereum',
+        address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+      },
+      localDraftRequired: false,
+      requiresConfirmation: false,
+    };
+
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({
+      kind: 'send',
+      status: 'active',
+      network: 'ethereum',
+    });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm',
+      url: 'mtw://send/ethereum:0xabcdefabcdefabcdefabcdefabcdefabcdefabcd?token=ethereum',
+    });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, {
+      ...action,
+      recipient: { kind: 'address', chain: 'ton', address: 'EQ-user-recipient' },
+    });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, {
+      ...action,
+      asset: { slug: 'unknown-ethereum-token', chain: 'ethereum' },
+    });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+  });
+
+  it('opens Send for an asset whether or not the host has loaded the balances that hold it', async () => {
+    const host = hostContext();
+    host.accounts[0].holdings = [];
+    host.accounts[0].domainStates = { ...freshDomainStates(), fungible: { state: 'notLoaded' } };
+    const refreshWalletHoldings = jest.fn().mockResolvedValue(new Map([['account-main', {
+      byChain: { ton: { toncoin: 0n } }, failedChains: [],
+    }]]));
+    const { actions, dispatcher, session } = setup({ host, refreshWalletHoldings });
+    const result = await dispatcher.execute(queryCall(session, {
+      ...positionsListArgs(), chains: ['ton'], positionKinds: ['fungible'],
+      riskMode: 'all', visibilityMode: 'all', includeZero: true,
+    }), execution());
+    if (result.status !== 'success' || result.toolName !== 'wallet.data.query'
+      || result.result.result.operation !== 'positions.list' || result.result.result.status !== 'resolved') {
+      throw new Error('Expected resolved positions');
+    }
+    const found = result.result.result.positions.find(({ asset }) => asset?.slug === 'toncoin')?.asset;
+    expect(refreshWalletHoldings).toHaveBeenCalledTimes(1);
+    expect(found).toMatchObject({ slug: 'toncoin', chain: 'ton' });
+
+    const snapshot = session.snapshot();
+    const action: Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> = {
+      id: SEND_ACTION_ID, kind: 'send', labelCode: 'open_send', title: 'Open Send', effect: 'open_send',
+      contextBinding: { sessionId: snapshot.sessionId, revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('account-main')!, activeNetwork: 'ton' },
+      asset: { slug: found!.slug, chain: found!.chain },
+      recipient: {
+        kind: 'savedAddress', addressRef: session.resolveSavedAddressRefs('account-main', 'alice')!.addressRef,
+      },
+      localDraftRequired: false, requiresConfirmation: false,
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, action);
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({
+      kind: 'send', status: 'active', network: 'ton', recipient: { kind: 'savedAddress', label: 'Alice' },
+    });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-alice-private-address?token=toncoin',
+    });
+
+    const usdtAction = {
+      ...action, id: ACTION_ID, asset: { slug: 'usdton', chain: 'ton' as const }, amount: '1.5',
+    };
+    actions.registerAction(THREAD_ID, MESSAGE_ID, usdtAction);
+    expect(actions.getActionPresentation(MESSAGE_ID, usdtAction.id)).toMatchObject({
+      status: 'active', amount: { value: '1.5', symbol: 'USDT' },
+    });
+    for (const amount of [undefined, '5']) {
+      actions.registerAction(THREAD_ID, MESSAGE_ID, {
+        ...usdtAction, asset: { ...usdtAction.asset, tokenAddress: 'EQ-other-jetton' }, amount,
+      });
+      expect(actions.getActionPresentation(MESSAGE_ID, usdtAction.id)).toEqual({ kind: 'inactive' });
+    }
+    actions.registerAction(THREAD_ID, MESSAGE_ID, usdtAction);
+
+    session.update({ ...host, accounts: [{
+      ...host.accounts[0],
+      holdings: hostContext().accounts[0].holdings,
+      nftLoadedChains: [...getSupportedChains()],
+      domainStates: freshDomainStates(),
+    }, host.accounts[1]] });
+    expect(session.snapshot().revision).toBe(snapshot.revision);
+    expect(actions.getActionPresentation(MESSAGE_ID, action.id)).toMatchObject({ status: 'active' });
+    actions.registerAction(THREAD_ID, MESSAGE_ID, { ...action, amount: '2' });
+    expect(actions.resolveAction(MESSAGE_ID, action.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-alice-private-address?token=toncoin&amount=2000000000',
+    });
+    expect(actions.resolveAction(MESSAGE_ID, usdtAction.id)).toEqual({
+      kind: 'sendForm', url: 'mtw://send/ton:EQ-alice-private-address?token=usdton&amount=1500000',
+    });
   });
 
   it('fits a large query response to the exact 98,304-byte contract budget', async () => {
@@ -1311,41 +912,14 @@ describe('AgentV2WalletToolDispatcher', () => {
     expect(JSON.stringify(result)).not.toContain('EQ-main-private-address');
   });
 
-  it('logs only safe metadata when a provider throws', async () => {
-    const secret = 'provider-secret-EQ-private-wallet-address';
-    const initialLogCount = getLogs().length;
+  it('returns a contract-valid tool failure when a history source throws an unexpected error', async () => {
     const { dispatcher, session } = setup({
-      checkTransactionDraft: () => Promise.reject(new Error(secret)),
+      fetchPastActivities: () => Promise.reject(new Error('Source unavailable')),
     });
-    const call = sendPrepareCall(session);
 
-    const result = await dispatcher.execute(call, execution());
-    const newLogs = getLogs().slice(initialLogCount);
-
-    expect(result).toMatchObject({
+    await expect(dispatcher.execute(queryCall(session, transactionsListArgs()), execution())).resolves.toMatchObject({
       status: 'error',
       error: { code: 'tool_failed', retryable: true },
-    });
-    expect(JSON.stringify(result)).not.toContain(secret);
-    expect(newLogs).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        message: 'AgentV2 wallet tool execution',
-        args: [expect.stringContaining('"stage":"failed"')],
-      }),
-    ]));
-    expect(JSON.stringify(newLogs)).not.toContain(secret);
-  });
-
-  it('classifies send-preparation transport failures as retryable', async () => {
-    const { dispatcher, session } = setup({
-      checkTransactionDraft: () => Promise.reject(new TypeError('fetch failed')),
-    });
-
-    const result = await dispatcher.execute(sendPrepareCall(session), execution());
-
-    expect(result).toMatchObject({
-      status: 'error',
-      error: { code: 'offline_prepare_unavailable', retryable: true },
     });
   });
 
@@ -1388,53 +962,36 @@ describe('AgentV2WalletToolDispatcher', () => {
     await expect(dispatcher.execute(call, execution())).resolves.toMatchObject({ status: 'success' });
     expect(fetchPastActivities).toHaveBeenCalledTimes(2);
   });
-
-  it('bounds all wallet-tool retained records under one 128-entry quota', () => {
-    const { dispatcher } = setup();
-    const retainedState = (dispatcher as unknown as {
-      retainedState: { set: (namespace: string, key: string, value: unknown) => number; size: number };
-    }).retainedState;
-
-    for (let index = 0; index < 129; index++) {
-      retainedState.set(index % 2 ? 'spamSnapshot' : 'spamAction', String(index), { index });
-    }
-
-    expect(retainedState.size).toBe(128);
-  });
 });
 
 function setup(options: SetupOptions = {}) {
   const session = new AgentV2WalletSession();
   const host = options.host ?? hostContext();
   session.update(host);
-  enableWalletQuery(session);
+  session.updateFeatureCapabilities(featureCapabilities());
   const dispatcher = new AgentV2WalletToolDispatcher({
     session,
     getConsent: options.getConsent ?? (() => Promise.resolve(true)),
     randomUuid: options.randomUuid ?? (() => RESULT_ID),
     now: options.now ?? (() => NOW_MS),
-    checkTransactionDraft: options.checkTransactionDraft ?? defaultCheckTransactionDraft,
-    fetchPortfolioHistory: options.fetchPortfolioHistory ?? defaultFetchPortfolioHistory,
-    onPortfolioHistory: options.onPortfolioHistory,
     fetchPastActivities: options.fetchPastActivities ?? defaultFetchPastActivities,
     fetchActivityDetails: options.fetchActivityDetails ?? defaultFetchActivityDetails,
     getTokenBySlug: options.getTokenBySlug,
-    getStakingCatalog: options.getStakingCatalog,
     refreshWalletHoldings: options.refreshWalletHoldings,
-    scopeStore: options.scopeStore ?? createScopeStore(),
-    sendDraftStore: options.sendDraftStore,
   });
-  return { dispatcher, host, session };
+  const actions = new AgentV2ActionResolver(session, options.now ?? (() => NOW_MS));
+  return { actions, dispatcher, host, session };
 }
 
-function directoryCall(session: AgentV2WalletSession): AgentToolCall {
+function directoryCall(
+  session: AgentV2WalletSession,
+): Extract<AgentToolCall, { name: 'wallet.directory.query' }> {
   const snapshot = session.snapshot();
   const active = snapshot.host!.accounts.find(({ accountId }) => accountId === snapshot.host!.activeAccountId)!;
   const activeAccountRef = snapshot.accountRefs.get(active.accountId)!;
   return {
     id: TOOL_CALL_ID,
     name: 'wallet.directory.query',
-    version: 1,
     arguments: { schemaVersion: 1, purpose: 'send_wallet_resolution' },
     scopes: ['wallet.directory.read'],
     timeoutMs: 30_000,
@@ -1456,30 +1013,21 @@ function directoryCall(session: AgentV2WalletSession): AgentToolCall {
   };
 }
 
-function enableWalletQuery(session: AgentV2WalletSession) {
-  session.updateFeatureCapabilities('available', 'available');
-  session.updateWalletQueryCapabilities({
-    status: 'available',
-    supportedToolVersions: [5],
-    filterCatalog: {
-      version: 1,
-      digest: contractManifest.walletFilterCatalogSha256,
-      requiresClientTimeZone: true,
+function featureCapabilities(
+  digest = contractManifest.walletFilterCatalogSha256,
+): AgentFeatureCapabilitiesResponseV2 {
+  return {
+    protocolVersion: 3,
+    walletQuery: {
+      status: 'available',
+      filterCatalog: { version: 1, digest, requiresClientTimeZone: true },
     },
-  });
-}
-
-function enableStakingOffer(session: AgentV2WalletSession) {
-  session.updateFeatureCapabilities('available', 'available', 'available');
-}
-
-function enableStakingCatalog(session: AgentV2WalletSession) {
-  session.updateFeatureCapabilities('available', 'available', undefined, 'available');
+    problemReport: { status: 'available' },
+  };
 }
 
 function execution(threadId = THREAD_ID) {
   return {
-    deviceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     messageId: MESSAGE_ID,
     runId: RUN_ID,
     threadId,
@@ -1487,54 +1035,9 @@ function execution(threadId = THREAD_ID) {
   };
 }
 
-class MemorySendDraftStore implements AgentV2SendDraftStore {
-  protected readonly drafts = new Map<string, AgentV2StoredSendDraft>();
-
-  clear() {
-    this.drafts.clear();
-    return Promise.resolve();
-  }
-
-  delete(draftId: string) {
-    this.drafts.delete(draftId);
-    return Promise.resolve();
-  }
-
-  get(draftId: string) {
-    return Promise.resolve(this.drafts.get(draftId));
-  }
-
-  put(draft: AgentV2StoredSendDraft) {
-    this.drafts.set(draft.draftId, JSON.parse(JSON.stringify(draft)) as AgentV2StoredSendDraft);
-    return Promise.resolve();
-  }
-}
-
-class DelayedBindingSendDraftStore extends MemorySendDraftStore {
-  private resolveBinding!: () => void;
-  private markBindingStarted!: () => void;
-  readonly bindingStarted = new Promise<void>((resolve) => {
-    this.markBindingStarted = resolve;
-  });
-
-  private readonly bindingPending = new Promise<void>((resolve) => {
-    this.resolveBinding = resolve;
-  });
-
-  override put(draft: AgentV2StoredSendDraft) {
-    if (!draft.assistantMessageId) return super.put(draft);
-    this.markBindingStarted();
-    return this.bindingPending.then(() => super.put(draft));
-  }
-
-  finishBinding() {
-    this.resolveBinding();
-  }
-}
-
 function queryCall(
   session: AgentV2WalletSession,
-  args: AgentWalletDataQueryArgsV5,
+  args: AgentWalletDataQueryArgs,
 ): Extract<AgentToolCall, { name: 'wallet.data.query' }> {
   const snapshot = session.snapshot();
   const activeAccount = snapshot.host!.accounts.find(({ accountId }) => (
@@ -1544,7 +1047,6 @@ function queryCall(
   return {
     id: TOOL_CALL_ID,
     name: 'wallet.data.query',
-    version: 5,
     arguments: args,
     scopes: ['wallet.data.read'],
     timeoutMs: 30_000,
@@ -1568,203 +1070,42 @@ function queryCall(
   };
 }
 
-function sendPrepareCall(session: AgentV2WalletSession): AgentToolCall {
-  const snapshot = session.snapshot();
-  const activeAccount = snapshot.host!.accounts.find(({ accountId }) => (
-    accountId === snapshot.host!.activeAccountId
-  ))!;
-  return {
-    id: TOOL_CALL_ID,
-    name: 'action.send.prepare',
-    version: 1,
-    arguments: {
-      asset: { slug: 'toncoin', chain: 'ton' },
-      amount: { value: '1.25', valueType: 'decimal' },
-      recipient: { kind: 'address', chain: 'ton', address: 'EQ-user-recipient' },
-      comment: 'hello',
-    },
-    scopes: ['action.send.prepare'],
-    timeoutMs: 15_000,
-    maxResultBytes: MAX_RESULT_BYTES,
-    walletContextSession: {
-      sessionId: snapshot.sessionId,
-      revision: snapshot.revision,
-      accountScope: 'current',
-      activeAccountRef: snapshot.accountRefs.get(activeAccount.accountId)!,
-      activeNetwork: snapshot.host!.activeNetwork,
-    },
-    intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
-  };
-}
-
-function quoteCall(
-  session: AgentV2WalletSession,
-  query: string,
-): Extract<AgentToolCall, { name: 'market.asset.quote' }> {
-  const snapshot = session.snapshot();
-  const activeAccount = snapshot.host!.accounts.find(({ accountId }) => (
-    accountId === snapshot.host!.activeAccountId
-  ))!;
-  return {
-    id: TOOL_CALL_ID,
-    name: 'market.asset.quote',
-    version: 1,
-    arguments: {
-      schemaVersion: 1,
-      quoteCurrency: snapshot.host!.baseCurrency,
-      selector: { kind: 'query', query },
-    },
-    scopes: ['market.data.read'],
-    timeoutMs: 5_000,
-    maxResultBytes: 16_384,
-    walletContextSession: {
-      sessionId: snapshot.sessionId,
-      revision: snapshot.revision,
-      accountScope: 'current',
-      activeAccountRef: snapshot.accountRefs.get(activeAccount.accountId)!,
-      activeNetwork: snapshot.host!.activeNetwork,
-    },
-    intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
-  };
-}
-
-function stakingOfferCall(
-  session: AgentV2WalletSession,
-): Extract<AgentToolCall, { name: 'staking.offer.read' }> {
-  const snapshot = session.snapshot();
-  const host = snapshot.host!;
-  const activeAccount = host.accounts.find(({ accountId }) => accountId === host.activeAccountId)!;
-  const offer = host.stakingOffers![0];
-  return {
-    id: TOOL_CALL_ID,
-    name: 'staking.offer.read',
-    version: 1,
-    arguments: {
-      schemaVersion: 1,
-      productId: offer.productId,
-      asset: offer.asset,
-    },
-    scopes: ['staking.data.read'],
-    timeoutMs: 15_000,
-    maxResultBytes: 16_384,
-    walletContextSession: {
-      sessionId: snapshot.sessionId,
-      revision: snapshot.revision,
-      accountScope: 'current',
-      activeAccountRef: snapshot.accountRefs.get(activeAccount.accountId)!,
-      activeNetwork: host.activeNetwork,
-    },
-    intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
-  };
-}
-
-function stakingCatalogCall(
-  session: AgentV2WalletSession,
-): Extract<AgentToolCall, { name: 'staking.offers.list' }> {
-  const snapshot = session.snapshot();
-  const host = snapshot.host!;
-  const activeAccount = host.accounts.find(({ accountId }) => accountId === host.activeAccountId)!;
-  return {
-    id: TOOL_CALL_ID,
-    name: 'staking.offers.list',
-    version: 1,
-    arguments: { schemaVersion: 1 },
-    scopes: ['staking.data.read'],
-    timeoutMs: 15_000,
-    maxResultBytes: 16_384,
-    walletContextSession: {
-      sessionId: snapshot.sessionId,
-      revision: snapshot.revision,
-      accountScope: 'current',
-      activeAccountRef: snapshot.accountRefs.get(activeAccount.accountId)!,
-      activeNetwork: host.activeNetwork,
-    },
-    intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
-  };
-}
-
-interface SwapCallOptions {
-  sourceQuery: string;
-  sourceChain?: 'ton' | 'tron' | 'ethereum' | 'solana';
-  destinationQuery: string;
-  destinationChain?: 'ton' | 'tron' | 'ethereum' | 'solana';
-  amount: string;
-  amountSide: 'source' | 'destination';
-}
-
-function swapPrepareCall(
-  session: AgentV2WalletSession,
-  options: SwapCallOptions,
-): Extract<AgentToolCall, { name: 'action.swap.prepare' }> {
-  const snapshot = session.snapshot();
-  const activeAccount = snapshot.host!.accounts.find(({ accountId }) => (
-    accountId === snapshot.host!.activeAccountId
-  ))!;
-  return {
-    id: TOOL_CALL_ID,
-    name: 'action.swap.prepare',
-    version: 1,
-    arguments: {
-      schemaVersion: 1,
-      sourceSelector: {
-        kind: 'query', query: options.sourceQuery,
-        ...(options.sourceChain ? { chain: options.sourceChain } : {}),
-      },
-      destinationSelector: {
-        kind: 'query', query: options.destinationQuery,
-        ...(options.destinationChain ? { chain: options.destinationChain } : {}),
-      },
-      amount: { value: options.amount, valueType: 'decimal', side: options.amountSide },
-    },
-    scopes: ['action.swap.prepare'],
-    timeoutMs: 15_000,
-    maxResultBytes: 16_384,
-    walletContextSession: {
-      sessionId: snapshot.sessionId,
-      revision: snapshot.revision,
-      accountScope: 'current',
-      activeAccountRef: snapshot.accountRefs.get(activeAccount.accountId)!,
-      activeNetwork: snapshot.host!.activeNetwork,
-    },
-    intentSource: { kind: 'userMessage', messageId: MESSAGE_ID },
-  };
-}
-
 function swapAction(
   session: AgentV2WalletSession,
-  call: Extract<AgentToolCall, { name: 'action.swap.prepare' }>,
-  result: Extract<import('./protocol/types').ActionSwapPrepareResultV1, { status: 'ready' }>,
-): Extract<AgentActionProposal, { kind: 'swap' }> {
+): Extract<AgentV2LiveAction, { kind: 'swap' }> {
   const snapshot = session.snapshot();
   return {
     id: ACTION_ID,
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: 'swap',
     labelCode: 'open_swap',
+    title: 'Review prepared action',
     effect: 'open_swap',
-    sourceToolCallId: call.id,
+    url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
     contextBinding: {
       sessionId: snapshot.sessionId,
       revision: snapshot.revision,
-      activeAccountRef: call.walletContextSession.activeAccountRef,
+      activeAccountRef: snapshot.accountRefs.get(snapshot.host!.activeAccountId!)!,
     },
-    sourceAsset: result.sourceAsset,
-    destinationAsset: result.destinationAsset,
-    amount: result.amount,
+    sourceAsset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
+    destinationAsset: { slug: 'usdton', chain: 'ton', symbol: 'USDT', decimals: 6 },
+    amount: { value: '10', valueType: 'decimal', side: 'source' },
     localDraftRequired: false,
     requiresConfirmation: false,
   };
 }
 
 function persistedSwapAction(
-  action: Extract<AgentActionProposal, { kind: 'swap' }>,
+  action: Extract<AgentV2LiveAction, { kind: 'swap' }>,
 ): Extract<AgentPersistedActionV2, { kind: 'swap' }> {
   return {
     id: action.id,
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: 'swap',
     labelCode: 'open_swap',
+    title: 'Review prepared action',
     effect: 'open_swap',
+    url: action.url,
     sourceAsset: action.sourceAsset,
     destinationAsset: action.destinationAsset,
     amount: action.amount,
@@ -1773,7 +1114,7 @@ function persistedSwapAction(
   };
 }
 
-function getQueryAccountScope(args: AgentWalletDataQueryArgsV5) {
+function getQueryAccountScope(args: AgentWalletDataQueryArgs) {
   if (args.operation === 'assets.search' || args.accountSelector.kind === 'current') return 'current' as const;
   if (args.accountSelector.kind === 'explicitAll') return 'explicitAll' as const;
   return 'selected' as const;
@@ -1784,7 +1125,6 @@ function getQueryVariants(): QueryVariant[] {
     {
       operation: 'account.inventory',
       args: {
-        schemaVersion: 5,
         operation: 'account.inventory',
         accountSelector: { kind: 'explicitAll' },
         chains: [],
@@ -1795,18 +1135,6 @@ function getQueryVariants(): QueryVariant[] {
           expect.objectContaining({ kind: 'account', accountLabel: 'Main', isCurrent: true }),
           expect.objectContaining({ kind: 'account', accountLabel: 'Savings', isCurrent: false }),
         ],
-      },
-    },
-    {
-      operation: 'assets.search',
-      args: assetsSearchArgs('TON'),
-      expected: {
-        resolution: 'unique',
-        assets: [{
-          asset: expect.objectContaining({ slug: 'toncoin', chain: 'ton', symbol: 'TON' }),
-          matchQuality: 'exact',
-          matchedOn: 'symbol',
-        }],
       },
     },
     {
@@ -1834,7 +1162,6 @@ function getQueryVariants(): QueryVariant[] {
     {
       operation: 'portfolio.aggregate',
       args: {
-        schemaVersion: 5,
         operation: 'portfolio.aggregate',
         accountSelector: { kind: 'current' },
         chains: [],
@@ -1847,13 +1174,7 @@ function getQueryVariants(): QueryVariant[] {
         total: { value: '25.5', baseCurrency: 'USD', unpricedCount: 0 },
         allocations: [expect.objectContaining({ value: '25.5', percent: '100' })],
         aggregates: [expect.objectContaining({ groupKind: 'asset', value: '25.5' })],
-        series: [expect.objectContaining({
-          metric: 'portfolio_value',
-          points: [
-            { timestamp: '2025-08-10T00:00:00.000Z', value: '20' },
-            { timestamp: '2025-08-11T00:00:00.000Z', value: '25.5' },
-          ],
-        })],
+        series: [],
       },
     },
     {
@@ -1887,11 +1208,11 @@ function getQueryVariants(): QueryVariant[] {
     {
       operation: 'contacts.list',
       args: {
-        schemaVersion: 5,
         operation: 'contacts.list',
         accountSelector: { kind: 'current' },
         query: 'Alice',
         chains: ['ton'],
+        ownWalletChains: ['ton'],
         pageSize: 100,
       },
       expected: {
@@ -1907,7 +1228,6 @@ function getQueryVariants(): QueryVariant[] {
     {
       operation: 'value.series',
       args: {
-        schemaVersion: 5,
         operation: 'value.series',
         accountSelector: { kind: 'current' },
         chains: [],
@@ -1917,23 +1237,16 @@ function getQueryVariants(): QueryVariant[] {
         maxPoints: 64,
       },
       expected: {
-        series: [expect.objectContaining({
-          metric: 'portfolio_value',
-          label: 'Main',
-          baseCurrency: 'USD',
-          points: [
-            { timestamp: '2025-08-10T00:00:00.000Z', value: '20' },
-            { timestamp: '2025-08-11T00:00:00.000Z', value: '25.5' },
-          ],
-        })],
+        baseCurrency: 'USD',
+        historyAccounts: [expect.objectContaining({ wallets: ['ton:EQ-main-private-address'] })],
+        series: [],
       },
     },
   ];
 }
 
-function assetsSearchArgs(query: string): AgentWalletDataQueryArgsV5 {
+function assetsSearchArgs(query: string): AgentWalletDataQueryArgs {
   return {
-    schemaVersion: 5,
     operation: 'assets.search',
     query,
     chains: [],
@@ -1941,9 +1254,8 @@ function assetsSearchArgs(query: string): AgentWalletDataQueryArgsV5 {
   };
 }
 
-function positionsListArgs(): Extract<AgentWalletDataQueryArgsV5, { operation: 'positions.list' }> {
+function positionsListArgs(): Extract<AgentWalletDataQueryArgs, { operation: 'positions.list' }> {
   return {
-    schemaVersion: 5,
     operation: 'positions.list',
     accountSelector: { kind: 'current' },
     chains: [],
@@ -1957,9 +1269,8 @@ function positionsListArgs(): Extract<AgentWalletDataQueryArgsV5, { operation: '
   };
 }
 
-function transactionsListArgs(): Extract<AgentWalletDataQueryArgsV5, { operation: 'transactions.list' }> {
+function transactionsListArgs(): Extract<AgentWalletDataQueryArgs, { operation: 'transactions.list' }> {
   return {
-    schemaVersion: 5,
     operation: 'transactions.list',
     accountSelector: { kind: 'current' },
     chains: [],
@@ -1975,30 +1286,12 @@ function transactionsListArgs(): Extract<AgentWalletDataQueryArgsV5, { operation
 
 function transactionDetailArgs(
   hash: string,
-): Extract<AgentWalletDataQueryArgsV5, { operation: 'transactions.detail' }> {
+): Extract<AgentWalletDataQueryArgs, { operation: 'transactions.detail' }> {
   return {
-    schemaVersion: 5,
     operation: 'transactions.detail',
     accountSelector: { kind: 'current' },
     hash,
   };
-}
-
-function createScopeStore(): AgentWalletScopeStore {
-  let nextAnchor = 0;
-  return {
-    clear: jest.fn(() => Promise.resolve()),
-    issue: jest.fn(() => {
-      const suffix = String(nextAnchor).padStart(32, 'a');
-      nextAnchor += 1;
-      return Promise.resolve(`scope_${suffix}`);
-    }),
-    resolve: jest.fn(() => Promise.reject(new Error('Unexpected wallet scope resolution'))),
-  };
-}
-
-function defaultCheckTransactionDraft() {
-  return Promise.resolve({ resolvedAddress: 'EQ-resolved-recipient' });
 }
 
 function defaultFetchPastActivities() {
@@ -2007,10 +1300,6 @@ function defaultFetchPastActivities() {
 
 function defaultFetchActivityDetails(_accountId: string, activity: ApiActivity) {
   return Promise.resolve(activity);
-}
-
-function defaultFetchPortfolioHistory() {
-  return Promise.resolve(portfolioHistory());
 }
 
 function transactionActivity(): Extract<ApiActivity, { kind: 'transaction' }> {
@@ -2030,23 +1319,9 @@ function transactionActivity(): Extract<ApiActivity, { kind: 'transaction' }> {
   };
 }
 
-function portfolioHistory(): ApiPortfolioHistoryResponse {
-  const points: [number, number][] = [
-    [Date.parse('2025-08-10T00:00:00.000Z') / 1000, 20],
-    [Date.parse('2025-08-11T00:00:00.000Z') / 1000, 25.5],
-  ];
-  return {
-    status: 'ok',
-    base: 'USD',
-    density: '1d',
-    points,
-    datasets: [{ assetId: 1, contractAddress: '', symbol: 'TON', points }],
-  };
-}
-
 function hostContext(): AgentV2HostContextSnapshot {
   return {
-    platform: 'classic',
+    platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
     client: 'web',
     lang: 'en',
     baseCurrency: 'USD',
@@ -2063,13 +1338,6 @@ function hostContext(): AgentV2HostContextSnapshot {
       { slug: 'spam-token', chain: 'ton', symbol: 'SPAM', name: 'Spam Token', decimals: 9 },
       { slug: 'usdton', chain: 'ton', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
     ],
-    stakingOffers: [{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', name: 'Toncoin', decimals: 9 },
-      annualYield: '14.09',
-      yieldType: 'APY',
-      availability: 'available',
-    }],
     accounts: [
       {
         accountId: 'account-main',
@@ -2099,6 +1367,7 @@ function hostContext(): AgentV2HostContextSnapshot {
         savedAddresses: [
           { id: 'alice', name: 'Alice', chain: 'ton', address: 'EQ-alice-private-address' },
         ],
+        nftLoadedChains: [...getSupportedChains()],
         domainStates: freshDomainStates(),
       },
       secondaryAccount('account-savings', 'Savings'),
@@ -2144,6 +1413,7 @@ function secondaryAccount(accountId: string, label: string) {
       chain: 'ton' as const,
       address: `EQ-${accountId}-contact-private-address`,
     }],
+    nftLoadedChains: [...getSupportedChains()],
     domainStates: freshDomainStates(),
   };
 }
@@ -2151,7 +1421,10 @@ function secondaryAccount(accountId: string, label: string) {
 function freshDomainStates() {
   return {
     accounts: { state: 'fresh' as const },
-    positions: { state: 'fresh' as const },
+    fungible: { state: 'fresh' as const },
+    staking: { state: 'fresh' as const },
+    vesting: { state: 'fresh' as const },
+    vault: { state: 'fresh' as const },
     transactions: { state: 'fresh' as const },
     contacts: { state: 'fresh' as const },
     value_series: { state: 'fresh' as const },

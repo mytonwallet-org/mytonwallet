@@ -1,6 +1,7 @@
 import { useEffect } from '../../../lib/teact/teact';
 
 import { requestMeasure } from '../../../lib/fasterdom/fasterdom';
+import { isAnimatingScroll, restartScrollAnimation } from '../../../util/animateScroll';
 
 import { useDeviceScreen } from '../../../hooks/useDeviceScreen';
 
@@ -22,10 +23,15 @@ export default function useScrollResetOnResize(
 
       requestMeasure(() => {
         const el = scrollRef.current;
-        if (el) {
-          el.scrollTop = el.scrollHeight;
-          isAtBottomRef.current = true;
+        if (!el) return;
+
+        if (isAnimatingScroll(el)) {
+          restartScrollAnimation();
+          return;
         }
+
+        el.scrollTop = el.scrollHeight;
+        isAtBottomRef.current = true;
       });
     }
 

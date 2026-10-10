@@ -121,7 +121,9 @@ class SendVC(
         val amount: String? = null,
         val binary: String? = null,
         val comment: String? = null,
-        val init: String? = null
+        val init: String? = null,
+        // Fills the most the wallet can send of the token, as the Max button does, instead of `amount`
+        val isMaxAmount: Boolean = false
     )
 
     private val isOffRampAllowed: Boolean
@@ -1304,6 +1306,7 @@ class SendVC(
                 addressInputView.setText(address)
                 viewModel.onDestinationEntered(address)
             }
+            if (it.isMaxAmount) viewModel.onInputMaxButton()
             it.amount?.let { amountBigDecimalString ->
                 val token = TokenStore.getToken(initialTokenSlug ?: TONCOIN_SLUG)
                 token?.let {

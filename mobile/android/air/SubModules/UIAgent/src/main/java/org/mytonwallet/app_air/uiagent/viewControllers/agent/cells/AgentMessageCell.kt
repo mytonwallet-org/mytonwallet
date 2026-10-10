@@ -3,7 +3,6 @@ package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -19,11 +18,13 @@ import androidx.core.view.updateLayoutParams
 import androidx.dynamicanimation.animation.FloatValueHolder
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
+import org.mytonwallet.app_air.uiagent.agentV2.buildAgentV2MessageBlocks
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentDeeplink
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessage
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentMessageRole
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
-import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentOutgoingBubbleDrawable
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentBubbleDrawable
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentRichMessageView
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.StreamingRevealLabel
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.TypingIndicatorView
@@ -34,6 +35,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.ClipboardHelpers
 import org.mytonwallet.app_air.uicomponents.helpers.HapticType
 import org.mytonwallet.app_air.uicomponents.helpers.Haptics
+import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
@@ -44,11 +46,16 @@ import org.mytonwallet.app_air.walletbasecontext.APP_SCHEME
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
+import org.mytonwallet.app_air.walletbasecontext.utils.formatDateAndTime
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerLink
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTable
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AnswerTableReference
 
 private const val MYTONWALLET_SCHEME_PREFIX = "mytonwallet://"
 private const val MTW_SCHEME_PREFIX = "mtw://"
@@ -130,17 +137,25 @@ class AgentMessageCell(context: Context) :
     }
 
     var onOpenUrl: ((String) -> Unit)? = null
+    var onAction: ((String) -> Unit)? = null
+    var onReportProblem: (() -> Unit)? = null
+    var onEdit: (() -> Unit)? = null
+    var canEditMessage: () -> Boolean = { false }
+    var onRegenerate: (() -> Unit)? = null
+    var canRegenerateMessage: () -> Boolean = { false }
+    var canReportProblem: () -> Boolean = { false }
     var onPopupVisibilityChanged: ((visible: Boolean, bubbleView: View?) -> Unit)? = null
     var onSizeTransitionFrame: ((previousHeight: Int) -> Unit)? = null
     var onInsertAnimationStarted: ((targetHeight: Int) -> Unit)? = null
     var onInsertAnimationFinished: (() -> Unit)? = null
 
-    // Fires once the text reveal and the deeplink appearance have both finished playing.
+    // Fires after message content and its controls finish their reveal
     var onContentSettled: (() -> Unit)? = null
     private var deeplinksAnimating = false
 
     val isContentSettling: Boolean
-        get() = messageLabel.isRevealAnimating || deeplinksAnimating ||
+        get() = isInsertAnimationPending || insertAnimation?.isRunning == true ||
+            messageLabel.isRevealAnimating || deeplinksAnimating ||
             pendingRichMessageId != null || richTransitionAnimator?.isRunning == true
 
     private fun notifyContentSettled() {
@@ -151,6 +166,7 @@ class AgentMessageCell(context: Context) :
     }
 
     private var insertAnimation: SpringAnimation? = null
+    private var isInsertAnimationPending = false
     private var insertAnimationTargetHeight = 0
     internal val layoutTargetHeight: Int
         get() = insertAnimationTargetHeight.takeIf { it > 0 } ?: height
@@ -168,24 +184,36 @@ class AgentMessageCell(context: Context) :
     private var parsedRichBlocks: List<MarkdownParser.Block>? = null
     private var renderedRichKey: RichRenderKey? = null
 
-    private data class ParsedRichBlocksKey(val messageId: String, val text: String)
+    private data class ParsedRichBlocksKey(
+        val messageId: String,
+        val source: String,
+        val tables: List<AgentV2AnswerTable>,
+        val references: List<AgentV2AnswerTableReference>,
+        val links: List<AgentV2AnswerLink>
+    )
 
     private data class RichRenderKey(
         val messageId: String,
-        val text: String,
+        val blocks: List<MarkdownParser.Block>,
         val contentWidth: Int,
         val codeColor: Int,
         val textColor: Int,
-        val separatorColor: Int
+        val separatorColor: Int,
+        val detectsUrls: Boolean
     )
 
     private val isCopyable: Boolean
         get() {
             val msg = currentMessage ?: return false
-            return msg.text.isNotEmpty() && !isStreamingCell
+            return msg.hasText && !isStreamingCell
         }
 
-    fun configure(message: AgentMessage, recyclerWidth: Int, animate: Boolean = false) {
+    fun configure(
+        message: AgentMessage,
+        recyclerWidth: Int,
+        publishesAnswerLinks: Boolean,
+        animate: Boolean = false
+    ) {
         val previousMessageId = currentMessage?.id
         if (previousMessageId != message.id) {
             onContentSettled = null
@@ -196,8 +224,11 @@ class AgentMessageCell(context: Context) :
         currentMessage = message
         val isOutgoing = message.role == AgentMessageRole.USER
         isOutgoingCell = isOutgoing
-        val showTyping = message.isStreaming && message.text.isEmpty()
+        val detectsUrls = isOutgoing || !publishesAnswerLinks
+        val showTyping = message.isStreaming && !message.hasText
         val wasStreaming = isStreamingCell
+        val shouldAnimateInsert = animate && !wasStreaming
+        isInsertAnimationPending = shouldAnimateInsert
         isStreamingCell = message.isStreaming
         bubbleContainer.isHapticFeedbackEnabled = isCopyable
         val hasDeeplinks = message.deeplinks.isNotEmpty()
@@ -225,7 +256,8 @@ class AgentMessageCell(context: Context) :
         val standardMessageMaxWidth =
             (maxBubbleWidth - MESSAGE_HORIZONTAL_PADDING_DP.dp).coerceAtLeast(1)
         val richBlocks = if (
-            message.role == AgentMessageRole.ASSISTANT && !message.isStreaming
+            message.role == AgentMessageRole.ASSISTANT &&
+            (!message.isStreaming || message.tableReferences.isNotEmpty())
         ) {
             richBlocksFor(message)
         } else {
@@ -238,7 +270,7 @@ class AgentMessageCell(context: Context) :
         }
 
         if (isOutgoing) {
-            bubbleContainer.background = AgentOutgoingBubbleDrawable()
+            bubbleContainer.background = AgentBubbleDrawable(isOutgoing = true)
             messageLabel.setTextColor(WColor.TextOnTint.color)
             messageLabel.setPaddingDpLocalized(14, 10, 20, 10)
             messageLabel.maxWidth = standardMessageMaxWidth
@@ -253,23 +285,10 @@ class AgentMessageCell(context: Context) :
                 setHorizontalBias(contentContainer.id, 1f)
             }
         } else {
-            val bg = GradientDrawable()
-            bg.setColor(WColor.SecondaryBackground.color)
-            if (showDeeplinks) {
-                bg.cornerRadii = floatArrayOf(
-                    21f.dp,
-                    21f.dp,
-                    21f.dp,
-                    21f.dp,
-                    8f.dp,
-                    8f.dp,
-                    8f.dp,
-                    8f.dp
-                )
-            } else {
-                bg.cornerRadius = 21f.dp
-            }
-            bubbleContainer.background = bg
+            bubbleContainer.background = AgentBubbleDrawable(
+                isOutgoing = false,
+                hasActions = showDeeplinks
+            )
             messageLabel.setTextColor(WColor.PrimaryText.color)
             messageLabel.setPaddingDpLocalized(20, 10, 14, 10)
             messageLabel.maxWidth = messageMaxWidth
@@ -312,12 +331,24 @@ class AgentMessageCell(context: Context) :
             } else {
                 null
             }
-            messageLabel.setTextWithReveal(
-                MarkdownParser.parse(message.text, codeColor, linkColor, onOpenUrl),
-                isStreaming = message.isStreaming,
-                key = message.id,
-                transitionFromContentSize = transitionFrom
-            )
+            if (richBlocks == null || message.tableReferences.isEmpty()) {
+                messageLabel.setTextWithReveal(
+                    MarkdownParser.parse(
+                        message.formatText(),
+                        codeColor,
+                        linkColor,
+                        onOpenUrl,
+                        detectsUrls,
+                        textSize = messageLabel.textSize,
+                        isStreaming = message.isStreaming
+                    ),
+                    isStreaming = message.isStreaming && richBlocks == null,
+                    key = message.id,
+                    transitionFromContentSize = transitionFrom
+                )
+            } else {
+                messageLabel.finishReveal(message.id)
+            }
 
             if (richBlocks == null) {
                 showPlainMessage()
@@ -326,38 +357,47 @@ class AgentMessageCell(context: Context) :
                     (messageMaxWidth - MESSAGE_HORIZONTAL_PADDING_DP.dp).coerceAtLeast(1)
                 val renderKey = RichRenderKey(
                     messageId = message.id,
-                    text = message.text,
+                    blocks = richBlocks,
                     contentWidth = richContentWidth,
                     codeColor = codeColor,
                     textColor = WColor.PrimaryText.color,
-                    separatorColor = WColor.Separator.color
+                    separatorColor = WColor.Separator.color,
+                    detectsUrls = detectsUrls
                 )
-                if (renderedRichKey != renderKey) {
+                val hasRichRenderChanged = renderedRichKey != renderKey
+                if (hasRichRenderChanged) {
+                    cancelRichTransition()
                     richMessageView.configure(
                         richBlocks,
                         richContentWidth,
                         codeColor,
                         onOpenUrl,
+                        detectsUrls,
                         copyLongClickListener
                     )
                     renderedRichKey = renderKey
                 }
-                if (messageLabel.isRevealAnimating) {
+                if (messageLabel.isRevealAnimating && message.tableReferences.isEmpty()) {
                     pendingRichMessageId = message.id
-                } else {
+                } else if (richTransitionAnimator == null) {
                     showRichMessage(animate = false)
                 }
             }
         }
 
+        bubbleContainer.isVisible = message.hasVisibleBubble
         bubbleContainer.minimumHeight = 40.dp
 
-        if (animate && !wasStreaming) {
+        if (shouldAnimateInsert) {
             contentContainer.alpha = 0f
             contentContainer.scaleX = 0.8f
             contentContainer.scaleY = 0.8f
             updateLayoutParams { height = 1 }
-            doOnPreDraw { startInsertAnimation() }
+            doOnPreDraw {
+                if (isInsertAnimationPending && currentMessage?.id == message.id) {
+                    startInsertAnimation()
+                }
+            }
         } else {
             insertAnimation?.cancel()
             contentContainer.alpha = 1f
@@ -394,12 +434,24 @@ class AgentMessageCell(context: Context) :
     }
 
     private fun richBlocksFor(message: AgentMessage): List<MarkdownParser.Block>? {
-        val key = ParsedRichBlocksKey(message.id, message.text)
+        val key = ParsedRichBlocksKey(
+            message.id,
+            message.text,
+            message.answerTables,
+            message.tableReferences,
+            message.links
+        )
         if (parsedRichBlocksKey != key) {
             parsedRichBlocksKey = key
-            parsedRichBlocks = MarkdownParser.parseBlocks(message.text).takeIf { blocks ->
-                blocks.any { it is MarkdownParser.Block.Table }
-            }
+            parsedRichBlocks =
+                buildAgentV2MessageBlocks(
+                    key.source,
+                    key.tables,
+                    key.references,
+                    key.links
+                ).takeIf { blocks ->
+                    blocks.any { it is MarkdownParser.Block.Table }
+                }
         }
         return parsedRichBlocks
     }
@@ -487,9 +539,25 @@ class AgentMessageCell(context: Context) :
         animator.cancel()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (renderedRichKey != null && !isStreamingCell &&
+            !messageLabel.isRevealAnimating && pendingRichMessageId == null &&
+            richTransitionAnimator == null
+        ) {
+            showRichMessage(animate = false)
+        }
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         cancelRichTransition()
+        isInsertAnimationPending = false
+        insertAnimation?.cancel()
+        contentContainer.alpha = 1f
+        contentContainer.scaleX = 1f
+        contentContainer.scaleY = 1f
+        updateLayoutParams { height = WRAP_CONTENT }
         richMessageView.alpha = 1f
         messageLabel.alpha = 1f
     }
@@ -543,6 +611,9 @@ class AgentMessageCell(context: Context) :
         deeplinkContainer.updateLayoutParams { height = WRAP_CONTENT }
         deeplinkContainer.removeAllViews()
         deeplinkContainer.visibility = VISIBLE
+        deeplinkContainer.updateLayoutParams<LinearLayout.LayoutParams> {
+            marginStart = 6.dp
+        }
         val shouldAnimate = animate && WGlobalStorage.getAreAnimationsActive()
         if (shouldAnimate) {
             setDeeplinkClipping(enabled = false)
@@ -580,7 +651,18 @@ class AgentMessageCell(context: Context) :
                 isClickable = true
 
                 setOnClickListener {
-                    WalletCore.notifyEvent(WalletEvent.OpenUrl(normalizeAgentUrl(deeplink.url)))
+                    val actionId = deeplink.actionId
+                    val url = deeplink.url
+                    when {
+                        actionId != null -> onAction?.invoke(actionId)
+
+                        url != null -> WalletCore.notifyEvent(
+                            WalletEvent.OpenUrl(
+                                normalizeAgentUrl(url),
+                                source = DeeplinkOpenSource.AGENT
+                            )
+                        )
+                    }
                 }
             }
             val lp = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -651,15 +733,42 @@ class AgentMessageCell(context: Context) :
     }
 
     private fun showCopyMenu() {
+        val message = currentMessage ?: return
+        val dateHeader = run {
+            WMenuPopup.Item(
+                WMenuPopup.Item.Config.CustomView(
+                    FrameLayout(context).apply {
+                        minimumWidth = 144.dp
+                        addView(
+                            WLabel(context).apply {
+                                setStyle(14f, WFont.Medium)
+                                setTextColor(WColor.Tint)
+                                translationY = 3f.dp
+                                setUserFriendlyDate(message.date)
+                                text = "$text, ${message.date.formatDateAndTime("H:mm")}"
+                                setSingleLine()
+                            },
+                            FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                                marginStart = 16.dp
+                                marginEnd = 16.dp
+                            }
+                        )
+                    },
+                    height = 40.dp
+                )
+            )
+        }
         onPopupVisibilityChanged?.invoke(true, bubbleContainer)
         WMenuPopup.present(
             bubbleContainer,
-            listOf(
+            listOfNotNull(
+                dateHeader,
                 WMenuPopup.Item(
                     org.mytonwallet.app_air.icons.R.drawable.ic_copy_30,
-                    LocaleController.getString("Copy Text")
+                    LocaleController.getString("Copy")
                 ) {
-                    val text = currentMessage?.text
+                    val text = currentMessage?.formatText()?.let(AgentTextLinks::copyText)
                     if (text != null && ClipboardHelpers.copyToClipboard(
                             context,
                             "Message",
@@ -673,7 +782,25 @@ class AgentMessageCell(context: Context) :
                             Toast.LENGTH_SHORT
                         ).show()
                     }
-                }
+                },
+                WMenuPopup.Item(
+                    org.mytonwallet.app_air.icons.R.drawable.ic_pen,
+                    LocaleController.getString("Edit")
+                ) {
+                    onEdit?.invoke()
+                }.takeIf { isOutgoingCell && canEditMessage() },
+                WMenuPopup.Item(
+                    org.mytonwallet.app_air.icons.R.drawable.ic_regenerate,
+                    LocaleController.getString("Regenerate")
+                ) {
+                    onRegenerate?.invoke()
+                }.takeIf { !isOutgoingCell && canRegenerateMessage() },
+                WMenuPopup.Item(
+                    org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
+                    LocaleController.getString("Report a Problem")
+                ) {
+                    onReportProblem?.invoke()
+                }.takeIf { !isOutgoingCell && !isStreamingCell && canReportProblem() }
             ),
             positioning = WMenuPopup.Positioning.BELOW,
             backdropStyle = WMenuPopup.BackdropStyle.BlurDimmed,
@@ -685,11 +812,9 @@ class AgentMessageCell(context: Context) :
     }
 
     private fun buildBubbleCutoutStyle(): WMenuPopup.BackgroundStyle {
-        if (isOutgoingCell) {
-            val drawable = bubbleContainer.background as? AgentOutgoingBubbleDrawable
-            if (drawable != null) {
-                return WMenuPopup.BackgroundStyle.Cutout(drawable.buildCutoutPath(bubbleContainer))
-            }
+        val drawable = bubbleContainer.background as? AgentBubbleDrawable
+        if (drawable != null) {
+            return WMenuPopup.BackgroundStyle.Cutout(drawable.buildCutoutPath(bubbleContainer))
         }
         return WMenuPopup.BackgroundStyle.Cutout.fromView(bubbleContainer, roundRadius = 21f.dp)
     }
@@ -728,9 +853,11 @@ class AgentMessageCell(context: Context) :
                 insertAnimation = null
                 insertAnimationTargetHeight = 0
                 onFinished?.invoke()
+                notifyContentSettled()
             }
             start()
         }
+        isInsertAnimationPending = false
     }
 
     private fun measureExpandedHeight(): Int {

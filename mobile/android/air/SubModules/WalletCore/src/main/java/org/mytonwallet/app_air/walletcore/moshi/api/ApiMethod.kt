@@ -64,6 +64,17 @@ import org.mytonwallet.app_air.walletcore.moshi.MTonPlugin
 import org.mytonwallet.app_air.walletcore.moshi.MWalletPermission
 import org.mytonwallet.app_air.walletcore.moshi.ReturnStrategy
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2FollowUpReference
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HintsResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2HostContextUpdate
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MutationResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ProblemReportResponse
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2RunResult
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadHydration
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ThreadResponse
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappConnectionRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappDisconnectRequest
 import org.mytonwallet.app_air.walletcore.moshi.inject.ApiDappSessionChain
@@ -1423,6 +1434,193 @@ sealed class ApiMethod<T> {
                 .string(password)
                 .build()
         }
+    }
+
+    object AgentV2 {
+        class GetConsent : ApiMethod<Boolean>() {
+            override val name = "getAgentV2Consent"
+            override val type: Type = Boolean::class.java
+            override val arguments = ArgumentsBuilder().build()
+        }
+
+        class AcceptConsent : ApiMethod<Boolean>() {
+            override val name = "acceptAgentV2Consent"
+            override val type: Type = Boolean::class.java
+            override val arguments = ArgumentsBuilder().build()
+        }
+
+        class UpdateHostContext(context: JSONObject?) :
+            ApiMethod<AgentV2MutationResult<AgentV2HostContextUpdate>>() {
+            override val name = "updateAgentV2HostContext"
+            override val type: Type = mutationType(AgentV2HostContextUpdate::class.java)
+            override val arguments = ArgumentsBuilder()
+                .apply { if (context == null) string(null) else jsonObject(context) }
+                .build()
+        }
+
+        class SetChatActive(isActive: Boolean) : ApiMethod<Unit>() {
+            override val name = "setAgentV2ChatActive"
+            override val type: Type = Unit::class.java
+            override val arguments = ArgumentsBuilder().boolean(isActive).build()
+        }
+
+        class GetHints(langCode: String?) : ApiMethod<AgentV2HintsResponse>() {
+            override val name = "getAgentV2Hints"
+            override val type: Type = AgentV2HintsResponse::class.java
+            override val arguments = ArgumentsBuilder().string(langCode).build()
+        }
+
+        class GetProblemReportAvailability : ApiMethod<Boolean>() {
+            override val name = "getAgentV2ProblemReportAvailability"
+            override val type: Type = Boolean::class.java
+            override val arguments = ArgumentsBuilder().build()
+        }
+
+        class GetDefaultThread : ApiMethod<AgentV2MutationResult<AgentV2ThreadResponse>>() {
+            override val name = "getAgentV2DefaultThread"
+            override val type: Type = mutationType(AgentV2ThreadResponse::class.java)
+            override val arguments = ArgumentsBuilder().build()
+        }
+
+        class GetMessages(threadId: String, cursor: String?, limit: Int?) :
+            ApiMethod<AgentV2MutationResult<AgentV2ThreadHydration>>() {
+            override val name = "getAgentV2Messages"
+            override val type: Type = mutationType(AgentV2ThreadHydration::class.java)
+            override val arguments = ArgumentsBuilder()
+                .string(threadId)
+                .string(cursor)
+                .apply { if (limit == null) string(null) else number(limit) }
+                .build()
+        }
+
+        class StartRun(
+            threadId: String?,
+            revision: Int,
+            text: String,
+            entryPoint: AgentV2EntryPoint? = null,
+            followupOf: AgentV2FollowUpReference? = null,
+            targetUserMessageId: String? = null,
+            targetAssistantMessageId: String? = null
+        ) : ApiMethod<AgentV2RunResult>() {
+            init {
+                require(entryPoint == null || followupOf == null) {
+                    "entryPoint and followupOf are mutually exclusive"
+                }
+                require(targetUserMessageId == null || targetAssistantMessageId == null) {
+                    "Edit and regenerate targets are mutually exclusive"
+                }
+                require(
+                    (targetUserMessageId == null && targetAssistantMessageId == null) ||
+                        (entryPoint == null && followupOf == null)
+                ) {
+                    "Edit and regenerate input cannot include entryPoint or followupOf"
+                }
+            }
+
+            override val name = "startAgentV2Run"
+            override val type: Type = AgentV2RunResult::class.java
+            override val arguments = ArgumentsBuilder()
+                .jsonObject(
+                    JSONObject()
+                        .put("threadId", threadId)
+                        .put("expectedThreadRevision", revision)
+                        .put(
+                            "input",
+                            JSONObject()
+                                .put(
+                                    "kind",
+                                    when {
+                                        targetAssistantMessageId != null -> "regenerate"
+                                        targetUserMessageId != null -> "edit"
+                                        else -> "append"
+                                    }
+                                )
+                                .apply {
+                                    if (targetAssistantMessageId != null) {
+                                        put("targetAssistantMessageId", targetAssistantMessageId)
+                                    } else {
+                                        put("text", text)
+                                        targetUserMessageId?.let { put("targetUserMessageId", it) }
+                                    }
+                                }
+                        )
+                        .apply {
+                            entryPoint?.let { put("entryPoint", entryPointJson(it)) }
+                            followupOf?.let {
+                                put(
+                                    "followupOf",
+                                    JSONObject()
+                                        .put("messageId", it.messageId)
+                                        .put("followupId", it.followupId)
+                                )
+                            }
+                        }
+                )
+                .build()
+        }
+
+        class CancelRun(runId: String) : ApiMethod<AgentV2ThreadResponse>() {
+            override val name = "cancelAgentV2Run"
+            override val type: Type = AgentV2ThreadResponse::class.java
+            override val arguments = ArgumentsBuilder().string(runId).build()
+        }
+
+        class ClearThread(threadId: String, expectedRevision: Int) :
+            ApiMethod<AgentV2MutationResult<AgentV2ThreadResponse>>() {
+            override val name = "clearAgentV2Thread"
+            override val type: Type = mutationType(AgentV2ThreadResponse::class.java)
+            override val arguments = ArgumentsBuilder()
+                .string(threadId)
+                .number(expectedRevision)
+                .build()
+        }
+
+        class ReportProblem(threadId: String, messageId: String?, comment: String?) :
+            ApiMethod<AgentV2MutationResult<AgentV2ProblemReportResponse>>() {
+            override val name = "reportAgentV2Problem"
+            override val type: Type = mutationType(AgentV2ProblemReportResponse::class.java)
+            override val arguments = ArgumentsBuilder()
+                .string(threadId)
+                .jsonObject(JSONObject().put("messageId", messageId).put("comment", comment))
+                .build()
+        }
+
+        class ResolveAction(messageId: String, actionId: String) :
+            ApiMethod<AgentV2ResolvedAction>() {
+            override val name = "resolveAgentV2Action"
+            override val type: Type = AgentV2ResolvedAction::class.java
+            override val arguments = ArgumentsBuilder().string(messageId).string(actionId).build()
+        }
+
+        class GetActionPresentation(messageId: String, actionId: String) :
+            ApiMethod<AgentV2ActionPresentation>() {
+            override val name = "getAgentV2ActionPresentation"
+            override val type: Type = AgentV2ActionPresentation::class.java
+            override val arguments = ArgumentsBuilder().string(messageId).string(actionId).build()
+        }
+
+        private fun entryPointJson(entryPoint: AgentV2EntryPoint): JSONObject = JSONObject()
+            .put("kind", entryPoint.kind)
+            .put("chartId", entryPoint.chartId)
+            .put("range", entryPoint.range)
+            .put("accountScope", entryPoint.accountScope)
+            .put("source", entryPoint.source)
+            .put(
+                "asset",
+                entryPoint.asset?.let { asset ->
+                    JSONObject()
+                        .put("slug", asset.slug)
+                        .put("chain", asset.chain)
+                        .put("tokenAddress", asset.tokenAddress)
+                }
+            )
+            .put("query", entryPoint.query)
+            .put("surface", entryPoint.surface)
+            .put("hintId", entryPoint.hintId)
+            .put("catalogVersion", entryPoint.catalogVersion)
+
+        private fun mutationType(valueType: Type): Type =
+            Types.newParameterizedType(AgentV2MutationResult::class.java, valueType)
     }
 
     /* Permissions */

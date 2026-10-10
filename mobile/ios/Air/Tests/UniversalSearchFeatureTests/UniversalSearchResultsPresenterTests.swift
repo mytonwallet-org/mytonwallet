@@ -9,6 +9,77 @@ import WalletCoreTypes
 @MainActor
 @Suite("Universal Search results presentation")
 struct UniversalSearchResultsPresenterTests {
+    @Test(arguments: ["what is staking", "  What IS staking?  ", "staking risks"])
+    func `multiword questions select Agent and retain topic results`(query: String) throws {
+        let staking = SearchDocument(
+            id: SearchEntityID("token:staking"), kind: .token,
+            fields: [.init("Liquid Staking Token", kind: .title)]
+        )
+        let unrelated = SearchDocument(
+            id: SearchEntityID("app:update"), kind: .application,
+            fields: [.init("September update is live!", kind: .title)]
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: query, documents: [unrelated, staking]), context: context
+        )
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let agentID = "agent-action:\(trimmedQuery.lowercased())"
+
+        #expect(presentation.sections.map(\.id) == ["ask-agent", "tokens", "search-google"])
+        #expect(presentation.preselectedItemID == agentID)
+        #expect(presentation.sections.first?.items.first?.id == agentID)
+        #expect(presentation.sections[1].items.map(\.id) == [staking.id.rawValue])
+        #expect(presentation.routesByItemID.count == 3)
+        guard case .agent(let prompt, _) = try #require(presentation.routesByItemID[agentID]) else {
+            Issue.record("Expected the selected result to open Agent")
+            return
+        }
+        #expect(prompt == trimmedQuery)
+    }
+
+    @Test(arguments: ["liquid staking", "staking liquid"])
+    func `full multiword name matches remain top hit`(query: String) {
+        let staking = SearchDocument(
+            id: SearchEntityID("token:staking"), kind: .token,
+            fields: [.init("Liquid Staking Token", kind: .title)]
+        )
+        let partial = SearchDocument(
+            id: SearchEntityID("app:liquid"), kind: .application,
+            fields: [.init("Liquid", kind: .title)],
+            signals: .init(traits: [.connected])
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: query, documents: [partial, staking]), context: context
+        )
+
+        #expect(presentation.sections.map(\.id) == ["top-hit", "apps", "ask-agent", "search-google"])
+        #expect(presentation.preselectedItemID == staking.id.rawValue)
+    }
+
+    @Test
+    func `description matches do not displace Agent for a multiword question`() {
+        let app = SearchDocument(
+            id: SearchEntityID("app:guide"), kind: .application,
+            fields: [.init("Guide", kind: .title), .init("What is staking", kind: .description)],
+            signals: .init(traits: [.connected])
+        )
+        let presentation = makePresenter().presentation(
+            for: rankedSnapshot(query: "what is staking", documents: [app]), context: context
+        )
+
+        #expect(presentation.sections.map(\.id) == ["ask-agent", "apps", "search-google"])
+        #expect(presentation.preselectedItemID == "agent-action:what is staking")
+    }
+
+    private func rankedSnapshot(query: String, documents: [SearchDocument]) -> UniversalSearchResultSnapshot {
+        let query = UniversalSearchQuery(query)
+        let hits = UniversalSearchEngine().search(query, in: documents)
+        return UniversalSearchResultSnapshot(
+            query: query, hits: hits, totalHitCount: hits.count,
+            corpusRevision: 1, rankingPolicyVersion: "test", generatedAt: Date()
+        )
+    }
+
     @Test
     func `extracts top hit and groups remaining results without losing routes`() throws {
         let documents = makeDocuments()

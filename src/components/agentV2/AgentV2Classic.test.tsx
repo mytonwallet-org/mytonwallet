@@ -1,12 +1,10 @@
 import React from '../../lib/teact/teact';
 import TeactDOM from '../../lib/teact/teact-dom';
 
-import type { AgentPublicInputContinuationV1 } from '../../api/agentV2/protocol/types';
 import type { AgentMessage } from '../../global/types';
 import type { AgentConversation, AgentConversationShellProps } from '../agent/AgentConversationShell';
 import type { UseAgentV2MessagesResult } from '../agent/hooks/useAgentV2Messages';
 
-import { isAgentWriterPromptEditorEnabled } from '../../util/agent/agentWriterPromptState';
 import { pause } from '../../util/schedulers';
 
 import useAgentV2Messages from '../agent/hooks/useAgentV2Messages';
@@ -35,10 +33,6 @@ jest.mock('../agent/hooks/useAgentV2Messages', () => ({
   __esModule: true,
   default: jest.fn(),
 }));
-jest.mock('../../util/agent/agentWriterPromptState', () => ({
-  ...jest.requireActual('../../util/agent/agentWriterPromptState'),
-  isAgentWriterPromptEditorEnabled: jest.fn(() => false),
-}));
 jest.mock('../agent/AgentConversationShell', () => ({
   __esModule: true,
   default: jest.fn((props: AgentConversationShellProps) => props.composer.render?.({
@@ -48,8 +42,6 @@ jest.mock('../agent/AgentConversationShell', () => ({
     onInput: jest.fn(),
     onKeyDown: jest.fn(),
     onSend: jest.fn(),
-    onClearInput: jest.fn(),
-    onHintsToggle: jest.fn(),
   })),
 }));
 jest.mock('../agent/AgentInputBar', () => ({
@@ -75,7 +67,6 @@ const useAgentV2MessagesMock = jest.mocked(useAgentV2Messages);
 const AgentConversationShellMock = jest.mocked(AgentConversationShell);
 const AgentInputBarMock = jest.mocked(AgentInputBar);
 const AgentV2IncomingMessageMock = jest.mocked(AgentV2IncomingMessage);
-const isAgentWriterPromptEditorEnabledMock = jest.mocked(isAgentWriterPromptEditorEnabled);
 
 describe('AgentV2Classic', () => {
   let root: HTMLDivElement;
@@ -110,16 +101,6 @@ describe('AgentV2Classic', () => {
     });
   });
 
-  it('uses the existing pre-composer slot when the staging Writer prompt is enabled', async () => {
-    isAgentWriterPromptEditorEnabledMock.mockReturnValue(true);
-
-    TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
-    await pause(20);
-
-    const shellProps = AgentConversationShellMock.mock.calls.at(-1)![0];
-    expect(shellProps.slots?.beforeComposer).toBeDefined();
-  });
-
   it('keeps current capacity status visible beside the historical failed message', async () => {
     useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({
       messages: [{
@@ -149,10 +130,11 @@ describe('AgentV2Classic', () => {
     const context = {
       shouldAnimateTextStreaming: false,
       textRevealPresentation: undefined,
+      isJustAdded: false,
       onEditMessage: jest.fn(),
+      onReportMessage: jest.fn(),
       onTextRevealProgress: jest.fn(),
-      onRequestBottomStick: jest.fn(),
-      onFocusComposer: jest.fn(),
+      onRequestLiveTail: jest.fn(),
     } as Parameters<AgentConversation['renderMessage']>[1];
     const providerFailure = renderMessage({
       id: 1,
@@ -165,54 +147,6 @@ describe('AgentV2Classic', () => {
 
     providerFailure.props.onRetry?.(1);
     expect(retryMessage).toHaveBeenCalledWith(1);
-  });
-
-  it('synchronously consumes a selected input continuation exactly once when sending', async () => {
-    const sendMessage = jest.fn();
-    useAgentV2MessagesMock.mockReturnValue(buildMessagesResult({ sendMessage }));
-    const continuation: AgentPublicInputContinuationV1 = {
-      id: 'continuation-1',
-      kind: 'collect_input',
-      code: 'prepare_swap_amount',
-      scenario: 'prepare-swap',
-      field: 'amount',
-    };
-
-    TeactDOM.render(<AgentV2Classic isActive animationLevel={0} />, root);
-    await pause(20);
-
-    const shellProps = AgentConversationShellMock.mock.calls.at(-1)![0];
-    const onFocusComposer = jest.fn();
-    const renderedMessage = shellProps.conversation.renderMessage({
-      id: 7,
-      text: '',
-      isOutgoing: false,
-      timestamp: Date.now(),
-    }, {
-      shouldAnimateTextStreaming: false,
-      textRevealPresentation: undefined,
-      onEditMessage: jest.fn(),
-      onTextRevealProgress: jest.fn(),
-      onRequestBottomStick: jest.fn(),
-      onFocusComposer,
-    } as Parameters<AgentConversation['renderMessage']>[1]) as {
-      props: {
-        onInputContinuation?: (messageId: number, item: AgentPublicInputContinuationV1) => void;
-      };
-    };
-    renderedMessage.props.onInputContinuation?.(7, continuation);
-
-    expect(onFocusComposer).toHaveBeenCalledTimes(1);
-
-    shellProps.composer.onSendMessage('2.5');
-    expect(sendMessage).toHaveBeenLastCalledWith('2.5', undefined, {
-      messageId: 7,
-      continuation,
-    });
-    await pause(20);
-
-    AgentConversationShellMock.mock.calls.at(-1)![0].composer.onSendMessage('3');
-    expect(sendMessage).toHaveBeenLastCalledWith('3', undefined, undefined);
   });
 
   it('does not render an unchanged historical bubble when the active message streams', async () => {
@@ -238,10 +172,11 @@ describe('AgentV2Classic', () => {
     const context = {
       shouldAnimateTextStreaming: false,
       textRevealPresentation: undefined,
+      isJustAdded: false,
       onEditMessage: jest.fn(),
+      onReportMessage: jest.fn(),
       onTextRevealProgress: jest.fn(),
-      onRequestBottomStick: jest.fn(),
-      onFocusComposer: jest.fn(),
+      onRequestLiveTail: jest.fn(),
     } as Parameters<AgentConversation['renderMessage']>[1];
 
     try {
@@ -284,6 +219,7 @@ function buildMessagesResult(overrides: Partial<UseAgentV2MessagesResult> = {}):
     messages: [],
     isInitialLoadComplete: true,
     isInputDisabled: false,
+    isRunActive: false,
     textRevealPresentations: {},
     hasOlderMessages: false,
     isLoadingOlderMessages: false,
@@ -294,8 +230,8 @@ function buildMessagesResult(overrides: Partial<UseAgentV2MessagesResult> = {}):
     sendMessage: jest.fn(),
     sendHint: jest.fn(),
     sendFollowup: jest.fn(),
-    sendWalletControl: jest.fn(),
     clearChat: jest.fn(),
+    reportProblem: jest.fn(() => Promise.resolve('sent' as const)),
     acceptConsent: jest.fn(),
     retryMessage: jest.fn(),
     retryAdmission: jest.fn(),

@@ -45,6 +45,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.api.activateAccount
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
@@ -718,14 +719,18 @@ class TabletTabsVC(context: Context) :
         window?.dismissToRoot()
     }
 
-    override fun switchToAgent(prompt: String?, pinnedMessageId: String?): Boolean {
+    override fun switchToAgent(
+        prompt: String?,
+        pinnedMessageId: String?,
+        entryPoint: AgentV2EntryPoint
+    ): Boolean {
         if (!AppTabsManager.contains(AppTabsManager.ID_AGENT)) return false
         selectTab(AppTabsManager.ID_AGENT)
         window?.dismissToRoot()
         if (!pinnedMessageId.isNullOrBlank()) {
             showAgentMessage(pinnedMessageId)
         } else {
-            submitAgentPrompt(prompt)
+            submitAgentPrompt(prompt, entryPoint)
         }
         return true
     }

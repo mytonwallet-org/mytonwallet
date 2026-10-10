@@ -5,7 +5,7 @@
       "schema": "AgentUserQuotaResponseV2",
       "valid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "quota": {
             "limit": 20,
             "used": 7,
@@ -14,7 +14,7 @@
           }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "quota": {
             "limit": 20,
             "used": 20,
@@ -25,7 +25,7 @@
       ],
       "invalid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "quota": {
             "limit": 0,
             "used": 0,
@@ -34,7 +34,7 @@
           }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "quota": {
             "limit": 20,
             "used": 7,
@@ -43,7 +43,7 @@
           }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "quota": {
             "limit": 20,
             "used": 7,
@@ -76,7 +76,10 @@
             "name": "Toncoin",
             "decimals": 9
           },
-          "amount": { "kind": "exact", "value": "10" },
+          "amount": {
+            "kind": "exact",
+            "value": "10"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         },
@@ -98,7 +101,9 @@
             "symbol": "USDe",
             "decimals": 6
           },
-          "amount": { "kind": "all" },
+          "amount": {
+            "kind": "all"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         }
@@ -116,23 +121,30 @@
             "activeAccountRef": "account_current"
           },
           "productId": "liquid",
-          "asset": { "slug": "toncoin", "chain": "ton", "symbol": "TON", "decimals": 9 },
-          "amount": { "kind": "exact", "value": "all" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton",
+            "symbol": "TON",
+            "decimals": 9
+          },
+          "amount": {
+            "kind": "exact",
+            "value": "all"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         }
       ]
     },
     {
-      "schema": "AgentSwapActionV1",
+      "schema": "AgentSwapActionV2",
       "valid": [
         {
           "id": "93939393-9393-4393-8393-939393939393",
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "kind": "swap",
           "labelCode": "open_swap",
           "effect": "open_swap",
-          "sourceToolCallId": "94949494-9494-4494-8494-949494949494",
           "contextBinding": {
             "sessionId": "95959595-9595-4595-8595-959595959595",
             "revision": 5,
@@ -152,15 +164,18 @@
             "name": "Tether USD",
             "decimals": 6
           },
-          "amount": { "value": "10", "valueType": "decimal", "side": "source" },
+          "amount": {
+            "value": "10",
+            "valueType": "decimal",
+            "side": "source"
+          },
           "localDraftRequired": false,
-          "requiresConfirmation": false
-        }
-      ],
-      "invalid": [
+          "requiresConfirmation": false,
+          "url": "https://my.tt/swap?in=toncoin&out=usdton&amount=10"
+        },
         {
           "id": "93939393-9393-4393-8393-939393939393",
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "kind": "swap",
           "labelCode": "open_swap",
           "effect": "open_swap",
@@ -169,9 +184,45 @@
             "revision": 5,
             "activeAccountRef": "account_current"
           },
-          "sourceAsset": { "slug": "toncoin", "chain": "ton", "symbol": "TON" },
-          "destinationAsset": { "slug": "usdton", "chain": "ton", "symbol": "USDT" },
-          "amount": { "value": "10", "valueType": "decimal", "side": "source" },
+          "destinationAsset": {
+            "slug": "trx",
+            "chain": "tron",
+            "symbol": "TRX",
+            "name": "Tron",
+            "decimals": 6
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "url": "https://my.tt/swap?out=trx"
+        }
+      ],
+      "invalid": [
+        {
+          "id": "93939393-9393-4393-8393-939393939393",
+          "schemaVersion": 2,
+          "kind": "swap",
+          "labelCode": "open_swap",
+          "effect": "open_swap",
+          "contextBinding": {
+            "sessionId": "95959595-9595-4595-8595-959595959595",
+            "revision": 5,
+            "activeAccountRef": "account_current"
+          },
+          "sourceAsset": {
+            "slug": "toncoin",
+            "chain": "ton",
+            "symbol": "TON"
+          },
+          "destinationAsset": {
+            "slug": "usdton",
+            "chain": "ton",
+            "symbol": "USDT"
+          },
+          "amount": {
+            "value": "10",
+            "valueType": "decimal",
+            "side": "source"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         },
@@ -181,18 +232,56 @@
           "kind": "swap",
           "labelCode": "open_swap",
           "effect": "open_swap",
-          "sourceToolCallId": "94949494-9494-4494-8494-949494949494",
           "contextBinding": {
             "sessionId": "95959595-9595-4595-8595-959595959595",
             "revision": 5,
             "activeAccountRef": "account_current"
           },
-          "sourceAsset": { "slug": "toncoin", "chain": "ton", "symbol": "TON" },
-          "destinationAsset": { "slug": "usdton", "chain": "ton", "symbol": "USDT" },
-          "amount": { "value": "10", "valueType": "decimal", "side": "source" },
-          "url": "https://my.tt/swap",
+          "sourceAsset": {
+            "slug": "toncoin",
+            "chain": "ton",
+            "symbol": "TON"
+          },
+          "destinationAsset": {
+            "slug": "usdton",
+            "chain": "ton",
+            "symbol": "USDT"
+          },
+          "amount": {
+            "value": "10",
+            "valueType": "decimal",
+            "side": "source"
+          },
+          "url": "https://my.tt/swap?in=toncoin&out=usdton&amount=10",
           "localDraftRequired": false,
           "requiresConfirmation": false
+        },
+        {
+          "id": "93939393-9393-4393-8393-939393939393",
+          "schemaVersion": 2,
+          "kind": "swap",
+          "labelCode": "open_swap",
+          "effect": "open_swap",
+          "contextBinding": {
+            "sessionId": "95959595-9595-4595-8595-959595959595",
+            "revision": 5,
+            "activeAccountRef": "account_current"
+          },
+          "destinationAsset": {
+            "slug": "trx",
+            "chain": "tron",
+            "symbol": "TRX",
+            "name": "Tron",
+            "decimals": 6
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "url": "https://my.tt/swap?out=trx",
+          "amount": {
+            "value": "1",
+            "valueType": "decimal",
+            "side": "source"
+          }
         }
       ]
     },
@@ -200,32 +289,32 @@
       "schema": "AgentAvailabilityResponseV2",
       "valid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "available"
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "capacity_exhausted"
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "capacity_exhausted",
           "resetAt": "2026-07-29T18:00:00.000Z"
         }
       ],
       "invalid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "available",
           "resetAt": "2026-07-29T18:00:00.000Z"
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "capacity_exhausted",
           "resetAt": "not-a-timestamp"
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "state": "capacity_exhausted",
           "provider": "anthropic"
         }
@@ -235,238 +324,73 @@
       "schema": "AgentCapabilities",
       "valid": [
         {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_content_end",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
+          "protocolVersion": 3,
           "supportedActions": [],
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true,
-          "supportsAgentCapacityError": true,
-          "supportsUserQuotaError": true
+          "features": []
         },
         {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_content_end",
-            "input_continuations",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportsFollowups": false,
-          "supportsInputContinuations": true,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_content_end",
-            "tool_call",
-            "tool_status",
-            "semantic_content",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_content_end",
-            "action",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
+          "protocolVersion": 3,
           "supportedActions": [
-            "receive"
+            "send",
+            "receive",
+            "openDapp"
           ],
-          "receiveActionVersion": 3,
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
+          "features": [
+            "followups",
+            "walletDirectory"
+          ]
         },
         {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_content_end",
-            "followups",
-            "message_end",
-            "rate_limit",
-            "error"
+          "protocolVersion": 3,
+          "supportedActions": [
+            "openDapp"
           ],
-          "supportedTools": [],
+          "features": [
+            "followups"
+          ],
+          "builtinDapps": [
+            {
+              "name": "Buy with card",
+              "url": "mtw://buy-with-card?chain=ton&provider=moonpay"
+            }
+          ]
+        },
+        {
+          "protocolVersion": 3,
           "supportedActions": [],
-          "supportsFollowups": true,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
+          "features": [
+            "followups",
+            "walletDirectory",
+            "sendRecipientWithoutAsset"
+          ]
         }
       ],
       "invalid": [
         {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true,
-          "supportsAgentCapacityError": "yes",
-          "supportsUserQuotaError": "yes"
+          "protocolVersion": 3,
+          "supportedActions": []
         },
         {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportsFollowups": false,
-          "supportsInputContinuations": true,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "widget",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportedWidgets": [
-            "legacyRemovedWidget"
-          ],
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "supportedTextFormats": [
-            "agentMarkdownV1",
-            "agentMarkdownV2"
-          ],
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "action",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
-          "supportedActions": [],
-          "receiveActionVersion": 3,
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
-        },
-        {
-          "protocolVersion": 2,
-          "streamFormat": "ndjson",
-          "supportedEventTypes": [
-            "run_start",
-            "thread",
-            "message_start",
-            "text_delta",
-            "action",
-            "message_end",
-            "rate_limit",
-            "error"
-          ],
-          "supportedTools": [],
+          "protocolVersion": 3,
           "supportedActions": [
-            "receive"
+            "legacyWidget"
           ],
-          "receiveActionVersion": 2,
-          "supportsFollowups": false,
-          "supportsMessageEdit": true,
-          "supportsRegenerate": true
+          "features": []
+        },
+        {
+          "protocolVersion": 3,
+          "supportedActions": [],
+          "features": [
+            "runActivity"
+          ]
+        },
+        {
+          "protocolVersion": 3,
+          "supportedActions": [],
+          "features": [],
+          "supportedEventTypes": [
+            "run_start"
+          ]
         }
       ]
     },
@@ -503,7 +427,7 @@
       "valid": [
         {
           "type": "error",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           "sequence": 2,
           "code": "agent_capacity_exhausted",
@@ -515,7 +439,7 @@
       "invalid": [
         {
           "type": "error",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           "sequence": 2,
           "code": "agent_capacity_exhausted",
@@ -524,7 +448,7 @@
         },
         {
           "type": "error",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           "sequence": 2,
           "code": "provider_error",
@@ -538,38 +462,15 @@
       "schema": "AgentDeviceTokenIssueRequestV2",
       "valid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "deviceId": "11111111-1111-4111-8111-111111111111"
         }
       ],
       "invalid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "deviceId": "not-a-uuid",
           "clientOperationId": "22222222-2222-4222-8222-222222222222"
-        }
-      ]
-    },
-    {
-      "schema": "AgentServerCapabilitiesV2",
-      "valid": [
-        {
-          "webSearch": "available"
-        },
-        {
-          "webSearch": "disabled"
-        },
-        {
-          "webSearch": "unavailable"
-        }
-      ],
-      "invalid": [
-        {
-          "webSearch": true
-        },
-        {
-          "webSearch": "available",
-          "provider": "serper"
         }
       ]
     },
@@ -579,10 +480,6 @@
         {
           "id": "33333333-3333-4333-8333-333333333333",
           "revision": 1,
-          "metadataRevision": 1,
-          "titleSource": "none",
-          "isPinned": false,
-          "isDefault": true,
           "createdAt": "2026-07-12T00:00:00.000Z",
           "updatedAt": "2026-07-12T00:00:00.000Z",
           "lastActivityAt": "2026-07-12T00:00:00.000Z",
@@ -607,13 +504,73 @@
       ]
     },
     {
+      "schema": "AgentProblemReportRequestV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444"
+        },
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "messageId": "55555555-5555-4555-8555-555555555555",
+          "comment": "The balance in the answer is wrong"
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "comment": ""
+        },
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "comment": "   "
+        },
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "messageId": "not-a-uuid"
+        },
+        {
+          "protocolVersion": 3,
+          "clientOperationId": "44444444-4444-4444-8444-444444444444",
+          "transcript": []
+        }
+      ]
+    },
+    {
+      "schema": "AgentProblemReportResponseV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "reportId": "44444444-4444-4444-8444-444444444444",
+          "duplicate": false
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "reportId": "44444444-4444-4444-8444-444444444444"
+        },
+        {
+          "protocolVersion": 3,
+          "reportId": "not-a-uuid",
+          "duplicate": true
+        }
+      ]
+    },
+    {
       "schema": "AgentToolName",
       "valid": [
         "wallet.data.query",
-        "wallet.directory.query",
-        "action.send.prepare",
-        "action.swap.prepare",
-        "staking.offer.read"
+        "wallet.directory.query"
       ],
       "invalid": [
         "wallet.balances.list",
@@ -621,7 +578,9 @@
         "addressBook.resolve",
         "action.receive.prepare",
         "action.stake.prepare",
-        "fee.diesel.estimate"
+        "fee.diesel.estimate",
+        "staking.offer.read",
+        "action.swap.prepare"
       ]
     },
     {
@@ -706,8 +665,14 @@
             "activeAccountRef": "account-current",
             "activeNetwork": "ton"
           },
-          "asset": { "slug": "toncoin", "chain": "ton" },
-          "recipient": { "kind": "savedAddress", "addressRef": "address-mom" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         },
@@ -722,8 +687,15 @@
             "activeAccountRef": "account-current",
             "activeNetwork": "ton"
           },
-          "asset": { "slug": "toncoin", "chain": "ton" },
-          "recipient": { "kind": "address", "chain": "ton", "address": "EQ-user-supplied" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "address",
+            "chain": "ton",
+            "address": "EQ-user-supplied"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         },
@@ -738,13 +710,18 @@
             "activeAccountRef": "account-current",
             "activeNetwork": "ton"
           },
-          "asset": { "slug": "toncoin", "chain": "ton" },
-          "recipient": { "kind": "domain", "chain": "ton", "domain": "mom.ton" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "domain",
+            "chain": "ton",
+            "domain": "mom.ton"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
-        }
-      ],
-      "invalid": [
+        },
         {
           "id": "55555555-5555-4555-8555-555555555555",
           "kind": "send",
@@ -756,10 +733,57 @@
             "activeAccountRef": "account-current",
             "activeNetwork": "ton"
           },
-          "asset": { "slug": "toncoin", "chain": "ton" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
         },
+        {
+          "id": "56565656-5656-4656-8656-565656565656",
+          "kind": "send",
+          "labelCode": "open_send",
+          "effect": "open_send",
+          "contextBinding": {
+            "sessionId": "47474747-4747-4747-8747-474747474747",
+            "revision": 4,
+            "activeAccountRef": "account-current",
+            "activeNetwork": "ton"
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
+          "comment": "Coffee"
+        },
+        {
+          "id": "5a5a5a5a-5a5a-4a5a-8a5a-5a5a5a5a5a5a",
+          "kind": "send",
+          "labelCode": "open_send",
+          "effect": "open_send",
+          "contextBinding": {
+            "sessionId": "47474747-4747-4747-8747-474747474747",
+            "revision": 4,
+            "activeAccountRef": "account-current",
+            "activeNetwork": "ton"
+          },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "isMaxAmount": true
+        }
+      ],
+      "invalid": [
         {
           "id": "49494949-4949-4949-8949-494949494949",
           "kind": "send",
@@ -771,10 +795,74 @@
             "activeAccountRef": "account-current",
             "activeNetwork": "ton"
           },
-          "asset": { "slug": "toncoin", "chain": "ton" },
-          "recipient": { "kind": "savedAddress", "addressRef": "address-mom" },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
           "localDraftRequired": false,
           "requiresConfirmation": false
+        },
+        {
+          "id": "57575757-5757-4757-8757-575757575757",
+          "kind": "send",
+          "labelCode": "open_send",
+          "effect": "open_send",
+          "contextBinding": {
+            "sessionId": "47474747-4747-4747-8747-474747474747",
+            "revision": 4,
+            "activeAccountRef": "account-current",
+            "activeNetwork": "ton"
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "amount": "2"
+        },
+        {
+          "id": "5a5a5a5a-5a5a-4a5a-8a5a-5a5a5a5a5a5a",
+          "kind": "send",
+          "labelCode": "open_send",
+          "effect": "open_send",
+          "contextBinding": {
+            "sessionId": "47474747-4747-4747-8747-474747474747",
+            "revision": 4,
+            "activeAccountRef": "account-current",
+            "activeNetwork": "ton"
+          },
+          "asset": {
+            "slug": "toncoin",
+            "chain": "ton"
+          },
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "isMaxAmount": true,
+          "amount": "2"
+        },
+        {
+          "id": "5a5a5a5a-5a5a-4a5a-8a5a-5a5a5a5a5a5a",
+          "kind": "send",
+          "labelCode": "open_send",
+          "effect": "open_send",
+          "contextBinding": {
+            "sessionId": "47474747-4747-4747-8747-474747474747",
+            "revision": 4,
+            "activeAccountRef": "account-current",
+            "activeNetwork": "ton"
+          },
+          "recipient": {
+            "kind": "savedAddress",
+            "addressRef": "address-mom"
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "isMaxAmount": true
         }
       ]
     },
@@ -789,7 +877,8 @@
           "effect": "open_receive",
           "targetNetwork": "tron",
           "localDraftRequired": false,
-          "requiresConfirmation": false
+          "requiresConfirmation": false,
+          "title": "Review action"
         },
         {
           "id": "50505050-5050-4050-8050-505050505050",
@@ -797,27 +886,54 @@
           "labelCode": "open_send",
           "effect": "live_only",
           "localDraftRequired": false,
-          "requiresConfirmation": false
-        },
-        {
-          "id": "51515151-5151-4151-8151-515151515151",
-          "kind": "send",
-          "labelCode": "review_transfer",
-          "effect": "live_only",
-          "localDraftRequired": false,
-          "requiresConfirmation": false
+          "requiresConfirmation": false,
+          "title": "Review action"
         },
         {
           "id": "52525252-5252-4252-8252-525252525252",
-          "schemaVersion": 1,
+          "schemaVersion": 2,
+          "url": "https://my.tt/swap?in=toncoin&out=usdton&amount=10",
           "kind": "swap",
           "labelCode": "open_swap",
           "effect": "open_swap",
-          "sourceAsset": { "slug": "toncoin", "chain": "ton", "symbol": "TON", "decimals": 9 },
-          "destinationAsset": { "slug": "usdton", "chain": "ton", "symbol": "USDT", "decimals": 6 },
-          "amount": { "value": "10", "valueType": "decimal", "side": "source" },
+          "sourceAsset": {
+            "slug": "toncoin",
+            "chain": "ton",
+            "symbol": "TON",
+            "decimals": 9
+          },
+          "destinationAsset": {
+            "slug": "usdton",
+            "chain": "ton",
+            "symbol": "USDT",
+            "decimals": 6
+          },
+          "amount": {
+            "value": "10",
+            "valueType": "decimal",
+            "side": "source"
+          },
           "localDraftRequired": false,
-          "requiresConfirmation": false
+          "requiresConfirmation": false,
+          "title": "Review action"
+        },
+        {
+          "id": "93939393-9393-4393-8393-939393939393",
+          "schemaVersion": 2,
+          "kind": "swap",
+          "labelCode": "open_swap",
+          "effect": "open_swap",
+          "destinationAsset": {
+            "slug": "trx",
+            "chain": "tron",
+            "symbol": "TRX",
+            "name": "Tron",
+            "decimals": 6
+          },
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "url": "https://my.tt/swap?out=trx",
+          "title": "Buy TRX"
         }
       ],
       "invalid": [
@@ -829,6 +945,15 @@
           "effect": "open_receive",
           "localDraftRequired": false,
           "requiresConfirmation": false
+        },
+        {
+          "id": "51515151-5151-4151-8151-515151515151",
+          "kind": "send",
+          "labelCode": "review_transfer",
+          "effect": "live_only",
+          "localDraftRequired": false,
+          "requiresConfirmation": false,
+          "title": "Review action"
         }
       ]
     },
@@ -859,34 +984,73 @@
       "schema": "AgentFeatureCapabilitiesResponseV2",
       "valid": [
         {
-          "protocolVersion": 2,
-          "portfolioPositions": "available",
-          "stakingCatalog": "available",
-          "stakingOffer": "available",
-          "walletQuery": "available"
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "available",
+            "filterCatalog": {
+              "version": 1,
+              "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+              "requiresClientTimeZone": true
+            }
+          },
+          "problemReport": {
+            "status": "available"
+          }
         },
         {
-          "protocolVersion": 2,
-          "portfolioPositions": "disabled"
-        },
-        {
-          "protocolVersion": 2,
-          "portfolioPositions": "available",
-          "stakingOffer": "disabled"
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          },
+          "problemReport": {
+            "status": "disabled"
+          }
         }
       ],
       "invalid": [
         {
-          "protocolVersion": 2
+          "protocolVersion": 3
         },
         {
-          "protocolVersion": 2,
-          "portfolioPositions": "unavailable"
+          "protocolVersion": 3,
+          "walletQuery": "available",
+          "problemReport": {
+            "status": "available"
+          }
         },
         {
-          "protocolVersion": 2,
-          "portfolioPositions": "available",
-          "walletBalances": "available"
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "available"
+          },
+          "problemReport": {
+            "status": "available"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          },
+          "problemReport": {
+            "status": "enabled"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          },
+          "problemReport": {
+            "status": "disabled"
+          },
+          "supportedTools": []
         }
       ]
     },
@@ -896,199 +1060,17 @@
         {
           "kind": "notice",
           "schemaVersion": 1,
-          "code": "wallet_data_unavailable"
+          "code": "agent_unavailable"
         },
         {
           "kind": "notice",
           "schemaVersion": 1,
-          "code": "market_analysis_unavailable"
+          "code": "content_over_budget"
         },
         {
           "kind": "notice",
           "schemaVersion": 1,
-          "code": "analysis_unavailable",
-          "arguments": {
-            "analysisFailure": "stale_evidence"
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "market_quote",
-          "arguments": {
-            "marketQuote": {
-              "status": "resolved",
-              "asset": {
-                "slug": "toncoin",
-                "chain": "ton",
-                "symbol": "TON",
-                "name": "Toncoin"
-              },
-              "price": "3.25",
-              "quoteCurrency": "USD",
-              "percentChange24h": "-1.5",
-              "asOf": "2026-08-12T10:00:00.000Z"
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "market_quote",
-          "arguments": {
-            "marketQuote": {
-              "status": "price_unavailable",
-              "asset": {
-                "slug": "unknown",
-                "chain": "ton",
-                "symbol": "UNK"
-              },
-              "asOf": "2026-08-12T10:00:00.000Z"
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "market_quote",
-          "arguments": {
-            "marketQuote": {
-              "status": "ambiguous",
-              "candidates": [
-                { "slug": "usdt-ton", "chain": "ton", "symbol": "USDT" },
-                { "slug": "usdt-tron", "chain": "tron", "symbol": "USDT" }
-              ],
-              "hasMore": true,
-              "asOf": "2026-08-12T10:00:00.000Z"
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "market_quote",
-          "arguments": {
-            "marketQuote": {
-              "status": "not_found",
-              "asOf": "2026-08-12T10:00:00.000Z"
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "market_quote",
-          "arguments": {
-            "marketQuote": {
-              "status": "unavailable",
-              "reason": "quote_unavailable"
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "wallet_data_unavailable",
-          "arguments": {
-            "walletQueryFailure": "result_not_presentable"
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "receive_details_required",
-          "arguments": {
-            "receiveFields": ["asset", "network"]
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "receive_unavailable",
-          "arguments": {
-            "receiveFailure": "chain_unsupported",
-            "requestedChain": "tron",
-            "activeChain": "ton"
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "clarification_required",
-          "arguments": {
-            "field": "quote_currency"
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "clarification_required",
-          "arguments": {
-            "field": "query",
-            "repairReason": "unrecognized_input"
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "swap_ready",
-          "arguments": {
-            "swapReady": {
-              "sourceAsset": { "slug": "toncoin", "chain": "ton", "symbol": "TON" },
-              "destinationAsset": { "slug": "usdton", "chain": "ton", "symbol": "USDT" },
-              "amount": { "value": "10", "valueType": "decimal", "side": "source" },
-              "quote": {
-                "status": "unavailable",
-                "reason": "price_unavailable",
-                "observedAt": "2026-08-18T12:01:00.000Z"
-              }
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "swap_details_required",
-          "arguments": {
-            "swapDetails": {
-              "field": "destination_asset",
-              "candidates": [
-                { "slug": "usdton", "chain": "ton", "symbol": "USDT" },
-                { "slug": "trx-usdt", "chain": "tron", "symbol": "USDT" }
-              ],
-              "hasMore": false
-            }
-          }
-        },
-        {
-          "kind": "notice",
-          "schemaVersion": 1,
-          "code": "swap_unavailable",
-          "arguments": { "swapFailure": "client_swap_unavailable" }
-        },
-        {
-          "kind": "walletQuery",
-          "schemaVersion": 1,
-          "queryKind": "accounts",
-          "outcome": "partial",
-          "hasMore": false,
-          "rows": [
-            {
-              "accountLabel": "Main",
-              "accessMode": "regular",
-              "portfolioTotalStatus": "partial",
-              "portfolioTotal": {
-                "value": "125.5",
-                "baseCurrency": "USD",
-                "unpricedCount": 1
-              }
-            },
-            {
-              "accountLabel": "Watch",
-              "accessMode": "view_only",
-              "portfolioTotalStatus": "unavailable"
-            }
-          ]
+          "code": "web_search_no_results"
         }
       ],
       "invalid": [
@@ -1108,7 +1090,10 @@
           "schemaVersion": 1,
           "code": "empty_result",
           "arguments": {
-            "receiveFields": ["asset", "network"]
+            "receiveFields": [
+              "asset",
+              "network"
+            ]
           }
         },
         {
@@ -1156,7 +1141,9 @@
           "kind": "notice",
           "schemaVersion": 1,
           "code": "swap_ready",
-          "arguments": { "swapFailure": "client_swap_unavailable" }
+          "arguments": {
+            "swapFailure": "client_swap_unavailable"
+          }
         },
         {
           "kind": "notice",
@@ -1166,161 +1153,243 @@
             "field": "asset",
             "repairReason": "ambiguous_request"
           }
-        }
-      ]
-    },
-    {
-      "schema": "AgentPublicInputContinuationV1",
-      "valid": [
-        {
-          "id": "11111111-1111-4111-8111-111111111111",
-          "kind": "collect_input",
-          "code": "prepare_send_amount",
-          "scenario": "prepare-send",
-          "field": "amount"
         },
         {
-          "id": "22222222-2222-4222-8222-222222222222",
-          "kind": "collect_input",
-          "code": "prepare_swap_destination_asset",
-          "scenario": "prepare-swap",
-          "field": "asset"
-        }
-      ],
-      "invalid": [
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_analysis_unavailable"
+        },
         {
-          "id": "11111111-1111-4111-8111-111111111111",
-          "kind": "submit_message",
-          "code": "prepare_send_amount",
-          "scenario": "prepare-send",
-          "field": "amount"
-        }
-      ]
-    },
-    {
-      "schema": "AgentInputContinuationsEventV1",
-      "valid": [
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_quote",
+          "arguments": {
+            "marketQuote": {
+              "status": "resolved",
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON",
+                "name": "Toncoin"
+              },
+              "price": "3.25",
+              "quoteCurrency": "USD",
+              "percentChange24h": "-1.5",
+              "asOf": "2026-08-12T10:00:00.000Z"
+            }
+          }
+        },
         {
-          "type": "input_continuations",
-          "protocolVersion": 2,
-          "runId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          "sequence": 4,
-          "messageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-          "items": [
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_quote",
+          "arguments": {
+            "marketQuote": {
+              "status": "price_unavailable",
+              "asset": {
+                "slug": "unknown",
+                "chain": "ton",
+                "symbol": "UNK"
+              },
+              "asOf": "2026-08-12T10:00:00.000Z"
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_quote",
+          "arguments": {
+            "marketQuote": {
+              "status": "ambiguous",
+              "candidates": [
+                {
+                  "slug": "usdt-ton",
+                  "chain": "ton",
+                  "symbol": "USDT"
+                },
+                {
+                  "slug": "usdt-tron",
+                  "chain": "tron",
+                  "symbol": "USDT"
+                }
+              ],
+              "hasMore": true,
+              "asOf": "2026-08-12T10:00:00.000Z"
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_quote",
+          "arguments": {
+            "marketQuote": {
+              "status": "not_found",
+              "asOf": "2026-08-12T10:00:00.000Z"
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "market_quote",
+          "arguments": {
+            "marketQuote": {
+              "status": "unavailable",
+              "reason": "quote_unavailable"
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "swap_ready",
+          "arguments": {
+            "swapReady": {
+              "sourceAsset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON"
+              },
+              "destinationAsset": {
+                "slug": "usdton",
+                "chain": "ton",
+                "symbol": "USDT"
+              },
+              "amount": {
+                "value": "10",
+                "valueType": "decimal",
+                "side": "source"
+              },
+              "quote": {
+                "status": "unavailable",
+                "reason": "price_unavailable",
+                "observedAt": "2026-08-18T12:01:00.000Z"
+              }
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "wallet_data_unavailable"
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "analysis_unavailable",
+          "arguments": {
+            "analysisFailure": "stale_evidence"
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "wallet_data_unavailable",
+          "arguments": {
+            "walletQueryFailure": "result_not_presentable"
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "receive_details_required",
+          "arguments": {
+            "receiveFields": [
+              "asset",
+              "network"
+            ]
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "receive_unavailable",
+          "arguments": {
+            "receiveFailure": "chain_unsupported",
+            "requestedChain": "tron",
+            "activeChain": "ton"
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "clarification_required",
+          "arguments": {
+            "field": "quote_currency"
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "clarification_required",
+          "arguments": {
+            "field": "query",
+            "repairReason": "unrecognized_input"
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "swap_details_required",
+          "arguments": {
+            "swapDetails": {
+              "field": "destination_asset",
+              "candidates": [
+                {
+                  "slug": "usdton",
+                  "chain": "ton",
+                  "symbol": "USDT"
+                },
+                {
+                  "slug": "trx-usdt",
+                  "chain": "tron",
+                  "symbol": "USDT"
+                }
+              ],
+              "hasMore": false
+            }
+          }
+        },
+        {
+          "kind": "notice",
+          "schemaVersion": 1,
+          "code": "swap_unavailable",
+          "arguments": {
+            "swapFailure": "client_swap_unavailable"
+          }
+        },
+        {
+          "kind": "walletQuery",
+          "schemaVersion": 1,
+          "queryKind": "accounts",
+          "outcome": "partial",
+          "hasMore": false,
+          "rows": [
             {
-              "id": "11111111-1111-4111-8111-111111111111",
-              "kind": "collect_input",
-              "code": "prepare_send_amount",
-              "scenario": "prepare-send",
-              "field": "amount"
+              "accountLabel": "Main",
+              "accessMode": "regular",
+              "portfolioTotalStatus": "partial",
+              "portfolioTotal": {
+                "value": "125.5",
+                "baseCurrency": "USD",
+                "unpricedCount": 1
+              }
             },
             {
-              "id": "22222222-2222-4222-8222-222222222222",
-              "kind": "collect_input",
-              "code": "prepare_swap_destination_asset",
-              "scenario": "prepare-swap",
-              "field": "asset"
+              "accountLabel": "Watch",
+              "accessMode": "view_only",
+              "portfolioTotalStatus": "unavailable"
             }
-          ],
-          "createdAt": "2026-07-29T00:00:00.000Z"
-        }
-      ],
-      "invalid": [
-        {
-          "type": "input_continuations",
-          "protocolVersion": 2,
-          "runId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          "sequence": 4,
-          "messageId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-          "items": [],
-          "createdAt": "2026-07-29T00:00:00.000Z"
+          ]
         }
       ]
     },
     {
-      "schema": "AgentToolCapability",
+      "schema": "AgentWalletDataQueryArgs",
       "valid": [
         {
-          "name": "wallet.data.query",
-          "version": 5,
-          "scopes": [
-            "wallet.data.read"
-          ],
-          "maxResultBytes": 98304,
-          "timeoutMs": 30000
-        },
-        {
-          "name": "wallet.directory.query",
-          "version": 1,
-          "scopes": [
-            "wallet.directory.read"
-          ],
-          "maxResultBytes": 32768,
-          "timeoutMs": 30000
-        },
-        {
-          "name": "staking.offer.read",
-          "version": 1,
-          "scopes": [
-            "staking.data.read"
-          ],
-          "maxResultBytes": 16384,
-          "timeoutMs": 15000
-        }
-      ],
-      "invalid": [
-        {
-          "name": "wallet.data.query",
-          "version": 4,
-          "scopes": [
-            "wallet.data.read"
-          ],
-          "maxResultBytes": 98304,
-          "timeoutMs": 30000
-        },
-        {
-          "name": "wallet.data.query",
-          "version": 5,
-          "scopes": [
-            "wallet.data.read"
-          ],
-          "maxResultBytes": 0,
-          "timeoutMs": 30000
-        },
-        {
-          "name": "wallet.balances.list",
-          "version": 1,
-          "scopes": [
-            "wallet.balances.read"
-          ],
-          "maxResultBytes": 98305,
-          "timeoutMs": 30000
-        },
-        {
-          "name": "staking.offer.read",
-          "version": 1,
-          "scopes": [
-            "market.data.read"
-          ],
-          "maxResultBytes": 16384,
-          "timeoutMs": 15000
-        },
-        {
-          "name": "staking.offer.read",
-          "version": 1,
-          "scopes": [
-            "staking.data.read"
-          ],
-          "maxResultBytes": 98304,
-          "timeoutMs": 15000
-        }
-      ]
-    },
-    {
-      "schema": "AgentWalletDataQueryArgsV5",
-      "valid": [
-        {
-          "schemaVersion": 5,
           "operation": "transactions.list",
           "accountSelector": {
             "kind": "current"
@@ -1335,7 +1404,6 @@
           "pageSize": 10
         },
         {
-          "schemaVersion": 5,
           "operation": "account.inventory",
           "accountSelector": {
             "kind": "explicitAll"
@@ -1344,7 +1412,6 @@
           "includePortfolioTotals": true
         },
         {
-          "schemaVersion": 5,
           "operation": "portfolio.aggregate",
           "accountSelector": {
             "kind": "explicitAll"
@@ -1354,9 +1421,336 @@
           },
           "chains": [],
           "range": "3m",
-          "groupBy": ["account", "asset", "network"],
+          "groupBy": [
+            "account",
+            "asset",
+            "network"
+          ],
           "riskMode": "all",
           "visibilityMode": "all"
+        },
+        {
+          "operation": "portfolio.aggregate",
+          "accountSelector": {
+            "kind": "current"
+          },
+          "chains": [],
+          "range": "1m",
+          "groupBy": [
+            "account",
+            "asset",
+            "network"
+          ],
+          "riskMode": "all",
+          "visibilityMode": "all",
+          "historySource": "backend"
+        },
+        {
+          "operation": "value.series",
+          "accountSelector": {
+            "kind": "current"
+          },
+          "chains": [],
+          "metric": "portfolio_value",
+          "assetSelectors": [],
+          "range": "1m",
+          "maxPoints": 64
+        },
+        {
+          "operation": "transactions.list",
+          "accountSelector": {
+            "kind": "current"
+          },
+          "chains": [
+            "ton",
+            "chain1",
+            "chain2",
+            "chain3",
+            "chain4",
+            "chain5",
+            "chain6",
+            "chain7",
+            "chain8",
+            "chain9",
+            "chain10",
+            "chain11",
+            "chain12",
+            "chain13",
+            "chain14",
+            "chain15",
+            "chain16"
+          ],
+          "filters": {
+            "schemaVersion": 1,
+            "catalogDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "clauses": [
+              {
+                "field": "transaction.chain",
+                "operator": "in",
+                "values": [
+                  "ton",
+                  "chain1",
+                  "chain2",
+                  "chain3",
+                  "chain4",
+                  "chain5",
+                  "chain6",
+                  "chain7",
+                  "chain8",
+                  "chain9",
+                  "chain10",
+                  "chain11",
+                  "chain12",
+                  "chain13",
+                  "chain14",
+                  "chain15",
+                  "chain16"
+                ]
+              }
+            ]
+          },
+          "riskMode": "exclude",
+          "pageSize": 10
+        },
+        {
+          "operation": "transactions.list",
+          "accountSelector": {
+            "kind": "current"
+          },
+          "chains": [
+            "ton",
+            "chain1",
+            "chain2",
+            "chain3",
+            "chain4",
+            "chain5",
+            "chain6",
+            "chain7",
+            "chain8",
+            "chain9",
+            "chain10",
+            "chain11",
+            "chain12",
+            "chain13",
+            "chain14",
+            "chain15",
+            "chain16",
+            "chain17",
+            "chain18",
+            "chain19",
+            "chain20",
+            "chain21",
+            "chain22",
+            "chain23",
+            "chain24",
+            "chain25",
+            "chain26",
+            "chain27",
+            "chain28",
+            "chain29",
+            "chain30",
+            "chain31",
+            "chain32"
+          ],
+          "filters": {
+            "schemaVersion": 1,
+            "catalogDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "clauses": [
+              {
+                "field": "transaction.chain",
+                "operator": "in",
+                "values": [
+                  "ton",
+                  "chain1",
+                  "chain2",
+                  "chain3",
+                  "chain4",
+                  "chain5",
+                  "chain6",
+                  "chain7",
+                  "chain8",
+                  "chain9",
+                  "chain10",
+                  "chain11",
+                  "chain12",
+                  "chain13",
+                  "chain14",
+                  "chain15",
+                  "chain16",
+                  "chain17",
+                  "chain18",
+                  "chain19",
+                  "chain20",
+                  "chain21",
+                  "chain22",
+                  "chain23",
+                  "chain24",
+                  "chain25",
+                  "chain26",
+                  "chain27",
+                  "chain28",
+                  "chain29",
+                  "chain30",
+                  "chain31",
+                  "chain32"
+                ]
+              }
+            ]
+          },
+          "riskMode": "exclude",
+          "pageSize": 10
+        },
+        {
+          "operation": "transactions.list",
+          "accountSelector": {
+            "kind": "current"
+          },
+          "chains": [
+            "ton",
+            "chain1",
+            "chain2",
+            "chain3",
+            "chain4",
+            "chain5",
+            "chain6",
+            "chain7",
+            "chain8",
+            "chain9",
+            "chain10",
+            "chain11",
+            "chain12",
+            "chain13",
+            "chain14",
+            "chain15",
+            "chain16",
+            "chain17",
+            "chain18",
+            "chain19",
+            "chain20",
+            "chain21",
+            "chain22",
+            "chain23",
+            "chain24",
+            "chain25",
+            "chain26",
+            "chain27",
+            "chain28",
+            "chain29",
+            "chain30",
+            "chain31",
+            "chain32",
+            "chain33",
+            "chain34",
+            "chain35",
+            "chain36",
+            "chain37",
+            "chain38",
+            "chain39",
+            "chain40",
+            "chain41",
+            "chain42",
+            "chain43",
+            "chain44",
+            "chain45",
+            "chain46",
+            "chain47",
+            "chain48",
+            "chain49",
+            "chain50",
+            "chain51",
+            "chain52",
+            "chain53",
+            "chain54",
+            "chain55",
+            "chain56",
+            "chain57",
+            "chain58",
+            "chain59",
+            "chain60",
+            "chain61",
+            "chain62",
+            "chain63",
+            "chain64"
+          ],
+          "filters": {
+            "schemaVersion": 1,
+            "catalogDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "clauses": [
+              {
+                "field": "transaction.chain",
+                "operator": "in",
+                "values": [
+                  "ton",
+                  "chain1",
+                  "chain2",
+                  "chain3",
+                  "chain4",
+                  "chain5",
+                  "chain6",
+                  "chain7",
+                  "chain8",
+                  "chain9",
+                  "chain10",
+                  "chain11",
+                  "chain12",
+                  "chain13",
+                  "chain14",
+                  "chain15",
+                  "chain16",
+                  "chain17",
+                  "chain18",
+                  "chain19",
+                  "chain20",
+                  "chain21",
+                  "chain22",
+                  "chain23",
+                  "chain24",
+                  "chain25",
+                  "chain26",
+                  "chain27",
+                  "chain28",
+                  "chain29",
+                  "chain30",
+                  "chain31",
+                  "chain32",
+                  "chain33",
+                  "chain34",
+                  "chain35",
+                  "chain36",
+                  "chain37",
+                  "chain38",
+                  "chain39",
+                  "chain40",
+                  "chain41",
+                  "chain42",
+                  "chain43",
+                  "chain44",
+                  "chain45",
+                  "chain46",
+                  "chain47",
+                  "chain48",
+                  "chain49",
+                  "chain50",
+                  "chain51",
+                  "chain52",
+                  "chain53",
+                  "chain54",
+                  "chain55",
+                  "chain56",
+                  "chain57",
+                  "chain58",
+                  "chain59",
+                  "chain60",
+                  "chain61",
+                  "chain62",
+                  "chain63",
+                  "chain64"
+                ]
+              }
+            ]
+          },
+          "riskMode": "exclude",
+          "pageSize": 10
         }
       ],
       "invalid": [
@@ -1402,7 +1796,6 @@
           "chains": []
         },
         {
-          "schemaVersion": 5,
           "operation": "portfolio.aggregate",
           "accountSelector": {
             "kind": "current"
@@ -1412,17 +1805,20 @@
           },
           "chains": [],
           "range": "3m",
-          "groupBy": ["account", "asset", "network"],
+          "groupBy": [
+            "account",
+            "asset",
+            "network"
+          ],
           "riskMode": "all",
           "visibilityMode": "all"
         }
       ]
     },
     {
-      "schema": "AgentWalletDataQueryResultV5",
+      "schema": "AgentWalletDataQueryResult",
       "valid": [
         {
-          "schemaVersion": 5,
           "operation": "transactions.list",
           "status": "resolved",
           "resolvedScope": {
@@ -1459,14 +1855,19 @@
           },
           "policySummary": {
             "riskMode": "exclude",
-            "spamMatches": { "count": 0, "accuracy": "exact" },
-            "hiddenMatches": { "count": 0, "accuracy": "exact" }
+            "spamMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            },
+            "hiddenMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            }
           },
           "appliedFilterDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "transactions": []
         },
         {
-          "schemaVersion": 5,
           "operation": "account.inventory",
           "status": "resolved",
           "resolvedScope": {
@@ -1510,7 +1911,9 @@
               "isCurrent": true,
               "state": "active",
               "isViewOnly": false,
-              "chains": ["ton"],
+              "chains": [
+                "ton"
+              ],
               "portfolioTotalStatus": "complete",
               "portfolioTotal": {
                 "value": "125.5",
@@ -1521,7 +1924,6 @@
           ]
         },
         {
-          "schemaVersion": 5,
           "operation": "portfolio.aggregate",
           "status": "resolved",
           "resolvedScope": {
@@ -1544,7 +1946,9 @@
             "accountsRequested": 1,
             "accountsIncluded": 1,
             "rowsOmitted": 0,
-            "limitations": ["unpriced_positions"],
+            "limitations": [
+              "unpriced_positions"
+            ],
             "sourceOutcomes": [
               {
                 "domain": "portfolio",
@@ -1558,8 +1962,14 @@
           "policySummary": {
             "riskMode": "all",
             "visibilityMode": "all",
-            "spamMatches": { "count": 0, "accuracy": "exact" },
-            "hiddenMatches": { "count": 0, "accuracy": "exact" }
+            "spamMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            },
+            "hiddenMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            }
           },
           "total": {
             "value": "100",
@@ -1640,6 +2050,921 @@
             }
           ],
           "series": []
+        },
+        {
+          "operation": "portfolio.aggregate",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "current",
+            "accounts": [
+              {
+                "accountRef": "account-1",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-07-31T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-07-31T00:00:00.000Z",
+            "source": "network",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "partial",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [
+              "unpriced_positions"
+            ],
+            "sourceOutcomes": [
+              {
+                "domain": "portfolio",
+                "status": "complete",
+                "attempts": 1,
+                "accountsRequested": 1,
+                "accountsIncluded": 1
+              }
+            ]
+          },
+          "policySummary": {
+            "riskMode": "all",
+            "visibilityMode": "all",
+            "spamMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            },
+            "hiddenMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            }
+          },
+          "total": {
+            "value": "100",
+            "baseCurrency": "USD",
+            "unpricedCount": 1
+          },
+          "allocations": [
+            {
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON",
+                "decimals": 9
+              },
+              "value": "100",
+              "baseCurrency": "USD",
+              "percent": "100"
+            }
+          ],
+          "positions": [
+            {
+              "rowId": "position-ton",
+              "kind": "position",
+              "accountRef": "account-1",
+              "accountLabel": "Main",
+              "positionKind": "fungible",
+              "chain": "ton",
+              "label": "TON",
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON",
+                "decimals": 9
+              },
+              "quantity": "10",
+              "decimals": 9,
+              "valuationStatus": "valued",
+              "fiatValue": "100",
+              "baseCurrency": "USD"
+            },
+            {
+              "rowId": "position-mystery",
+              "kind": "position",
+              "accountRef": "account-1",
+              "accountLabel": "Main",
+              "positionKind": "fungible",
+              "chain": "ton",
+              "label": "MYSTERY",
+              "asset": {
+                "slug": "mystery",
+                "chain": "ton",
+                "symbol": "MYSTERY",
+                "decimals": 9
+              },
+              "quantity": "2",
+              "decimals": 9,
+              "valuationStatus": "unpriced"
+            }
+          ],
+          "aggregates": [
+            {
+              "rowId": "account-main",
+              "kind": "aggregate",
+              "groupKind": "account",
+              "label": "Main",
+              "value": "100",
+              "baseCurrency": "USD",
+              "unpricedCount": 1
+            }
+          ],
+          "series": [],
+          "historyAccounts": [
+            {
+              "accountRef": "account-1",
+              "wallets": [
+                "ton:EQ-public-wallet"
+              ]
+            }
+          ]
+        },
+        {
+          "operation": "value.series",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "current",
+            "accounts": [
+              {
+                "accountRef": "account_current",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-08-20T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-08-20T00:00:00.000Z",
+            "source": "cache",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "complete",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [],
+            "sourceOutcomes": [
+              {
+                "domain": "value_series",
+                "status": "complete",
+                "attempts": 1
+              }
+            ]
+          },
+          "baseCurrency": "USD",
+          "historyAccounts": [
+            {
+              "accountRef": "account_current",
+              "wallets": [
+                "ton:EQ-public-wallet"
+              ]
+            }
+          ],
+          "series": []
+        },
+        {
+          "operation": "account.inventory",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "explicitAll",
+            "accounts": [
+              {
+                "accountRef": "account-1",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-07-31T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-07-31T00:00:00.000Z",
+            "source": "network",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "complete",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [],
+            "sourceOutcomes": [
+              {
+                "domain": "accounts",
+                "status": "complete",
+                "attempts": 1,
+                "accountsRequested": 1,
+                "accountsIncluded": 1
+              }
+            ]
+          },
+          "accounts": [
+            {
+              "rowId": "account-1",
+              "kind": "account",
+              "accountRef": "account-1",
+              "accountLabel": "Main",
+              "accountType": "regular",
+              "isCurrent": true,
+              "state": "active",
+              "isViewOnly": false,
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32",
+                "chain33",
+                "chain34",
+                "chain35",
+                "chain36",
+                "chain37",
+                "chain38",
+                "chain39",
+                "chain40",
+                "chain41",
+                "chain42",
+                "chain43",
+                "chain44",
+                "chain45",
+                "chain46",
+                "chain47",
+                "chain48",
+                "chain49",
+                "chain50",
+                "chain51",
+                "chain52",
+                "chain53",
+                "chain54",
+                "chain55",
+                "chain56",
+                "chain57",
+                "chain58",
+                "chain59",
+                "chain60",
+                "chain61",
+                "chain62",
+                "chain63",
+                "chain64"
+              ],
+              "portfolioTotalStatus": "complete",
+              "portfolioTotal": {
+                "value": "125.5",
+                "baseCurrency": "USD",
+                "unpricedCount": 0
+              },
+              "publicAddresses": [
+                {
+                  "chain": "ton",
+                  "address": "public-address-0",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain1",
+                  "address": "public-address-1",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain2",
+                  "address": "public-address-2",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain3",
+                  "address": "public-address-3",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain4",
+                  "address": "public-address-4",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain5",
+                  "address": "public-address-5",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain6",
+                  "address": "public-address-6",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain7",
+                  "address": "public-address-7",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain8",
+                  "address": "public-address-8",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain9",
+                  "address": "public-address-9",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain10",
+                  "address": "public-address-10",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain11",
+                  "address": "public-address-11",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain12",
+                  "address": "public-address-12",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain13",
+                  "address": "public-address-13",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain14",
+                  "address": "public-address-14",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain15",
+                  "address": "public-address-15",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain16",
+                  "address": "public-address-16",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain17",
+                  "address": "public-address-17",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain18",
+                  "address": "public-address-18",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain19",
+                  "address": "public-address-19",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain20",
+                  "address": "public-address-20",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain21",
+                  "address": "public-address-21",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain22",
+                  "address": "public-address-22",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain23",
+                  "address": "public-address-23",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain24",
+                  "address": "public-address-24",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain25",
+                  "address": "public-address-25",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain26",
+                  "address": "public-address-26",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain27",
+                  "address": "public-address-27",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain28",
+                  "address": "public-address-28",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain29",
+                  "address": "public-address-29",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain30",
+                  "address": "public-address-30",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain31",
+                  "address": "public-address-31",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain32",
+                  "address": "public-address-32",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain33",
+                  "address": "public-address-33",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain34",
+                  "address": "public-address-34",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain35",
+                  "address": "public-address-35",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain36",
+                  "address": "public-address-36",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain37",
+                  "address": "public-address-37",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain38",
+                  "address": "public-address-38",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain39",
+                  "address": "public-address-39",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain40",
+                  "address": "public-address-40",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain41",
+                  "address": "public-address-41",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain42",
+                  "address": "public-address-42",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain43",
+                  "address": "public-address-43",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain44",
+                  "address": "public-address-44",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain45",
+                  "address": "public-address-45",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain46",
+                  "address": "public-address-46",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain47",
+                  "address": "public-address-47",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain48",
+                  "address": "public-address-48",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain49",
+                  "address": "public-address-49",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain50",
+                  "address": "public-address-50",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain51",
+                  "address": "public-address-51",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain52",
+                  "address": "public-address-52",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain53",
+                  "address": "public-address-53",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain54",
+                  "address": "public-address-54",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain55",
+                  "address": "public-address-55",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain56",
+                  "address": "public-address-56",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain57",
+                  "address": "public-address-57",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain58",
+                  "address": "public-address-58",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain59",
+                  "address": "public-address-59",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain60",
+                  "address": "public-address-60",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain61",
+                  "address": "public-address-61",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain62",
+                  "address": "public-address-62",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain63",
+                  "address": "public-address-63",
+                  "disclosureReason": "wallet_location"
+                },
+                {
+                  "chain": "chain64",
+                  "address": "public-address-64",
+                  "disclosureReason": "wallet_location"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "operation": "portfolio.aggregate",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "current",
+            "accounts": [
+              {
+                "accountRef": "account-1",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-07-31T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-07-31T00:00:00.000Z",
+            "source": "network",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "partial",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [
+              "unpriced_positions"
+            ],
+            "sourceOutcomes": [
+              {
+                "domain": "portfolio",
+                "status": "complete",
+                "attempts": 1,
+                "accountsRequested": 1,
+                "accountsIncluded": 1
+              }
+            ]
+          },
+          "policySummary": {
+            "riskMode": "all",
+            "visibilityMode": "all",
+            "spamMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            },
+            "hiddenMatches": {
+              "count": 0,
+              "accuracy": "exact"
+            }
+          },
+          "total": {
+            "value": "100",
+            "baseCurrency": "USD",
+            "unpricedCount": 1
+          },
+          "allocations": [
+            {
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON",
+                "decimals": 9
+              },
+              "value": "100",
+              "baseCurrency": "USD",
+              "percent": "100"
+            }
+          ],
+          "positions": [
+            {
+              "rowId": "position-ton",
+              "kind": "position",
+              "accountRef": "account-1",
+              "accountLabel": "Main",
+              "positionKind": "fungible",
+              "chain": "ton",
+              "label": "TON",
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON",
+                "decimals": 9
+              },
+              "quantity": "10",
+              "decimals": 9,
+              "valuationStatus": "valued",
+              "fiatValue": "100",
+              "baseCurrency": "USD"
+            },
+            {
+              "rowId": "position-mystery",
+              "kind": "position",
+              "accountRef": "account-1",
+              "accountLabel": "Main",
+              "positionKind": "fungible",
+              "chain": "ton",
+              "label": "MYSTERY",
+              "asset": {
+                "slug": "mystery",
+                "chain": "ton",
+                "symbol": "MYSTERY",
+                "decimals": 9
+              },
+              "quantity": "2",
+              "decimals": 9,
+              "valuationStatus": "unpriced"
+            }
+          ],
+          "aggregates": [
+            {
+              "rowId": "account-main",
+              "kind": "aggregate",
+              "groupKind": "account",
+              "label": "Main",
+              "value": "100",
+              "baseCurrency": "USD",
+              "unpricedCount": 1
+            }
+          ],
+          "series": [],
+          "historyAccounts": [
+            {
+              "accountRef": "account-1",
+              "wallets": [
+                "ton:public-address-0",
+                "chain1:public-address-1",
+                "chain2:public-address-2",
+                "chain3:public-address-3",
+                "chain4:public-address-4",
+                "chain5:public-address-5",
+                "chain6:public-address-6",
+                "chain7:public-address-7",
+                "chain8:public-address-8",
+                "chain9:public-address-9",
+                "chain10:public-address-10",
+                "chain11:public-address-11",
+                "chain12:public-address-12",
+                "chain13:public-address-13",
+                "chain14:public-address-14",
+                "chain15:public-address-15",
+                "chain16:public-address-16",
+                "chain17:public-address-17",
+                "chain18:public-address-18",
+                "chain19:public-address-19",
+                "chain20:public-address-20",
+                "chain21:public-address-21",
+                "chain22:public-address-22",
+                "chain23:public-address-23",
+                "chain24:public-address-24",
+                "chain25:public-address-25",
+                "chain26:public-address-26",
+                "chain27:public-address-27",
+                "chain28:public-address-28",
+                "chain29:public-address-29",
+                "chain30:public-address-30",
+                "chain31:public-address-31",
+                "chain32:public-address-32",
+                "chain33:public-address-33",
+                "chain34:public-address-34",
+                "chain35:public-address-35",
+                "chain36:public-address-36",
+                "chain37:public-address-37",
+                "chain38:public-address-38",
+                "chain39:public-address-39",
+                "chain40:public-address-40",
+                "chain41:public-address-41",
+                "chain42:public-address-42",
+                "chain43:public-address-43",
+                "chain44:public-address-44",
+                "chain45:public-address-45",
+                "chain46:public-address-46",
+                "chain47:public-address-47",
+                "chain48:public-address-48",
+                "chain49:public-address-49",
+                "chain50:public-address-50",
+                "chain51:public-address-51",
+                "chain52:public-address-52",
+                "chain53:public-address-53",
+                "chain54:public-address-54",
+                "chain55:public-address-55",
+                "chain56:public-address-56",
+                "chain57:public-address-57",
+                "chain58:public-address-58",
+                "chain59:public-address-59",
+                "chain60:public-address-60",
+                "chain61:public-address-61",
+                "chain62:public-address-62",
+                "chain63:public-address-63",
+                "chain64:public-address-64"
+              ]
+            }
+          ]
+        },
+        {
+          "operation": "value.series",
+          "status": "resolved",
+          "resolvedScope": {
+            "kind": "current",
+            "accounts": [
+              {
+                "accountRef": "account_current",
+                "accountLabel": "Main"
+              }
+            ]
+          },
+          "generatedAt": "2026-08-20T00:00:00.000Z",
+          "freshness": {
+            "asOf": "2026-08-20T00:00:00.000Z",
+            "source": "cache",
+            "isStale": false
+          },
+          "coverage": {
+            "status": "complete",
+            "accountsRequested": 1,
+            "accountsIncluded": 1,
+            "rowsOmitted": 0,
+            "limitations": [],
+            "sourceOutcomes": [
+              {
+                "domain": "value_series",
+                "status": "complete",
+                "attempts": 1
+              }
+            ]
+          },
+          "baseCurrency": "USD",
+          "historyAccounts": [
+            {
+              "accountRef": "account_current",
+              "wallets": [
+                "ton:public-address-0",
+                "chain1:public-address-1",
+                "chain2:public-address-2",
+                "chain3:public-address-3",
+                "chain4:public-address-4",
+                "chain5:public-address-5",
+                "chain6:public-address-6",
+                "chain7:public-address-7",
+                "chain8:public-address-8",
+                "chain9:public-address-9",
+                "chain10:public-address-10",
+                "chain11:public-address-11",
+                "chain12:public-address-12",
+                "chain13:public-address-13",
+                "chain14:public-address-14",
+                "chain15:public-address-15",
+                "chain16:public-address-16",
+                "chain17:public-address-17",
+                "chain18:public-address-18",
+                "chain19:public-address-19",
+                "chain20:public-address-20",
+                "chain21:public-address-21",
+                "chain22:public-address-22",
+                "chain23:public-address-23",
+                "chain24:public-address-24",
+                "chain25:public-address-25",
+                "chain26:public-address-26",
+                "chain27:public-address-27",
+                "chain28:public-address-28",
+                "chain29:public-address-29",
+                "chain30:public-address-30",
+                "chain31:public-address-31",
+                "chain32:public-address-32",
+                "chain33:public-address-33",
+                "chain34:public-address-34",
+                "chain35:public-address-35",
+                "chain36:public-address-36",
+                "chain37:public-address-37",
+                "chain38:public-address-38",
+                "chain39:public-address-39",
+                "chain40:public-address-40",
+                "chain41:public-address-41",
+                "chain42:public-address-42",
+                "chain43:public-address-43",
+                "chain44:public-address-44",
+                "chain45:public-address-45",
+                "chain46:public-address-46",
+                "chain47:public-address-47",
+                "chain48:public-address-48",
+                "chain49:public-address-49",
+                "chain50:public-address-50",
+                "chain51:public-address-51",
+                "chain52:public-address-52",
+                "chain53:public-address-53",
+                "chain54:public-address-54",
+                "chain55:public-address-55",
+                "chain56:public-address-56",
+                "chain57:public-address-57",
+                "chain58:public-address-58",
+                "chain59:public-address-59",
+                "chain60:public-address-60",
+                "chain61:public-address-61",
+                "chain62:public-address-62",
+                "chain63:public-address-63",
+                "chain64:public-address-64"
+              ]
+            }
+          ],
+          "series": []
         }
       ],
       "invalid": [
@@ -1670,13 +2995,14 @@
         {
           "id": "51515151-5151-4151-8151-515151515151",
           "name": "wallet.directory.query",
-          "version": 1,
           "maxResultBytes": 32768,
           "arguments": {
             "schemaVersion": 1,
             "purpose": "send_wallet_resolution"
           },
-          "scopes": ["wallet.directory.read"],
+          "scopes": [
+            "wallet.directory.read"
+          ],
           "timeoutMs": 30000,
           "directorySession": {
             "sessionId": "52525252-5252-4252-8252-525252525252",
@@ -1695,69 +3021,20 @@
             "kind": "userMessage",
             "messageId": "53535353-5353-4353-8353-535353535353"
           }
-        },
-        {
-          "id": "61616161-6161-4161-8161-616161616161",
-          "name": "staking.offer.read",
-          "version": 1,
-          "maxResultBytes": 16384,
-          "arguments": {
-            "schemaVersion": 1,
-            "productId": "stakee-gram",
-            "asset": {
-              "slug": "gram",
-              "chain": "ton",
-              "symbol": "GRAM"
-            }
-          },
-          "scopes": [
-            "staking.data.read"
-          ],
-          "timeoutMs": 15000,
-          "walletContextSession": {
-            "sessionId": "62626262-6262-4262-8262-626262626262",
-            "revision": 3,
-            "accountScope": "current",
-            "activeAccountRef": "account_current",
-            "activeNetwork": "ton"
-          },
-          "intentSource": {
-            "kind": "userMessage",
-            "messageId": "63636363-6363-4363-8363-636363636363"
-          }
-        },
-        {
-          "id": "61616161-6161-4161-8161-616161616162",
-          "name": "staking.offers.list",
-          "version": 1,
-          "maxResultBytes": 16384,
-          "arguments": { "schemaVersion": 1 },
-          "scopes": ["staking.data.read"],
-          "timeoutMs": 15000,
-          "walletContextSession": {
-            "sessionId": "62626262-6262-4262-8262-626262626262",
-            "revision": 3,
-            "accountScope": "current",
-            "activeAccountRef": "account_current",
-            "activeNetwork": "ton"
-          },
-          "intentSource": {
-            "kind": "userMessage",
-            "messageId": "63636363-6363-4363-8363-636363636363"
-          }
         }
       ],
       "invalid": [
         {
           "id": "51515151-5151-4151-8151-515151515151",
           "name": "wallet.directory.query",
-          "version": 1,
           "maxResultBytes": 32768,
           "arguments": {
             "schemaVersion": 1,
             "purpose": "send_wallet_resolution"
           },
-          "scopes": ["wallet.directory.read"],
+          "scopes": [
+            "wallet.directory.read"
+          ],
           "timeoutMs": 30000,
           "walletContextSession": {
             "sessionId": "52525252-5252-4252-8252-525252525252",
@@ -1792,6 +3069,65 @@
             "activeAccountRef": "account_current",
             "activeNetwork": "ton"
           }
+        },
+        {
+          "id": "61616161-6161-4161-8161-616161616161",
+          "name": "staking.offer.read",
+          "version": 1,
+          "maxResultBytes": 16384,
+          "arguments": {
+            "schemaVersion": 1,
+            "productId": "stakee-gram",
+            "asset": {
+              "slug": "gram",
+              "chain": "ton",
+              "symbol": "GRAM"
+            }
+          },
+          "scopes": [
+            "staking.data.read"
+          ],
+          "timeoutMs": 15000,
+          "walletContextSession": {
+            "sessionId": "62626262-6262-4262-8262-626262626262",
+            "revision": 3,
+            "accountScope": "current",
+            "activeAccountRef": "account_current",
+            "activeNetwork": "ton"
+          },
+          "intentSource": {
+            "kind": "userMessage",
+            "messageId": "63636363-6363-4363-8363-636363636363"
+          }
+        },
+        {
+          "id": "44444444-4444-4444-8444-444444444444",
+          "name": "market.asset.quote",
+          "version": 1,
+          "maxResultBytes": 16384,
+          "arguments": {
+            "schemaVersion": 1,
+            "quoteCurrency": "USD",
+            "selector": {
+              "kind": "asset",
+              "asset": {
+                "slug": "toncoin",
+                "chain": "ton",
+                "symbol": "TON"
+              }
+            }
+          },
+          "scopes": [
+            "market.data.read"
+          ],
+          "timeoutMs": 15000,
+          "walletContextSession": {
+            "sessionId": "55555555-5555-4555-8555-555555555555",
+            "revision": 1,
+            "activeAccountRef": "wallet-1",
+            "accountScope": "current",
+            "activeNetwork": "ton"
+          }
         }
       ]
     },
@@ -1799,7 +3135,7 @@
       "schema": "AgentToolResultRequestV2",
       "valid": [
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "54545454-5454-4454-8454-545454545454",
           "threadId": "55555555-5555-4555-8555-555555555555",
           "toolCallId": "51515151-5151-4151-8151-515151515151",
@@ -1841,21 +3177,60 @@
                   "label": "Main",
                   "isCurrent": true,
                   "state": "active",
-                  "chains": ["ton"]
+                  "chains": [
+                    "ton"
+                  ]
                 },
                 {
                   "accountRef": "account_savings",
                   "label": "Savings",
                   "isCurrent": false,
                   "state": "active",
-                  "chains": ["ton"]
+                  "chains": [
+                    "ton"
+                  ]
                 }
               ]
             }
           }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
+          "runId": "54545454-5454-4454-8454-545454545454",
+          "threadId": "55555555-5555-4555-8555-555555555555",
+          "toolCallId": "51515151-5151-4151-8151-515151515151",
+          "clientToolResultId": "76767676-7676-4676-8676-767676767676",
+          "toolName": "wallet.data.query",
+          "status": "success",
+          "completedAt": "2026-08-20T00:00:01.000Z",
+          "walletContextSession": {
+            "sessionId": "72727272-7272-4272-8272-727272727272",
+            "revision": 3,
+            "accountScope": "selected",
+            "activeAccountRef": "account_current",
+            "activeNetwork": "ton"
+          },
+          "result": {
+            "schemaVersion": 1,
+            "freshness": {
+              "asOf": "2026-08-20T00:00:00.000Z",
+              "source": "store",
+              "isStale": false
+            },
+            "redaction": {
+              "level": "minimal",
+              "omittedFields": [],
+              "maxResultBytes": 98304
+            },
+            "result": {
+              "operation": "positions.list",
+              "status": "scope_resolution_required",
+              "reason": "ambiguous"
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
           "runId": "54545454-5454-4454-8454-545454545454",
           "threadId": "55555555-5555-4555-8555-555555555555",
           "toolCallId": "51515151-5151-4151-8151-515151515151",
@@ -1868,10 +3243,13 @@
             "revision": 4,
             "activeAccountRef": "account_current"
           },
-          "error": { "code": "tool_failed", "retryable": true }
+          "error": {
+            "code": "tool_failed",
+            "retryable": true
+          }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "54545454-5454-4454-8454-545454545454",
           "threadId": "55555555-5555-4555-8555-555555555555",
           "toolCallId": "51515151-5151-4151-8151-515151515151",
@@ -1884,10 +3262,13 @@
             "revision": 4,
             "activeAccountRef": "account_current"
           },
-          "error": { "code": "tool_scope_mismatch", "retryable": false }
+          "error": {
+            "code": "tool_scope_mismatch",
+            "retryable": false
+          }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "54545454-5454-4454-8454-545454545454",
           "threadId": "55555555-5555-4555-8555-555555555555",
           "toolCallId": "51515151-5151-4151-8151-515151515151",
@@ -1900,10 +3281,140 @@
             "revision": 4,
             "activeAccountRef": "account_current"
           },
-          "error": { "code": "tool_scope_mismatch", "retryable": false }
+          "error": {
+            "code": "tool_scope_mismatch",
+            "retryable": false
+          }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
+          "runId": "54545454-5454-4454-8454-545454545454",
+          "threadId": "55555555-5555-4555-8555-555555555555",
+          "toolCallId": "51515151-5151-4151-8151-515151515151",
+          "clientToolResultId": "56565656-5656-4656-8656-565656565656",
+          "toolName": "wallet.data.query",
+          "status": "success",
+          "completedAt": "2026-08-20T00:00:01.000Z",
+          "walletContextSession": {
+            "sessionId": "52525252-5252-4252-8252-525252525252",
+            "revision": 4,
+            "activeAccountRef": "account_current",
+            "accountScope": "current",
+            "activeNetwork": "ton"
+          },
+          "result": {
+            "schemaVersion": 1,
+            "freshness": {
+              "asOf": "2026-08-20T00:00:00.000Z",
+              "source": "store",
+              "isStale": false
+            },
+            "redaction": {
+              "level": "scoped",
+              "omittedFields": [
+                "rawAccountId",
+                "fullTransactionHash"
+              ],
+              "maxResultBytes": 98304
+            },
+            "result": {
+              "operation": "value.series",
+              "status": "resolved",
+              "resolvedScope": {
+                "kind": "current",
+                "accounts": [
+                  {
+                    "accountRef": "account_current",
+                    "accountLabel": "Main"
+                  }
+                ]
+              },
+              "generatedAt": "2026-08-20T00:00:00.000Z",
+              "freshness": {
+                "asOf": "2026-08-20T00:00:00.000Z",
+                "source": "cache",
+                "isStale": false
+              },
+              "coverage": {
+                "status": "complete",
+                "accountsRequested": 1,
+                "accountsIncluded": 1,
+                "rowsOmitted": 0,
+                "limitations": [],
+                "sourceOutcomes": [
+                  {
+                    "domain": "value_series",
+                    "status": "complete",
+                    "attempts": 1
+                  }
+                ]
+              },
+              "baseCurrency": "USD",
+              "historyAccounts": [
+                {
+                  "accountRef": "account_current",
+                  "wallets": [
+                    "ton:EQ-public-wallet"
+                  ]
+                }
+              ],
+              "series": []
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "54545454-5454-4454-8454-545454545454",
+          "threadId": "55555555-5555-4555-8555-555555555555",
+          "toolCallId": "51515151-5151-4151-8151-515151515151",
+          "clientToolResultId": "56565656-5656-4656-8656-565656565656",
+          "toolName": "wallet.future.query",
+          "status": "rejected",
+          "completedAt": "2026-08-20T00:00:01.000Z",
+          "error": {
+            "code": "tool_unsupported",
+            "retryable": false
+          }
+        }
+      ],
+      "invalid": [
+        {
+          "protocolVersion": 3,
+          "runId": "54545454-5454-4454-8454-545454545454",
+          "threadId": "55555555-5555-4555-8555-555555555555",
+          "toolCallId": "51515151-5151-4151-8151-515151515151",
+          "clientToolResultId": "56565656-5656-4656-8656-565656565656",
+          "toolName": "wallet.future.query",
+          "status": "rejected",
+          "completedAt": "2026-08-20T00:00:01.000Z",
+          "error": {
+            "code": "tool_failed",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "54545454-5454-4454-8454-545454545454",
+          "threadId": "55555555-5555-4555-8555-555555555555",
+          "toolCallId": "51515151-5151-4151-8151-515151515151",
+          "clientToolResultId": "56565656-5656-4656-8656-565656565656",
+          "toolName": "wallet.directory.query",
+          "status": "error",
+          "completedAt": "2026-08-20T00:00:01.000Z",
+          "walletContextSession": {
+            "sessionId": "52525252-5252-4252-8252-525252525252",
+            "revision": 4,
+            "accountScope": "current",
+            "activeAccountRef": "account_current",
+            "activeNetwork": "ton"
+          },
+          "error": {
+            "code": "tool_scope_mismatch",
+            "retryable": false
+          }
+        },
+        {
+          "protocolVersion": 3,
           "runId": "64646464-6464-4464-8464-646464646464",
           "threadId": "65656565-6565-4565-8565-656565656565",
           "toolCallId": "61616161-6161-4161-8161-616161616161",
@@ -1947,45 +3458,7 @@
           }
         },
         {
-          "protocolVersion": 2,
-          "runId": "64646464-6464-4464-8464-646464646464",
-          "threadId": "65656565-6565-4565-8565-656565656565",
-          "toolCallId": "61616161-6161-4161-8161-616161616162",
-          "clientToolResultId": "66666666-6666-4666-8666-666666666667",
-          "toolName": "staking.offers.list",
-          "status": "success",
-          "completedAt": "2026-08-20T00:00:01.000Z",
-          "walletContextSession": {
-            "sessionId": "62626262-6262-4262-8262-626262626262",
-            "revision": 3,
-            "accountScope": "current",
-            "activeAccountRef": "account_current",
-            "activeNetwork": "ton"
-          },
-          "result": {
-            "schemaVersion": 1,
-            "freshness": {
-              "asOf": "2026-08-20T00:00:01.000Z",
-              "source": "network",
-              "isStale": false
-            },
-            "redaction": { "level": "minimal", "omittedFields": [], "maxResultBytes": 16384 },
-            "result": {
-              "schemaVersion": 1,
-              "status": "resolved",
-              "offers": [{
-                "productId": "liquid",
-                "asset": { "slug": "toncoin", "chain": "ton", "symbol": "GRAM", "decimals": 9 },
-                "annualYield": "4.5",
-                "yieldType": "APY",
-                "depositAvailability": "available"
-              }],
-              "readAt": "2026-08-20T00:00:01.000Z"
-            }
-          }
-        },
-        {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "64646464-6464-4464-8464-646464646464",
           "threadId": "65656565-6565-4565-8565-656565656565",
           "toolCallId": "61616161-6161-4161-8161-616161616161",
@@ -2021,7 +3494,7 @@
           }
         },
         {
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "64646464-6464-4464-8464-646464646464",
           "threadId": "65656565-6565-4565-8565-656565656565",
           "toolCallId": "61616161-6161-4161-8161-616161616161",
@@ -2040,28 +3513,691 @@
             "code": "tool_failed",
             "retryable": true
           }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "toolCallId": "44444444-4444-4444-8444-444444444444",
+          "clientToolResultId": "66666666-6666-4666-8666-666666666666",
+          "completedAt": "2026-09-09T12:00:00.000Z",
+          "walletContextSession": {
+            "sessionId": "55555555-5555-4555-8555-555555555555",
+            "revision": 1,
+            "activeAccountRef": "wallet-1",
+            "accountScope": "current",
+            "activeNetwork": "ton"
+          },
+          "toolName": "market.asset.quote",
+          "status": "error",
+          "error": {
+            "code": "tool_failed",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "toolCallId": "44444444-4444-4444-8444-444444444444",
+          "clientToolResultId": "66666666-6666-4666-8666-666666666666",
+          "completedAt": "2026-09-09T12:00:00.000Z",
+          "walletContextSession": {
+            "sessionId": "55555555-5555-4555-8555-555555555555",
+            "revision": 1,
+            "activeAccountRef": "wallet-1",
+            "accountScope": "current",
+            "activeNetwork": "ton"
+          },
+          "toolName": "market.asset.quote",
+          "status": "rejected",
+          "error": {
+            "code": "tool_failed",
+            "retryable": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "threadId": "22222222-2222-4222-8222-222222222222",
+          "toolCallId": "44444444-4444-4444-8444-444444444444",
+          "clientToolResultId": "66666666-6666-4666-8666-666666666666",
+          "completedAt": "2026-09-09T12:00:00.000Z",
+          "walletContextSession": {
+            "sessionId": "55555555-5555-4555-8555-555555555555",
+            "revision": 1,
+            "activeAccountRef": "wallet-1",
+            "accountScope": "current",
+            "activeNetwork": "ton"
+          },
+          "toolName": "market.asset.quote",
+          "status": "cancelled",
+          "error": {
+            "code": "tool_failed",
+            "retryable": true
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentWalletSnapshotAckV1",
+      "valid": [
+        {
+          "snapshotRef": {
+            "instanceId": "11111111-1111-4111-8111-111111111111",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 7,
+            "snapshotRevision": 3
+          }
         }
       ],
       "invalid": [
         {
-          "protocolVersion": 2,
-          "runId": "54545454-5454-4454-8454-545454545454",
-          "threadId": "55555555-5555-4555-8555-555555555555",
-          "toolCallId": "51515151-5151-4151-8151-515151515151",
-          "clientToolResultId": "56565656-5656-4656-8656-565656565656",
-          "toolName": "wallet.directory.query",
-          "status": "error",
-          "completedAt": "2026-08-20T00:00:01.000Z",
-          "walletContextSession": {
-            "sessionId": "52525252-5252-4252-8252-525252525252",
-            "revision": 4,
-            "accountScope": "current",
-            "activeAccountRef": "account_current",
-            "activeNetwork": "ton"
-          },
-          "error": { "code": "tool_scope_mismatch", "retryable": false }
+          "snapshotRef": {
+            "instanceId": "11111111-1111-4111-8111-111111111111",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 7,
+            "snapshotRevision": 0
+          }
         }
       ]
+    },
+    {
+      "schema": "AgentRunRequestV2",
+      "valid": [
+        {
+          "protocolVersion": 3,
+          "clientRunId": "00000000-0000-4000-8000-000000000001",
+          "expectedThreadRevision": 0,
+          "context": {
+            "platform": "android",
+            "client": "native",
+            "lang": "en",
+            "baseCurrency": "USD",
+            "appName": "My Wallet",
+            "permissions": {
+              "agentConsentAccepted": true
+            },
+            "activeWalletChains": [
+              "ton",
+              "chain1",
+              "chain2",
+              "chain3",
+              "chain4",
+              "chain5",
+              "chain6",
+              "chain7",
+              "chain8",
+              "chain9",
+              "chain10",
+              "chain11",
+              "chain12",
+              "chain13",
+              "chain14",
+              "chain15",
+              "chain16"
+            ]
+          },
+          "capabilities": {
+            "protocolVersion": 3,
+            "supportedActions": [
+              "receive"
+            ],
+            "features": []
+          },
+          "walletContext": {
+            "mode": "wallet",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 1,
+            "activeAccount": {
+              "accountRef": "account_current",
+              "state": "active",
+              "isViewOnly": false,
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16"
+              ],
+              "supportedActions": [
+                "receive"
+              ]
+            },
+            "activeNetwork": "ton"
+          },
+          "input": {
+            "kind": "append",
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "text": "Continue"
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "clientRunId": "00000000-0000-4000-8000-000000000001",
+          "expectedThreadRevision": 0,
+          "context": {
+            "platform": "android",
+            "client": "native",
+            "lang": "en",
+            "baseCurrency": "USD",
+            "appName": "My Wallet",
+            "permissions": {
+              "agentConsentAccepted": true
+            },
+            "activeWalletChains": [
+              "ton",
+              "chain1",
+              "chain2",
+              "chain3",
+              "chain4",
+              "chain5",
+              "chain6",
+              "chain7",
+              "chain8",
+              "chain9",
+              "chain10",
+              "chain11",
+              "chain12",
+              "chain13",
+              "chain14",
+              "chain15",
+              "chain16",
+              "chain17",
+              "chain18",
+              "chain19",
+              "chain20",
+              "chain21",
+              "chain22",
+              "chain23",
+              "chain24",
+              "chain25",
+              "chain26",
+              "chain27",
+              "chain28",
+              "chain29",
+              "chain30",
+              "chain31",
+              "chain32"
+            ]
+          },
+          "capabilities": {
+            "protocolVersion": 3,
+            "supportedActions": [
+              "receive"
+            ],
+            "features": []
+          },
+          "walletContext": {
+            "mode": "wallet",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 1,
+            "activeAccount": {
+              "accountRef": "account_current",
+              "state": "active",
+              "isViewOnly": false,
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32"
+              ],
+              "supportedActions": [
+                "receive"
+              ]
+            },
+            "activeNetwork": "ton"
+          },
+          "input": {
+            "kind": "append",
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "text": "Continue"
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "clientRunId": "00000000-0000-4000-8000-000000000001",
+          "expectedThreadRevision": 0,
+          "context": {
+            "platform": "android",
+            "client": "native",
+            "lang": "en",
+            "baseCurrency": "USD",
+            "appName": "My Wallet",
+            "permissions": {
+              "agentConsentAccepted": true
+            },
+            "activeWalletChains": [
+              "ton",
+              "chain1",
+              "chain2",
+              "chain3",
+              "chain4",
+              "chain5",
+              "chain6",
+              "chain7",
+              "chain8",
+              "chain9",
+              "chain10",
+              "chain11",
+              "chain12",
+              "chain13",
+              "chain14",
+              "chain15",
+              "chain16",
+              "chain17",
+              "chain18",
+              "chain19",
+              "chain20",
+              "chain21",
+              "chain22",
+              "chain23",
+              "chain24",
+              "chain25",
+              "chain26",
+              "chain27",
+              "chain28",
+              "chain29",
+              "chain30",
+              "chain31",
+              "chain32",
+              "chain33",
+              "chain34",
+              "chain35",
+              "chain36",
+              "chain37",
+              "chain38",
+              "chain39",
+              "chain40",
+              "chain41",
+              "chain42",
+              "chain43",
+              "chain44",
+              "chain45",
+              "chain46",
+              "chain47",
+              "chain48",
+              "chain49",
+              "chain50",
+              "chain51",
+              "chain52",
+              "chain53",
+              "chain54",
+              "chain55",
+              "chain56",
+              "chain57",
+              "chain58",
+              "chain59",
+              "chain60",
+              "chain61",
+              "chain62",
+              "chain63",
+              "chain64"
+            ]
+          },
+          "capabilities": {
+            "protocolVersion": 3,
+            "supportedActions": [
+              "receive"
+            ],
+            "features": []
+          },
+          "walletContext": {
+            "mode": "wallet",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 1,
+            "activeAccount": {
+              "accountRef": "account_current",
+              "state": "active",
+              "isViewOnly": false,
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32",
+                "chain33",
+                "chain34",
+                "chain35",
+                "chain36",
+                "chain37",
+                "chain38",
+                "chain39",
+                "chain40",
+                "chain41",
+                "chain42",
+                "chain43",
+                "chain44",
+                "chain45",
+                "chain46",
+                "chain47",
+                "chain48",
+                "chain49",
+                "chain50",
+                "chain51",
+                "chain52",
+                "chain53",
+                "chain54",
+                "chain55",
+                "chain56",
+                "chain57",
+                "chain58",
+                "chain59",
+                "chain60",
+                "chain61",
+                "chain62",
+                "chain63",
+                "chain64"
+              ],
+              "supportedActions": [
+                "receive"
+              ]
+            },
+            "activeNetwork": "ton"
+          },
+          "input": {
+            "kind": "append",
+            "message": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "text": "Continue"
+            }
+          }
+        }
+      ],
+      "invalid": []
+    },
+    {
+      "schema": "AgentWalletSnapshotV1",
+      "valid": [
+        {
+          "schemaVersion": 1,
+          "instanceId": "33333333-3333-4333-8333-333333333333",
+          "sessionId": "22222222-2222-4222-8222-222222222222",
+          "revision": 1,
+          "snapshotRevision": 1,
+          "activeAccountRef": "account_current",
+          "activeNetwork": "ton",
+          "baseCurrency": "USD",
+          "capturedAt": "2026-10-05T00:00:00.000Z",
+          "accounts": [
+            {
+              "accountRef": "account_current",
+              "rowId": "account_current",
+              "label": "Main",
+              "state": "active",
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16"
+              ],
+              "accountType": "regular",
+              "isViewOnly": false,
+              "positions": {
+                "asOf": "2026-10-05T00:00:00.000Z",
+                "status": "complete",
+                "items": []
+              }
+            }
+          ],
+          "contacts": {
+            "asOf": "2026-10-05T00:00:00.000Z",
+            "status": "complete",
+            "items": []
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "instanceId": "33333333-3333-4333-8333-333333333333",
+          "sessionId": "22222222-2222-4222-8222-222222222222",
+          "revision": 1,
+          "snapshotRevision": 1,
+          "activeAccountRef": "account_current",
+          "activeNetwork": "ton",
+          "baseCurrency": "USD",
+          "capturedAt": "2026-10-05T00:00:00.000Z",
+          "accounts": [
+            {
+              "accountRef": "account_current",
+              "rowId": "account_current",
+              "label": "Main",
+              "state": "active",
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32"
+              ],
+              "accountType": "regular",
+              "isViewOnly": false,
+              "positions": {
+                "asOf": "2026-10-05T00:00:00.000Z",
+                "status": "complete",
+                "items": []
+              }
+            }
+          ],
+          "contacts": {
+            "asOf": "2026-10-05T00:00:00.000Z",
+            "status": "complete",
+            "items": []
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "instanceId": "33333333-3333-4333-8333-333333333333",
+          "sessionId": "22222222-2222-4222-8222-222222222222",
+          "revision": 1,
+          "snapshotRevision": 1,
+          "activeAccountRef": "account_current",
+          "activeNetwork": "ton",
+          "baseCurrency": "USD",
+          "capturedAt": "2026-10-05T00:00:00.000Z",
+          "accounts": [
+            {
+              "accountRef": "account_current",
+              "rowId": "account_current",
+              "label": "Main",
+              "state": "active",
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32",
+                "chain33",
+                "chain34",
+                "chain35",
+                "chain36",
+                "chain37",
+                "chain38",
+                "chain39",
+                "chain40",
+                "chain41",
+                "chain42",
+                "chain43",
+                "chain44",
+                "chain45",
+                "chain46",
+                "chain47",
+                "chain48",
+                "chain49",
+                "chain50",
+                "chain51",
+                "chain52",
+                "chain53",
+                "chain54",
+                "chain55",
+                "chain56",
+                "chain57",
+                "chain58",
+                "chain59",
+                "chain60",
+                "chain61",
+                "chain62",
+                "chain63",
+                "chain64"
+              ],
+              "accountType": "regular",
+              "isViewOnly": false,
+              "positions": {
+                "asOf": "2026-10-05T00:00:00.000Z",
+                "status": "complete",
+                "items": []
+              }
+            }
+          ],
+          "contacts": {
+            "asOf": "2026-10-05T00:00:00.000Z",
+            "status": "complete",
+            "items": []
+          }
+        }
+      ],
+      "invalid": []
     }
   ]
 }

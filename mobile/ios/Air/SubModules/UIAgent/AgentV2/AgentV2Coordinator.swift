@@ -7,7 +7,10 @@ private let log = Log("AgentV2Coordinator")
 @MainActor
 enum AgentV2CoordinatorChange: Equatable {
     case reload
+    case messagesHydrated
+    case messageIdReconciled(localId: String, canonicalId: String)
     case messageUpdated(id: String)
+    case runTerminated(ApiAgentV2RunResultState)
 }
 
 @MainActor
@@ -25,6 +28,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     struct RunState: Equatable, Sendable {
+        let generation: Int
         var clientRunId: String?
         var runId: String?
         let threadId: String
@@ -49,6 +53,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let resetAt: Double?
     }
 
+    private enum ErrorSource {
+        case agentUnavailable
+        case failedToLoadChat
+        case run(ApiAgentV2ErrorCode)
+    }
+
+    private enum RunUpdateDisposition: Equatable {
+        case active
+        case retiredActive
+        case standalone
+    }
+
     let client: AgentV2Client
     private(set) var thread: ApiAgentV2ThreadSummary?
     var messages: [AgentV2NativeMessage] { conversation.messages }
@@ -58,8 +74,19 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private(set) var availability = ApiAgentV2AvailabilityState(state: .available)
     private(set) var userQuota: ApiAgentV2UserQuota?
     private(set) var hints: ApiAgentV2HintsResponse?
-    private(set) var error: String?
     private(set) var limitRetry: LimitRetry?
+    private(set) var hasHydratedMessages = false
+    /// Whether the server takes problem reports, checked once the thread loads and whenever the chat is shown
+    private(set) var isProblemReportAvailable = false
+
+    var error: String? {
+        switch errorSource {
+        case .agentUnavailable: lang("Agent is unavailable")
+        case .failedToLoadChat: lang("Failed to load chat")
+        case .run(let code): AgentV2Copy.error(code)
+        case nil: nil
+        }
+    }
 
     var isInputBlockedByLimit: Bool {
         let now = Date()
@@ -93,17 +120,28 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private var conversation = AgentV2ConversationState()
     private var observers: [WeakObserver] = []
     private var startupTask: Task<Void, Never>?
+    private var statusRefreshTask: Task<Void, Never>?
+    private var problemReportAvailabilityTask: Task<Void, Never>?
     private var runTask: Task<Void, Never>?
     private var presentationExpiryTasks: [String: Task<Void, Never>] = [:]
     private var hydrationGeneration = 0
     private var actionGeneration = 0
+    private var runGeneration = 0
+    private var retiredClientRunIds = Set<String>()
+    private var retiredRunIds = Set<String>()
+    private var terminalErrorSourcesByClientRunId: [String: ErrorSource] = [:]
+    private var failedMessageIdsByClientRunId: [String: String] = [:]
     private var limitExpiryTask: Task<Void, Never>?
+    private var errorSource: ErrorSource?
     private var isStopped = false
+    private var isChatVisible = false
+    private var isInBackground = false
+    private var isChatActive = false
+    private var chatActivityTask: Task<Void, Never>?
     private let hostContextProvider: AgentV2HostContextProvider
     private let initialHostContextRetryDelay: Duration
 
     init(client: AgentV2Client, initialHostContextRetryDelay: Duration = .seconds(1)) {
-        AgentV2LegacyWidgetCleanup.run()
         self.client = client
         self.initialHostContextRetryDelay = initialHostContextRetryDelay
         hostContextProvider = AgentV2HostContextProvider(client: client)
@@ -121,6 +159,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     deinit {
         startupTask?.cancel()
+        statusRefreshTask?.cancel()
         runTask?.cancel()
         limitExpiryTask?.cancel()
         presentationExpiryTasks.values.forEach { $0.cancel() }
@@ -134,17 +173,20 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
                 let didPublishHostContext = await self.hostContextProvider.start()
                 guard !Task.isCancelled else { return }
                 if didPublishHostContext {
-                    self.error = nil
+                    self.errorSource = nil
+                    self.statusRefreshTask = Task { [client] in
+                        async let availability: Void = client.loadAvailability()
+                        async let userQuota: Void = client.loadUserQuota()
+                        _ = await (availability, userQuota)
+                    }
                     async let hints: Void = self.loadHints()
-                    async let availability: Void = self.client.loadAvailability()
-                    async let userQuota: Void = self.client.loadUserQuota()
                     await self.loadDefaultThread()
-                    _ = await (hints, availability, userQuota)
+                    await hints
                     self.startupTask = nil
                     return
                 }
 
-                self.error = lang("Agent is unavailable")
+                self.errorSource = .agentUnavailable
                 self.notifyObservers()
                 guard attempt + 1 < Self.initialHostContextMaxAttempts else {
                     self.startupTask = nil
@@ -159,15 +201,66 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         }
     }
 
+    /// Waits for the initial timeline and suggestions; status probes update independently.
+    func waitForInitialLoad() async {
+        await startupTask?.value
+    }
+
+    /// While the chat is on screen in the foreground, the SDK keeps the server's copy of the wallet snapshot current.
+    func setChatVisible(_ isVisible: Bool) {
+        isChatVisible = isVisible
+        updateChatActivity()
+        if isVisible {
+            refreshProblemReportAvailability()
+        }
+    }
+
+    private func refreshProblemReportAvailability() {
+        // A loaded thread means consent, which the SDK requires for the check
+        guard !isStopped, thread != nil else { return }
+        problemReportAvailabilityTask?.cancel()
+        problemReportAvailabilityTask = Task { [weak self, client] in
+            let isAvailable = await client.problemReportAvailability()
+            guard !Task.isCancelled, let self, !self.isStopped,
+                  isAvailable != self.isProblemReportAvailable else { return }
+            self.isProblemReportAvailable = isAvailable
+            self.notifyObservers()
+        }
+    }
+
+    private func updateChatActivity(resending: Bool = false) {
+        guard !isStopped else { return }
+        let isActive = isChatVisible && !isInBackground
+        guard isActive != isChatActive || (resending && isActive) else { return }
+        isChatActive = isActive
+        sendChatActivity(isActive)
+    }
+
+    private func sendChatActivity(_ isActive: Bool) {
+        // Calls stay in order, so the SDK ends with the latest state.
+        let previous = chatActivityTask
+        chatActivityTask = Task { [client] in
+            await previous?.value
+            await client.setChatActive(isActive)
+        }
+    }
+
     func stop() {
         guard !isStopped else { return }
+        if isChatActive {
+            isChatActive = false
+            sendChatActivity(false)
+        }
         isStopped = true
         startupTask?.cancel()
         startupTask = nil
+        statusRefreshTask?.cancel()
+        statusRefreshTask = nil
+        problemReportAvailabilityTask?.cancel()
+        problemReportAvailabilityTask = nil
         WalletCoreData.remove(observer: self)
         hostContextProvider.stop()
-        runTask?.cancel()
-        runTask = nil
+        invalidateRunLifecycle(clearsActiveRun: true)
         limitExpiryTask?.cancel()
         limitExpiryTask = nil
         hydrationGeneration += 1
@@ -199,121 +292,168 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             let response = try await client.defaultThread()
             guard !isStopped else { return }
             try bindThread(response.thread)
+            refreshProblemReportAvailability()
             await hydrate()
         } catch {
             guard !isStopped else { return }
-            log.error("default thread load failed error=\(error)")
-            self.error = lang("Failed to load chat")
+            log.error("default thread load failed error=\(agentFailureSummary(error), .public)")
+            self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) } ?? .failedToLoadChat
             notifyObservers()
         }
     }
 
     func clearThread() async -> Bool {
         guard !isStopped, let thread, activeRun?.isRunning != true else { return false }
+        let generation = runGeneration
         guard let result = try? await client.clearThread(id: thread.id, revision: currentRevision()),
               result.ok,
               let updated = result.value?.thread else { return false }
-        guard !isStopped, (try? bindThread(updated, notify: false)) != nil else { return false }
+        guard !isStopped,
+              runGeneration == generation,
+              (try? bindThread(updated, notify: false)) != nil else { return false }
+        invalidateRunLifecycle(clearsActiveRun: true)
         hydrationGeneration += 1
         invalidateActionPresentations(threadId: thread.id)
         conversation.removeAllMessages()
         nextMessageCursor = nil
+        hasHydratedMessages = true
         runActivity = nil
+        errorSource = nil
         limitRetry = nil
         scheduleLimitExpiryUpdate()
+        AgentSearchProvider.shared.invalidateConversationTitle()
+        AgentSearchProvider.shared.notifyConversationChanged()
         notifyObservers()
         return true
     }
 
-    func hydrate() async {
-        guard !isStopped, let threadId = thread?.id else { return }
+    func reportProblem(messageId: String?, comment: String?) async -> Bool {
+        guard !isStopped, let thread else { return false }
+        do {
+            try await client.reportProblem(
+                threadId: thread.id,
+                report: ApiAgentV2ProblemReport(messageId: messageId, comment: comment)
+            )
+            return true
+        } catch {
+            log.error("problem report failed error=\(agentFailureSummary(error), .public)")
+            // A server that has switched reports off refuses them, and asking again takes the entry points away
+            refreshProblemReportAvailability()
+            await problemReportAvailabilityTask?.value
+            return false
+        }
+    }
+
+    func hydrate(preservingLiveActions: Bool = false) async {
+        guard !Task.isCancelled, !isStopped, let threadId = thread?.id else { return }
         hydrationGeneration += 1
         let generation = hydrationGeneration
         do {
             let page = try await client.messages(threadId: threadId, cursor: nil, limit: 50)
-            guard !isStopped,
+            guard !Task.isCancelled,
+                  !isStopped,
                   hydrationGeneration == generation,
                   page.thread.id == threadId,
                   page.messages.allSatisfy({ $0.threadId == threadId }) else {
                 throw AgentV2NativeContractError.threadBindingMismatch
             }
-            invalidateActionPresentations(threadId: threadId)
+            invalidateActionPresentations(
+                threadId: threadId,
+                clearsExistingPresentations: !preservingLiveActions
+            )
             try bindThread(page.thread, notify: false)
             let hydratedMessages = page.messages.map(hydratedMessage)
-            conversation.replaceMessages(hydratedMessages)
+            conversation.replaceMessages(
+                hydratedMessages,
+                preservingLiveActions: preservingLiveActions
+            )
             nextMessageCursor = page.nextCursor
+            hasHydratedMessages = true
             if limitRetry == nil {
-                error = nil
+                errorSource = nil
             }
-            refreshActionPresentations(in: hydratedMessages, threadId: threadId)
-            notifyObservers()
+            refreshActionPresentations(in: messages, threadId: threadId)
+            AgentSearchProvider.shared.notifyConversationChanged()
+            notifyObservers(.messagesHydrated)
         } catch {
-            guard !isStopped, hydrationGeneration == generation else { return }
-            log.error("thread hydration failed error=\(error)")
-            self.error = lang("Failed to load chat")
+            guard !Task.isCancelled, !isStopped, hydrationGeneration == generation else { return }
+            log.error("thread hydration failed error=\(agentFailureSummary(error), .public)")
+            self.errorSource = (error as? ApiAgentV2MutationError).map { .run($0.code) } ?? .failedToLoadChat
             notifyObservers()
         }
     }
 
-    func loadOlderMessages() async {
-        guard !isStopped, let threadId = thread?.id, let cursor = nextMessageCursor else { return }
+    @discardableResult
+    func loadOlderMessages() async -> Bool {
+        guard !isStopped, let threadId = thread?.id, let cursor = nextMessageCursor else { return false }
         let generation = hydrationGeneration
-        guard let page = try? await client.messages(threadId: threadId, cursor: cursor, limit: 50) else { return }
+        guard let page = try? await client.messages(threadId: threadId, cursor: cursor, limit: 50) else { return false }
         guard !isStopped,
               hydrationGeneration == generation,
               nextMessageCursor == cursor,
               page.thread.id == threadId,
-              page.messages.allSatisfy({ $0.threadId == threadId }) else { return }
-        guard (try? bindThread(page.thread, notify: false)) != nil else { return }
+              page.messages.allSatisfy({ $0.threadId == threadId }) else { return false }
+        guard (try? bindThread(page.thread, notify: false)) != nil else { return false }
         let hydratedMessages = page.messages.map(hydratedMessage)
         conversation.prependMessages(hydratedMessages)
         nextMessageCursor = page.nextCursor
         refreshActionPresentations(in: hydratedMessages, threadId: threadId)
+        AgentSearchProvider.shared.notifyConversationChanged()
         notifyObservers()
+        return true
     }
 
     func send(
         input: ApiAgentV2RunInput,
         entryPoint: ApiAgentV2EntryPoint? = .agentTab,
         followup: ApiAgentV2RunCommand.FollowUpReference? = nil,
-        inputContinuation: ApiAgentV2RunCommand.InputContinuationReference? = nil,
-        walletScopeSelection: ApiAgentV2RunCommand.WalletScopeSelectionReference? = nil,
-        visibleText: String? = nil
+        visibleText: String? = nil,
+        localInputMessageId: String? = nil
     ) {
         guard !isStopped,
               let threadId = thread?.id,
               activeRun?.isRunning != true,
               !isInputBlockedByLimit else { return }
+        let generation = beginRunLifecycle()
         switch input {
-        case .edit, .regenerate:
+        case .edit:
+            invalidateActionPresentations(threadId: threadId)
+            AgentSearchProvider.shared.invalidateConversationTitle()
+        case .regenerate:
             invalidateActionPresentations(threadId: threadId)
         case .append:
             break
         }
         limitRetry = nil
         scheduleLimitExpiryUpdate()
-        let localInputMessageId: String?
+        let optimisticInputMessageId: String?
         if let visibleText, !visibleText.isEmpty {
-            let messageId = "local-\(UUID().uuidString.lowercased())"
+            let messageId: String
+            if case .append = input, let localInputMessageId {
+                messageId = localInputMessageId
+            } else {
+                messageId = "local-\(UUID().uuidString.lowercased())"
+            }
             conversation.appendMessage(AgentV2NativeMessage(
                 id: messageId,
                 threadId: threadId,
                 role: .user,
                 text: visibleText
             ))
-            localInputMessageId = messageId
+            optimisticInputMessageId = messageId
         } else {
-            localInputMessageId = nil
+            optimisticInputMessageId = localInputMessageId
         }
         activeRun = RunState(
+            generation: generation,
             clientRunId: nil,
             runId: nil,
             threadId: threadId,
-            localInputMessageId: localInputMessageId,
+            localInputMessageId: optimisticInputMessageId,
             isRunning: true
         )
         runActivity = nil
-        error = nil
+        errorSource = nil
         notifyObservers()
 
         let command = ApiAgentV2RunCommand(
@@ -321,60 +461,51 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             expectedThreadRevision: currentRevision(),
             input: input,
             entryPoint: entryPoint,
-            followupOf: followup,
-            continuationOf: inputContinuation,
-            walletScopeSelectionOf: walletScopeSelection
+            followupOf: followup
         )
-        runTask?.cancel()
         runTask = Task { [weak self] in
             guard let self else { return }
+            let terminalState: ApiAgentV2RunResultState
+            let clientRunId: String?
             do {
                 let result = try await self.client.startRun(command)
-                guard !Task.isCancelled, !self.isStopped else { return }
-                if self.activeRun?.threadId == threadId, self.activeRun?.runId == nil {
-                    self.activeRun?.clientRunId = result.clientRunId
-                    self.activeRun?.runId = result.runId
-                }
-                if self.conversation.reconcileOptimisticInputMessage(
-                    localId: self.activeRun?.localInputMessageId,
+                guard !Task.isCancelled,
+                      self.bindRunResult(result, generation: generation, threadId: threadId) else { return }
+                let localInputMessageId = self.activeRun?.localInputMessageId
+                let isRunAdmitted = self.activeRun?.runId != nil
+                if isRunAdmitted,
+                   self.conversation.reconcileOptimisticInputMessage(
+                    localId: localInputMessageId,
                     canonicalId: result.inputMessageId
-                ) {
-                    self.notifyObservers()
+                ), let localInputMessageId, let canonicalInputMessageId = result.inputMessageId {
+                    self.notifyObservers(.messageIdReconciled(
+                        localId: localInputMessageId,
+                        canonicalId: canonicalInputMessageId
+                    ))
                 }
-                self.activeRun?.isRunning = false
-                self.hostContextProvider.flushDeferredDynamicUpdate()
+                terminalState = result.state
+                clientRunId = result.clientRunId
             } catch {
-                guard !Task.isCancelled, !self.isStopped else { return }
-                log.error("run start failed error=\(error)")
-                self.activeRun?.isRunning = false
-                self.hostContextProvider.flushDeferredDynamicUpdate()
-                let runStartError = lang("Agent is unavailable")
-                self.runTask = nil
+                guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                log.error("run start failed error=\(agentFailureSummary(error), .public)")
+                let activeClientRunId = self.activeRun?.clientRunId
                 await self.hydrate()
-                self.error = runStartError
-                self.notifyObservers()
+                guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                self.settleRun(
+                    generation: generation,
+                    clientRunId: activeClientRunId,
+                    outcome: .failed
+                )
                 return
             }
-            self.runTask = nil
-            await self.hydrate()
+            await self.hydrate(preservingLiveActions: true)
+            guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+            self.settleRun(
+                generation: generation,
+                clientRunId: clientRunId,
+                outcome: terminalState
+            )
         }
-    }
-
-    func selectWalletScopeChoice(messageId: String, choiceId: String) {
-        guard activeRun?.isRunning != true,
-              let message = messages.first(where: { $0.id == messageId }),
-              let controls = message.walletControls,
-              AgentV2DateParser.date(controls.expiresAt) > Date(),
-              let choice = controls.scopeChoices.first(where: { $0.choiceId == choiceId }) else { return }
-        send(
-            input: .append(text: choice.label),
-            entryPoint: nil,
-            walletScopeSelection: .init(
-                sourceAssistantMessageId: messageId,
-                choiceId: choice.choiceId
-            ),
-            visibleText: choice.label
-        )
     }
 
     func cancelRun() {
@@ -384,7 +515,9 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     func retryLimit() {
         guard !isStopped, canRetryLimit, let retry = limitRetry else { return }
+        let generation = beginRunLifecycle(reusingClientRunId: retry.clientRunId)
         activeRun = RunState(
+            generation: generation,
             clientRunId: retry.clientRunId,
             runId: nil,
             threadId: retry.threadId,
@@ -394,38 +527,42 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         scheduleLimitExpiryUpdate()
         notifyObservers()
 
-        runTask?.cancel()
         runTask = Task { [weak self] in
             guard let self else { return }
+            let terminalState: ApiAgentV2RunResultState
+            let clientRunId: String?
             do {
                 guard let result = try await self.client.retryRun(clientRunId: retry.clientRunId) else {
                     throw AgentV2NativeContractError.retryUnavailable
                 }
-                guard !Task.isCancelled, !self.isStopped else { return }
-                if self.activeRun?.threadId == retry.threadId {
-                    self.activeRun?.clientRunId = result.clientRunId
-                    self.activeRun?.runId = result.runId
-                    self.activeRun?.isRunning = false
-                }
+                guard !Task.isCancelled,
+                      self.bindRunResult(result, generation: generation, threadId: retry.threadId) else { return }
                 if result.state == .completed || result.state == .cancelled,
                    self.limitRetry == retry {
                     self.limitRetry = nil
                 }
-                self.hostContextProvider.flushDeferredDynamicUpdate()
+                terminalState = result.state
+                clientRunId = result.clientRunId
             } catch {
-                guard !Task.isCancelled, !self.isStopped else { return }
-                log.error("run retry failed error=\(error)")
-                self.activeRun?.isRunning = false
-                self.hostContextProvider.flushDeferredDynamicUpdate()
-                let retryError = lang("Agent is unavailable")
-                self.runTask = nil
+                guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                log.error("run retry failed error=\(agentFailureSummary(error), .public)")
+                let activeClientRunId = self.activeRun?.clientRunId
                 await self.hydrate()
-                self.error = retryError
-                self.notifyObservers()
+                guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+                self.settleRun(
+                    generation: generation,
+                    clientRunId: activeClientRunId,
+                    outcome: .failed
+                )
                 return
             }
-            self.runTask = nil
-            await self.hydrate()
+            await self.hydrate(preservingLiveActions: true)
+            guard !Task.isCancelled, self.isCurrentRun(generation) else { return }
+            self.settleRun(
+                generation: generation,
+                clientRunId: clientRunId,
+                outcome: terminalState
+            )
         }
     }
 
@@ -445,8 +582,18 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     }
 
     func walletCore(event: WalletCoreData.Event) {
-        guard case .agentV2(let update) = event else { return }
-        handle(update)
+        switch event {
+        case .agentV2(let update):
+            handle(update)
+        case .applicationDidEnterBackground:
+            isInBackground = true
+            updateChatActivity()
+        case .applicationWillEnterForeground:
+            isInBackground = false
+            updateChatActivity()
+        default:
+            break
+        }
     }
 
     private func handle(_ update: ApiAgentV2ClientUpdate) {
@@ -454,38 +601,59 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
         let change: AgentV2CoordinatorChange
         switch update {
         case .runtimeReady:
+            // A new SDK runtime starts with the chat inactive.
+            updateChatActivity(resending: true)
             change = .reload
         case .runStarted(let bound, let threadRevision, let inputMessageId):
-            guard isBoundThread(bound.threadId) else { return }
-            revision = threadRevision
+            guard isBoundThread(bound.threadId),
+                  !retiredClientRunIds.contains(bound.clientRunId),
+                  !retiredRunIds.contains(bound.runId) else { return }
             runActivity = nil
             let localInputMessageId: String?
-            if let run = activeRun,
-               run.threadId == bound.threadId,
-               run.clientRunId == nil || run.clientRunId == bound.clientRunId {
+            if var run = activeRun,
+               run.generation == runGeneration,
+               run.isRunning {
+                guard run.threadId == bound.threadId,
+                      run.clientRunId == nil || run.clientRunId == bound.clientRunId,
+                      run.runId == nil || run.runId == bound.runId else { return }
+                run.clientRunId = bound.clientRunId
+                run.runId = bound.runId
+                run.isRunning = true
                 localInputMessageId = run.localInputMessageId
+                activeRun = run
             } else {
+                let generation = beginRunLifecycle(reusingClientRunId: bound.clientRunId)
                 localInputMessageId = nil
+                activeRun = RunState(
+                    generation: generation,
+                    clientRunId: bound.clientRunId,
+                    runId: bound.runId,
+                    threadId: bound.threadId,
+                    localInputMessageId: nil,
+                    isRunning: true
+                )
             }
-            activeRun = RunState(
-                clientRunId: bound.clientRunId,
-                runId: bound.runId,
-                threadId: bound.threadId,
-                localInputMessageId: localInputMessageId,
-                isRunning: true
+            revision = threadRevision
+            let didReconcileInputMessage = conversation.reconcileOptimisticInputMessage(
+                localId: localInputMessageId,
+                canonicalId: inputMessageId
             )
-            conversation.reconcileOptimisticInputMessage(localId: localInputMessageId, canonicalId: inputMessageId)
-            change = .reload
-        case .messageStarted(let bound, let messageId, let contentKind):
-            guard isBoundThread(bound.threadId) else { return }
+            if didReconcileInputMessage, let localInputMessageId, let inputMessageId {
+                change = .messageIdReconciled(localId: localInputMessageId, canonicalId: inputMessageId)
+            } else {
+                change = .reload
+            }
+        case .messageStarted(let bound, let messageId, let contentKind, let responseLanguage):
+            guard acceptPayloadUpdate(bound) else { return }
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
                 messageId: messageId,
-                contentKind: contentKind
+                contentKind: contentKind,
+                responseLanguage: responseLanguage
             )
             change = .reload
         case .textDelta(let bound, let messageId, let delta):
-            guard isBoundThread(bound.threadId) else { return }
+            guard acceptPayloadUpdate(bound) else { return }
             runActivity = nil
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
@@ -494,25 +662,39 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             )
             conversation.appendMarkdown(messageId: messageId, delta: delta)
             change = .messageUpdated(id: messageId)
+        case .answerTablesChanged(let bound, let messageId, let tables, let references):
+            guard acceptPayloadUpdate(bound) else { return }
+            conversation.setAnswerTables(id: messageId, tables: tables, references: references)
+            change = .messageUpdated(id: messageId)
+        case .answerLinkAdded(let bound, let messageId, let link):
+            guard acceptPayloadUpdate(bound) else { return }
+            // The link arrives before the text that carries its label
+            conversation.ensureAssistantMessage(
+                threadId: bound.threadId,
+                messageId: messageId,
+                contentKind: .markdown
+            )
+            conversation.addAnswerLink(id: messageId, link: link)
+            change = .messageUpdated(id: messageId)
         case .messageContentEnded(let bound, let messageId):
-            guard isBoundThread(bound.threadId) else { return }
+            guard acceptPayloadUpdate(bound) else { return }
             runActivity = nil
             conversation.endMessageContent(id: messageId)
             change = .messageUpdated(id: messageId)
-        case .messageCompleted(let bound, let messageId, _, let walletControls):
-            guard isBoundThread(bound.threadId) else { return }
+        case .messageCompleted(let bound, let messageId, _):
+            guard acceptPayloadUpdate(bound) else { return }
             runActivity = nil
-            conversation.completeMessage(id: messageId, walletControls: walletControls)
+            conversation.completeMessage(id: messageId)
             change = .messageUpdated(id: messageId)
         case .actionAvailable(let bound, let messageId, let action):
-            guard isBoundThread(bound.threadId) else { return }
-            guard let kind = AgentV2NativeActionKind(rawValue: action.kind.rawValue) else { return }
+            guard acceptPayloadUpdate(bound) else { return }
             conversation.upsertAction(
                 id: messageId,
                 action: AgentV2NativeAction(
                     id: action.id,
-                    kind: kind,
+                    kind: action.kind,
                     labelCode: action.labelCode,
+                    title: action.title,
                     presentation: nil
                 )
             )
@@ -523,15 +705,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             )
             change = .messageUpdated(id: messageId)
         case .followupsAvailable(let bound, let messageId, let items):
-            guard isBoundThread(bound.threadId) else { return }
+            guard acceptPayloadUpdate(bound) else { return }
             conversation.setFollowups(messageId: messageId, followups: items)
             change = .messageUpdated(id: messageId)
-        case .inputContinuationsAvailable(let bound, let messageId, let items):
-            guard isBoundThread(bound.threadId) else { return }
-            conversation.setInputContinuations(messageId: messageId, inputContinuations: items)
-            change = .messageUpdated(id: messageId)
         case .semanticContentAvailable(let bound, let messageId, let content):
-            guard isBoundThread(bound.threadId) else { return }
+            guard acceptPayloadUpdate(bound) else { return }
             runActivity = nil
             conversation.ensureAssistantMessage(
                 threadId: bound.threadId,
@@ -540,39 +718,74 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             )
             conversation.setSemanticContent(id: messageId, content: content)
             change = .messageUpdated(id: messageId)
-        case .toolActivityChanged:
+        case .toolActivityChanged(let bound, _, _, _, _):
+            guard acceptPayloadUpdate(bound) else { return }
             change = .reload
         case .runActivityChanged(let bound, let event):
-            guard isBoundThread(bound.threadId), event.runId == bound.runId else { return }
+            guard acceptPayloadUpdate(bound), event.runId == bound.runId else { return }
             runActivity = event
             change = .reload
-        case .runFailed(let bound, let clientRunId, let threadId, _, let code, let retryable, let resetAt):
+        case .runFailed(let bound, let clientRunId, let threadId, let messageId, let code, let retryable, let resetAt):
             let target = bound?.threadId ?? threadId
-            if let target, isBoundThread(target) {
-                conversation.finalizeStreamingMessages()
-                activeRun?.isRunning = false
-                runActivity = nil
-                error = AgentV2Copy.error(code)
-                limitRetry = makeLimitRetry(
-                    bound: bound,
+            guard let target,
+                  isBoundThread(target),
+                  let disposition = matchRunUpdate(
                     clientRunId: clientRunId,
-                    threadId: target,
-                    code: code,
-                    retryable: retryable,
-                    resetAt: resetAt
-                )
-                scheduleLimitExpiryUpdate()
-                if code == .threadRevisionConflict || code == .runReplayExpired {
-                    Task { [weak self] in await self?.hydrate() }
-                }
+                    runId: bound?.runId,
+                    threadId: target
+                  ) else { return }
+            terminalErrorSourcesByClientRunId[clientRunId] = .run(code)
+            limitRetry = makeLimitRetry(
+                bound: bound,
+                clientRunId: clientRunId,
+                threadId: target,
+                code: code,
+                retryable: retryable,
+                resetAt: resetAt
+            )
+            scheduleLimitExpiryUpdate()
+            // A failed answer shows its own error; the status row shows a failure without one and a limit retry.
+            if limitRetry == nil,
+               let messageId,
+               conversation.failMessage(id: messageId, error: ApiAgentV2MessageError(code: code, retryable: retryable)) {
+                failedMessageIdsByClientRunId[clientRunId] = messageId
+            } else {
+                errorSource = .run(code)
             }
-            change = .reload
-        case .runCancelled(let bound):
-            guard isBoundThread(bound.threadId) else { return }
+            if disposition == .retiredActive {
+                change = .reload
+                break
+            }
             conversation.finalizeStreamingMessages()
             activeRun?.isRunning = false
             runActivity = nil
-            change = .reload
+            retiredClientRunIds.insert(clientRunId)
+            if let runId = bound?.runId {
+                retiredRunIds.insert(runId)
+            }
+            hostContextProvider.flushDeferredDynamicUpdate()
+            if code == .threadRevisionConflict || code == .runReplayExpired {
+                Task { [weak self] in await self?.hydrate() }
+            }
+            change = .runTerminated(.failed)
+        case .runCancelled(let bound):
+            guard isBoundThread(bound.threadId),
+                  let disposition = matchRunUpdate(
+                    clientRunId: bound.clientRunId,
+                    runId: bound.runId,
+                    threadId: bound.threadId
+                  ) else { return }
+            guard disposition != .retiredActive else {
+                change = .reload
+                break
+            }
+            conversation.finalizeStreamingMessages()
+            activeRun?.isRunning = false
+            runActivity = nil
+            retiredClientRunIds.insert(bound.clientRunId)
+            retiredRunIds.insert(bound.runId)
+            hostContextProvider.flushDeferredDynamicUpdate()
+            change = .runTerminated(.cancelled)
         case .availabilityChanged(let availability):
             self.availability = availability
             scheduleLimitExpiryUpdate()
@@ -581,12 +794,11 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             userQuota = quota
             scheduleLimitExpiryUpdate()
             change = .reload
-        case .walletAuthorityChanged(let threadId):
+        case .walletAuthorityChanged(let threadId, let preservesActiveRuns):
             guard threadId.map(isBoundThread) ?? true else { return }
-            if threadId == nil {
-                runTask?.cancel()
-                runTask = nil
-                activeRun?.isRunning = false
+            let terminatesRun = threadId == nil && !preservesActiveRuns
+            if terminatesRun {
+                invalidateRunLifecycle(clearsActiveRun: false)
                 runActivity = nil
                 conversation.finalizeStreamingMessages(status: .cancelled)
             }
@@ -594,7 +806,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             if threadId == nil, hostContextProvider.isAuthorityContextCurrent {
                 refreshActionPresentations()
             }
-            change = .reload
+            change = terminatesRun ? .runTerminated(.cancelled) : .reload
         case .walletContextChanged:
             invalidateWalletContextBoundState(threadId: nil)
             refreshActionPresentations()
@@ -620,9 +832,7 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
     private func invalidateAuthorityBoundState(threadId: String?) {
         invalidateWalletContextBoundState(threadId: threadId)
         if limitRetry != nil {
-            runTask?.cancel()
-            runTask = nil
-            activeRun?.isRunning = false
+            invalidateRunLifecycle(clearsActiveRun: false)
         }
         limitRetry = nil
         scheduleLimitExpiryUpdate()
@@ -630,12 +840,15 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 
     private func invalidateWalletContextBoundState(threadId: String?) {
         invalidateActionPresentations(threadId: threadId)
-        conversation.clearWalletControls()
     }
 
-    private func invalidateActionPresentations(threadId requestedThreadId: String?) {
+    private func invalidateActionPresentations(
+        threadId requestedThreadId: String?,
+        clearsExistingPresentations: Bool = true
+    ) {
         guard requestedThreadId.map(isBoundThread) ?? true else { return }
         actionGeneration += 1
+        guard clearsExistingPresentations else { return }
         conversation.clearActionPresentations()
         cancelPresentationExpiryTasks(threadId: requestedThreadId)
     }
@@ -718,6 +931,156 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
             threadId: threadId,
             resetAt: resetAt
         )
+    }
+
+    private func beginRunLifecycle(reusingClientRunId: String? = nil) -> Int {
+        runTask?.cancel()
+        runTask = nil
+        if let runId = activeRun?.runId {
+            retiredRunIds.insert(runId)
+        }
+        for clientRunId in [activeRun?.clientRunId, limitRetry?.clientRunId].compactMap({ $0 })
+            where clientRunId != reusingClientRunId {
+            retiredClientRunIds.insert(clientRunId)
+            terminalErrorSourcesByClientRunId.removeValue(forKey: clientRunId)
+            failedMessageIdsByClientRunId.removeValue(forKey: clientRunId)
+        }
+        runGeneration += 1
+        if let reusingClientRunId {
+            retiredClientRunIds.remove(reusingClientRunId)
+        }
+        return runGeneration
+    }
+
+    private func invalidateRunLifecycle(clearsActiveRun: Bool) {
+        runTask?.cancel()
+        runTask = nil
+        if let runId = activeRun?.runId {
+            retiredRunIds.insert(runId)
+        }
+        for clientRunId in [activeRun?.clientRunId, limitRetry?.clientRunId].compactMap({ $0 }) {
+            retiredClientRunIds.insert(clientRunId)
+        }
+        terminalErrorSourcesByClientRunId.removeAll()
+        failedMessageIdsByClientRunId.removeAll()
+        runGeneration += 1
+        if clearsActiveRun {
+            activeRun = nil
+        } else {
+            activeRun?.isRunning = false
+        }
+    }
+
+    private func isCurrentRun(_ generation: Int) -> Bool {
+        !isStopped && runGeneration == generation && activeRun?.generation == generation
+    }
+
+    private func bindRunResult(
+        _ result: ApiAgentV2RunResult,
+        generation: Int,
+        threadId: String
+    ) -> Bool {
+        guard isCurrentRun(generation), var run = activeRun,
+              run.threadId == threadId,
+              run.clientRunId == nil || run.clientRunId == result.clientRunId,
+              run.runId == nil || result.runId == nil || run.runId == result.runId else { return false }
+        run.clientRunId = result.clientRunId
+        if let runId = result.runId {
+            run.runId = runId
+        }
+        activeRun = run
+        return true
+    }
+
+    private func acceptPayloadUpdate(_ bound: ApiAgentV2ClientUpdate.Bound) -> Bool {
+        guard isBoundThread(bound.threadId),
+              !retiredClientRunIds.contains(bound.clientRunId),
+              !retiredRunIds.contains(bound.runId) else { return false }
+        guard var run = activeRun else { return true }
+        guard run.generation == runGeneration,
+              run.isRunning,
+              run.threadId == bound.threadId,
+              run.clientRunId == nil || run.clientRunId == bound.clientRunId,
+              run.runId == nil || run.runId == bound.runId else { return false }
+        run.clientRunId = bound.clientRunId
+        run.runId = bound.runId
+        activeRun = run
+        return true
+    }
+
+    private func matchRunUpdate(
+        clientRunId: String,
+        runId: String?,
+        threadId: String
+    ) -> RunUpdateDisposition? {
+        guard var run = activeRun else {
+            guard !retiredClientRunIds.contains(clientRunId),
+                  runId.map({ !retiredRunIds.contains($0) }) ?? true else { return nil }
+            return .standalone
+        }
+        guard run.threadId == threadId else { return nil }
+        if let runId, retiredRunIds.contains(runId) {
+            guard !run.isRunning,
+                  run.clientRunId == clientRunId,
+                  run.runId == runId else { return nil }
+            return .retiredActive
+        }
+        if let activeClientRunId = run.clientRunId {
+            guard activeClientRunId == clientRunId,
+                  run.runId == nil || runId == nil || run.runId == runId else { return nil }
+            return retiredClientRunIds.contains(clientRunId) ? .retiredActive : .active
+        }
+        guard run.isRunning, !retiredClientRunIds.contains(clientRunId) else { return nil }
+        run.clientRunId = clientRunId
+        if let runId {
+            run.runId = runId
+        }
+        activeRun = run
+        return .active
+    }
+
+    private func settleRun(
+        generation: Int,
+        clientRunId: String?,
+        outcome: ApiAgentV2RunResultState
+    ) {
+        guard isCurrentRun(generation) else { return }
+        runTask = nil
+        activeRun?.isRunning = false
+        hostContextProvider.flushDeferredDynamicUpdate()
+        let terminalErrorSource = clientRunId.flatMap {
+            terminalErrorSourcesByClientRunId.removeValue(forKey: $0)
+        }
+        let failedMessageId = clientRunId.flatMap {
+            failedMessageIdsByClientRunId.removeValue(forKey: $0)
+        }
+        // Hydration replaces the failed answer; the status row returns only when the answer no longer shows the error.
+        let isShownByFailedMessage = failedMessageId.map { id in
+            messages.contains { $0.id == id && $0.error != nil }
+        } ?? false
+        if !isShownByFailedMessage {
+            restoreTerminalErrorIfNeeded(outcome: outcome, terminalErrorSource: terminalErrorSource)
+        }
+        if let clientRunId {
+            retiredClientRunIds.insert(clientRunId)
+        }
+        if let runId = activeRun?.runId {
+            retiredRunIds.insert(runId)
+        }
+        AgentSearchProvider.shared.notifyConversationChanged()
+        notifyObservers(.runTerminated(outcome))
+    }
+
+    private func restoreTerminalErrorIfNeeded(
+        outcome: ApiAgentV2RunResultState,
+        terminalErrorSource: ErrorSource?
+    ) {
+        guard outcome == .failed || outcome == .interrupted else { return }
+        if let terminalErrorSource {
+            errorSource = terminalErrorSource
+        } else if errorSource == nil {
+            errorSource = .agentUnavailable
+        }
     }
 
     private func scheduleLimitExpiryUpdate() {
@@ -809,4 +1172,22 @@ final class AgentV2Coordinator: WalletCoreData.EventsObserver, @unchecked Sendab
 private enum AgentV2NativeContractError: Error {
     case threadBindingMismatch
     case retryUnavailable
+}
+
+/// A failure crossing the JS bridge arrives as an opaque value, and the logger redacts anything it
+/// cannot prove safe to print, so an exported log carried only "error=<redacted>" - which is all a
+/// chat that refused to open ever said about itself.
+///
+/// Only fields that are known to be free of content are named, and everything else is reduced to
+/// its type. That is deliberate rather than cautious: `SdkError` carries the raw JavaScript
+/// exception text and the rejected response payload as associated values, so printing the error
+/// itself would put wallet data into a log marked `.public`, which is the one place redaction no
+/// longer applies. The bridged domain and code identify which case was thrown without reaching
+/// into it, which is what a log needs to tell one failure from another.
+private func agentFailureSummary(_ error: Error) -> String {
+    if let mutation = error as? ApiAgentV2MutationError {
+        return "\(type(of: error)) code=\(mutation.code)"
+    }
+    let bridged = error as NSError
+    return "\(type(of: error)) domain=\(bridged.domain) code=\(bridged.code)"
 }

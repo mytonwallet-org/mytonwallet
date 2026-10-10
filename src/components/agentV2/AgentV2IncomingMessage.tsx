@@ -1,134 +1,172 @@
+import type { ElementRef } from '../../lib/teact/teact';
 import React, {
   memo, useEffect, useState,
 } from '../../lib/teact/teact';
 
-import type { AgentV2IncomingMessageProps } from '../agent/MessageBubble';
+import type {
+  AgentPersistedActionV2,
+  AgentPublicFollowUpV2,
+  AgentV2LiveAction,
+} from '../../api/agentV2/protocol/types';
+import type { AgentMessage } from '../../global/types';
+import type { AgentRunActivityType } from '../agent/AgentRunActivity';
+import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentation';
 
 import buildClassName from '../../util/buildClassName';
-import { getAgentV2ActionLabel, getAgentV2NoticeTexts } from './agentV2Copy';
+import { getAgentV2NoticeTexts } from './agentV2Copy';
 
-import useLang from '../../hooks/useLang';
+import { LangProvider, useLangForCode } from '../../hooks/useLang';
 
-import { getIncomingMessageKey } from '../agent/MessageBubble';
+import AgentRunActivity from '../agent/AgentRunActivity';
+import AgentMessageControls from './AgentMessageControls';
 import { AgentRunFailure } from './AgentStatusNotice';
 import { AgentV2AssistantText } from './AgentV2Conversation';
-import AgentV2PortfolioMessageContent from './AgentV2PortfolioMessageContent';
 
 import styles from '../agent/MessageBubble.module.scss';
+import v2styles from './AgentV2IncomingMessage.module.scss';
+
+interface OwnProps {
+  message: AgentMessage;
+  contentRef: ElementRef<HTMLDivElement>;
+  isDisabled: boolean;
+  shouldAnimateTextStreaming: boolean;
+  shouldAnimateAppearance?: boolean;
+  isLatest?: boolean;
+  activity?: AgentRunActivityType;
+  textRevealPresentation?: TextRevealPresentation;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  onFollowup?: (messageId: number, followup: AgentPublicFollowUpV2) => void;
+  onAction?: (
+    messageId: number,
+    action: AgentV2LiveAction | AgentPersistedActionV2,
+  ) => void;
+  onRetry?: (messageId: number) => void;
+  onTextRevealSessionConsumed?: (messageId: number, key: string) => void;
+  onTextRevealSessionSettled?: (messageId: number, key: string) => void;
+  onTextRevealProgress?: NoneToVoidFunction;
+  onTextRevealComplete?: NoneToVoidFunction;
+}
 
 /** `setTimeout` stores its delay in a 32-bit signed integer. */
 const MAX_TIMEOUT_DELAY = 2 ** 31 - 1;
 
 function AgentV2IncomingMessage({
   message,
-  visibleIncomingText,
   contentRef,
   isDisabled,
   shouldAnimateTextStreaming,
+  shouldAnimateAppearance = false,
+  isLatest = false,
+  activity,
   textRevealPresentation,
   onMouseDown,
   onContextMenu,
   onFollowup,
-  onInputContinuation,
-  onWalletControl,
   onAction,
   onRetry,
   onTextRevealSessionConsumed,
   onTextRevealSessionSettled,
   onTextRevealProgress,
   onTextRevealComplete,
-}: AgentV2IncomingMessageProps) {
+}: OwnProps) {
   const {
-    id, shouldCommitMarkdownTail, walletControls, isTyping, isStreaming, semanticContent,
-    actions, actionPresentations, followups, inputContinuations, error,
+    id, text, shouldCommitMarkdownTail, isTyping, isStreaming, semanticContent,
+    actions, actionPresentations, followups, error, responseLanguage,
   } = message;
-  const lang = useLang();
+  const lang = useLangForCode(responseLanguage);
   const noticeContent = semanticContent?.kind === 'notice' ? semanticContent : undefined;
-  const richSemanticContent = semanticContent?.kind === 'notice' || semanticContent?.kind === 'webDigest'
-    ? undefined
-    : semanticContent;
-  const noticeText = noticeContent ? getAgentV2NoticeTexts(noticeContent, lang).join('\n\n') : undefined;
-  const incomingText = noticeText ?? visibleIncomingText;
-  const hasRichContent = Boolean(
-    richSemanticContent || walletControls || actions?.length || followups?.length || inputContinuations?.length,
-  );
-  const shouldRenderIncomingBubble = Boolean(isTyping || incomingText);
+  const noticeText = noticeContent ? getAgentV2NoticeTexts(noticeContent, lang).join('\n\n')
+    : semanticContent ? lang('$agent_error_invalid_response') : undefined;
+  const incomingText = noticeText ?? text;
+  const hasRichContent = Boolean(actions?.length || followups?.length);
+  const hasActionButtons = Boolean(actions?.length);
+  const shouldRenderIncomingBubble = Boolean(isTyping || incomingText || message.tableReferences?.length);
   const isTextRevealActive = textRevealPresentation?.status === 'active' && Boolean(incomingText);
   const areRichContentVisible = hasRichContent && !isTextRevealActive;
-  const hasPartialResponse = Boolean(incomingText.trim() || hasRichContent);
+  const hasPartialResponse = Boolean(incomingText.trim() || hasRichContent || message.tableReferences?.length);
 
   return (
-    <div
-      ref={contentRef}
-      onMouseDown={onMouseDown}
-      onContextMenu={onContextMenu}
-      className={buildClassName(styles.wrapper, hasRichContent && styles.wrapperRich)}
-    >
-      {shouldRenderIncomingBubble && (
-        <div className={buildClassName(styles.bubble, styles.incoming)}>
-          {!isTyping && (
-            <AgentV2AssistantText
-              key={getIncomingMessageKey(textRevealPresentation)}
-              messageId={id}
-              text={incomingText}
-              isStreaming={Boolean(isStreaming)}
-              shouldAnimate={shouldAnimateTextStreaming}
-              shouldCommitMarkdownTail={shouldCommitMarkdownTail}
-              textRevealPresentation={textRevealPresentation}
-              onTextRevealSessionConsumed={onTextRevealSessionConsumed}
-              onTextRevealSessionSettled={onTextRevealSessionSettled}
-              onRevealProgress={onTextRevealProgress}
-              onRevealComplete={onTextRevealComplete}
-            />
-          )}
-        </div>
-      )}
-      {areRichContentVisible && (
-        <AgentV2PortfolioMessageContent
-          semanticContent={richSemanticContent}
-          walletControls={walletControls}
-          followups={followups}
-          inputContinuations={inputContinuations}
-          isDisabled={isDisabled}
-          onFollowup={(followup) => onFollowup?.(id, followup)}
-          onInputContinuation={(continuation) => onInputContinuation?.(id, continuation)}
-          onWalletControl={(control) => onWalletControl?.(id, control)}
-        >
-          {actions?.map((action) => {
-            const presentation = actionPresentations?.[action.id];
-            const requiresActivePresentation = action.kind === 'send' && action.effect === 'open_wallet_review';
-            const isActionActive = presentation?.kind !== 'inactive'
-              && (!requiresActivePresentation
-                || (presentation?.kind === 'send' && presentation.status === 'active'));
-
-            return (
-              <AgentV2ActionButton
-                key={action.id}
-                label={getAgentV2ActionLabel(action.labelCode, lang)}
-                expiresAt={presentation?.kind === 'send' ? presentation.expiresAt : undefined}
-                isActive={isActionActive}
-                isDisabled={isDisabled || !onAction}
-                onClick={() => onAction?.(id, action)}
+    <LangProvider value={{ lang }}>
+      <div
+        ref={contentRef}
+        lang={lang.code}
+        onMouseDown={onMouseDown}
+        onContextMenu={onContextMenu}
+        className={buildClassName(
+          styles.wrapper,
+          hasRichContent && styles.wrapperRich,
+          hasActionButtons && styles.wrapperRichActions,
+        )}
+      >
+        {shouldRenderIncomingBubble && (
+          <div className={buildClassName(styles.bubble, styles.incoming, shouldAnimateAppearance && styles.appearing)}>
+            {!isTyping && (
+              <AgentV2AssistantText
+                key={getIncomingMessageKey(textRevealPresentation)}
+                messageId={id}
+                text={incomingText}
+                tables={message.tables}
+                tableReferences={message.tableReferences}
+                links={message.links}
+                isStreaming={Boolean(isStreaming)}
+                shouldAnimate={shouldAnimateTextStreaming}
+                shouldCommitMarkdownTail={shouldCommitMarkdownTail}
+                textRevealPresentation={textRevealPresentation}
+                onTextRevealSessionConsumed={onTextRevealSessionConsumed}
+                onTextRevealSessionSettled={onTextRevealSessionSettled}
+                onRevealProgress={onTextRevealProgress}
+                onRevealComplete={onTextRevealComplete}
               />
-            );
-          })}
-        </AgentV2PortfolioMessageContent>
-      )}
-      {error && (
-        <div className={styles.failure}>
-          <AgentRunFailure
-            error={error}
-            hasPartialResponse={hasPartialResponse}
-            isRetryDisabled={isDisabled}
-            onRetry={onRetry ? () => onRetry(id) : undefined}
-          />
-        </div>
-      )}
-    </div>
+            )}
+          </div>
+        )}
+        {isLatest && <AgentRunActivity activity={activity} isAnswerPlaceholder />}
+        {areRichContentVisible && (
+          <AgentMessageControls
+            followups={followups}
+            isDisabled={isDisabled}
+            shouldShowFollowups={isLatest}
+            onFollowup={(followup) => onFollowup?.(id, followup)}
+          >
+            {actions?.map((action) => {
+              const presentation = actionPresentations?.[action.id];
+              const requiresActivePresentation = action.kind === 'send';
+              const isActionActive = presentation?.kind !== 'inactive'
+                && (!requiresActivePresentation
+                  || (presentation?.kind === 'send' && presentation.status === 'active'));
+
+              return (
+                <AgentV2ActionButton
+                  key={action.id}
+                  actionKind={action.kind}
+                  label={action.title}
+                  expiresAt={presentation?.kind === 'send' ? presentation.expiresAt : undefined}
+                  isActive={isActionActive}
+                  isDisabled={isDisabled || !onAction}
+                  onClick={() => onAction?.(id, action)}
+                />
+              );
+            })}
+          </AgentMessageControls>
+        )}
+        {error && (
+          <div className={styles.failure}>
+            <AgentRunFailure
+              error={error}
+              hasPartialResponse={hasPartialResponse}
+              isRetryDisabled={isDisabled}
+              onRetry={onRetry ? () => onRetry(id) : undefined}
+            />
+          </div>
+        )}
+      </div>
+    </LangProvider>
   );
 }
 
 interface AgentV2ActionButtonProps {
+  actionKind: AgentV2LiveAction['kind'];
   expiresAt?: string;
   isActive: boolean;
   isDisabled: boolean;
@@ -137,6 +175,7 @@ interface AgentV2ActionButtonProps {
 }
 
 function AgentV2ActionButton({
+  actionKind,
   expiresAt,
   isActive,
   isDisabled,
@@ -159,7 +198,8 @@ function AgentV2ActionButton({
   return (
     <button
       type="button"
-      className={styles.actionButton}
+      data-agent-action-kind={actionKind}
+      className={buildClassName(styles.actionButton, v2styles.button)}
       disabled={isDisabled || !isActive || isExpired}
       onClick={onClick}
     >
@@ -170,6 +210,12 @@ function AgentV2ActionButton({
 
 function isActionExpired(expiresAt?: string) {
   return Boolean(expiresAt && Date.parse(expiresAt) <= Date.now());
+}
+
+function getIncomingMessageKey(presentation?: TextRevealPresentation) {
+  if (!presentation) return 'static';
+  if (presentation.status === 'error') return `${presentation.key}:error`;
+  return presentation.key;
 }
 
 export default memo(AgentV2IncomingMessage);

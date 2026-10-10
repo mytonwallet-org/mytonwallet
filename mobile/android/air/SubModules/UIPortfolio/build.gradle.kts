@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(project("$airSubModulePath:UIAgent"))
     implementation(project("$airSubModulePath:UIComponents"))
     implementation(project("$airSubModulePath:Blur3"))
     implementation(project("$airSubModulePath:WalletBaseContext"))

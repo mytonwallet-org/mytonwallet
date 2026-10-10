@@ -12,10 +12,13 @@ import styles from './AgentHeader.module.scss';
 interface OwnProps {
   isScrolled: boolean;
   isMenuVisible?: boolean;
+  onReportProblem?: NoneToVoidFunction;
   onClearChat: NoneToVoidFunction;
 }
 
-function AgentHeader({ isScrolled, isMenuVisible, onClearChat }: OwnProps) {
+function AgentHeader({
+  isScrolled, isMenuVisible, onReportProblem, onClearChat,
+}: OwnProps) {
   const lang = useLang();
 
   const { ref: menuRef, shouldRender: shouldRenderMenu } = useShowTransition<HTMLDivElement>({
@@ -29,7 +32,7 @@ function AgentHeader({ isScrolled, isMenuVisible, onClearChat }: OwnProps) {
       <span className={styles.headerTitle}>{lang('Agent')}</span>
       {shouldRenderMenu ? (
         <div ref={menuRef}>
-          <AgentMenu className={styles.menuButton} onClearChat={onClearChat} />
+          <AgentMenu className={styles.menuButton} onReportProblem={onReportProblem} onClearChat={onClearChat} />
         </div>
       ) : <div />}
     </div>

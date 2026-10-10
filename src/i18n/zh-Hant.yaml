@@ -213,6 +213,7 @@ Receiving Address: 接收地址
 Contract Address: 合約地址
 Fee: 手續費
 Edit: 編輯
+Regenerate: 重新產生
 Confirm: 確認
 Data Signed: 資料已簽名
 Details: 明細
@@ -1278,8 +1279,6 @@ $agent_consent_feature_actions: 準備支援的操作，例如傳送、接收和
 $agent_consent_feature_context: 使用錢包上下文，讓解答可以參照相關資產和地址。
 $agent_consent_disclosure_text: 點按「允許助手」即表示你允許 %app_name% 將你的助手訊息和相關錢包上下文傳送給 %app_name% Agent (agent.mywallet.io) 以及我們的第三方 AI 供應商 Anthropic Claude API，以處理你的請求。錢包上下文可能包括錢包地址、餘額、代幣、活動和請求操作詳情。資料僅用於提供助手回覆並準備你請求的操作。
 $agent_consent_search_disclosure_text: 進行網頁搜尋時，只有搜尋查詢可能會傳送給 Serper；錢包上下文和聊天記錄不會傳送。
-$agent_consent_debug_reset_button: 重置助手同意狀態
-$agent_consent_debug_reset_footer: 下次開啟助手分頁時再次顯示助手同意畫面。
 $settings_token_change_threshold: 漲跌幅閾值
 $settings_token_change_threshold_description: 隱藏低於所選閾值的 24 小時漲跌幅。
 $settings_token_change_threshold_off: 關閉
@@ -1297,18 +1296,19 @@ Retry: 重試
 $agent_chat_running: 正在背景執行
 $agent_connection_interrupted: 助手連線中斷，請重試。
 $agent_history_unavailable: 無法載入聊天記錄，請重試。
+$agent_secret_words_removed: "[密語已刪除，未傳送]"
 $agent_activity_analyzing_request: 正在分析您的請求…
 $agent_activity_wallet: 正在讀取錢包數據…
 $agent_activity_transactions: 正在查看錢包活動…
 $agent_activity_portfolio: 正在載入投資組合數據…
 $agent_activity_assets: 尋找資產…
 $agent_activity_addresses: 正在檢查已儲存的地址…
-$agent_activity_transfer: 準備轉帳…
-$agent_activity_market_quote: 查看最新的代幣價格…
 $agent_activity_planning: 正在規劃答案…
 $agent_activity_planning_completed: 答案方案已就緒
 $agent_activity_web_searching: 在網路上搜尋…
 $agent_activity_web_searching_completed: 已找到相關來源
+$agent_activity_help_searching: 正在搜尋幫助中心…
+$agent_activity_help_searching_completed: 已查閱幫助中心
 $agent_activity_web_reading_sources: 查閱資料…
 $agent_activity_web_reading_sources_completed: 已查看來源：%count%
 $agent_activity_web_reading_sources_completed_generic: 已查看來源
@@ -1321,181 +1321,18 @@ $agent_activity_computing_completed: 計算完成
 $agent_activity_writing: 正在撰寫答案…
 $agent_activity_writing_completed: 答案已準備好
 $agent_activity_preparing_response: 正在準備答案…
-$agent_receive_tokens: 接收代幣
-$agent_portfolio_total: 投資組合總價值
-$agent_portfolio_value_is: 您的投資組合價值為
-$agent_portfolio_24h_change: 24 小時變化
-$agent_portfolio_top_contributor: 今日貢獻最大資產
-$agent_portfolio_open_tracker: 開啟投資組合追蹤器
-$agent_portfolio_analysis: 投資組合分析
-$agent_portfolio_insufficient: 投資組合資料不足，無法完成完整分析。
-$agent_portfolio_partial: 部分投資組合資料無法使用，因此分析並不完整。
-$agent_portfolio_current_only: 目前投資組合結構可用，但目前沒有歷史表現資料。
-$agent_portfolio_stale: 投資組合資料可能已過期。
-$agent_portfolio_summary_up: 您的投資組合在過去 24 小時內上漲。
-$agent_portfolio_summary_down: 您的投資組合在過去 24 小時內下跌。
-$agent_portfolio_summary_flat: 您的投資組合在過去 24 小時內保持穩定。
-$agent_portfolio_summary_ready: 投資組合分析已可查看。
-$agent_portfolio_chart_title: 投資組合價值走勢
-$agent_portfolio_largest_positions: 最大部位
-$agent_portfolio_asset: 資產
-$agent_portfolio_position_value: 價值
-$agent_portfolio_share: 占比
-$agent_portfolio_observations: 值得關注
-$agent_portfolio_insight_performance_title: 投資組合變動
-$agent_portfolio_insight_performance_text: 查看所選期間內投資組合價值的變動情況。
-$agent_portfolio_insight_concentration_title: 集中度
-$agent_portfolio_insight_concentration_text: 檢視現有資產配置的集中度；未納入的資產可能改變整體投資組合情況。
-$agent_portfolio_insight_chain_split_title: 網路分佈
-$agent_portfolio_insight_chain_split_text: 檢視現有資產配置的網路曝險；未納入的資產可能改變整體投資組合情況。
-$agent_portfolio_insight_data_quality_title: 數據品質
-$agent_portfolio_insight_data_quality_text: 在解讀此分析時，請考慮資料的覆蓋範圍和時效性。
 $agent_market_analysis_title: 市場分析
-$agent_market_as_of: 截至
-$agent_market_closed_1d: 最新一根已收盤的 1D K 線
-$agent_market_thesis: 技術觀點
-$agent_market_fear_greed_sentiment: 基於比特幣的市場情緒
-$agent_market_fear_greed_index: 恐懼與貪婪指數（0-100）
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: 市場狀態
-$agent_market_fear_greed_risk_on: 風險偏好情緒
-$agent_market_fear_greed_risk_off: 避險情緒
-$agent_market_fear_greed_neutral: 中立情緒
-$agent_market_fear_greed_source: 來源
-$agent_market_timeframes: 市場結構
-$agent_market_structure_bullish: 高點和低點均逐步抬高
-$agent_market_structure_bearish: 高點和低點均逐步降低
-$agent_market_structure_range: 區間震盪
-$agent_market_structure_transition: 過渡階段
-$agent_market_structure_unavailable: 結構不可用
-$agent_market_event_none: 暫無已確認突破
-$agent_market_event_break_up: 向上突破結構
-$agent_market_event_break_down: 向下跌破結構
-$agent_market_event_retest_up: 看漲回測確認
-$agent_market_event_retest_down: 看跌回測確認
-$agent_market_live_approaching_upper: 接近上邊界
-$agent_market_live_approaching_lower: 接近下邊界
-$agent_market_level_map: 關鍵價位
-$agent_market_level_primary: 主要價位
-$agent_market_level_secondary: 次要價位
-$agent_market_level_context: 參考價位
-$agent_market_levels_unavailable: 已確認的結構價位無法使用。
-$agent_market_profile_poc_full: 成交量中心（POC）
-$agent_market_profile_value_area_full: 價值區域邊界（VAL/VAH）
-$agent_market_profile_hvn_full: 高成交量區域（HVN）
-$agent_market_profile_lvn_full: 低成交量通道（LVN）
-$agent_market_profile_current_day: 當日（UTC）
-$agent_market_profile_previous_day: 前一日（UTC）
-$agent_market_profile_previous_week: 前一週（UTC）
-$agent_market_profile_rolling_30d: 最近 30 個 UTC 交易時段
-$agent_market_profile_above: 價格高於價值區域
-$agent_market_profile_inside: 價值區域內的價格
-$agent_market_profile_below: 價格低於價值區域
-$agent_market_factors: 關鍵因素
-$agent_market_factor_structure: 日線結構：%direction%
-$agent_market_factor_levels: 在此週期內已確認 %supports% 個支撐區和 %resistances% 個阻力區。
-$agent_market_factor_profile: 成交量分佈：%position%。
-$agent_market_factor_profile_unavailable: 成交量分佈無法使用；該情境依賴價格結構。
-$agent_market_factor_timeframe_alignment: 週期結構 — 1D：%daily%；4H：%fourHour%；1H：%hourly%。
-$agent_market_factor_current_scenario: 目前狀態：%active%。條件情境：在 %activation% 後為 %conditional%。
-$agent_market_factor_no_active_scenario: 尚無已確認情境。條件情境：在 %activation% 後為 %conditional%。
-$agent_market_primary_scenario: 主要情境
-$agent_market_current_regime: 目前已確認狀態
-$agent_market_conditional_scenario: 條件情境
-$agent_market_no_active_scenario: 目前尚無已確認情境。
-$agent_market_calculated_fallback: 計算分析：模型說明暫時無法使用。
-$agent_market_other_horizons: 其他指定週期
-$agent_market_horizon_3d: 3 天
-$agent_market_horizon_7d: 7 天
-$agent_market_horizon_30d: 30 天
-$agent_market_scenario_bullish: 看漲突破
-$agent_market_scenario_range: 區間平衡
-$agent_market_scenario_bearish: 看跌破位
-$agent_market_scenario_unavailable: 此週期的結構情境無法使用。
-$agent_market_confidence: 可信度
-$agent_market_confidence_low: 低
-$agent_market_confidence_medium: 中
-$agent_market_activation: 觸發條件
-$agent_market_path: 路徑
-$agent_market_terminal: 目標區域
-$agent_market_invalidation: 失效條件
-$agent_market_expected_range: 情境區間
-$agent_market_rationale: 依據
-$agent_market_condition_above: 收盤高於
-$agent_market_condition_below: 收盤低於
-$agent_market_condition_inside: 收盤於區間內
-$agent_market_condition_outside: 收盤於區間外
-$agent_market_condition_waiting: 等待確認
-$agent_market_condition_approaching: 接近
-$agent_market_condition_triggered: 已確認
-$agent_market_scenario_zone: 情境區域
-$agent_market_expected_move: 波動範圍
-$agent_market_volatility_envelope: 整體波動範圍
-$agent_market_expected_move_note: 條件性波動，並非機率預測
-$agent_market_risk_caveat: 情境均為條件式分析，不構成交易建議。
-$agent_market_partial_coverage: 部分市場證據缺失；信心有限。
-$agent_market_thesis_bullish: 已確認結構有利於價格繼續突破阻力位，失效位仍在最近支撐位下方。
-$agent_market_thesis_bearish: 已確認結構有利於價格繼續跌破支撐位，失效位仍在最近阻力位上方。
-$agent_market_thesis_range: 價格在已確認的支撐位和阻力位之間保持平衡。
-$agent_market_thesis_mixed: 週期訊號相互衝突，因此結構邊界處的確認比方向性指標更重要。
-$agent_market_thesis_insufficient: 現有證據不足以確認方向性結構。
-$agent_market_thesis_unconfirmed: 尚無已確認情境；請等待價格在結構邊界外收盤確認後，再採用方向性判斷。
-$agent_semantic_asset_search: 資產搜尋
-$agent_semantic_web_digest: 網頁搜尋結果
-$agent_semantic_no_results: 沒有結果
-$agent_semantic_wallets: 錢包
-$agent_semantic_wallet: 錢包
-$agent_semantic_balance: 餘額
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: 一般
-$agent_semantic_access_view_only: 僅供檢視
-$agent_semantic_wallets_unpriced: "%amount% 個部位未計入顯示的總額，因為它們沒有價格。"
-$agent_semantic_wallets_stale: 部分錢包餘額可能已過時。
-$agent_semantic_wallets_unavailable: 部分錢包餘額無法查看。
-$agent_semantic_wallets_partial: 部分錢包數據不完整。
-$agent_semantic_status: 狀態
-$agent_semantic_quantity: 數量
-$agent_semantic_time: 時間
-$agent_semantic_partial: 部分資料缺失。
-$agent_semantic_pending: 待處理
-$agent_semantic_confirmed: 已確認
-$agent_semantic_completed: 已完成
-$agent_semantic_failed: 失敗
-$agent_semantic_expired: 已到期
-$agent_semantic_active: 有效
-$agent_semantic_unstaking: 解除質押中
-$agent_semantic_ready: 就緒
-$agent_semantic_frozen: 已凍結
-$agent_semantic_locked: 已鎖定
-$agent_semantic_fungible: 代幣
-$agent_semantic_nft: NFT
-$agent_semantic_staking: 質押
-$agent_semantic_vesting: 鎖倉釋放
-$agent_semantic_vault: 金庫
-$agent_semantic_transfer: 轉帳
-$agent_semantic_swap: 兌換
-$agent_semantic_stake: 質押
-$agent_semantic_unstake: 解除質押
-$agent_semantic_contract: 合約
-$agent_semantic_unknown: 活動
-$agent_semantic_spam_transactions: 垃圾交易
-$agent_semantic_spam_assets: 垃圾資產
-$agent_semantic_hidden_assets: 隱藏資產
-$agent_semantic_hidden_assets_warning: 隱藏資產名稱可能具有誤導性。名稱以純文字顯示，無法作為連結開啟。
-$agent_semantic_quarantine_warning: 這些項目已被舉報為垃圾內容。請勿信任其名稱或連結。
-$agent_semantic_redacted_asset: 名稱已隱藏
-$agent_semantic_omitted_spam: 已過濾垃圾內容：%amount%
-$agent_semantic_omitted_spam_minimum: 已過濾垃圾內容：至少 %amount%
-$agent_semantic_omitted_hidden: 已省略隱藏資產：%amount%
-$agent_semantic_omitted_hidden_minimum: 已省略隱藏資產：至少 %amount%
-$agent_semantic_suspicious: 已隱藏不安全名稱：%amount%
-$agent_semantic_suspicious_minimum: 已隱藏不安全名稱：至少 %amount%
-$agent_semantic_suspicious_shown: 可能不安全的名稱：%amount%
-$agent_semantic_suspicious_shown_minimum: 可能不安全的名稱：至少 %amount%
-$agent_semantic_omitted_rows: 數據量過大。未包含 %amount% 行資料。請縮小時段或篩選條件。
-$agent_semantic_omitted_rows_minimum: 數據量過大。至少有 %amount% 行資料未被包含在內。請縮小時段或篩選條件。
-$agent_semantic_update_required: 更新應用程式以顯示此回應。
+Analyze it: 分析一下
+Check allocation: 檢查資產配置
+Compare with last month: "與上月比較"
+Best & worst performers: "最佳與最差表現"
+Biggest profit today: "今日最高獲利"
+$agent_prompt_portfolio_share: "分析我的投資組合的多樣化程度，並指出是否過度集中於個別資產。"
+$agent_prompt_portfolio_compare: "比較我的投資組合目前的價值與一個月前的價值。"
+$agent_prompt_portfolio_performers: "在所選期間（%period%），我的投資組合中哪些資產的盈虧表現最好，哪些最差？"
+$agent_prompt_portfolio_best_day: "在所選期間（%period%），我的投資組合在哪一天獲得了最高利潤？"
+$agent_prompt_token_price: "分析 %token% 的價格。"
+$agent_hint_capabilities_title: 你能做什麼？
 $agent_hint_portfolio_title: 投資組合表現
 $agent_hint_portfolio_prompt: 分析我的投資組合表現。
 $agent_hint_swap_title: 代幣兌換如何運作
@@ -1506,167 +1343,17 @@ $agent_hint_security_title: 錢包安全
 $agent_hint_security_prompt: 請教我如何保護我的錢包安全。
 $agent_hint_receive_title: 接收代幣
 $agent_hint_receive_prompt: 請幫我接收代幣。
-$agent_action_review_transfer: 檢查轉帳
-$agent_action_open_receive: 開啟接收頁面
-$agent_action_open_send: 開啟傳送頁面
-$agent_action_open_staking: 開啟質押頁面
-$agent_action_open_swap: 開啟兌換頁面
-$agent_activity_swap: 正在準備兌換
-$agent_action_hide_spam: 隱藏垃圾資產
-$agent_action_open_link: 開啟連結
-$agent_action_open_agent: 開啟助手
-$agent_action_open_token: 開啟錢包中的代幣
-$agent_action_open_transaction: 開啟交易
-$agent_input_asset: 輸入資產
-$agent_input_timeframe: 輸入時段
-$agent_input_amount: 輸入金額
-$agent_input_recipient: 輸入收款人
-$agent_input_swap_details: 輸入兌換詳細資料
-$agent_notice_agent_unavailable: 助手目前無法使用，請稍後再試。
-$agent_notice_analysis_unavailable: 分析未能完成，請重試。
-$agent_notice_analysis_planning_unavailable: 無法從請求中取得足夠資訊以準備分析。
-$agent_notice_analysis_source_unavailable: 目前尚無法取得進行此項分析所需的數據。
-$agent_notice_analysis_stale_evidence: 現有數據過於陳舊，無法安全地完成這項分析。
-$agent_notice_analysis_inconsistent_snapshot: 分析過程中所需資料發生變更，請重試。
-$agent_notice_analysis_compute_failed: 我們無法完成所要求的計算。
-$agent_notice_analysis_deadline_exceeded: 分析耗時過長，請重試。
-$agent_notice_analysis_result_too_large: 分析結果過大，無法安全顯示。
-$agent_notice_analysis_answer_generation_failed: 我們已收集數據，但無法產生答案。請稍後再試。
-$agent_notice_asset_not_found: 找不到要求的資產。
-$agent_notice_clarification_required: 需要更多細節才能繼續。
-$agent_notice_clarification_asset: 請指定您要使用的加密資產。
-$agent_notice_clarification_network: 請指定您要使用的區塊鏈網路。
-$agent_notice_clarification_query: 我不太確定我是否理解了您的請求。請告訴我您想知道什麼或想做什麼。
-$agent_notice_clarification_quote_currency: 我應該使用哪種計價貨幣？
-$agent_notice_clarification_staking_product: 我應該使用哪種質押產品？
-$agent_notice_clarification_time_horizon: 我應該使用多長的時間跨度？
-$agent_notice_clarification_price_assumption: 我該採用哪一種價格假設？
-$agent_notice_repair_unrecognized_input: 我沒看懂那則訊息。告訴我你想知道什麼或想做什麼，我會盡力幫忙。
-$agent_notice_repair_ambiguous_request: 我不太確定我是否完全理解了您的請求。您想了解什麼或做什麼？
-$agent_notice_repair_multiple_requests: 我看到那條訊息裡有好幾個請求。我們該先處理哪一個呢？
-$agent_notice_consent_required: 允許繼續存取錢包資料。
 $agent_notice_content_over_budget: 結果過大，無法全部顯示。
-$agent_notice_empty_result: 未找到匹配結果。
-$agent_notice_market_unavailable: 目前暫無市場數據。
-$agent_notice_market_analysis_unavailable: 我們無法產生市場分析報告，請稍後再試。
-$agent_notice_market_analysis_asset_unsupported: 目前暫不支持對該幣種進行分析。
-$agent_notice_market_analysis_timeframe_unsupported: 目前尚不支援對此週期進行分析。
-$agent_notice_market_quote_resolved: "%asset% 目前價值 %price% %currency%。24 小時漲跌幅：%change%%。"
-$agent_notice_market_quote_price_unavailable: "%asset% 目前沒有價格資訊。"
-$agent_notice_market_quote_ambiguous: 匹配的代幣有多個：%assets%。請指定網路或合約位址。
-$agent_notice_market_quote_not_found: 找不到符合此價格查詢的代幣。
-$agent_notice_market_quote_planning_unavailable: 無法解析價格查詢要求。
-$agent_notice_market_quote_capability_unavailable: 此應用程式不提供價格查詢功能。
-$agent_notice_market_quote_wallet_context_unavailable: 此價格查詢所需的錢包上下文不可用。
-$agent_notice_market_quote_currency_unsupported: 所選報價貨幣不支援此價格查詢。
-$agent_notice_market_quote_unavailable: 該代幣目前沒有價格資訊。
-$agent_notice_market_quote_wallet_context_changed: 價格查詢完成前，活躍錢包已發生變更。
-$agent_notice_market_quote_timeout: 價格查詢超時。
-$agent_notice_market_quote_tool_failed: 價格服務無法完成查詢。
-$agent_notice_market_quote_invalid_result: 無法驗證價格查詢結果。
-$agent_notice_market_quote_cancelled: 價格查詢已取消。
-$agent_notice_portfolio_unavailable: 目前暫無投資組合數據。
-$agent_notice_receive_details_required: 請指定用於接收的加密資產和網路。
-$agent_notice_receive_asset_required: 請指定用於接收的加密資產。
-$agent_notice_receive_network_required: 請指定用於接收的網路。
-$agent_notice_receive_ready: 接收頁面已可開啟。
-$agent_notice_receive_memo_not_required: 向您自己的 My Wallet 位址轉入資產時無需填寫備註，請將該欄位留空。
-$agent_notice_receive_unavailable: 此錢包無法接收資產。
-$agent_notice_receive_planning_unavailable: 無法解析接收請求。請重新表述，或開啟接收頁面。
-$agent_notice_receive_active_account_unavailable: 當前錢包不可用。請切換錢包後重試。
-$agent_notice_receive_client_unavailable: 此應用程式不支援透過助手接收資產，請改用接收頁面。
-$agent_notice_receive_chain_unsupported: 此錢包不支援 %requested_network% 網路。目前活躍網路為 %active_network%。
-$agent_notice_receive_active_network_mismatch: 目前網路為 %active_network%。請切換至 %requested_network% 以透過該網路接收資產。
-$agent_notice_retry_required: 請重試此請求。
-$agent_notice_send_details_required: 請補充缺少的轉帳資訊以繼續。
-$agent_notice_send_form_amount_required: 開啟傳送頁面，然後在轉帳表單中輸入金額。
-$agent_notice_send_ready: 當然可以——轉帳已準備就緒。傳送前請仔細核對詳細資料。
-$agent_notice_send_ready_inferred_asset: 看起來您指的是 %symbol%。我已準備好轉帳，請在傳送前核對詳細資料。
-$agent_notice_send_missing_amount: 您想傳送多少？
-$agent_notice_send_missing_asset: 您想傳送哪種貨幣？
-$agent_notice_send_missing_recipient: 您想傳送給誰？
-$agent_notice_send_no_sendable_balance: 目前錢包暫無可供傳送的餘額。
-$agent_notice_send_unavailable: 無法安全準備轉帳。請使用傳送頁面，或稍後重試。
-$agent_notice_staking_ready: 質押頁面已可開啟。
-$agent_notice_staking_unavailable: 目前無法透過助手進行質押，請改從錢包開啟質押頁面。
-$agent_notice_staking_planning_unavailable: 無法解析質押請求。請重新表述，或開啟質押頁面。
-$agent_notice_staking_active_account_unavailable: 當前錢包不可用。請切換錢包後重試。
-$agent_notice_staking_view_only: 僅供檢視的錢包無法質押。請切換至可簽署的錢包。
-$agent_notice_staking_client_unavailable: 此應用程式不支援透過助手進行質押，請改從錢包開啟質押頁面。
-$agent_notice_staking_asset_unavailable: 目前錢包不支援質押此資產。請選擇其他可質押的資產。
-$agent_notice_staking_amount_invalid: 要求的質押金額無法使用。請在質押頁面輸入其他金額。
-$agent_notice_staking_wallet_context_changed: 目前錢包的質押選項已變更。請讓助手重新準備質押。
-$agent_notice_swap_ready_indicative: 參考估算：%from_amount% %from_symbol% ≈ %to_amount% %to_symbol%。可執行報價、費用、滑點和價格影響將在兌換頁面載入。
-$agent_notice_swap_ready_price_unavailable: "%from_symbol% → %to_symbol% 的本地參考價格暫時無法使用。請開啟兌換頁面載入可執行報價、費用和滑點。"
-$agent_notice_swap_details_source_asset: 指定要兌換的加密資產。
-$agent_notice_swap_details_destination_asset: 指定要接收的加密資產。
-$agent_notice_swap_details_amount: 請指定一個正數的加密貨幣金額。
-$agent_notice_swap_details_direction: 請指定來源資產、目標資產和金額以繼續。
-$agent_notice_swap_details_candidates: "%prompt% 匹配：%candidates%。"
-$agent_notice_swap_unavailable: 目前無法透過助手準備兌換，請改從錢包開啟兌換頁面。
-$agent_notice_swap_planning_unavailable: 無法解析兌換請求。請指定加密資產及其數量。
-$agent_notice_swap_active_account_unavailable: 當前錢包不可用。請切換錢包後重試。
-$agent_notice_swap_view_only: 僅供檢視的錢包無法準備兌換。請切換至可簽署的錢包。
-$agent_notice_swap_client_unavailable: 此應用程式不支援透過助手準備兌換，請改從錢包開啟兌換頁面。
-$agent_notice_swap_wallet_context_changed: 兌換準備完成前，目前錢包已變更。請重試。
-$agent_notice_swap_timeout: 兌換準備逾時，請重試。
-$agent_notice_swap_tool_failed: 錢包無法準備此次兌換。請重試或開啟兌換頁面。
-$agent_notice_swap_invalid_result: 無法驗證已準備的兌換，請重試。
-$agent_notice_send_asset_not_held: 此資產不在您目前使用的錢包中。請選擇其他資產或錢包。
-$agent_notice_send_insufficient_balance: 帳戶餘額不足，無法進行此轉帳。請減少轉帳金額或更換錢包。
-$agent_notice_send_recipient_not_found: 找不到相符的自有錢包或已儲存地址。
-$agent_notice_send_recipient_not_found_named: 找不到名為「%recipient%」的自有錢包或已儲存地址。
-$agent_notice_send_recipient_ambiguous: 可能有多個錢包或聯絡人符合。請指定收款人。
-$agent_notice_send_address_book_unavailable: 目前通訊錄無法載入。請重試或在傳送頁面選擇聯絡人。
-$agent_notice_send_recipient_matching_unavailable: 通訊錄可用，但助手無法明確比對收款人姓名。請指定姓名，或在傳送頁面選擇聯絡人。
-$agent_notice_send_intent_extraction_unavailable: 您想傳送哪一項資產？
-$agent_notice_send_intent_provider_unavailable: 命令處理服務暫時無法使用。請稍後重試或使用傳送頁面。
-$agent_notice_send_invalid_recipient: 收款人位址無效。
-$agent_notice_send_recipient_unresolved: 無法確定收款人。
-$agent_notice_send_recipient_inactive: 收款帳戶已停用。
-$agent_notice_send_memo_required: 此次轉帳需備註。
-$agent_notice_send_wallet_not_initialized: 收款人錢包尚未初始化。
-$agent_notice_send_active_account_unavailable: 當前錢包不可用。請切換錢包。
-$agent_notice_send_chain_unsupported: 此錢包無法在所選網路上傳送資產。請切換網路或錢包。
-$agent_notice_send_client_unavailable: 此應用程式不支援助手轉帳，請改用傳送頁面。
-$agent_notice_send_view_only: 僅供檢視的錢包無法傳送資產。請切換錢包。
-$agent_notice_send_offline: 請連接互聯網以準備此次轉帳。
-$agent_notice_send_wallet_context_changed: 目前錢包已變更。請重新準備轉帳。
-$agent_notice_send_source_wallet_selection_required: 助手只能從目前錢包準備這筆轉帳。請切換到指定的錢包，然後重試。
-$agent_notice_send_validation_failed: 轉帳詳情未通過錢包驗證。
-$agent_notice_tool_unavailable: 當前客戶端不支援此操作。
-$agent_notice_wallet_unavailable: 目前無法取得錢包數據。
-$agent_notice_wallet_filter_ambiguous: 選擇錢包或資產以縮小搜尋範圍。
-$agent_notice_web_unavailable: 目前無法使用網頁搜尋功能。
-$agent_notice_web_capability_unavailable: 目前助手配置不支援網頁搜尋。
-$agent_notice_web_planning_failed: 助手無法準備搜尋查詢。
-$agent_notice_web_budget_denied: 網頁搜尋次數已達上限，請稍後再試。
-$agent_notice_web_provider_rate_limited: 搜尋服務商暫時限制了請求次數。請稍後再試。
-$agent_notice_web_provider_unavailable: 搜尋服務商未回應，請稍後再試。
-$agent_notice_web_no_results: 搜尋已完成，但未找到相關結果。
-$agent_notice_web_invalid_sources: 搜尋結果已收到，但未通過安全檢查。
-$agent_notice_web_synthesis_timeout: 結果已經找到，但是處理時間太長。
-$agent_notice_web_synthesis_invalid: 找到了結果，但助手無法產生有效的摘要。
-$agent_notice_web_synthesis_unavailable: 已找到結果，但摘要模型目前無法使用。
-$agent_notice_web_policy_rejected: 摘要已生成，但未通過品質檢查。
+$agent_notice_web_search_no_results: 找不到與您的請求相符的資訊。
 $agent_error_session: 您的助手工作階段已過期。請重新開啟助手並重試。
 $agent_error_limit: 由於已達助手使用上限，無法完成請求。
 $agent_error_tool: 錢包操作失敗，請重試。
 $agent_error_conversation_updated: 對話已更新。請重試請求。
 $agent_error_generic: 助手無法完成請求，請重試。
+$agent_error_invalid_response: 無法讀取智能助理的回覆。請重試。
 $agent_error_update_required: 請更新應用程式以繼續。
-$agent_semantic_transactions: 交易
-$agent_semantic_positions: 部位
-$agent_semantic_market: 市場概覽
 $agent_wallet_page_navigation: 錢包資料頁面
-$agent_wallet_page_previous: ← 上一頁
-$agent_wallet_page_next: 下一頁 →
 $agent_wallet_page_indicator: "%current% / %total%"
-$agent_portfolio_unpriced: 未計入
-$agent_portfolio_unpriced_value: 未計入
-$agent_portfolio_more_positions: 另有 %count% 個
-$agent_portfolio_history_on: "%network% 網路上的歷史記錄"
-$agent_portfolio_no_activity: 近期無活動。
 Clear Chat: 清除聊天
 Unsupported link: 此連結不受支援
 My Wallet Features: My Wallet 功能
@@ -1711,10 +1398,13 @@ Manage Assets: 管理資產
 Pulse: 脈搏
 Edit Message: 編輯訊息
 Toggle Hints: 切換提示
-AgentErrorResponseFailed: "錯誤：無法取得回應"
-AgentErrorConnectionFailed: "錯誤：連線失敗"
 Scroll To Bottom: 捲動到底部
 $agent_clear_chat_confirm: 您確定要清空聊天記錄嗎？
+Report a Problem: 回報問題
+$agent_report_problem_description: 此聊天的最近訊息將傳送給我們的團隊，以協助解決問題。
+$agent_report_problem_sent: 謝謝！您的回報已送出。
+$agent_report_problem_failed: 無法送出回報，請再試一次。
+$agent_report_problem_rate_limited: 您最近已送出多份回報，請稍後再試。
 $unknown_swap_token: 交換連結中的代幣未知。已使用預設代幣。
 $action_not_available_view_mode: 此操作不適用於檢視錢包
 Deposit: 存入
@@ -2286,6 +1976,7 @@ Tokenized Gold: 代幣化黃金
 Index Funds: 指數基金
 Search token or stock: 搜尋代幣或股票
 "Activity Failed to Load": "活動載入失敗"
+"$agent_source_bea_attribution": "本產品使用美國經濟分析局（BEA）的資料 API，但未經 BEA 認可或認證。"
 "Address was copied!": "地址已複製！"
 "Allow App Lock": "允許鎖定應用程式"
 "An error occurred": "發生錯誤"

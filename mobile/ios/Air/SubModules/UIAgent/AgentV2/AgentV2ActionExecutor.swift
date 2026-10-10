@@ -1,4 +1,3 @@
-import BigInt
 import Foundation
 import UIComponents
 import WalletContext
@@ -54,73 +53,83 @@ final class AgentV2ActionExecutor {
                 prefilledAmount: prefilledAmount
             )
         case .openSwap:
-            guard let tokenInSlug = action.tokenInSlug,
-                  let tokenOutSlug = action.tokenOutSlug,
-                  let rawAmount = action.swapAmount,
-                  let amount = Double(rawAmount),
-                  amount.isFinite,
-                  amount > 0,
-                  let amountSide = action.amountSide else { return }
-            await AppActions.showSwap(
-                accountContext: accountContext,
-                defaultSellingToken: tokenInSlug,
-                defaultBuyingToken: tokenOutSlug,
-                defaultSellingAmount: amountSide == .source ? amount : nil,
-                defaultBuyingAmount: amountSide == .destination ? amount : nil,
-                push: nil
-            )
-        case .openSend:
-            guard let tokenSlug = action.tokenSlug else { return }
-            AppActions.showSend(
-                accountContext: accountContext,
-                prefilledValues: SendPrefilledValues(address: action.toAddress, token: tokenSlug)
-            )
-        case .reviewSend:
-            guard let review = action.review,
-                  let amount = BigInt(review.amountAtomic) else { return }
-            AppActions.showSend(
-                accountContext: accountContext,
-                prefilledValues: SendPrefilledValues(
-                    address: review.toAddress,
-                    amount: amount,
-                    token: review.tokenSlug,
-                    commentOrMemo: review.comment
-                )
-            )
-        case .openPortfolio:
-            AppActions.showPortfolio(accountContext: accountContext)
-        case .hideSpamAssets:
-            guard let slugs = action.slugs,
-                  !slugs.isEmpty else {
+            guard accountContext.account.supportsSwap,
+                  let parameters = Self.resolveSwapParameters(action, swapAssets: TokenStore.swapAssets) else {
                 showUnavailableAction()
                 return
             }
-            AssetsAndActivityDataStore.update(accountId: resolved.accountId) { settings in
-                for slug in slugs {
-                    settings.saveTokenHidden(slug: slug, isStaking: false, isHidden: true)
-                }
-            }
-        case .openUrl:
+            await AppActions.showSwap(
+                accountContext: accountContext,
+                defaultSellingToken: parameters.sellingToken,
+                defaultBuyingToken: parameters.buyingToken,
+                defaultSellingAmount: parameters.sellingAmount,
+                defaultBuyingAmount: parameters.buyingAmount,
+                push: nil
+            )
+        case .openSend:
             guard let value = action.url,
                   let url = URL(string: value),
-                  url.scheme?.lowercased() == "https" else { return }
-            AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
-        case .openToken:
-            guard let chain = action.chain.flatMap(ApiChain.init(rawValue:)) else { return }
-            if let tokenAddress = action.tokenAddress {
-                AppActions.showTokenByAddress(chain: chain, tokenAddress: tokenAddress)
-            } else if let slug = action.slug {
-                AppActions.showTokenBySlug(slug)
+                  url.scheme == "mtw", url.host == "send" else {
+                showUnavailableAction()
+                return
             }
-        case .openTransaction:
-            guard let chain = action.chain.flatMap(ApiChain.init(rawValue:)),
-                  let transactionRef = action.transactionRef else { return }
-            AppActions.showActivityDetailsById(chain: chain, txId: transactionRef, showError: true)
-        case .openAgent:
-            AppActions.showAgent()
+            let sendAccountContext = AccountContext(source: .current)
+            if url.path.isEmpty || url.path == "/" {
+                guard url.query == nil, url.fragment == nil else {
+                    showUnavailableAction()
+                    return
+                }
+                AppActions.showSendForm(accountContext: sendAccountContext, prefilledValues: .init())
+            } else {
+                guard let deeplink = Deeplink(url: url),
+                      case .send(let chain, let address, let amount, let comment, let binaryPayload, let tokenSlug, let stateInit) = deeplink else {
+                    showUnavailableAction()
+                    return
+                }
+                // A link without `token` still names the network the resolver validated the recipient in
+                AppActions.showSendForm(accountContext: sendAccountContext, prefilledValues: .init(
+                    address: address, amount: amount, token: tokenSlug ?? chain.nativeToken.slug,
+                    commentOrMemo: comment, binaryPayload: binaryPayload, stateInit: stateInit,
+                    isMaxAmount: action.isMaxAmount
+                ))
+            }
+        case .openPortfolio:
+            AppActions.showPortfolio(accountContext: accountContext)
+        case .openDapp:
+            guard let url = action.url,
+                  await AppActions.showExploreSite(siteUrl: url) else {
+                showUnavailableAction()
+                return
+            }
         case .inactive:
             showUnavailableAction()
         }
+    }
+
+    static func resolveSwapParameters(
+        _ action: ApiAgentV2ResolvedAction,
+        swapAssets: [ApiToken]?
+    ) -> (sellingToken: String?, buyingToken: String?, sellingAmount: Double?, buyingAmount: Double?)? {
+        guard action.kind == .openSwap else { return nil }
+        for slug in [action.tokenInSlug, action.tokenOutSlug].compactMap({ $0 }) {
+            guard swapAssets?.contains(where: { $0.slug == slug }) == true else { return nil }
+        }
+        let amount: Double?
+        if let rawAmount = action.swapAmount {
+            guard let value = Double(rawAmount), value.isFinite, value > 0,
+                  let side = action.amountSide,
+                  (side == .source ? action.tokenInSlug : action.tokenOutSlug) != nil else { return nil }
+            amount = value
+        } else {
+            guard action.amountSide == nil else { return nil }
+            amount = nil
+        }
+        return (
+            action.tokenInSlug,
+            action.tokenOutSlug,
+            action.amountSide == .source ? amount : nil,
+            action.amountSide == .destination ? amount : nil
+        )
     }
 
     private func showUnavailableAction() {

@@ -7,8 +7,8 @@ private enum AgentStreamingTextMetrics {
     static let bubbleBodyHorizontalPadding: CGFloat = 14
 
     static let snippetFadeDuration: TimeInterval = 0.2
-    static let snippetRiseOffset: CGFloat = 6.0
-    static let snippetInitialScale: CGFloat = 0.5
+    static let snippetRiseOffset: CGFloat = 2.0
+    static let snippetInitialScale: CGFloat = 0.85
     static let revealDurationMultiplier: Double = 1.0
     static let heightSmoothingTau: TimeInterval = 0.14
     static let heightSmoothingFrameDtCap: TimeInterval = 0.05
@@ -45,6 +45,15 @@ final class AgentStreamingTextView: UIView {
     var onRevealCompleted: (() -> Void)?
     var onURLTap: ((URL) -> Void)?
 
+    override var isHidden: Bool {
+        didSet {
+            // A table or semantic answer replaces this view; discard sizing left by the previous text.
+            if isHidden && !oldValue {
+                hardResetForReuse()
+            }
+        }
+    }
+
     private let renderContainer = UIView()
     private let renderImageView = UIImageView()
     private let revealMaskLayer = CAShapeLayer()
@@ -67,13 +76,15 @@ final class AgentStreamingTextView: UIView {
     private var renderContainerWidthConstraint: NSLayoutConstraint?
     private var renderContainerHeightConstraint: NSLayoutConstraint?
     private var lastReportedSize: CGSize = .zero
-    private var lastAppliedRenderContainerOffset: CGFloat = 0
 
     private var displayedVisibleHeight: CGFloat = AgentStreamingTextMetrics.minimumVisibleHeight
     private var pendingTargetHeight: CGFloat = AgentStreamingTextMetrics.minimumVisibleHeight
     private var lastHeightSmoothingTime: Double?
     private var displayedVisibleWidth: CGFloat = 1
     private var lastWidthSmoothingTime: Double?
+    private var pendingTargetWidth: CGFloat = 1
+    private var appliedVisibleWidth: CGFloat = 1
+    private var lastSnippetSpawnTime: CFTimeInterval = 0
 
     private func pointInRenderContainer(_ point: CGPoint) -> CGPoint {
         renderContainer.convert(point, from: self)
@@ -118,6 +129,11 @@ final class AgentStreamingTextView: UIView {
         layout?.attributedString.string ?? pendingConfiguration?.text ?? ""
     }
 
+    /// The displayed text with each link's URL after its label
+    var copyText: String {
+        layout.map { AgentTextLinks.copyText(from: $0.attributedString) } ?? displayText
+    }
+
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
@@ -138,7 +154,7 @@ final class AgentStreamingTextView: UIView {
             )
         }
         return CGSize(
-            width: max(displayedVisibleWidth, 1),
+            width: max(appliedVisibleWidth, 1),
             height: max(displayedVisibleHeight, AgentStreamingTextMetrics.minimumVisibleHeight)
         )
     }
@@ -176,13 +192,14 @@ final class AgentStreamingTextView: UIView {
         revealedHeightConstraint?.constant = AgentStreamingTextMetrics.minimumVisibleHeight
         renderContainerWidthConstraint?.constant = 1
         renderContainerHeightConstraint?.constant = 1
-        renderContainer.layer.transform = CATransform3DIdentity
-        lastAppliedRenderContainerOffset = 0
         displayedVisibleHeight = AgentStreamingTextMetrics.minimumVisibleHeight
         pendingTargetHeight = AgentStreamingTextMetrics.minimumVisibleHeight
         lastHeightSmoothingTime = nil
         displayedVisibleWidth = 1
         lastWidthSmoothingTime = nil
+        pendingTargetWidth = 1
+        appliedVisibleWidth = 1
+        lastSnippetSpawnTime = 0
         invalidateIntrinsicContentSize()
     }
 
@@ -225,7 +242,6 @@ final class AgentStreamingTextView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateRenderContainerOffset()
 
         let resolvedWidth = resolvedLayoutMaxWidth()
         guard resolvedWidth >= AgentStreamingTextMetrics.minimumLayoutWidth else { return }
@@ -294,31 +310,6 @@ final class AgentStreamingTextView: UIView {
         setContentHuggingPriority(.defaultHigh, for: .horizontal)
     }
 
-    private func updateRenderContainerOffset() {
-        let contentWidth = renderContainerWidthConstraint?.constant ?? 0
-        let offset = max(0, ((bounds.width - contentWidth) / 2).rounded())
-        guard abs(offset - lastAppliedRenderContainerOffset) > 0.5 else { return }
-        let delta = offset - lastAppliedRenderContainerOffset
-        lastAppliedRenderContainerOffset = offset
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        renderContainer.layer.transform = CATransform3DMakeTranslation(offset, 0, 0)
-        CATransaction.commit()
-
-        repositionSnippets(byDeltaX: delta)
-    }
-
-    private func repositionSnippets(byDeltaX delta: CGFloat) {
-        guard delta != 0, !animatingSnippetLayers.isEmpty else { return }
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        for snippetLayer in animatingSnippetLayers {
-            snippetLayer.frame.origin.x += delta
-        }
-        CATransaction.commit()
-    }
-
     private func resolvedLayoutMaxWidth() -> CGFloat {
         if layoutMaxWidth >= AgentStreamingTextMetrics.minimumLayoutWidth {
             return layoutMaxWidth
@@ -354,7 +345,9 @@ final class AgentStreamingTextView: UIView {
         appliedLayoutMaxWidth = layoutMaxWidth
         appliedUserInterfaceStyle = traitCollection.userInterfaceStyle
 
-        allowsLinkInteraction = configuration.allowsLinks
+        // Answer links are styled from their first glyph and become tappable once the answer is revealed
+        let allowsLinks = configuration.allowsLinks || AgentTextLinks.containsLinks(configuration.text)
+        allowsLinkInteraction = allowsLinks
             && !configuration.isStreaming
             && !isInStreamingMode
 
@@ -364,19 +357,21 @@ final class AgentStreamingTextView: UIView {
             rendersMarkdown: configuration.rendersMarkdown,
             detectsLinks: configuration.allowsLinks,
             markdownProfile: configuration.markdownProfile,
-            baseFont: configuration.baseFont
+            isStreaming: configuration.isStreaming,
+            baseFont: configuration.baseFont,
+            linkColor: tintColor.resolvedColor(with: traitCollection)
         )
 
         if configuration.isStreaming {
             isInStreamingMode = true
-            finalizedAllowsLinks = configuration.allowsLinks
+            finalizedAllowsLinks = allowsLinks
             applyLayout(for: rendered, keepingReveal: true)
             updateRevealAnimation(hasStreaming: true, hadStreaming: false)
             return
         }
 
         if configuration.hadStreaming, isInStreamingMode {
-            finalizedAllowsLinks = configuration.allowsLinks
+            finalizedAllowsLinks = allowsLinks
             applyLayout(for: rendered, keepingReveal: true)
             updateRevealAnimation(hasStreaming: false, hadStreaming: true)
             return
@@ -387,7 +382,7 @@ final class AgentStreamingTextView: UIView {
         stopRevealAnimation(resetController: true)
         removeAllSnippets()
         applyLayout(for: rendered, keepingReveal: false)
-        allowsLinkInteraction = configuration.allowsLinks
+        allowsLinkInteraction = allowsLinks
     }
 
     private func applyLayout(for attributedText: NSAttributedString, keepingReveal: Bool) {
@@ -448,12 +443,7 @@ final class AgentStreamingTextView: UIView {
             controller.finalize(finalLength: totalCount)
         }
 
-        if controller.isFinalizing, Int(controller.revealedCount) >= controller.latestLength,
-           isHeightSettled, isWidthSettled {
-            completeRevealAnimation()
-            return
-        }
-
+        // Completion waits for the next tick, so it never runs inside `configure` and the cell's layout pass
         if displayLinkSubscriptionID == nil {
             displayLinkSubscriptionID = AgentDisplayLinkDriver.shared.add { [weak self] in
                 self?.handleRevealTick()
@@ -473,7 +463,9 @@ final class AgentStreamingTextView: UIView {
             updateVisibleSize()
         }
 
-        guard isComplete, isHeightSettled, isWidthSettled else { return }
+        // Final content can replace this view on completion, so the last glyphs finish fading in first
+        guard isComplete, isHeightSettled, isWidthSettled,
+              now - lastSnippetSpawnTime >= AgentStreamingTextMetrics.snippetFadeDuration else { return }
         completeRevealAnimation()
     }
 
@@ -482,8 +474,7 @@ final class AgentStreamingTextView: UIView {
     }
 
     private var isWidthSettled: Bool {
-        let knownMaxWidth = layout?.fullSize.width ?? displayedVisibleWidth
-        return abs(knownMaxWidth - displayedVisibleWidth) < AgentStreamingTextMetrics.heightSettleThreshold
+        abs(pendingTargetWidth - appliedVisibleWidth) < AgentStreamingTextMetrics.heightSettleThreshold
     }
 
     private func advanceReveal(to characterCount: Int) {
@@ -495,6 +486,7 @@ final class AgentStreamingTextView: UIView {
         if clampedCount > previousRevealCharacterCount {
             spawnSnippets(from: previousRevealCharacterCount, to: clampedCount, layout: layout)
             previousRevealCharacterCount = clampedCount
+            lastSnippetSpawnTime = CACurrentMediaTime()
         }
 
         updateRevealMask()
@@ -580,9 +572,9 @@ final class AgentStreamingTextView: UIView {
                 snippetLayer.contents = contents
                 snippetLayer.contentsRect = contentsRect
                 snippetLayer.contentsGravity = .resize
-                snippetLayer.frame = restingRect.offsetBy(dx: lastAppliedRenderContainerOffset, dy: 0)
+                snippetLayer.frame = restingRect
 
-                self.layer.addSublayer(snippetLayer)
+                renderContainer.layer.addSublayer(snippetLayer)
                 animatingSnippetLayers.append(snippetLayer)
                 animateSnippet(snippetLayer)
             }
@@ -602,11 +594,15 @@ final class AgentStreamingTextView: UIView {
 
         let fadeDuration = AgentStreamingTextMetrics.snippetFadeDuration
 
+        // A snapshot of the layer tree, such as a cross-dissolve, shows the model opacity, so it stays at the start value
+        snippetLayer.opacity = 0
         let alpha = CABasicAnimation(keyPath: "opacity")
         alpha.fromValue = 0.0
         alpha.toValue = 1.0
         alpha.duration = fadeDuration
         alpha.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        alpha.fillMode = .forwards
+        alpha.isRemovedOnCompletion = false
         snippetLayer.add(alpha, forKey: "revealOpacity")
 
         let rise = CABasicAnimation(keyPath: "position.y")
@@ -664,6 +660,12 @@ final class AgentStreamingTextView: UIView {
             return
         }
 
+        let snippetPath = UIBezierPath()
+        for snippetLayer in animatingSnippetLayers {
+            snippetPath.append(UIBezierPath(rect: snippetLayer.restingFrame))
+        }
+        let snippetBounds = snippetPath.bounds
+        let coveredPath = UIBezierPath()
         let path = UIBezierPath()
         var remaining = frontier
 
@@ -677,15 +679,18 @@ final class AgentStreamingTextView: UIView {
                 for index in 0..<revealCount {
                     let rect = line.characterRects[index]
                     guard !rect.isEmpty else { continue }
-                    path.append(UIBezierPath(rect: rect.integral))
+                    // Keep settled text out of the path subtraction so long responses stay cheap to animate.
+                    let destination = rect.integral.intersects(snippetBounds) ? coveredPath : path
+                    destination.append(UIBezierPath(rect: rect.integral))
                 }
             }
 
             remaining -= lineCount
         }
 
-        for snippetLayer in animatingSnippetLayers {
-            path.append(UIBezierPath(rect: snippetLayer.restingFrame))
+        if !coveredPath.isEmpty {
+            // Hide the static glyphs beneath their animated copies without cancelling overlapping RTL/ligature bounds.
+            path.append(UIBezierPath(cgPath: coveredPath.cgPath.subtracting(snippetPath.cgPath, using: .winding)))
         }
 
         CATransaction.begin()
@@ -694,13 +699,13 @@ final class AgentStreamingTextView: UIView {
         revealMaskLayer.fillRule = .nonZero
         revealMaskLayer.path = path.cgPath
         revealMaskLayer.frame = CGRect(origin: .zero, size: layout.fullSize)
-        renderContainer.layer.mask = revealMaskLayer
+        renderImageView.layer.mask = revealMaskLayer
 
         CATransaction.commit()
     }
 
     private func detachRevealMask() {
-        renderContainer.layer.mask = nil
+        renderImageView.layer.mask = nil
         revealMaskLayer.path = nil
     }
 
@@ -719,14 +724,15 @@ final class AgentStreamingTextView: UIView {
             let staticWidth = max(fullSize.width, 1)
             displayedVisibleHeight = staticHeight
             displayedVisibleWidth = staticWidth
+            appliedVisibleWidth = staticWidth
             pendingTargetHeight = staticHeight
+            pendingTargetWidth = staticWidth
             lastHeightSmoothingTime = nil
             lastWidthSmoothingTime = nil
             revealedWidthConstraint?.constant = staticWidth
             revealedHeightConstraint?.constant = staticHeight
             revealedWidthConstraint?.isActive = true
             revealedHeightConstraint?.isActive = true
-            updateRenderContainerOffset()
             let staticSize = CGSize(width: staticWidth, height: staticHeight)
             guard abs(staticSize.width - lastReportedSize.width) > 0.5
                 || abs(staticSize.height - lastReportedSize.height) > 0.5 else { return }
@@ -743,18 +749,19 @@ final class AgentStreamingTextView: UIView {
 
         let naturalWidth = max(displaySize.width, 1)
         let knownMaxWidth = max(layout?.fullSize.width ?? naturalWidth, naturalWidth)
+        pendingTargetWidth = knownMaxWidth
 
         let visibleSize = CGSize(
             width: max(naturalWidth, easedWidth(towardTarget: knownMaxWidth, naturalMinimum: naturalWidth)),
             height: easedHeight(towardTarget: targetHeight)
         )
+        appliedVisibleWidth = visibleSize.width
         revealedWidthConstraint?.constant = visibleSize.width
         revealedHeightConstraint?.constant = visibleSize.height
         if layout != nil {
             revealedWidthConstraint?.isActive = true
             revealedHeightConstraint?.isActive = true
         }
-        updateRenderContainerOffset()
 
         let widthChanged = abs(visibleSize.width - lastReportedSize.width) > 0.5
         let heightChanged = abs(visibleSize.height - lastReportedSize.height) > 0.5

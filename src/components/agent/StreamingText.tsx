@@ -1,8 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import type { MarkdownProfile } from '../../util/renderMarkdown';
-
-import buildClassName from '../../util/buildClassName';
+import type { AnswerTableProps } from './AnswerMessageContent';
 
 import useStreamingText from './hooks/useStreamingText';
 
@@ -10,32 +8,29 @@ import StreamingTextContent from './StreamingTextContent';
 
 import styles from './StreamingText.module.scss';
 
-interface OwnProps {
+interface OwnProps extends AnswerTableProps {
   text: string;
   isStreaming: boolean;
-  isHidden?: boolean;
   shouldAnimate: boolean;
   revealSessionKey?: string;
   shouldRevealFromStart?: boolean;
   shouldCommitMarkdownTail: boolean;
   areLinksEnabled: boolean;
-  markdownProfile?: MarkdownProfile;
-  onRevealStart?: NoneToVoidFunction;
   onRevealProgress?: NoneToVoidFunction;
   onRevealComplete?: NoneToVoidFunction;
 }
 
 function StreamingText({
   text,
+  tables,
+  tableReferences,
+  links,
   isStreaming,
-  isHidden = false,
   shouldAnimate,
   revealSessionKey,
   shouldRevealFromStart = false,
   shouldCommitMarkdownTail,
   areLinksEnabled,
-  markdownProfile = 'legacy',
-  onRevealStart,
   onRevealProgress,
   onRevealComplete,
 }: OwnProps) {
@@ -51,7 +46,6 @@ function StreamingText({
     shouldAnimate,
     revealSessionKey,
     shouldRevealFromStart,
-    onRevealStart,
     onRevealProgress,
     onRevealComplete,
   });
@@ -59,16 +53,18 @@ function StreamingText({
   return (
     <div
       ref={containerRef}
-      className={buildClassName(styles.container, isHidden && styles.containerHidden)}
+      className={styles.container}
       data-agent-streaming-container
     >
       <StreamingTextContent
         contentRef={contentRef}
         text={visibleText}
+        tables={tables}
+        tableReferences={tableReferences}
+        links={links}
         phase={visualPhase}
         shouldCommitMarkdownTail={shouldCommitMarkdownTail}
         areLinksEnabled={areLinksEnabled}
-        markdownProfile={markdownProfile}
       />
       <span
         ref={revealEdgeLayerRef}

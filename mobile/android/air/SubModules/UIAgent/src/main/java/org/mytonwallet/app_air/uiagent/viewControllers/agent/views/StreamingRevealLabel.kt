@@ -91,7 +91,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     ) {
         if (key != revealKey) {
             revealKey = key
-            cancelReveal()
+            cancelReveal(notifySizeChange = false)
         }
         val previousText = if (revealController != null) text else null
         text = newText
@@ -166,7 +166,19 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         return i
     }
 
-    private fun cancelReveal() {
+    internal fun finishReveal(key: String) {
+        val isSameMessage = revealKey == key
+        revealKey = key
+        revealProgressByKey.remove(key)
+        snippetTimesByKey.remove(key)
+        cancelReveal(notifySizeChange = isSameMessage)
+        if (frameScheduled) {
+            frameScheduled = false
+            Choreographer.getInstance().removeFrameCallback(frameCallback)
+        }
+    }
+
+    private fun cancelReveal(notifySizeChange: Boolean = true) {
         pendingSnippetAdoption = false
         revealController = null
         revealCharCount = null
@@ -175,7 +187,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
         textBitmapText = null
         if (hasSizeOverride) {
             hasSizeOverride = false
-            onSizeTransitionFrame?.invoke()
+            if (notifySizeChange) onSizeTransitionFrame?.invoke()
             requestLayout()
         }
     }

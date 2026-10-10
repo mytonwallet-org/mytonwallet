@@ -5,34 +5,39 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.text.InputFilter
+import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.view.animation.DecelerateInterpolator
+import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+import androidx.core.animation.doOnCancel
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isGone
 import androidx.core.view.setPadding
-import androidx.dynamicanimation.animation.FloatValueHolder
-import androidx.dynamicanimation.animation.SpringAnimation
-import androidx.dynamicanimation.animation.SpringForce
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.util.Date
-import kotlin.math.roundToInt
-import org.mytonwallet.app_air.uiagent.processors.AgentHint
-import org.mytonwallet.app_air.uiagent.processors.AgentResult
+import org.mytonwallet.app_air.uiagent.agentV2.AgentTextLinks
+import org.mytonwallet.app_air.uiagent.agentV2.agentUnavailableText
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentDateHeaderCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentHintsCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.cells.AgentSystemMessageCell
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentComposerView
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.views.AgentConsentView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
 import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
@@ -42,30 +47,38 @@ import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.widgets.WCell
+import org.mytonwallet.app_air.uicomponents.widgets.WEditText
 import org.mytonwallet.app_air.uicomponents.widgets.WImageButton
 import org.mytonwallet.app_air.uicomponents.widgets.WRecyclerView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialog
+import org.mytonwallet.app_air.uicomponents.widgets.dialog.WDialogButton
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.uicomponents.widgets.fadeOut
 import org.mytonwallet.app_air.uicomponents.widgets.hideKeyboard
 import org.mytonwallet.app_air.uicomponents.widgets.menu.WMenuPopup
+import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
 import org.mytonwallet.app_air.uiinappbrowser.InAppBrowserVC
-import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletcontext.DeeplinkOpenSource
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
-import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
+import org.mytonwallet.app_air.walletcore.models.MExploreSite
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 
 class AgentVC(
     context: Context,
     initialPrompt: String? = null,
-    initialPinnedMessageId: String? = null
+    initialPinnedMessageId: String? = null,
+    initialEntryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
 ) : WViewController(context),
     WRecyclerViewAdapter.WRecyclerViewDataSource,
     AgentVM.Delegate {
@@ -83,9 +96,11 @@ class AgentVC(
         private const val DATE_HEADER_GAP_MS = 10 * 60 * 1000L
         private const val BOTTOM_OFFSET = 17
         private const val KEYBOARD_GAP = 12
-        private const val MIN_MESSAGE_CELL_HEIGHT = 48
         private const val HINTS_SETTLE_FALLBACK_MS = 3000L
         private const val INCOMING_MESSAGE_DELAY_MS = 250L
+        private const val HISTORY_LOAD_THRESHOLD = 5
+        private const val PROBLEM_REPORT_COMMENT_LINES = 4
+        private const val PROBLEM_REPORT_COMMENT_MAX_LENGTH = 1000
     }
 
     private data class PendingIncomingReveal(
@@ -105,14 +120,18 @@ class AgentVC(
     private var isSessionReleased = false
     private var hasAppeared = false
     private var isPreparingAppearance = false
-    private var initialPromptAwaitingInsertion = initialPrompt?.takeIf { it.isNotBlank() }
-    private var pendingInitialPrompt = initialPromptAwaitingInsertion
-    private var requestedPinnedMessageId = initialPinnedMessageId
-    private var shouldJumpToRequestedMessage = initialPinnedMessageId != null
+    private var initialPromptAwaitingInsertion = initialPrompt?.takeIf {
+        initialPinnedMessageId.isNullOrBlank() && it.isNotBlank()
+    }
+    private val pendingPrompts = AgentPromptQueue().apply {
+        initialPromptAwaitingInsertion?.let {
+            enqueue(it, initialEntryPoint, shouldWaitForAppearance = true)
+        }
+    }
+    private var requestedPinnedMessageId = initialPinnedMessageId?.takeIf { it.isNotBlank() }
+    private var shouldJumpToRequestedMessage = requestedPinnedMessageId != null
     private var timelineItems = listOf<AgentTimelineItem>()
     private var animateFromIndex = -1
-    private var currentBottom = 0
-    private var keyboardAnimator: ValueAnimator? = null
     private var gradientHeightAnimator: ValueAnimator? = null
     private var pendingHintsReveal = false
     private var dismissingHints: AgentTimelineItem.Hints? = null
@@ -120,21 +139,10 @@ class AgentVC(
     private var hintsSettleFallback: Runnable? = null
     private var hintsSettleMessageId: String? = null
     private var isPopupVisible = false
-    private var isUserScrolling = false
-    private var isApplyingSharedScrollPosition = false
-    private var pendingSharedScrollPosition: AgentVM.ScrollPosition? = null
-    private var isOnBottom = true
-    private var pinnedMessageId: String? = null
-    private var pendingPinMessageId: String? = null
-    private var pendingOutgoingPreviousMessageId: String? = null
-    private var deferredPinMessageId: String? = null
     private val pendingIncomingReveals = linkedMapOf<String, PendingIncomingReveal>()
     private val outgoingMessageIdsAwaitingIncoming = mutableListOf<String>()
     private val hiddenIncomingMessageIds = mutableSetOf<String>()
-    private var cachedPinnedTarget = 0
-    private var appliedBottom = 0
-    private var pinScrollSpring: SpringAnimation? = null
-    private var pinScrollExtraSpace = 0
+    private var agentState = AgentVM.State.LOADING
 
     private val timezoneReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
@@ -152,7 +160,12 @@ class AgentVC(
         )
     )
 
-    private val chatRecyclerView = WRecyclerView(this).apply {
+    private val chatRecyclerView: WRecyclerView = object : WRecyclerView(this) {
+        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            if (isEditFading || editPresentation != null) return true
+            return super.dispatchTouchEvent(event)
+        }
+    }.apply {
         adapter = rvAdapter
         itemAnimator = null
         layoutManager = object : LinearLayoutManager(context) {
@@ -161,8 +174,8 @@ class AgentVC(
                 extraLayoutSpace: IntArray
             ) {
                 super.calculateExtraLayoutSpace(state, extraLayoutSpace)
-                if (pinScrollExtraSpace > extraLayoutSpace[1]) {
-                    extraLayoutSpace[1] = pinScrollExtraSpace
+                if (viewport.pinScrollExtraSpace > extraLayoutSpace[1]) {
+                    extraLayoutSpace[1] = viewport.pinScrollExtraSpace
                 }
             }
         }.apply {
@@ -171,63 +184,106 @@ class AgentVC(
         clipToPadding = false
         addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
-                    isUserScrolling = true
-                    pendingSharedScrollPosition = null
-                    pinScrollSpring?.cancel()
-                } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    isUserScrolling = false
-                    shareScrollPosition()
-                }
+                viewport.onScrollStateChanged(newState)
                 if (newState != RecyclerView.SCROLL_STATE_IDLE) updateBlurViews(recyclerView)
             }
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (isUserScrolling) {
-                    releasePinIfTrailingContentIsBelowViewport(recyclerView, dy)
-                    val atBottom = !recyclerView.canScrollVertically(1)
-                    if (pinnedMessageId == null && isOnBottom != atBottom) {
-                        isOnBottom = atBottom
-                        val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
-                        if (!atBottom) {
-                            val firstPos = lm.findFirstVisibleItemPosition()
-                            if (firstPos == RecyclerView.NO_POSITION) return
-                            val firstView = lm.findViewByPosition(firstPos)
-                            val offset = (firstView?.top ?: 0) - recyclerView.paddingTop
-                            lm.stackFromEnd = false
-                            lm.scrollToPositionWithOffset(firstPos, offset)
-                        } else {
-                            lm.stackFromEnd = true
-                        }
+                if (viewport.isUserScrolling) {
+                    viewport.onUserScrolled(dy)
+                    val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
+                    if (
+                        dy < 0 &&
+                        layoutManager?.findFirstVisibleItemPosition()
+                            ?.let { it in 0..HISTORY_LOAD_THRESHOLD } == true
+                    ) {
+                        viewport.shareScrollPosition()
+                        vm.loadOlderMessages()
                     }
-                    updateBlurViews(recyclerView)
                 }
-                shareScrollPosition()
+                updateBlurViews(recyclerView)
+                viewport.shareScrollPosition()
             }
         })
         addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
             val newWidth = right - left
             if (newWidth > 0 && newWidth != oldRight - oldLeft) {
                 rvAdapter.updateVisibleCells()
-                restoreSharedScrollPosition()
+                viewport.restoreSharedScrollPosition()
                 doOnNextLayout {
-                    restoreSharedScrollPosition()
+                    viewport.restoreSharedScrollPosition()
                 }
-            } else if (pinnedMessageId != null) {
-                post { syncPinnedPadding() }
+            } else if (viewport.pinnedMessageId != null) {
+                post { viewport.syncPinnedPadding() }
             }
-            pendingSharedScrollPosition?.let { position ->
-                if (restorePendingSharedScrollPosition(position)) {
-                    pendingSharedScrollPosition = null
-                    shareScrollPosition()
-                }
-            }
+            viewport.restorePendingPosition()
         }
+    }
+
+    private val viewport: AgentTimelineViewport by lazy {
+        AgentTimelineViewport(object : AgentTimelineViewport.Host {
+            override fun onMessagePinned(messageId: String) {
+                editPresentation?.takeIf { it.outgoingMessageId == messageId }?.hasPinned = true
+                finishEditPresentation(messageId)
+            }
+
+            override val recyclerView get() = chatRecyclerView
+            override val timelineItems get() = this@AgentVC.timelineItems
+            override val scrollPosition get() = vm.scrollPosition
+            override val topPadding get() = chatTopPadding()
+            override val isPopupVisible get() = this@AgentVC.isPopupVisible
+            override val dismissingHintsIndex
+                get() = dismissingHints?.let {
+                    timelineItems.indexOf(it)
+                }
+                    ?: -1
+
+            override fun baseBottomPadding(bottom: Int) =
+                composerView.height + bottom + composerBottomOffset.dp + BOTTOM_OFFSET.dp
+
+            override fun publishScrollPosition(position: AgentVM.ScrollPosition) =
+                vm.updateScrollPosition(this@AgentVC, position)
+
+            override fun presentationMessageId(messageId: String) = timelineItems
+                .filterIsInstance<AgentTimelineItem.Message>()
+                .firstOrNull { it.message.id == messageId }?.message?.id
+                ?: vm.messages.firstOrNull { it.matchesMessageId(messageId) }?.id
+
+            override fun applyComposerBottom(bottom: Int) {
+                consentView.updateInsets(topPadding, bottom)
+                contentContainer.setConstraints {
+                    toBottomPx(composerView, bottom + composerBottomOffset.dp)
+                }
+                updateGradientHeight(animated = false)
+            }
+
+            override fun finishInitialHintsDismissal(): Boolean {
+                if (dismissingHints == null || dismissingHintsAnchorId != null) return false
+                finishHintsDismissal()
+                return true
+            }
+
+            override fun syncTopBlurAfterLayout() = this@AgentVC.syncTopBlurAfterLayout()
+        })
     }
 
     private val bottomGradientView = View(context).apply {
         id = View.generateViewId()
     }
+    private data class EditPresentation(
+        val removedMessages: List<AgentMessage>,
+        val hidesRemovedMessages: Boolean = false,
+        var outgoingMessageId: String? = null,
+        var hasInserted: Boolean = false,
+        var hasPinned: Boolean = false
+    )
+
+    private var editPresentation: EditPresentation? = null
+    private var isEditFading = false
+    private var editFadeAnimator: ValueAnimator? = null
+    private var regeneratingMessageId: String? = null
+    private var editingMessageId: String? = null
+
     private val composerView by lazy { AgentComposerView(context, chatRecyclerView) }
 
     private val contentContainer: WView by lazy {
@@ -262,6 +318,16 @@ class AgentVC(
         }
     }
 
+    private val consentView by lazy {
+        AgentConsentView(context).apply {
+            isGone = true
+            onAllow = {
+                showError(null)
+                vm.acceptConsent()
+            }
+        }
+    }
+
     private val moreButton: WImageButton by lazy {
         val btn = WImageButton(context)
         btn.setPaddingDp(8)
@@ -281,16 +347,25 @@ class AgentVC(
         navigationBar?.addTrailingView(moreButton, ConstraintLayout.LayoutParams(40.dp, 40.dp))
 
         composerView.onSend = { text ->
-            sendMessage(text)
+            val messageId = editingMessageId
+            if (messageId == null) {
+                sendMessage(text)
+            } else {
+                submitEditedMessage(messageId, text).also { accepted ->
+                    if (accepted) {
+                        editingMessageId = null
+                        view.hideKeyboard()
+                    }
+                }
+            }
         }
+        composerView.onDraftCleared = { editingMessageId = null }
         composerView.onHeightChanged = {
             updateLayout()
         }
-        composerView.onHintsToggle = {
-            vm.toggleHintsVisibility()
-        }
 
         view.addView(contentContainer, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        view.addView(consentView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         composerView.post { updateGradientHeight(animated = false) }
 
@@ -312,11 +387,11 @@ class AgentVC(
         super.viewWillAppear()
         isPreparingAppearance = true
         vm.setActive(this, true)
-        vm.checkAccountChanged(animated = false)
+        updateVisibleHintsAvailability()
         when {
-            initialPromptAwaitingInsertion != null -> showInitialPromptAtBottom()
+            initialPromptAwaitingInsertion != null -> viewport.showInitialPromptAtBottom()
             requestedPinnedMessageId != null -> prepareRequestedMessageForAppearance()
-            else -> restoreSharedScrollPosition()
+            else -> viewport.restoreSharedScrollPosition()
         }
     }
 
@@ -325,29 +400,24 @@ class AgentVC(
         hasAppeared = true
         isPreparingAppearance = false
         if (showRequestedMessageIfAvailable() || requestedPinnedMessageId != null) return
-        pendingSharedScrollPosition?.let { position ->
-            if (restorePendingSharedScrollPosition(position)) {
-                pendingSharedScrollPosition = null
-                shareScrollPosition()
-            }
-        }
-        val prompt = pendingInitialPrompt ?: return
-        pendingInitialPrompt = null
-        showInitialPromptAtBottom()
-        submitPrompt(prompt)
+        viewport.restorePendingPosition()
+        if (initialPromptAwaitingInsertion != null) viewport.showInitialPromptAtBottom()
+        submitPendingPrompts()
     }
 
     override fun viewWillDisappear() {
         hasAppeared = false
         isPreparingAppearance = false
-        shareScrollPosition()
+        viewport.shareScrollPosition()
         super.viewWillDisappear()
         vm.setActive(this, false)
     }
 
     override fun onDestroy() {
-        shareScrollPosition()
+        pendingPrompts.clear()
+        viewport.shareScrollPosition()
         cancelHintsSettleFallback()
+        editPresentation = null
         cancelPendingIncomingReveals()
         vm.setActive(this, false)
         if (isAttachedToSession) {
@@ -358,8 +428,11 @@ class AgentVC(
             AgentSession.release(vm)
             isSessionReleased = true
         }
+        viewport.dispose()
+        gradientHeightAnimator?.cancel()
         context.unregisterReceiver(timezoneReceiver)
         super.onDestroy()
+        editFadeAnimator?.cancel()
     }
 
     override fun updateTheme() {
@@ -379,16 +452,15 @@ class AgentVC(
         if (window?.isWideLayout == true || WGlobalStorage.isGradientNavigationBarActive()) {
             bottomGradientView.isGone = false
             val bgColor = WColor.Background.color
-            val bgColor80 = bgColor.colorWithAlpha(204)
-            val bgColor90 = bgColor.colorWithAlpha(230)
             bottomGradientView.background = GradientShaderDrawable(
-                intArrayOf(bgColor90 and 0x00FFFFFF, bgColor80, bgColor90),
-                floatArrayOf(0f, 0.1f, 1f)
+                intArrayOf(bgColor.colorWithAlpha(0), bgColor.colorWithAlpha(229)),
+                floatArrayOf(0f, 1f)
             )
         } else {
             bottomGradientView.isGone = true
         }
         composerView.updateTheme()
+        consentView.updateTheme()
     }
 
     override fun insetsUpdated() {
@@ -399,6 +471,7 @@ class AgentVC(
             systemBarEndInset,
             0
         )
+        consentView.updateInsets(chatTopPadding(), viewport.currentBottom)
         topReversedCornerView?.setSideInsets(
             systemBarStartInset.toFloat(),
             systemBarEndInset.toFloat()
@@ -408,7 +481,9 @@ class AgentVC(
 
     private fun syncTopBlurAfterLayout() {
         chatRecyclerView.doOnPreDraw {
-            if (chatRecyclerView.computeVerticalScrollOffset() > 0 || pinnedMessageId != null) {
+            if (chatRecyclerView.computeVerticalScrollOffset() > 0 ||
+                viewport.pinnedMessageId != null
+            ) {
                 topReversedCornerView?.setBlurAlpha(1f)
             } else {
                 updateBlurViews(chatRecyclerView)
@@ -416,7 +491,8 @@ class AgentVC(
         }
     }
 
-    private var hasAppliedInitialLayout = false
+    private fun chatTopPadding(): Int =
+        (navigationController?.getSystemBars()?.top ?: 0) + (navigationBar?.height ?: 0)
 
     private fun updateLayout() {
         val ime = navigationController?.imeInsetBottom ?: 0
@@ -426,130 +502,12 @@ class AgentVC(
         } else {
             0
         }
-        val targetBottom = maxOf(aboveKeyboard, nav)
-        if (ime == 0) stableBottomInset = nav
-
-        if (targetBottom != currentBottom) {
-            val fromBottom = currentBottom
-            val keyboardPaddingStart =
-                if (ime > 0 && targetBottom > fromBottom) {
-                    releasePinForKeyboardIfCovered(targetBottom)
-                } else {
-                    null
-                }
-            currentBottom = targetBottom
-
-            if (!hasAppliedInitialLayout) {
-                hasAppliedInitialLayout = true
-                applyBottom(targetBottom)
-                return
-            }
-
-            keyboardAnimator?.cancel()
-            keyboardAnimator = ValueAnimator.ofInt(fromBottom, targetBottom).apply {
-                duration = 220
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { animator ->
-                    val value = animator.animatedValue as Int
-                    val bottomPadding = keyboardPaddingStart?.let { start ->
-                        val target = baseChatBottomPadding(targetBottom)
-                        start + ((target - start) * animator.animatedFraction).roundToInt()
-                    }
-                    applyBottom(value, bottomPadding)
-                }
-                start()
-            }
-        } else if (keyboardAnimator?.isRunning != true) {
-            applyBottom(targetBottom)
-        }
-    }
-
-    private fun applyBottom(bottom: Int, bottomPaddingOverride: Int? = null) {
-        appliedBottom = bottom
-        contentContainer.setConstraints {
-            toBottomPx(composerView, bottom + composerBottomOffset.dp)
-        }
-        updateGradientHeight(animated = false)
-
-        val topPadding = chatTopPadding()
-        val bottomPadding = bottomPaddingOverride ?: chatBottomPadding(bottom)
-        val paddingChanged = chatRecyclerView.paddingTop != topPadding ||
-            chatRecyclerView.paddingBottom != bottomPadding
-        if (paddingChanged) chatRecyclerView.setPadding(0, topPadding, 0, bottomPadding)
-    }
-
-    private fun chatTopPadding(): Int =
-        (navigationController?.getSystemBars()?.top ?: 0) + (navigationBar?.height ?: 0)
-
-    private var stableBottomInset = 0
-
-    private fun baseChatBottomPadding(bottom: Int = currentBottom): Int =
-        composerView.height + bottom + composerBottomOffset.dp + BOTTOM_OFFSET.dp
-
-    private fun chatBottomPadding(bottom: Int): Int {
-        val base = baseChatBottomPadding(bottom)
-        if (pinnedMessageId == null) return base
-        if (pendingPinMessageId == pinnedMessageId && cachedPinnedTarget > 0) {
-            return maxOf(base, cachedPinnedTarget)
-        }
-        val pinned = pinnedPaddingTarget()
-        if (pinned == null) {
-            clearPin()
-            return base
-        }
-        return maxOf(base, pinned)
-    }
-
-    private val pinnedTopOffset: Int
-        get() = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
-
-    private fun pinnedMessageOffset(messageHeight: Int): Int {
-        val regularOffset = -pinnedTopOffset
-        val messageBottom =
-            chatTopPadding() + regularOffset + messageHeight
-        val previewTop =
-            chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
-                MIN_MESSAGE_CELL_HEIGHT.dp
-        return regularOffset - (messageBottom - previewTop).coerceAtLeast(0)
-    }
-
-    private fun pinnedMessageHeight(view: View): Int =
-        (view as? AgentMessageCell)?.layoutTargetHeight ?: view.height
-
-    private fun pinnedMessageOffset(view: View): Int =
-        pinnedMessageOffset(pinnedMessageHeight(view))
-
-    private fun pinnedPaddingTarget(): Int? {
-        val messageId = pinnedMessageId ?: return null
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return null
-        val idx = timelineIndexOf(messageId)
-        if (idx < 0) return null
-        var contentBelow = 0
-        var messageHeight = 0
-        for (i in idx until timelineItems.size) {
-            val itemView = lm.findViewByPosition(i)
-                ?: return if (cachedPinnedTarget > 0) {
-                    cachedPinnedTarget
-                } else {
-                    null
-                }
-            // Use laid-out geometry: a cell animating its own height (hints reveal, message
-            // insert) can carry a stale measured height for a frame, which would collapse
-            // the reserved padding all at once and drop the pinned message.
-            contentBelow += lm.getDecoratedBottom(itemView) - lm.getDecoratedTop(itemView)
-            if (i == idx) {
-                messageHeight = pinnedMessageHeight(itemView)
-            }
-        }
-        val target = chatRecyclerView.height - chatTopPadding() - contentBelow -
-            pinnedMessageOffset(messageHeight)
-        cachedPinnedTarget = target
-        return target
+        viewport.updateLayout(maxOf(aboveKeyboard, nav), ime, nav)
     }
 
     private fun updateGradientHeight(animated: Boolean) {
         val lp = bottomGradientView.layoutParams ?: return
-        val targetHeight = composerView.height + currentBottom + GRADIENT_EXTRA.dp
+        val targetHeight = composerView.height + viewport.currentBottom + GRADIENT_EXTRA.dp
 
         if (!animated) {
             lp.height = targetHeight
@@ -573,45 +531,64 @@ class AgentVC(
         }
     }
 
-    private fun sendMessage(text: String) {
-        vm.sendMessage(text)
-        view.hideKeyboard()
+    private fun sendMessage(
+        text: String,
+        entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
+    ): Boolean {
+        val accepted = vm.sendMessage(text, entryPoint)
+        if (accepted) view.hideKeyboard()
+        return accepted
     }
 
-    fun submitPrompt(text: String) {
-        if (text.isNotBlank()) vm.sendMessage(text)
+    private fun sendFollowup(messageId: String, followupId: String) {
+        if (vm.sendFollowup(messageId, followupId)) view.hideKeyboard()
+    }
+
+    fun submitPrompt(text: String, entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()) {
+        if (text.isBlank()) return
+        pendingPrompts.enqueue(text, entryPoint)
+        submitPendingPrompts()
+    }
+
+    override fun onMessageAcceptanceChanged() {
+        if (!isSessionReleased) submitPendingPrompts()
+    }
+
+    private fun submitPendingPrompts() {
+        if (agentState == AgentVM.State.CLEARING || isSessionReleased) return
+        pendingPrompts.submit(hasAppeared, vm::sendMessage)
     }
 
     fun showMessage(messageId: String) {
         if (messageId.isBlank()) return
         initialPromptAwaitingInsertion = null
-        pendingInitialPrompt = null
+        pendingPrompts.clear()
         shouldJumpToRequestedMessage = false
         requestedPinnedMessageId = messageId
-        if (hasAppeared) showRequestedMessageIfAvailable()
+        if (!hasAppeared || showRequestedMessageIfAvailable()) return
+        if (agentState == AgentVM.State.READY) loadRequestedMessage(messageId)
     }
 
     private fun presentMoreMenu() {
         val items = mutableListOf<WMenuPopup.Item>()
 
-        if (DEBUG_MODE || EnvironmentStore.isBeta) {
-            val currentType = vm.processorType
-            val types =
-                AgentVM.ProcessorType.entries.filter {
-                    it != currentType &&
-                        (DEBUG_MODE || it != AgentVM.ProcessorType.MOCK)
+        if (agentState == AgentVM.State.ERROR) {
+            items.add(
+                WMenuPopup.Item(null, LocaleController.getString("Retry")) {
+                    vm.retry()
                 }
-            for (type in types) {
-                val label = when (type) {
-                    AgentVM.ProcessorType.MOCK -> "Switch to Mock"
-                    AgentVM.ProcessorType.REAL -> "Switch to Real"
+            )
+        }
+
+        if (vm.canReportProblem) {
+            items.add(
+                WMenuPopup.Item(
+                    org.mytonwallet.app_air.icons.R.drawable.ic_flag_30,
+                    LocaleController.getString("Report a Problem")
+                ) {
+                    presentProblemReportForm(null)
                 }
-                items.add(
-                    WMenuPopup.Item(null, label) {
-                        vm.setProcessor(type)
-                    }
-                )
-            }
+            )
         }
 
         items.add(
@@ -638,23 +615,145 @@ class AgentVC(
     }
 
     private fun clearChat() {
+        editingMessageId = null
         vm.clearChat()
+    }
+
+    /** Opens the report form; after a failed send it opens again with the [failedComment] the user wrote */
+    private fun presentProblemReportForm(presentationId: String?, failedComment: String? = null) {
+        val input = object : WEditText(context, null, false) {
+            init {
+                setPadding(8.dp, 8.dp, 8.dp, 8.dp)
+                updateTheme()
+            }
+
+            override fun updateTheme() {
+                super.updateTheme()
+                setBackgroundColor(WColor.SecondaryBackground.color, 10f.dp)
+            }
+        }.apply {
+            hint = LocaleController.getString("Optional")
+            inputType = EditorInfo.TYPE_CLASS_TEXT or
+                EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES or
+                EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE
+            gravity = Gravity.TOP or Gravity.START
+            // `WDialog` fixes its height on presentation, so the input keeps a fixed height
+            setLines(PROBLEM_REPORT_COMMENT_LINES)
+            filters = arrayOf(InputFilter.LengthFilter(PROBLEM_REPORT_COMMENT_MAX_LENGTH))
+            failedComment?.let { setText(it) }
+        }
+        val container = FrameLayout(context).apply {
+            setPadding(24.dp, 0, 24.dp, 0)
+            addView(input, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+        WDialog(
+            container,
+            WDialog.Config(
+                title = LocaleController.getString("Report a Problem"),
+                subtitle = LocaleController.getString(
+                    if (failedComment == null) {
+                        "\$agent_report_problem_description"
+                    } else {
+                        "\$agent_report_problem_failed"
+                    }
+                ),
+                actionButton = WDialogButton.Config(
+                    title = LocaleController.getString("Send"),
+                    onTap = {
+                        val comment = input.text?.toString().orEmpty()
+                        vm.reportProblem(presentationId, comment) { isSent ->
+                            showProblemReportResult(presentationId, comment, isSent)
+                        }
+                    }
+                ),
+                secondaryButton = WDialogButton.Config(
+                    title = LocaleController.getString("Cancel"),
+                    onTap = null,
+                    style = WDialogButton.Config.Style.NORMAL
+                )
+            )
+        ).presentOn(this)
+    }
+
+    private fun showProblemReportResult(presentationId: String?, comment: String, isSent: Boolean) {
+        // A failed report opens again with its comment, unless the user has left the screen or can no longer report
+        if (!isSent && vm.canReportProblem && !isDestroyed && !isDisappeared) {
+            presentProblemReportForm(presentationId, comment)
+            return
+        }
+        Toast.makeText(
+            context,
+            LocaleController.getString(
+                if (isSent) "\$agent_report_problem_sent" else "\$agent_report_problem_failed"
+            ),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     // AgentVM.Delegate
 
+    override fun onStateChanged(state: AgentVM.State) {
+        agentState = state
+        val showsConsent = state == AgentVM.State.CONSENT_REQUIRED ||
+            state == AgentVM.State.ACCEPTING_CONSENT
+        contentContainer.isGone = showsConsent
+        consentView.isGone = !showsConsent
+        consentView.setLoading(state == AgentVM.State.ACCEPTING_CONSENT)
+        if (state == AgentVM.State.ACCEPTING_CONSENT) consentView.showError(null)
+        val isClearing = state == AgentVM.State.CLEARING
+        composerView.setSubmissionEnabled(
+            !isClearing && editFadeAnimator == null && regeneratingMessageId == null
+        )
+        moreButton.isGone = showsConsent || isClearing
+
+        if (state != AgentVM.State.READY) return
+        val messageId = requestedPinnedMessageId ?: return
+        if (viewport.timelineIndexOf(messageId) >= 0) {
+            if (hasAppeared) showRequestedMessageIfAvailable()
+            return
+        }
+        loadRequestedMessage(messageId)
+    }
+
+    private fun loadRequestedMessage(messageId: String) {
+        vm.loadMessageHistoryUntil(messageId) { found ->
+            if (requestedPinnedMessageId != messageId) return@loadMessageHistoryUntil
+            if (found) {
+                if (hasAppeared) {
+                    showRequestedMessageIfAvailable()
+                } else if (isPreparingAppearance) {
+                    prepareRequestedMessageForAppearance()
+                }
+            } else {
+                restoreAfterMissingRequestedMessage()
+            }
+        }
+    }
+
+    private fun restoreAfterMissingRequestedMessage() {
+        requestedPinnedMessageId = null
+        shouldJumpToRequestedMessage = false
+        if (!viewport.restoreSharedScrollPosition()) viewport.scrollToBottom()
+    }
+
     override fun onMessagesLoaded(messages: List<AgentMessage>) {
+        editFadeAnimator?.cancel()
+        regeneratingMessageId = null
+        editPresentation = null
         animateFromIndex = -1
-        unpin()
-        pendingPinMessageId = null
+        viewport.resetPlacement()
         cancelPendingIncomingReveals()
         dismissingHints = null
         dismissingHintsAnchorId = null
         cancelHintsSettleFallback()
+        val editedId = editingMessageId
+        if (editedId != null && messages.none { it.matchesMessageId(editedId) }) {
+            editingMessageId = null
+        }
         timelineItems = buildTimelineItems(messages)
         rvAdapter.reloadData()
         when {
-            initialPromptAwaitingInsertion != null -> showInitialPromptAtBottom()
+            initialPromptAwaitingInsertion != null -> viewport.showInitialPromptAtBottom()
 
             requestedPinnedMessageId != null -> {
                 if (hasAppeared) {
@@ -664,19 +763,187 @@ class AgentVC(
                 }
             }
 
-            !restoreSharedScrollPosition() -> scrollToBottom()
+            !viewport.restoreSharedScrollPosition() -> viewport.scrollToBottom()
+        }
+    }
+
+    override fun onMessagesTruncated(removedMessages: List<AgentMessage>) {
+        cancelPendingIncomingReveals()
+        chatRecyclerView.cancelActiveGesture()
+        viewport.prepareEditInsertion(preservePin = editPresentation?.hidesRemovedMessages == true)
+        editPresentation = EditPresentation(
+            removedMessages,
+            hidesRemovedMessages = editPresentation?.hidesRemovedMessages == true
+        )
+    }
+
+    private fun submitEditedMessage(messageId: String, text: String): Boolean {
+        if (text.isBlank() || !vm.canEditMessage(messageId)) return false
+        if (vm.messages.firstOrNull { it.matchesMessageId(messageId) }?.text?.trim() ==
+            text.trim()
+        ) {
+            return true
+        }
+        val latestUserMessage = vm.messages.lastOrNull { it.role == AgentMessageRole.USER }
+        if (latestUserMessage?.matchesMessageId(messageId) != true ||
+            !WGlobalStorage.getAreAnimationsActive()
+        ) {
+            return vm.editMessage(messageId, text)
+        }
+        val index = viewport.timelineIndexOf(latestUserMessage.id)
+        if (index < 0) return vm.editMessage(messageId, text)
+        chatRecyclerView.cancelActiveGesture()
+        chatRecyclerView.stopScroll()
+        isEditFading = true
+        fadeMessagesFrom(index, onCancelled = {
+            if (!isDestroyed && vm.messages.any { it.matchesMessageId(messageId) }) {
+                editingMessageId = messageId
+                composerView.setDraftText(text)
+            }
+        }) { rows ->
+            editPresentation = EditPresentation(
+                vm.messages.dropWhile { it.id != latestUserMessage.id },
+                hidesRemovedMessages = true
+            )
+            rows.forEach { it.visibility = View.INVISIBLE }
+            if (!vm.editMessage(messageId, text)) {
+                editPresentation = null
+                rows.forEach { it.visibility = View.VISIBLE }
+                editingMessageId = messageId
+                composerView.setDraftText(text)
+            }
+        }
+        return true
+    }
+
+    private fun regenerateMessage(messageId: String) {
+        if (!vm.canRegenerateMessage(messageId) || editFadeAnimator != null) return
+        val messageIndex = vm.messages.indexOfFirst { it.matchesMessageId(messageId) }
+        vm.messages.take(messageIndex).lastOrNull { it.role == AgentMessageRole.USER }?.let {
+            viewport.requestMessagePin(it.id, preservePadding = true)
+        }
+        val index = viewport.timelineIndexOf(messageId)
+        if (index < 0 || !WGlobalStorage.getAreAnimationsActive()) {
+            vm.regenerateMessage(messageId)
+            return
+        }
+        chatRecyclerView.stopScroll()
+        fadeMessagesFrom(index) { rows ->
+            regeneratingMessageId = messageId
+            rows.forEach { it.visibility = View.INVISIBLE }
+            if (!vm.regenerateMessage(messageId)) {
+                regeneratingMessageId = null
+                rows.forEach { it.visibility = View.VISIBLE }
+            }
+        }
+    }
+
+    private fun fadeMessagesFrom(
+        index: Int,
+        onCancelled: (() -> Unit)? = null,
+        onFaded: (List<View>) -> Unit
+    ) {
+        val rows = (0 until chatRecyclerView.childCount).map { chatRecyclerView.getChildAt(it) }
+            .filter { chatRecyclerView.getChildAdapterPosition(it) >= index }
+        composerView.setSubmissionEnabled(false)
+        var cancelled = false
+        editFadeAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = AnimationConstants.VERY_QUICK_ANIMATION
+            addUpdateListener { animation ->
+                val alpha = animation.animatedValue as Float
+                rows.forEach { it.alpha = alpha }
+            }
+            doOnCancel { cancelled = true }
+            doOnEnd {
+                editFadeAnimator = null
+                if (cancelled) onCancelled?.invoke() else onFaded(rows)
+                isEditFading = false
+                rows.forEach { it.alpha = 1f }
+                composerView.setSubmissionEnabled(
+                    agentState != AgentVM.State.CLEARING && regeneratingMessageId == null
+                )
+            }
+            start()
+        }
+    }
+
+    private fun finishEditPresentation(messageId: String) {
+        val presentation = editPresentation ?: return
+        if (presentation.outgoingMessageId != messageId ||
+            !presentation.hasInserted || !presentation.hasPinned
+        ) {
+            return
+        }
+        chatRecyclerView.post {
+            if (editPresentation !== presentation) return@post
+            if (chatRecyclerView.isComputingLayout) {
+                finishEditPresentation(messageId)
+                return@post
+            }
+            val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager
+                ?: return@post
+            val oldItems = timelineItems
+            val top = layoutManager.findViewByPosition(viewport.timelineIndexOf(messageId))?.top
+            editPresentation = null
+            dismissingHints = null
+            dismissingHintsAnchorId = null
+            cancelHintsSettleFallback()
+            animateFromIndex = -1
+            val newItems = buildTimelineItems(vm.messages)
+            val diff = DiffUtil.calculateDiff(
+                object : DiffUtil.Callback() {
+                    override fun getOldListSize() = oldItems.size
+                    override fun getNewListSize() = newItems.size
+
+                    override fun areItemsTheSame(oldPosition: Int, newPosition: Int): Boolean {
+                        val old = oldItems[oldPosition]
+                        val new = newItems[newPosition]
+                        return when {
+                            old is AgentTimelineItem.Message && new is AgentTimelineItem.Message ->
+                                old.message.id == new.message.id
+
+                            old is AgentTimelineItem.DateHeader &&
+                                new is AgentTimelineItem.DateHeader -> old.date == new.date
+
+                            else -> old == new
+                        }
+                    }
+
+                    override fun areContentsTheSame(oldPosition: Int, newPosition: Int) =
+                        oldItems[oldPosition] == newItems[newPosition]
+                },
+                false
+            )
+            timelineItems = newItems
+            diff.dispatchUpdatesTo(WRecyclerViewAdapter.OffsetUpdateCallback(rvAdapter, 0))
+            val index = viewport.timelineIndexOf(messageId)
+            if (index >= 0 && top != null) {
+                layoutManager.scrollToPositionWithOffset(index, top - chatRecyclerView.paddingTop)
+            }
+            pendingIncomingReveals[messageId]?.let(::schedulePendingIncomingReveal)
+            chatRecyclerView.doOnNextLayout { viewport.shareScrollPosition() }
+        }
+    }
+
+    override fun onMessagesPrepended(messages: List<AgentMessage>) {
+        animateFromIndex = -1
+        timelineItems = buildTimelineItems(messages)
+        rvAdapter.reloadData()
+        viewport.restoreSharedScrollPosition()
+        chatRecyclerView.doOnNextLayout {
+            viewport.restorePendingPosition()
         }
     }
 
     private fun prepareRequestedMessageForAppearance() {
         if (!shouldJumpToRequestedMessage) return
         val messageId = requestedPinnedMessageId ?: return
-        val index = timelineIndexOf(messageId)
+        val index = viewport.timelineIndexOf(messageId)
         if (index < 0) return
         val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
 
         layoutManager.stackFromEnd = false
-        layoutManager.scrollToPositionWithOffset(index, -pinnedTopOffset)
+        layoutManager.scrollToPositionWithOffset(index, -viewport.pinnedTopOffset)
         if (chatRecyclerView.isLaidOut) {
             showRequestedMessageIfAvailable()
             return
@@ -690,19 +957,14 @@ class AgentVC(
     }
 
     private fun showRequestedMessageIfAvailable(): Boolean {
-        val messageId = requestedPinnedMessageId ?: return false
-        if (timelineIndexOf(messageId) < 0) return false
+        val requestedMessageId = requestedPinnedMessageId ?: return false
+        val messageId = viewport.presentationMessageId(requestedMessageId) ?: return false
 
         val animated =
             !shouldJumpToRequestedMessage && WGlobalStorage.getAreAnimationsActive()
         shouldJumpToRequestedMessage = false
         requestedPinnedMessageId = null
-        pendingSharedScrollPosition = null
-        pendingOutgoingPreviousMessageId = null
-        deferredPinMessageId = null
-        unpin()
-        pendingPinMessageId = messageId
-        chatRecyclerView.stopScroll()
+        viewport.requestMessagePin(messageId)
         if (animated) {
             chatRecyclerView.post {
                 evaluateRequestedMessage(messageId, animated)
@@ -714,13 +976,19 @@ class AgentVC(
     }
 
     private fun evaluateRequestedMessage(messageId: String, animated: Boolean) {
-        if (pendingPinMessageId == messageId) {
-            evaluatePinning(messageId, animated = animated)
+        if (viewport.pendingPinMessageId == messageId) {
+            viewport.evaluatePinning(messageId, animated = animated)
         }
         syncTopBlurAfterLayout()
     }
 
     override fun onMessageAdded(message: AgentMessage, animated: Boolean) {
+        if (message.role == AgentMessageRole.ASSISTANT && regeneratingMessageId != null) {
+            regeneratingMessageId = null
+            composerView.setSubmissionEnabled(
+                agentState != AgentVM.State.CLEARING && editFadeAnimator == null
+            )
+        }
         if (!animated) {
             animateFromIndex = -1
             pendingHintsReveal = false
@@ -734,21 +1002,22 @@ class AgentVC(
             initialPromptAwaitingInsertion = null
         }
         val oldItems = timelineItems
+        val isEditInsertion = message.role == AgentMessageRole.USER &&
+            editPresentation?.outgoingMessageId == null && editPresentation != null
+        if (isEditInsertion) editPresentation?.outgoingMessageId = message.id
         var shouldStartOffscreenPin = false
         if (message.role == AgentMessageRole.USER) {
             pendingIncomingReveals[message.id] = PendingIncomingReveal(message.id)
             outgoingMessageIdsAwaitingIncoming.add(message.id)
-            pendingPinMessageId = message.id
-            deferredPinMessageId = null
-            pendingOutgoingPreviousMessageId = prepareOutgoingPlacement(oldItems)
-            shouldStartOffscreenPin =
-                pendingOutgoingPreviousMessageId == null &&
-                oldItems.any { it is AgentTimelineItem.Message }
+            shouldStartOffscreenPin = viewport.prepareOutgoingMessage(
+                message.id,
+                oldItems,
+                forcePin = isEditInsertion
+            )
         } else if (message.role == AgentMessageRole.ASSISTANT) {
-            val outgoingMessageId = outgoingMessageIdsAwaitingIncoming.firstOrNull()
+            val outgoingMessageId = outgoingMessageIdsAwaitingIncoming.removeFirstOrNull()
             val pendingReveal = outgoingMessageId?.let { pendingIncomingReveals[it] }
             if (outgoingMessageId != null && pendingReveal != null) {
-                outgoingMessageIdsAwaitingIncoming.removeAt(0)
                 pendingReveal.incomingMessageId = message.id
                 hiddenIncomingMessageIds.add(message.id)
                 schedulePendingIncomingReveal(pendingReveal)
@@ -802,17 +1071,17 @@ class AgentVC(
                     chatRecyclerView.post {
                         val pendingReveal = pendingIncomingReveals[message.id]
                         if (pendingReveal?.isOutgoingAnimationFinished == false) {
-                            val messageIndex = timelineIndexOf(message.id)
+                            val messageIndex = viewport.timelineIndexOf(message.id)
                             if (chatRecyclerView.findViewHolderForAdapterPosition(messageIndex) ==
                                 null
                             ) {
                                 onOutgoingInsertAnimationFinished(message.id)
                             }
                         }
-                        if (pendingPinMessageId == message.id &&
-                            deferredPinMessageId != message.id
+                        if (viewport.pendingPinMessageId == message.id &&
+                            viewport.deferredPinMessageId != message.id
                         ) {
-                            evaluatePinning(message.id)
+                            viewport.evaluatePinning(message.id)
                         }
                     }
                 }
@@ -823,18 +1092,44 @@ class AgentVC(
                 }
             }
 
-            pendingPinMessageId != null ||
-                pinnedMessageId != null ||
-                pendingSharedScrollPosition != null -> {
-                // The pinned anchor keeps its position; syncPinnedPadding fits the new
+            viewport.pendingPinMessageId != null ||
+                viewport.pinnedMessageId != null ||
+                viewport.pendingSharedScrollPosition != null -> {
+                // The pinned anchor keeps its position; viewport.syncPinnedPadding fits the new
                 // content into the reserved space instead of scrolling.
+                viewport.pendingPinMessageId?.let { pinnedId ->
+                    chatRecyclerView.doOnNextLayout { viewport.evaluatePinning(pinnedId) }
+                }
             }
 
-            else -> scrollToBottom()
+            else -> viewport.scrollToBottom()
         }
     }
 
-    override fun onStreamingUpdate(messageId: String, text: String) {
+    override fun onMessageRemoved(messageId: String) {
+        val oldItems = timelineItems
+        val removedIndex = oldItems.indexOfFirst { item ->
+            item is AgentTimelineItem.Message && item.message.id == messageId
+        }
+        pendingIncomingReveals.entries
+            .firstOrNull { it.value.incomingMessageId == messageId }
+            ?.let { entry ->
+                entry.value.revealRunnable?.let(chatRecyclerView::removeCallbacks)
+                pendingIncomingReveals.remove(entry.key)
+            }
+        hiddenIncomingMessageIds.remove(messageId)
+        timelineItems = buildTimelineItems(vm.messages)
+        when {
+            removedIndex >= 0 && oldItems.size == timelineItems.size + 1 -> {
+                WRecyclerViewAdapter.OffsetUpdateCallback(rvAdapter, 0)
+                    .onRemoved(removedIndex, 1)
+            }
+
+            oldItems != timelineItems -> rvAdapter.reloadData()
+        }
+    }
+
+    override fun onStreamingUpdate(messageId: String) {
         onStreamEvent(messageId)
     }
 
@@ -842,9 +1137,69 @@ class AgentVC(
         onStreamEvent(messageId)
     }
 
+    override fun onFollowupsChanged(messageId: String, animated: Boolean) {
+        if (hiddenIncomingMessageIds.contains(messageId)) return
+        val index = viewport.timelineIndexOf(messageId)
+        if (index < 0) return
+        val message = vm.messages.firstOrNull { it.id == messageId } ?: return
+        timelineItems = timelineItems.toMutableList().apply {
+            set(index, AgentTimelineItem.Message(message))
+        }
+        if (vm.visibleFollowups(messageId).isNotEmpty()) {
+            onStreamEvent(messageId)
+        } else if (!updateVisibleCell(messageId)) {
+            rvAdapter.notifyItemChanged(index)
+        }
+        updateVisibleHintsAvailability()
+    }
+
+    private fun updateVisibleHintsAvailability() {
+        for (index in 0 until chatRecyclerView.childCount) {
+            val cell = chatRecyclerView.getChildAt(index) as? AgentHintsCell ?: continue
+            val item = timelineItems.getOrNull(chatRecyclerView.getChildAdapterPosition(cell))
+                as? AgentTimelineItem.Hints ?: continue
+            cell.setCardsEnabled(item.followupMessageId == null || vm.canSendFollowup)
+        }
+    }
+
+    override fun onOutgoingMessageFailed(messageId: String) {
+        if (editPresentation?.outgoingMessageId == messageId) {
+            editPresentation = null
+            rebuildTimeline()
+            pendingIncomingReveals[messageId]?.let(::schedulePendingIncomingReveal)
+        }
+        if (regeneratingMessageId == messageId) {
+            regeneratingMessageId = null
+            rebuildTimeline()
+        }
+        outgoingMessageIdsAwaitingIncoming.remove(messageId)
+        val pendingReveal = pendingIncomingReveals[messageId] ?: return
+        if (pendingReveal.incomingMessageId != null) return
+        pendingReveal.revealRunnable?.let { chatRecyclerView.removeCallbacks(it) }
+        pendingIncomingReveals.remove(messageId)
+    }
+
+    override fun onPendingMessageActivated(messageId: String) {
+        if (pendingIncomingReveals.containsKey(messageId) ||
+            viewport.timelineIndexOf(messageId) < 0
+        ) {
+            return
+        }
+        pendingIncomingReveals[messageId] = PendingIncomingReveal(
+            outgoingMessageId = messageId,
+            isOutgoingAnimationFinished = true
+        )
+        outgoingMessageIdsAwaitingIncoming.add(messageId)
+        viewport.activatePendingMessage(messageId)
+        chatRecyclerView.post {
+            if (viewport.pendingPinMessageId == messageId) viewport.evaluatePinning(messageId)
+        }
+    }
+
     private fun onStreamEvent(messageId: String) {
         if (hiddenIncomingMessageIds.contains(messageId)) return
-        val hadHints = timelineItems.lastOrNull() is AgentTimelineItem.Hints
+        val previousHints = timelineItems.lastOrNull() as? AgentTimelineItem.Hints
+        val hadHints = previousHints != null
         var newItems = buildTimelineItems(vm.messages)
         val hintsDue = !hadHints && newItems.lastOrNull() is AgentTimelineItem.Hints
         if (hintsDue) {
@@ -856,26 +1211,38 @@ class AgentVC(
         val updatedInPlace = updateVisibleCell(messageId)
         if (!updatedInPlace) {
             rvAdapter.reloadData()
+        } else if (hadHints && newItems.lastOrNull() is AgentTimelineItem.Hints &&
+            newItems.lastOrNull() != previousHints
+        ) {
+            rvAdapter.notifyItemChanged(newItems.size - 1)
         }
         if (hintsDue) {
-            // A newer response supersedes any settlement still pending for an older one.
-            cancelHintsSettleFallback()
-            val holder = chatRecyclerView
-                .findViewHolderForAdapterPosition(timelineIndexOf(messageId))
-            val cell = (holder as? WCell.Holder)?.cell as? AgentMessageCell
-            if (updatedInPlace && cell?.isContentSettling == true) {
-                hintsSettleMessageId = messageId
-                cell.onContentSettled = { appendDueHints(messageId) }
-                // The settle callback can get lost if the cell is recycled mid-animation.
-                val fallback = Runnable { appendDueHints(messageId) }
-                hintsSettleFallback = fallback
-                chatRecyclerView.postDelayed(fallback, HINTS_SETTLE_FALLBACK_MS)
+            if (updatedInPlace) {
+                appendHintsAfterContentSettles(messageId)
             } else {
+                cancelHintsSettleFallback()
                 appendDueHints(messageId)
             }
         }
-        if (isOnBottom) {
-            scrollToBottom()
+        if (viewport.isOnBottom) {
+            viewport.scrollToBottom()
+        }
+    }
+
+    private fun appendHintsAfterContentSettles(messageId: String) {
+        cancelHintsSettleFallback()
+        val holder = chatRecyclerView
+            .findViewHolderForAdapterPosition(viewport.timelineIndexOf(messageId))
+        val cell = (holder as? WCell.Holder)?.cell as? AgentMessageCell
+        if (cell?.isContentSettling == true) {
+            hintsSettleMessageId = messageId
+            cell.onContentSettled = { appendDueHints(messageId) }
+            // The settle callback can get lost if the cell is recycled mid-animation.
+            val fallback = Runnable { appendDueHints(messageId) }
+            hintsSettleFallback = fallback
+            chatRecyclerView.postDelayed(fallback, HINTS_SETTLE_FALLBACK_MS)
+        } else {
+            appendDueHints(messageId)
         }
     }
 
@@ -886,6 +1253,8 @@ class AgentVC(
     }
 
     private fun onOutgoingInsertAnimationFinished(messageId: String) {
+        editPresentation?.takeIf { it.outgoingMessageId == messageId }?.hasInserted = true
+        finishEditPresentation(messageId)
         val pendingReveal = pendingIncomingReveals[messageId] ?: return
         pendingReveal.isOutgoingAnimationFinished = true
         schedulePendingIncomingReveal(pendingReveal)
@@ -900,6 +1269,7 @@ class AgentVC(
     }
 
     private fun schedulePendingIncomingReveal(pendingReveal: PendingIncomingReveal) {
+        if (editPresentation?.outgoingMessageId == pendingReveal.outgoingMessageId) return
         if (!pendingReveal.isOutgoingAnimationFinished ||
             pendingReveal.revealRunnable != null
         ) {
@@ -934,7 +1304,10 @@ class AgentVC(
         }
         pendingIncomingReveals.remove(outgoingMessageId)
         val oldItemCount = timelineItems.size
-        val newItems = buildTimelineItems(vm.messages)
+        var newItems = buildTimelineItems(vm.messages)
+        if (newItems.lastOrNull() is AgentTimelineItem.Hints) {
+            newItems = newItems.dropLast(1)
+        }
         val insertedAt = newItems.indexOfFirst {
             it is AgentTimelineItem.Message && it.message.id == incomingMessageId
         }
@@ -948,14 +1321,17 @@ class AgentVC(
             WRecyclerViewAdapter.OffsetUpdateCallback(rvAdapter, 0)
                 .onInserted(insertedAt, insertedCount)
         }
-        val pinMessageId = deferredPinMessageId.takeIf { it == outgoingMessageId }
+        val pinMessageId = viewport.deferredPinMessageId.takeIf { it == outgoingMessageId }
         chatRecyclerView.doOnNextLayout {
             animateFromIndex = -1
-            if (pinMessageId != null && pendingPinMessageId == pinMessageId) {
-                deferredPinMessageId = null
-                evaluatePinning(pinMessageId)
-            } else if (pinnedMessageId != null) {
-                syncPinnedPadding()
+            if (pinMessageId != null && viewport.pendingPinMessageId == pinMessageId) {
+                viewport.clearDeferredPin()
+                viewport.evaluatePinning(pinMessageId)
+            } else if (viewport.pinnedMessageId != null) {
+                viewport.syncPinnedPadding()
+            }
+            if (buildTimelineItems(vm.messages).lastOrNull() is AgentTimelineItem.Hints) {
+                appendHintsAfterContentSettles(incomingMessageId)
             }
             revealReadyIncomingMessages()
         }
@@ -968,8 +1344,7 @@ class AgentVC(
         pendingIncomingReveals.clear()
         outgoingMessageIdsAwaitingIncoming.clear()
         hiddenIncomingMessageIds.clear()
-        pendingOutgoingPreviousMessageId = null
-        deferredPinMessageId = null
+        viewport.clearOutgoingPlacement()
     }
 
     private fun appendDueHints(messageId: String) {
@@ -982,8 +1357,8 @@ class AgentVC(
         timelineItems = canonical
         scheduleHintsReveal()
         insertHintsItem()
-        refreshIsOnBottom()
-        if (isOnBottom) scrollToBottom()
+        viewport.refreshIsOnBottom()
+        if (viewport.isOnBottom) viewport.scrollToBottom()
     }
 
     private fun scheduleHintsReveal() {
@@ -1016,27 +1391,7 @@ class AgentVC(
             ?: return
         val hintsIdx = timelineItems.indexOf(hints)
         if (hintsIdx < 0) return
-        val pinnedIdx = pinnedMessageId?.let { timelineIndexOf(it) } ?: -1
-        val pendingIdx = pendingPinMessageId?.let { timelineIndexOf(it) } ?: -1
-        val preservesPinnedMessage = pinnedIdx >= 0 && hintsIdx > pinnedIdx
-        val preservesPendingPlacement =
-            dismissingHintsAnchorId != null && pendingIdx >= 0 && hintsIdx < pendingIdx
-        if (!preservesPinnedMessage && !preservesPendingPlacement) return
-        val bottomPadding = if (preservesPinnedMessage) {
-            val pinnedTarget = cachedPinnedTarget.takeIf { it != 0 }
-                ?: pinnedPaddingTarget()
-                ?: return
-            (pinnedTarget + delta).also { cachedPinnedTarget = it }
-                .coerceAtLeast(baseChatBottomPadding(appliedBottom))
-        } else {
-            chatRecyclerView.paddingBottom + delta
-        }
-        chatRecyclerView.setPadding(
-            0,
-            chatRecyclerView.paddingTop,
-            0,
-            bottomPadding
-        )
+        viewport.preserveCollapsingHintsSpace(delta, hintsIdx, dismissingHintsAnchorId != null)
     }
 
     private fun finishHintsDismissal() {
@@ -1057,616 +1412,23 @@ class AgentVC(
             timelineItems = canonical
             scheduleHintsReveal()
             insertHintsItem()
-            refreshIsOnBottom()
-            if (isOnBottom) scrollToBottom()
+            viewport.refreshIsOnBottom()
+            if (viewport.isOnBottom) viewport.scrollToBottom()
         }
     }
 
     private fun updateVisibleCell(messageId: String): Boolean {
-        val idx = timelineIndexOf(messageId)
+        val idx = viewport.timelineIndexOf(messageId)
         if (idx < 0) return false
 
         val holder = chatRecyclerView.findViewHolderForAdapterPosition(idx)
         if (holder is WCell.Holder) {
             val message = (timelineItems[idx] as AgentTimelineItem.Message).message
-            (holder.cell as? AgentMessageCell)?.configure(message, chatRecyclerView.width)
+            val cell = holder.cell as? AgentMessageCell ?: return false
+            cell.configure(message, chatRecyclerView.width, vm.publishesAnswerLinks)
             return true
         }
         return false
-    }
-
-    private fun preservePinAcrossSizeTransition(
-        messageId: String,
-        cell: AgentMessageCell,
-        previousHeight: Int
-    ) {
-        if (isUserScrolling) return
-        val pinnedId = pinnedMessageId ?: return
-        val messageIndex = timelineIndexOf(messageId)
-        val pinnedIndex = timelineIndexOf(pinnedId)
-        if (messageIndex < 0 || pinnedIndex < 0 || messageIndex == pinnedIndex) return
-        val pinnedTop = (chatRecyclerView.layoutManager as? LinearLayoutManager)
-            ?.findViewByPosition(pinnedIndex)
-            ?.let { pinnedView ->
-                val expectedTop = chatRecyclerView.paddingTop + pinnedMessageOffset(pinnedView)
-                expectedTop.takeIf { pinnedView.top == expectedTop }
-            }
-        chatRecyclerView.doOnPreDraw {
-            if (isUserScrolling || pinnedMessageId != pinnedId) return@doOnPreDraw
-            val currentMessageIndex = chatRecyclerView.getChildAdapterPosition(cell)
-            val currentPinnedIndex = timelineIndexOf(pinnedId)
-            val item = timelineItems.getOrNull(currentMessageIndex)
-                as? AgentTimelineItem.Message
-            if (item?.message?.id != messageId ||
-                currentPinnedIndex < 0 || currentMessageIndex == currentPinnedIndex
-            ) {
-                return@doOnPreDraw
-            }
-            val delta = cell.height - previousHeight
-            when {
-                delta != 0 && currentMessageIndex < currentPinnedIndex ->
-                    chatRecyclerView.scrollBy(0, delta)
-
-                delta < 0 && currentMessageIndex > currentPinnedIndex ->
-                    pinnedTop?.let(::preservePinnedMessageAcrossTrailingShrink)
-            }
-        }
-    }
-
-    private fun preservePinnedMessageAcrossTrailingShrink(pinnedTop: Int) {
-        val requiredPadding = maxOf(
-            baseChatBottomPadding(appliedBottom),
-            pinnedPaddingTarget() ?: return
-        )
-        if (requiredPadding <= chatRecyclerView.paddingBottom) return
-        chatRecyclerView.setPadding(
-            0,
-            chatRecyclerView.paddingTop,
-            0,
-            requiredPadding
-        )
-
-        val pinnedId = pinnedMessageId ?: return
-        val pinnedIndex = timelineIndexOf(pinnedId)
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        val pinnedView = lm.findViewByPosition(pinnedIndex) ?: return
-        val delta = pinnedView.top - pinnedTop
-        if (delta != 0) chatRecyclerView.scrollBy(0, delta)
-    }
-
-    // isOnBottom only tracks user scrolls; a programmatic content change (e.g. the hints
-    // collapse) can leave the list resting at the bottom with the flag stale. Recompute
-    // it from the actual scroll state before decisions that depend on it.
-    private fun refreshIsOnBottom() {
-        if (isUserScrolling ||
-            pinnedMessageId != null ||
-            pendingPinMessageId != null ||
-            pendingSharedScrollPosition != null
-        ) {
-            return
-        }
-        val atBottom = !chatRecyclerView.canScrollVertically(1)
-        if (atBottom == isOnBottom) return
-        isOnBottom = atBottom
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (atBottom) {
-            lm.stackFromEnd = true
-        } else {
-            val firstPos = lm.findFirstVisibleItemPosition()
-            if (firstPos == RecyclerView.NO_POSITION) return
-            val offset =
-                (lm.findViewByPosition(firstPos)?.top ?: 0) - chatRecyclerView.paddingTop
-            lm.stackFromEnd = false
-            lm.scrollToPositionWithOffset(firstPos, offset)
-        }
-    }
-
-    private fun scrollToBottom() {
-        if (isUserScrolling) return
-        if (pinnedMessageId != null ||
-            pendingPinMessageId != null ||
-            pendingSharedScrollPosition != null
-        ) {
-            return
-        }
-        isOnBottom = true
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager
-        if (lm?.stackFromEnd == false) {
-            val firstPos = lm.findFirstVisibleItemPosition()
-            if (firstPos == RecyclerView.NO_POSITION) {
-                lm.stackFromEnd = true
-                return
-            }
-            val offset =
-                lm.findViewByPosition(firstPos)?.let { it.top - chatRecyclerView.paddingTop } ?: 0
-            lm.stackFromEnd = true
-            lm.scrollToPositionWithOffset(firstPos, offset)
-        }
-        if (rvAdapter.itemCount == 0) return
-        if (isPopupVisible) return
-        val targetPosition = rvAdapter.itemCount - 1
-        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        val scroller = object : LinearSmoothScroller(context) {
-            override fun getVerticalSnapPreference(): Int = SNAP_TO_END
-        }
-        scroller.targetPosition = targetPosition
-        layoutManager.startSmoothScroll(scroller)
-    }
-
-    private fun shareScrollPosition() {
-        if (isApplyingSharedScrollPosition || pendingSharedScrollPosition != null) return
-        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (pinnedMessageId == null && !chatRecyclerView.canScrollVertically(1)) {
-            vm.updateScrollPosition(
-                this,
-                AgentVM.ScrollPosition(AgentVM.ScrollAnchor.Bottom)
-            )
-            return
-        }
-
-        val firstVisible = layoutManager.findFirstVisibleItemPosition()
-        val lastVisible = layoutManager.findLastVisibleItemPosition()
-        if (firstVisible == RecyclerView.NO_POSITION || lastVisible == RecyclerView.NO_POSITION) {
-            return
-        }
-        for (index in firstVisible..lastVisible) {
-            val anchor = scrollAnchorAt(index) ?: continue
-            val itemView = layoutManager.findViewByPosition(index) ?: continue
-            vm.updateScrollPosition(
-                this,
-                currentScrollPosition(
-                    anchor,
-                    itemView.top - chatRecyclerView.paddingTop
-                )
-            )
-            return
-        }
-    }
-
-    private fun currentScrollPosition(
-        anchor: AgentVM.ScrollAnchor,
-        offset: Int
-    ): AgentVM.ScrollPosition {
-        val pinnedId = pinnedMessageId
-        return AgentVM.ScrollPosition(
-            anchor = anchor,
-            offset = offset,
-            pinnedMessageId = pinnedId,
-            pinnedBottomPadding = if (pinnedId == null) {
-                0
-            } else {
-                chatRecyclerView.paddingBottom
-            }
-        )
-    }
-
-    private fun restoreSharedScrollPosition(): Boolean {
-        val position = vm.scrollPosition ?: return false
-        pendingSharedScrollPosition = position
-        isApplyingSharedScrollPosition = true
-        try {
-            applySharedScrollPosition(position)
-        } finally {
-            isApplyingSharedScrollPosition = false
-        }
-        return true
-    }
-
-    private fun showInitialPromptAtBottom() {
-        isApplyingSharedScrollPosition = false
-        val position = AgentVM.ScrollPosition(AgentVM.ScrollAnchor.Bottom)
-        pendingSharedScrollPosition = null
-        vm.updateScrollPosition(this, position)
-        applySharedScrollPosition(position)
-    }
-
-    private fun applySharedScrollPosition(position: AgentVM.ScrollPosition) {
-        chatRecyclerView.stopScroll()
-        pendingPinMessageId = null
-
-        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        if (position.anchor == AgentVM.ScrollAnchor.Bottom) {
-            pendingSharedScrollPosition = null
-            unpin()
-            scrollToBottomImmediately(layoutManager)
-            return
-        }
-
-        val index = timelineIndexOf(position.anchor)
-        if (index < 0) {
-            pendingSharedScrollPosition = null
-            unpin()
-            scrollToBottomImmediately(layoutManager)
-            return
-        }
-        restorePinnedState(position)
-        isOnBottom = false
-        layoutManager.stackFromEnd = false
-        layoutManager.scrollToPositionWithOffset(index, position.offset)
-    }
-
-    private fun restorePendingSharedScrollPosition(position: AgentVM.ScrollPosition): Boolean {
-        val layoutManager = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return false
-        val index = timelineIndexOf(position.anchor)
-        if (index < 0) return true
-        val itemView = layoutManager.findViewByPosition(index)
-        val expectedTop = chatRecyclerView.paddingTop + position.offset
-        if (itemView?.top == expectedTop) return true
-        if (itemView != null) {
-            chatRecyclerView.scrollBy(0, itemView.top - expectedTop)
-            return layoutManager.findViewByPosition(index)?.top == expectedTop
-        }
-        layoutManager.stackFromEnd = false
-        layoutManager.scrollToPositionWithOffset(index, position.offset)
-        return false
-    }
-
-    private fun restorePinnedState(position: AgentVM.ScrollPosition) {
-        val messageId = position.pinnedMessageId
-        val bottomPadding = position.pinnedBottomPadding
-        if (messageId == null || bottomPadding <= 0 || timelineIndexOf(messageId) < 0) {
-            unpin()
-            return
-        }
-
-        clearPin()
-        pinnedMessageId = messageId
-        cachedPinnedTarget = maxOf(bottomPadding, baseChatBottomPadding(appliedBottom))
-        chatRecyclerView.setPadding(
-            0,
-            chatTopPadding(),
-            0,
-            cachedPinnedTarget
-        )
-    }
-
-    private fun scrollToBottomImmediately(layoutManager: LinearLayoutManager) {
-        isOnBottom = true
-        layoutManager.stackFromEnd = true
-        if (rvAdapter.itemCount == 0) return
-        chatRecyclerView.scrollToPosition(rvAdapter.itemCount - 1)
-        chatRecyclerView.scrollBy(0, Int.MAX_VALUE)
-    }
-
-    private fun scrollAnchorAt(index: Int): AgentVM.ScrollAnchor? =
-        when (val item = timelineItems.getOrNull(index)) {
-            is AgentTimelineItem.Message -> AgentVM.ScrollAnchor.Message(item.message.id)
-            is AgentTimelineItem.Hints -> AgentVM.ScrollAnchor.Hints
-            is AgentTimelineItem.DateHeader -> null
-            null -> null
-        }
-
-    private fun timelineIndexOf(anchor: AgentVM.ScrollAnchor): Int = when (anchor) {
-        AgentVM.ScrollAnchor.Bottom -> -1
-
-        AgentVM.ScrollAnchor.Hints ->
-            timelineItems.indexOfFirst { it is AgentTimelineItem.Hints }
-
-        is AgentVM.ScrollAnchor.Message -> timelineIndexOf(anchor.messageId)
-    }
-
-    private fun timelineIndexOf(messageId: String): Int = timelineItems.indexOfFirst {
-        it is AgentTimelineItem.Message && it.message.id == messageId
-    }
-
-    private fun prepareOutgoingPlacement(items: List<AgentTimelineItem>): String? {
-        val previousIndex = items.indexOfLast { it is AgentTimelineItem.Message }
-        val previousMessage =
-            (items.getOrNull(previousIndex) as? AgentTimelineItem.Message)?.message ?: return null
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return null
-        val previousView = lm.findViewByPosition(previousIndex) ?: return null
-        val contentTop = chatRecyclerView.paddingTop
-        val contentBottom =
-            chatRecyclerView.height - baseChatBottomPadding(appliedBottom)
-        if (previousView.bottom <= contentTop || previousView.top >= contentBottom) return null
-
-        if (lm.stackFromEnd) {
-            val firstPosition = lm.findFirstVisibleItemPosition()
-            val firstView = lm.findViewByPosition(firstPosition) ?: return null
-            val firstOffset = firstView.top - chatRecyclerView.paddingTop
-            lm.stackFromEnd = false
-            lm.scrollToPositionWithOffset(firstPosition, firstOffset)
-        }
-        return previousMessage.id
-    }
-
-    private fun onOutgoingInsertAnimationPrepared(messageId: String, targetHeight: Int) {
-        if (pendingPinMessageId != messageId) return
-        val previousMessageId = pendingOutgoingPreviousMessageId
-        pendingOutgoingPreviousMessageId = null
-        if (previousMessageId != null &&
-            outgoingMessageFitsBelow(previousMessageId, messageId, targetHeight)
-        ) {
-            deferredPinMessageId = messageId
-        } else {
-            chatRecyclerView.post {
-                if (pendingPinMessageId == messageId) {
-                    evaluatePinning(messageId, targetHeight)
-                }
-            }
-        }
-    }
-
-    private fun outgoingMessageFitsBelow(
-        previousMessageId: String,
-        messageId: String,
-        targetHeight: Int
-    ): Boolean {
-        if (targetHeight <= 0) return false
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return false
-        val previousIndex = timelineIndexOf(previousMessageId)
-        val messageIndex = timelineIndexOf(messageId)
-        if (previousIndex < 0 || messageIndex < 0) return false
-        val previousView = lm.findViewByPosition(previousIndex) ?: return false
-        val messageView = lm.findViewByPosition(messageIndex) ?: return false
-        val hintsIndex = dismissingHints?.let { timelineItems.indexOf(it) } ?: -1
-        val reclaimableHintsHeight =
-            if (hintsIndex in (previousIndex + 1) until messageIndex) {
-                lm.findViewByPosition(hintsIndex)?.height ?: 0
-            } else {
-                0
-            }
-        val projectedMessageTop = messageView.top - reclaimableHintsHeight
-        val contentBottom =
-            chatRecyclerView.height - baseChatBottomPadding(appliedBottom)
-        return projectedMessageTop >= previousView.bottom &&
-            projectedMessageTop + targetHeight <= contentBottom
-    }
-
-    private fun evaluatePinning(
-        messageId: String,
-        targetHeight: Int? = null,
-        isRetry: Boolean = false,
-        animated: Boolean = WGlobalStorage.getAreAnimationsActive()
-    ) {
-        if (pendingPinMessageId != messageId) return
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        val idx = timelineIndexOf(messageId)
-        if (idx < 0) {
-            pendingPinMessageId = null
-            pendingOutgoingPreviousMessageId = null
-            if (isRetry) scrollToBottom()
-            return
-        }
-        val messageView = lm.findViewByPosition(idx)
-        if (messageView == null) {
-            if (pinnedMessageId == messageId && !isRetry) return
-            if (isRetry) {
-                pendingPinMessageId = null
-                pendingOutgoingPreviousMessageId = null
-                unpin()
-                scrollToBottom()
-                return
-            }
-            chatRecyclerView.stopScroll()
-            pinnedMessageId = messageId
-            val messageHeight =
-                targetHeight?.takeIf { it != 0 } ?: MIN_MESSAGE_CELL_HEIGHT.dp
-            cachedPinnedTarget = maxOf(
-                baseChatBottomPadding(appliedBottom),
-                chatRecyclerView.height - chatTopPadding() -
-                    messageHeight - pinnedMessageOffset(messageHeight)
-            )
-            pinScrollExtraSpace = cachedPinnedTarget
-            isOnBottom = false
-            chatRecyclerView.setPadding(
-                0,
-                chatTopPadding(),
-                0,
-                cachedPinnedTarget
-            )
-            lm.stackFromEnd = false
-            if (animated) {
-                val scroller = object : LinearSmoothScroller(context) {
-                    override fun getVerticalSnapPreference(): Int = SNAP_TO_START
-
-                    override fun calculateDyToMakeVisible(view: View, snapPreference: Int): Int =
-                        super.calculateDyToMakeVisible(view, snapPreference) +
-                            pinnedMessageOffset(view)
-
-                    override fun onStop() {
-                        super.onStop()
-                        chatRecyclerView.post {
-                            if (pendingPinMessageId == messageId) {
-                                evaluatePinning(messageId, isRetry = true, animated = animated)
-                            }
-                        }
-                    }
-                }
-                scroller.targetPosition = idx
-                lm.startSmoothScroll(scroller)
-            } else {
-                val offset = pinnedMessageOffset(messageHeight)
-                lm.scrollToPositionWithOffset(idx, offset)
-                chatRecyclerView.doOnNextLayout {
-                    if (pendingPinMessageId == messageId) {
-                        evaluatePinning(messageId, isRetry = true, animated = animated)
-                    }
-                }
-            }
-            return
-        }
-        val wasOffscreenPin = pinnedMessageId == messageId
-        pendingPinMessageId = null
-        pendingOutgoingPreviousMessageId = null
-        val available =
-            chatRecyclerView.height - chatTopPadding() - baseChatBottomPadding(stableBottomInset)
-        if (available <= 0) {
-            if (isRetry) scrollToBottom()
-            return
-        }
-        pinnedMessageId = messageId
-        cachedPinnedTarget = 0
-        isOnBottom = false
-        if (animated && !wasOffscreenPin) {
-            pinScrollExtraSpace = messageView.top
-        } else {
-            pinScrollExtraSpace = 0
-        }
-        if (lm.stackFromEnd) {
-            val firstPos = lm.findFirstVisibleItemPosition()
-            val firstOffset =
-                (lm.findViewByPosition(firstPos)?.top ?: 0) - chatRecyclerView.paddingTop
-            lm.stackFromEnd = false
-            if (firstPos != RecyclerView.NO_POSITION) {
-                lm.scrollToPositionWithOffset(firstPos, firstOffset)
-            }
-        }
-        val paddingChanged = syncPinnedPadding()
-        if (wasOffscreenPin && !animated) {
-            lm.scrollToPositionWithOffset(idx, pinnedMessageOffset(messageView))
-            syncTopBlurAfterLayout()
-        } else if (paddingChanged) {
-            if (!wasOffscreenPin) {
-                if (animated) {
-                    chatRecyclerView.doOnNextLayout { startPinScroll(messageId, animated = true) }
-                } else {
-                    startPinScroll(messageId, animated = false)
-                }
-            }
-        } else if (!wasOffscreenPin) {
-            startPinScroll(messageId, animated)
-        }
-    }
-
-    private fun clearPin() {
-        pinnedMessageId = null
-        cachedPinnedTarget = 0
-        pinScrollExtraSpace = 0
-        pinScrollSpring?.cancel()
-    }
-
-    private fun startPinScroll(
-        messageId: String,
-        animated: Boolean = WGlobalStorage.getAreAnimationsActive()
-    ) {
-        if (pinnedMessageId != messageId) return
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        val idx = timelineIndexOf(messageId)
-        if (idx < 0) return
-        val messageView = lm.findViewByPosition(idx)
-        val targetOffset = messageView?.let(::pinnedMessageOffset)
-        val dy = messageView?.let {
-            it.top - (chatRecyclerView.paddingTop + (targetOffset ?: 0))
-        }
-        if (dy == null || dy <= 0 || !animated) {
-            pinScrollExtraSpace = 0
-            if (dy == null || dy != 0) {
-                lm.scrollToPositionWithOffset(idx, targetOffset ?: -pinnedTopOffset)
-            }
-            finishInitialHintsDismissal(messageId)
-            return
-        }
-        val startTop = messageView.top
-        pinScrollSpring?.cancel()
-        pinScrollSpring = SpringAnimation(FloatValueHolder()).apply {
-            spring = SpringForce(dy.toFloat()).apply {
-                stiffness = SpringForce.STIFFNESS_LOW
-                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
-            }
-            addUpdateListener { _, value, _ ->
-                if (pinnedMessageId != messageId) {
-                    pinScrollSpring?.cancel()
-                    return@addUpdateListener
-                }
-                // Scroll toward the message's actual position instead of by blind
-                // increments, so concurrent content changes (hints collapsing above)
-                // can't make the spring overshoot.
-                val view = lm.findViewByPosition(idx) ?: return@addUpdateListener
-                val desiredTop = startTop - value.roundToInt()
-                val delta = view.top - desiredTop
-                if (delta != 0) {
-                    chatRecyclerView.scrollBy(0, delta)
-                }
-            }
-            addEndListener { _, canceled, _, _ ->
-                pinScrollExtraSpace = 0
-                if (!canceled && pinnedMessageId == messageId) {
-                    val view = lm.findViewByPosition(idx)
-                    val offset = view?.let(::pinnedMessageOffset) ?: -pinnedTopOffset
-                    if (view?.top != chatRecyclerView.paddingTop + offset) {
-                        lm.scrollToPositionWithOffset(idx, offset)
-                    }
-                    finishInitialHintsDismissal(messageId)
-                }
-            }
-            start()
-        }
-    }
-
-    private fun finishInitialHintsDismissal(messageId: String) {
-        if (dismissingHints == null || dismissingHintsAnchorId != null) return
-        finishHintsDismissal()
-        chatRecyclerView.doOnNextLayout {
-            if (pinnedMessageId != messageId) return@doOnNextLayout
-            val lm = chatRecyclerView.layoutManager as? LinearLayoutManager
-                ?: return@doOnNextLayout
-            val idx = timelineIndexOf(messageId)
-            if (idx >= 0) {
-                val view = lm.findViewByPosition(idx)
-                val offset = view?.let(::pinnedMessageOffset) ?: -pinnedTopOffset
-                lm.scrollToPositionWithOffset(idx, offset)
-            }
-        }
-    }
-
-    private fun syncPinnedPadding(): Boolean {
-        if (pinnedMessageId == null) return false
-        val topPadding = chatTopPadding()
-        val bottomPadding = chatBottomPadding(appliedBottom)
-        if (chatRecyclerView.paddingTop != topPadding ||
-            chatRecyclerView.paddingBottom != bottomPadding
-        ) {
-            chatRecyclerView.setPadding(0, topPadding, 0, bottomPadding)
-            return true
-        }
-        return false
-    }
-
-    private fun unpin() {
-        val wasPinned = pinnedMessageId != null || cachedPinnedTarget != 0
-        clearPin()
-        if (!wasPinned) return
-        chatRecyclerView.setPadding(
-            0,
-            chatTopPadding(),
-            0,
-            baseChatBottomPadding(appliedBottom)
-        )
-    }
-
-    private fun releasePinIfTrailingContentIsBelowViewport(recyclerView: RecyclerView, dy: Int) {
-        if (dy >= 0 || pinnedMessageId == null) return
-        val basePadding = baseChatBottomPadding(appliedBottom)
-        if (recyclerView.paddingBottom <= basePadding) return
-        val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
-        val lastPosition = timelineItems.lastIndex
-        if (lastPosition < 0) return
-        val trailingView = lm.findViewByPosition(lastPosition)
-        val contentBottom = recyclerView.height - basePadding
-        if (trailingView == null || lm.getDecoratedBottom(trailingView) > contentBottom) {
-            unpin()
-        }
-    }
-
-    private fun releasePinForKeyboardIfCovered(targetBottom: Int): Int? {
-        if (pinnedMessageId == null ||
-            pendingPinMessageId != null ||
-            chatRecyclerView.canScrollVertically(1)
-        ) {
-            return null
-        }
-        val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return null
-        val trailingView = lm.findViewByPosition(timelineItems.lastIndex) ?: return null
-        val contentBottom =
-            chatRecyclerView.height - baseChatBottomPadding(targetBottom)
-        if (lm.getDecoratedBottom(trailingView) <= contentBottom) return null
-
-        val paddingStart = chatRecyclerView.paddingBottom
-        clearPin()
-        isOnBottom = true
-        lm.stackFromEnd = true
-        return paddingStart
     }
 
     private fun onCopyPopupVisibilityChanged(visible: Boolean, bubbleView: View?) {
@@ -1718,14 +1480,7 @@ class AgentVC(
             bottomA > topB
     }
 
-    override fun onResultsReceived(messageId: String, results: List<AgentResult>) {
-        onStreamEvent(messageId)
-    }
-
     override fun onHintsUpdated(hints: List<AgentHint>) {
-        composerView.setHintsAvailable(vm.hasHints)
-        composerView.setHintsActive(hints.isNotEmpty())
-
         val hadHints = timelineItems.lastOrNull() is AgentTimelineItem.Hints
         val newItems = buildTimelineItems(vm.messages)
         val hasHints = newItems.lastOrNull() is AgentTimelineItem.Hints
@@ -1755,8 +1510,8 @@ class AgentVC(
             timelineItems = newItems
             scheduleHintsReveal()
             insertHintsItem()
-            refreshIsOnBottom()
-            if (isOnBottom) scrollToBottom()
+            viewport.refreshIsOnBottom()
+            if (viewport.isOnBottom) viewport.scrollToBottom()
         } else {
             val hintsIndex = timelineItems.size - 1
             val holder = chatRecyclerView.findViewHolderForAdapterPosition(hintsIndex)
@@ -1780,8 +1535,59 @@ class AgentVC(
         }
     }
 
-    override fun onError(error: String) {
-        // TODO: show error UI
+    override fun onError() {
+        if (agentState == AgentVM.State.CONSENT_REQUIRED ||
+            agentState == AgentVM.State.ACCEPTING_CONSENT
+        ) {
+            consentView.showError(agentUnavailableText())
+        }
+    }
+
+    override fun onActionUnavailable() {
+        Toast.makeText(
+            context,
+            LocaleController.getString("This action is no longer available."),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    override fun onOpenDapp(site: MExploreSite) {
+        val w = window ?: return
+        val url = site.url ?: return
+        val uri = url.toUri()
+        view.hideKeyboard()
+        if (site.isExternal || site.isTelegram || uri.scheme !in setOf("http", "https")) {
+            try {
+                w.startActivity(Intent(Intent.ACTION_VIEW, uri))
+            } catch (_: Exception) {
+                onActionUnavailable()
+            }
+            return
+        }
+        val nav = WNavigationController(w)
+        nav.setRoot(
+            InAppBrowserVC(
+                context,
+                navigationController?.tabBarController,
+                InAppBrowserConfig(
+                    url = url,
+                    title = site.name,
+                    thumbnail = site.iconUrl,
+                    injectDappConnect = true,
+                    saveInVisitedHistory = true
+                )
+            )
+        )
+        w.present(nav)
+    }
+
+    /** A link to a screen of the app runs as its deeplink; any other link opens in the in-app browser */
+    private fun openAnswerLink(url: String) {
+        if (AgentTextLinks.isAppScreenLink(url)) {
+            WalletCore.notifyEvent(WalletEvent.OpenUrl(url, source = DeeplinkOpenSource.AGENT))
+        } else {
+            openInAppBrowser(url)
+        }
     }
 
     private fun openInAppBrowser(url: String) {
@@ -1809,8 +1615,20 @@ class AgentVC(
         val items = mutableListOf<AgentTimelineItem>()
         var lastDate: Date? = null
 
-        for (message in messages) {
-            if (hiddenIncomingMessageIds.contains(message.id)) continue
+        val presentationMessages = editPresentation?.let { presentation ->
+            val index = messages.indexOfFirst { it.id == presentation.outgoingMessageId }
+            if (index < 0) {
+                messages
+            } else {
+                messages.take(index) + presentation.removedMessages + messages.drop(index)
+            }
+        } ?: messages
+        for (message in presentationMessages) {
+            if (!message.hasVisibleContent ||
+                hiddenIncomingMessageIds.contains(message.id)
+            ) {
+                continue
+            }
             if (lastDate == null || message.date.time - lastDate.time > DATE_HEADER_GAP_MS) {
                 items.add(AgentTimelineItem.DateHeader(message.date))
             }
@@ -1831,9 +1649,22 @@ class AgentVC(
             items.add(anchorIdx + 1, dismissing)
             return items
         }
-        val hints = vm.visibleHints
-        if (hints.isNotEmpty() && messages.lastOrNull()?.isStreaming != true) {
-            items.add(AgentTimelineItem.Hints(hints))
+        val followupOwner = messages.findFollowupOwner()
+        val followups = followupOwner?.followups.orEmpty()
+        if (followups.isNotEmpty() && followupOwner?.isStreaming == false &&
+            !hiddenIncomingMessageIds.contains(followupOwner.id)
+        ) {
+            items.add(
+                AgentTimelineItem.Hints(
+                    followups.map { AgentHint(it.id, it.text, "", it.text) },
+                    followupMessageId = followupOwner.id
+                )
+            )
+        } else {
+            val hints = vm.visibleHints
+            if (hints.isNotEmpty() && messages.lastOrNull()?.isStreaming != true) {
+                items.add(AgentTimelineItem.Hints(hints))
+            }
         }
         return items
     }
@@ -1872,6 +1703,22 @@ class AgentVC(
         cellHolder: WCell.Holder,
         indexPath: IndexPath
     ) {
+        val presentation = editPresentation
+        val removedStart = presentation?.removedMessages?.firstOrNull()?.id
+            ?.let(viewport::timelineIndexOf) ?: -1
+        val outgoingIndex = presentation?.outgoingMessageId
+            ?.let(viewport::timelineIndexOf) ?: timelineItems.size
+        val regenerationStart = regeneratingMessageId?.let(viewport::timelineIndexOf) ?: -1
+        cellHolder.cell.visibility = if ((
+                presentation?.hidesRemovedMessages == true &&
+                    indexPath.row in removedStart until outgoingIndex && removedStart >= 0
+                ) ||
+            (regenerationStart >= 0 && indexPath.row >= regenerationStart)
+        ) {
+            View.INVISIBLE
+        } else {
+            View.VISIBLE
+        }
         val animate = animateFromIndex in 0..indexPath.row
         when (val item = timelineItems[indexPath.row]) {
             is AgentTimelineItem.DateHeader -> {
@@ -1880,13 +1727,21 @@ class AgentVC(
 
             is AgentTimelineItem.Hints -> {
                 (cellHolder.cell as AgentHintsCell).apply {
-                    onHintTap = { hint -> sendMessage(hint.prompt) }
+                    onHintTap = { hint ->
+                        val messageId = item.followupMessageId
+                        if (messageId != null) {
+                            sendFollowup(messageId, hint.id)
+                        } else {
+                            sendMessage(hint.prompt, vm.hintEntryPoint(hint))
+                        }
+                    }
                     onCollapseFrame = { delta -> onHintsCollapseFrame(delta) }
                     configure(
                         item.hints,
                         shouldShowEmptyStateIcon = vm.messages.isEmpty(),
                         animate = pendingHintsReveal
                     )
+                    setCardsEnabled(item.followupMessageId == null || vm.canSendFollowup)
                 }
             }
 
@@ -1896,13 +1751,29 @@ class AgentVC(
                         val messageId = item.message.id
                         val tracksIncomingReveal =
                             pendingIncomingReveals.containsKey(messageId)
-                        val tracksPin = messageId == pendingPinMessageId
-                        cell.onOpenUrl = { url -> openInAppBrowser(url) }
+                        val tracksPin = messageId == viewport.pendingPinMessageId
+                        cell.onOpenUrl = { url -> openAnswerLink(url) }
+                        cell.onAction = { actionId -> vm.performAction(messageId, actionId) }
+                        cell.onReportProblem = { presentProblemReportForm(messageId) }
+                        cell.canReportProblem = { vm.canReportProblem }
+                        cell.canEditMessage = { vm.canEditMessage(messageId) }
+                        cell.canRegenerateMessage = { vm.canRegenerateMessage(messageId) }
+                        cell.onRegenerate = { regenerateMessage(messageId) }
+                        cell.onEdit = {
+                            if (vm.canEditMessage(messageId)) {
+                                composerView.setDraftText(item.message.text)
+                                editingMessageId = messageId
+                            }
+                        }
                         cell.onPopupVisibilityChanged = { visible, bubbleView ->
                             onCopyPopupVisibilityChanged(visible, bubbleView)
                         }
                         cell.onSizeTransitionFrame = { previousHeight ->
-                            preservePinAcrossSizeTransition(messageId, cell, previousHeight)
+                            viewport.preservePinAcrossSizeTransition(
+                                messageId,
+                                cell,
+                                previousHeight
+                            )
                         }
                         cell.onInsertAnimationStarted =
                             if (tracksIncomingReveal || tracksPin) {
@@ -1911,7 +1782,7 @@ class AgentVC(
                                         onOutgoingInsertAnimationStarted(messageId)
                                     }
                                     if (tracksPin) {
-                                        onOutgoingInsertAnimationPrepared(
+                                        viewport.onOutgoingInsertAnimationPrepared(
                                             messageId,
                                             targetHeight
                                         )
@@ -1926,7 +1797,12 @@ class AgentVC(
                             } else {
                                 null
                             }
-                        cell.configure(item.message, rv.width, animate)
+                        cell.configure(
+                            item.message,
+                            rv.width,
+                            vm.publishesAnswerLinks,
+                            animate
+                        )
                     }
 
                     is AgentSystemMessageCell -> cell.configure(item.message)

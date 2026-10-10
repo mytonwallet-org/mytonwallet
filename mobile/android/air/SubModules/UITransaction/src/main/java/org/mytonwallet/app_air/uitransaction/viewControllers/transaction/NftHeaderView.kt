@@ -33,13 +33,15 @@ import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
+import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 
 @SuppressLint("ViewConstructor")
 class NftHeaderView(
     val viewController: WeakReference<WViewController>,
-    var transaction: MApiTransaction
+    var transaction: MApiTransaction,
+    private val onNftTap: (ApiNft) -> Unit
 ) : WView(
     viewController.get()!!.context,
     LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
@@ -82,6 +84,12 @@ class NftHeaderView(
 
     init {
         reloadData()
+
+        val tapListener = OnClickListener {
+            (transaction as? MApiTransaction.Transaction)?.nft?.let(onNftTap)
+        }
+        nftImageView.setOnClickListener(tapListener)
+        nameTextView.setOnClickListener(tapListener)
 
         addView(nftImageView, LayoutParams(72.dp, 72.dp))
         addView(nameTextView)

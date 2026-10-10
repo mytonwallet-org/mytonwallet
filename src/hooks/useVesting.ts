@@ -4,7 +4,7 @@ import { getActions } from '../global';
 import type { ApiVestingInfo } from '../api/types';
 import type { UserToken } from '../global/types';
 
-import { calcVestingAmountByStatus } from '../components/main/helpers/calcVestingAmountByStatus';
+import { calcVestingAmountByStatus } from '../util/vesting';
 import useLastCallback from './useLastCallback';
 import useShowTransition from './useShowTransition';
 

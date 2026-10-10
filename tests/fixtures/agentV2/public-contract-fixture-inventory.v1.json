@@ -4,10 +4,7 @@
   "files": [
     "client-wire-compatibility.v1.json",
     "navigation-action-projection.v1.json",
-    "p0-action-scope.v1.json",
-    "p0-action-scope.v2.json",
     "p0-action-scope.v3.json",
-    "privacy-storage-scopes.v1.json",
     "privacy-storage-scopes.v2.json",
     "public-contract-fixture-inventory.v1.json",
     "public-wire.v1.json",

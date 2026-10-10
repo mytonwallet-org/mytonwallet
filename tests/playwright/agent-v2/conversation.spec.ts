@@ -1,6 +1,26 @@
 import { expect, getAgentV2Conversation, test } from './fixtures';
 
 test.describe('Agent V2 deterministic conversation', () => {
+  test('uses V2 despite a saved V1 selection and a legacy V1 link', async ({ agentV2, page }) => {
+    await agentV2.reset();
+    await agentV2.seedWallet();
+    await page.addInitScript(() => {
+      localStorage.setItem('agentProtocolVersion', 'v1');
+      const url = new URL(window.location.href);
+      url.searchParams.set('agent', 'v1');
+      window.history.replaceState(undefined, '', url);
+    });
+    await agentV2.open();
+    await agentV2.acceptConsent();
+
+    const prompt = 'Explain this wallet using the default agent';
+    await agentV2.send(prompt);
+    await expect(page.getByText(`Deterministic response: ${prompt}`, { exact: true })).toBeVisible();
+    const state = await agentV2.getState();
+    expect(state.runBodies).toHaveLength(1);
+    expect(state.requests.some(({ path }) => path.startsWith('/api/v2/threads/'))).toBe(true);
+  });
+
   test('preserves the wallet session within one tab and isolates it across tabs', async ({
     agentV2,
     context,
@@ -61,9 +81,8 @@ test.describe('Agent V2 deterministic conversation', () => {
     expect(messageHistoryRequest).toBeDefined();
     const messageHistoryUrl = new URL(messageHistoryRequest!.path, 'http://localhost');
     expect(messageHistoryUrl.pathname).toMatch(/^\/api\/v2\/threads\/[^/]+\/messages$/u);
-    expect(Object.fromEntries(messageHistoryUrl.searchParams)).toEqual({
-      limit: '100',
-    });
+    expect(Object.fromEntries(messageHistoryUrl.searchParams))
+      .toEqual({ limit: '100' });
     await secondPage.close();
   });
 

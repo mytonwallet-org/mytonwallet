@@ -1444,6 +1444,7 @@ describe('View-only mode deeplink blocking', () => {
       addSavedAddress: jest.fn(),
       switchToAgent: jest.fn(),
       switchToMarket: jest.fn(),
+      openSettingsWithState: jest.fn(),
       openLoadingOverlay: jest.fn(),
       closeLoadingOverlay: jest.fn(),
     };
@@ -1524,6 +1525,7 @@ describe('View-only mode deeplink blocking', () => {
     it.each([
       { name: 'Agent', url: 'mtw://agent' },
       { name: 'Market', url: 'mtw://market' },
+      { name: 'Settings', url: 'mtw://settings/appearance' },
     ])('should allow $name in view-only mode', async ({ url }) => {
       const result = await processSelfDeeplink(url);
 

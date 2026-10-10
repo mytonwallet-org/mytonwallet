@@ -17,13 +17,14 @@ const RESET_AT = Date.parse('2026-08-12T00:00:00.000Z');
 
 describe('Agent V2 messages state', () => {
   it('owns hydration and preserves live message-only content', () => {
-    const controls = {
-      expiresAt: '2099-08-12T00:00:00.000Z',
-      scopeChoices: [{ choiceId: 'wallet-one', label: 'Wallet One' }],
+    const semanticContent = {
+      kind: 'notice' as const,
+      schemaVersion: 1 as const,
+      code: 'agent_unavailable' as const,
     };
     const current = {
       ...INITIAL_AGENT_V2_MESSAGES_STATE,
-      messages: [{ ...message(), walletControls: controls }],
+      messages: [{ ...message(), semanticContent }],
     };
 
     const loading = reduce(current, { kind: 'hydrationStarted', shouldClearError: true });
@@ -41,7 +42,7 @@ describe('Agent V2 messages state', () => {
       isLoadingOlderMessages: false,
       nextCursor: 'older-page',
       thread: { id: THREAD_ID, revision: 2 },
-      messages: [{ text: 'Persisted response', walletControls: controls }],
+      messages: [{ text: 'Persisted response', semanticContent }],
       sourceIdByMessageId: { 1: 'persisted-response' },
     });
   });
@@ -321,7 +322,7 @@ describe('Agent V2 messages state', () => {
 
     expect(firstClear).toMatchObject({
       error: undefined,
-      messages: [{ text: 'Response' }],
+      messages: [],
       threadMutation: { phase: 'clearing', operationId: 1 },
     });
     expect(afterStaleSuccess).toBe(secondClear);
@@ -334,7 +335,6 @@ describe('Agent V2 messages state', () => {
     });
     expect(failed).toMatchObject({
       error: { text: 'Connection interrupted', timestamp: 20 },
-      messages: [{ text: 'Response' }],
       threadMutation: { phase: 'idle' },
     });
 
@@ -509,14 +509,13 @@ describe('Agent V2 messages state', () => {
     });
   });
 
-  it('preserves an expired rate retry and removes authority-bound message state', () => {
+  it('preserves an expired rate retry and removes authority-bound action presentation state', () => {
     const state: AgentV2MessagesState = {
       ...INITIAL_AGENT_V2_MESSAGES_STATE,
       thread: threadSummary(1),
       userRateLimit: { kind: 'rateLimit', clientRunId: CLIENT_RUN_ID, resetAt: RESET_AT },
       messages: [{
         ...message(),
-        walletControls: { expiresAt: '2099-08-12T00:00:00.000Z', scopeChoices: [] },
         actionPresentations: { action: { kind: 'inactive' } },
       }],
     };
@@ -525,7 +524,6 @@ describe('Agent V2 messages state', () => {
     const invalidated = reduce(expired, { kind: 'walletAuthorityChanged', threadId: THREAD_ID });
 
     expect(expired.userRateLimit).toEqual(state.userRateLimit);
-    expect(invalidated.messages[0]).not.toHaveProperty('walletControls');
     expect(invalidated.messages[0]).not.toHaveProperty('actionPresentations');
   });
 
@@ -555,22 +553,17 @@ describe('Agent V2 messages state', () => {
     }), {
       kind: 'runStarted', clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1,
     });
-    const planning = reduce(started, {
+    const searching = reduce(started, {
       kind: 'runActivityChanged',
       clientRunId: CLIENT_RUN_ID,
-      event: runActivityEvent('request.planning', 'active'),
+      event: runActivityEvent('web.searching', 'active'),
     });
-    const planningCompleted = reduce(planning, {
+    const searchingCompleted = reduce(searching, {
       kind: 'runActivityChanged',
       clientRunId: CLIENT_RUN_ID,
-      event: runActivityEvent('request.planning', 'completed'),
+      event: runActivityEvent('web.searching', 'completed'),
     });
-    const hiddenFreshness = reduce(planningCompleted, {
-      kind: 'runActivityChanged',
-      clientRunId: CLIENT_RUN_ID,
-      event: runActivityEvent('analysis.checking_freshness', 'active'),
-    });
-    const hiddenComputing = reduce(hiddenFreshness, {
+    const hiddenComputing = reduce(searchingCompleted, {
       kind: 'runActivityChanged',
       clientRunId: CLIENT_RUN_ID,
       event: runActivityEvent('analysis.computing', 'active'),
@@ -583,10 +576,7 @@ describe('Agent V2 messages state', () => {
     const sourcesCompleted = reduce(readingSources, {
       kind: 'runActivityChanged',
       clientRunId: CLIENT_RUN_ID,
-      event: {
-        ...runActivityEvent('web.reading_sources', 'completed'),
-        detail: { kind: 'source_count', count: 4 },
-      },
+      event: runActivityEvent('web.reading_sources', 'completed'),
     });
     const messageStarted = reduce(sourcesCompleted, {
       kind: 'messageStarted',
@@ -600,12 +590,11 @@ describe('Agent V2 messages state', () => {
     const lateCompletion = reduce(withAnswer, {
       kind: 'runActivityChanged',
       clientRunId: CLIENT_RUN_ID,
-      event: runActivityEvent('answer.writing', 'completed'),
+      event: runActivityEvent('data.reading_market', 'completed'),
     });
 
-    expect(selectAgentV2Activity(planningCompleted)).toEqual({ kind: 'server', code: 'request.planning' });
-    expect(selectAgentV2Activity(hiddenFreshness)).toEqual({ kind: 'server', code: 'request.planning' });
-    expect(selectAgentV2Activity(hiddenComputing)).toEqual({ kind: 'server', code: 'request.planning' });
+    expect(selectAgentV2Activity(searchingCompleted)).toEqual({ kind: 'server', code: 'web.searching' });
+    expect(selectAgentV2Activity(hiddenComputing)).toEqual({ kind: 'server', code: 'web.searching' });
     expect(selectAgentV2Activity(sourcesCompleted)).toEqual({ kind: 'server', code: 'web.reading_sources' });
     expect(selectAgentV2Activity(messageStarted)).toEqual({ kind: 'preparingResponse' });
     expect(selectAgentV2Activity(withAnswer)).toBeUndefined();
@@ -619,7 +608,7 @@ function runActivityEvent(
 ) {
   return {
     type: 'run_activity' as const,
-    protocolVersion: 2 as const,
+    protocolVersion: 3 as const,
     runId: THREAD_ID,
     sequence: 2,
     code,
@@ -664,10 +653,6 @@ function threadSummary(revision: number): AgentThreadSummaryV2 {
   return {
     id: THREAD_ID,
     revision,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt: '2026-08-11T10:00:00.000Z',
     updatedAt: '2026-08-11T10:00:00.000Z',
     lastActivityAt: '2026-08-11T10:00:00.000Z',

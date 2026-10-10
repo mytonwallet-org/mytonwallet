@@ -7,11 +7,14 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.GridLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
+import kotlin.math.abs
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDpLocalized
@@ -19,6 +22,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
 import org.mytonwallet.app_air.uicomponents.helpers.spans.ExtraHitLinkMovementMethod
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
+import org.mytonwallet.app_air.walletbasecontext.theme.ThemeManager
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -72,6 +76,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         maximumContentWidth: Int,
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener
     ) {
         this.maximumContentWidth = maximumContentWidth
@@ -84,6 +89,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                     maximumContentWidth,
                     codeColor,
                     onUrlClick,
+                    detectsUrls,
                     onLongClickListener
                 )
 
@@ -93,6 +99,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
                         maximumContentWidth,
                         codeColor,
                         onUrlClick,
+                        detectsUrls,
                         onLongClickListener
                     )
                 }
@@ -111,6 +118,7 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         maximumContentWidth: Int,
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener
     ) = WLabel(context).apply {
         setStyle(adaptiveFontSize())
@@ -121,7 +129,15 @@ class AgentRichMessageView(context: Context) : LinearLayout(context) {
         maxWidth = maximumContentWidth
         useCustomEmoji = true
         movementMethod = ExtraHitLinkMovementMethod(2.dp, 2.dp)
-        text = MarkdownParser.parse(value, codeColor, null, onUrlClick)
+        text =
+            MarkdownParser.parse(
+                value,
+                codeColor,
+                null,
+                onUrlClick,
+                detectsUrls,
+                textSize = textSize
+            )
         setOnLongClickListener(onLongClickListener)
     }
 
@@ -155,6 +171,7 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
         maximumWidth: Int,
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener
     ) {
         removeAllViews()
@@ -168,7 +185,15 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
                     maxWidth = maximumWidth
                     useCustomEmoji = true
                     movementMethod = ExtraHitLinkMovementMethod(2.dp, 2.dp)
-                    text = MarkdownParser.parse(title, codeColor, null, onUrlClick)
+                    text =
+                        MarkdownParser.parse(
+                            title,
+                            codeColor,
+                            null,
+                            onUrlClick,
+                            detectsUrls,
+                            textSize = textSize
+                        )
                     setOnLongClickListener(onLongClickListener)
                     ViewCompat.setAccessibilityHeading(this, true)
                 },
@@ -184,6 +209,7 @@ private class AgentTableBlockView(context: Context) : LinearLayout(context) {
                     maximumWidth,
                     codeColor,
                     onUrlClick,
+                    detectsUrls,
                     onLongClickListener
                 )
             },
@@ -197,6 +223,11 @@ private class AgentTableView(context: Context) : HorizontalScrollView(context) {
 
     private val tableLayout = AgentTableLayout(context)
     private var maximumWidth = 0
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    private var handlesOverflowGesture = false
+    private var horizontalDragStarted = false
 
     init {
         isHorizontalScrollBarEnabled = false
@@ -212,11 +243,43 @@ private class AgentTableView(context: Context) : HorizontalScrollView(context) {
         maximumWidth: Int,
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener
     ) {
         this.maximumWidth = maximumWidth
-        tableLayout.configure(table, codeColor, onUrlClick, onLongClickListener)
+        tableLayout.configure(table, codeColor, onUrlClick, detectsUrls, onLongClickListener)
         setOnLongClickListener(onLongClickListener)
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                horizontalDragStarted = false
+                handlesOverflowGesture = canScrollHorizontally(-1) || canScrollHorizontally(1)
+                if (handlesOverflowGesture) parent?.requestDisallowInterceptTouchEvent(true)
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (handlesOverflowGesture && !horizontalDragStarted) {
+                    val dx = abs(event.x - downX)
+                    val dy = abs(event.y - downY)
+                    if (dx > touchSlop && dx >= dy) {
+                        horizontalDragStarted = true
+                    } else if (dy > touchSlop && dy > dx) {
+                        handlesOverflowGesture = false
+                        parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                handlesOverflowGesture = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -240,9 +303,9 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
     private data class CellView(val view: WLabel, val placement: MarkdownParser.PlacedTableCell)
 
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = WColor.Separator.color
+        color = if (ThemeManager.isDark) 0xFF3A3A3D.toInt() else 0x333C3C43
         style = Paint.Style.STROKE
-        strokeWidth = 1f.dp
+        strokeWidth = 1f
     }
     private val headerPaint = Paint().apply {
         color = WColor.PrimaryText.color.colorWithAlpha(14)
@@ -266,6 +329,7 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
         table: MarkdownParser.Block.Table,
         codeColor: Int,
         onUrlClick: ((String) -> Unit)?,
+        detectsUrls: Boolean,
         onLongClickListener: OnLongClickListener
     ) {
         removeAllViews()
@@ -298,7 +362,19 @@ private class AgentTableLayout(context: Context) : GridLayout(context) {
                 setPadding(10.dp, 8.dp, 10.dp, 8.dp)
                 useCustomEmoji = true
                 movementMethod = ExtraHitLinkMovementMethod(2.dp, 2.dp)
-                text = MarkdownParser.parse(cell.text, codeColor, null, onUrlClick)
+                text =
+                    if (cell.isPlainText) {
+                        cell.text
+                    } else {
+                        MarkdownParser.parse(
+                            cell.text,
+                            codeColor,
+                            null,
+                            onUrlClick,
+                            detectsUrls,
+                            textSize = textSize
+                        )
+                    }
                 setOnLongClickListener(onLongClickListener)
                 ViewCompat.setAccessibilityHeading(this, cell.header)
             }

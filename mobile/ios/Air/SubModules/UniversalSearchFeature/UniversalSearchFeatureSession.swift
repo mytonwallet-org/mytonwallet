@@ -1,4 +1,5 @@
 import Foundation
+import UIAgent
 import UIInAppBrowser
 import UIUniversalSearch
 import UniversalSearchCore
@@ -128,6 +129,7 @@ public final class UniversalSearchFeatureSession: @unchecked Sendable {
     public func start(initialQuery: String = "") {
         guard !isStarted else { return }
         isStarted = true
+        AgentEntryPoint.preload()
         indexService?.add(observer: self)
         currentContext = WalletCoreUniversalSearchFactory.currentContext()
         updateQuery(initialQuery)

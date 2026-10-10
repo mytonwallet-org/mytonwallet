@@ -1,15 +1,830 @@
 import XCTest
+import UIKit
 @testable import UIAgent
 import WalletContext
 @testable import WalletCore
+import WalletResources
 
 final class AgentV2ContractTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        _ = WalletResourcesBundle.bundle.load()
+    }
+
+    @MainActor
+    func testDefaultThreadOperationPreservesDecodeFailureForPresentation() async throws {
+        let json = #"{"ok":false,"error":{"code":"invalid_event","retryable":false}}"#
+        let result = try JSONDecoder().decode(
+            ApiAgentV2MutationResult<ApiAgentV2DefaultThreadResponse>.self, from: Data(json.utf8)
+        )
+        XCTAssertFalse(result.ok)
+        XCTAssertNil(result.value)
+        XCTAssertEqual(result.error?.code, .invalidEvent)
+        let client = FakeAgentV2Client()
+        client.defaultThreadError = result.error
+        let coordinator = AgentV2Coordinator(client: client)
+        await coordinator.loadDefaultThread()
+        XCTAssertEqual(coordinator.error, AgentV2Copy.error(.invalidEvent))
+        coordinator.stop()
+    }
+
+    func testDefaultThreadDecodesTheContractThreadSummary() throws {
+        let json = #"""
+        {"ok":true,"value":{"protocolVersion":3,"thread":{"id":"5f0c1c1e-6a0a-4c8e-9a51-7b9d2b2f0a11","revision":4,"createdAt":"2026-09-29T10:00:00.000Z","updatedAt":"2026-09-30T04:00:00.000Z","lastActivityAt":"2026-09-30T04:00:00.000Z","messageCount":12},"created":false}}
+        """#
+        let result = try JSONDecoder().decode(
+            ApiAgentV2MutationResult<ApiAgentV2DefaultThreadResponse>.self, from: Data(json.utf8)
+        )
+        XCTAssertEqual(result.value?.thread.id, "5f0c1c1e-6a0a-4c8e-9a51-7b9d2b2f0a11")
+        XCTAssertEqual(result.value?.thread.revision, 4)
+        XCTAssertEqual(result.value?.thread.messageCount, 12)
+        XCTAssertNil(result.value?.thread.clearedAt)
+    }
+
+    func testAnswerLinkOpensAScreenOfTheAppButNoOtherDeeplink() throws {
+        let screen = try XCTUnwrap(URL(string: "\(SELF_PROTOCOL)settings/appearance"))
+        XCTAssertTrue(AgentTextLinks.isOpenable(screen))
+        XCTAssertTrue(AgentTextLinks.isAppScreenLink(screen))
+        XCTAssertFalse(AgentTextLinks.isOpenable(try XCTUnwrap(URL(string: "\(SELF_PROTOCOL)transfer?amount=1"))))
+        XCTAssertFalse(AgentTextLinks.isOpenable(try XCTUnwrap(URL(string: "\(SELF_PROTOCOL)r/bonus"))))
+        XCTAssertFalse(AgentTextLinks.isOpenable(try XCTUnwrap(URL(string: "tc://connect"))))
+        XCTAssertFalse(AgentTextLinks.isAppScreenLink(try XCTUnwrap(URL(string: "https://help.mywallet.io/"))))
+    }
+
+    @MainActor
+    func testInitialChatDoesNotWaitForStatusProbesAndCancelsThemOnExit() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        client.hintsResult = try initialHints()
+        client.blocksStatusRefresh = true
+        let root = AgentRootVC(client: client)
+        let navigation = UINavigationController(rootViewController: root)
+        defer {
+            navigation.setViewControllers([], animated: false)
+            client.resumeStatusRefresh()
+        }
+        root.loadViewIfNeeded()
+        await waitForRequest("availability", client: client)
+        await waitForRequest("userQuota", client: client)
+        await waitForChat(in: navigation)
+        XCTAssertTrue(navigation.topViewController is AgentVC)
+        XCTAssertTrue(client.completedStatusRequests.isEmpty)
+
+        navigation.setViewControllers([], animated: false)
+        client.resumeStatusRefresh()
+        for _ in 0..<100 where client.completedStatusRequests.count < 2 { await Task.yield() }
+        XCTAssertEqual(client.cancelledStatusRequests, ["availability", "userQuota"])
+    }
+
+    @MainActor
+    func testBackgroundPreparationBecomesReadyBeforeStatusProbesReturn() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        client.hintsResult = try initialHints()
+        client.blocksStatusRefresh = true
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        var isPrepared = false
+        let waiter = Task {
+            await preloader.waitForPreparation()
+            isPrepared = true
+        }
+        defer {
+            preloader.setWalletReady(false)
+            client.resumeStatusRefresh()
+            waiter.cancel()
+        }
+        for _ in 0..<100 where !isPrepared { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(isPrepared)
+        let model = try XCTUnwrap(preloader.takeReadyModel())
+        XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap"])
+        XCTAssertTrue(model.canSendMessage(draftText: "Next question"))
+        XCTAssertTrue(client.completedStatusRequests.isEmpty)
+
+        client.resumeStatusRefresh()
+        for _ in 0..<100 where client.completedStatusRequests.count < 2 { await Task.yield() }
+        XCTAssertEqual(client.completedStatusRequests, ["availability", "userQuota"])
+        XCTAssertTrue(client.cancelledStatusRequests.isEmpty)
+    }
+
+    @MainActor
+    func testLeavingConsentSuppressesBothCancellationAndLateServiceErrors() async throws {
+        for error in [CancellationError(), FakeAgentV2ClientError.unavailable] as [Error] {
+            let client = FakeAgentV2Client()
+            client.hasConsent = false
+            client.blocksConsentAcceptance = true
+            client.consentAcceptanceError = error
+            var errorCount = 0
+            let root = AgentRootVC(client: client, showConsentError: { errorCount += 1 })
+            let home = UIViewController()
+            let navigation = UINavigationController(rootViewController: home)
+            navigation.pushViewController(root, animated: false)
+            root.loadViewIfNeeded()
+            let consent = try await waitForConsentView(in: root)
+            consent.onContinue?()
+            await waitForRequest("acceptConsent", client: client)
+            XCTAssertFalse(consent.isUserInteractionEnabled)
+            navigation.popViewController(animated: false)
+            client.resumeConsentAcceptance()
+            for _ in 0..<100 { await Task.yield() }
+            XCTAssertEqual(errorCount, 0)
+            XCTAssertTrue(navigation.topViewController === home)
+            XCTAssertEqual(client.hydrationRequestCount, 0)
+        }
+    }
+
+    @MainActor
+    func testConsentCancellationAllowsRetryAndRealErrorsStillAppear() async throws {
+        let client = FakeAgentV2Client()
+        client.hasConsent = false
+        client.consentAcceptanceError = CancellationError()
+        var errorCount = 0
+        let root = AgentRootVC(client: client, showConsentError: { errorCount += 1 })
+        let navigation = UINavigationController(rootViewController: root)
+        defer { navigation.setViewControllers([], animated: false) }
+        root.loadViewIfNeeded()
+        let consent = try await waitForConsentView(in: root)
+        consent.onContinue?()
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertEqual(errorCount, 0)
+        XCTAssertTrue(consent.isUserInteractionEnabled)
+
+        client.consentAcceptanceError = FakeAgentV2ClientError.unavailable
+        consent.onContinue?()
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertEqual(errorCount, 1)
+        XCTAssertTrue(consent.isUserInteractionEnabled)
+        XCTAssertEqual(client.requestOrder.filter { $0 == "acceptConsent" }.count, 2)
+    }
+
+    @MainActor
+    private func waitForConsentView(in root: AgentRootVC) async throws -> AgentConsentView {
+        for _ in 0..<100 {
+            if let consent = root.view.subviews.first(where: { $0 is AgentConsentView }) as? AgentConsentView {
+                return consent
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return try XCTUnwrap(root.view.subviews.first(where: { $0 is AgentConsentView }) as? AgentConsentView)
+    }
+
+    @MainActor
+    func testPreloadedChatOpensDirectlyWithHistoryAndNoAdditionalRequests() async throws {
+        let history = try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Cached question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]])
+        let client = FakeAgentV2Client(hydrationResult: history)
+        client.hintsResult = try initialHints()
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        let requests = client.requestOrder
+        let controller = AgentEntryPoint.makeRootViewController(preloader: preloader)
+        XCTAssertTrue(controller is AgentVC)
+        controller.loadViewIfNeeded()
+        XCTAssertEqual(client.requestOrder, requests)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+    }
+
+    @MainActor
+    func testEarlyNavigationJoinsBackgroundPreparation() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "thread-a", messages: []),
+            blockedHydrationAttempt: 1
+        )
+        client.hintsResult = try initialHints()
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await waitForHydrationRequest(client, count: 1)
+        let root = AgentEntryPoint.makeRootViewController(preloader: preloader)
+        let navigation = UINavigationController(rootViewController: root)
+        root.loadViewIfNeeded()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(navigation.topViewController === root)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        client.resumeBlockedHydration()
+        await waitForChat(in: navigation)
+        XCTAssertTrue(navigation.topViewController is AgentVC)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        preloader.setWalletReady(false)
+        navigation.setViewControllers([], animated: false)
+    }
+
+    @MainActor
+    func testPreparedSearchQueryWaitsForNavigationAndIsSentOnce() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        AgentEntryPoint.enqueue(query: "Search question", entryPoint: nil)
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        let controller = AgentEntryPoint.makeRootViewController(preloader: preloader)
+        XCTAssertTrue(controller is AgentVC)
+        let navigation = UINavigationController(rootViewController: controller)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        for _ in 0..<100 where client.startedCommands.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Search question")])
+        XCTAssertNil(AgentEntryPoint.consumePendingRequest())
+        preloader.setWalletReady(false)
+        navigation.setViewControllers([], animated: false)
+    }
+
+    @MainActor
+    func testLeavingWhilePreloadingKeepsWarmHistoryButDiscardsQueuedQuery() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "thread-a", messages: []),
+            blockedHydrationAttempt: 1
+        )
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await waitForHydrationRequest(client, count: 1)
+        let home = UIViewController()
+        let navigation = UINavigationController(rootViewController: home)
+        let root = AgentEntryPoint.makeRootViewController(preloader: preloader)
+        AgentEntryPoint.enqueue(query: "Abandoned question", entryPoint: nil)
+        navigation.pushViewController(root, animated: false)
+        root.loadViewIfNeeded()
+        for _ in 0..<20 { await Task.yield() }
+        navigation.popViewController(animated: false)
+        client.resumeBlockedHydration()
+        await preloader.waitForPreparation()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(navigation.topViewController === home)
+        XCTAssertNil(AgentEntryPoint.consumePendingRequest())
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        XCTAssertNotNil(preloader.takeReadyModel())
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+    }
+
+    @MainActor
+    func testPreloadingDoesNotFetchHistoryWithoutConsent() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        client.hasConsent = false
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        XCTAssertNil(preloader.takeReadyModel())
+        XCTAssertTrue(client.requestOrder.isEmpty)
+        XCTAssertEqual(client.hydrationRequestCount, 0)
+    }
+
+    @MainActor
+    func testWalletResetDiscardsInFlightPreload() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "thread-a", messages: []),
+            blockedHydrationAttempt: 1
+        )
+        let preloader = AgentPreloader(client: client)
+        preloader.setWalletReady(true)
+        await waitForHydrationRequest(client, count: 1)
+        let acquisition = Task { await preloader.acquireModel() }
+        for _ in 0..<20 { await Task.yield() }
+        preloader.walletCore(event: .accountsReset)
+        client.resumeBlockedHydration()
+        let acquiredModel = await acquisition.value
+        XCTAssertNil(acquiredModel)
+        XCTAssertNil(preloader.takeReadyModel())
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+    }
+
+    @MainActor
+    func testClosingChatPreloadsFreshHistoryAndNeverSharesTheActiveModel() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        let first = try XCTUnwrap(preloader.takeReadyModel())
+        preloader.prepare()
+        await preloader.waitForPreparation()
+        XCTAssertNil(preloader.takeReadyModel())
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        client.setHydrationResult(try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "new-question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "New question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]]))
+        first.stop()
+        first.stop()
+        await preloader.waitForPreparation()
+        let second = try XCTUnwrap(preloader.takeReadyModel())
+        XCTAssertFalse(first === second)
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+        XCTAssertTrue(second.itemIDs.contains { id in
+            guard case .message(let message) = second.item(for: id) else { return false }
+            return message.text == "New question"
+        })
+    }
+
+    @MainActor
+    func testExpiredOrDifferentLanguagePreloadIsRefreshed() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        var date = Date()
+        var language = "en"
+        let preloader = AgentPreloader(client: client, now: { date }, language: { language })
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        date = date.addingTimeInterval(301)
+        XCTAssertNil(preloader.takeReadyModel())
+        await preloader.waitForPreparation()
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+        language = "es"
+        XCTAssertNil(preloader.takeReadyModel())
+        await preloader.waitForPreparation()
+        XCTAssertEqual(client.hydrationRequestCount, 3)
+        XCTAssertNotNil(preloader.takeReadyModel())
+    }
+
+    @MainActor
+    func testClearedThreadInvalidatesPreparedHistory() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Old question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]]))
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        let cleared = try decodeHydration(threadId: "thread-a", messages: [])
+        client.setHydrationResult(cleared)
+        preloader.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: cleared.thread)))
+        XCTAssertNil(preloader.takeReadyModel())
+        await preloader.waitForPreparation()
+        let model = try XCTUnwrap(preloader.takeReadyModel())
+        XCTAssertFalse(model.itemIDs.contains { id in
+            if case .message = model.item(for: id) { return true }
+            return false
+        })
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+    }
+
+    @MainActor
+    func testClearingDuringSuggestionsLoadDoesNotCacheEarlierHistory() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Old question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]]))
+        client.hintsResult = try initialHints()
+        client.blocksHints = true
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await waitForHydrationRequest(client, count: 1)
+        for _ in 0..<20 { await Task.yield() }
+        let cleared = try decodeHydration(threadId: "thread-a", messages: [])
+        client.setHydrationResult(cleared)
+        preloader.walletCore(event: .agentV2(.threadChanged(threadId: "thread-a", thread: cleared.thread)))
+        await waitForHydrationRequest(client, count: 2)
+        client.resumeHints()
+        await preloader.waitForPreparation()
+        let model = try XCTUnwrap(preloader.takeReadyModel())
+        XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap"])
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+        XCTAssertFalse(model.itemIDs.contains { id in
+            if case .message = model.item(for: id) { return true }
+            return false
+        })
+    }
+
+    @MainActor
+    func testSwitchingAccountsRebuildsPreparedHostContext() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        preloader.walletCore(event: .accountChanged(accountId: "different-account", isNew: false))
+        XCTAssertNil(preloader.takeReadyModel())
+        await preloader.waitForPreparation()
+        XCTAssertNotNil(preloader.takeReadyModel())
+        XCTAssertEqual(client.hostContextUpdateCount, 2)
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+    }
+
+    @MainActor
+    func testAccountChangeDuringInitialContextPublicationRequiresRepublish() async throws {
+        let client = FakeAgentV2Client(blockedHostContextAttempt: 1)
+        let provider = AgentV2HostContextProvider(client: client)
+        let startup = Task { await provider.start() }
+        defer {
+            startup.cancel()
+            provider.stop()
+            client.resumeBlockedHostContextUpdate()
+        }
+        try await waitForHostContextUpdate(client)
+
+        provider.walletCore(event: .accountChanged(accountId: "different-account", isNew: false))
+        XCTAssertFalse(provider.isAuthorityContextCurrent)
+        client.resumeBlockedHostContextUpdate()
+
+        let didStart = await startup.value
+        XCTAssertTrue(didStart)
+        XCTAssertEqual(client.hostContextUpdateCount, 2)
+        XCTAssertTrue(provider.isAuthorityContextCurrent)
+    }
+
+    @MainActor
+    func testBalanceUpdatesDuringInitialContextPublicationDoNotBlockStartup() async throws {
+        let client = FakeAgentV2Client()
+        let provider = AgentV2HostContextProvider(client: client)
+        defer { provider.stop() }
+        client.hostContextUpdateObserver = { [weak provider] count in
+            guard count < 50 else { return }
+            provider?.walletCore(event: .rawBalancesChanged(accountId: "account"))
+        }
+
+        let didStart = await provider.start()
+
+        XCTAssertTrue(didStart)
+        XCTAssertEqual(client.hostContextUpdateCount, 1)
+        XCTAssertTrue(provider.isAuthorityContextCurrent)
+        try await waitForHostContextUpdate(client, count: 2)
+    }
+
+    @MainActor
+    func testStoppingDuringInitialContextPublicationDoesNotMarkContextCurrent() async throws {
+        let client = FakeAgentV2Client(blockedHostContextAttempt: 1)
+        let provider = AgentV2HostContextProvider(client: client)
+        let startup = Task { await provider.start() }
+        defer {
+            startup.cancel()
+            provider.stop()
+            client.resumeBlockedHostContextUpdate()
+        }
+        try await waitForHostContextUpdate(client)
+
+        provider.stop()
+        client.resumeBlockedHostContextUpdate()
+
+        let didStart = await startup.value
+        XCTAssertFalse(didStart)
+        XCTAssertFalse(provider.isAuthorityContextCurrent)
+        XCTAssertEqual(client.hostContextUpdateCount, 1)
+    }
+
+    @MainActor
+    func testLateInitialContextCompletionDoesNotInvalidateRestartedProvider() async throws {
+        let client = FakeAgentV2Client(blockedHostContextAttempt: 1)
+        let provider = AgentV2HostContextProvider(client: client)
+        let firstStartup = Task { await provider.start() }
+        defer {
+            firstStartup.cancel()
+            provider.stop()
+            client.resumeBlockedHostContextUpdate()
+        }
+        try await waitForHostContextUpdate(client)
+        provider.stop()
+
+        let didRestart = await provider.start()
+        XCTAssertTrue(didRestart)
+        client.resumeBlockedHostContextUpdate()
+        let didStart = await firstStartup.value
+        XCTAssertFalse(didStart)
+        XCTAssertTrue(provider.isAuthorityContextCurrent)
+    }
+
+    @MainActor
+    func testFailedPreloadIsRetriedOnForeground() async throws {
+        let client = FakeAgentV2Client()
+        let preloader = AgentPreloader(client: client)
+        defer { preloader.setWalletReady(false) }
+        preloader.setWalletReady(true)
+        await preloader.waitForPreparation()
+        client.setHydrationResult(try decodeHydration(threadId: "thread-a", messages: []))
+        preloader.walletCore(event: .applicationWillEnterForeground)
+        await preloader.waitForPreparation()
+        XCTAssertNotNil(preloader.takeReadyModel())
+        XCTAssertEqual(client.hydrationRequestCount, 2)
+    }
+
+    @MainActor
+    func testInitialLoadPreparesHistoryBeforeTheChatIsPresented() async throws {
+        let history = try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+            "content": ["kind": "markdown", "text": "Existing question"],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]])
+        let client = FakeAgentV2Client(hydrationResult: history, blockedHydrationAttempt: 1)
+        client.hintsResult = try initialHints()
+        let root = AgentRootVC(client: client)
+        let navigation = UINavigationController(rootViewController: root)
+        root.loadViewIfNeeded()
+        await waitForHydrationRequest(client, count: 1)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        XCTAssertTrue(navigation.topViewController === root)
+
+        client.resumeBlockedHydration()
+        await waitForChat(in: navigation)
+        XCTAssertTrue(navigation.topViewController is AgentVC)
+        navigation.setViewControllers([], animated: false)
+
+        let model = AgentV2Model(client: FakeAgentV2Client(hydrationResult: history))
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        XCTAssertTrue(model.itemIDs.contains { id in
+            guard case .message(let message) = model.item(for: id) else { return false }
+            return message.text == "Existing question"
+        })
+        XCTAssertTrue(model.visibleHints.isEmpty)
+        XCTAssertTrue(model.canSendMessage(draftText: "Next question"))
+    }
+
+    @MainActor
+    func testEmptyChatWaitsForInitialSuggestions() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        client.hintsResult = try initialHints()
+        client.blocksHints = true
+        let root = AgentRootVC(client: client)
+        let navigation = UINavigationController(rootViewController: root)
+        root.loadViewIfNeeded()
+        await waitForHydrationRequest(client, count: 1)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        XCTAssertTrue(navigation.topViewController === root)
+        client.resumeHints()
+        await waitForChat(in: navigation)
+        XCTAssertTrue(navigation.topViewController is AgentVC)
+        navigation.setViewControllers([], animated: false)
+
+        let model = AgentV2Model(client: client)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        XCTAssertEqual(model.visibleHints.map(\.id), ["learn.swap"])
+    }
+
+    @MainActor
+    func testInitialLoadFailureFinishesLoadingAndPresentsTheError() async {
+        let root = AgentRootVC(client: FakeAgentV2Client())
+        let navigation = UINavigationController(rootViewController: root)
+        root.loadViewIfNeeded()
+        await waitForChat(in: navigation)
+        XCTAssertTrue(navigation.topViewController is AgentVC)
+        navigation.setViewControllers([], animated: false)
+
+        let model = AgentV2Model(client: FakeAgentV2Client())
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        XCTAssertFalse(model.canSendMessage(draftText: "Next question"))
+        XCTAssertTrue(model.itemIDs.contains { id in
+            guard case .message(let message) = model.item(for: id) else { return false }
+            return message.text == lang("Failed to load chat")
+        })
+    }
+
+    @MainActor
+    func testSearchQueryIsSentOnceAfterInitialHistoryLoads() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "thread-a", messages: []),
+            blockedHydrationAttempt: 1
+        )
+        let root = AgentRootVC(client: client)
+        let navigation = UINavigationController(rootViewController: root)
+        AgentEntryPoint.enqueue(query: "Search question", entryPoint: nil)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = navigation
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        root.loadViewIfNeeded()
+        await waitForHydrationRequest(client, count: 1)
+        XCTAssertTrue(client.startedCommands.isEmpty)
+        client.resumeBlockedHydration()
+        await waitForChat(in: navigation)
+        navigation.topViewController?.loadViewIfNeeded()
+        for _ in 0..<100 where client.startedCommands.isEmpty {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(client.startedCommands.map(\.input), [.append(text: "Search question")])
+        XCTAssertNil(AgentEntryPoint.consumePendingRequest())
+        navigation.setViewControllers([], animated: false)
+    }
+
+    @MainActor
+    func testLeavingDuringInitialLoadDoesNotPresentChatOrKeepTheSearchQuery() async throws {
+        let client = FakeAgentV2Client(
+            hydrationResult: try decodeHydration(threadId: "thread-a", messages: []),
+            blockedHydrationAttempt: 1
+        )
+        let home = UIViewController()
+        let root = AgentRootVC(client: client)
+        let navigation = UINavigationController(rootViewController: home)
+        AgentEntryPoint.enqueue(query: "Search question", entryPoint: nil)
+        navigation.pushViewController(root, animated: false)
+        root.loadViewIfNeeded()
+        await waitForHydrationRequest(client, count: 1)
+        XCTAssertEqual(client.hydrationRequestCount, 1)
+        navigation.popViewController(animated: false)
+        client.resumeBlockedHydration()
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(navigation.topViewController === home)
+        XCTAssertNil(AgentEntryPoint.consumePendingRequest())
+        XCTAssertTrue(client.startedCommands.isEmpty)
+    }
+
+    private func initialHints() throws -> ApiAgentV2HintsResponse {
+        try JSONDecoder().decode(ApiAgentV2HintsResponse.self, from: Data(
+            #"{"protocolVersion":2,"catalogVersion":"initial","items":[{"id":"learn.swap"}]}"#.utf8
+        ))
+    }
+
+    @MainActor
+    private func waitForChat(in navigation: UINavigationController) async {
+        for _ in 0..<100 {
+            if navigation.topViewController is AgentVC { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    @MainActor
+    func testOperationalNoticesAndRetiredPresentationBoundary() throws {
+        for code in ["agent_unavailable", "content_over_budget", "web_search_no_results"] {
+            guard case .notice(let notice) = try decodeSemanticContent([
+                "kind": "notice", "schemaVersion": 1, "code": code,
+                "clarificationText": "Ignored optional extension"
+            ]) else { return XCTFail("Expected operational notice") }
+            XCTAssertFalse(AgentV2Copy.notice(notice).isEmpty)
+            if code == "web_search_no_results" {
+                XCTAssertEqual(
+                    withMessageLanguage("en") { AgentV2Copy.notice(notice) },
+                    "No matching information could be found for your request."
+                )
+            }
+        }
+        for kind in ["walletQuery", "portfolio", "assetSearch", "webDigest"] {
+            guard case .clientUnsupported = try decodeSemanticContent([
+                "kind": kind, "schemaVersion": 1
+            ]) else { return XCTFail("Expected unsupported presentation") }
+        }
+        guard case .clientUnsupported = try decodeSemanticContent([
+            "kind": "notice", "schemaVersion": 1, "code": "consent_required"
+        ]) else { return XCTFail("Domain notices must be writer text") }
+    }
+
     @MainActor
     func testAgentSearchPreviewStripsMarkdownFormatting() {
         XCTAssertEqual(
-            AgentStore.searchPreviewText("I am **My Wallet** with a [guide](https://mywallet.io)."),
+            AgentSearchProvider.makeSearchPreviewText("I am **My Wallet** with a [guide](https://mywallet.io)."),
             "I am My Wallet with a guide."
         )
+    }
+
+    func testInlineTableSnapshotPreservesUtf16PositionAndLiteralCells() throws {
+        let json = #"{"kind":"markdown","text":"🪙\n\nAfter","tables":[{"id":"t1","content":{"kind":"display","headers":["Name","Network","Address"],"rows":[["[Person](https://example.com)","ton","abcd…1234"]],"notes":[]}}],"tableReferences":[{"tableId":"t1","textOffset":4}]}"#
+        let decoded = try JSONDecoder().decode(ApiAgentV2MessageContent.self, from: Data(json.utf8))
+        guard case .composedMarkdown(let content) = decoded else { return XCTFail("Missing table snapshot") }
+        let output = AgentV2AnswerTables.text(content.text, tables: content.tables, references: content.tableReferences)
+        let blocks = AgentV2AnswerTables.blocks(content.text, tables: content.tables, references: content.tableReferences)
+        XCTAssertEqual(blocks.count, 3)
+        guard case .table(let table) = blocks[1] else { return XCTFail("Missing atomic table") }
+        XCTAssertEqual(table.rows.count, 2)
+        XCTAssertEqual(table.rows[1][0].text, "[Person](https://example.com)")
+        XCTAssertTrue(table.rows[1][0].isPlainText)
+        XCTAssertTrue(output.hasSuffix("After"))
+        XCTAssertFalse(output.contains("[Person]("))
+        let roundtrip = try JSONDecoder().decode(ApiAgentV2MessageContent.self, from: JSONEncoder().encode(decoded))
+        XCTAssertEqual(decoded, roundtrip)
+    }
+
+    func testReadyTableKeepsWriterLabelsAndLiteralCells() throws {
+        let json = #"{"kind":"markdown","text":"","tables":[{"id":"t1","content":{"kind":"display","headers":["Актив","Количество"],"rows":[["[Token](https://example.com)","12.500000001 TON"]],"notes":[]}}],"tableReferences":[{"tableId":"t1","textOffset":0}]}"#
+        let decoded = try JSONDecoder().decode(ApiAgentV2MessageContent.self, from: Data(json.utf8))
+        guard case .composedMarkdown(let content) = decoded else { return XCTFail("Missing table snapshot") }
+        for block in AgentV2AnswerTables.blocks(content.text, tables: content.tables, references: content.tableReferences) {
+            if case .table(let table) = block {
+                XCTAssertEqual(table.rows[0][0].text, "Актив")
+                XCTAssertEqual(table.rows[1][0].text, "[Token](https://example.com)")
+                XCTAssertEqual(table.rows[1][1].text, "12.500000001 TON")
+                XCTAssertTrue(table.rows[1][0].isPlainText)
+                return
+            }
+        }
+        XCTFail("Missing ready table")
+    }
+
+    func testReadyTableDoesNotChangeSurroundingMarkdownTables() {
+        let source = "| Heading |\n| --- |\n| **Formatted** |\n\n"
+        let literal = "&#124; <b>Literal</b> | [Link](https://example.com)"
+        let table = ApiAgentV2AnswerTable(id: "table", content: ApiAgentV2DisplayTable(
+            kind: "display", headers: ["Heading"], rows: [[literal]], notes: []
+        ))
+        let blocks = AgentV2AnswerTables.blocks(source, tables: [table], references: [
+            ApiAgentV2AnswerTableReference(tableId: table.id, textOffset: source.utf16.count)
+        ])
+        let markdownBlocks = AgentMessageBlockParser.parse(source)
+        XCTAssertEqual(Array(blocks.dropLast()), markdownBlocks)
+        guard let last = blocks.last, case .table(let rendered) = last else { return XCTFail("Missing ready table") }
+        XCTAssertEqual(rendered.rows[1][0].text, literal)
+        XCTAssertTrue(rendered.rows[1][0].isPlainText)
+    }
+
+    func testReadyTableWaitsForItsTextOffsetWhileStreaming() {
+        let table = ApiAgentV2AnswerTable(id: "table", content: ApiAgentV2DisplayTable(
+            kind: "display", headers: ["Asset"], rows: [["TON"]], notes: []
+        ))
+        let references = [ApiAgentV2AnswerTableReference(tableId: table.id, textOffset: 4)]
+        XCTAssertEqual(
+            AgentV2AnswerTables.blocks("🪙", tables: [table], references: references),
+            AgentMessageBlockParser.parse("🪙")
+        )
+        let blocks = AgentV2AnswerTables.blocks("🪙\n\n", tables: [table], references: references)
+        XCTAssertEqual(blocks.count, 2)
+        guard let last = blocks.last, case .table(let rendered) = last else { return XCTFail("Missing ready table") }
+        XCTAssertEqual(rendered.rows[1][0].text, "TON")
+    }
+
+    func testReadyTablesPreserveOrderAtTheSameOffsetAndNotesWithoutRows() {
+        let first = ApiAgentV2AnswerTable(id: "first", content: ApiAgentV2DisplayTable(
+            kind: "display", headers: ["Asset"], rows: [["TON"]], notes: []
+        ))
+        let second = ApiAgentV2AnswerTable(id: "second", content: ApiAgentV2DisplayTable(
+            kind: "display", headers: ["Asset"], rows: [], notes: ["No matching assets"]
+        ))
+        let blocks = AgentV2AnswerTables.blocks("", tables: [second, first], references: [
+            ApiAgentV2AnswerTableReference(tableId: first.id, textOffset: 0),
+            ApiAgentV2AnswerTableReference(tableId: second.id, textOffset: 0)
+        ])
+        XCTAssertEqual(blocks.count, 2)
+        guard let firstBlock = blocks.first, case .table(let rendered) = firstBlock else { return XCTFail("Missing first table") }
+        XCTAssertEqual(rendered.rows[1][0].text, "TON")
+        XCTAssertEqual(blocks.last, .text("No matching assets"))
+    }
+
+    func testHistoryUpdatesActionTitlesAndPreservesLivePresentation() {
+        var live = AgentV2NativeMessage(id: "message", threadId: "thread", role: .assistant, text: "Answer")
+        live.actions = [
+            AgentV2NativeAction(id: "shared", kind: .send, labelCode: .openSend, title: "Open Send", presentation: .inactive),
+            AgentV2NativeAction(id: "live-only", kind: .send, labelCode: .openSend, title: "Prepare another transfer", presentation: nil)
+        ]
+        var saved = live
+        saved.actions = [
+            AgentV2NativeAction(id: "shared", kind: .send, labelCode: .openSend, title: "Review transfer", presentation: nil),
+            AgentV2NativeAction(id: "saved-only", kind: .receive, labelCode: .openReceive, title: "Receive tokens", presentation: nil)
+        ]
+        var conversation = AgentV2ConversationState()
+        conversation.appendMessage(live)
+        conversation.replaceMessages([saved], preservingLiveActions: true)
+
+        let actions = conversation.messages.first?.actions ?? []
+        XCTAssertEqual(actions.map(\.id), ["shared", "saved-only", "live-only"])
+        XCTAssertEqual(actions.map(\.title), ["Review transfer", "Receive tokens", "Prepare another transfer"])
+        XCTAssertEqual(actions.first?.presentation, .inactive)
+
+        conversation.replaceMessages([saved])
+        XCTAssertEqual(conversation.messages.first?.actions, saved.actions)
+    }
+
+    @MainActor
+    func testMarketAnswerUsesStreamedMarkdownWithoutLocalFormatting() throws {
+        var message = AgentV2NativeMessage(
+            id: "market-answer", threadId: "thread", role: .assistant, text: "",
+            responseLanguage: "ru", status: .streaming
+        )
+        message.appendMarkdown("**Цена**: 0.000001")
+        XCTAssertEqual(AgentV2MessagePresentation.bubble(for: message)?.text, "**Цена**: 0.000001")
+        message.appendMarkdown("234567 USD. Изменение: −2.75%.")
+        message.finalize()
+        XCTAssertEqual(
+            AgentV2MessagePresentation.bubble(for: message)?.text,
+            "**Цена**: 0.000001234567 USD. Изменение: −2.75%."
+        )
+        XCTAssertNil(message.semanticContent)
+        let retiredPayloads: [[String: Any]] = [
+            ["kind": "market", "schemaVersion": 1, "view": "overview"],
+            ["kind": "notice", "schemaVersion": 1, "code": "market_quote"]
+        ]
+        for payload in retiredPayloads {
+            guard case .clientUnsupported = try decodeSemanticContent(payload) else {
+                return XCTFail("Removed market formats must not render")
+            }
+        }
+    }
+
+    func testRequiresTitleForLiveAndPersistedActions() throws {
+        let json = #"{"id":"a","kind":"openDapp","labelCode":"open_external_link","requiresConfirmation":true}"#
+        XCTAssertThrowsError(try JSONDecoder().decode(ApiAgentV2ActionProposal.self, from: Data(json.utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(ApiAgentV2PersistedAction.self, from: Data(json.utf8)))
+    }
+
+    func testPreservesWriterActionTitles() throws {
+        let json = #"{"id":"a","kind":"openDapp","labelCode":"open_external_link","title":"Открыть приложение","requiresConfirmation":true}"#
+        let live = try JSONDecoder().decode(ApiAgentV2ActionProposal.self, from: Data(json.utf8))
+        let saved = try JSONDecoder().decode(ApiAgentV2PersistedAction.self, from: Data(json.utf8))
+        XCTAssertEqual(live.title, "Открыть приложение")
+        XCTAssertEqual(saved.title, live.title)
+        XCTAssertEqual(live.kind, .openDapp)
+        XCTAssertTrue(live.requiresConfirmation)
     }
 
     func testDecodesModelOwnedFollowUpCopy() throws {
@@ -85,143 +900,36 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(messageId, "44444444-4444-4444-8444-444444444444")
     }
 
-    func testCurrentCanonicalNoticeCodesDecodeAsSupportedSemanticContent() throws {
-        let payloads = [
-            #"{"kind":"notice","schemaVersion":1,"code":"analysis_unavailable","arguments":{"analysisFailure":"planning_unavailable"}}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"receive_details_required","arguments":{"receiveFields":["asset","network"]}}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"send_form_amount_required"}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"staking_ready"}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"staking_unavailable","arguments":{"stakeFailure":"planning_unavailable"}}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"swap_details_required","arguments":{"swapDetails":{"field":"direction"}}}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"swap_ready","arguments":{"swapReady":{"sourceAsset":{"slug":"toncoin","chain":"ton","symbol":"TON"},"destinationAsset":{"slug":"usdton","chain":"ton","symbol":"USDT"},"amount":{"value":"1","valueType":"decimal","side":"source"},"quote":{"status":"unavailable","reason":"price_unavailable","observedAt":"2026-08-24T00:00:00.000Z"}}}}"#,
-            #"{"kind":"notice","schemaVersion":1,"code":"swap_unavailable","arguments":{"swapFailure":"planning_unavailable"}}"#,
-        ]
-
-        for payload in payloads {
-            let content = try JSONDecoder().decode(
-                ApiAgentV2SemanticContent.self,
-                from: Data(payload.utf8)
-            )
-            guard case .notice(let notice) = content else {
-                XCTFail("Canonical notice decoded as unsupported: \(payload)")
-                continue
-            }
-            XCTAssertFalse(AgentV2Copy.notice(notice).isEmpty)
-            XCTAssertNotEqual(AgentV2Copy.notice(notice), lang("$agent_semantic_update_required"))
-        }
-    }
-
-    func testReceiveNetworkNoticeUsesTypedArgumentsAndFallsBackSafely() throws {
-        let unsupported = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"receive_unavailable","arguments":{"receiveFailure":"chain_unsupported","requestedChain":"tron","activeChain":"ton","futureDisplay":{"emphasis":"network"}}}"#.utf8)
-        )
-        let unsupportedText = AgentV2Copy.notice(unsupported)
-        XCTAssertNotEqual(unsupportedText, AgentV2Copy.notice(.receiveUnavailable))
-
-        let incomplete = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"receive_unavailable","arguments":{"receiveFailure":"active_network_mismatch","requestedChain":"tron"}}"#.utf8)
-        )
-        XCTAssertEqual(AgentV2Copy.notice(incomplete), AgentV2Copy.notice(.receiveUnavailable))
-
-        let unknown = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"receive_unavailable","arguments":{"receiveFailure":"future_reason","requestedChain":"tron","activeChain":"ton"}}"#.utf8)
-        )
-        XCTAssertEqual(AgentV2Copy.notice(unknown), AgentV2Copy.notice(.receiveUnavailable))
-    }
-
-    func testMarketQuoteNoticeDecodesClosedStates() throws {
-        let resolved = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"market_quote","arguments":{"marketQuote":{"status":"resolved","asset":{"slug":"gram","chain":"ton","symbol":"GRAM","name":"Gram **[literal]**"},"price":"0.004321","quoteCurrency":"USD","percentChange24h":"1.25","asOf":"2026-08-16T12:00:00.000Z","futureDisplay":"ignored"}}}"#.utf8)
-        )
-        XCTAssertEqual(resolved.marketQuote?.status, .resolved)
-        XCTAssertEqual(
-            AgentV2Copy.marketQuoteAsset(try XCTUnwrap(resolved.marketQuote?.asset)),
-            "Gram **[literal]** (GRAM)"
-        )
-        let ambiguous = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"market_quote","arguments":{"marketQuote":{"status":"ambiguous","candidates":[{"slug":"gram-ton","chain":"ton","symbol":"GRAM"},{"slug":"gram-eth","chain":"eth","symbol":"GRAM"}],"hasMore":true,"asOf":"2026-08-16T12:00:00.000Z"}}}"#.utf8)
-        )
-        XCTAssertEqual(ambiguous.marketQuote?.candidates?.count, 2)
-        let priceUnavailable = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"market_quote","arguments":{"marketQuote":{"status":"price_unavailable","asset":{"slug":"gram","chain":"ton","symbol":"GRAM"},"asOf":"2026-08-16T12:00:00.000Z"}}}"#.utf8)
-        )
-        XCTAssertEqual(priceUnavailable.marketQuote?.status, .priceUnavailable)
-
-        let notFound = try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"market_quote","arguments":{"marketQuote":{"status":"not_found","asOf":"2026-08-16T12:00:00.000Z"}}}"#.utf8)
-        )
-        XCTAssertEqual(notFound.marketQuote?.status, .notFound)
-
-        XCTAssertThrowsError(try JSONDecoder().decode(
-            ApiAgentV2NoticeContent.self,
-            from: Data(#"{"kind":"notice","schemaVersion":1,"code":"market_quote","arguments":{"marketQuote":{"status":"resolved","asset":{"slug":"gram","chain":"ton","symbol":"GRAM"},"price":"1","quoteCurrency":"USD","percentChange24h":"0"}}}"#.utf8)
-        ))
-    }
-
     @MainActor
-    func testMarketQuoteUsesTheOrdinaryAssistantBubble() throws {
-        let persisted = try decodePersistedMessage(content: [
-            "kind": "semantic",
-            "content": [
-                "kind": "notice",
-                "schemaVersion": 1,
-                "code": "market_quote",
-                "arguments": [
-                    "marketQuote": [
-                        "status": "resolved",
-                        "asset": [
-                            "slug": "gram",
-                            "chain": "ton",
-                            "symbol": "GRAM",
-                            "name": "Gram **literal**"
-                        ],
-                        "price": "1.25",
-                        "quoteCurrency": "USD",
-                        "percentChange24h": "2",
-                        "asOf": "2026-08-16T12:00:00.000Z"
-                    ]
-                ]
-            ]
-        ])
-        let bubble = try XCTUnwrap(
-            AgentV2MessagePresentation.bubble(for: AgentV2NativeMessage(persisted: persisted))
-        )
-
-        guard case .some(.semantic(let semantic)) = persisted.content,
-              case .notice(let notice) = semantic
-        else { return XCTFail("Expected market quote notice") }
-        XCTAssertEqual(bubble.text, AgentV2Copy.notice(notice))
-        XCTAssertFalse(bubble.rendersMarkdown)
-    }
-
     func testDecodesLiveSendContract() throws {
         let action = try JSONDecoder().decode(
             ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"sendForm","tokenSlug":"toncoin","toAddress":"UQ-recipient"}"#.utf8)
+            from: Data(#"{"kind":"sendForm","url":"mtw://send/ton:UQ-recipient?token=toncoin"}"#.utf8)
         )
         XCTAssertEqual(action.kind, .openSend)
-        XCTAssertEqual(action.tokenSlug, "toncoin")
-        XCTAssertEqual(action.toAddress, "UQ-recipient")
+        XCTAssertEqual(action.url, "mtw://send/ton:UQ-recipient?token=toncoin")
+        XCTAssertFalse(action.isMaxAmount)
+
+        let maxAction = try JSONDecoder().decode(
+            ApiAgentV2ResolvedAction.self,
+            from: Data(#"{"kind":"sendForm","url":"mtw://send/ton:UQ-recipient?token=toncoin","isMaxAmount":true}"#.utf8)
+        )
+        XCTAssertTrue(maxAction.isMaxAmount)
+        XCTAssertEqual(try JSONDecoder().decode(ApiAgentV2ResolvedAction.self, from: JSONEncoder().encode(maxAction)), maxAction)
     }
 
+    @MainActor
     func testDecodesNativeStakeAndSwapActionContracts() throws {
         let stakeProposal = try JSONDecoder().decode(
             ApiAgentV2ActionProposal.self,
-            from: Data(#"{"id":"action-stake","kind":"stake","labelCode":"open_staking","requiresConfirmation":false}"#.utf8)
+            from: Data(#"{"id":"action-stake","kind":"stake","labelCode":"open_staking","title":"Review prepared action","requiresConfirmation":false}"#.utf8)
         )
         XCTAssertEqual(stakeProposal.kind, .stake)
         XCTAssertEqual(stakeProposal.labelCode, .openStaking)
 
         let persistedSwap = try JSONDecoder().decode(
             ApiAgentV2PersistedAction.self,
-            from: Data(#"{"id":"action-swap","kind":"swap","labelCode":"open_swap","requiresConfirmation":false}"#.utf8)
+            from: Data(#"{"id":"action-swap","kind":"swap","labelCode":"open_swap","title":"Review prepared action","requiresConfirmation":false}"#.utf8)
         )
         XCTAssertEqual(persistedSwap.kind, .swap)
         XCTAssertEqual(persistedSwap.labelCode, .openSwap)
@@ -245,88 +953,94 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(swap.tokenOutSlug, "usdton")
         XCTAssertEqual(swap.swapAmount, "10")
         XCTAssertEqual(swap.amountSide, .source)
-
-        let navigation = try JSONDecoder().decode(
+        let swapAssets = [
+            ApiToken(slug: "toncoin", name: "Toncoin", symbol: "TON", decimals: 9, chain: .ton),
+            ApiToken(slug: "usdton", name: "Tether", symbol: "USDT", decimals: 6, chain: .ton)
+        ]
+        let sourceParameters = try XCTUnwrap(AgentV2ActionExecutor.resolveSwapParameters(swap, swapAssets: swapAssets))
+        XCTAssertEqual(sourceParameters.sellingToken, "toncoin")
+        XCTAssertEqual(sourceParameters.buyingToken, "usdton")
+        XCTAssertEqual(sourceParameters.sellingAmount, 10)
+        XCTAssertNil(sourceParameters.buyingAmount)
+        let buyAmountSwap = try JSONDecoder().decode(
             ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"openToken","slug":"toncoin","chain":"ton","tokenAddress":"EQ-token"}"#.utf8)
+            from: Data(#"{"kind":"openSwap","tokenInSlug":"toncoin","tokenOutSlug":"usdton","amount":"10","amountSide":"destination"}"#.utf8)
         )
-        XCTAssertEqual(navigation.kind, .openToken)
-        XCTAssertEqual(navigation.slug, "toncoin")
-        XCTAssertEqual(navigation.chain, "ton")
-        XCTAssertEqual(navigation.tokenAddress, "EQ-token")
-    }
+        let destinationParameters = try XCTUnwrap(AgentV2ActionExecutor.resolveSwapParameters(buyAmountSwap, swapAssets: swapAssets))
+        XCTAssertNil(destinationParameters.sellingAmount)
+        XCTAssertEqual(destinationParameters.buyingAmount, 10)
 
-    func testDecodesEveryOpenAgentEntryPointShape() throws {
-        let tokenScreen = try JSONDecoder().decode(
+        let dapp = try JSONDecoder().decode(
             ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"openAgent","entryPoint":{"kind":"tokenScreen","asset":{"slug":"toncoin","chain":"ton"}}}"#.utf8)
+            from: Data(#"{"kind":"openDapp","url":"https://fragment.com/"}"#.utf8)
         )
-        guard case .tokenScreen(let asset) = tokenScreen.entryPoint else {
-            return XCTFail("Expected token screen entry point")
-        }
-        XCTAssertEqual(asset.slug, "toncoin")
-        XCTAssertEqual(asset.chain, "ton")
-        XCTAssertNil(asset.tokenAddress)
-
-        let emptyState = try JSONDecoder().decode(
-            ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"openAgent","entryPoint":{"kind":"emptyState","surface":"agentTab"}}"#.utf8)
-        )
-        guard case .emptyState(let hintId, let catalogVersion) = emptyState.entryPoint else {
-            return XCTFail("Expected empty state entry point")
-        }
-        XCTAssertNil(hintId)
-        XCTAssertNil(catalogVersion)
-
-        XCTAssertThrowsError(try JSONDecoder().decode(
-            ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"openAgent","entryPoint":{"kind":"emptyState","surface":"portfolio"}}"#.utf8)
-        ))
+        XCTAssertEqual(dapp.kind, .openDapp)
+        XCTAssertEqual(dapp.url, "https://fragment.com/")
     }
 
     @MainActor
-    func testStakingOffersUseTheTonProductSelectedByNativeNavigation() {
-        let liquid = ApiStakingState.liquid(ApiStakingStateLiquid(
-            id: "liquid",
-            tokenSlug: TONCOIN_SLUG,
-            annualYield: 3,
-            yieldType: .apy,
-            balance: 1,
-            pool: "liquid-pool",
-            unstakeRequestAmount: nil,
-            tokenBalance: 1,
-            instantAvailable: 0,
-            start: 0,
-            end: 0,
-            totalStakers: 1,
-            tvl: 1
-        ))
-        let nominators = ApiStakingState.nominators(ApiStakingStateNominators(
-            id: "nominators",
-            tokenSlug: TONCOIN_SLUG,
-            annualYield: 4,
-            yieldType: .apy,
-            balance: 1,
-            pool: "nominators-pool",
-            unstakeRequestAmount: nil,
-            start: 0,
-            end: 0
-        ))
+    func testSwapNavigationPreservesPartialPurchaseWithoutAnAmount() throws {
+        let action = try JSONDecoder().decode(
+            ApiAgentV2ResolvedAction.self,
+            from: Data(#"{"kind":"openSwap","tokenOutSlug":"trx"}"#.utf8)
+        )
+        let token = ApiToken(slug: "trx", name: "TRON", symbol: "TRX", decimals: 6, chain: .tron)
+        let parameters = try XCTUnwrap(AgentV2ActionExecutor.resolveSwapParameters(action, swapAssets: [token]))
+        XCTAssertNil(parameters.sellingToken)
+        XCTAssertEqual(parameters.buyingToken, "trx")
+        XCTAssertNil(parameters.sellingAmount)
+        XCTAssertNil(parameters.buyingAmount)
+        XCTAssertEqual(try JSONDecoder().decode(ApiAgentV2ResolvedAction.self, from: JSONEncoder().encode(action)), action)
+    }
 
-        XCTAssertEqual(
-            AgentV2HostContextProvider.selectStakingOfferStates(
-                [liquid, nominators],
-                shouldUseNominators: false
-            ).map(\.id),
-            ["liquid"]
+    @MainActor
+    func testSwapNavigationRejectsMalformedAmountInsteadOfOpeningABlankForm() throws {
+        let token = ApiToken(slug: "trx", name: "TRON", symbol: "TRX", decimals: 6, chain: .tron)
+        let payloads = [
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"invalid","amountSide":"destination"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"nan","amountSide":"destination"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"0","amountSide":"destination"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"-1","amountSide":"destination"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"1"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amount":"1","amountSide":"source"}"#,
+            #"{"kind":"openSwap","tokenOutSlug":"trx","amountSide":"destination"}"#
+        ]
+        for payload in payloads {
+            let action = try JSONDecoder().decode(ApiAgentV2ResolvedAction.self, from: Data(payload.utf8))
+            XCTAssertNil(AgentV2ActionExecutor.resolveSwapParameters(action, swapAssets: [token]), payload)
+        }
+    }
+
+    @MainActor
+    func testSwapNavigationRejectsAnAssetRemovedFromTheCatalog() throws {
+        let action = try JSONDecoder().decode(
+            ApiAgentV2ResolvedAction.self,
+            from: Data(#"{"kind":"openSwap","tokenOutSlug":"trx"}"#.utf8)
         )
-        XCTAssertEqual(
-            AgentV2HostContextProvider.selectStakingOfferStates(
-                [liquid, nominators],
-                shouldUseNominators: true
-            ).map(\.id),
-            ["nominators"]
+        XCTAssertNil(AgentV2ActionExecutor.resolveSwapParameters(action, swapAssets: []))
+        XCTAssertNil(AgentV2ActionExecutor.resolveSwapParameters(action, swapAssets: nil))
+    }
+
+    func testNativeMessagePreservesPersistedOpenDappAction() throws {
+        var messageObject = persistedMessageObject(content: [
+            "kind": "markdown",
+            "text": "Open Fragment"
+        ])
+        messageObject["actions"] = [[
+            "id": "action-dapp",
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+                    "title": "Review prepared action",
+            "requiresConfirmation": false
+        ]]
+        let persistedMessage = try JSONDecoder().decode(
+            ApiAgentV2PersistedMessage.self,
+            from: JSONSerialization.data(withJSONObject: messageObject)
         )
+
+        let nativeMessage = AgentV2NativeMessage(persisted: persistedMessage)
+
+        XCTAssertEqual(nativeMessage.actions.first?.kind.rawValue, "openDapp")
     }
 
     @MainActor
@@ -425,6 +1139,46 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertNil(message.semanticContent)
     }
 
+    func testHydratedAssistantMessageKeepsItsOwnResponseLanguage() throws {
+        var object = persistedMessageObject(content: [
+            "kind": "semantic",
+            "content": ["kind": "notice", "schemaVersion": 1, "code": "content_over_budget"],
+        ])
+        object["responseLanguage"] = "ru"
+        let persisted = try JSONDecoder().decode(
+            ApiAgentV2PersistedMessage.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        XCTAssertEqual(persisted.responseLanguage, "ru")
+        XCTAssertEqual(AgentV2NativeMessage(persisted: persisted).responseLanguage, "ru")
+        guard case .semantic(let semantic)? = persisted.content,
+              case .notice(let notice) = semantic
+        else { return XCTFail("Expected localized notice") }
+        XCTAssertEqual(
+            withMessageLanguage(persisted.responseLanguage) {
+                AgentV2Copy.notice(notice)
+            },
+            "Результат слишком большой для полного отображения."
+        )
+    }
+
+    func testUnsupportedPersistedResponseLanguageFallsBackToTheInterfaceLanguage() throws {
+        var object = persistedMessageObject(content: ["kind": "markdown", "text": "こんにちは"])
+        object["responseLanguage"] = "ja"
+        let persisted = try JSONDecoder().decode(
+            ApiAgentV2PersistedMessage.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        XCTAssertEqual(persisted.responseLanguage, "ja")
+        XCTAssertNil(supportedMessageLanguageCode(persisted.responseLanguage))
+        XCTAssertEqual(
+            withMessageLanguage(persisted.responseLanguage) { lang("$agent_error_generic") },
+            lang("$agent_error_generic")
+        )
+    }
+
     func testRemovedPersistedPresentationFieldsFailClosed() throws {
         for field in ["text", "textFormat", "widget"] {
             var object = persistedMessageObject(content: ["kind": "markdown", "text": "Current"])
@@ -495,6 +1249,87 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertFalse(containsLink)
     }
 
+    func testAnswerLinksDecodeFromHistoryAndLiveUpdates() throws {
+        let content = try JSONDecoder().decode(ApiAgentV2MessageContent.self, from: Data(
+            #"{"kind":"markdown","text":"See Help","links":[{"textOffset":4,"textLength":4,"url":"https://help.mywallet.io/"}]}"#.utf8
+        ))
+        guard case .composedMarkdown(let markdown) = content else { return XCTFail("Missing links") }
+        XCTAssertEqual(markdown.links, [ApiAgentV2AnswerLink(textOffset: 4, textLength: 4, url: "https://help.mywallet.io/")])
+        XCTAssertEqual(try JSONDecoder().decode(ApiAgentV2MessageContent.self, from: JSONEncoder().encode(content)), content)
+
+        let update = try JSONDecoder().decode(ApiAgentV2ClientUpdate.self, from: Data(
+            #"{"kind":"answerLinkAdded","clientRunId":"c","runId":"r","threadId":"t","messageId":"m","link":{"textOffset":0,"textLength":4,"url":"https://ton.org/"}}"#.utf8
+        ))
+        guard case .answerLinkAdded(_, let messageId, let link) = update else { return XCTFail("Missing link update") }
+        XCTAssertEqual(messageId, "m")
+        XCTAssertEqual(link.url, "https://ton.org/")
+    }
+
+    @MainActor
+    func testAnswerLinksStyleTheirLabelsWithoutChangingTheRenderedText() {
+        let source = "- **Guide** and Docs"
+        let links = [
+            ApiAgentV2AnswerLink(textOffset: 2, textLength: 9, url: "https://help.mywallet.io/guide?a=1&b=*_*"),
+            ApiAgentV2AnswerLink(textOffset: 16, textLength: 4, url: "http://docs.example.com/"),
+            ApiAgentV2AnswerLink(textOffset: 18, textLength: 9, url: "https://past.example.com/"),
+        ]
+        let marked = AgentV2AnswerTables.text(source, tables: [], references: [], links: links)
+        let plain = AgentMessageTextRenderer.makeAttributedText(
+            source, textColor: .label, rendersMarkdown: true, detectsLinks: false, markdownProfile: .agentMarkdownV1
+        )
+        let rendered = AgentMessageTextRenderer.makeAttributedText(
+            marked, textColor: .label, rendersMarkdown: true, detectsLinks: false, markdownProfile: .agentMarkdownV1,
+            linkColor: .systemRed
+        )
+
+        XCTAssertEqual(rendered.string, plain.string)
+        let guideRange = (rendered.string as NSString).range(of: "Guide")
+        var effectiveRange = NSRange()
+        XCTAssertEqual(
+            rendered.attribute(.link, at: guideRange.location, effectiveRange: &effectiveRange) as? URL,
+            URL(string: "https://help.mywallet.io/guide?a=1&b=*_*")
+        )
+        XCTAssertEqual(effectiveRange, guideRange)
+        XCTAssertEqual(rendered.attribute(.foregroundColor, at: guideRange.location, effectiveRange: nil) as? UIColor, .systemRed)
+        XCTAssertNil(rendered.attribute(.link, at: (rendered.string as NSString).range(of: "Docs").location, effectiveRange: nil))
+        XCTAssertEqual(AgentTextLinks.copyText(marked), "- **Guide** (https://help.mywallet.io/guide?a=1&b=*_*) and Docs")
+    }
+
+    @MainActor
+    func testAnswerLinkMarkerCarriesANonAsciiURL() {
+        let url = "https://ru.wikipedia.org/wiki/Тон"
+        let marked = AgentV2AnswerTables.text("Тон", tables: [], references: [], links: [
+            ApiAgentV2AnswerLink(textOffset: 0, textLength: 3, url: url)
+        ])
+        let rendered = AgentMessageTextRenderer.makeAttributedText(
+            marked, textColor: .label, rendersMarkdown: true, detectsLinks: false, markdownProfile: .agentMarkdownV1
+        )
+
+        XCTAssertEqual(rendered.string, "Тон")
+        XCTAssertNotNil(rendered.attribute(.link, at: 0, effectiveRange: nil))
+        XCTAssertEqual(AgentTextLinks.copyText(marked), "Тон (\(URL(string: url)!.absoluteString))")
+    }
+
+    func testAnswerLinksKeepTablePlacementAndSkipALinkAcrossATable() {
+        let source = "See Help\n\nAfter Docs"
+        let table = ApiAgentV2AnswerTable(id: "t1", content: ApiAgentV2DisplayTable(
+            kind: "display", headers: ["Asset"], rows: [["TON"]], notes: []
+        ))
+        let references = [ApiAgentV2AnswerTableReference(tableId: table.id, textOffset: 10)]
+        let blocks = AgentV2AnswerTables.blocks(source, tables: [table], references: references, links: [
+            ApiAgentV2AnswerLink(textOffset: 4, textLength: 4, url: "https://help.mywallet.io/"),
+            ApiAgentV2AnswerLink(textOffset: 9, textLength: 3, url: "https://across.example.com/"),
+            ApiAgentV2AnswerLink(textOffset: 16, textLength: 4, url: "https://docs.example.com/"),
+        ])
+
+        XCTAssertEqual(blocks.count, 3)
+        guard case .text(let before) = blocks[0], case .table = blocks[1], case .text(let after) = blocks[2] else {
+            return XCTFail("Unexpected blocks")
+        }
+        XCTAssertEqual(AgentTextLinks.copyText(before), "See Help (https://help.mywallet.io/)")
+        XCTAssertEqual(AgentTextLinks.copyText(after), "After Docs (https://docs.example.com/)")
+    }
+
     @MainActor
     func testAgentMarkdownV1RendersTaggedFencedCodeWithoutMarkers() {
         let rendered = AgentMessageTextRenderer.makeAttributedText(
@@ -521,27 +1356,6 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(rendered.string, "```\nconst safe = true;\n```")
     }
 
-    func testOverrideConfigDefaultsToV1WhenMissingOrInvalid() {
-        XCTAssertEqual(AgentOverrideConfig.resolve(data: nil), AgentOverrideConfig(value: .v1))
-        XCTAssertEqual(
-            AgentOverrideConfig.resolve(data: Data(#"{"override":"invalid"}"#.utf8)),
-            AgentOverrideConfig(value: .v1)
-        )
-    }
-
-    func testOverrideConfigDecodesSupportedValues() {
-        for value in AgentOverrideConfig.Value.allCases {
-            let data = Data(#"{"override":"\#(value.rawValue)"}"#.utf8)
-            XCTAssertEqual(AgentOverrideConfig.resolve(data: data), AgentOverrideConfig(value: value))
-        }
-    }
-
-    func testOverrideConfigResolvesBackendAndForcedVersions() {
-        XCTAssertEqual(AgentOverrideConfig(value: .noOverride).resolve(backendVersion: .v2), .v2)
-        XCTAssertEqual(AgentOverrideConfig(value: .v1).resolve(backendVersion: .v2), .v1)
-        XCTAssertEqual(AgentOverrideConfig(value: .v2).resolve(backendVersion: .v1), .v2)
-    }
-
     func testDecodesBoundTextDelta() throws {
         let data = Data(#"""
         {
@@ -564,6 +1378,30 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(bound.threadId, "thread-1")
         XCTAssertEqual(messageId, "message-1")
         XCTAssertEqual(delta, "Hello")
+    }
+
+    @MainActor
+    func testChatActivityFollowsTheScreenTheAppAndEachNewSdkRuntime() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: []))
+        let coordinator = AgentV2Coordinator(client: client)
+        let runtimeReady = try JSONDecoder().decode(
+            ApiAgentV2ClientUpdateEnvelope.self,
+            from: Data(#"{"type":"agentV2","update":{"kind":"runtimeReady","generation":2}}"#.utf8)
+        ).update
+
+        coordinator.setChatVisible(true)
+        coordinator.walletCore(event: .agentV2(runtimeReady))
+        coordinator.walletCore(event: .applicationDidEnterBackground)
+        coordinator.walletCore(event: .applicationWillEnterForeground)
+        coordinator.setChatVisible(false)
+        coordinator.walletCore(event: .agentV2(runtimeReady))
+        coordinator.setChatVisible(true)
+        coordinator.stop()
+        for _ in 0..<100 where client.chatActivity.count < 7 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(client.chatActivity, [true, true, false, true, false, true, false])
     }
 
     func testDecodesRuntimeReadyAndToolActivityUpdates() throws {
@@ -689,401 +1527,12 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(update.fetchedAtSlot, 7)
     }
 
-    func testDecodesInputContinuationsAndEncodesTheirRunReference() throws {
-        let data = Data(#"""
-        {
-          "type":"agentV2",
-          "update":{
-            "kind":"inputContinuationsAvailable",
-            "clientRunId":"client-run",
-            "runId":"run-1",
-            "threadId":"thread-1",
-            "messageId":"message-1",
-            "items":[{
-              "id":"continuation-amount",
-              "kind":"collect_input",
-              "code":"prepare_send_amount",
-              "scenario":"prepare-send",
-              "field":"amount"
-            }]
-          }
-        }
-        """#.utf8)
-
-        let envelope = try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data)
-        guard case .inputContinuationsAvailable(let bound, let messageId, let items) = envelope.update else {
-            return XCTFail("Expected input continuations")
-        }
-        XCTAssertEqual(bound.threadId, "thread-1")
-        XCTAssertEqual(messageId, "message-1")
-        XCTAssertEqual(items.first?.code, .prepareSendAmount)
-        XCTAssertEqual(items.first?.field, "amount")
-
-        let command = ApiAgentV2RunCommand(
-            threadId: "thread-1",
-            expectedThreadRevision: 1,
-            input: .append(text: "10"),
-            entryPoint: nil,
-            continuationOf: .init(messageId: "message-1", continuationId: "continuation-amount")
-        )
-        let encoded = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: JSONEncoder().encode(command)) as? [String: Any]
-        )
-        XCTAssertEqual(
-            (encoded["continuationOf"] as? [String: Any])?["continuationId"] as? String,
-            "continuation-amount"
-        )
-    }
-
-    func testOrdinaryIOSRunCommandCannotAttachWalletConversationAuthority() throws {
-        let command = ApiAgentV2RunCommand(
-            threadId: "thread-1",
-            expectedThreadRevision: 7,
-            input: .append(text: "What changed?"),
-            entryPoint: nil
-        )
-        let encoded = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: JSONEncoder().encode(command)) as? [String: Any]
-        )
-        XCTAssertNil(encoded["walletScopeSelectionOf"])
-    }
-
     func testRejectsUnknownUpdateKind() {
         let data = Data(#"{"type":"agentV2","update":{"kind":"futureUpdate"}}"#.utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data))
     }
 
-    func testDecodesEverySemanticContentVariant() throws {
-        let fixtures: [[String: Any]] = [
-            ["kind": "notice", "schemaVersion": 1, "code": "empty_result"],
-            [
-                "kind": "walletQuery", "schemaVersion": 1, "queryKind": "transactions",
-                "outcome": "complete", "hasMore": false,
-                "rows": [[
-                    "chain": "ton", "transactionType": "transfer", "status": "completed",
-                    "timestamp": "2026-07-30T00:00:00.000Z", "assetSymbol": "TON", "quantity": "1.5"
-                ]]
-            ],
-            [
-                "kind": "portfolio", "schemaVersion": 1, "view": "positions", "outcome": "partial",
-                "payload": [
-                    "id": "portfolio-1", "status": "partial", "accountScope": "current",
-                    "baseCurrency": "USD", "generatedAt": "2026-07-30T00:00:00.000Z",
-                    "positions": [], "unpriced": [], "omittedUnpricedAssetCount": 0,
-                    "dataQuality": ["coverage": "partial", "limitations": ["unpriced_assets"]]
-                ]
-            ],
-            [
-                "kind": "market", "schemaVersion": 1, "view": "overview", "outcome": "complete",
-                "evidence": ["assets": []], "narrativeMarkdown": "Market **summary**."
-            ],
-            [
-                "kind": "assetSearch", "schemaVersion": 1, "outcome": "complete_absent",
-                "reason": "not_found"
-            ],
-            [
-                "kind": "webDigest", "schemaVersion": 1, "outcome": "complete", "summary": "Latest news",
-                "items": [[
-                    "headline": "TON update", "summary": "Protocol news",
-                    "url": "https://example.com/ton", "publishedAt": "2026-07-30T00:00:00.000Z"
-                ]]
-            ],
-            ["kind": "clientUnsupported", "schemaVersion": 1]
-        ]
-
-        let decoded = try fixtures.map(decodeSemanticContent)
-        XCTAssertEqual(decoded.count, 7)
-        guard case .notice = decoded[0],
-              case .walletQuery = decoded[1],
-              case .portfolio = decoded[2],
-              case .market = decoded[3],
-              case .assetSearch = decoded[4],
-              case .webDigest = decoded[5],
-              case .clientUnsupported = decoded[6] else {
-            return XCTFail("Expected the six wire variants and local unsupported placeholder")
-        }
-    }
-
-    func testDecodesTypedFearGreedSmaRegimeAndToleratesUnknownOptionalFields() throws {
-        var fearGreedRegime = fearGreedRegimeObject()
-        fearGreedRegime["futureDisplayHint"] = "ignored"
-        var source = try XCTUnwrap(fearGreedRegime["source"] as? [String: Any])
-        source["futureSourceDetail"] = "ignored"
-        fearGreedRegime["source"] = source
-
-        let content = try decodeSemanticContent(marketAnalysisObject(fearGreedRegime: fearGreedRegime))
-        guard case .market(.analysis(let outcome, let evidence, let analysis, let optionalRegime)) = content else {
-            return XCTFail("Expected market analysis with Fear & Greed regime")
-        }
-        let regime = try XCTUnwrap(optionalRegime)
-
-        XCTAssertEqual(outcome, .complete)
-        XCTAssertEqual(evidence, .object(["schemaVersion": .number(6)]))
-        XCTAssertEqual(analysis?.summary, "Classic market analysis remains visible.")
-        XCTAssertEqual(regime.schemaVersion, 1)
-        XCTAssertEqual(regime.policyVersion, .fearGreedSmaRegimeV1)
-        XCTAssertEqual(regime.basis, .closedUtcDaily)
-        XCTAssertEqual(regime.asOfDate, "2026-08-09")
-        XCTAssertEqual(regime.latestValue, 62)
-        XCTAssertEqual(regime.sma30, "54.25000000")
-        XCTAssertEqual(regime.sma365, "48.12000000")
-        XCTAssertEqual(regime.regime, .riskOn)
-        XCTAssertEqual(regime.seriesDigest, String(repeating: "a", count: 64))
-        XCTAssertEqual(regime.source.provider, "alternative_me")
-        XCTAssertEqual(regime.source.endpoint, "alternative.fng")
-        XCTAssertTrue(regime.source.attributionRequired)
-        XCTAssertEqual(regime.source.attributionLabel, "Alternative.me")
-        XCTAssertEqual(
-            regime.source.attributionUrl,
-            "https://alternative.me/crypto/fear-and-greed-index/"
-        )
-    }
-
-    func testMalformedFearGreedSmaRegimeFailsSoftWithoutDroppingMarketAnalysis() throws {
-        let invalidFields: [(String, Any)] = [
-            ("latestValue", 101),
-            ("sma30", "54.25"),
-            ("sma365", "100.00000001"),
-            ("asOfDate", "2026/02/28"),
-            ("asOfDate", "2026-02-31"),
-            ("seriesDigest", String(repeating: "A", count: 64)),
-            ("source", [
-                "provider": "alternative_me",
-                "endpoint": "unexpected.fng",
-                "attributionRequired": true,
-                "attributionLabel": "Alternative.me",
-                "attributionUrl": "https://alternative.me/crypto/fear-and-greed-index/"
-            ])
-        ]
-
-        for (field, invalidValue) in invalidFields {
-            var fearGreedRegime = fearGreedRegimeObject()
-            fearGreedRegime[field] = invalidValue
-            let content = try decodeSemanticContent(
-                marketAnalysisObject(fearGreedRegime: fearGreedRegime)
-            )
-            guard case .market(.analysis(let outcome, let evidence, let analysis, let regime)) = content else {
-                return XCTFail("Expected malformed optional regime to preserve market analysis")
-            }
-
-            XCTAssertEqual(outcome, .complete, "Unexpected outcome for malformed \(field)")
-            XCTAssertEqual(
-                evidence,
-                .object(["schemaVersion": .number(6)]),
-                "Evidence was lost for malformed \(field)"
-            )
-            XCTAssertEqual(
-                analysis?.summary,
-                "Classic market analysis remains visible.",
-                "Analysis was lost for malformed \(field)"
-            )
-            XCTAssertNil(regime, "Malformed \(field) should drop only the optional regime")
-        }
-    }
-
     @MainActor
-    func testDecodesAndRendersQuarantineWalletContentWithoutUnsafeAssetText() throws {
-        let content = try decodeSemanticContent([
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "transactions",
-            "outcome": "partial",
-            "hasMore": false,
-            "omittedRows": ["count": 7, "accuracy": "lower_bound"],
-            "policySummary": [
-                "presentation": "quarantine",
-                "suspicious": ["count": 1, "accuracy": "lower_bound"]
-            ],
-            "rows": [[
-                "chain": "ton",
-                "transactionType": "transfer",
-                "status": "completed",
-                "timestamp": "2026-07-30T00:00:00.000Z",
-                "assetLabelStatus": "redacted_unsafe",
-                "quantity": "1"
-            ]]
-        ])
-        guard case .walletQuery(.transactions(_, _, let omittedRows, let policySummary, let rows)) = content else {
-            return XCTFail("Expected quarantine wallet transactions")
-        }
-        XCTAssertEqual(omittedRows?.count, 7)
-        XCTAssertEqual(omittedRows?.accuracy, .lowerBound)
-        XCTAssertEqual(policySummary?.presentation, .quarantine)
-        XCTAssertEqual(policySummary?.suspicious?.accuracy, .lowerBound)
-        XCTAssertEqual(rows.first?.assetLabelStatus, .redactedUnsafe)
-        XCTAssertNil(rows.first?.assetSymbol)
-
-        let renderedText = [
-            AgentV2WalletQueryPresentation.title(
-                queryKind: "transactions",
-                policySummary: policySummary
-            ),
-            AgentV2WalletQueryPresentation.warning(policySummary: policySummary),
-            AgentV2WalletQueryPresentation.assetLabel(
-                symbol: rows.first?.assetSymbol,
-                isRedacted: rows.first?.assetLabelStatus == .redactedUnsafe
-            ),
-            AgentV2WalletQueryPresentation.omittedRowsText(omittedRows)
-        ].compactMap { $0 } + AgentV2WalletQueryPresentation.counterTexts(policySummary)
-        let renderedCopy = renderedText.joined(separator: " ")
-        XCTAssertTrue(renderedCopy.contains(lang("$agent_semantic_spam_transactions")))
-        XCTAssertTrue(renderedCopy.contains(lang("$agent_semantic_quarantine_warning")))
-        XCTAssertTrue(renderedCopy.contains(lang("$agent_semantic_redacted_asset")))
-        XCTAssertTrue(renderedCopy.contains(L10n.agentSemanticSuspiciousMinimum(amount: 1)))
-        XCTAssertTrue(renderedCopy.contains(L10n.agentSemanticOmittedRowsMinimum(amount: 7)))
-        XCTAssertFalse(renderedCopy.contains("GRAMEVENT.ORG"))
-    }
-
-    @MainActor
-    func testDecodesAndPresentsWalletAccountOverviews() throws {
-        let content = try decodeSemanticContent([
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "accounts",
-            "outcome": "partial",
-            "hasMore": false,
-            "futureDisplay": true,
-            "rows": [[
-                "accountLabel": "Main | **literal**",
-                "accessMode": "regular",
-                "portfolioTotalStatus": "partial",
-                "portfolioTotal": [
-                    "value": "42.5",
-                    "baseCurrency": "USD",
-                    "unpricedCount": 1,
-                    "futureRate": "ignored"
-                ]
-            ], [
-                "accountLabel": "Watch",
-                "accessMode": "view_only",
-                "portfolioTotalStatus": "unavailable"
-            ]]
-        ])
-        guard case .walletQuery(.accounts(let outcome, _, _, let rows)) = content else {
-            return XCTFail("Expected wallet account overviews")
-        }
-
-        XCTAssertEqual(outcome, .partial)
-        XCTAssertEqual(rows.count, 2)
-        XCTAssertEqual(rows[0].portfolioTotal?.value, "42.5")
-        XCTAssertEqual(rows[0].portfolioTotal?.baseCurrency, "USD")
-        XCTAssertEqual(rows[0].portfolioTotal?.unpricedCount, 1)
-        XCTAssertEqual(rows[1].portfolioTotalStatus, .unavailable)
-        XCTAssertNil(rows[1].portfolioTotal)
-        XCTAssertEqual(
-            AgentV2WalletQueryPresentation.accountAccessMode(rows[0].accessMode),
-            lang("$agent_semantic_access_regular")
-        )
-        XCTAssertEqual(
-            AgentV2WalletQueryPresentation.accountAccessMode(rows[1].accessMode),
-            lang("$agent_semantic_access_view_only")
-        )
-        let notices = AgentV2WalletQueryPresentation.accountNotices(outcome: outcome, rows: rows)
-        XCTAssertTrue(notices.contains(L10n.agentSemanticWalletsUnpriced(amount: 1)))
-        XCTAssertTrue(notices.contains(lang("$agent_semantic_wallets_unavailable")))
-    }
-
-    @MainActor
-    func testPartialWalletAccountsDoNotInventStaleOrGenericPartialNotices() throws {
-        let content = try decodeSemanticContent([
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "accounts",
-            "outcome": "partial",
-            "hasMore": false,
-            "rows": [[
-                "accountLabel": "Main",
-                "accessMode": "regular",
-                "portfolioTotalStatus": "complete",
-                "portfolioTotal": [
-                    "value": "42.5",
-                    "baseCurrency": "USD",
-                    "unpricedCount": 0
-                ]
-            ]]
-        ])
-        guard case .walletQuery(.accounts(let outcome, _, _, let rows)) = content else {
-            return XCTFail("Expected wallet account overviews")
-        }
-
-        XCTAssertEqual(AgentV2WalletQueryPresentation.accountNotices(outcome: outcome, rows: rows), [])
-    }
-
-    @MainActor
-    func testAssetSearchPresentationUsesExplicitOutcomeInsteadOfMissingRows() throws {
-        let cases: [(String, String?, String?)] = [
-            ("complete_absent", "not_found", lang("$agent_semantic_no_results")),
-            ("incomplete_unconfirmed", nil, lang("$agent_notice_wallet_unavailable")),
-            ("scope_denied", "consent_required", lang("$agent_notice_consent_required")),
-            ("scope_denied", "account_scope_not_allowed", lang("$agent_notice_tool_unavailable")),
-            ("complete_matches", nil, nil)
-        ]
-        for (outcome, reason, expectedStatus) in cases {
-            var object: [String: Any] = [
-                "kind": "assetSearch",
-                "schemaVersion": 1,
-                "outcome": outcome
-            ]
-            if let reason { object["reason"] = reason }
-            guard case .assetSearch(let content) = try decodeSemanticContent(object) else {
-                return XCTFail("Expected asset search content")
-            }
-            let status = AgentV2AssetSearchPresentation.status(content)
-            if let expectedStatus {
-                XCTAssertEqual(status, expectedStatus, "Missing status for \(outcome)")
-            } else {
-                XCTAssertNil(status)
-            }
-        }
-    }
-
-    @MainActor
-    func testDecodesAndPresentsHiddenAssetLabelsAsWarnedPlaintext() throws {
-        let content = try decodeSemanticContent([
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "positions",
-            "outcome": "complete",
-            "hasMore": false,
-            "policySummary": [
-                "presentation": "hidden_review",
-                "suspicious": ["count": 1, "accuracy": "exact"]
-            ],
-            "rows": [[
-                "chain": "ton",
-                "positionKind": "fungible",
-                "assetName": "Gram Event",
-                "assetSymbol": "GRAM AT GRAMEVENT.ORG",
-                "assetLabelStatus": "untrusted_plaintext",
-                "quantity": "100"
-            ]]
-        ])
-        guard case .walletQuery(.positions(_, _, _, let policySummary, let rows)) = content else {
-            return XCTFail("Expected hidden wallet positions")
-        }
-        XCTAssertEqual(policySummary?.presentation, .hiddenReview)
-        XCTAssertEqual(rows.first?.assetLabelStatus, .untrustedPlaintext)
-
-        let renderedText = [
-            AgentV2WalletQueryPresentation.title(
-                queryKind: "positions",
-                policySummary: policySummary
-            ),
-            AgentV2WalletQueryPresentation.warning(policySummary: policySummary),
-            AgentV2WalletQueryPresentation.assetLabel(
-                name: rows.first?.assetName,
-                symbol: rows.first?.assetSymbol,
-                isRedacted: rows.first?.assetLabelStatus == .redactedUnsafe
-            )
-        ].compactMap { $0 } + AgentV2WalletQueryPresentation.counterTexts(policySummary)
-        let renderedCopy = renderedText.joined(separator: " ")
-        XCTAssertTrue(renderedCopy.contains(lang("$agent_semantic_hidden_assets")))
-        XCTAssertTrue(renderedCopy.contains(lang("$agent_semantic_hidden_assets_warning")))
-        XCTAssertTrue(renderedCopy.contains("Gram Event (GRAM AT GRAMEVENT.ORG)"))
-        XCTAssertTrue(renderedCopy.contains(L10n.agentSemanticSuspiciousShown(amount: 1)))
-        XCTAssertFalse(renderedCopy.contains(lang("$agent_semantic_redacted_asset")))
-    }
-
     func testUnsupportedSemanticExtensionsUseLocalFallbackAndKnownMalformedContentFailsClosed() throws {
         guard case .clientUnsupported = try decodeSemanticContent([
             "kind": "clientUnsupported", "schemaVersion": 1
@@ -1108,8 +1557,7 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertThrowsError(try decodeSemanticContent([
             "kind": "notice",
             "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": ["marketQuote": ["status": "resolved"]]
+            "code": 42
         ]))
 
         let removedEvent = try JSONSerialization.data(withJSONObject: [
@@ -1131,15 +1579,6 @@ final class AgentV2ContractTests: XCTestCase {
         XCTAssertEqual(inputMessageId, "message-1")
     }
 
-    func testDecodesHideSpamResolution() throws {
-        let resolved = try JSONDecoder().decode(
-            ApiAgentV2ResolvedAction.self,
-            from: Data(#"{"kind":"hideSpamAssets","slugs":["spam-token"]}"#.utf8)
-        )
-        XCTAssertEqual(resolved.kind, .hideSpamAssets)
-        XCTAssertEqual(resolved.slugs, ["spam-token"])
-    }
-
     func testRejectsUnknownWalletPresentationKinds() {
         XCTAssertThrowsError(try JSONDecoder().decode(
             ApiAgentV2ResolvedAction.self,
@@ -1158,65 +1597,274 @@ final class AgentV2ContractTests: XCTestCase {
         ))
     }
 
-    func testSendReviewUsesJSONSafeAtomicString() throws {
-        let data = Data(#"""
-        {
-          "kind":"reviewSend",
-          "draftId":"draft-1",
-          "chain":"ton",
-          "review":{
-            "tokenSlug":"toncoin",
-            "amountAtomic":"1250000000",
-            "toAddress":"UQ-safe-fixture",
-            "comment":"hello"
-          }
-        }
-        """#.utf8)
-
+    func testSendNavigationPreservesAtomicAmountInURL() throws {
+        let data = Data(#"{"kind":"sendForm","url":"mtw://send/ton:UQ-recipient?token=toncoin&amount=1250000000&text=hello"}"#.utf8)
         let action = try JSONDecoder().decode(ApiAgentV2ResolvedAction.self, from: data)
-        XCTAssertEqual(action.review?.amountAtomic, "1250000000")
-        XCTAssertNoThrow(try JSONEncoder().encode(action))
+        XCTAssertEqual(action.kind, .openSend)
+        XCTAssertEqual(action.url, "mtw://send/ton:UQ-recipient?token=toncoin&amount=1250000000&text=hello")
+        XCTAssertEqual(try JSONDecoder().decode(ApiAgentV2ResolvedAction.self, from: JSONEncoder().encode(action)), action)
     }
 
     @MainActor
-    func testBuildsBoundedPortfolioChart() throws {
-        let data = Data(#"""
-        {
-          "kind":"portfolio",
-          "schemaVersion":1,
-          "view":"analysis",
-          "outcome":"complete",
-          "payload":{
-            "id":"portfolio-1",
-            "status":"complete",
-            "accountScope":"current",
-            "baseCurrency":"USD",
-            "range":"1d",
-            "generatedAt":"2026-07-22T00:00:00.000Z",
-            "totalValue":{"value":"110","currency":"USD","asOf":"2026-07-22T00:00:00.000Z"},
-            "performance":{
-              "chart":{
-                "kind":"stacked_net_worth",
-                "range":"1d",
-                "baseCurrency":"USD",
-                "timestamps":[1752969600,1752973200],
-                "series":[{
-                  "asset":{"slug":"toncoin","chain":"ton","symbol":"TON"},
-                  "values":["100","110"]
-                }]
-              }
-            }
-          }
-        }
-        """#.utf8)
+    func testCoordinatorPreservesLiveOpenDappAction() async throws {
+        let coordinator = AgentV2Coordinator(client: FakeAgentV2Client(defaultThreadId: "thread-a"))
+        await coordinator.loadDefaultThread()
+        coordinator.walletCore(event: .agentV2(try decodeUpdate(
+            kind: "messageStarted",
+            threadId: "thread-a",
+            messageId: "message-a"
+        )))
+        coordinator.walletCore(event: .agentV2(try decodeOpenDappActionUpdate(
+            threadId: "thread-a",
+            messageId: "message-a"
+        )))
 
-        let content = try JSONDecoder().decode(ApiAgentV2SemanticContent.self, from: data)
-        guard case .portfolio(.analysis(_, let payload, _)) = content else {
-            return XCTFail("Expected portfolio analysis")
+        XCTAssertEqual(coordinator.messages.first?.actions.first?.kind.rawValue, "openDapp")
+    }
+
+    @MainActor
+    func testWalletAuthorityUpdatePreservesOnlySelectionRuns() async throws {
+        for preservesActiveRuns in [true, false, nil] as [Bool?] {
+            let coordinator = AgentV2Coordinator(client: FakeAgentV2Client())
+            defer { coordinator.stop() }
+            await coordinator.loadDefaultThread()
+            coordinator.send(input: .append(text: "Start response"))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "messageStarted", threadId: "thread-a", messageId: "message-a"
+            )))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "textDelta", threadId: "thread-a", messageId: "message-a", delta: "Before"
+            )))
+            var authorityUpdate: [String: Any] = ["kind": "walletAuthorityChanged"]
+            if let preservesActiveRuns { authorityUpdate["preservesActiveRuns"] = preservesActiveRuns }
+            coordinator.walletCore(event: .agentV2(try JSONDecoder().decode(
+                ApiAgentV2ClientUpdate.self,
+                from: JSONSerialization.data(withJSONObject: authorityUpdate)
+            )))
+
+            let shouldContinue = preservesActiveRuns == true
+            XCTAssertEqual(coordinator.activeRun?.isRunning, shouldContinue)
+            XCTAssertEqual(coordinator.messages.first?.status, shouldContinue ? .streaming : .cancelled)
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "textDelta", threadId: "thread-a", messageId: "message-a", delta: " after"
+            )))
+            coordinator.walletCore(event: .agentV2(try decodeUpdate(
+                kind: "messageCompleted", threadId: "thread-a", messageId: "message-a"
+            )))
+            XCTAssertEqual(coordinator.messages.first?.text, shouldContinue ? "Before after" : "Before")
+            XCTAssertEqual(coordinator.messages.first?.status, shouldContinue ? .complete : .cancelled)
         }
-        let json = try XCTUnwrap(AgentV2PortfolioChartAdapter.makeJSON(payload))
-        XCTAssertTrue(json.contains("1752969600000"))
-        XCTAssertTrue(json.contains("\"stacked\":true"))
+    }
+
+    @MainActor
+    func testPostRunHydrationPreservesLiveSendFormAction() async throws {
+        let initialHydration = try decodeHydration(threadId: "thread-a", messages: [])
+        let completedHydration = try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "message-a",
+            "threadId": "thread-a",
+            "role": "assistant",
+            "status": "complete",
+            "content": [
+                "kind": "markdown",
+                "text": "The transfer form is ready."
+            ],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]])
+        let client = FakeAgentV2Client(
+            hydrationResult: initialHydration,
+            hydrationResults: [initialHydration, completedHydration],
+            shouldCompleteRun: true
+        )
+        let coordinator = AgentV2Coordinator(client: client)
+        let messageStarted = try decodeUpdate(
+            kind: "messageStarted",
+            threadId: "thread-a",
+            messageId: "message-a",
+            contentKind: .markdown
+        )
+        let sendFormAction = try decodeSendFormActionUpdate(
+            threadId: "thread-a",
+            messageId: "message-a"
+        )
+        let messageCompleted = try decodeUpdate(
+            kind: "messageCompleted",
+            threadId: "thread-a",
+            messageId: "message-a"
+        )
+        await coordinator.loadDefaultThread()
+        client.startRunObserver = {
+            coordinator.walletCore(event: .agentV2(messageStarted))
+            coordinator.walletCore(event: .agentV2(sendFormAction))
+            coordinator.walletCore(event: .agentV2(messageCompleted))
+        }
+
+        coordinator.send(input: .append(text: "Open Send"))
+        await waitForHydrationRequest(client, count: 2)
+        for _ in 0..<100 where coordinator.activeRun?.isRunning == true {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(coordinator.messages.first?.actions.first?.labelCode, .openSend)
+    }
+
+    @MainActor
+    func testProblemReportIsOfferedWhileTheServerTakesItAndNamesTheAnswerOrTheConversation() async throws {
+        let client = FakeAgentV2Client(hydrationResult: try decodeHydration(threadId: "thread-a", messages: [
+            [
+                "id": "question", "threadId": "thread-a", "role": "user", "status": "complete",
+                "content": ["kind": "markdown", "text": "What is my balance?"],
+                "createdAt": "2026-07-22T00:00:01.000Z"
+            ],
+            [
+                "id": "answer", "threadId": "thread-a", "role": "assistant", "status": "complete",
+                "content": ["kind": "markdown", "text": "You hold 5 TON."],
+                "createdAt": "2026-07-22T00:00:02.000Z"
+            ]
+        ]))
+        client.isProblemReportAvailable = false
+        let model = AgentV2Model(client: client)
+        defer { model.stop() }
+        await model.waitForInitialLoad()
+        await waitForProblemReportAvailabilityRequest(client, count: 1)
+        XCTAssertFalse(model.canReportProblem)
+
+        client.isProblemReportAvailable = true
+        model.isActive = true
+        await waitForProblemReportAvailabilityRequest(client, count: 2)
+        for _ in 0..<100 where !model.canReportProblem {
+            await Task.yield()
+        }
+        let answerID = try XCTUnwrap(model.itemIDs.first { id in
+            guard case .message(let message) = model.item(for: id) else { return false }
+            return message.role == .assistant
+        })
+        XCTAssertTrue(model.canReportProblem)
+
+        let didReportAnswer = await model.reportProblem(messageID: answerID, comment: "Wrong balance")
+        let didReportConversation = await model.reportProblem(messageID: nil, comment: nil)
+        let didReportUnknownAnswer = await model.reportProblem(messageID: UUID(), comment: nil)
+
+        XCTAssertTrue(didReportAnswer)
+        XCTAssertTrue(didReportConversation)
+        XCTAssertFalse(didReportUnknownAnswer)
+        XCTAssertEqual(client.problemReports.map(\.threadId), ["thread-a", "thread-a"])
+        XCTAssertEqual(client.problemReports.map(\.report), [
+            ApiAgentV2ProblemReport(messageId: "answer", comment: "Wrong balance"),
+            ApiAgentV2ProblemReport(messageId: nil, comment: nil)
+        ])
+    }
+
+    @MainActor
+    func testFailedAnswerShowsItsErrorOnceWithoutAStatusRow() async throws {
+        let initialHydration = try decodeHydration(threadId: "thread-a", messages: [])
+        let failedHydration = try decodeHydration(threadId: "thread-a", messages: [[
+            "id": "message-a",
+            "threadId": "thread-a",
+            "role": "assistant",
+            "status": "error",
+            "error": ["code": "internal_error", "retryable": false],
+            "createdAt": "2026-07-22T00:00:01.000Z"
+        ]])
+        let client = FakeAgentV2Client(
+            hydrationResult: initialHydration,
+            hydrationResults: [initialHydration, failedHydration],
+            shouldCompleteRun: true
+        )
+        client.runResultState = .failed
+        let coordinator = AgentV2Coordinator(client: client)
+        let messageStarted = try decodeUpdate(kind: "messageStarted", threadId: "thread-a", messageId: "message-a")
+        let runFailed = try decodeUpdate(
+            kind: "runFailed",
+            threadId: "thread-a",
+            messageId: "message-a",
+            code: .internalError
+        )
+        await coordinator.loadDefaultThread()
+        client.startRunObserver = {
+            coordinator.walletCore(event: .agentV2(messageStarted))
+            coordinator.walletCore(event: .agentV2(runFailed))
+            XCTAssertNil(coordinator.error)
+            XCTAssertEqual(coordinator.messages.last?.error?.code, .internalError)
+        }
+
+        coordinator.send(input: .append(text: "Send 10 to Mom"))
+        await waitForHydrationRequest(client, count: 2)
+        for _ in 0..<100 where coordinator.messages.last?.status != .error || coordinator.messages.count != 1 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(coordinator.messages.map(\.id), ["message-a"])
+        XCTAssertEqual(coordinator.messages.first?.error?.code, .internalError)
+        XCTAssertNil(coordinator.error)
+    }
+
+    private func decodeUpdate(
+        kind: String,
+        threadId: String,
+        messageId: String,
+        delta: String? = nil,
+        contentKind: ApiAgentV2ContentKind = .markdown,
+        code: ApiAgentV2ErrorCode? = nil
+    ) throws -> ApiAgentV2ClientUpdate {
+        var update: [String: Any] = [
+            "kind": kind,
+            "clientRunId": "client-\(threadId)",
+            "runId": "run-\(threadId)",
+            "threadId": threadId,
+            "messageId": messageId
+        ]
+        if let delta { update["delta"] = delta }
+        if kind == "messageStarted" { update["contentKind"] = contentKind.rawValue }
+        if kind == "messageCompleted" { update["finishReason"] = "complete" }
+        if let code {
+            update["code"] = code.rawValue
+            update["retryable"] = false
+        }
+        let data = try JSONSerialization.data(withJSONObject: ["type": "agentV2", "update": update])
+        return try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data).update
+    }
+
+    private func decodeSendFormActionUpdate(threadId: String, messageId: String) throws -> ApiAgentV2ClientUpdate {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "type": "agentV2",
+            "update": [
+                "kind": "actionAvailable",
+                "clientRunId": "client-\(threadId)",
+                "runId": "run-\(threadId)",
+                "threadId": threadId,
+                "messageId": messageId,
+                "action": [
+                    "id": "action-send-form",
+                    "kind": "send",
+                    "labelCode": "open_send",
+                    "title": "Review prepared action",
+                    "effect": "open_send",
+                    "requiresConfirmation": false
+                ]
+            ]
+        ])
+        return try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data).update
+    }
+
+    private func decodeOpenDappActionUpdate(threadId: String, messageId: String) throws -> ApiAgentV2ClientUpdate {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "type": "agentV2",
+            "update": [
+                "kind": "actionAvailable",
+                "clientRunId": "client-\(threadId)",
+                "runId": "run-\(threadId)",
+                "threadId": threadId,
+                "messageId": messageId,
+                "action": [
+                    "id": "action-dapp",
+                    "kind": "openDapp",
+                    "labelCode": "open_external_link",
+                    "title": "Review prepared action",
+                    "requiresConfirmation": false
+                ]
+            ]
+        ])
+        return try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data).update
     }
 
     private func decodeRunActivityUpdate(threadId: String) throws -> ApiAgentV2ClientUpdate {
@@ -1242,6 +1890,27 @@ final class AgentV2ContractTests: XCTestCase {
         return try JSONDecoder().decode(ApiAgentV2ClientUpdateEnvelope.self, from: data).update
     }
 
+    private func decodeHydration(
+        threadId: String,
+        messages: [[String: Any]],
+        nextCursor: String? = nil
+    ) throws -> ApiAgentV2ThreadHydration {
+        var hydration: [String: Any] = [
+            "thread": [
+                "id": threadId,
+                "revision": 2,
+                "createdAt": "2026-07-22T00:00:00.000Z",
+                "updatedAt": "2026-07-22T00:00:01.000Z",
+                "lastActivityAt": "2026-07-22T00:00:01.000Z",
+                "messageCount": messages.count
+            ],
+            "messages": messages
+        ]
+        hydration["nextCursor"] = nextCursor
+        let data = try JSONSerialization.data(withJSONObject: hydration)
+        return try JSONDecoder().decode(ApiAgentV2ThreadHydration.self, from: data)
+    }
+
     private func decodeSemanticContent(_ object: [String: Any]) throws -> ApiAgentV2SemanticContent {
         try JSONDecoder().decode(
             ApiAgentV2SemanticContent.self,
@@ -1249,37 +1918,19 @@ final class AgentV2ContractTests: XCTestCase {
         )
     }
 
-    private func fearGreedRegimeObject(regime: String = "risk_on") -> [String: Any] {
-        [
-            "schemaVersion": 1,
-            "policyVersion": "fear-greed-sma-regime-v1",
-            "basis": "closed_utc_daily",
-            "asOfDate": "2026-08-09",
-            "latestValue": 62,
-            "sma30": "54.25000000",
-            "sma365": "48.12000000",
-            "regime": regime,
-            "seriesDigest": String(repeating: "a", count: 64),
-            "source": [
-                "provider": "alternative_me",
-                "endpoint": "alternative.fng",
-                "attributionRequired": true,
-                "attributionLabel": "Alternative.me",
-                "attributionUrl": "https://alternative.me/crypto/fear-and-greed-index/"
-            ]
-        ]
-    }
-
-    private func marketAnalysisObject(fearGreedRegime: [String: Any]) -> [String: Any] {
-        [
-            "kind": "market",
-            "schemaVersion": 1,
-            "view": "analysis",
-            "outcome": "complete",
-            "evidence": ["schemaVersion": 6],
-            "analysis": ["summary": "Classic market analysis remains visible."],
-            "fearGreedRegime": fearGreedRegime
-        ]
+    private func decodeSendPresentation(accountLabel: String) throws -> ApiAgentV2ActionPresentation {
+        try JSONDecoder().decode(
+            ApiAgentV2ActionPresentation.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "kind": "send",
+                "status": "active",
+                "network": "ton",
+                "accountLabel": accountLabel,
+                "recipient": ["kind": "external"],
+                "feeStatus": "calculated_in_wallet",
+                "warningCodes": []
+            ])
+        )
     }
 
     private func decodePersistedMessage(content: [String: Any]) throws -> ApiAgentV2PersistedMessage {
@@ -1302,5 +1953,324 @@ final class AgentV2ContractTests: XCTestCase {
             "content": content,
             "createdAt": "2026-07-31T12:00:00.000Z"
         ]
+    }
+    @MainActor
+    private func waitForHostContextUpdate(_ client: FakeAgentV2Client, count: Int = 1) async throws {
+        for _ in 0..<100 {
+            guard client.hostContextUpdateCount < count else { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Timed out waiting for host context publication")
+        throw FakeAgentV2ClientError.unavailable
+    }
+
+    @MainActor
+    private func waitForActionPresentationRequest(_ client: FakeAgentV2Client, count: Int = 1) async {
+        for _ in 0..<100 {
+            guard client.actionPresentationRequestCount < count else { return }
+            await Task.yield()
+        }
+    }
+
+    @MainActor
+    private func waitForHydrationRequest(_ client: FakeAgentV2Client, count: Int) async {
+        for _ in 0..<100 {
+            guard client.hydrationRequestCount < count else { return }
+            await Task.yield()
+        }
+    }
+
+    @MainActor
+    private func waitForProblemReportAvailabilityRequest(_ client: FakeAgentV2Client, count: Int) async {
+        for _ in 0..<100 {
+            guard client.problemReportAvailabilityRequestCount < count else { return }
+            await Task.yield()
+        }
+    }
+
+    @MainActor
+    private func waitForRequest(_ request: String, client: FakeAgentV2Client) async {
+        for _ in 0..<100 {
+            guard !client.requestOrder.contains(request) else { return }
+            await Task.yield()
+        }
+    }
+}
+
+@MainActor
+private final class AgentV2RunActivityProbe {
+    var isActive = false
+}
+
+@MainActor
+private final class AgentV2CoordinatorObserverSpy: AgentV2CoordinatorObserver {
+    private(set) var changes: [AgentV2CoordinatorChange] = []
+
+    func agentV2CoordinatorDidChange(_ coordinator: AgentV2Coordinator, change: AgentV2CoordinatorChange) {
+        changes.append(change)
+    }
+}
+
+private enum FakeAgentV2ClientError: Error {
+    case unavailable
+}
+
+@MainActor
+private final class FakeAgentV2Client: AgentV2Client {
+    var defaultThreadError: ApiAgentV2MutationError?
+    var hintsResult: ApiAgentV2HintsResponse?
+    var blocksHints = false
+    private var hintsContinuations: [CheckedContinuation<Void, Never>] = []
+    private let defaultThreadId: String
+    private let actionPresentationResults: [ApiAgentV2ActionPresentation]
+    private let hydrationResults: [ApiAgentV2ThreadHydration]
+    private var hydrationResult: ApiAgentV2ThreadHydration?
+    private let shouldCompleteRun: Bool
+    private let retryResultState: ApiAgentV2RunResultState?
+    private let blockedHostContextAttempt: Int?
+    private let blockedHydrationAttempt: Int?
+    private let blockedActionPresentationAttempt: Int?
+    private var hostContextFailuresRemaining: Int
+    private var hostContextFailureAttempts: Set<Int>
+    private var blockedHostContextContinuation: CheckedContinuation<Void, Never>?
+    private var blockedHydrationContinuation: CheckedContinuation<Void, Never>?
+    private var blockedActionPresentationContinuation: CheckedContinuation<Void, Never>?
+    private(set) var startedCommands: [ApiAgentV2RunCommand] = []
+    private(set) var retriedClientRunIds: [String] = []
+    private(set) var hostContextUpdateCount = 0
+    private(set) var hydrationRequestCount = 0
+    private(set) var actionPresentationRequestCount = 0
+    private(set) var lastHostContext: ApiAgentV2HostContext?
+    private(set) var requestOrder: [String] = []
+    private(set) var chatActivity: [Bool] = []
+    private(set) var problemReports: [(threadId: String, report: ApiAgentV2ProblemReport)] = []
+    private(set) var problemReportAvailabilityRequestCount = 0
+    var isProblemReportAvailable = true
+    var hostContextUpdateObserver: ((Int) -> Void)?
+    var startRunObserver: (() -> Void)?
+    var runResultState: ApiAgentV2RunResultState = .completed
+
+    init(
+        defaultThreadId: String = "thread-a",
+        actionPresentationResult: ApiAgentV2ActionPresentation? = nil,
+        actionPresentationResults: [ApiAgentV2ActionPresentation] = [],
+        hydrationResult: ApiAgentV2ThreadHydration? = nil,
+        hydrationResults: [ApiAgentV2ThreadHydration] = [],
+        shouldCompleteRun: Bool = false,
+        retryResultState: ApiAgentV2RunResultState? = nil,
+        hostContextFailuresRemaining: Int = 0,
+        blockedHostContextAttempt: Int? = nil,
+        blockedHydrationAttempt: Int? = nil,
+        blockedActionPresentationAttempt: Int? = nil,
+        hostContextFailureAttempts: Set<Int> = []
+    ) {
+        self.defaultThreadId = defaultThreadId
+        self.actionPresentationResults = actionPresentationResults.isEmpty
+            ? actionPresentationResult.map { [$0] } ?? []
+            : actionPresentationResults
+        self.hydrationResult = hydrationResult
+        self.hydrationResults = hydrationResults
+        self.shouldCompleteRun = shouldCompleteRun
+        self.retryResultState = retryResultState
+        self.hostContextFailuresRemaining = hostContextFailuresRemaining
+        self.blockedHostContextAttempt = blockedHostContextAttempt
+        self.blockedHydrationAttempt = blockedHydrationAttempt
+        self.blockedActionPresentationAttempt = blockedActionPresentationAttempt
+        self.hostContextFailureAttempts = hostContextFailureAttempts
+    }
+
+    var hasConsent = true
+    func consent() async throws -> Bool { hasConsent }
+    var blocksConsentAcceptance = false
+    var consentAcceptanceError: Error?
+    private var consentAcceptanceContinuation: CheckedContinuation<Void, Never>?
+    func acceptConsent() async throws {
+        requestOrder.append("acceptConsent")
+        if blocksConsentAcceptance {
+            await withCheckedContinuation { consentAcceptanceContinuation = $0 }
+        }
+        if let consentAcceptanceError { throw consentAcceptanceError }
+    }
+    func resumeConsentAcceptance() {
+        blocksConsentAcceptance = false
+        consentAcceptanceContinuation?.resume()
+        consentAcceptanceContinuation = nil
+    }
+    func updateHostContext(_ context: ApiAgentV2HostContext?) async throws {
+        requestOrder.append("hostContext")
+        hostContextUpdateCount += 1
+        hostContextUpdateObserver?(hostContextUpdateCount)
+        if hostContextUpdateCount == blockedHostContextAttempt {
+            await withCheckedContinuation { continuation in
+                blockedHostContextContinuation = continuation
+            }
+        }
+        if hostContextFailuresRemaining > 0 {
+            hostContextFailuresRemaining -= 1
+            throw FakeAgentV2ClientError.unavailable
+        }
+        if hostContextFailureAttempts.remove(hostContextUpdateCount) != nil {
+            throw FakeAgentV2ClientError.unavailable
+        }
+        lastHostContext = context
+    }
+    func resumeBlockedHostContextUpdate() {
+        blockedHostContextContinuation?.resume()
+        blockedHostContextContinuation = nil
+    }
+    func resumeBlockedHydration() {
+        blockedHydrationContinuation?.resume()
+        blockedHydrationContinuation = nil
+    }
+    func resumeBlockedActionPresentation() {
+        blockedActionPresentationContinuation?.resume()
+        blockedActionPresentationContinuation = nil
+    }
+    func resetHostContextUpdateCount() {
+        hostContextUpdateCount = 0
+    }
+    func setHydrationResult(_ hydrationResult: ApiAgentV2ThreadHydration) {
+        self.hydrationResult = hydrationResult
+    }
+    func hints() async throws -> ApiAgentV2HintsResponse {
+        if blocksHints {
+            await withCheckedContinuation { hintsContinuations.append($0) }
+        }
+        guard let hintsResult else { throw FakeAgentV2ClientError.unavailable }
+        return hintsResult
+    }
+    func resumeHints() {
+        blocksHints = false
+        hintsContinuations.forEach { $0.resume() }
+        hintsContinuations.removeAll()
+    }
+    var blocksStatusRefresh = false
+    private var statusContinuations: [CheckedContinuation<Void, Never>] = []
+    private(set) var completedStatusRequests = Set<String>()
+    private(set) var cancelledStatusRequests = Set<String>()
+    func loadAvailability() async {
+        await loadStatus("availability")
+    }
+    func loadUserQuota() async {
+        await loadStatus("userQuota")
+    }
+    func problemReportAvailability() async -> Bool {
+        problemReportAvailabilityRequestCount += 1
+        return isProblemReportAvailable
+    }
+    func setChatActive(_ isActive: Bool) async {
+        chatActivity.append(isActive)
+    }
+    private func loadStatus(_ request: String) async {
+        requestOrder.append(request)
+        if blocksStatusRefresh {
+            await withCheckedContinuation { statusContinuations.append($0) }
+        }
+        if Task.isCancelled { cancelledStatusRequests.insert(request) }
+        completedStatusRequests.insert(request)
+    }
+    func resumeStatusRefresh() {
+        blocksStatusRefresh = false
+        statusContinuations.forEach { $0.resume() }
+        statusContinuations.removeAll()
+    }
+    func defaultThread() async throws -> ApiAgentV2DefaultThreadResponse {
+        requestOrder.append("defaultThread")
+        if let defaultThreadError { throw defaultThreadError }
+        let thread = hydrationResult?.thread ?? makeThread(id: defaultThreadId)
+        return try JSONDecoder().decode(
+            ApiAgentV2DefaultThreadResponse.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "protocolVersion": 2,
+                "thread": try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)),
+                "created": false
+            ])
+        )
+    }
+    func messages(threadId: String, cursor: String?, limit: Int) async throws -> ApiAgentV2ThreadHydration {
+        requestOrder.append("messages")
+        hydrationRequestCount += 1
+        let attempt = hydrationRequestCount
+        let result = hydrationResults.isEmpty
+            ? hydrationResult
+            : hydrationResults[min(attempt - 1, hydrationResults.count - 1)]
+        if attempt == blockedHydrationAttempt {
+            await withCheckedContinuation { continuation in
+                blockedHydrationContinuation = continuation
+            }
+        }
+        guard let result else { throw FakeAgentV2ClientError.unavailable }
+        return result
+    }
+    func startRun(_ command: ApiAgentV2RunCommand) async throws -> ApiAgentV2RunResult {
+        startedCommands.append(command)
+        startRunObserver?()
+        guard shouldCompleteRun else { throw FakeAgentV2ClientError.unavailable }
+        return try JSONDecoder().decode(
+            ApiAgentV2RunResult.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "clientRunId": "client-thread-a",
+                "runId": "run-thread-a",
+                "state": runResultState.rawValue
+            ])
+        )
+    }
+    func retryRun(clientRunId: String) async throws -> ApiAgentV2RunResult? {
+        retriedClientRunIds.append(clientRunId)
+        guard let retryResultState else { return nil }
+        return try JSONDecoder().decode(
+            ApiAgentV2RunResult.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "clientRunId": clientRunId,
+                "runId": "run-retry",
+                "state": retryResultState.rawValue
+            ])
+        )
+    }
+    func cancelRun(_ runId: String) async {}
+    func clearThread(
+        id: String,
+        revision: Int
+    ) async throws -> ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse> {
+        let thread = makeThread(id: id, revision: revision + 1)
+        return try JSONDecoder().decode(
+            ApiAgentV2MutationResult<ApiAgentV2ThreadClearResponse>.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "ok": true,
+                "value": [
+                    "protocolVersion": 2,
+                    "thread": try JSONSerialization.jsonObject(with: JSONEncoder().encode(thread)),
+                    "duplicate": false
+                ]
+            ])
+        )
+    }
+    func reportProblem(threadId: String, report: ApiAgentV2ProblemReport) async throws {
+        problemReports.append((threadId, report))
+    }
+    func actionPresentation(messageId: String, actionId: String) async throws -> ApiAgentV2ActionPresentation {
+        actionPresentationRequestCount += 1
+        let attempt = actionPresentationRequestCount
+        if attempt == blockedActionPresentationAttempt {
+            await withCheckedContinuation { continuation in
+                blockedActionPresentationContinuation = continuation
+            }
+        }
+        guard !actionPresentationResults.isEmpty else { throw FakeAgentV2ClientError.unavailable }
+        return actionPresentationResults[min(attempt - 1, actionPresentationResults.count - 1)]
+    }
+    func resolveAction(messageId: String, actionId: String) async throws -> ApiAgentV2ResolvedAction { fatalError() }
+    private func makeThread(id: String, revision: Int = 1) -> ApiAgentV2ThreadSummary {
+        try! JSONDecoder().decode(
+            ApiAgentV2ThreadSummary.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "id": id,
+                "revision": revision,
+                "createdAt": "2026-07-22T00:00:00.000Z",
+                "updatedAt": "2026-07-22T00:00:00.000Z",
+                "lastActivityAt": "2026-07-22T00:00:00.000Z",
+                "messageCount": 0
+            ])
+        )
     }
 }

@@ -167,7 +167,7 @@ class WMenuPopupView(
                     alpha = 0f
                     visibility = INVISIBLE
                 }
-                itemHeight = (56 + if (item.hasSeparator) 7 else 0).dp
+                itemHeight = item.config.height + if (item.hasSeparator) 7.dp else 0
             } else {
                 val itemContentHeight =
                     if (item.config == Config.Back) {

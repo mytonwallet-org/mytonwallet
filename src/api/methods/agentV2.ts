@@ -1,4 +1,5 @@
 export {
+  recordAgentV2Telemetry,
   acceptAgentV2Consent,
   cancelAgentV2Run,
   clearAgentV2Thread,
@@ -9,11 +10,14 @@ export {
   getAgentV2DefaultThread,
   getAgentV2Hints,
   getAgentV2Messages,
+  getAgentV2ProblemReportAvailability,
   getAgentV2RuntimeStatus,
   getAgentV2UserQuota,
+  reportAgentV2Problem,
   resolveAgentV2Action,
   retryAgentV2Run,
   startAgentV2Run,
+  setAgentV2ChatActive,
   updateAgentV2HostContext,
 } from '../agentV2/service';
 export type {
@@ -21,8 +25,8 @@ export type {
   AgentV2HostContextSnapshot,
   AgentV2MutationError,
   AgentV2MutationResult,
+  AgentV2ProblemReport,
   AgentV2ResolvedAction,
   AgentV2RunCommand,
   AgentV2RuntimeStatus,
-  AgentV2SendReview,
 } from '../agentV2/types';

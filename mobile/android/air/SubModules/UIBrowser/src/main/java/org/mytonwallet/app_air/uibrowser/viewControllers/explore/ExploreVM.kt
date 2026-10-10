@@ -24,8 +24,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import org.mytonwallet.app_air.uiagent.processors.AgentHint
 import org.mytonwallet.app_air.uiagent.search.AgentSearchSuggestions
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntries
 import org.mytonwallet.app_air.uibrowser.search.AppSearchEntry
 import org.mytonwallet.app_air.uibrowser.search.TokenSearchMatching
@@ -90,6 +90,8 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
     private var searchJob: Job? = null
 
     private var waitingForNetwork = false
+
+    private var lastSuggestedChats: List<AgentHint> = emptyList()
     internal var connectedSites: Array<ApiDapp>? =
         DappsStore.dApps[AccountStore.activeAccountId]?.toTypedArray()
     var allSites: List<MExploreSite>? = null
@@ -364,8 +366,9 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
                 visitedSites = history?.visitedSites?.toList().orEmpty(),
                 recentTokenSlugs = history?.recentTokenSlugs().orEmpty()
             )
+            val suggestedChatsSnapshot = lastSuggestedChats
             val baseResult = withContext(Dispatchers.Default) {
-                buildSearchResult(keyword, historySnapshot)
+                buildSearchResult(keyword, historySnapshot, suggestedChatsSnapshot)
             }
             if (searchJob !== currentJob) return@launch
 
@@ -385,6 +388,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
             if (keyword.isEmpty()) {
                 val suggestedChats = AgentSearchSuggestions.suggested()
                 if (searchJob !== currentJob) return@launch
+                lastSuggestedChats = suggestedChats
                 if (suggestedChats != result.suggestedChats) {
                     onResult(result.copy(suggestedChats = suggestedChats))
                 }
@@ -431,7 +435,8 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
 
     private suspend fun buildSearchResult(
         keyword: String,
-        historySnapshot: ExploreHistorySnapshot
+        historySnapshot: ExploreHistorySnapshot,
+        suggestedChats: List<AgentHint>
     ): SearchResult {
         val searchContext = currentCoroutineContext()
         val recentChats = if (keyword.isEmpty()) {
@@ -487,7 +492,7 @@ class ExploreVM(delegate: Delegate) : WalletCore.EventObserver {
         return SearchResult(
             keyword = keyword,
             recentChats = recentChats,
-            suggestedChats = emptyList(),
+            suggestedChats = if (keyword.isEmpty()) suggestedChats else emptyList(),
             matchedVisitedSite = matchedVisitedSite,
             recentSearches = if (noResultsFound) {
                 listOf(

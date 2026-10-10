@@ -1,14 +1,11 @@
 import Foundation
 import WalletCore
 
-enum AgentV2NativeActionKind: String, Equatable, Sendable {
-    case receive, send, stake, swap, hideSpamAssets, openUrl, openAgent, openToken, openTransaction
-}
-
 struct AgentV2NativeAction: Equatable, Sendable {
     let id: String
-    let kind: AgentV2NativeActionKind
+    let kind: ApiAgentV2ActionKind
     let labelCode: ApiAgentV2ActionLabelCode
+    let title: String
     var presentation: ApiAgentV2ActionPresentation?
 }
 
@@ -61,14 +58,16 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
     private(set) var content: AgentV2NativeMessageContent
     let createdAt: Date
     private(set) var status: AgentV2NativeMessageStatus
+    let responseLanguage: String?
     var error: ApiAgentV2MessageError?
     var actions: [AgentV2NativeAction]
     var followups: [ApiAgentV2FollowUp]
-    var inputContinuations: [ApiAgentV2InputContinuation]
-    var walletControls: ApiAgentV2WalletConversationControls?
+    var tables: [ApiAgentV2AnswerTable] = []
+    var tableReferences: [ApiAgentV2AnswerTableReference] = []
+    var links: [ApiAgentV2AnswerLink] = []
 
     var text: String {
-        content.text
+        AgentV2AnswerTables.text(content.text, tables: tables, references: tableReferences, links: links)
     }
 
     var contentKind: ApiAgentV2ContentKind {
@@ -86,6 +85,11 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         switch message.content {
         case .markdown(let markdown):
             content = .markdown(markdown)
+        case .composedMarkdown(let markdown):
+            content = .markdown(markdown.text)
+            tables = markdown.tables
+            tableReferences = markdown.tableReferences
+            links = markdown.links
         case .semantic(let semantic):
             content = .semantic(semantic)
         case nil:
@@ -93,19 +97,18 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         }
         createdAt = AgentV2DateParser.date(message.createdAt)
         status = AgentV2NativeMessageStatus(message.status)
+        responseLanguage = message.responseLanguage
         error = message.error
-        actions = (message.actions ?? []).compactMap { action in
-            guard let kind = AgentV2NativeActionKind(rawValue: action.kind.rawValue) else { return nil }
+        actions = (message.actions ?? []).map { action in
             return AgentV2NativeAction(
                 id: action.id,
-                kind: kind,
+                kind: action.kind,
                 labelCode: action.labelCode,
+                title: action.title,
                 presentation: nil
             )
         }
         followups = message.followups ?? []
-        inputContinuations = message.inputContinuations ?? []
-        walletControls = Self.liveWalletControls(message.walletControls)
     }
 
     init(
@@ -114,6 +117,7 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         role: ApiAgentV2MessageRole,
         text: String,
         contentKind: ApiAgentV2ContentKind = .markdown,
+        responseLanguage: String? = nil,
         status: AgentV2NativeMessageStatus = .complete
     ) {
         self.id = id
@@ -122,11 +126,10 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         content = contentKind == .markdown ? .markdown(text) : .semanticPending
         createdAt = Date()
         self.status = status
+        self.responseLanguage = responseLanguage
         error = nil
         actions = []
         followups = []
-        inputContinuations = []
-        walletControls = nil
     }
 
     mutating func appendMarkdown(_ delta: String) {
@@ -143,26 +146,37 @@ struct AgentV2NativeMessage: Equatable, Sendable, Identifiable {
         self.status = status
     }
 
-    mutating func setWalletControls(_ controls: ApiAgentV2WalletConversationControls?) {
-        walletControls = Self.liveWalletControls(controls)
-    }
-
-    private static func liveWalletControls(
-        _ controls: ApiAgentV2WalletConversationControls?,
-        now: Date = Date()
-    ) -> ApiAgentV2WalletConversationControls? {
-        guard let controls,
-              !controls.scopeChoices.isEmpty,
-              AgentV2DateParser.date(controls.expiresAt) > now else { return nil }
-        return controls
-    }
 }
 
 struct AgentV2ConversationState {
     private(set) var messages: [AgentV2NativeMessage] = []
 
-    mutating func replaceMessages(_ messages: [AgentV2NativeMessage]) {
-        self.messages = messages
+    mutating func replaceMessages(
+        _ hydratedMessages: [AgentV2NativeMessage],
+        preservingLiveActions: Bool = false
+    ) {
+        guard preservingLiveActions else {
+            messages = hydratedMessages
+            return
+        }
+        var liveActionsByMessageId: [String: [AgentV2NativeAction]] = [:]
+        for message in messages where !message.actions.isEmpty {
+            liveActionsByMessageId[message.id] = message.actions
+        }
+        messages = hydratedMessages.map { message in
+            guard let liveActions = liveActionsByMessageId[message.id] else { return message }
+            var reconciledMessage = message
+            reconciledMessage.actions = message.actions.map { action in
+                var reconciledAction = action
+                if let liveAction = liveActions.first(where: { $0.id == action.id && $0.kind == action.kind }) {
+                    reconciledAction.presentation = liveAction.presentation
+                }
+                return reconciledAction
+            }
+            let savedActionIds = Set(message.actions.map(\.id))
+            reconciledMessage.actions += liveActions.filter { !savedActionIds.contains($0.id) }
+            return reconciledMessage
+        }
     }
 
     mutating func prependMessages(_ messages: [AgentV2NativeMessage]) {
@@ -182,7 +196,8 @@ struct AgentV2ConversationState {
     mutating func ensureAssistantMessage(
         threadId: String,
         messageId: String,
-        contentKind: ApiAgentV2ContentKind
+        contentKind: ApiAgentV2ContentKind,
+        responseLanguage: String? = nil
     ) {
         guard !messages.contains(where: { $0.id == messageId }) else { return }
         appendMessage(AgentV2NativeMessage(
@@ -191,6 +206,7 @@ struct AgentV2ConversationState {
             role: .assistant,
             text: "",
             contentKind: contentKind,
+            responseLanguage: responseLanguage,
             status: .streaming
         ))
     }
@@ -199,18 +215,33 @@ struct AgentV2ConversationState {
         mutateMessage(id: messageId) { $0.appendMarkdown(delta) }
     }
 
-    mutating func completeMessage(
-        id: String,
-        walletControls: ApiAgentV2WalletConversationControls?
-    ) {
+    mutating func setAnswerTables(id: String, tables: [ApiAgentV2AnswerTable], references: [ApiAgentV2AnswerTableReference]) {
         mutateMessage(id: id) {
-            $0.finalize()
-            $0.setWalletControls(walletControls)
+            $0.tables = tables
+            $0.tableReferences = references
         }
+    }
+
+    mutating func addAnswerLink(id: String, link: ApiAgentV2AnswerLink) {
+        mutateMessage(id: id) { $0.links.append(link) }
+    }
+
+    mutating func completeMessage(id: String) {
+        mutateMessage(id: id) { $0.finalize() }
     }
 
     mutating func endMessageContent(id: String) {
         mutateMessage(id: id) { $0.finalize() }
+    }
+
+    /// Returns whether the conversation holds the answer, which then shows the error as a hydrated failed answer does.
+    mutating func failMessage(id: String, error: ApiAgentV2MessageError) -> Bool {
+        guard messages.contains(where: { $0.id == id }) else { return false }
+        mutateMessage(id: id) {
+            $0.error = error
+            $0.finalize(status: .error)
+        }
+        return true
     }
 
     mutating func setSemanticContent(id: String, content: ApiAgentV2SemanticContent) {
@@ -252,13 +283,6 @@ struct AgentV2ConversationState {
         mutateMessage(id: messageId) { $0.followups = followups }
     }
 
-    mutating func setInputContinuations(
-        messageId: String,
-        inputContinuations: [ApiAgentV2InputContinuation]
-    ) {
-        mutateMessage(id: messageId) { $0.inputContinuations = inputContinuations }
-    }
-
     mutating func finalizeStreamingMessages(status: AgentV2NativeMessageStatus = .complete) {
         for index in messages.indices {
             messages[index].finalize(status: status)
@@ -270,12 +294,6 @@ struct AgentV2ConversationState {
             for actionIndex in messages[messageIndex].actions.indices {
                 messages[messageIndex].actions[actionIndex].presentation = nil
             }
-        }
-    }
-
-    mutating func clearWalletControls() {
-        for index in messages.indices {
-            messages[index].walletControls = nil
         }
     }
 

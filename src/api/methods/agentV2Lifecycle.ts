@@ -24,6 +24,7 @@ export function reconcileAgentV2ProtocolVersion(backendVersion?: AgentProtocolVe
 export function resolveAgentV2ProtocolVersionForRouting(
   backendVersion?: AgentProtocolVersion,
 ): AgentProtocolVersion {
+  if (getEnvironment().isAndroidApp) return 'v2';
   return resolveAgentV2Enabled(backendVersion) && getEnvironment().isAgentV2Enabled ? 'v2' : 'v1';
 }
 
@@ -83,6 +84,7 @@ function resolveAgentV2Enabled(backendVersion?: AgentProtocolVersion) {
     environment.agentOverride,
     backendVersion,
     environment.isAndroidApp,
+    environment.isIosApp,
   );
 }
 

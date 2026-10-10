@@ -22,7 +22,7 @@ jest.mock('../../../util/logs', () => ({
 jest.mock('../../../enclave', () => ({
   enclave: { removeSecret: jest.fn(), reset: jest.fn(), importSecret: jest.fn(), duplicateSecret: jest.fn() },
 }));
-jest.mock('../../../util/agent/agentStorage', () => ({ clearAgentChat: jest.fn() }));
+jest.mock('../../../util/agent/clearLegacyAgentStorage', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('../../../util/notificationSound', () => ({ initializeSounds: jest.fn() }));
 jest.mock('../../cache', () => ({ persistCache: jest.fn(() => true) }));
 jest.mock('../../index', () => ({

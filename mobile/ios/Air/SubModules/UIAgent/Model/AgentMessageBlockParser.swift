@@ -15,6 +15,7 @@ enum AgentMessageTableVerticalAlignment: Equatable {
 struct AgentMessageTableCell: Equatable {
     let text: String
     let isHeader: Bool
+    let isPlainText: Bool
     let alignment: AgentMessageTableAlignment
     let verticalAlignment: AgentMessageTableVerticalAlignment
     let columnSpan: Int
@@ -23,6 +24,7 @@ struct AgentMessageTableCell: Equatable {
     init(
         text: String,
         isHeader: Bool = false,
+        isPlainText: Bool = false,
         alignment: AgentMessageTableAlignment = .start,
         verticalAlignment: AgentMessageTableVerticalAlignment = .top,
         columnSpan: Int = 1,
@@ -30,6 +32,7 @@ struct AgentMessageTableCell: Equatable {
     ) {
         self.text = text
         self.isHeader = isHeader
+        self.isPlainText = isPlainText
         self.alignment = alignment
         self.verticalAlignment = verticalAlignment
         self.columnSpan = columnSpan

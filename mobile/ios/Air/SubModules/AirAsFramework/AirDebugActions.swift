@@ -53,11 +53,6 @@ public enum AirDebugActions {
         )
     }
 
-    public static func resetAgentConsentState() {
-        AgentEntryPoint.resetConsentStateForDebug()
-        resetAgentRoot()
-    }
-
     public static func createTonOnlyWallet() {
         guard let presenter = topViewController() else { return }
         let network = AccountStore.account?.network ?? .mainnet
@@ -125,11 +120,4 @@ public enum AirDebugActions {
         topViewController()?.present(navigationController, animated: true)
     }
 
-    private static func resetAgentRoot() {
-        for window in UIApplication.shared.sceneWindows {
-            window.rootViewController?
-                .descendantViewController(of: TopTabsRootViewController.self)?
-                .debugOnly_resetAgentRoot()
-        }
-    }
 }

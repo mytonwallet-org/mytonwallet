@@ -1,4 +1,5 @@
 import Foundation
+import WalletCore
 
 typealias AgentItemID = UUID
 
@@ -21,6 +22,56 @@ struct AgentHint: Decodable, Hashable {
     let title: String
     let subtitle: String
     let prompt: String
+    let catalogVersion: String?
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String,
+        prompt: String,
+        catalogVersion: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.prompt = prompt
+        self.catalogVersion = catalogVersion
+    }
+}
+
+struct AgentMessageControl: Hashable {
+    enum Kind: Hashable {
+        case action
+        case followup
+    }
+
+    let id: String
+    let title: String
+    let isEnabled: Bool
+    var kind: Kind = .action
+}
+
+enum AgentMessageRenderingPolicy: Equatable {
+    case classic
+    case agentV2Safe
+
+    var markdownProfile: AgentMessageMarkdownProfile {
+        switch self {
+        case .classic:
+            .legacy
+        case .agentV2Safe:
+            .agentMarkdownV1
+        }
+    }
+
+    var allowsLinks: Bool {
+        switch self {
+        case .classic:
+            true
+        case .agentV2Safe:
+            false
+        }
+    }
 }
 
 struct AgentMessage {
@@ -32,15 +83,19 @@ struct AgentMessage {
 
     enum SystemStyle {
         case dateTime(date: String, time: String)
-        case accountChange
     }
 
     let id: AgentItemID
     let role: Role
+    var answerBlocks: [AgentMessageBlock]? = nil
     var text: String
     var timestamp: Date
     var isStreaming: Bool
-    var action: AgentMessageAction? = nil
+    var responseLanguage: String? = nil
+    var semanticContent: ApiAgentV2SemanticContent? = nil
+    var controls: [AgentMessageControl] = []
+    var renderingPolicy: AgentMessageRenderingPolicy = .classic
+    var supplementaryErrorText: String? = nil
     var systemStyle: SystemStyle? = nil
 
     init(
@@ -48,7 +103,11 @@ struct AgentMessage {
         role: Role,
         text: String,
         isStreaming: Bool,
-        action: AgentMessageAction? = nil,
+        responseLanguage: String? = nil,
+        semanticContent: ApiAgentV2SemanticContent? = nil,
+        controls: [AgentMessageControl] = [],
+        renderingPolicy: AgentMessageRenderingPolicy = .classic,
+        supplementaryErrorText: String? = nil,
         systemStyle: SystemStyle? = nil,
         timestamp: Date = Date()
     ) {
@@ -57,7 +116,11 @@ struct AgentMessage {
         self.text = text
         self.timestamp = timestamp
         self.isStreaming = isStreaming
-        self.action = action
+        self.responseLanguage = responseLanguage
+        self.semanticContent = semanticContent
+        self.controls = controls
+        self.renderingPolicy = renderingPolicy
+        self.supplementaryErrorText = supplementaryErrorText
         self.systemStyle = systemStyle
     }
 
@@ -68,17 +131,6 @@ struct AgentMessage {
         return false
     }
 
-    var isAccountChangeSystemMessage: Bool {
-        if case .accountChange? = systemStyle {
-            return true
-        }
-        return false
-    }
-}
-
-struct AgentMessageAction {
-    let title: String
-    let url: URL
 }
 
 struct AgentTypingIndicator {

@@ -8,16 +8,16 @@ import type {
 } from '../../../api/agentV2/types';
 import type { LangFn } from '../../../hooks/useLang';
 
+import { buildAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
 import {
   cancelAgentV2ActiveRunReplays,
   publishAgentV2Update,
 } from '../../../util/agentV2Updates';
 import { waitFor } from '../../../util/schedulers';
 import { callApi } from '../../../api';
-import { buildAgentV2HostContext } from '../../agentV2/buildHostContext';
+import { hostUiCapabilities } from '../../../api/agentV2/testing/hostUiCapabilities';
 import useAgentV2Messages, { type UseAgentV2MessagesResult } from './useAgentV2Messages';
 
-import AgentV2IncomingMessage from '../../agentV2/AgentV2IncomingMessage';
 import MessageBubble from '../MessageBubble';
 
 const THREAD_ID = '11111111-1111-4111-8111-111111111111';
@@ -31,21 +31,20 @@ const FOLLOWUP_PROMPT = 'Explain market analysis.';
 
 const mockLang = Object.assign((key: string) => key, { code: 'en' as const }) as LangFn;
 
-const mockSetAgentMeta = jest.fn();
-
 jest.mock('../../../api', () => ({ callApi: jest.fn() }));
 jest.mock('../../../hooks/useLang', () => ({
   __esModule: true,
   default: () => mockLang,
+  LangProvider: ({ children }: { children: unknown }) => children,
+  useLangForCode: () => mockLang,
 }));
-jest.mock('../../agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
+jest.mock('../../../global/agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
 jest.mock('../../../global', () => ({
   ...jest.requireActual('../../../global'),
   getGlobal: () => ({}),
   getActions: () => ({
     openReceiveModal: jest.fn(),
     openTransactionInfo: jest.fn(),
-    setAgentMeta: mockSetAgentMeta,
     showTokenActivity: jest.fn(),
     startTransfer: jest.fn(),
     switchToAgent: jest.fn(),
@@ -67,7 +66,6 @@ describe('Agent V2 market analysis follow-up flow', () => {
     document.body.appendChild(root);
     result = undefined;
     pendingRun = createDeferred<AgentV2RunResult | undefined>();
-    mockSetAgentMeta.mockReset();
     buildAgentV2HostContextMock.mockReset();
     buildAgentV2HostContextMock.mockReturnValue(hostContext());
     callApiMock.mockReset();
@@ -76,11 +74,11 @@ describe('Agent V2 market analysis follow-up flow', () => {
         case 'getAgentV2Consent':
           return Promise.resolve(true);
         case 'getAgentV2DefaultThread':
-          return Promise.resolve({
-            protocolVersion: 2,
+          return Promise.resolve({ ok: true, value: {
+            protocolVersion: 3,
             thread: threadSummary(5),
             created: false,
-          });
+          } });
         case 'getAgentV2Messages':
           return Promise.resolve({
             ok: true,
@@ -199,15 +197,13 @@ describe('Agent V2 market analysis follow-up flow', () => {
     result = useAgentV2Messages({ isActive: true, lang: mockLang });
     return (
       <div>
-        {result.messages.map((message) => (
+        {result.messages.map((message, index) => (
           <MessageBubble
             key={message.id}
             message={message}
-            areLinksEnabled={false}
             isDisabled={result!.isInputDisabled}
-            incomingMessageComponent={AgentV2IncomingMessage}
-            shouldRenderStreamingText
             shouldAnimateTextStreaming={false}
+            isLatest={index === result!.messages.length - 1}
             textRevealPresentation={result!.textRevealPresentations[message.id]}
             onFollowup={result!.sendFollowup}
           />
@@ -233,10 +229,6 @@ function threadSummary(revision: number) {
   return {
     id: THREAD_ID,
     revision,
-    metadataRevision: 1 as const,
-    titleSource: 'none' as const,
-    isPinned: false as const,
-    isDefault: true as const,
     createdAt: '2026-08-15T10:00:00.000Z',
     updatedAt: '2026-08-15T10:00:00.000Z',
     lastActivityAt: '2026-08-15T10:00:00.000Z',
@@ -254,7 +246,7 @@ function routing() {
 
 function hostContext(): AgentV2HostContextSnapshot {
   return {
-    platform: 'classic',
+    platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
     client: 'web',
     lang: 'en',
     baseCurrency: 'USD',

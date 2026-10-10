@@ -8,7 +8,7 @@
   flex-direction: column;
   flex-shrink: 0;
 
-  padding: 0 1.25rem 0.75rem;
+  padding: 0 1.25rem 1.25rem;
 
   :global(html.with-bottombar) & {
     padding-bottom: calc(0.75rem + var(--bottombar-height));
@@ -99,17 +99,12 @@
   }
 }
 
-.inputWithTwoButtons {
-  --agent-input-inline-end-padding: 4.5rem;
-}
-
 .inputButtons {
   position: absolute;
   bottom: 0.625rem;
   inset-inline-end: 0.75rem;
 
   display: flex;
-  gap: 0.25rem;
   align-items: center;
 }
 

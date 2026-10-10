@@ -1,3 +1,11 @@
+import { isAgentLinkUrl } from './agent/agentLinkUrl';
+import {
+  ANSWER_LINK_MARKER_PATTERN,
+  decodeMarkerUrl,
+  MARKDOWN_ESCAPE_PATTERN,
+  removeAnswerLinkMarkers,
+  STRAY_ANSWER_LINK_MARKER_PATTERN,
+} from './agent/answerLinkMarkers';
 import { SELF_PROTOCOL } from './deeplink/constants';
 
 function escapeHtml(text: string): string {
@@ -8,28 +16,11 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export interface ActionButton {
-  label: string;
-  url: string;
-}
-
-export type MarkdownProfile = 'agentV2' | 'legacy';
-
-interface ParseMarkdownActionsOptions {
+interface RenderMarkdownOptions {
   areLinksEnabled: boolean;
-  shouldBufferIncompleteAction?: boolean;
 }
 
-export interface RenderMarkdownOptions extends ParseMarkdownActionsOptions {
-  profile: MarkdownProfile;
-}
-
-interface ParsedMarkdownActions {
-  buttons: ActionButton[];
-  renderableText: string;
-}
-
-interface RenderedMarkdown extends ParsedMarkdownActions {
+interface RenderedMarkdown {
   html: string;
 }
 
@@ -49,8 +40,6 @@ export function renderDeterministicMarkdownTable(text: string): RenderedMarkdown
   )).join('');
   return {
     html: `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`,
-    buttons: [],
-    renderableText: text,
   };
 }
 
@@ -79,169 +68,18 @@ function parseDeterministicTableRow(row: string) {
   return cells;
 }
 
-const ACTION_LINK_PATTERN = new RegExp(`\\[([^\\]]+)\\]\\((${SELF_PROTOCOL}[^)]+)\\)`, 'g');
-
-export function parseMarkdownActions(
-  text: string,
-  { areLinksEnabled, shouldBufferIncompleteAction = false }: ParseMarkdownActionsOptions,
-): ParsedMarkdownActions {
-  const buttons: ActionButton[] = [];
-
-  let renderableText = text.replace(
-    ACTION_LINK_PATTERN,
-    (_match, label: string, url: string) => {
-      if (!areLinksEnabled) return label;
-      buttons.push({ label, url });
-      return '';
-    },
-  );
-  if (shouldBufferIncompleteAction) {
-    renderableText = removeIncompleteAction(renderableText);
-  }
-
-  return { buttons, renderableText };
-}
-
 export default function renderMarkdown(
   text: string,
-  options: RenderMarkdownOptions,
+  { areLinksEnabled }: RenderMarkdownOptions,
 ): RenderedMarkdown {
-  const { areLinksEnabled, profile } = options;
-  if (profile === 'agentV2') {
-    return {
-      ...renderAgentV2Markdown(text),
-      renderableText: text,
-    };
-  }
-
-  const { buttons, renderableText } = parseMarkdownActions(text, options);
-
-  // Convert [label](https://...) to placeholder before escaping
-  const links: { label: string; url: string }[] = [];
-  const processed = renderableText.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    (_match, label: string, url: string) => {
-      if (!areLinksEnabled) return `${label} (${url})`;
-      links.push({ label, url });
-      return `%%LINK_${links.length - 1}%%`;
-    },
-  );
-
-  // Escape HTML to prevent XSS
-  let html = escapeHtml(processed);
-
-  // Code blocks (``` ... ```)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_match, _lang, code) => {
-    return `<pre><code>${code.trimEnd()}</code></pre>`;
-  });
-
-  // Inline code
-  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // Italic
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-  // Headings → bold
-  html = html.replace(/^#{1,6} (.+)$/gm, '<strong>$1</strong>');
-
-  // Unordered lists — convert items, collapse blank lines between them, then wrap
-  html = html.replace(/^- (.+)$/gm, '<ul-li>$1</ul-li>');
-  html = html.replace(/((?:<ul-li>.*<\/ul-li>\n?)(?:\n*<ul-li>.*<\/ul-li>\n?)*)/g, (block) => {
-    const items = block.match(/<ul-li>.*<\/ul-li>/g)!;
-    return `<ul>${items.map((item) => item.replace(/<\/?ul-li>/g, (tag) => tag.replace('ul-li', 'li'))).join('')}</ul>`;
-  });
-
-  // Ordered lists
-  html = html.replace(/^\d+\. (.+)$/gm, '<ol-li>$1</ol-li>');
-  html = html.replace(/((?:<ol-li>.*<\/ol-li>\n?)(?:\n*<ol-li>.*<\/ol-li>\n?)*)/g, (block) => {
-    const items = block.match(/<ol-li>.*<\/ol-li>/g)!;
-    return `<ol>${items.map((item) => item.replace(/<\/?ol-li>/g, (tag) => tag.replace('ol-li', 'li'))).join('')}</ol>`;
-  });
-
-  // Tables
-  html = html.replace(
-    /((?:^\|.+\|$\n?)+)/gm,
-    (tableBlock) => {
-      const rows = tableBlock.trim().split('\n');
-      const headerRow = rows[0];
-      const isSeparator = (row: string) => /^\|[\s:|-]+\|$/.test(row);
-      const hasSeparator = rows.length > 1 && isSeparator(rows[1]);
-      const dataRows = hasSeparator ? rows.slice(2) : rows.slice(1);
-
-      const parseCells = (row: string) => row.split('|').slice(1, -1).map((c) => c.trim());
-
-      let result = '<table>';
-      if (hasSeparator) {
-        result += `<thead><tr>${parseCells(headerRow).map((c) => `<th>${c}</th>`).join('')}</tr></thead>`;
-      } else {
-        dataRows.unshift(headerRow);
-      }
-      result += '<tbody>';
-      for (const row of dataRows) {
-        result += `<tr>${parseCells(row).map((c) => `<td>${c}</td>`).join('')}</tr>`;
-      }
-      result += '</tbody></table>';
-      return result;
-    },
-  );
-
-  // Restore placeholders inside code blocks to original escaped text (not clickable links)
-  html = html.replace(/<code>([\s\S]*?)<\/code>/g, (codeBlock) => {
-    return codeBlock.replace(/%%LINK_(\d+)%%/g, (_m, index: string) => {
-      const link = links[Number(index)];
-      return link ? `[${escapeHtml(link.label)}](${escapeHtml(link.url)})` : '';
-    });
-  });
-
-  // Restore markdown links (after all structural transforms to prevent XSS via list/table injection)
-  html = html.replace(/%%LINK_(\d+)%%/g, (_match, index: string) => {
-    const link = links[Number(index)];
-    return link
-      ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label)}</a>`
-      : '';
-  });
-  // Safety-net: remove any surviving placeholders
-  html = html.replace(/%%LINK_\d+%%/g, '');
-
-  // Auto-link bare URLs (skip those already inside <a> tags)
-  if (areLinksEnabled) {
-    html = html.replace(
-      /(?:<a\b[^>]*>.*?<\/a>)|(?:href="[^"]*")|(https:\/\/[^\s<]+)/g,
-      (match, url?: string) => {
-        if (!url) return match;
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-      },
-    );
-  }
-
-  // Wrap remaining text lines into paragraphs
-  html = html
-    .split('\n')
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return '';
-      if (/^<(pre|ul|ol|table)/.test(trimmed)) return trimmed;
-      if (/<\/(pre|ul|ol|table)>$/.test(trimmed)) return trimmed;
-      return `<p>${trimmed}</p>`;
-    })
-    .join('');
-
-  return { html, buttons, renderableText };
-}
-
-function renderAgentV2Markdown(text: string): { html: string; buttons: ActionButton[] } {
   const trailingInlineWhitespace = text.match(/[^\S\r\n]+$/u)?.[0] ?? '';
   const codeBlocks: string[] = [];
   const withCodePlaceholders = text.replace(
-    /^```([A-Za-z0-9_+-]+)\s*\n([\s\S]*?)^```\s*$/gmu,
+    /^```([A-Za-z0-9_+-]*)[^\S\r\n]*\n([\s\S]*?)(?:^```\s*$|(?![\s\S]))/gmu,
     (_match, language: string, code: string) => {
       const index = codeBlocks.length;
-      codeBlocks.push(
-        `<pre data-language="${escapeHtml(language)}"><code>${escapeHtml(code.trimEnd())}</code></pre>`,
-      );
+      const literalCode = removeAnswerLinkMarkers(code.trimEnd());
+      codeBlocks.push(`<pre data-language="${escapeHtml(language)}"><code>${escapeHtml(literalCode)}</code></pre>`);
       return `\n%%AGENT_CODE_BLOCK_${index}%%\n`;
     },
   );
@@ -251,7 +89,7 @@ function renderAgentV2Markdown(text: string): { html: string; buttons: ActionBut
 
   const flushParagraph = () => {
     if (paragraphLines.length === 0) return;
-    html.push(`<p>${renderAgentV2Inline(paragraphLines.join(' '))}</p>`);
+    html.push(`<p>${renderAgentV2Inline(paragraphLines.join(' '), areLinksEnabled)}</p>`);
     paragraphLines = [];
   };
 
@@ -275,7 +113,7 @@ function renderAgentV2Markdown(text: string): { html: string; buttons: ActionBut
     const table = parseAgentV2Table(lines, index);
     if (table) {
       flushParagraph();
-      html.push(renderAgentV2Table(table));
+      html.push(renderAgentV2Table(table, areLinksEnabled));
       index = table.endIndex;
       continue;
     }
@@ -293,10 +131,13 @@ function renderAgentV2Markdown(text: string): { html: string; buttons: ActionBut
           : /^(\d+)[.)]\s+(\S[\s\S]*)$/u.exec(candidate);
         if (!match) break;
         const content = tag === 'ul' ? match[1] : match[2];
-        items.push(`<li>${renderAgentV2Inline(content)}</li>`);
+        items.push(`<li>${renderAgentV2Inline(content, areLinksEnabled)}</li>`);
         index += 1;
       }
-      html.push(`<${tag}>${items.join('')}</${tag}>`);
+      // A list keeps its first number, so an answer that begins "24. …" does not show "1."
+      const start = ordered ? Number(ordered[1]) : 1;
+      const startAttribute = Number.isSafeInteger(start) && start !== 1 ? ` start="${start}"` : '';
+      html.push(`<${tag}${startAttribute}>${items.join('')}</${tag}>`);
       continue;
     }
 
@@ -305,7 +146,7 @@ function renderAgentV2Markdown(text: string): { html: string; buttons: ActionBut
   }
   flushParagraph();
 
-  return { html: html.join('') + escapeHtml(trailingInlineWhitespace), buttons: [] };
+  return { html: html.join('') + escapeHtml(trailingInlineWhitespace) };
 }
 
 interface AgentV2Table {
@@ -361,75 +202,64 @@ function parseAgentV2TableRow(line: string | undefined): string[] | undefined {
   return cells;
 }
 
-function renderAgentV2Table(table: AgentV2Table): string {
+function renderAgentV2Table(table: AgentV2Table, areLinksEnabled: boolean): string {
   const header = table.header
-    .map((cell) => `<th scope="col">${renderAgentV2Inline(cell)}</th>`)
+    .map((cell) => `<th scope="col">${renderAgentV2Inline(cell, areLinksEnabled)}</th>`)
     .join('');
   const body = table.rows.map((row) => (
-    `<tr>${row.map((cell) => `<td>${renderAgentV2Inline(cell)}</td>`).join('')}</tr>`
+    `<tr>${row.map((cell) => `<td>${renderAgentV2Inline(cell, areLinksEnabled)}</td>`).join('')}</tr>`
   )).join('');
   return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderAgentV2Inline(text: string): string {
+function renderAgentV2Inline(text: string, areLinksEnabled: boolean): string {
+  let tokenPrefix = '%%AGENT_INLINE_';
+  while (text.includes(tokenPrefix)) tokenPrefix += '_';
+  const escapedPattern = new RegExp(`${tokenPrefix}ESCAPED_(\\d+)%%`, 'gu');
+  const contentPattern = new RegExp(`${tokenPrefix}CONTENT_(\\d+)%%`, 'gu');
   const escapedCharacters: string[] = [];
-  const inlineCode: string[] = [];
-  let processed = text
-    .replace(/\\([\\|`*_{}[\]()<>#+.!~-])/gu, (_match, character: string) => {
-      const index = escapedCharacters.length;
-      escapedCharacters.push(escapeHtml(character));
-      return `%%AGENT_ESCAPED_CHARACTER_${index}%%`;
+  const protectedContent: string[] = [];
+  const processed = text
+    .replace(MARKDOWN_ESCAPE_PATTERN, (_match, character: string) => {
+      escapedCharacters.push(character);
+      return `${tokenPrefix}ESCAPED_${escapedCharacters.length - 1}%%`;
     })
     .replace(/`([^`\n]+)`/gu, (_match, code: string) => {
-      const index = inlineCode.length;
-      inlineCode.push(`<code>${escapeHtml(code)}</code>`);
-      return `%%AGENT_INLINE_CODE_${index}%%`;
-    });
-
-  processed = processed
+      const literalCode = code.replace(escapedPattern, (_token, index: string) => escapedCharacters[Number(index)]);
+      protectedContent.push(`<code>${escapeHtml(removeAnswerLinkMarkers(literalCode))}</code>`);
+      return `${tokenPrefix}CONTENT_${protectedContent.length - 1}%%`;
+    })
     .replace(
-      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gu,
-      (_match, label: string, url: string) => `${label} (${url})`,
+      /(?<!!)\[([^\]\n]+)\]\(((?:https?:\/\/|mtw:\/\/)(?:[^()\s]|\([^()\s]*\))+)\)/gu,
+      (match, label: string, destination: string) => {
+        const url = destination.replace(escapedPattern, (_token, index: string) => escapedCharacters[Number(index)]);
+        if (url.startsWith(SELF_PROTOCOL)) return label;
+        if (!areLinksEnabled) return `${label} (${destination})`;
+        if (!label.trim() || url.includes(tokenPrefix) || !isAgentLinkUrl(url)) return match;
+        protectedContent.push(renderLink(url, label));
+        return `${tokenPrefix}CONTENT_${protectedContent.length - 1}%%`;
+      },
     )
-    .replace(
-      /\[([^\]]+)\]\((mtw:\/\/[^)]+)\)/gu,
-      (_match, label: string) => label,
-    );
+    // Answer links the server sent apart from the text (`markAnswerLinks`)
+    .replace(ANSWER_LINK_MARKER_PATTERN, (_match, encodedUrl: string, label: string) => {
+      const url = decodeMarkerUrl(encodedUrl);
+      if (!url || !label.trim()) return label;
+      protectedContent.push(areLinksEnabled ? renderLink(url, label) : `${formatInline(label)} (${escapeHtml(url)})`);
+      return `${tokenPrefix}CONTENT_${protectedContent.length - 1}%%`;
+    })
+    .replace(STRAY_ANSWER_LINK_MARKER_PATTERN, '');
 
-  processed = escapeHtml(processed)
-    .replace(/\*\*(\S(?:[^*\n]|\*(?!\*))*?)\*\*/gu, '<strong>$1</strong>')
-    .replace(/(^|[^\w*])\*(\S(?:[^*\n]|\*(?!\*))*?)\*(?!\*)/gu, '$1<em>$2</em>')
-    .replace(/%%AGENT_INLINE_CODE_(\d+)%%/gu, (match, index: string) => (
-      inlineCode[Number(index)] ?? match
-    ))
-    .replace(/%%AGENT_ESCAPED_CHARACTER_(\d+)%%/gu, (match, index: string) => (
-      escapedCharacters[Number(index)] ?? match
-    ));
+  return formatInline(processed);
 
-  return processed;
-}
+  function renderLink(url: string, label: string) {
+    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${formatInline(label)}</a>`;
+  }
 
-function removeIncompleteAction(text: string) {
-  const actionStartIndex = text.lastIndexOf('[');
-  if (actionStartIndex === -1) return text;
-
-  const possibleAction = text.slice(actionStartIndex);
-  if (!isIncompleteAction(possibleAction)) return text;
-
-  return text.slice(0, actionStartIndex);
-}
-
-function isIncompleteAction(text: string) {
-  const labelEndIndex = text.indexOf(']');
-  if (labelEndIndex === -1) return true;
-  if (labelEndIndex === 1) return false;
-
-  const link = text.slice(labelEndIndex + 1);
-  if (!link) return true;
-  if (!link.startsWith('(')) return false;
-
-  const url = link.slice(1);
-  if (url.includes(')')) return false;
-
-  return SELF_PROTOCOL.startsWith(url) || url.startsWith(SELF_PROTOCOL);
+  function formatInline(value: string) {
+    return escapeHtml(value)
+      .replace(/\*\*(\S(?:[^*\n]|\*(?!\*))*?)\*\*/gu, '<strong>$1</strong>')
+      .replace(/(^|[^\w*])\*(\S(?:[^*\n]|\*(?!\*))*?)\*(?!\*)/gu, '$1<em>$2</em>')
+      .replace(escapedPattern, (_match, index: string) => escapeHtml(escapedCharacters[Number(index)]))
+      .replace(contentPattern, (_match, index: string) => protectedContent[Number(index)]);
+  }
 }

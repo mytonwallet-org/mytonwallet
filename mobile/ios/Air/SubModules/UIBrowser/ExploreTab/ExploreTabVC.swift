@@ -69,7 +69,7 @@ public class ExploreTabVC: WViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        syncNavChrome()
+        syncNavChrome(animated: false)
     }
 
     public override func viewDidAppear(_ animated: Bool) {
@@ -94,8 +94,8 @@ public class ExploreTabVC: WViewController {
     
     private func setupViews() {
         addChild(exploreVC)
-        exploreVC.didMove(toParent: self)
         view.addStretchedToBounds(subview: exploreVC.view)
+        exploreVC.didMove(toParent: self)
 
         navigationHeader.setTitle(lang("Explore"), fixedColor: true)
         navigationItem.titleView = navigationHeader

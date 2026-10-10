@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import java.lang.ref.WeakReference
 import java.net.URLEncoder
 import org.mytonwallet.app_air.icons.R
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentHint
 import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
@@ -60,6 +61,7 @@ import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
 import org.mytonwallet.app_air.walletcore.models.MTokenBalance
 import org.mytonwallet.app_air.walletcore.moshi.IDapp
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ExploreHistoryStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
@@ -487,9 +489,35 @@ class SearchVC(
     }
 
     internal fun openAgent(prompt: String) {
+        openAgent(prompt, AgentV2EntryPoint())
+    }
+
+    private fun openAgent(hint: AgentHint) {
+        val entryPoint = AgentV2EntryPoint(
+            kind = "emptyState",
+            surface = "agentTab",
+            hintId = hint.id,
+            catalogVersion = hint.catalogVersion
+        )
+        openAgent(hint.prompt, entryPoint)
+    }
+
+    private fun openAgent(prompt: String, entryPoint: AgentV2EntryPoint) {
         val navigationController = navigationController ?: return
-        if (navigationController.tabBarController?.switchToAgent(prompt) == true) return
-        navigationController.push(AgentVC(context, initialPrompt = prompt))
+        if (navigationController.tabBarController?.switchToAgent(
+                prompt,
+                entryPoint = entryPoint
+            ) == true
+        ) {
+            return
+        }
+        navigationController.push(
+            AgentVC(
+                context,
+                initialPrompt = prompt,
+                initialEntryPoint = entryPoint
+            )
+        )
     }
 
     private fun openRecentChat(messageId: String) {
@@ -500,7 +528,12 @@ class SearchVC(
         ) {
             return
         }
-        navigationController.push(AgentVC(context, initialPinnedMessageId = messageId))
+        navigationController.push(
+            AgentVC(
+                context,
+                initialPinnedMessageId = messageId
+            )
+        )
     }
 
     private fun searchInGoogle(keyword: String) {
@@ -547,7 +580,7 @@ class SearchVC(
         SEARCH_SECTION_CELL -> SearchSectionCell(context)
 
         SEARCH_CHAT_HINT_CELL ->
-            SearchChatHintCell(context, onTap = { hint -> openAgent(hint.prompt) })
+            SearchChatHintCell(context, onTap = { hint -> openAgent(hint) })
 
         SEARCH_RECENT_CHAT_CELL ->
             SearchRecentChatCell(context, onTap = { hint -> openRecentChat(hint.id) })
