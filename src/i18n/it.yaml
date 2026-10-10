@@ -10,7 +10,7 @@ $back_up_auth: Backup
 $back_up_security: Backup
 Confirm with: Conferma con
 Add an extra layer of security for your wallet in TON network.: Aggiungi un ulteriore livello di sicurezza per il tuo wallet sulla rete TON.
-Sign transfers and important actions with your passcode, then confirm them in Telegram.: Firma i trasferimenti e le azioni importanti con il tuo passcode, quindi confermali su Telegram.
+Sign transfers and important actions with your passcode, then confirm them in Telegram.: Firma i trasferimenti e le azioni importanti con il tuo codice, quindi confermali su Telegram.
 This helps protect your funds even if your recovery phrase or keys are compromised.: Questo aiuta a proteggere i tuoi fondi anche se la tua frase di recupero o le tue chiavi sono compromesse.
 "Connection Fee:": "Commissione di connessione:"
 Connect Telegram: Collega Telegram
@@ -208,7 +208,7 @@ Optional: Opzionale
 $send_token_symbol: Invia %symbol%
 Is it all ok?: È tutto corretto?
 Receiving Address: Indirizzo di ricezione
-Contract Address: Indirizzo del contratto
+Contract Address: Indirizzo contract
 Fee: Commissione
 Edit: Modifica
 Regenerate: Rigenera
@@ -261,24 +261,24 @@ Staking: Staking
 Currently Staked: Attualmente in staking
 Total Staked: Totale in staking
 Total Stakers: Staker totali
-Unstake: Ritira
+Unstake: Rimuovi dallo staking
 Earning History: Cronologia guadagni
 $total: "Totale: %value%"
-$unstake_asset: Ritira %symbol%
-Amount to unstake: Importo da ritirare
-Confirm Unstaking: Conferma ritiro
-$unstaking_when_receive: Riceverai il tuo deposito ritirato dallo staking in %time%.
-$unstaking_when_receive_with_amount: Riceverai i tuoi %amount% ritirati dallo staking in %time%.
-$unstaking_when_receive_with_amount_ethena: Potrai ricevere i tuoi %amount% ritirati dallo staking in %time%.
-$unstake_insufficient_balance: Devi avere %balance% sul tuo saldo principale per procedere con il ritiro dallo staking.
+$unstake_asset: Rimuovi %symbol% dallo staking
+Amount to unstake: Importo da rimuovere dallo staking
+Confirm Unstaking: Conferma rimozione dallo staking
+$unstaking_when_receive: Riceverai il tuo deposito rimosso dallo staking in %time%.
+$unstaking_when_receive_with_amount: Riceverai i tuoi %amount% rimossi dallo staking in %time%.
+$unstaking_when_receive_with_amount_ethena: Potrai ricevere i tuoi %amount% rimossi dallo staking in %time%.
+$unstake_insufficient_balance: Devi avere %balance% sul tuo saldo principale per procedere con la rimozione dallo staking.
 at %annual_yield%: al %annual_yield%
 Est. %annual_yield%: "%annual_yield% stimato"
 Staked: In staking
 $stake_action: Metti in staking
-Unstaked: Ritirato
+Unstaked: Rimosso dallo staking
 Not staked: Non in staking
-Unstaking: Ritiro in corso
-$unstake_action: Ritira
+Unstaking: Rimozione dallo staking
+$unstake_action: Rimuovi dallo staking
 The network fee has slightly changed, try sending again.: La commissione di rete è leggermente cambiata, prova a inviare di nuovo.
 Transfer was unsuccessful. Try again later.: Il trasferimento non è andato a buon fine. Riprova più tardi.
 Action Partially Completed: Azione parzialmente completata
@@ -312,7 +312,7 @@ $many_transactions:
   oneValue: "%count% trasferimento"
   otherValue: "%count% trasferimenti"
 Total Amount: Importo totale
-$unstaking_short: Ritiro
+$unstaking_short: Rimozione dallo staking
 Handle ton:// links: Gestisci link ton://
 Back up wallet to have full access to it: Esegui il backup del wallet per averne pieno accesso
 Consider More Secure Version: Valuta una versione più sicura
@@ -394,7 +394,7 @@ Encrypted Message: Messaggio crittografato
 Message is encrypted: Il messaggio è crittografato
 Agree: Accetta
 $swap_action: Scambia
-$swap_batch_tx_duration_hint: L'invio potrebbe richiedere fino a 1 minuto.
+$swap_batch_tx_duration_hint: L'invio può richiedere fino a 1 minuto.
 $swap_activity_title: Scambio
 Swap: Scambia
 You Sell: Vendi
@@ -467,7 +467,7 @@ Cross-chain exchange provided by %provider%: Scambio cross-chain fornito da %pro
 $swap_cex_terms_of_use: termini di utilizzo
 $swap_cex_privacy_policy: informativa sulla privacy
 $swap_cex_aml_kyc_policy: AML/KYC
-AML/KYC Policy: Politica AML/KYC
+AML/KYC Policy: Informativa AML/KYC
 $swap_cex_legal_message: "Continuando, accetti i %terms% e l'%policy%."
 $swap_cex_legal_message_with_aml: Continuando, accetti i %terms% e l'%policy% e comprendi che la transazione potrebbe richiedere una verifica in conformità con %aml%.
 Password must contain %length% digits.: La password deve contenere %length% cifre.
@@ -597,7 +597,7 @@ Buy with Crypto: Acquista con cripto
 Add funds to swap: Aggiungi fondi per scambiare
 Direct swap unavailable: Scambio diretto non disponibile
 "Direct exchange unavailable": "Scambio diretto non disponibile"
-"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Per ricevere %buy_token%, ricevi prima %token%, poi scambialo con %buy_token%."
+"To receive %buy_token%, first receive %token%, then exchange it for %buy_token%.": "Per ricevere %buy_token%, prima ricevi %token%, poi scambialo con %buy_token%."
 Swap on an external service: Scambia su un servizio esterno
 Buy with a card or receive crypto to fund this swap.: Acquista con carta o ricevi cripto per finanziare questo scambio.
 Buy crypto or choose another token to sell.: Acquista cripto o scegli un altro token da vendere.
@@ -616,7 +616,7 @@ Clear: Cancella
 Unavailable: Non disponibile
 $unstake_up_to_information: All'istante – fino a %value%
 $all_balance: "Tutto: %balance%"
-$unstaking_not_enough_balance: Devi avere %value% sul tuo saldo principale per procedere con il ritiro dallo staking.
+$unstaking_not_enough_balance: Devi avere %value% sul tuo saldo principale per procedere con la rimozione dallo staking.
 $ledger_verify_address_on_device: Verifica l'indirizzo sul tuo Ledger.
 Wallet Versions: Versioni del wallet
 $read_more_about_wallet_version: Scopri di più sui tipi di smart contract del wallet su %link%.
@@ -671,8 +671,8 @@ Cannot be sent: Non può essere inviato
 NFT is for sale: L'NFT è in vendita
 More actions: Altre azioni
 Open on %explorer_name%: Apri su %explorer_name%
-Swap is not supported in Testnet.: Lo scambio non è supportato su Testnet.
-Swap is not yet supported by Ledger.: Lo scambio non è ancora supportato da Ledger.
+Swap is not supported in Testnet.: Lo swap non è supportato su Testnet.
+Swap is not yet supported by Ledger.: Lo swap non è ancora supportato da Ledger.
 Buying with card is not supported in Testnet.: L'acquisto con carta non è supportato su Testnet.
 Staking is not supported in Testnet.: Lo staking non è supportato su Testnet.
 Get Support: Ricevi assistenza
@@ -727,10 +727,10 @@ $swap_cex_support: "Se qualcosa è andato storto, contatta %support% e fornisci 
 $swap_cex_hold_support: "Contatta %support% e fornisci questo **ID exchange esterno** per superare la verifica del provider:"
 $swap_cex_provider_support: "Assistenza %provider%"
 Email: Email
-$swap_cex_support_footer_email: "Se qualcosa è andato storto, contatta %support% all'indirizzo %email% e fornisci l'ID scambio."
-$swap_cex_hold_support_footer_email: "Contatta %support% all'indirizzo %email% e fornisci l'ID scambio per superare la verifica del provider."
-$swap_cex_support_footer: "Se qualcosa è andato storto, contatta %support% e fornisci l'ID scambio."
-$swap_cex_hold_support_footer: "Contatta %support% e fornisci l'ID scambio per superare la verifica del provider."
+$swap_cex_support_footer_email: "Se qualcosa è andato storto, contatta il %support% all'indirizzo %email% e fornisci l'ID dello swap."
+$swap_cex_hold_support_footer_email: "Contatta il %support% all'indirizzo %email% e fornisci l'ID dello swap per superare la verifica del provider."
+$swap_cex_support_footer: "Se qualcosa è andato storto, contatta il %support% e fornisci l'ID dello swap."
+$swap_cex_hold_support_footer: "Contatta il %support% e fornisci l'ID dello swap per superare la verifica del provider."
 Your %blockchain% Address: Il tuo indirizzo %blockchain%
 My %blockchain% Address: Il mio indirizzo %blockchain%
 "%blockchain% Address": "Indirizzo %blockchain%"
@@ -756,15 +756,15 @@ Insufficient Balance for Fee: Saldo insufficiente per la commissione
 $fee_value_bold: "**Commissione:** %fee%"
 "%app_name% Features": "Funzionalità di %app_name%"
 Security: Sicurezza
-To avoid entering the passcode every time, you can use biometrics.: Per evitare di inserire il passcode ogni volta, puoi usare i dati biometrici.
+To avoid entering the passcode every time, you can use biometrics.: Per evitare di inserire il codice ogni volta, puoi usare i dati biometrici.
 To avoid entering the password every time, you can use biometrics.: Per evitare di inserire la password ogni volta, puoi usare i dati biometrici.
-Change Passcode: Modifica passcode
+Change Passcode: Modifica codice
 Change Password: Modifica password
 Confirm Password: Conferma password
-The passcode will be changed for all your wallets.: Il passcode verrà modificato per tutti i tuoi wallet.
+The passcode will be changed for all your wallets.: Il codice verrà modificato per tutti i tuoi wallet.
 The password will be changed for all your wallets.: La password verrà modificata per tutti i tuoi wallet.
 Password Changed!: Password modificata!
-Passcode Changed!: Passcode modificato!
+Passcode Changed!: Codice modificato!
 New code set successfully: Nuovo codice impostato con successo
 Codes don’t match: I codici non coincidono
 Enter your new code: Inserisci il tuo nuovo codice
@@ -803,7 +803,7 @@ Are you sure you want to hide these %number% NFTs?: Sei sicuro di voler nasconde
 Show: Mostra
 Confirm Sending: Conferma invio
 Confirm Burning: Conferma bruciatura
-Confirm Passcode: Conferma passcode
+Confirm Passcode: Conferma codice
 Enter your code: Inserisci il tuo codice
 $hardware_blind_sign_not_enabled: Per continuare, abilita l'opzione "Blind Signing" nelle impostazioni dell'app %chain% su Ledger.
 Switch to W5: Passa a W5
@@ -811,7 +811,7 @@ Not Scam: Non è una truffa
 Untitled: Senza titolo
 Multichain: Multichain
 $swap_too_small_amount: Importo troppo basso
-$swap_slippage_violation: Emulazione dello scambio non riuscita a causa del superamento dello slippage. Riprova.
+$swap_slippage_violation: Emulazione dello swap non riuscita a causa del superamento dello slippage. Riprova.
 $not_enough_symbol_lowercase: "%symbol% insufficienti"
 Enter Secret Words: Inserisci parole segrete
 Turn this off so you can manually download updates and verify signatures.: Disattiva questa opzione per scaricare manualmente gli aggiornamenti e verificare le firme.
@@ -820,7 +820,7 @@ NFT Menu: Menu NFT
 Connection Type: Tipo di connessione
 Ledger is not supported on this device: Ledger non è supportato su questo dispositivo
 Connect your Ledger: Collega il tuo Ledger
-$app_lock_description: Quando il blocco app è abilitato, appare un'icona del lucchetto sulla card nella pagina principale. Usala per bloccare %app_name%.
+$app_lock_description: Quando il blocco app è abilitato, appare un'icona del lucchetto sulla carta nella pagina principale. Usala per bloccare %app_name%.
 App Lock: Blocco app
 Auto-Lock: Blocco automatico
 Disabled: Disattivato
@@ -834,13 +834,13 @@ Unlock: Sblocca
 This address mimics another address that you previously interacted with.: Questo indirizzo imita un altro indirizzo con cui hai interagito in precedenza.
 Biometric authentication failed: Autenticazione biometrica non riuscita
 Authentication is already configured: L'autenticazione è già configurata
-Reset biometrics in security settings, or use a passcode.: Reimposta i dati biometrici nelle impostazioni di sicurezza o usa un passcode.
+Reset biometrics in security settings, or use a passcode.: Reimposta i dati biometrici nelle impostazioni di sicurezza o usa un codice.
 Add Tokens: Aggiungi token
 No tokens yet: Ancora nessun token
 $no_tokens_description: Ricevi token da un altro wallet oppure abilita i tuoi token preferiti nelle impostazioni per monitorarli.
 Exchange Rate: Tasso di cambio
-Install Card: Installa card
-Reset Card: Ripristina card
+Install Card: Installa carta
+Reset Card: Ripristina carta
 Apply Palette: Installa palette
 Reset Palette: Ripristina palette
 Notifications & Sounds: Notifiche e suoni
@@ -879,10 +879,10 @@ Show Sensitive Data: Mostra dati sensibili
 Hide Sensitive Data: Nascondi dati sensibili
 Copy Address: Copia indirizzo
 Copy Transaction ID: Copia ID transazione
-Requesting Unstake: Richiesta di ritiro
-Requested Unstake: Ritiro richiesto
-Unstake Requested: Ritiro richiesto
-$request_unstake_action: Richiedi ritiro
+Requesting Unstake: Richiesta di rimozione dallo staking
+Requested Unstake: Rimozione dallo staking richiesta
+Unstake Requested: Rimozione dallo staking richiesta
+$request_unstake_action: Richiedi rimozione dallo staking
 Calling Contract: Chiamata smart contract
 Called Contract: Smart contract chiamato
 $call_contract_action: Chiama smart contract
@@ -936,28 +936,28 @@ Change Palette: Cambia palette
 Palette: Palette
 Unlock New Palettes: Sblocca nuove palette
 Get a unique My Wallet Card to unlock new palettes.: Ottieni una My Wallet Card unica per sbloccare nuove palette.
-Mint Cards: Genera card
-Card has been upgraded!: La card è stata potenziata!
-$mint_card_result: La card NFT verrà **generata** e **installata automaticamente** entro un minuto.
+Mint Cards: Genera carte
+Card has been upgraded!: La carta è stata migliorata!
+$mint_card_result: La carta NFT verrà **generata** e **installata automaticamente** entro un minuto.
 Unique: Unica
-Get a card with unique background and personalized palette for wallet interface.: Ottieni una card con sfondo unico e colore d'accento personalizzato per l'interfaccia del wallet.
-Get custom accent color for wallet interface.: Ottieni un colore d'accento personalizzato per l'interfaccia del wallet.
-Easily send your upgraded card to friends.: Invia facilmente la tua card potenziata agli amici.
-Sell or auction your card on marketplaces.: Vendi o metti all'asta la tua card sui marketplace.
+Get a card with unique background and personalized palette for wallet interface.: Ottieni una carta con sfondo unico e colore principale personalizzato per l'interfaccia del wallet.
+Get custom accent color for wallet interface.: Ottieni un colore principale personalizzato per l'interfaccia del wallet.
+Easily send your upgraded card to friends.: Invia facilmente la tua carta migliorata agli amici.
+Sell or auction your card on marketplaces.: Vendi o metti all'asta la tua carta sui marketplace.
 Transferable: Trasferibile
-Easily send your upgraded card to any of your friends.: Invia facilmente la tua card potenziata a qualsiasi amico.
+Easily send your upgraded card to any of your friends.: Invia facilmente la tua carta migliorata a qualsiasi amico.
 Tradable: Scambiabile
-Sell or auction your card on third-party NFT marketplaces.: Vendi o metti all'asta la tua card sui marketplace NFT di terze parti.
-Upgrade for %amount% %currency%: Potenzia per %amount% %currency%
+Sell or auction your card on third-party NFT marketplaces.: Vendi o metti all'asta la tua carta sui marketplace NFT di terze parti.
+Upgrade for %amount% %currency%: Migliora per %amount% %currency%
 "%amount% left": "%amount% rimanenti"
 "%amount% sold": "%amount% venduti"
-This card has been sold out: Questa card è esaurita
+This card has been sold out: Questa carta è esaurita
 "Mint starts in %time%": "La generazione inizia tra %time%"
 "Congrats! Your first %card% comes at %percent% off.": "Congratulazioni! La tua prima %card% ha uno sconto del %percent%."
-"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Gli utenti più attivi ottengono uno sconto del %percent% sulla prima %card%. Fai trading o staking per qualificarti la prossima volta!"
+"Most active users get %percent% off their first %card%. Trade or stake to qualify for next time!": "Gli utenti più attivi ottengono il %percent% di sconto sulla loro prima %card%. Fai trading o staking per qualificarti la prossima volta!"
 "%amount% unique cards total":
-  oneValue: "%amount% card unica in totale"
-  otherValue: "%amount% card uniche in totale"
+  oneValue: "%amount% carta unica in totale"
+  otherValue: "%amount% carte uniche in totale"
 Import Existing Wallet: Importa wallet esistente
 View Any Address: Visualizza qualsiasi indirizzo
 View Mode: Modalità visualizzazione
@@ -967,11 +967,11 @@ $import_view_account_note: Aggiungi **qualsiasi** indirizzo per **monitorare** l
 $view_mode: Visualizza
 Import Wallet: Importa wallet
 Please top up your %token% balance.: Ricarica il tuo saldo di %token%.
-Remember Passcode: Ricorda passcode
+Remember Passcode: Ricorda codice
 Remember Password: Ricorda password
 App will not ask for signature for %minutes% minutes after last entry.: L'app non richiederà la firma per %minutes% minuti dopo l'ultimo inserimento.
 Auto-Exit: Uscita automatica
-Log out of all wallets after failed attempts.: Esci da tutti i wallet dopo i tentativi falliti.
+Log out of all wallets after failed attempts.: Disconnetti tutti i wallet dopo i tentativi falliti.
 "%count% attempts": "%count% tentativi"
 Preview: Anteprima
 $preview_not_guaranteed: Il risultato dell'anteprima **non è garantito** e **può essere falsificato** dal servizio.
@@ -990,9 +990,9 @@ Can't confirm?: Non riesci a confermare?
 $safe_staking_ethena_description1: Lo staking è completamente decentralizzato e gestito dagli **smart contract** di liquid staking **ufficiali di Ethena**, sottoposti ad audit.
 $safe_staking_ethena_description2: Lo stake in USDe depositato viene utilizzato nelle **strategie di trading e investimento** di Ethena per generare ricompense in modo automatico e trasparente.
 $safe_staking_ethena_description3: Puoi **ritirare** il tuo stake con le ricompense in qualsiasi momento e verrà restituito al tuo account **entro 7 giorni**, in conformità con il periodo di prelievo standard di Ethena.
-Unstake %amount%: Ritira %amount%
-Request Unstaking: Richiedi ritiro
-$unstaking_when_receive_ethena: Potrai ricevere il tuo deposito ritirato dallo staking entro **7 giorni**.
+Unstake %amount%: Rimuovi %amount% dallo staking
+Request Unstaking: Richiedi rimozione dallo staking
+$unstaking_when_receive_ethena: Potrai ricevere il tuo deposito rimosso dallo staking entro **7 giorni**.
 Confirm Upgrading: Conferma aggiornamento
 How does it work?: Come funziona?
 Multisend: Multisend
@@ -1257,7 +1257,7 @@ Timed out waiting for account to be ready: Tempo scaduto in attesa che l'account
 $connected_apps:
   otherValue: "%count% connesse"
 Night Mode, Palette, Card: Modalità notte, palette, card
-Back Up, Passcode, Auto-Lock: Backup, passcode, blocco automatico
+Back Up, Passcode, Auto-Lock: Backup, codice, blocco automatico
 Back Up, Password, Auto-Lock: Backup, password, blocco automatico
 Base Currency, Token Order, Hidden NFTs: Valuta di base, ordine token, NFT nascosti
 Your assets on other contracts: I tuoi asset su altri smart contract
@@ -1382,8 +1382,8 @@ $agent_prompt_token_price: "Analizza il prezzo di %token%."
 $agent_hint_capabilities_title: Cosa sai fare?
 $agent_hint_portfolio_title: Rendimento del portafoglio
 $agent_hint_portfolio_prompt: Analizza il rendimento del mio portafoglio.
-$agent_hint_swap_title: Come funzionano gli scambi
-$agent_hint_swap_prompt: Spiega come funzionano gli scambi di token.
+$agent_hint_swap_title: Come funzionano gli swap
+$agent_hint_swap_prompt: Spiega come funzionano gli swap di token.
 $agent_hint_staking_title: Cos'è lo staking
 $agent_hint_staking_prompt: Spiegami lo staking da zero, come se non avessi mai usato le cripto prima d'ora.
 $agent_hint_security_title: Sicurezza del wallet
@@ -1405,15 +1405,15 @@ Clear Chat: Cancella chat
 Unsupported link: Link non supportato
 My Wallet Features: Funzionalità di My Wallet
 Notifications: Notifiche
-Wrong passcode, please try again: Passcode errato, riprova
-Use biometric authentication or create a passcode to protect it.: Usa l'autenticazione biometrica o crea un passcode per proteggerlo.
-Use Passcode: Usa passcode
-Create Passcode: Crea passcode
-Create a passcode to protect it.: Crea un passcode per proteggerlo.
-Enter Passcode: Inserisci passcode
-If you turn off biometric protection, you will need to create a passcode.: Se disattivi la protezione biometrica, dovrai creare un passcode.
-Enabling biometric confirmation will reset the passcode.: L'attivazione della conferma biometrica reimposterà il passcode.
-Confirm action with your passcode: Conferma l'azione con il tuo passcode
+Wrong passcode, please try again: Codice errato, riprova
+Use biometric authentication or create a passcode to protect it.: Usa l'autenticazione biometrica o crea un codice per proteggerlo.
+Use Passcode: Usa codice
+Create Passcode: Crea codice
+Create a passcode to protect it.: Crea un codice per proteggerlo.
+Enter Passcode: Inserisci codice
+If you turn off biometric protection, you will need to create a passcode.: Se disattivi la protezione biometrica, dovrai creare un codice.
+Enabling biometric confirmation will reset the passcode.: L'attivazione della conferma biometrica reimposterà il codice.
+Confirm action with your passcode: Conferma l'azione con il tuo codice
 No Image: Nessuna immagine
 Different blockchain. Cannot be selected: Blockchain diversa. Impossibile selezionare
 Chains: Blockchain
@@ -1452,7 +1452,7 @@ $agent_report_problem_description: I messaggi recenti di questa chat verranno in
 $agent_report_problem_sent: Grazie! La tua segnalazione è stata inviata.
 $agent_report_problem_failed: Impossibile inviare la segnalazione. Riprova.
 $agent_report_problem_rate_limited: Hai inviato diverse segnalazioni di recente. Riprova più tardi.
-$unknown_swap_token: Token sconosciuto nel link di scambio. Sono stati usati i token predefiniti.
+$unknown_swap_token: Token sconosciuto nel link di swap. Sono stati usati i token predefiniti.
 $action_not_available_view_mode: Questa azione non è disponibile per i wallet di sola visualizzazione
 Deposit: Deposita
 Trade: Fai trading
@@ -1518,7 +1518,7 @@ Permission Denied: Autorizzazione negata
 USB: USB
 Bluetooth: Bluetooth
 Locked: Bloccato
-Enter passcode or use fingerprint: Inserisci il passcode o usa l'impronta digitale
+Enter passcode or use fingerprint: Inserisci il codice o usa l'impronta digitale
 Use PIN: Usa PIN
 Try again in %duration%: Riprova tra %duration%
 Try again in %duration% and %unit%: Riprova tra %duration% e %unit%
@@ -1546,10 +1546,10 @@ $send_only_chain_no_tokens: Invia solo %symbol% a questo indirizzo. L'invio di a
 Buying with card is not supported for this account.: L'acquisto con carta non è supportato per questo account.
 Swapped at: Scambiato a
 Price per: Prezzo per
-Swap ID: ID scambio
-Swap ID for %provider%: ID scambio per %provider%
-Copy Swap ID: Copia ID scambio
-Swap ID Copied: ID scambio copiato
+Swap ID: ID swap
+Swap ID for %provider%: ID swap per %provider%
+Copy Swap ID: Copia ID swap
+Swap ID Copied: ID swap copiato
 from: da
 to: a
 Currency: Valuta
@@ -1584,12 +1584,12 @@ Tokens on Home Screen: Token nella schermata iniziale
 Current Wallet Version: Versione attuale del wallet
 Tokens on Other Versions: Token su altre versioni
 Show Secret Words: Mostra parole segrete
-Passcode: Passcode
+Passcode: Codice
 Lock the app after: Blocca l'app dopo
 Never: Mai
 "%count% seconds": "%count% secondi"
 "%count% minutes": "%count% minuti"
-Unstake Request: Richiesta di ritiro
+Unstake Request: Richiesta di rimozione dallo staking
 History: Cronologia
 Earn up to %apy% per year from your tokens: Guadagna fino al %apy% all'anno dai tuoi token
 Insufficient %symbol% Balance: "Saldo %symbol% insufficiente"
@@ -1610,7 +1610,7 @@ AML/KYC: AML/KYC
 Receive to: Ricevi su
 Enter %token% address: Inserisci indirizzo %token%
 "Send %token% this address:": "Invia %token% a questo indirizzo:"
-Swap is not supported on this account.: Lo scambio non è supportato su questo account.
+Swap is not supported on this account.: Lo swap non è supportato su questo account.
 "%amount% will be returned": "%amount% verrà restituito"
 Connecting your wallet: Connessione del wallet in corso
 Action is not possible on a view-only wallet.: L'azione non è possibile su un wallet di sola visualizzazione.
@@ -1653,7 +1653,7 @@ Payment Address: Indirizzo di pagamento
 "Connect to %name%?": "Connettersi a %name%?"
 "Don’t show tokens on your account with value less than $0.01. You can also selectively enable and disable particular tokens using the list below.": "Non mostrare sul tuo account i token con valore inferiore a $0.01. Puoi anche abilitare e disabilitare selettivamente determinati token usando l'elenco sottostante."
 "Don’t show transactions of less than $0.01. Such small transactions are often used for spam and scam.": "Non mostrare transazioni inferiori a $0.01. Tali transazioni minime vengono spesso utilizzate per spam e truffe."
-"Enter your Wallet Passcode": "Inserisci il passcode del tuo wallet"
+"Enter your Wallet Passcode": "Inserisci il codice del tuo wallet"
 "Import failed": "Importazione non riuscita"
 "Install Palette": "Installa Palette"
 Ledger: Ledger
@@ -1665,15 +1665,15 @@ My Wallet uses biometric authentication to unlock and authorize transactions: My
 OK: OK
 "Open in Explorer": "Apri su Explorer"
 "Open in...": "Apri in..."
-"Passcode changed": "Passcode modificato"
+"Passcode changed": "Codice modificato"
 "Please make sure your internet connection is working and try again.": "Assicurati che la connessione Internet sia attiva e riprova."
-"Please set a passcode on your device, and then try to use biometric authentication.": "Imposta un passcode sul tuo dispositivo e poi prova a utilizzare l'autenticazione biometrica."
+"Please set a passcode on your device, and then try to use biometric authentication.": "Imposta un codice sul tuo dispositivo e poi prova a utilizzare l'autenticazione biometrica."
 Please try again: Riprova
 "Please wait...": "Attendere..."
 "Preview is currently unavailable.": "L'anteprima non è attualmente disponibile."
 Read-only account: Account di sola lettura
-"Request for unstaking": "Richiesta di ritiro"
-Set a passcode: Imposta un passcode
+"Request for unstaking": "Richiesta di rimozione dallo staking"
+Set a passcode: Imposta un codice
 "Show All %name%": "Mostra tutti i %name%"
 "TON Wallet Versions": "Versioni del wallet TON"
 "Tap to reveal": "Tocca per rivelare"
@@ -1694,7 +1694,7 @@ This is how the TON Blockchain works.: Ecco come funziona la blockchain TON.
 Wallet is Locked: Il wallet è bloccato
 Warning: Attenzione
 Wear: Indossa
-Passcodes don't match. Please try again.: I passcode non coincidono. Riprova.
+Passcodes don't match. Please try again.: I codici non coincidono. Riprova.
 Secret phrase was copied to clipboard: La frase segreta è stata copiata negli appunti
 Copy Anyway: Copia comunque
 12 Words: 12 parole
@@ -1775,16 +1775,16 @@ just now: proprio ora
 "No": "No"
 Search: Cerca
 State init supplied without message body: State init fornito senza corpo del messaggio
-Swap Failed: Scambio non riuscito
+Swap Failed: Swap non riuscito
 The wallet is ready: Il wallet è pronto
 Unexpected error. Please let the support know.: Errore imprevisto. Informa l'assistenza.
 Unlock it and open the TON App: Sbloccalo e apri l'app TON
-Use 4-digit Passcode: Usa passcode a 4 cifre
-Use 6-digit Passcode: Usa passcode a 6 cifre
+Use 4-digit Passcode: Usa codice a 4 cifre
+Use 6-digit Passcode: Usa codice a 6 cifre
 $authorize_token_fee_capitalized: Autorizza commissione in %token%
 Awaiting Previous Fee: In attesa della commissione precedente
 Lock: Blocca
-My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Le card My Wallet possono essere installate per i wallet e mostrate nella schermata iniziale e nell'elenco dei wallet.
+My Wallet Cards can be installed for wallets and displayed on the home screen an in the wallet list.: Le My Wallet Cards possono essere installate per i wallet e mostrate nella schermata iniziale e nell'elenco dei wallet.
 Receive: Ricevi
 Scan: Scansiona
 
@@ -1800,7 +1800,7 @@ $web_permission_device_features: funzionalità del dispositivo
 $web_permission_this_site: questo sito
 
 $enclave_use_biometrics: Usa dati biometrici
-$enclave_enter_passcode_or_use_biometrics: Inserisci il passcode o usa l'impronta digitale
+$enclave_enter_passcode_or_use_biometrics: Inserisci il codice o usa l'impronta digitale
 $enclave_use_pin: Usa PIN
 $enclave_cancel: Annulla
 
@@ -1820,8 +1820,8 @@ push_activity_nft_minted_named: "NFT generato: %name%"
 push_activity_liquidity_deposited: Liquidità fornita
 push_activity_liquidity_withdrawn: Liquidità ritirata
 push_activity_stake_deposit: Messi in staking %amount% %symbol%
-push_activity_stake_withdrawal: Ritirati dallo staking %amount% %symbol%
-push_activity_stake_withdrawal_request: Richiesto ritiro dallo staking
+push_activity_stake_withdrawal: Rimossi dallo staking %amount% %symbol%
+push_activity_stake_withdrawal_request: Richiesto riscatto dello staking
 push_activity_auction_bid: Piazzata offerta d'asta di %amount% %symbol%
 push_activity_dns_changed: Record DNS aggiornato
 push_activity_dns_deleted: Record DNS eliminato
@@ -1830,9 +1830,9 @@ push_activity_subscription_started: Abbonamento avviato
 push_activity_subscription_payment_received: Ricevuto pagamento abbonamento di %amount% %symbol%
 push_activity_subscription_canceled: Abbonamento annullato
 push_activity_swap_completed: Scambiati %from_symbol% → %to_symbol%
-push_activity_swap_failed: Scambio %from_symbol% → %to_symbol% non riuscito
-push_activity_swap_expired: Scambio %from_symbol% → %to_symbol% scaduto
-push_activity_swap_pending: Scambio %from_symbol% → %to_symbol% %status%
+push_activity_swap_failed: Swap %from_symbol% → %to_symbol% non riuscito
+push_activity_swap_expired: Swap %from_symbol% → %to_symbol% scaduto
+push_activity_swap_pending: Swap %from_symbol% → %to_symbol% %status%
 push_activity_staking_profit: Profitto da staking %amount% GRAM
 push_activity_staking_loyalty_profit: Profitto fedeltà da staking %amount% GRAM
 push_domain_title_renew: Rinnova il tuo dominio
@@ -1953,8 +1953,8 @@ See All: Vedi tutti
 Add an **extra layer of security** for your wallet in TON network.: Aggiungi un **ulteriore livello di sicurezza** per il tuo wallet sulla rete TON.
 Agent is unavailable: Agent non è disponibile
 Another transaction was sent from this wallet simultaneously. Please try again.: Un'altra transazione è stata inviata contemporaneamente da questo wallet. Riprova.
-Telegram Wallet contract was not found at this address.: Il contratto Telegram Wallet non è stato trovato a questo indirizzo.
-Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: La chiave pubblica di Telegram Wallet non corrisponde a questo seed. Il wallet potrebbe aver ruotato la chiave.
+Telegram Wallet contract was not found at this address.: Lo smart contract di Telegram Wallet non è stato trovato a questo indirizzo.
+Telegram Wallet public key does not match this seed. The wallet may have rotated its key.: La chiave pubblica di Telegram Wallet non corrisponde a queste parole segrete. Il wallet potrebbe aver ruotato la propria chiave.
 Buying with card is not supported for this chain.: L'acquisto con carta non è supportato per questa rete.
 Confirm with Telegram: Conferma con Telegram
 Couldn't open support chat. Please try again.: Impossibile aprire la chat di assistenza. Riprova.
@@ -1973,7 +1973,7 @@ SDK is not ready. Please try again.: L'SDK non è pronto. Riprova.
 Selected NFTs must use the same network: Gli NFT selezionati devono utilizzare la stessa rete
 Selling is not supported for this token.: La vendita non è supportata per questo token.
 Shows more information: Mostra maggiori informazioni
-Sign transfers and important actions with your passcode, **then confirm them in Telegram**.: Firma i trasferimenti e le azioni importanti con il tuo passcode, **quindi confermali su Telegram**.
+Sign transfers and important actions with your passcode, **then confirm them in Telegram**.: Firma i trasferimenti e le azioni importanti con il tuo codice, **quindi confermali su Telegram**.
 Telegram Account: Account Telegram
 This action cannot be undone.: Questa azione non può essere annullata.
 This action is no longer available.: Questa azione non è più disponibile.
@@ -2033,7 +2033,7 @@ $dapp_sign_data_for_prefix: per
 "You pay": "Paghi"
 Successfully Sent: Inviato con successo
 Successfully Signed: Firmato con successo
-3D Card: Card 3D
+3D Card: Carta 3D
 Coming soon: Prossimamente
 $dapp_identity_not_confirmed: L'identità dell'app **non è confermata**.
 # Token trade asset browser and details
@@ -2047,6 +2047,6 @@ $dapp_identity_not_confirmed: L'identità dell'app **non è confermata**.
 "Min": "Min"
 Ruble: Rublo
 $token_price_value: "Prezzo: %value%"
-Swaps like this usually take a few minutes. In rare cases, up to two hours.: Uno scambio come questo richiede di solito alcuni minuti. In rari casi, fino a due ore.
+Swaps like this usually take a few minutes. In rare cases, up to two hours.: Scambi come questo di solito richiedono pochi minuti. In rari casi, fino a due ore.
 3D Gram Diamond: Diamante Gram 3D
 "Max": "Max"
