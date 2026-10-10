@@ -171,8 +171,140 @@
   background-color: var(--color-accent);
 }
 
+.csvSampleOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.csvSampleModal {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  padding: 1.5rem;
+  border-radius: var(--border-radius-default);
+  background-color: var(--color-background-first);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.csvSampleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-separator);
+}
+
+.csvSampleTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-black);
+}
+
+.csvSampleHeaderButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.csvSampleCopyIcon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--color-gray-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+
+  &:hover {
+    background-color: var(--color-gray-3);
+    color: var(--color-accent);
+  }
+
+  i {
+    font-size: 1rem;
+  }
+}
+
+.csvSampleClose {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-gray-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+
+  &:hover {
+    background-color: var(--color-gray-3);
+    color: var(--color-black);
+  }
+}
+
+.csvSampleContent {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: auto;
+  min-height: 0;
+}
+
+.csvSampleText {
+  margin: 0;
+  padding: 1rem;
+  border-radius: var(--border-radius-default);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-black);
+  background-color: var(--color-background-second);
+  white-space: pre;
+  overflow-x: auto;
+  width: 100%;
+  min-width: max-content;
+}
+
+.csvSampleCopyButton {
+  background-color: var(--color-background-first);
+}
+
 @media (max-width: 480px) {
   .importPanel {
     padding: 1rem;
+  }
+
+  .csvSampleModal {
+    padding: 1rem;
+    max-height: 90vh;
+  }
+
+  .csvSampleText {
+    font-size: 0.75rem;
   }
 }
