@@ -46,6 +46,7 @@ import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.Passco
 import org.mytonwallet.app_air.uipasscode.viewControllers.passcodeConfirm.PasscodeViewState
 import org.mytonwallet.app_air.uiportfolio.viewControllers.portfolio.PortfolioVC
 import org.mytonwallet.app_air.uireceive.ReceiveVC
+import org.mytonwallet.app_air.uisend.send.MultisendLauncher
 import org.mytonwallet.app_air.uisend.send.SellVC
 import org.mytonwallet.app_air.uisend.send.SellWithCardLauncher
 import org.mytonwallet.app_air.uisend.send.SendVC
@@ -60,13 +61,17 @@ import org.mytonwallet.app_air.uisettings.viewControllers.notificationSettings.N
 import org.mytonwallet.app_air.uisettings.viewControllers.userResponsibility.UserResponsibilityVC
 import org.mytonwallet.app_air.uisettings.viewControllers.walletVersions.WalletVersionsVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
+import org.mytonwallet.app_air.uistake.staking.StakingVC
+import org.mytonwallet.app_air.uistake.staking.StakingViewModel
 import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
+import org.mytonwallet.app_air.uiswap.screens.swap.helpers.SwapHelpers
 import org.mytonwallet.app_air.uitonconnect.DappRequestNavigationController
 import org.mytonwallet.app_air.uitonconnect.TonConnectController
 import org.mytonwallet.app_air.uitonconnect.viewControllers.connect.TonConnectRequestConnectVC
 import org.mytonwallet.app_air.uitonconnect.viewControllers.send.requestSend.TonConnectRequestSendVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transactionList.TransactionListVC
+import org.mytonwallet.app_air.walletbasecontext.R as BaseR
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.logger.LogMessage
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
@@ -942,7 +947,11 @@ class SplashVC(context: Context) :
                     ?: nativeSlug
 
                 val token = TokenStore.getToken(tokenSlug)
-                val amountString = CoinUtils.toDecimalString(deeplink.amount, token?.decimals)
+                // The agent asks for the maximum the Send screen computes; no other link can
+                val isMaxAmount = deeplink.amount == "all" && source == DeeplinkOpenSource.AGENT
+                val amountString = deeplink.amount
+                    ?.takeUnless { isMaxAmount }
+                    ?.let { CoinUtils.toDecimalString(it, token?.decimals) }
 
                 val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(
@@ -954,7 +963,8 @@ class SplashVC(context: Context) :
                             amount = amountString,
                             binary = deeplink.binary,
                             comment = deeplink.comment,
-                            init = deeplink.init
+                            init = deeplink.init,
+                            isMaxAmount = isMaxAmount
                         ),
                         shouldRequireFreshAuth = source.requiresFreshAuth
                     )
@@ -991,11 +1001,25 @@ class SplashVC(context: Context) :
                 }
                 val fromToken = TokenStore.getToken(deeplink.from)
                 val toToken = TokenStore.getToken(deeplink.to)
+                if (deeplink.amountOut != null && (
+                        fromToken == null || toToken == null ||
+                            fromToken.mBlockchain?.canSwapByBuyAmount != true ||
+                            SwapHelpers.isCex(fromToken, toToken)
+                        )
+                ) {
+                    showAlertOverTopVC(
+                        null,
+                        LocaleController.getString("\$swap_reverse_prohibited")
+                    )
+                    nextDeeplink = null
+                    return
+                }
                 val swapVC = SwapVC(
                     context,
                     if (fromToken != null) MApiSwapAsset.from(fromToken) else null,
                     if (toToken != null) MApiSwapAsset.from(toToken) else null,
-                    deeplink.amountIn
+                    amountIn = deeplink.amountIn,
+                    amountOut = deeplink.amountOut
                 )
                 val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
                 navVC.setRoot(swapVC)
@@ -1163,7 +1187,28 @@ class SplashVC(context: Context) :
                     return
                 }
                 val navVC = WNavigationController(window, PresentationConfig.PreferredFullScreen)
-                navVC.setRoot(EarnRootVC(context))
+                val tokenSlug = deeplink.tokenSlug
+                if (tokenSlug != null) {
+                    val token = TokenStore.getToken(tokenSlug)
+                    if (!account.supportsEarn ||
+                        token?.isEarnAvailable != true ||
+                        AccountStore.stakingData?.stakingState(tokenSlug) == null ||
+                        (deeplink.amount?.substringAfter('.', "")?.length ?: 0) > token.decimals
+                    ) {
+                        nextDeeplink = null
+                        return
+                    }
+                    navVC.setRoot(
+                        StakingVC(
+                            context,
+                            tokenSlug,
+                            StakingViewModel.Mode.STAKE,
+                            prefilledAmount = deeplink.amount
+                        )
+                    )
+                } else {
+                    navVC.setRoot(EarnRootVC(context))
+                }
                 window.present(navVC)
             }
 
@@ -1186,6 +1231,18 @@ class SplashVC(context: Context) :
 
             is Deeplink.Market -> {
                 tabsVC?.switchToMarket()
+            }
+
+            is Deeplink.Multisend -> {
+                // Gram Wallet has no Multisend
+                if (context.getString(BaseR.string.app_multisend_url).isEmpty()) {
+                    showAlertOverTopVC(
+                        null,
+                        LocaleController.getString("This action is no longer available.")
+                    )
+                } else {
+                    window.topViewController?.let { MultisendLauncher.launch(it) }
+                }
             }
 
             is Deeplink.MintCard -> {
@@ -1358,7 +1415,9 @@ class SplashVC(context: Context) :
 
                     "disclaimer" -> UserResponsibilityVC(context)
 
-                    "wallet-version" -> {
+                    "hidden-nfts" -> HiddenNFTsVC(context, account.accountId)
+
+                    "wallet-version", "wallet-versions" -> {
                         val versions = AccountStore.walletVersionsData?.versions
                         val expectsVersions =
                             versions == null && AccountStore.activeAccount?.tonAddress != null

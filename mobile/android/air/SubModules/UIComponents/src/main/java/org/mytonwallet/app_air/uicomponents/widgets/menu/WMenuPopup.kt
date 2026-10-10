@@ -75,7 +75,7 @@ class WMenuPopup {
                 val isSelected: Boolean
             ) : Config()
 
-            data class CustomView(val customView: FrameLayout) : Config()
+            data class CustomView(val customView: FrameLayout, val height: Int = 56.dp) : Config()
 
             data class Icon(
                 val iconResId: Int?,
@@ -259,6 +259,7 @@ class WMenuPopup {
             backdropStyle: BackdropStyle = BackdropStyle.Transparent,
             usePillShadow: Boolean = false,
             onWillDismiss: (() -> Unit)? = null,
+            onDidDismiss: (() -> Unit)? = null,
             displayProgressListener: ((progress: Float) -> Unit)? = null,
             cancelsAncestorTouches: Boolean = true
         ): INavigationPopup {
@@ -288,6 +289,7 @@ class WMenuPopup {
                         view.post {
                             view.unlockView()
                         }
+                        onDidDismiss?.invoke()
                     }
                     displayProgressListener?.let { setDisplayProgressListener(it) }
                 }

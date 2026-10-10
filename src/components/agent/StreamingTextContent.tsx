@@ -3,33 +3,42 @@ import React, {
 } from '../../lib/teact/teact';
 
 import type { TextRevealPhase } from '../../util/agent/TextRevealController';
-import type { MarkdownProfile } from '../../util/renderMarkdown';
+import type { AnswerTableProps } from './AnswerMessageContent';
 
+import { markAnswerLinks } from '../../util/agent/answerLinkMarkers';
 import { segmentStreamingMarkdown } from '../../util/agent/streamingMarkdown';
 import renderMarkdown from '../../util/renderMarkdown';
 
+import AnswerMessageContent from './AnswerMessageContent';
+
 import styles from './StreamingText.module.scss';
 
-interface OwnProps {
+interface OwnProps extends AnswerTableProps {
   contentRef: ElementRef<HTMLDivElement>;
   text: string;
   phase: TextRevealPhase;
   shouldCommitMarkdownTail: boolean;
   areLinksEnabled: boolean;
-  markdownProfile: MarkdownProfile;
 }
 
 function StreamingTextContent({
   contentRef,
   text,
+  tables,
+  tableReferences,
+  links,
   phase,
   shouldCommitMarkdownTail,
   areLinksEnabled,
-  markdownProfile,
 }: OwnProps) {
+  // `text` is the revealed prefix, so a label is a link from its first revealed character
+  const marked = useMemo(
+    () => markAnswerLinks(text, links, tableReferences),
+    [links, tableReferences, text],
+  );
   const markdownSegments = useMemo(
-    () => segmentStreamingMarkdown(text, phase === 'complete' && shouldCommitMarkdownTail),
-    [phase, shouldCommitMarkdownTail, text],
+    () => segmentStreamingMarkdown(marked.text, phase === 'complete' && shouldCommitMarkdownTail),
+    [marked, phase, shouldCommitMarkdownTail],
   );
 
   return (
@@ -40,20 +49,25 @@ function StreamingTextContent({
       dir="auto"
       aria-busy={phase !== 'complete'}
     >
-      {markdownSegments.blocks.map((block) => (
+      {tables?.length ? (
+        <AnswerMessageContent
+          text={marked.text}
+          tables={tables}
+          tableReferences={marked.tableReferences}
+          areLinksEnabled={areLinksEnabled}
+        />
+      ) : markdownSegments.blocks.map((block) => (
         <MemoizedMarkdownSegment
           key={block.offset}
           offset={block.offset}
           text={block.text}
           areLinksEnabled={areLinksEnabled}
-          markdownProfile={markdownProfile}
         />
       ))}
-      {markdownSegments.tail && (
+      {!tables?.length && markdownSegments.tail && (
         <MarkdownSegment
           text={markdownSegments.tail}
           areLinksEnabled={areLinksEnabled}
-          markdownProfile={markdownProfile}
         />
       )}
     </div>
@@ -64,16 +78,14 @@ function MarkdownSegment({
   offset,
   text,
   areLinksEnabled,
-  markdownProfile,
 }: {
   offset?: number;
   text: string;
   areLinksEnabled: boolean;
-  markdownProfile: MarkdownProfile;
 }) {
   const html = useMemo(
-    () => renderMarkdown(text, { areLinksEnabled, profile: markdownProfile }).html,
-    [areLinksEnabled, markdownProfile, text],
+    () => renderMarkdown(text, { areLinksEnabled }).html,
+    [areLinksEnabled, text],
   );
 
   return (

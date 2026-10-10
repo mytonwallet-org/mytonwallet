@@ -4,11 +4,10 @@ import type {
   AgentHintsResponseV2,
   AgentMessageErrorV2,
   AgentPersistedMessageV2,
-  AgentServerCapabilitiesV2,
+  AgentProblemReportResponseV2,
   AgentStarterHintV2,
   AgentThreadClearResponseV2,
   AgentThreadMessagesPageV2,
-  AgentThreadResponseV2,
   AgentThreadSummaryV2,
 } from '../types';
 import type {
@@ -28,18 +27,18 @@ import {
   literal,
   object,
   oneOf,
-  strictKeys,
   string,
   timestamp,
 } from '../wireReader';
 import {
   persistedAction,
 } from './actions';
+import { decodeMessageLinks } from './answerLinks';
+import { decodeMessageTables } from './answerTables';
 import {
   ERROR_CODES,
   followupUuid,
   protocol,
-  RETRYABLE_ERROR_CODES,
   uuid,
   validateEnumArray,
   validateErrorTiming,
@@ -50,6 +49,7 @@ import {
 
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const FOLLOWUP_MARKDOWN_PATTERN = /(?:[*_~`]|\[[^\]]*\]\(|<\/?[A-Za-z]|^\s{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])\s)/mu;
+const RESPONSE_LANGUAGE_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u;
 
 export interface AgentV2IncompatiblePersistedMessage {
   index: number;
@@ -72,10 +72,6 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
   const result = object(value, path);
   const id = uuid(result.id, `${path}.id`);
   const revision = integer(result.revision, `${path}.revision`, 1);
-  literal(result.metadataRevision, 1, `${path}.metadataRevision`);
-  literal(result.titleSource, 'none', `${path}.titleSource`);
-  literal(result.isPinned, false, `${path}.isPinned`);
-  literal(result.isDefault, true, `${path}.isDefault`);
   const createdAt = timestamp(result.createdAt, `${path}.createdAt`);
   const updatedAt = timestamp(result.updatedAt, `${path}.updatedAt`);
   const lastActivityAt = timestamp(result.lastActivityAt, `${path}.lastActivityAt`);
@@ -87,10 +83,6 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
   return {
     id,
     revision,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt,
     updatedAt,
     lastActivityAt,
@@ -101,7 +93,6 @@ export function threadSummary(value: unknown, path: string): AgentThreadSummaryV
 
 export function followup(value: unknown, path: string) {
   const result = object(value, path);
-  strictKeys(result, path, ['id', 'kind', 'text']);
   extensibleOneOf(result.kind, new Set(['suggested_prompt']), `${path}.kind`);
   followupUuid(result.id, `${path}.id`);
   followupText(result.text, `${path}.text`, 80);
@@ -134,37 +125,18 @@ export function filterFollowups(value: unknown, path: string, minLength = 0) {
   return result;
 }
 
-export function inputContinuation(value: unknown, path: string) {
+function persistedMessage(
+  value: unknown, path: string, onInvalid: (error: AgentV2ContractError) => void,
+): AgentPersistedMessageV2 {
   const result = object(value, path);
-  extensibleOneOf(result.kind, new Set(['collect_input']), `${path}.kind`);
-  extensibleOneOf(result.code, new Set([
-    'asset_search_asset', 'market_insight_asset', 'market_insight_timeframe', 'market_quote_asset',
-    'prepare_send_amount', 'prepare_send_asset', 'prepare_send_recipient',
-    'prepare_swap_amount', 'prepare_swap_destination_asset', 'prepare_swap_direction',
-    'prepare_swap_source_asset',
-  ]), `${path}.code`);
-  string(result.id, `${path}.id`);
-  extensibleOneOf(
-    result.scenario,
-    new Set(['prepare-send', 'prepare-swap', 'asset-search', 'market-insight', 'market-quote']),
-    `${path}.scenario`,
-  );
-  extensibleOneOf(
-    result.field,
-    new Set(['amount', 'asset', 'recipient', 'network', 'timeframe', 'details']),
-    `${path}.field`,
-  );
-}
-
-function persistedMessage(value: unknown, path: string): AgentPersistedMessageV2 {
-  const result = object(value, path);
-  validatePersistedMessage(result, path);
+  validatePersistedMessage(result, path, onInvalid);
   return result;
 }
 
 function validatePersistedMessage(
   result: JsonObject,
   path: string,
+  onInvalid: (error: AgentV2ContractError) => void,
 ): asserts result is JsonObject & AgentPersistedMessageV2 {
   uuid(result.id, `${path}.id`);
   uuid(result.threadId, `${path}.threadId`);
@@ -175,36 +147,61 @@ function validatePersistedMessage(
     const kind = oneOf(content.kind, new Set(['markdown', 'semantic']), `${path}.content.kind`);
     if (kind === 'markdown') {
       if (typeof content.text !== 'string') fail(`${path}.content.text`);
+      try {
+        decodeMessageTables(content, `${path}.content`, onInvalid);
+      } catch (error) {
+        if (!(error instanceof AgentV2ContractError) && !(error instanceof AgentV2CompatibilityError)) throw error;
+        delete content.tables;
+        delete content.tableReferences;
+        if (error instanceof AgentV2ContractError) onInvalid(error);
+      }
+      // A link never fails the message: one that cannot be placed is dropped and its label stays text
+      try {
+        decodeMessageLinks(content, `${path}.content`);
+      } catch (error) {
+        if (!(error instanceof AgentV2ContractError)) throw error;
+        delete content.links;
+      }
     } else {
       content.content = semanticContent(content.content, `${path}.content.content`);
     }
   }
   timestamp(result.createdAt, `${path}.createdAt`);
   if (result.runId !== undefined) uuid(result.runId, `${path}.runId`);
+  if (result.responseLanguage !== undefined) {
+    const language = decodeResponseLanguage(result.responseLanguage);
+    if (language) result.responseLanguage = language;
+    else delete result.responseLanguage;
+  }
   if (result.actions !== undefined) {
-    const actions = filterUnsupportedItems(result.actions, `${path}.actions`, 8, persistedAction);
+    const actions = readOptionalItems(() => (
+      filterUnsupportedItems(result.actions, `${path}.actions`, 8, persistedAction, 0, onInvalid)
+    ), onInvalid);
     if (actions.length) result.actions = actions;
     else delete result.actions;
   }
   if (result.followups !== undefined) {
-    const followups = filterFollowups(result.followups, `${path}.followups`);
+    const followups = readOptionalItems(() => filterFollowups(result.followups, `${path}.followups`));
     if (followups.length) result.followups = followups;
     else delete result.followups;
   }
-  if (result.inputContinuations !== undefined) {
-    const continuations = filterUnsupportedItems(
-      result.inputContinuations,
-      `${path}.inputContinuations`,
-      3,
-      inputContinuation,
-    );
-    if (continuations.length) result.inputContinuations = continuations;
-    else delete result.inputContinuations;
-  }
   if (result.chains !== undefined) {
-    validateEnumArray(result.chains, `${path}.chains`, 16, ['ton', 'tron']);
+    try {
+      validateEnumArray(result.chains, `${path}.chains`, 16, ['ton', 'tron']);
+    } catch (error) {
+      if (!(error instanceof AgentV2ContractError)) throw error;
+      delete result.chains;
+    }
   }
   if (result.error !== undefined) result.error = messageError(result.error, `${path}.error`);
+}
+
+export function decodeResponseLanguage(value: unknown): string | undefined {
+  return typeof value === 'string'
+    && value.length <= 35
+    && RESPONSE_LANGUAGE_PATTERN.test(value)
+    ? value
+    : undefined;
 }
 
 function messageError(value: unknown, path: string): AgentMessageErrorV2 {
@@ -218,7 +215,6 @@ function messageError(value: unknown, path: string): AgentMessageErrorV2 {
     };
   }
   const code = oneOf<AgentErrorCodeV2>(wireCode, ERROR_CODES, `${path}.code`);
-  if (retryable !== RETRYABLE_ERROR_CODES.has(code)) fail(`${path}.retryable`);
   if (result.retryAfterMs !== undefined) integer(result.retryAfterMs, `${path}.retryAfterMs`, 1);
   if (result.resetAt !== undefined) timestamp(result.resetAt, `${path}.resetAt`);
   validateErrorTiming(code, result, path);
@@ -233,21 +229,14 @@ export function decodeAgentV2Hints(value: unknown): AgentHintsResponseV2 {
   const result = object(value, '$');
   protocol(result, '$');
   literal(result.catalogVersion, 'agent-starter-hints-v1', '$.catalogVersion');
-  let serverCapabilities: AgentServerCapabilitiesV2 | undefined;
-  if (result.serverCapabilities !== undefined) {
-    const capabilities = object(result.serverCapabilities, '$.serverCapabilities');
-    const webSearch = oneOf<AgentServerCapabilitiesV2['webSearch']>(
-      capabilities.webSearch,
-      new Set(['available', 'disabled', 'unavailable']),
-      '$.serverCapabilities.webSearch',
-    );
-    serverCapabilities = { webSearch };
-  }
-  const items = array(result.items, '$.items', 5).map((item, index): AgentStarterHintV2 => {
+  const supportedHintIds = new Set<AgentStarterHintV2['id']>([
+    'agent.capabilities', 'learn.swap', 'learn.staking', 'learn.security', 'receive.tokens',
+  ]);
+  const items = array(result.items, '$.items', 6).flatMap((item, index): AgentStarterHintV2[] => {
     const hint = object(item, `$.items[${index}]`);
-    const id = oneOf<AgentStarterHintV2['id']>(hint.id, new Set([
-      'portfolio.performance', 'learn.swap', 'learn.staking', 'learn.security', 'receive.tokens',
-    ]), `$.items[${index}].id`);
+    const rawId = boundedString(hint.id, `$.items[${index}].id`, 1, 80);
+    if (!supportedHintIds.has(rawId as AgentStarterHintV2['id'])) return [];
+    const id = oneOf<AgentStarterHintV2['id']>(rawId, supportedHintIds, `$.items[${index}].id`);
     let requiredCapabilities: AgentStarterHintV2['requiredCapabilities'];
     if (hint.requiredCapabilities !== undefined) {
       validateEnumArray(
@@ -263,13 +252,12 @@ export function decodeAgentV2Hints(value: unknown): AgentHintsResponseV2 {
           `$.items[${index}].requiredCapabilities`,
         ));
     }
-    return { id, ...(requiredCapabilities !== undefined && { requiredCapabilities }) };
+    return [{ id, ...(requiredCapabilities !== undefined && { requiredCapabilities }) }];
   });
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     catalogVersion: 'agent-starter-hints-v1',
     items,
-    ...(serverCapabilities !== undefined && { serverCapabilities }),
   };
 }
 
@@ -277,27 +265,27 @@ export function decodeAgentV2DefaultThread(value: unknown): AgentDefaultThreadRe
   const result = object(value, '$');
   protocol(result, '$');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     thread: threadSummary(result.thread, '$.thread'),
     created: boolean(result.created, '$.created'),
   };
 }
 
-export function decodeAgentV2Thread(value: unknown): AgentThreadResponseV2 {
-  const result = object(value, '$');
-  protocol(result, '$');
-  return { protocolVersion: 2, thread: threadSummary(result.thread, '$.thread') };
-}
-
 export function decodeAgentV2Messages(value: unknown): AgentV2DecodedMessagesPage {
   const result = object(value, '$');
   protocol(result, '$');
-  const threadId = uuid(result.threadId, '$.threadId');
+  const thread = threadSummary(result.thread, '$.thread');
   const messages: AgentPersistedMessageV2[] = [];
   const incompatibleMessages: AgentV2IncompatiblePersistedMessage[] = [];
   array(result.messages, '$.messages', 100).forEach((item, index) => {
     try {
-      messages.push(persistedMessage(item, `$.messages[${index}]`));
+      const issues: AgentV2ContractError[] = [];
+      const message = persistedMessage(item, `$.messages[${index}]`, (error) => issues.push(error));
+      if (issues.length) {
+        message.error ??= { code: 'invalid_event', retryable: false };
+        issues.forEach((error) => incompatibleMessages.push(incompatiblePersistedMessage(error, item, index)!));
+      }
+      messages.push(message);
     } catch (error) {
       const diagnostic = incompatiblePersistedMessage(error, item, index);
       if (!diagnostic) throw error;
@@ -306,8 +294,8 @@ export function decodeAgentV2Messages(value: unknown): AgentV2DecodedMessagesPag
   });
   const nextCursor = result.nextCursor === undefined ? undefined : cursor(result.nextCursor, '$.nextCursor');
   return {
-    protocolVersion: 2,
-    threadId,
+    protocolVersion: 3,
+    thread,
     messages,
     ...(nextCursor !== undefined && { nextCursor }),
     ...(incompatibleMessages.length && { incompatibleMessages }),
@@ -352,8 +340,28 @@ export function decodeAgentV2ThreadClear(value: unknown): AgentThreadClearRespon
   const result = object(value, '$');
   protocol(result, '$');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     thread: threadSummary(result.thread, '$.thread'),
     duplicate: boolean(result.duplicate, '$.duplicate'),
   };
+}
+
+export function decodeAgentV2ProblemReport(value: unknown): AgentProblemReportResponseV2 {
+  const result = object(value, '$');
+  protocol(result, '$');
+  return {
+    protocolVersion: 3,
+    reportId: uuid(result.reportId, '$.reportId'),
+    duplicate: boolean(result.duplicate, '$.duplicate'),
+  };
+}
+
+function readOptionalItems(read: () => unknown[], onInvalid?: (error: AgentV2ContractError) => void): unknown[] {
+  try {
+    return read();
+  } catch (error) {
+    if (!(error instanceof AgentV2ContractError) && !(error instanceof AgentV2CompatibilityError)) throw error;
+    if (error instanceof AgentV2ContractError) onInvalid?.(error);
+    return [];
+  }
 }

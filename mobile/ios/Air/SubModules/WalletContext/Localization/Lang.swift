@@ -8,8 +8,50 @@
 import Foundation
 import SwiftUI
 
+private enum MessageScopedLocalization {
+    @TaskLocal static var languageCode: String?
+}
+
 public func lang(_ keyAndDefault: String) -> String {
-    NSLocalizedString(keyAndDefault, bundle: AirBundle, comment: "")
+    NSLocalizedString(
+        keyAndDefault,
+        bundle: localizedBundle(languageCode: MessageScopedLocalization.languageCode),
+        comment: ""
+    )
+}
+
+public func withMessageLanguage<T>(
+    _ languageCode: String?,
+    operation: () throws -> T
+) rethrows -> T {
+    try MessageScopedLocalization.$languageCode.withValue(
+        supportedMessageLanguageCode(languageCode),
+        operation: operation
+    )
+}
+
+public func supportedMessageLanguageCode(_ languageCode: String?) -> String? {
+    guard let languageCode else { return nil }
+    return Language.supportedLanguages.first(where: {
+        $0.langCode.caseInsensitiveCompare(languageCode) == .orderedSame
+    })?.langCode
+}
+
+public func langFormat(_ keyAndDefault: String, _ arguments: CVarArg...) -> String {
+    let languageCode = MessageScopedLocalization.languageCode
+    let locale = languageCode.map(Locale.init(identifier:)) ?? LocalizationSupport.shared.locale
+    return String(format: lang(keyAndDefault), locale: locale, arguments: arguments)
+}
+
+private func localizedBundle(languageCode: String?) -> Bundle {
+    guard let languageCode,
+          let localization = AirBundle.localizations.first(where: {
+              $0.caseInsensitiveCompare(languageCode) == .orderedSame
+          }),
+          let path = AirBundle.path(forResource: localization, ofType: "lproj"),
+          let bundle = Bundle(path: path)
+    else { return AirBundle }
+    return bundle
 }
 
 // `$in_days` is a pure plural ("in N days"). `today`/`tomorrow` are handled separately because

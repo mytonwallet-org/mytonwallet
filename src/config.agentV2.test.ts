@@ -15,7 +15,7 @@ afterAll(() => {
 describe('Agent V2 rollout config', () => {
   describe('AGENT_OVERRIDE', () => {
     it.each([
-      ['unset', undefined, 'v1'],
+      ['unset', undefined, 'no_override'],
       ['runtime', 'no_override', 'no_override'],
       ['V1', 'v1', 'v1'],
       ['V2', 'v2', 'v2'],

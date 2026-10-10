@@ -1,4 +1,3 @@
-import { buildAgentMarketAnalysisV6Fixture } from './protocol/agentMarketAnalysisTestFixture';
 import { AgentV2StreamTransportError, parseAgentV2Ndjson } from './ndjson';
 
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
@@ -7,6 +6,119 @@ const THREAD_ID = '33333333-3333-4333-8333-333333333333';
 const MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
 
 describe('parseAgentV2Ndjson', () => {
+  it('keeps transient activity outside the replay cursor and reads historical activity', async () => {
+    const binding = { clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>() };
+    const parse = (items: Record<string, unknown>[]) => collect(parseAgentV2Ndjson(stream(items.map((item) => (
+      new TextEncoder().encode(`${JSON.stringify(event(item))}\n`)
+    ))), binding));
+    const first = await parse([
+      { type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 },
+      { type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown' },
+      { type: 'run_activity', sequence: 2, ephemeral: true, code: 'web.searching', status: 'active' },
+      { type: 'run_activity', sequence: 2, ephemeral: true, code: 'future.progress', status: 'active' },
+    ]);
+    expect(first).toHaveLength(3);
+    expect(binding.lastSequence).toBe(2);
+    expect(binding.rawBySequence.size).toBe(2);
+    const resumed = await parse([
+      { type: 'run_activity', sequence: 2, ephemeral: true, code: 'web.searching', status: 'completed' },
+      { type: 'text_delta', sequence: 3, messageId: MESSAGE_ID, delta: 'Answer' },
+      { type: 'run_activity', sequence: 4, code: 'web.searching', status: 'completed' },
+      { type: 'message_end', sequence: 5, messageId: MESSAGE_ID, finishReason: 'complete' },
+    ]);
+    expect(resumed.map(({ type }) => type)).toEqual(['run_activity', 'text_delta', 'run_activity', 'message_end']);
+    expect(binding.lastSequence).toBe(5);
+    expect(binding.rawBySequence.size).toBe(5);
+  });
+
+  it.each([
+    { runId: THREAD_ID, sequence: 2 },
+    { runId: RUN_ID, sequence: 3 },
+  ])('rejects activity with a different run or future anchor: %s', async (invalid) => {
+    const binding = { clientRunId: CLIENT_RUN_ID, runId: RUN_ID, lastSequence: 2,
+      rawBySequence: new Map<number, string>() };
+    const wire = event({ type: 'run_activity', ephemeral: true, code: 'web.searching', status: 'active', ...invalid });
+    await expect(collect(parseAgentV2Ndjson(stream([
+      new TextEncoder().encode(`${JSON.stringify(wire)}\n`),
+    ]), binding))).rejects.toThrow();
+    expect(binding.lastSequence).toBe(2);
+  });
+
+  it('reconciles transient text across reconnect and durable replay without advancing the draft cursor', async () => {
+    const binding = { clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>() };
+    const parse = (items: Record<string, unknown>[]) => collect(parseAgentV2Ndjson(stream(items.map((item) => (
+      new TextEncoder().encode(`${JSON.stringify(event(item))}\n`)
+    ))), binding));
+    const first = await parse([
+      { type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 },
+      { type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown' },
+      { type: 'text_draft', sequence: 2, messageId: MESSAGE_ID, offset: 0, delta: 'Hi 🙂' },
+    ]);
+    expect(binding.lastSequence).toBe(2);
+    const replay = await parse([
+      { type: 'text_draft', sequence: 2, messageId: MESSAGE_ID, offset: 0, delta: 'Hi 🙂 there' },
+      { type: 'text_delta', sequence: 3, messageId: MESSAGE_ID, offset: 0, delta: 'Hi 🙂 there!' },
+      { type: 'message_content_end', sequence: 4, messageId: MESSAGE_ID, createdAt: '2026-09-16T00:00:00.000Z' },
+      { type: 'text_draft', sequence: 2, messageId: MESSAGE_ID, offset: 12, delta: 'late' },
+      { type: 'message_end', sequence: 5, messageId: MESSAGE_ID, finishReason: 'complete' },
+    ]);
+    expect([...first, ...replay].flatMap((item) => item.type === 'text_delta' ? [item.delta] : []).join(''))
+      .toBe('Hi 🙂 there!');
+    expect(binding.lastSequence).toBe(5);
+  });
+
+  it('preserves visible drafts when the owner dies and a terminal event reuses the next durable sequence', async () => {
+    const binding = { clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>() };
+    const items = [
+      { type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 },
+      { type: 'message_start', sequence: 2, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown' },
+      { type: 'text_draft', sequence: 2, messageId: MESSAGE_ID, offset: 0, delta: 'Partial answer' },
+      { type: 'message_end', sequence: 3, messageId: MESSAGE_ID, finishReason: 'run_interrupted' },
+    ];
+    const events = await collect(parseAgentV2Ndjson(stream(items.map((item) => (
+      new TextEncoder().encode(`${JSON.stringify(event(item))}\n`)
+    ))), binding));
+    expect(events[2]).toMatchObject({ type: 'text_delta', delta: 'Partial answer' });
+    expect(events[3]).toMatchObject({ type: 'message_end', finishReason: 'run_interrupted' });
+    expect(binding.lastSequence).toBe(3);
+  });
+
+  it.each([
+    ['**Цена**: 0.000001', '234567 USD. Изменение: −2.75%.'],
+    ['**Price**: 9876.', '543210 EUR. Change: +1.25%.'],
+  ])('preserves market answer chunks as ordinary Markdown', async (first, second) => {
+    const expected = [
+      event({ type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 }),
+      event({ type: 'text_delta', sequence: 2, messageId: MESSAGE_ID, delta: first }),
+      event({ type: 'text_delta', sequence: 3, messageId: MESSAGE_ID, delta: second }),
+    ];
+    const chunks = expected.map((item) => new TextEncoder().encode(`${JSON.stringify(item)}\n`));
+    const binding = { clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>() };
+    expect(await collect(parseAgentV2Ndjson(stream(chunks), binding))).toEqual(expected);
+  });
+
+  it.each(['complete', 'cancelled', 'tool_unavailable'])(
+    'keeps text and terminal %s after an invalid action', async (reason) => {
+      const wire = [
+        event({ type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 }),
+        event({ type: 'text_delta', sequence: 2, messageId: MESSAGE_ID, delta: 'Saved answer' }),
+        event({ type: 'action', sequence: 3, messageId: MESSAGE_ID, action: { kind: 'receive' } }),
+        event({ type: 'message_end', sequence: 4, messageId: MESSAGE_ID, finishReason: reason }),
+      ];
+      const binding: import('./ndjson').AgentV2StreamBinding = {
+        clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>(),
+      };
+      const received = await collect(parseAgentV2Ndjson(stream(wire.map((item) => (
+        new TextEncoder().encode(`${JSON.stringify(item)}\n`)
+      ))), binding));
+      expect(received.map(({ type }) => type)).toEqual(['run_start', 'text_delta', 'message_end']);
+      expect(received[1]).toMatchObject({ delta: 'Saved answer' });
+      expect(received[2]).toMatchObject({ finishReason: reason });
+      expect(binding.incompleteMessageIds?.has(MESSAGE_ID)).toBe(true);
+      expect(binding.lastSequence).toBe(4);
+    },
+  );
+
   it('handles split UTF-8 boundaries and preserves stream binding', async () => {
     const payload = [
       event({ type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 }),
@@ -147,34 +259,6 @@ describe('parseAgentV2Ndjson', () => {
     expect(binding.rawBySequence.size).toBeLessThan(220);
   });
 
-  it('accepts semantic events within the 96 KiB content budget', async () => {
-    const content = buildAgentMarketAnalysisV6Fixture();
-    for (const horizon of ['3d', '7d', '30d'] as const) {
-      const levelMap = content.evidence.levelMaps[horizon];
-      if (levelMap.status !== 'available') throw new Error('Expected available fixture level map');
-      const zones = [...levelMap.supports, ...levelMap.resistances];
-      if (levelMap.equilibrium) zones.push(levelMap.equilibrium);
-      for (const zone of zones) {
-        const source = zone.sources[0];
-        if (!source) throw new Error('Expected fixture zone source');
-        zone.sources = Array.from({ length: 72 }, () => ({ ...source }));
-      }
-    }
-    const events = [
-      event({ type: 'run_start', sequence: 1, clientRunId: CLIENT_RUN_ID, threadId: THREAD_ID, threadRevision: 1 }),
-      event({ type: 'semantic_content', sequence: 2, messageId: MESSAGE_ID, content }),
-    ];
-    const lines = events.map((item) => JSON.stringify(item));
-    const encoder = new TextEncoder();
-
-    expect(encoder.encode(JSON.stringify(content)).byteLength).toBeLessThanOrEqual(96 * 1024);
-    expect(encoder.encode(lines[1]).byteLength).toBeGreaterThan(64 * 1024);
-    await expect(collect(parseAgentV2Ndjson(
-      stream([encoder.encode(lines.join('\n').concat('\n'))]),
-      { clientRunId: CLIENT_RUN_ID, lastSequence: 0, rawBySequence: new Map<number, string>() },
-    ))).resolves.toEqual(events);
-  });
-
   it('classifies reader failures as retryable transport failures', async () => {
     const body = new ReadableStream<Uint8Array>({
       pull(controller) {
@@ -188,7 +272,7 @@ describe('parseAgentV2Ndjson', () => {
 });
 
 function event(extra: Record<string, unknown>) {
-  return { protocolVersion: 2, runId: RUN_ID, ...extra };
+  return { protocolVersion: 3, runId: RUN_ID, ...extra };
 }
 
 function stream(chunks: Uint8Array[]) {

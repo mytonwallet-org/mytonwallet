@@ -1,6 +1,8 @@
 import type { AgentV2OperationError } from '../../api/agentV2/types';
 import type { LangFn } from '../../util/langProvider';
 
+import { getAgentV2ErrorText } from './agentV2Copy';
+
 export interface AgentV2HydrationError {
   code: AgentV2OperationError['code'];
   message: string;
@@ -14,9 +16,7 @@ export function buildAgentV2HydrationError(
   const code = error?.code ?? 'network_error';
   return {
     code,
-    message: lang(code === 'network_error'
-      ? '$agent_connection_interrupted'
-      : '$agent_history_unavailable'),
+    message: getAgentV2ErrorText(code, lang),
     isRetryable: error?.retryable ?? true,
   };
 }

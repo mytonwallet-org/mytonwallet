@@ -14,10 +14,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
-import androidx.core.view.OneShotPreDrawListener
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
@@ -34,7 +32,6 @@ import java.util.Date
 import kotlin.math.min
 import kotlin.math.roundToInt
 import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.DatasetHelpers
-import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.TokenPriceInsight
 import org.mytonwallet.app_air.uiassets.viewControllers.token.helpers.resolveTokenChartPercentChange
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.commonViews.WAgentHintView
@@ -74,33 +71,29 @@ import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MToken
-import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 
 @SuppressLint("ViewConstructor")
 class TokenChartCell(
     recyclerView: WRecyclerView,
     var activePeriod: MHistoryTimePeriod,
     var onSelectedPeriodChanged: ((MHistoryTimePeriod) -> Unit)?,
-    private var onAgentPrompt: ((String) -> Unit)?,
+    private var onAnalyze: (() -> Unit)?,
     private var onHeightChange: ((isExpanding: Boolean, height: Int) -> Unit)?
 ) : WCell(recyclerView.context, LayoutParams(MATCH_PARENT, WRAP_CONTENT)),
     WThemedView {
 
     companion object {
-        private const val PRICE_INSIGHT_FADE_START_PROGRESS = 0.66f
-        private const val PRICE_INSIGHT_HEIGHT_DP = 35
-        private const val PRICE_INSIGHT_BOTTOM_MARGIN_DP = 19f
-        private const val PRICE_INSIGHT_VERTICAL_SPACING_DP = 27
+        private const val ANALYZE_BUTTON_FADE_START_PROGRESS = 0.66f
+        private const val ANALYZE_BUTTON_HEIGHT_DP = 35
+        private const val ANALYZE_BUTTON_BOTTOM_MARGIN_DP = 19f
+        private const val ANALYZE_BUTTON_VERTICAL_SPACING_DP = 27
     }
 
     private var percentChange: Double? = null
-    private var priceInsight: TokenPriceInsight? = null
-    private var priceInsightHeightSpring: SpringAnimation? = null
-    private var priceInsightPreDrawListener: OneShotPreDrawListener? = null
+    private val hasAnalyzeButton = onAnalyze != null
+    private var analyzeButtonHeightSpring: SpringAnimation? = null
     private var chartFadeAnimator: AnimatorSet? = null
-    private val priceInsightExpiryRunnable = Runnable { updatePriceInsight() }
     private var pendingAnimationToConfigure = false
-    private var pendingPriceInsightUpdate = false
     private var isAnimating = false
         set(value) {
             field = value
@@ -125,10 +118,6 @@ class TokenChartCell(
         set(value) {
             field = value
             if (!value) {
-                if (pendingPriceInsightUpdate) {
-                    pendingPriceInsightUpdate = false
-                    updatePriceInsight()
-                }
                 if (!isAnimating && pendingAnimationToConfigure) {
                     pendingAnimationToConfigure = false
                     setupLineChart()
@@ -239,18 +228,16 @@ class TokenChartCell(
 
     private val agentHintView = WAgentHintView(
         context,
-        "",
+        LocaleController.getString("Analyze it"),
         contentVerticalPadding = 8.dp,
         animatePressAlpha = false
     ) {
-        val insight = priceInsight ?: return@WAgentHintView
-        val tokenName = token?.displayName ?: token?.name ?: return@WAgentHintView
-        onAgentPrompt?.invoke(insight.prompt(tokenName))
+        onAnalyze?.invoke()
     }.apply {
-        minimumHeight = PRICE_INSIGHT_HEIGHT_DP.dp
-        visibility = GONE
+        minimumHeight = ANALYZE_BUTTON_HEIGHT_DP.dp
+        visibility = if (hasAnalyzeButton) INVISIBLE else GONE
         addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            if (bottom - top != oldBottom - oldTop) updateMeasuredPriceInsightHeight()
+            if (bottom - top != oldBottom - oldTop) updateMeasuredAnalyzeButtonHeight()
         }
     }
 
@@ -303,8 +290,13 @@ class TokenChartCell(
             toCenterX(chartTimeLineView)
             bottomToTop(chartTimeLineView, segmentedControlGroupContainer, 8f)
             toCenterX(segmentedControlGroupContainer, 12f)
-            toBottom(segmentedControlGroupContainer)
             toCenterX(agentHintView, 20f)
+            if (hasAnalyzeButton) {
+                bottomToTop(segmentedControlGroupContainer, agentHintView, 8f)
+                toBottom(agentHintView, ANALYZE_BUTTON_BOTTOM_MARGIN_DP)
+            } else {
+                toBottom(segmentedControlGroupContainer)
+            }
         }
         post {
             progressView.x =
@@ -350,7 +342,7 @@ class TokenChartCell(
             // Expand
             // Collapse
             if (isAnimating) return@setOnClickListener
-            settlePriceInsightLayout()
+            settleAnalyzeButtonLayout()
             isAnimating = true
             collapsedChartImageView.setImageBitmap(collapsedChartView.asImage())
             expandedChartImageView.setImageBitmap(expandedChartView.asImage())
@@ -390,7 +382,7 @@ class TokenChartCell(
             chartTimeLineView.alpha = 1f
             chartTimeLineView.isVisible = historyData?.isNotEmpty() == true
             containerView.doOnPreDraw {
-                if (isExpanded && !isAnimating) settlePriceInsightLayout()
+                if (isExpanded && !isAnimating) settleAnalyzeButtonLayout()
             }
         }
     }
@@ -467,9 +459,9 @@ class TokenChartCell(
         segmentedControlGroupContainer.alpha = max(0f, fraction - 0.7f) * 5
         chartTimeLineView.alpha = max(0f, fraction - 0.6f) * 5 / 2
         val renderedChartAlpha = max(collapsedChartImageView.alpha, expandedChartImageView.alpha)
-        val priceInsightGapProgress = currentPriceInsightGapProgress()
-        updatePriceInsightAlpha(renderedChartAlpha, allowVisible = true)
-        agentHintView.translationY = 8.dp * (1f - priceInsightGapProgress)
+        val analyzeButtonGapProgress = currentAnalyzeButtonGapProgress()
+        updateAnalyzeButtonAlpha(renderedChartAlpha, allowVisible = true)
+        agentHintView.translationY = 8.dp * (1f - analyzeButtonGapProgress)
         segmentedControlGroupContainer.visibility =
             if (segmentedControlGroupContainer.alpha > 0) VISIBLE else INVISIBLE
     }
@@ -524,7 +516,7 @@ class TokenChartCell(
                 isExpanded = isExpanding
                 WGlobalStorage.setIsTokenChartExpanded(isExpanded)
                 isAnimating = false
-                settlePriceInsightLayout()
+                settleAnalyzeButtonLayout()
             }
         }
 
@@ -543,14 +535,6 @@ class TokenChartCell(
         this.token = token
         this.historyData = historyData
         this.activePeriod = activePeriod
-        if (isChangingPeriod) {
-            pendingPriceInsightUpdate = true
-            if (historyData == null) {
-                containerView.removeCallbacks(priceInsightExpiryRunnable)
-            }
-        } else {
-            updatePriceInsight()
-        }
         if (!isAnimating && (!isChangingPeriod || historyData == null)) {
             setupLineChart()
         } else {
@@ -559,111 +543,7 @@ class TokenChartCell(
         updateTheme()
     }
 
-    private fun updatePriceInsight() {
-        val previousInsight = priceInsight
-        val tokenName = token?.displayName ?: token?.name
-        val newInsight = if (
-            EnvironmentStore.isTokenPriceInsightEnabled && tokenName != null
-        ) {
-            TokenPriceInsight.calculate(activePeriod, historyData, token?.price)
-        } else {
-            null
-        }
-        priceInsight = newInsight
-        schedulePriceInsightExpiry(newInsight)
-        if (newInsight != null && tokenName != null) {
-            agentHintView.setTitle(newInsight.title(tokenName))
-        }
-
-        val presenceChanged = (previousInsight == null) != (newInsight == null)
-        if (presenceChanged && isExpanded && !isAnimating &&
-            WGlobalStorage.getAreAnimationsActive()
-        ) {
-            if (newInsight != null) {
-                animatePriceInsightAppearance()
-            } else {
-                animatePriceInsightDisappearance()
-            }
-        } else if (priceInsightHeightSpring == null) {
-            settlePriceInsightLayout()
-        }
-    }
-
-    private fun schedulePriceInsightExpiry(insight: TokenPriceInsight?) {
-        containerView.removeCallbacks(priceInsightExpiryRunnable)
-        if (insight == null) return
-        val delayMs =
-            (insight.expiresAtTimestampSeconds * 1000.0 - System.currentTimeMillis()).toLong() + 1
-        if (delayMs > 0L) containerView.postDelayed(priceInsightExpiryRunnable, delayMs)
-    }
-
-    private fun setPriceInsightConstraints(hasInsight: Boolean) {
-        containerView.setConstraints {
-            clear(segmentedControlGroupContainer.id, ConstraintSet.BOTTOM)
-            clear(agentHintView.id, ConstraintSet.TOP)
-            clear(agentHintView.id, ConstraintSet.BOTTOM)
-            if (hasInsight) {
-                bottomToTop(segmentedControlGroupContainer, agentHintView, 8f)
-                toBottom(agentHintView, PRICE_INSIGHT_BOTTOM_MARGIN_DP)
-            } else {
-                toBottom(segmentedControlGroupContainer)
-            }
-        }
-    }
-
-    private fun animatePriceInsightAppearance() {
-        cancelPriceInsightAnimation()
-        setPriceInsightConstraints(true)
-        updatePriceInsightAlpha()
-        agentHintView.translationY = 8f.dp
-        agentHintView.visibility = INVISIBLE
-        priceInsightPreDrawListener = containerView.doOnPreDraw {
-            priceInsightPreDrawListener = null
-            if (
-                priceInsight == null || !isExpanded || isAnimating
-            ) {
-                return@doOnPreDraw
-            }
-
-            agentHintView.visibility = VISIBLE
-            agentHintView.animate()
-                .translationY(0f)
-                .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
-                .start()
-            val targetHeight = expandedHeight()
-            startPriceInsightHeightSpring(
-                targetHeight,
-                onUpdate = {
-                    updatePriceInsightAlpha()
-                },
-                onEnd = {
-                    if (priceInsight != null) {
-                        updatePriceInsightAlpha()
-                        agentHintView.translationY = 0f
-                    }
-                }
-            )
-        }
-    }
-
-    private fun animatePriceInsightDisappearance() {
-        cancelPriceInsightAnimation()
-        setPriceInsightConstraints(true)
-        agentHintView.visibility = VISIBLE
-        agentHintView.animate()
-            .alpha(0f)
-            .translationY(8f.dp)
-            .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
-            .start()
-        startPriceInsightHeightSpring(baseExpandedHeight()) {
-            if (priceInsight == null) {
-                setPriceInsightConstraints(false)
-                agentHintView.visibility = GONE
-            }
-        }
-    }
-
-    private fun startPriceInsightHeightSpring(
+    private fun startAnalyzeButtonHeightSpring(
         targetHeight: Int,
         onUpdate: (height: Float) -> Unit = {},
         onEnd: () -> Unit
@@ -694,7 +574,7 @@ class TokenChartCell(
                 dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
             }
         }
-        priceInsightHeightSpring = animation
+        analyzeButtonHeightSpring = animation
         animation.addUpdateListener { _, value, _ ->
             val height = value.roundToInt()
             containerView.updateLayoutParams { this.height = height }
@@ -706,7 +586,7 @@ class TokenChartCell(
         }
         animation.addEndListener { _, canceled, _, _ ->
             WGlobalStorage.decDoNotSynchronize()
-            if (priceInsightHeightSpring === animation) priceInsightHeightSpring = null
+            if (analyzeButtonHeightSpring === animation) analyzeButtonHeightSpring = null
             if (!canceled) {
                 containerView.updateLayoutParams { height = targetHeight }
                 val finalControlsTranslation =
@@ -724,20 +604,16 @@ class TokenChartCell(
         animation.start()
     }
 
-    private fun cancelPriceInsightAnimation() {
-        priceInsightPreDrawListener?.removeListener()
-        priceInsightPreDrawListener = null
+    private fun cancelAnalyzeButtonAnimation() {
         agentHintView.animate().cancel()
         agentHintView.scaleX = 1f
         agentHintView.scaleY = 1f
-        priceInsightHeightSpring?.cancel()
-        priceInsightHeightSpring = null
+        analyzeButtonHeightSpring?.cancel()
+        analyzeButtonHeightSpring = null
     }
 
-    private fun settlePriceInsightLayout() {
-        cancelPriceInsightAnimation()
-        val hasInsight = priceInsight != null
-        setPriceInsightConstraints(hasInsight)
+    private fun settleAnalyzeButtonLayout() {
+        cancelAnalyzeButtonAnimation()
         segmentedControlGroupContainer.translationY = 0f
         chartTimeLineView.translationY = 0f
 
@@ -750,26 +626,25 @@ class TokenChartCell(
             }
         }
 
-        val shouldShow = hasInsight && isExpanded && !isAnimating
-        if (shouldShow) updatePriceInsightAlpha() else agentHintView.alpha = 0f
+        val shouldShow = hasAnalyzeButton && isExpanded && !isAnimating
+        if (shouldShow) updateAnalyzeButtonAlpha() else agentHintView.alpha = 0f
         agentHintView.translationY = if (shouldShow) 0f else 8f.dp
         if (!shouldShow) {
-            agentHintView.visibility = if (hasInsight) INVISIBLE else GONE
+            agentHintView.visibility = if (hasAnalyzeButton) INVISIBLE else GONE
         }
     }
 
-    private fun currentPriceInsightGapProgress(): Float {
+    private fun currentAnalyzeButtonGapProgress(): Float {
         val renderedHeight = containerView.layoutParams.height
         return (
             (renderedHeight - baseExpandedHeight()).toFloat() /
-                priceInsightAreaHeight()
+                analyzeButtonAreaHeight()
             ).coerceIn(0f, 1f)
     }
 
-    private fun updateMeasuredPriceInsightHeight() {
+    private fun updateMeasuredAnalyzeButtonHeight() {
         if (
-            priceInsight == null || !isExpanded || isAnimating ||
-            priceInsightPreDrawListener != null || priceInsightHeightSpring != null
+            !hasAnalyzeButton || !isExpanded || isAnimating || analyzeButtonHeightSpring != null
         ) {
             return
         }
@@ -782,34 +657,34 @@ class TokenChartCell(
             val controlsTranslation = (newHeight - containerView.height).toFloat()
             segmentedControlGroupContainer.translationY = controlsTranslation
             chartTimeLineView.translationY = controlsTranslation
-            startPriceInsightHeightSpring(
+            startAnalyzeButtonHeightSpring(
                 newHeight,
-                onUpdate = { updatePriceInsightAlpha() },
-                onEnd = { updatePriceInsightAlpha() }
+                onUpdate = { updateAnalyzeButtonAlpha() },
+                onEnd = { updateAnalyzeButtonAlpha() }
             )
             return
         }
 
         containerView.updateLayoutParams { height = newHeight }
         onHeightChange?.invoke(newHeight > oldHeight, newHeight)
-        updatePriceInsightAlpha()
+        updateAnalyzeButtonAlpha()
     }
 
     private fun activeChartAlpha(): Float =
         (if (isExpanded) expandedChartView.alpha else collapsedChartView.alpha).coerceIn(0f, 1f)
 
-    private fun updatePriceInsightAlpha(
+    private fun updateAnalyzeButtonAlpha(
         chartAlpha: Float = activeChartAlpha(),
         allowVisible: Boolean = isExpanded && !isAnimating
     ) {
-        if (priceInsight == null) {
+        if (!hasAnalyzeButton) {
             agentHintView.alpha = 0f
             return
         }
-        val priceInsightGapProgress = currentPriceInsightGapProgress()
+        val analyzeButtonGapProgress = currentAnalyzeButtonGapProgress()
         val normalizedGapProgress =
-            (priceInsightGapProgress - PRICE_INSIGHT_FADE_START_PROGRESS) /
-                (1f - PRICE_INSIGHT_FADE_START_PROGRESS)
+            (analyzeButtonGapProgress - ANALYZE_BUTTON_FADE_START_PROGRESS) /
+                (1f - ANALYZE_BUTTON_FADE_START_PROGRESS)
         val gapAlpha = normalizedGapProgress.coerceIn(0f, 1f)
         agentHintView.alpha = min(gapAlpha, chartAlpha.coerceIn(0f, 1f))
         agentHintView.visibility =
@@ -854,14 +729,14 @@ class TokenChartCell(
 
     private fun baseExpandedHeight() = 182.dp + ((width - 20.dp) * 79 / 392)
 
-    private fun priceInsightAreaHeight() =
-        maxOf(agentHintView.measuredHeight, PRICE_INSIGHT_HEIGHT_DP.dp) +
-            PRICE_INSIGHT_VERTICAL_SPACING_DP.dp
+    private fun analyzeButtonAreaHeight() =
+        maxOf(agentHintView.measuredHeight, ANALYZE_BUTTON_HEIGHT_DP.dp) +
+            ANALYZE_BUTTON_VERTICAL_SPACING_DP.dp
 
     private fun expandedHeight(): Int {
         val baseHeight = baseExpandedHeight()
-        if (priceInsight == null) return baseHeight
-        return baseHeight + priceInsightAreaHeight()
+        if (!hasAnalyzeButton) return baseHeight
+        return baseHeight + analyzeButtonAreaHeight()
     }
 
     @SuppressLint("SetTextI18n")
@@ -1042,12 +917,12 @@ class TokenChartCell(
                     }
                 val animation3 =
                     if (noDataLabel.isVisible) alphaObjectAnimator(noDataLabel, 0f) else null
-                animation1?.addUpdateListener { updatePriceInsightAlpha() }
-                updatePriceInsightAlpha()
+                animation1?.addUpdateListener { updateAnalyzeButtonAlpha() }
+                updateAnalyzeButtonAlpha()
                 startChartFadeAnimation(
                     arrayOf(animation1, animation2, animation3).filterNotNull()
                 ) {
-                    if (priceInsight != null && agentHintView.alpha == 0f) {
+                    if (hasAnalyzeButton && agentHintView.alpha == 0f) {
                         agentHintView.visibility = INVISIBLE
                     }
                     isChangingPeriod = false
@@ -1095,8 +970,8 @@ class TokenChartCell(
                 }
                 noDataLabel.isVisible = historyData?.isEmpty() == true
                 if (noDataLabel.isVisible) animation3 = alphaObjectAnimator(noDataLabel, 1f)
-                animation1?.addUpdateListener { updatePriceInsightAlpha() }
-                updatePriceInsightAlpha()
+                animation1?.addUpdateListener { updateAnalyzeButtonAlpha() }
+                updateAnalyzeButtonAlpha()
                 startChartFadeAnimation(
                     arrayOf(animation1, animation2, animation3).filterNotNull()
                 )
@@ -1105,11 +980,10 @@ class TokenChartCell(
     }
 
     fun onDestroy() {
-        containerView.removeCallbacks(priceInsightExpiryRunnable)
         cancelChartFadeAnimation()
-        cancelPriceInsightAnimation()
+        cancelAnalyzeButtonAnimation()
         onSelectedPeriodChanged = null
-        onAgentPrompt = null
+        onAnalyze = null
         onHeightChange = null
     }
 }

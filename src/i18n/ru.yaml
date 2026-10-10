@@ -219,6 +219,7 @@ Receiving Address: Адрес получателя
 Contract Address: Адрес контракта
 Fee: Комиссия
 Edit: Исправить
+Regenerate: Сгенерировать заново
 Confirm: Подтвердить
 Data Signed: Данные подписаны
 Details: Инфо
@@ -1316,8 +1317,6 @@ $agent_consent_feature_actions: "Подготавливайте поддержи
 $agent_consent_feature_context: Используйте контекст кошелька, чтобы ответы могли учитывать релевантные активы и адреса.
 $agent_consent_disclosure_text: Нажимая «Разрешить Агенту», вы разрешаете %app_name% отправлять ваши сообщения Агенту и релевантный контекст кошелька в %app_name% Agent (agent.mywallet.io) и Anthropic Claude API, нашему стороннему поставщику ИИ, для обработки ваших запросов. Контекст кошелька может включать адреса кошелька, балансы, токены, активность и детали запрошенных действий. Данные используются только для предоставления ответов Агента и подготовки запрошенных вами действий.
 $agent_consent_search_disclosure_text: Для поиска в интернете Serper могут передаваться только поисковые запросы; контекст кошелька и история чата не передаются.
-$agent_consent_debug_reset_button: Сбросить согласие для Агента
-$agent_consent_debug_reset_footer: Снова показывает экран согласия для Агента при открытии вкладки Агент.
 $settings_token_change_threshold: Порог изменения в %
 $settings_token_change_threshold_description: Скрывает изменения за 24 часа, которые ниже выбранного порога.
 $settings_token_change_threshold_off: Выкл.
@@ -1335,18 +1334,19 @@ Retry: Повторить
 $agent_chat_running: Работает в фоне
 $agent_connection_interrupted: Соединение с Агентом прервано. Попробуйте ещё раз.
 $agent_history_unavailable: Не удалось загрузить историю чата. Попробуйте ещё раз.
+$agent_secret_words_removed: "[секретные слова удалены и не отправлены]"
 $agent_activity_analyzing_request: Анализирую запрос…
 $agent_activity_wallet: Получаю данные кошелька…
 $agent_activity_transactions: Проверяю операции кошелька…
 $agent_activity_portfolio: Загружаю данные портфеля…
 $agent_activity_assets: Ищу активы…
 $agent_activity_addresses: Проверяю сохранённые адреса…
-$agent_activity_transfer: Подготавливаю перевод…
-$agent_activity_market_quote: Получаю актуальную цену токена…
 $agent_activity_planning: Планирую ответ…
 $agent_activity_planning_completed: План ответа готов
 $agent_activity_web_searching: Ищу информацию в интернете…
 $agent_activity_web_searching_completed: Подходящие источники найдены
+$agent_activity_help_searching: Ищу в Базе знаний…
+$agent_activity_help_searching_completed: База знаний проверена
 $agent_activity_web_reading_sources: Изучаю найденные источники…
 $agent_activity_web_reading_sources_completed: "Источники изучены: %count%"
 $agent_activity_web_reading_sources_completed_generic: Источники изучены
@@ -1359,181 +1359,18 @@ $agent_activity_computing_completed: Расчёты выполнены
 $agent_activity_writing: Формирую ответ…
 $agent_activity_writing_completed: Ответ готов
 $agent_activity_preparing_response: Готовлю ответ…
-$agent_receive_tokens: Получить токены
-$agent_portfolio_total: Общая стоимость портфеля
-$agent_portfolio_value_is: Стоимость вашего портфеля
-$agent_portfolio_24h_change: Изменение за 24 ч
-$agent_portfolio_top_contributor: Главный вклад сегодня
-$agent_portfolio_open_tracker: Открыть портфель
-$agent_portfolio_analysis: Анализ портфеля
-$agent_portfolio_insufficient: Недостаточно данных портфеля для полного анализа.
-$agent_portfolio_partial: Часть данных портфеля недоступна, поэтому анализ неполный.
-$agent_portfolio_current_only: Текущая структура портфеля рассчитана. Историческая динамика пока недоступна.
-$agent_portfolio_stale: Данные портфеля могут быть устаревшими.
-$agent_portfolio_summary_up: За последние 24 часа стоимость портфеля выросла.
-$agent_portfolio_summary_down: За последние 24 часа стоимость портфеля снизилась.
-$agent_portfolio_summary_flat: За последние 24 часа стоимость портфеля почти не изменилась.
-$agent_portfolio_summary_ready: Анализ портфеля доступен.
-$agent_portfolio_chart_title: Изменение стоимости портфеля
-$agent_portfolio_largest_positions: Крупнейшие позиции
-$agent_portfolio_asset: Актив
-$agent_portfolio_position_value: Стоимость
-$agent_portfolio_share: Доля
-$agent_portfolio_observations: Что выделяется
-$agent_portfolio_insight_performance_title: Динамика портфеля
-$agent_portfolio_insight_performance_text: Посмотрите, как менялась стоимость портфеля за выбранный период.
-$agent_portfolio_insight_concentration_title: Концентрация
-$agent_portfolio_insight_concentration_text: Оцените концентрацию в доступной части распределения. Пропущенные активы могут изменить картину всего портфеля.
-$agent_portfolio_insight_chain_split_title: Распределение по сетям
-$agent_portfolio_insight_chain_split_text: Оцените распределение по сетям в доступной части портфеля. Пропущенные активы могут изменить общую картину.
-$agent_portfolio_insight_data_quality_title: Качество данных
-$agent_portfolio_insight_data_quality_text: Учитывайте полноту и актуальность данных при интерпретации анализа.
 $agent_market_analysis_title: Анализ рынка
-$agent_market_as_of: Данные на
-$agent_market_closed_1d: Последняя закрытая свеча 1D
-$agent_market_thesis: Технический тезис
-$agent_market_fear_greed_sentiment: Настроение рынка на основе биткоина
-$agent_market_fear_greed_index: Индекс страха и жадности (0–100)
-$agent_market_fear_greed_sma_30: SMA за 30 дней
-$agent_market_fear_greed_sma_365: SMA за 365 дней
-$agent_market_fear_greed_regime: Режим рынка
-$agent_market_fear_greed_risk_on: Настроение risk-on
-$agent_market_fear_greed_risk_off: Настроение risk-off
-$agent_market_fear_greed_neutral: Нейтральное настроение
-$agent_market_fear_greed_source: Источник
-$agent_market_timeframes: Структура рынка
-$agent_market_structure_bullish: Повышающиеся максимумы и минимумы
-$agent_market_structure_bearish: Понижающиеся максимумы и минимумы
-$agent_market_structure_range: Диапазон
-$agent_market_structure_transition: Переходный режим
-$agent_market_structure_unavailable: Структура недоступна
-$agent_market_event_none: Подтверждённого пробоя нет
-$agent_market_event_break_up: Пробой структуры вверх
-$agent_market_event_break_down: Пробой структуры вниз
-$agent_market_event_retest_up: Бычий ретест
-$agent_market_event_retest_down: Медвежий ретест
-$agent_market_live_approaching_upper: Цена приближается к верхней границе
-$agent_market_live_approaching_lower: Цена приближается к нижней границе
-$agent_market_level_map: Ключевые уровни
-$agent_market_level_primary: Основной уровень
-$agent_market_level_secondary: Вторичный уровень
-$agent_market_level_context: Контекстный уровень
-$agent_market_levels_unavailable: Подтверждённые структурные уровни недоступны.
-$agent_market_profile_poc_full: центр объёма (POC)
-$agent_market_profile_value_area_full: границы зоны стоимости (VAL/VAH)
-$agent_market_profile_hvn_full: область высокого объёма (HVN)
-$agent_market_profile_lvn_full: коридор низкого объёма (LVN)
-$agent_market_profile_current_day: Текущий день UTC
-$agent_market_profile_previous_day: Предыдущий день UTC
-$agent_market_profile_previous_week: Предыдущая неделя UTC
-$agent_market_profile_rolling_30d: Последние 30 сессий UTC
-$agent_market_profile_above: Цена выше зоны стоимости
-$agent_market_profile_inside: Цена внутри зоны стоимости
-$agent_market_profile_below: Цена ниже зоны стоимости
-$agent_market_factors: Ключевые факторы
-$agent_market_factor_structure: "Дневная структура: %direction%"
-$agent_market_factor_levels: "Для этого горизонта подтверждено зон поддержки: %supports%, зон сопротивления: %resistances%."
-$agent_market_factor_profile: "Распределение объёма: %position%."
-$agent_market_factor_profile_unavailable: Volume Profile недоступен; сценарий опирается на ценовую структуру.
-$agent_market_factor_timeframe_alignment: "Структура таймфреймов — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%."
-$agent_market_factor_current_scenario: "Текущий режим: %active%. Условный сценарий: %conditional% после условия «%activation%»."
-$agent_market_factor_no_active_scenario: "Подтверждённого сценария нет. Условный сценарий: %conditional% после условия «%activation%»."
-$agent_market_primary_scenario: Основной сценарий
-$agent_market_current_regime: Текущий подтверждённый режим
-$agent_market_conditional_scenario: Условный сценарий
-$agent_market_no_active_scenario: Сейчас ни один сценарий не подтверждён.
-$agent_market_calculated_fallback: "Расчётный анализ: текстовое объяснение временно недоступно."
-$agent_market_other_horizons: Другие запрошенные горизонты
-$agent_market_horizon_3d: 3 дня
-$agent_market_horizon_7d: 7 дней
-$agent_market_horizon_30d: 30 дней
-$agent_market_scenario_bullish: Бычий пробой
-$agent_market_scenario_range: Баланс в диапазоне
-$agent_market_scenario_bearish: Медвежий пробой
-$agent_market_scenario_unavailable: Структурный сценарий для этого горизонта недоступен.
-$agent_market_confidence: Уверенность
-$agent_market_confidence_low: Низкая
-$agent_market_confidence_medium: Средняя
-$agent_market_activation: Активация
-$agent_market_path: Развитие
-$agent_market_terminal: Конечная зона
-$agent_market_invalidation: Отмена сценария
-$agent_market_expected_range: Диапазон сценария
-$agent_market_rationale: Обоснование
-$agent_market_condition_above: закрытие выше
-$agent_market_condition_below: закрытие ниже
-$agent_market_condition_inside: закрытие внутри
-$agent_market_condition_outside: закрытие вне
-$agent_market_condition_waiting: Ожидает подтверждения
-$agent_market_condition_approaching: Приближается
-$agent_market_condition_triggered: Подтверждён
-$agent_market_scenario_zone: сценарная зона
-$agent_market_expected_move: Диапазон волатильности
-$agent_market_volatility_envelope: Общий диапазон волатильности
-$agent_market_expected_move_note: Условное движение, а не вероятность
-$agent_market_risk_caveat: Сценарии условны и не являются торговой рекомендацией.
-$agent_market_partial_coverage: Часть рыночных данных недоступна; уверенность ограничена.
-$agent_market_thesis_bullish: Подтверждённая структура поддерживает продолжение выше сопротивления, пока цена удерживает ближайшую поддержку.
-$agent_market_thesis_bearish: Подтверждённая структура поддерживает продолжение ниже поддержки, пока цена остаётся под ближайшим сопротивлением.
-$agent_market_thesis_range: Цена остаётся в равновесии между подтверждёнными поддержкой и сопротивлением.
-$agent_market_thesis_mixed: Таймфреймы конфликтуют, поэтому подтверждение на границе структуры важнее направленных индикаторов.
-$agent_market_thesis_insufficient: Доступных данных недостаточно для подтверждения направленной структуры.
-$agent_market_thesis_unconfirmed: Сценарий пока не подтверждён; направленный вывод требует закрытия за границей структуры.
-$agent_semantic_asset_search: Поиск актива
-$agent_semantic_web_digest: Результаты из интернета
-$agent_semantic_no_results: Результатов нет
-$agent_semantic_wallets: Кошельки
-$agent_semantic_wallet: Кошелёк
-$agent_semantic_balance: Баланс
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: Обычный
-$agent_semantic_access_view_only: Только просмотр
-$agent_semantic_wallets_unpriced: "%amount% позиций не включены в показанные суммы, потому что для них нет цены."
-$agent_semantic_wallets_stale: Некоторые балансы кошельков могут быть устаревшими.
-$agent_semantic_wallets_unavailable: Некоторые балансы кошельков недоступны.
-$agent_semantic_wallets_partial: Часть данных кошельков неполная.
-$agent_semantic_status: Статус
-$agent_semantic_quantity: Количество
-$agent_semantic_time: Время
-$agent_semantic_partial: Часть данных недоступна.
-$agent_semantic_pending: Ожидает
-$agent_semantic_confirmed: Подтверждена
-$agent_semantic_completed: Завершена
-$agent_semantic_failed: Не выполнена
-$agent_semantic_expired: Истекла
-$agent_semantic_active: Активна
-$agent_semantic_unstaking: Вывод из стейкинга
-$agent_semantic_ready: Готово
-$agent_semantic_frozen: Заморожено
-$agent_semantic_locked: Заблокировано
-$agent_semantic_fungible: Токен
-$agent_semantic_nft: NFT
-$agent_semantic_staking: Стейкинг
-$agent_semantic_vesting: Вестинг
-$agent_semantic_vault: Хранилище
-$agent_semantic_transfer: Перевод
-$agent_semantic_swap: Обмен
-$agent_semantic_stake: Внести в стейкинг
-$agent_semantic_unstake: Вывести из стейкинга
-$agent_semantic_contract: Контракт
-$agent_semantic_unknown: Активность
-$agent_semantic_spam_transactions: Спам-транзакции
-$agent_semantic_spam_assets: Спам-активы
-$agent_semantic_hidden_assets: Скрытые активы
-$agent_semantic_hidden_assets_warning: Названия скрытых активов могут вводить в заблуждение. Они показаны как обычный текст и не открываются как ссылки.
-$agent_semantic_quarantine_warning: Эти элементы отмечены как спам. Не доверяйте их названиям и ссылкам.
-$agent_semantic_redacted_asset: Название скрыто
-$agent_semantic_omitted_spam: "Отфильтровано спама: %amount%"
-$agent_semantic_omitted_spam_minimum: "Отфильтровано спама: минимум %amount%"
-$agent_semantic_omitted_hidden: "Скрыто активов: %amount%"
-$agent_semantic_omitted_hidden_minimum: "Скрыто активов: минимум %amount%"
-$agent_semantic_suspicious: "Скрыто небезопасных названий: %amount%"
-$agent_semantic_suspicious_minimum: "Скрыто небезопасных названий: минимум %amount%"
-$agent_semantic_suspicious_shown: "Потенциально небезопасных названий: %amount%"
-$agent_semantic_suspicious_shown_minimum: "Потенциально небезопасных названий: минимум %amount%"
-$agent_semantic_omitted_rows: "Данных слишком много. Ещё %amount% строк не вошли в ответ. Уточните период или фильтры."
-$agent_semantic_omitted_rows_minimum: "Данных слишком много. Минимум %amount% дополнительных строк не вошло в ответ. Уточните период или фильтры."
-$agent_semantic_update_required: Обновите приложение, чтобы отобразить этот ответ.
+Analyze it: Проанализировать
+Check allocation: Оценить структуру
+Compare with last month: "Сравнить с прошлым месяцем"
+Best & worst performers: "Лучшие и худшие активы"
+Biggest profit today: "Максимальная прибыль сегодня"
+$agent_prompt_portfolio_share: "Оцени диверсификацию моего портфеля и укажи, нет ли чрезмерной концентрации в отдельных активах."
+$agent_prompt_portfolio_compare: "Сравни текущую стоимость моего портфеля со стоимостью месяц назад."
+$agent_prompt_portfolio_performers: "Какие активы моего портфеля показали лучший и худший результат по прибыли и убыткам за выбранный период (%period%)?"
+$agent_prompt_portfolio_best_day: "В какой день за выбранный период (%period%) мой портфель принёс наибольшую прибыль?"
+$agent_prompt_token_price: "Сделай анализ цены %token%."
+$agent_hint_capabilities_title: Что ты умеешь?
 $agent_hint_portfolio_title: Динамика портфеля
 $agent_hint_portfolio_prompt: Проанализируй динамику моего портфеля.
 $agent_hint_swap_title: Как работают обмены
@@ -1544,167 +1381,17 @@ $agent_hint_security_title: Безопасность кошелька
 $agent_hint_security_prompt: Расскажи, как защитить мой кошелёк.
 $agent_hint_receive_title: Получить токены
 $agent_hint_receive_prompt: Помоги мне получить токены.
-$agent_action_review_transfer: Проверить перевод
-$agent_action_open_receive: Открыть получение
-$agent_action_open_send: Открыть отправку
-$agent_action_open_staking: Открыть стейкинг
-$agent_action_open_swap: Открыть обмен
-$agent_activity_swap: Подготавливаю обмен
-$agent_action_hide_spam: Скрыть спам-активы
-$agent_action_open_link: Открыть ссылку
-$agent_action_open_agent: Открыть Агента
-$agent_action_open_token: Открыть токен в кошельке
-$agent_action_open_transaction: Открыть операцию
-$agent_input_asset: Указать актив
-$agent_input_timeframe: Указать период
-$agent_input_amount: Указать сумму
-$agent_input_recipient: Указать получателя
-$agent_input_swap_details: Указать данные обмена
-$agent_notice_agent_unavailable: Агент сейчас недоступен. Попробуйте позже.
-$agent_notice_analysis_unavailable: Не удалось завершить анализ. Попробуйте ещё раз.
-$agent_notice_analysis_planning_unavailable: Не удалось достаточно точно интерпретировать запрос для подготовки анализа.
-$agent_notice_analysis_source_unavailable: Данные, необходимые для анализа, сейчас недоступны.
-$agent_notice_analysis_stale_evidence: Доступные данные устарели, поэтому безопасно завершить анализ нельзя.
-$agent_notice_analysis_inconsistent_snapshot: Во время анализа необходимые данные изменились. Попробуйте ещё раз.
-$agent_notice_analysis_compute_failed: Не удалось выполнить запрошенный расчёт.
-$agent_notice_analysis_deadline_exceeded: Анализ занял слишком много времени. Попробуйте ещё раз.
-$agent_notice_analysis_result_too_large: Результат анализа слишком велик для безопасного отображения.
-$agent_notice_analysis_answer_generation_failed: Данные собраны, но подготовить ответ не удалось. Попробуйте ещё раз.
-$agent_notice_asset_not_found: Запрошенный актив не найден.
-$agent_notice_clarification_required: Для продолжения нужны дополнительные данные.
-$agent_notice_clarification_asset: Укажите, какой криптоактив вы хотите использовать.
-$agent_notice_clarification_network: Укажите, какую блокчейн-сеть вы хотите использовать.
-$agent_notice_clarification_query: Не уверен, что правильно понял запрос. Напишите, что вы хотите узнать или сделать.
-$agent_notice_clarification_quote_currency: Какую валюту котировки использовать?
-$agent_notice_clarification_staking_product: Какой стейкинг-продукт использовать?
-$agent_notice_clarification_time_horizon: Какой временной горизонт использовать?
-$agent_notice_clarification_price_assumption: Какое предположение о цене использовать?
-$agent_notice_repair_unrecognized_input: Похоже, я не смог разобрать сообщение. Напишите, что вы хотели узнать или сделать — постараюсь помочь.
-$agent_notice_repair_ambiguous_request: Не уверен, что правильно понял запрос. Что именно вы хотите узнать или сделать?
-$agent_notice_repair_multiple_requests: Я вижу в сообщении несколько запросов. С какого начнём?
-$agent_notice_consent_required: Разрешите доступ к данным кошелька, чтобы продолжить.
 $agent_notice_content_over_budget: Результат слишком большой для полного отображения.
-$agent_notice_empty_result: Подходящих результатов не найдено.
-$agent_notice_market_unavailable: Рыночные данные сейчас недоступны.
-$agent_notice_market_analysis_unavailable: Не удалось подготовить рыночный анализ. Попробуйте ещё раз.
-$agent_notice_market_analysis_asset_unsupported: Анализ этой монеты сейчас не поддерживается.
-$agent_notice_market_analysis_timeframe_unsupported: Анализ за этот период сейчас не поддерживается.
-$agent_notice_market_quote_resolved: "%asset% сейчас стоит %price% %currency%. Изменение за 24 часа: %change%%."
-$agent_notice_market_quote_price_unavailable: Для %asset% сейчас нет актуальной цены.
-$agent_notice_market_quote_ambiguous: "Найдено несколько подходящих токенов: %assets%. Уточните сеть или адрес контракта."
-$agent_notice_market_quote_not_found: Для этого запроса цены подходящий токен не найден.
-$agent_notice_market_quote_planning_unavailable: Не удалось однозначно разобрать запрос цены.
-$agent_notice_market_quote_capability_unavailable: Получение цены недоступно в этом приложении.
-$agent_notice_market_quote_wallet_context_unavailable: Данные кошелька, необходимые для получения цены, недоступны.
-$agent_notice_market_quote_currency_unsupported: Выбранная валюта котировки не поддерживается для этого запроса.
-$agent_notice_market_quote_unavailable: Актуальная цена этого токена недоступна.
-$agent_notice_market_quote_wallet_context_changed: Активный кошелёк изменился до завершения запроса цены.
-$agent_notice_market_quote_timeout: Время ожидания цены истекло.
-$agent_notice_market_quote_tool_failed: Сервис цен не смог выполнить запрос.
-$agent_notice_market_quote_invalid_result: Не удалось проверить ответ сервиса цен.
-$agent_notice_market_quote_cancelled: Запрос цены отменён.
-$agent_notice_portfolio_unavailable: Данные портфеля сейчас недоступны.
-$agent_notice_receive_details_required: Укажите криптоактив и сеть для пополнения.
-$agent_notice_receive_asset_required: Укажите криптоактив для пополнения.
-$agent_notice_receive_network_required: Укажите сеть для пополнения.
-$agent_notice_receive_ready: Экран получения готов к открытию.
-$agent_notice_receive_memo_not_required: Для пополнения собственного адреса My Wallet memo не нужен — оставьте поле пустым.
-$agent_notice_receive_unavailable: Получение недоступно для этого кошелька.
-$agent_notice_receive_planning_unavailable: Не удалось однозначно разобрать запрос на получение. Переформулируйте его или откройте экран получения.
-$agent_notice_receive_active_account_unavailable: Активный кошелёк недоступен. Переключите кошелёк и попробуйте снова.
-$agent_notice_receive_client_unavailable: Получение через агента недоступно в этом приложении. Откройте экран получения.
-$agent_notice_receive_chain_unsupported: Этот кошелёк не поддерживает сеть %requested_network%. Активная сеть — %active_network%.
-$agent_notice_receive_active_network_mismatch: Активная сеть — %active_network%. Переключитесь на %requested_network%, чтобы получить средства в этой сети.
-$agent_notice_retry_required: Повторите запрос.
-$agent_notice_send_details_required: Добавьте недостающие данные перевода.
-$agent_notice_send_form_amount_required: Откройте отправку и укажите нужную сумму в форме перевода.
-$agent_notice_send_ready: Конечно — перевод подготовлен. Проверьте детали перед отправкой.
-$agent_notice_send_ready_inferred_asset: "Похоже, вы имели в виду %symbol%. Я подготовил перевод — проверьте детали перед отправкой."
-$agent_notice_send_missing_amount: Какую сумму вы хотите отправить?
-$agent_notice_send_missing_asset: Какую валюту вы хотите отправить?
-$agent_notice_send_missing_recipient: Кому вы хотите отправить перевод?
-$agent_notice_send_no_sendable_balance: В активном кошельке сейчас нет доступного баланса для перевода.
-$agent_notice_send_unavailable: Не удалось безопасно подготовить перевод. Используйте экран отправки или попробуйте позже.
-$agent_notice_staking_ready: Экран стейкинга готов к открытию.
-$agent_notice_staking_unavailable: Стейкинг через Агента сейчас недоступен. Откройте стейкинг в кошельке.
-$agent_notice_staking_planning_unavailable: Не удалось однозначно разобрать запрос на стейкинг. Переформулируйте его или откройте экран стейкинга.
-$agent_notice_staking_active_account_unavailable: Активный кошелёк недоступен. Переключите кошелёк и попробуйте снова.
-$agent_notice_staking_view_only: Стейкинг недоступен для кошелька только для просмотра. Переключитесь на кошелёк с возможностью подписи.
-$agent_notice_staking_client_unavailable: Стейкинг через Агента недоступен в этом приложении. Откройте стейкинг в кошельке.
-$agent_notice_staking_asset_unavailable: Стейкинг этого актива недоступен в активном кошельке. Выберите другой доступный актив для стейкинга.
-$agent_notice_staking_amount_invalid: Запрошенную сумму нельзя использовать для стейкинга. Укажите другую сумму на экране стейкинга.
-$agent_notice_staking_wallet_context_changed: Доступные варианты стейкинга в активном кошельке изменились. Попросите Агента подготовить стейкинг заново.
-$agent_notice_swap_ready_indicative: "Ориентировочная оценка: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. Исполняемая котировка, комиссии, проскальзывание и влияние на цену загрузятся на экране обмена."
-$agent_notice_swap_ready_price_unavailable: "Локальная ориентировочная цена для %from_symbol% → %to_symbol% недоступна. Откройте обмен, чтобы загрузить исполняемую котировку, комиссии и проскальзывание."
-$agent_notice_swap_details_source_asset: Укажите криптоактив для обмена.
-$agent_notice_swap_details_destination_asset: Укажите криптоактив, который хотите получить.
-$agent_notice_swap_details_amount: Укажите положительную сумму криптоактива.
-$agent_notice_swap_details_direction: Укажите исходный актив, получаемый актив и сумму для продолжения.
-$agent_notice_swap_details_candidates: "%prompt% Найденные варианты: %candidates%."
-$agent_notice_swap_unavailable: Подготовка обмена через Агента сейчас недоступна. Откройте обмен в кошельке.
-$agent_notice_swap_planning_unavailable: Не удалось однозначно разобрать запрос обмена. Укажите оба криптоактива и сумму.
-$agent_notice_swap_active_account_unavailable: Активный кошелёк недоступен. Переключите кошелёк и попробуйте снова.
-$agent_notice_swap_view_only: Подготовка обмена недоступна для кошелька только для просмотра. Переключитесь на кошелёк с возможностью подписи.
-$agent_notice_swap_client_unavailable: Подготовка обмена через Агента недоступна в этом приложении. Откройте обмен в кошельке.
-$agent_notice_swap_wallet_context_changed: Активный кошелёк изменился до завершения подготовки обмена. Попробуйте снова.
-$agent_notice_swap_timeout: Время ожидания подготовки обмена истекло. Попробуйте снова.
-$agent_notice_swap_tool_failed: Кошелёк не смог подготовить этот обмен. Попробуйте снова или откройте обмен.
-$agent_notice_swap_invalid_result: Не удалось проверить подготовленный обмен. Попробуйте снова.
-$agent_notice_send_asset_not_held: Этого актива нет в активном кошельке. Выберите другой актив или кошелёк.
-$agent_notice_send_insufficient_balance: Недостаточно средств для этого перевода. Уменьшите сумму или переключите кошелёк.
-$agent_notice_send_recipient_not_found: Среди собственных кошельков и сохранённых адресов совпадений не найдено.
-$agent_notice_send_recipient_not_found_named: Среди собственных кошельков и сохранённых адресов «%recipient%» не найден.
-$agent_notice_send_recipient_ambiguous: Подходят несколько кошельков или контактов. Уточните получателя.
-$agent_notice_send_address_book_unavailable: Не удалось получить актуальную адресную книгу. Попробуйте ещё раз или выберите контакт на экране отправки.
-$agent_notice_send_recipient_matching_unavailable: Адресная книга доступна, но Агент не смог однозначно сопоставить имя получателя. Уточните имя или выберите контакт на экране отправки.
-$agent_notice_send_intent_extraction_unavailable: Какой актив вы хотите отправить?
-$agent_notice_send_intent_provider_unavailable: Сервис обработки команд временно недоступен. Попробуйте ещё раз или откройте экран отправки.
-$agent_notice_send_invalid_recipient: Некорректный адрес получателя.
-$agent_notice_send_recipient_unresolved: Не удалось определить получателя.
-$agent_notice_send_recipient_inactive: Аккаунт получателя неактивен.
-$agent_notice_send_memo_required: Для этого перевода нужен комментарий.
-$agent_notice_send_wallet_not_initialized: Кошелёк получателя не инициализирован.
-$agent_notice_send_active_account_unavailable: Активный кошелёк недоступен. Переключите кошелёк.
-$agent_notice_send_chain_unsupported: Этот кошелёк не поддерживает переводы в выбранной сети. Переключите сеть или кошелёк.
-$agent_notice_send_client_unavailable: Перевод через агента недоступен в этом приложении. Используйте экран отправки.
-$agent_notice_send_view_only: Из кошелька только для просмотра нельзя отправлять средства. Переключите кошелёк.
-$agent_notice_send_offline: Подключитесь к интернету, чтобы подготовить перевод.
-$agent_notice_send_wallet_context_changed: Активный кошелёк изменился. Подготовьте перевод заново.
-$agent_notice_send_source_wallet_selection_required: Агент может подготовить перевод только из текущего кошелька. Переключитесь на указанный кошелёк и попробуйте снова.
-$agent_notice_send_validation_failed: Данные перевода не прошли проверку кошелька.
-$agent_notice_tool_unavailable: Эта операция недоступна в текущем клиенте.
-$agent_notice_wallet_unavailable: Данные кошелька сейчас недоступны.
-$agent_notice_wallet_filter_ambiguous: Выберите кошелёк или актив, чтобы уточнить запрос.
-$agent_notice_web_unavailable: Поиск в интернете сейчас недоступен.
-$agent_notice_web_capability_unavailable: Интернет-поиск не поддерживается текущей конфигурацией Агента.
-$agent_notice_web_planning_failed: Не удалось подготовить поисковый запрос.
-$agent_notice_web_budget_denied: Лимит интернет-поиска исчерпан. Попробуйте позже.
-$agent_notice_web_provider_rate_limited: Поисковый сервис временно ограничил запросы. Попробуйте позже.
-$agent_notice_web_provider_unavailable: Поисковый сервис не ответил. Попробуйте позже.
-$agent_notice_web_no_results: Поиск выполнен, но подходящих результатов не найдено.
-$agent_notice_web_invalid_sources: Результаты поиска получены, но не прошли проверку безопасности.
-$agent_notice_web_synthesis_timeout: Результаты найдены, но их обработка заняла слишком много времени.
-$agent_notice_web_synthesis_invalid: Результаты найдены, но Агент не смог составить корректную сводку.
-$agent_notice_web_synthesis_unavailable: Результаты найдены, но модель суммаризации сейчас недоступна.
-$agent_notice_web_policy_rejected: Сводка сформирована, но не прошла проверку качества.
+$agent_notice_web_search_no_results: Не удалось найти подходящую информацию по вашему запросу.
 $agent_error_session: Сессия Агента истекла. Откройте Агента заново и повторите попытку.
 $agent_error_limit: Запрос не выполнен из-за ограничения Агента.
 $agent_error_tool: Операцию кошелька выполнить не удалось. Попробуйте ещё раз.
 $agent_error_conversation_updated: Диалог обновился. Повторите запрос.
 $agent_error_generic: Агент не смог выполнить запрос. Попробуйте ещё раз.
+$agent_error_invalid_response: Не удалось прочитать ответ агента. Попробуйте ещё раз.
 $agent_error_update_required: Обновите приложение, чтобы продолжить.
-$agent_semantic_transactions: Операции
-$agent_semantic_positions: Позиции
-$agent_semantic_market: Обзор рынка
 $agent_wallet_page_navigation: Страницы данных кошелька
-$agent_wallet_page_previous: ← Назад
-$agent_wallet_page_next: Вперёд →
 $agent_wallet_page_indicator: "%current% из %total%"
-$agent_portfolio_unpriced: Не учтены
-$agent_portfolio_unpriced_value: не учтён
-$agent_portfolio_more_positions: "ещё %count%"
-$agent_portfolio_history_on: "История в %network%"
-$agent_portfolio_no_activity: Недавней истории нет.
 Clear Chat: Очистить чат
 Unsupported link: Эта ссылка не поддерживается
 My Wallet Features: Возможности My Wallet
@@ -1750,10 +1437,13 @@ Pulse: Пульс
 Ask anything: Задайте любой вопрос
 Edit Message: Редактировать сообщение
 Toggle Hints: Переключить подсказки
-AgentErrorResponseFailed: "Ошибка: не удалось получить ответ"
-AgentErrorConnectionFailed: "Ошибка: не удалось установить соединение"
 Scroll To Bottom: Прокрутить вниз
 $agent_clear_chat_confirm: Вы уверены, что хотите очистить историю чата?
+Report a Problem: Сообщить о проблеме
+$agent_report_problem_description: Последние сообщения этого чата будут отправлены нашей команде, чтобы помочь исправить проблему.
+$agent_report_problem_sent: Спасибо! Сообщение о проблеме отправлено.
+$agent_report_problem_failed: Не удалось отправить сообщение о проблеме. Попробуйте ещё раз.
+$agent_report_problem_rate_limited: Вы недавно отправили несколько сообщений о проблемах. Попробуйте позже.
 $unknown_swap_token: Неизвестный токен в ссылке обмена. Были использованы токены по умолчанию.
 $action_not_available_view_mode: Это действие недоступно для кошельков в режиме просмотра
 Deposit: Пополнить
@@ -2338,6 +2028,8 @@ Tokenized Stocks: Токенизированные акции
 Tokenized Gold: Токенизированное золото
 Index Funds: Индексные фонды
 Search token or stock: Поиск токена или акции
+
+$agent_source_bea_attribution: This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA.
 
 "Activity Failed to Load": "Не удалось загрузить активность"
 "Address was copied!": "Адрес скопирован!"

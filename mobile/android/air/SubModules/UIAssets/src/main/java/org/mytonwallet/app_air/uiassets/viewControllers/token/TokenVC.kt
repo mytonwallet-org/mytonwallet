@@ -70,6 +70,7 @@ import org.mytonwallet.app_air.uisend.send.SendVC
 import org.mytonwallet.app_air.uistake.earn.EarnRootVC
 import org.mytonwallet.app_air.uistake.staking.StakingVC
 import org.mytonwallet.app_air.uistake.staking.StakingViewModel
+import org.mytonwallet.app_air.uiswap.screens.swap.SwapVC
 import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeDirection
 import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeVC
 import org.mytonwallet.app_air.uitransaction.viewControllers.transaction.TransactionVC
@@ -85,6 +86,8 @@ import org.mytonwallet.app_air.walletcore.models.MToken
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2AssetRef
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.ConfigStore
@@ -588,6 +591,15 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                 window?.present(navVC)
             }
 
+            HeaderActionsView.Identifier.SWAP -> {
+                val navVC = WNavigationController(
+                    window,
+                    WNavigationController.PresentationConfig.PreferredFullScreen
+                )
+                navVC.setRoot(SwapVC(context, defaultSendingToken = MApiSwapAsset.from(token)))
+                window.present(navVC)
+            }
+
             HeaderActionsView.Identifier.SELL -> {
                 openSellWithCard(token.slug)
             }
@@ -788,8 +800,7 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
             ACTIONS_CELL -> {
                 val actionsView = HeaderActionsView(
                     context,
-                    tabs = HeaderActionsView.headerTabs(context, token.isEarnAvailable)
-                        .filterNot { it.identifier == HeaderActionsView.Identifier.SWAP },
+                    tabs = HeaderActionsView.headerTabs(context, token.isEarnAvailable),
                     onClick = {
                         onClick(it)
                     }
@@ -812,7 +823,11 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
                     onSelectedPeriodChanged = {
                         tokenVM.selectedPeriod = it
                     },
-                    onAgentPrompt = ::openAgent,
+                    onAnalyze = if (EnvironmentStore.isAgentChartAnalysisEnabled) {
+                        ::openAgent
+                    } else {
+                        null
+                    },
                     onHeightChange = { isExpanding, _ ->
                         onHeightChange(isExpanding)
                     }
@@ -1189,10 +1204,34 @@ class TokenVC(context: Context, private val account: MAccount, var token: MToken
         }
     }
 
-    private fun openAgent(prompt: String) {
+    private fun openAgent() {
         val navigationController = navigationController ?: return
-        if (navigationController.tabBarController?.switchToAgent(prompt) == true) return
-        navigationController.push(AgentVC(context, initialPrompt = prompt))
+        val prompt = LocaleController.getStringWithKeyValues(
+            "\$agent_prompt_token_price",
+            listOf("%token%" to (token.displayName ?: token.name ?: token.symbol))
+        )
+        val entryPoint = AgentV2EntryPoint(
+            kind = "tokenScreen",
+            asset = AgentV2AssetRef(
+                slug = token.slug,
+                chain = token.chain,
+                tokenAddress = token.tokenAddress
+            )
+        )
+        if (navigationController.tabBarController?.switchToAgent(
+                prompt,
+                entryPoint = entryPoint
+            ) == true
+        ) {
+            return
+        }
+        navigationController.push(
+            AgentVC(
+                context,
+                initialPrompt = prompt,
+                initialEntryPoint = entryPoint
+            )
+        )
     }
 
     private var emptyView: WEmptyView? = null

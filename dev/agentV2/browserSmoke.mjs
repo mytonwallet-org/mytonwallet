@@ -11,6 +11,13 @@ const context = await browser.newContext({ locale: 'en-US', viewport: { width: 3
 const page = await context.newPage();
 const externalRequests = [];
 const threadRequests = [];
+const consoleErrors = [];
+const pageErrors = [];
+
+page.on('console', (entry) => {
+  if (entry.type() === 'error') consoleErrors.push(entry.text());
+});
+page.on('pageerror', (error) => pageErrors.push(String(error)));
 
 try {
   await context.route('**/*', async (route) => {
@@ -47,6 +54,24 @@ try {
       body: '<!doctype html><html><body>Agent V2 browser seed</body></html>',
     });
   });
+  await context.route('**/v2/dapp/catalog?*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        categories: [],
+        sites: [{
+          url: 'https://fragment.com/',
+          name: 'Fragment',
+          icon: 'https://static.example/fragment.png',
+          manifestUrl: '',
+          description: 'Telegram collectibles',
+          canBeRestricted: false,
+          isExternal: true,
+        }],
+      }),
+    });
+  });
 
   await page.goto(`${classicUrl}/__agent-v2-seed`, { waitUntil: 'domcontentloaded' });
   await seedViewWallet(page);
@@ -72,6 +97,12 @@ try {
       state: 'attached',
       timeout: 20_000,
     });
+
+  await input.fill('Show me how to receive tokens');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  const receiveAction = page.locator('button[data-agent-action-kind="receive"]');
+  await receiveAction.waitFor({ timeout: 20_000 });
+  assert(await receiveAction.isEnabled(), 'Receive action is not available to the view wallet');
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Agent', exact: true }).last().click();
@@ -102,7 +133,14 @@ try {
     replicaB,
     threadRequests: threadRequests.length,
     blockedExternalRequests: [...new Set(externalRequests)].length,
-    checked: ['consent', 'direct-chat', 'send', 'reload-hydration', 'clear', 'default-only-thread-api'],
+    checked: [
+      'consent',
+      'direct-chat',
+      'receive-action',
+      'reload-hydration',
+      'clear',
+      'default-only-thread-api',
+    ],
   }, undefined, 2)}\n`);
 } catch (error) {
   const screenshotPath = `${process.env.TMPDIR ?? '/tmp'}/agent-v2-browser-smoke-failure.png`;
@@ -115,7 +153,8 @@ try {
     }));
   }).catch(() => []);
   process.stderr.write(`Agent V2 browser smoke failed at ${page.url()}; screenshot=${screenshotPath}; `
-    + `messages=${JSON.stringify(messageStates)}; ${String(error)}\n`);
+    + `messages=${JSON.stringify(messageStates)}; consoleErrors=${JSON.stringify(consoleErrors)}; `
+    + `pageErrors=${JSON.stringify(pageErrors)}; ${String(error)}\n`);
   throw error;
 } finally {
   await context.unrouteAll({ behavior: 'ignoreErrors' }).catch(() => undefined);

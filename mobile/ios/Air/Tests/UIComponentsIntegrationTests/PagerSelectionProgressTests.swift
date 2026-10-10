@@ -5,6 +5,46 @@ import WalletResources
 
 @MainActor
 final class PagerSelectionProgressTests: XCTestCase {
+    func testRootPagingProgressPerformance() {
+        _ = WalletResourcesBundle.bundle.load()
+        let model = SegmentedControlModel(items: makeItems(), selection: .init(item1: "0"), style: .compactRootHeader)
+        let control = WSegmentedControl(model: model, isGlassInteractive: true)
+        let window = host(UIViewController(), control: control)
+        defer { window.isHidden = true }
+        control.layoutIfNeeded()
+        measure(metrics: [XCTClockMetric()]) {
+            for frame in 0..<240 {
+                control.setPagingProgress(CGFloat(frame % 120) / 60)
+            }
+        }
+    }
+
+    func testRootPagingProgressAllowsSubsequentModelChangesAndResizing() async throws {
+        for rtl in [false, true] {
+            _ = WalletResourcesBundle.bundle.load()
+            let model = SegmentedControlModel(items: makeItems(), selection: .init(item1: "0"), style: .compactRootHeader)
+            let control = WSegmentedControl(model: model, isGlassInteractive: true)
+            let window = host(UIViewController(), control: control, rtl: rtl)
+            defer { window.isHidden = true }
+            let lens = try XCTUnwrap(descendants(control).compactMap { $0 as? WSegmentedControlLensView }.first)
+            control.setPagingProgress(0.5)
+            XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, rtl ? 150 : 50, accuracy: 0.5)
+            // A model change arriving before the pager's queued observation must win.
+            model.selection = .init(item1: "2")
+            try await Task.sleep(for: .milliseconds(30))
+            XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, rtl ? 0 : 200, accuracy: 0.5)
+
+            control.frame.size.width = 606
+            control.setPagingProgress(1.25)
+            XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, rtl ? 150 : 250, accuracy: 0.5)
+            model.setItems(Array(makeItems().prefix(2)))
+            control.setPagingProgress(0.5)
+            try await Task.sleep(for: .milliseconds(30))
+            XCTAssertEqual(try XCTUnwrap(lens.selectionFrame).minX, 150, accuracy: 0.5)
+            XCTAssertEqual(control.accessibilityElements?.count, 2)
+        }
+    }
+
     func testRootPagerDrivesTheEntireNonAdjacentLensMovement() async throws {
         for rtl in [false, true] {
             _ = WalletResourcesBundle.bundle.load()
@@ -13,7 +53,7 @@ final class PagerSelectionProgressTests: XCTestCase {
             let control = WSegmentedControl(model: model, isGlassInteractive: true)
             let pager = WPagerViewController(pages: items.map { item in
                 .init(id: item.id) { item.viewController as! UIViewController }
-            })
+            }, preloadsPages: true)
             pager.onProgressChanged = { [weak control] in control?.setPagingProgress($0.logicalOffset) }
             pager.onSelectionChanged = { [weak control] in control?.setPagingProgress(CGFloat($0)) }
             model.onSelect = { [weak pager] in pager?.select(index: Int($0.id)!, animated: true) }
@@ -25,14 +65,63 @@ final class PagerSelectionProgressTests: XCTestCase {
             let window = host(root, control: control, rtl: rtl)
             defer { window.isHidden = true }
             // Host appearance completes before a tab can animate.
-            try await Task.sleep(for: .milliseconds(80))
+            try await Task.sleep(for: .milliseconds(350))
+            XCTAssertEqual(pager.children.count, 3)
             for (source, target) in [(0, 2), (2, 0)] {
                 try activate(target, in: control)
                 XCTAssertEqual(model.rawProgress, CGFloat(source))
                 try await checkMovement(control, source: source, target: target, rtl: rtl)
                 XCTAssertEqual(pager.selectedIndex, target)
-                XCTAssertEqual(pager.children.count, 1)
+                XCTAssertEqual(pager.children.filter { $0.view.superview?.isHidden == false }.count, 1)
             }
+        }
+    }
+
+    func testRootLensAndVisibleContentStayTogetherDuringRepeatedInterruptedSwipes() throws {
+        for rtl in [false, true] {
+            _ = WalletResourcesBundle.bundle.load()
+            let items = makeItems()
+            let model = SegmentedControlModel(items: items, selection: .init(item1: "0"), style: .compactRootHeader)
+            let control = WSegmentedControl(model: model, isGlassInteractive: true)
+            let pager = WPagerViewController(pages: items.map { item in
+                .init(id: item.id) { item.viewController as! UIViewController }
+            }, preloadsPages: true)
+            pager.onProgressChanged = { [weak control] in control?.setPagingProgress($0.logicalOffset) }
+            pager.onSelectionChanged = { [weak control] in control?.setPagingProgress(CGFloat($0)) }
+            let root = UIViewController()
+            root.addChild(pager)
+            root.view.addSubview(pager.view)
+            pager.view.frame = CGRect(x: 0, y: 150, width: 402, height: 600)
+            pager.didMove(toParent: root)
+            let window = host(root, control: control, rtl: rtl)
+            defer { window.isHidden = true }
+            let scroll = pager.scrollView!
+            let width = scroll.bounds.width
+            let initial = scroll.contentOffset.x
+            let sign: CGFloat = rtl ? -1 : 1
+            for position in [0.75, 1.6, 0.4, 1.85, 0.9, 0.1, 1.4] {
+                pager.scrollViewWillBeginDragging(scroll)
+                scroll.contentOffset.x = initial + sign * position * width
+                pager.scrollViewDidEndDragging(scroll, willDecelerate: true)
+                control.setNeedsLayout()
+                control.layoutIfNeeded()
+                XCTAssertEqual(try XCTUnwrap(model.rawProgress), position, accuracy: 0.001)
+                let visible = items.indices.filter {
+                    (items[$0].viewController as! UIViewController).viewIfLoaded?.superview?.isHidden == false
+                }
+                XCTAssertEqual(visible, [Int(floor(position)), Int(ceil(position))])
+                let before = scroll.contentOffset
+                pager.scrollViewWillBeginDragging(scroll)
+                XCTAssertEqual(try XCTUnwrap(model.rawProgress), position, accuracy: 0.001)
+                XCTAssertEqual(scroll.contentOffset, before)
+            }
+            scroll.contentOffset.x = initial + sign * 2 * width
+            pager.scrollViewDidEndDragging(scroll, willDecelerate: false)
+            XCTAssertEqual(pager.selectedIndex, 2)
+            XCTAssertEqual(model.rawProgress, 2)
+            XCTAssertTrue((items[0].viewController as! UIViewController).view.superview!.isHidden)
+            XCTAssertTrue((items[1].viewController as! UIViewController).view.superview!.isHidden)
+            XCTAssertFalse((items[2].viewController as! UIViewController).view.superview!.isHidden)
         }
     }
 

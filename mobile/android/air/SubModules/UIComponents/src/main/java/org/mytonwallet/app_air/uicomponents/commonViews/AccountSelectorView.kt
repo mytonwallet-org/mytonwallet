@@ -144,6 +144,7 @@ class AccountSelectorView(
                         showArrow = false,
                         isTrusted = true,
                         hasSeparator = false,
+                        showBalance = true,
                         onSelect = {
                             popup.dismiss()
                             if (account.accountId != selectedAccountId) {

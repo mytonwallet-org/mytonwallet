@@ -1,8 +1,8 @@
 import React, { memo, useEffect, useState } from '../../lib/teact/teact';
 
 import type {
-  AgentMessageErrorV2,
   AgentUserQuotaV2,
+  AgentV2MessageError,
 } from '../../api/agentV2/protocol/types';
 import type { AgentV2ComposerStatus } from '../../api/agentV2/types';
 import type { LangFn } from '../../util/langProvider';
@@ -63,7 +63,7 @@ export const AgentComposerStatus = memo(({
 });
 
 interface AgentRunFailureProps {
-  error: AgentMessageErrorV2;
+  error: AgentV2MessageError;
   hasPartialResponse: boolean;
   isRetryDisabled?: boolean;
   onRetry?: NoneToVoidFunction;

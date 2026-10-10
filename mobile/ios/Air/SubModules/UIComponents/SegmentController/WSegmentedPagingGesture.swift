@@ -4,12 +4,17 @@ import UIKit
 protocol WSegmentedPagingGestureTarget: AnyObject {
     var pageCount: Int { get }
     var scrollView: UIScrollView! { get }
+    var canInterruptDeceleration: Bool { get }
     func isForwardNavigationEdge(_ point: CGPoint, in bounds: CGRect) -> Bool
     func canBeginForwardNavigation(velocity: CGFloat, fromEdge: Bool) -> Bool
     func beginForwardNavigation(velocity: CGPoint, fromEdge: Bool) -> WInteractivePushTransition?
     func beginAdditionalPaging()
     func updateAdditionalPaging(translation: CGFloat)
     func endAdditionalPaging(translation: CGFloat, velocity: CGFloat, cancelled: Bool)
+}
+
+extension WSegmentedPagingGestureTarget {
+    var canInterruptDeceleration: Bool { false }
 }
 
 extension WSegmentedController: WSegmentedPagingGestureTarget {
@@ -63,7 +68,7 @@ final class WSegmentedPagingGesture: UIPanGestureRecognizer, UIGestureRecognizer
               controller.pageCount > 1,
               controller.scrollView.isScrollEnabled,
               !controller.scrollView.isDragging,
-              !controller.scrollView.isDecelerating,
+              !controller.scrollView.isDecelerating || (!forwardOnly && controller.canInterruptDeceleration),
               controller.scrollView.bounds.width > 0,
               isPagingEnabled() else { return false }
         let velocity = velocity(in: view)

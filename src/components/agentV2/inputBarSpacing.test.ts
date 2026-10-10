@@ -3,6 +3,7 @@ import { updateAgentV2InputBarSpacing } from './inputBarSpacing';
 jest.mock('../../lib/fasterdom/fasterdom', () => ({
   requestMeasure: (callback: NoneToVoidFunction) => callback(),
   requestMutation: (callback: NoneToVoidFunction) => callback(),
+  requestForcedReflow: (callback: NoneToVoidFunction) => callback(),
 }));
 
 describe('Agent V2 input bar spacing', () => {

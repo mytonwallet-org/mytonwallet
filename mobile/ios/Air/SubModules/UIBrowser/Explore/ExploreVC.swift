@@ -22,6 +22,7 @@ public final class ExploreVC: WViewController {
 
     private var trimmedSearchString: String = ""
     private var isSearchActive: Bool = false
+    private var isVisible = false
 
     private var searchCoordinator: ExploreSearchCoordinator?
     private var currentSearchResult: ComposedSearchResult?
@@ -33,13 +34,6 @@ public final class ExploreVC: WViewController {
         self.contentBottomSpacing = contentBottomSpacing
         super.init(nibName: nil, bundle: nil)
         exploreVM.delegate = self
-
-        Task { [weak self] in
-            try? await Task.sleep(for: .seconds(4))
-            guard let self = self else { return }
-            if !isViewLoaded {
-                exploreVM.loadExploreSites()             }
-        }
     }
 
     @available(*, unavailable)
@@ -58,13 +52,27 @@ public final class ExploreVC: WViewController {
         observedViewState.scrollToTop(animated: animated)
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        isVisible = true
+        observedViewState.setActive(true)
+        exploreVM.setActive(true)
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        isVisible = false
+        observedViewState.setActive(false)
+        exploreVM.setActive(false)
+    }
+
     private func initialSetup() {
         let rootView = ScreenView(viewState: observedViewState, viewOutput: viewOutput, contentBottomSpacing: contentBottomSpacing)
         let hostingController = LayoutMarginsHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
 
-        view.addStretchedToBounds(subview: hostingController.view)
         addChild(hostingController)
+        view.addStretchedToBounds(subview: hostingController.view)
         hostingController.didMove(toParent: self)
     }
 
@@ -164,7 +172,11 @@ public final class ExploreVC: WViewController {
             shouldRestrictSites: shouldRestrictSites,
             isLockdownModeEnabled: WalletCoreData.isLockdownModeEnabled
         )
-        observedViewState.updateBrowsing(sections: sections, animated: animated)
+        observedViewState.updateBrowsing(
+            sections: sections,
+            animated: animated && isVisible && viewIfLoaded?.window != nil
+                && UIView.areAnimationsEnabled && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+        )
     }
     
     private func commitSelection() {

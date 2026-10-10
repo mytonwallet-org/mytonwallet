@@ -73,6 +73,20 @@ class ReferrerSanitizerTest {
     }
 
     @Test
+    fun ownedGramDomainsAreNotReferrers() {
+        for (domain in listOf("gramwallet.io", "get.gramwallet.io", "gramwallet.app")) {
+            assertEquals(
+                InstallAttribution("unknown", isTechnical = true),
+                sanitizeInstallAttribution("attribution_referrer=$domain")
+            )
+        }
+        assertEquals(
+            InstallAttribution("", "gramwallet.io.example"),
+            sanitizeInstallAttribution("attribution_referrer=gramwallet.io.example")
+        )
+    }
+
+    @Test
     fun extractsAllowlistedUtmSource() {
         assertEquals("wc", sanitizeReferrer("utm_source=wc&utm_medium=cpc"))
     }

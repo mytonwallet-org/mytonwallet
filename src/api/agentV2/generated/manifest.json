@@ -1,21 +1,19 @@
 {
-  "schemaVersion": 3,
-  "protocolVersion": 2,
-  "sourceCommit": "8bd002701e942bd736b2c1733a6ac813a9e80939",
-  "fixtureInventorySha256": "e112ab4a1a0a7955ab8d085023b396657749ed2302b505db24cc3da134301dcd",
+  "schemaVersion": 5,
+  "protocolVersion": 3,
+  "fixtureInventorySha256": "071f21803412677ad381ae645bede7b6980fe762ae3eb196df0022cf43993027",
   "fixtureSha256ByName": {
-    "client-wire-compatibility.v1.json": "ca8632da4138e4d6e842701b71e14009868b025120a71f2eb4aaa626c8e1b5d7",
-    "navigation-action-projection.v1.json": "aecab425997e533b8a48f3da6558f87ccddc693ada37a045824916044300f2ac",
-    "p0-action-scope.v1.json": "f1a8816b72853457f8113292e68bb02429f64a776a4d615ff72e4957ddc14cf5",
-    "p0-action-scope.v2.json": "8b1feda53a72a21655b359eaaf7895c814b38a408a5e5e335ee346d30c12c1c0",
-    "p0-action-scope.v3.json": "e6dd3182d273a85f1fa096e0853b035d3643c9be42a72f1ca4e0166a62785bcd",
-    "privacy-storage-scopes.v1.json": "f267ef208cd57f03d7b0506cfd3bc28fbed50b6150c1c54774f83681765ba3d8",
-    "privacy-storage-scopes.v2.json": "862fc4c27332dd1d29cebc18fbe1243b6d4a86946f27b36fbb68a33d48c22ce6",
-    "public-contract-fixture-inventory.v1.json": "e112ab4a1a0a7955ab8d085023b396657749ed2302b505db24cc3da134301dcd",
-    "public-wire.v1.json": "b8087c05bf3bc3a6ea8682b54343278b30b42094862e33195ac33c88898a0177",
-    "run-origin-bindings.v1.json": "2bca5efc95317be0b984061f3b7ecc326d50d77ec02ae7aa0e0d3eeffbd3d7a6",
+    "client-wire-compatibility.v1.json": "81d93b1dfbd5e6725881ad753aed929b3f350c52141fd92ea8cc7107aad6bcc1",
+    "navigation-action-projection.v1.json": "ceb2878536e60aff9e87f359e6ba6b7812d462002a302ebc96b72870633b7b81",
+    "p0-action-scope.v3.json": "4925ff50f2bec04fc7e21bb251444b761afdfe3ca11c446db51b122e6fa918f6",
+    "privacy-storage-scopes.v2.json": "1ad456e47afea7ed2fdf948ff70200c5d3dd93810d6a5de3c306c83cabb122ec",
+    "public-contract-fixture-inventory.v1.json": "071f21803412677ad381ae645bede7b6980fe762ae3eb196df0022cf43993027",
+    "public-wire.v1.json": "b91cb14ebbf762deb9216580d0a190a8469652d615fe41ebbc86c195378000e5",
+    "run-origin-bindings.v1.json": "a08a980e2be402b11205c9f0bff44fe821749204b7bf6770951817fc8a7cb8d6",
     "send-amount-normalization.v1.json": "9fee6301da4dc094255cbbc65baa5dd320cdf023f8e563ecb0de88ab02acec92",
     "terminal-structured-output-stream.v1.json": "a8a9e34601b156e682aad7fc85d298306615e916c27c9c010b537885329a5c46"
   },
-  "walletFilterCatalogSha256": "cbb752f15d98c9b9928dcd1c7db5a3b0b89b61387a308d8b0394680862021168"
+  "walletFilterCatalogSha256": "cbb752f15d98c9b9928dcd1c7db5a3b0b89b61387a308d8b0394680862021168",
+  "publicTypesSha256": "b12aa128a32f2df666892792e63772cf9213203136910a99d47cd76b5be37053",
+  "publicConstantsSha256": "45e70676d3b9affe7de28d9597acf6745dd591c648e4ca887189b17714952993"
 }

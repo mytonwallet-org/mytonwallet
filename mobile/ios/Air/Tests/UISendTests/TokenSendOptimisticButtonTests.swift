@@ -92,7 +92,7 @@ struct TokenSendOptimisticButtonTests {
                     byChain: [.ton: AccountChain(address: String(repeating: "B", count: 48))]
                 ))),
                 configuration: .init(
-                    mode: .send, initialAddress: recipientAddress, initialAmount: unit,
+                    mode: .send, initialAddress: recipientAddress, initialAmount: unit, isMaxAmount: false,
                     initialTokenSlug: token.slug, jettonAddress: nil, initialComment: "",
                     binaryPayload: nil, stateInit: nil
                 ),

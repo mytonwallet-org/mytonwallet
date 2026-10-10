@@ -35,6 +35,7 @@ enum AgentMessageTableRenderer {
                 AgentMessageTableCell(
                     text: cell.text,
                     isHeader: cell.isHeader,
+                    isPlainText: cell.isPlainText,
                     alignment: cell.alignment,
                     verticalAlignment: cell.verticalAlignment,
                     columnSpan: cell.columnSpan,
@@ -115,7 +116,7 @@ final class AgentRichMessageView: UIStackView {
         displayText = blocks.map { block in
             switch block {
             case .text(let text):
-                return text
+                return AgentTextLinks.copyText(text)
             case .table(let table):
                 return ([table.title] + table.rows.flatMap { $0.map(\.text) })
                     .compactMap { $0 }
@@ -208,23 +209,26 @@ private final class AgentRichTextView: UITextView, UITextViewDelegate {
         textColor: UIColor,
         detectsLinks: Bool,
         markdownProfile: AgentMessageMarkdownProfile,
+        rendersMarkdown: Bool = true,
         baseFont: UIFont = AgentMessageTextRenderer.baseFont,
         isHeader: Bool = false,
         alignment: AgentMessageTableAlignment = .start,
         onURLTap: ((URL) -> Void)?
     ) {
         self.onURLTap = onURLTap
-        isSelectable = detectsLinks
-        isUserInteractionEnabled = detectsLinks
+        let isInteractive = detectsLinks || AgentTextLinks.containsLinks(text)
+        isSelectable = isInteractive
+        isUserInteractionEnabled = isInteractive
 
         let attributedText = NSMutableAttributedString(
             attributedString: AgentMessageTextRenderer.makeAttributedText(
                 text,
                 textColor: textColor,
-                rendersMarkdown: true,
+                rendersMarkdown: rendersMarkdown,
                 detectsLinks: detectsLinks,
                 markdownProfile: markdownProfile,
-                baseFont: baseFont
+                baseFont: baseFont,
+                linkColor: tintColor
             )
         )
         let fullRange = NSRange(location: 0, length: attributedText.length)
@@ -377,7 +381,7 @@ private final class AgentTableScrollView: UIScrollView {
         isDirectionalLockEnabled = true
         delaysContentTouches = false
         addSubview(tableView)
-        setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         setContentHuggingPriority(.required, for: .vertical)
     }
 
@@ -697,8 +701,9 @@ private final class AgentTableCellView: UIView {
         textView.configure(
             text: cell.text,
             textColor: textColor,
-            detectsLinks: detectsLinks,
+            detectsLinks: detectsLinks && !cell.isPlainText,
             markdownProfile: markdownProfile,
+            rendersMarkdown: !cell.isPlainText,
             isHeader: cell.isHeader,
             alignment: cell.alignment,
             onURLTap: onURLTap

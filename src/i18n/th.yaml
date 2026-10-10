@@ -215,6 +215,7 @@ Receiving Address: ที่อยู่บัญชีผู้รับ
 Contract Address: ที่อยู่สัญญา
 Fee: ค่าธรรมเนียม
 Edit: แก้ไข
+Regenerate: สร้างใหม่
 Confirm: ยืนยัน
 Data Signed: ข้อมูลถูกลงนามแล้ว
 Details: รายละเอียด
@@ -1278,8 +1279,6 @@ $agent_consent_feature_actions: เตรียมการดำเนินก
 $agent_consent_feature_context: ใช้บริบทของวอลเล็ตเพื่อให้คำตอบอ้างอิงสินทรัพย์และที่อยู่ที่เกี่ยวข้องได้
 $agent_consent_disclosure_text: เมื่อแตะ “อนุญาตผู้ช่วย” คุณอนุญาตให้ %app_name% ส่งข้อความผู้ช่วยและบริบทวอลเล็ตที่เกี่ยวข้องของคุณไปยัง %app_name% Agent (agent.mywallet.io) และ Anthropic Claude API ผู้ให้บริการ AI ภายนอกของเรา เพื่อประมวลผลคำขอของคุณ บริบทวอลเล็ตอาจรวมถึงที่อยู่วอลเล็ต ยอดคงเหลือ โทเค็น กิจกรรม และรายละเอียดการดำเนินการที่ร้องขอ ข้อมูลจะใช้เฉพาะเพื่อให้คำตอบจากผู้ช่วยและเตรียมการดำเนินการที่คุณร้องขอเท่านั้น
 $agent_consent_search_disclosure_text: สำหรับการค้นหาเว็บ อาจส่งเฉพาะคำค้นหาไปยัง Serper โดยจะไม่ส่งบริบทวอลเล็ตหรือประวัติการสนทนา
-$agent_consent_debug_reset_button: รีเซ็ตสถานะความยินยอมของผู้ช่วย
-$agent_consent_debug_reset_footer: แสดงหน้าจอความยินยอมของผู้ช่วยอีกครั้งเมื่อเปิดแท็บผู้ช่วย
 $settings_token_change_threshold: เกณฑ์ % การเปลี่ยนแปลง
 $settings_token_change_threshold_description: ซ่อนเปอร์เซ็นต์การเปลี่ยนแปลงใน 24 ชั่วโมงที่ต่ำกว่าเกณฑ์ที่เลือก
 $settings_token_change_threshold_off: ปิด
@@ -1297,18 +1296,19 @@ Retry: ลองอีกครั้ง
 $agent_chat_running: กำลังทำงานในเบื้องหลัง
 $agent_connection_interrupted: การเชื่อมต่อผู้ช่วยถูกขัดจังหวะ โปรดลองอีกครั้ง
 $agent_history_unavailable: ไม่สามารถโหลดประวัติการแชทได้ โปรดลองอีกครั้ง
+$agent_secret_words_removed: "[ลบคำลับแล้วและไม่ได้ส่ง]"
 $agent_activity_analyzing_request: กำลังวิเคราะห์คำขอของคุณ…
 $agent_activity_wallet: กำลังอ่านข้อมูลกระเป๋าเงิน…
 $agent_activity_transactions: กำลังตรวจสอบกิจกรรมในกระเป๋าเงิน…
 $agent_activity_portfolio: กำลังโหลดข้อมูลพอร์ตโฟลิโอ…
 $agent_activity_assets: กำลังค้นหาสินทรัพย์…
 $agent_activity_addresses: กำลังตรวจสอบที่อยู่ที่บันทึกไว้…
-$agent_activity_transfer: กำลังเตรียมการโอน…
-$agent_activity_market_quote: กำลังอ่านราคาโทเค็นล่าสุด…
 $agent_activity_planning: กำลังวางแผนคำตอบ…
 $agent_activity_planning_completed: แผนคำตอบพร้อมแล้ว
 $agent_activity_web_searching: การค้นหาบนเว็บ…
 $agent_activity_web_searching_completed: พบแหล่งข้อมูลที่เกี่ยวข้อง
+$agent_activity_help_searching: กำลังค้นหาในศูนย์ช่วยเหลือ…
+$agent_activity_help_searching_completed: ตรวจสอบศูนย์ช่วยเหลือแล้ว
 $agent_activity_web_reading_sources: กำลังตรวจสอบแหล่งที่มา…
 $agent_activity_web_reading_sources_completed: "แหล่งที่มาที่ตรวจสอบ: %count%"
 $agent_activity_web_reading_sources_completed_generic: แหล่งที่มาได้รับการตรวจสอบแล้ว
@@ -1321,181 +1321,18 @@ $agent_activity_computing_completed: การคำนวณเสร็จส�
 $agent_activity_writing: กำลังเขียนคำตอบ…
 $agent_activity_writing_completed: คำตอบพร้อมแล้ว
 $agent_activity_preparing_response: กำลังเตรียมคำตอบของคุณ…
-$agent_receive_tokens: รับโทเค็น
-$agent_portfolio_total: มูลค่าพอร์ตรวม
-$agent_portfolio_value_is: มูลค่าพอร์ตของคุณคือ
-$agent_portfolio_24h_change: การเปลี่ยนแปลง 24 ชม.
-$agent_portfolio_top_contributor: สินทรัพย์ที่มีผลสูงสุดวันนี้
-$agent_portfolio_open_tracker: เปิดพอร์ต
-$agent_portfolio_analysis: การวิเคราะห์พอร์ต
-$agent_portfolio_insufficient: มีข้อมูลพอร์ตไม่เพียงพอสำหรับการวิเคราะห์แบบสมบูรณ์
-$agent_portfolio_partial: ข้อมูลพอร์ตบางส่วนไม่พร้อมใช้งาน การวิเคราะห์จึงเป็นเพียงบางส่วน
-$agent_portfolio_current_only: โครงสร้างพอร์ตโฟลิโอปัจจุบันพร้อมใช้งานแล้ว ประสิทธิภาพในอดีตยังไม่พร้อมใช้งานในขณะนี้
-$agent_portfolio_stale: ข้อมูลพอร์ตอาจไม่เป็นปัจจุบัน
-$agent_portfolio_summary_up: พอร์ตของคุณมีมูลค่าเพิ่มขึ้นในช่วง 24 ชั่วโมงที่ผ่านมา
-$agent_portfolio_summary_down: พอร์ตของคุณมีมูลค่าลดลงในช่วง 24 ชั่วโมงที่ผ่านมา
-$agent_portfolio_summary_flat: พอร์ตของคุณมีมูลค่าคงที่ในช่วง 24 ชั่วโมงที่ผ่านมา
-$agent_portfolio_summary_ready: การวิเคราะห์พอร์ตพร้อมใช้งานแล้ว
-$agent_portfolio_chart_title: มูลค่าพอร์ตตามเวลา
-$agent_portfolio_largest_positions: สินทรัพย์ที่มีมูลค่าสูงสุด
-$agent_portfolio_asset: สินทรัพย์
-$agent_portfolio_position_value: ค่า
-$agent_portfolio_share: สัดส่วน
-$agent_portfolio_observations: สิ่งที่โดดเด่น
-$agent_portfolio_insight_performance_title: การเปลี่ยนแปลงของพอร์ตโฟลิโอ
-$agent_portfolio_insight_performance_text: ตรวจสอบว่ามูลค่าพอร์ตโฟลิโอเปลี่ยนแปลงไปอย่างไรในช่วงเวลาที่เลือก
-$agent_portfolio_insight_concentration_title: การกระจุกตัว
-$agent_portfolio_insight_concentration_text: ตรวจสอบการกระจุกตัวของการจัดสรรที่แสดงอยู่ สินทรัพย์ที่ไม่ได้แสดงอาจทำให้ภาพรวมของพอร์ตโฟลิโอทั้งหมดเปลี่ยนไป
-$agent_portfolio_insight_chain_split_title: การกระจายเครือข่าย
-$agent_portfolio_insight_chain_split_text: ตรวจสอบสัดส่วนในแต่ละเครือข่ายของการจัดสรรที่แสดงอยู่ สินทรัพย์ที่ไม่ได้แสดงอาจทำให้ภาพรวมของพอร์ตโฟลิโอทั้งหมดเปลี่ยนไป
-$agent_portfolio_insight_data_quality_title: คุณภาพข้อมูล
-$agent_portfolio_insight_data_quality_text: โปรดพิจารณาความครอบคลุมและความทันสมัยของข้อมูลเมื่อตีความการวิเคราะห์นี้
 $agent_market_analysis_title: การวิเคราะห์ตลาด
-$agent_market_as_of: ข้อมูล ณ เวลา
-$agent_market_closed_1d: แท่งเทียน 1D ที่ปิดล่าสุด
-$agent_market_thesis: มุมมองทางเทคนิค
-$agent_market_fear_greed_sentiment: ความเชื่อมั่นตลาดที่อิง Bitcoin
-$agent_market_fear_greed_index: ดัชนีความกลัวและความโลภ (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: ภาวะตลาด
-$agent_market_fear_greed_risk_on: ภาวะรับความเสี่ยง
-$agent_market_fear_greed_risk_off: ภาวะหลีกเลี่ยงความเสี่ยง
-$agent_market_fear_greed_neutral: ความเชื่อมั่นเป็นกลาง
-$agent_market_fear_greed_source: แหล่งที่มา
-$agent_market_timeframes: โครงสร้างตลาด
-$agent_market_structure_bullish: จุดสูงสุดและจุดต่ำสุดยกตัวสูงขึ้น
-$agent_market_structure_bearish: จุดสูงสุดและจุดต่ำสุดลดตัวลง
-$agent_market_structure_range: เคลื่อนไหวในกรอบ
-$agent_market_structure_transition: ช่วงเปลี่ยนผ่าน
-$agent_market_structure_unavailable: ไม่มีข้อมูลโครงสร้าง
-$agent_market_event_none: ยังไม่มีการเบรกที่ยืนยัน
-$agent_market_event_break_up: เบรกเหนือโครงสร้าง
-$agent_market_event_break_down: เบรกใต้โครงสร้าง
-$agent_market_event_retest_up: ทดสอบแนวขาขึ้นอีกครั้ง
-$agent_market_event_retest_down: ทดสอบแนวขาลงอีกครั้ง
-$agent_market_live_approaching_upper: กำลังเข้าใกล้ขอบบน
-$agent_market_live_approaching_lower: กำลังเข้าใกล้ขอบล่าง
-$agent_market_level_map: ระดับสำคัญ
-$agent_market_level_primary: ระดับหลัก
-$agent_market_level_secondary: ระดับรอง
-$agent_market_level_context: ระดับประกอบ
-$agent_market_levels_unavailable: ไม่มีระดับโครงสร้างที่ยืนยัน
-$agent_market_profile_poc_full: ศูนย์กลางปริมาณซื้อขาย (POC)
-$agent_market_profile_value_area_full: ขอบเขตพื้นที่มูลค่า (VAL/VAH)
-$agent_market_profile_hvn_full: พื้นที่ปริมาณซื้อขายสูง (HVN)
-$agent_market_profile_lvn_full: ช่องปริมาณซื้อขายต่ำ (LVN)
-$agent_market_profile_current_day: วัน UTC ปัจจุบัน
-$agent_market_profile_previous_day: วัน UTC ก่อนหน้า
-$agent_market_profile_previous_week: สัปดาห์ UTC ก่อนหน้า
-$agent_market_profile_rolling_30d: 30 เซสชัน UTC ล่าสุด
-$agent_market_profile_above: ราคาอยู่เหนือพื้นที่มูลค่า
-$agent_market_profile_inside: ราคาอยู่ภายในพื้นที่มูลค่า
-$agent_market_profile_below: ราคาอยู่ใต้พื้นที่มูลค่า
-$agent_market_factors: ปัจจัยสำคัญ
-$agent_market_factor_structure: "โครงสร้างรายวัน: %direction%"
-$agent_market_factor_levels: ยืนยันโซนแนวรับ %supports% และแนวต้าน %resistances% สำหรับช่วงเวลานี้แล้ว
-$agent_market_factor_profile: "การกระจายปริมาณซื้อขาย: %position%"
-$agent_market_factor_profile_unavailable: ไม่มีข้อมูล Volume Profile สถานการณ์นี้จึงอิงโครงสร้างราคา
-$agent_market_factor_timeframe_alignment: "โครงสร้างกรอบเวลา — 1D: %daily%; 4H: %fourHour%; 1H: %hourly%"
-$agent_market_factor_current_scenario: "ภาวะปัจจุบัน: %active% สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
-$agent_market_factor_no_active_scenario: "ยังไม่มีสถานการณ์ที่ยืนยัน สถานการณ์แบบมีเงื่อนไข: %conditional% หลังจาก %activation%"
-$agent_market_primary_scenario: สถานการณ์หลัก
-$agent_market_current_regime: ภาวะปัจจุบันที่ยืนยันแล้ว
-$agent_market_conditional_scenario: สถานการณ์แบบมีเงื่อนไข
-$agent_market_no_active_scenario: ขณะนี้ยังไม่มีสถานการณ์ที่ยืนยัน
-$agent_market_calculated_fallback: "การวิเคราะห์ที่คำนวณแล้ว: คำอธิบายจากโมเดลไม่พร้อมใช้งานชั่วคราว"
-$agent_market_other_horizons: ช่วงเวลาอื่นที่ขอ
-$agent_market_horizon_3d: 3 วัน
-$agent_market_horizon_7d: 7 วัน
-$agent_market_horizon_30d: 30 วัน
-$agent_market_scenario_bullish: เบรกเอาต์ขาขึ้น
-$agent_market_scenario_range: สมดุลในกรอบ
-$agent_market_scenario_bearish: เบรกดาวน์ขาลง
-$agent_market_scenario_unavailable: ไม่มีสถานการณ์เชิงโครงสร้างสำหรับช่วงเวลานี้
-$agent_market_confidence: ความมั่นใจ
-$agent_market_confidence_low: ต่ำ
-$agent_market_confidence_medium: ปานกลาง
-$agent_market_activation: เงื่อนไขเปิดใช้งาน
-$agent_market_path: เส้นทาง
-$agent_market_terminal: โซนปลายทาง
-$agent_market_invalidation: จุดยกเลิกสมมติฐาน
-$agent_market_expected_range: กรอบของสถานการณ์
-$agent_market_rationale: เหตุผล
-$agent_market_condition_above: ปิดเหนือ
-$agent_market_condition_below: ปิดต่ำกว่า
-$agent_market_condition_inside: ปิดภายใน
-$agent_market_condition_outside: ปิดภายนอก
-$agent_market_condition_waiting: รอการยืนยัน
-$agent_market_condition_approaching: กำลังเข้าใกล้
-$agent_market_condition_triggered: ยืนยันแล้ว
-$agent_market_scenario_zone: โซนสถานการณ์
-$agent_market_expected_move: กรอบความผันผวน
-$agent_market_volatility_envelope: กรอบความผันผวนโดยรวม
-$agent_market_expected_move_note: การเคลื่อนไหวแบบมีเงื่อนไข ไม่ใช่ความน่าจะเป็น
-$agent_market_risk_caveat: สถานการณ์ต่าง ๆ เป็นเพียงเงื่อนไขและไม่ถือเป็นคำแนะนำในการซื้อขาย
-$agent_market_partial_coverage: หลักฐานตลาดบางส่วนไม่พร้อมใช้งาน ระดับความมั่นใจจึงมีจำกัด
-$agent_market_thesis_bullish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อเหนือแนวต้าน โดยจุดยกเลิกสมมติฐานยังอยู่ใต้แนวรับที่ใกล้ที่สุด
-$agent_market_thesis_bearish: โครงสร้างที่ยืนยันสนับสนุนการเคลื่อนไหวต่อต่ำกว่าแนวรับ โดยจุดยกเลิกสมมติฐานยังอยู่เหนือแนวต้านที่ใกล้ที่สุด
-$agent_market_thesis_range: ราคายังคงสมดุลระหว่างแนวรับและแนวต้านที่ยืนยัน
-$agent_market_thesis_mixed: กรอบเวลาขัดแย้งกัน การยืนยันที่ขอบเขตโครงสร้างจึงสำคัญกว่าตัวชี้วัดทิศทาง
-$agent_market_thesis_insufficient: หลักฐานที่มีอยู่ไม่เพียงพอที่จะยืนยันโครงสร้างเชิงทิศทาง
-$agent_market_thesis_unconfirmed: ยังไม่มีสถานการณ์ที่ยืนยัน โปรดรอให้ราคาปิดผ่านขอบเขตโครงสร้างก่อนเลือกมุมมองทิศทาง
-$agent_semantic_asset_search: การค้นหาสินทรัพย์
-$agent_semantic_web_digest: ผลการค้นหาจากเว็บ
-$agent_semantic_no_results: ไม่มีผลลัพธ์
-$agent_semantic_wallets: กระเป๋าเงิน
-$agent_semantic_wallet: กระเป๋าเงิน
-$agent_semantic_balance: ยอดคงเหลือ
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: ปกติ
-$agent_semantic_access_view_only: ดูอย่างเดียว
-$agent_semantic_wallets_unpriced: "%amount% รายการไม่ได้รวมอยู่ในยอดรวมที่แสดงเนื่องจากไม่มีราคา"
-$agent_semantic_wallets_stale: ยอดคงเหลือในกระเป๋าเงินบางรายการอาจไม่เป็นปัจจุบัน
-$agent_semantic_wallets_unavailable: ยอดคงเหลือในกระเป๋าเงินบางส่วนอาจไม่สามารถดูได้
-$agent_semantic_wallets_partial: ข้อมูลกระเป๋าเงินบางส่วนไม่สมบูรณ์
-$agent_semantic_status: สถานะ
-$agent_semantic_quantity: จำนวน
-$agent_semantic_time: เวลา
-$agent_semantic_partial: ข้อมูลบางส่วนไม่สามารถใช้งานได้
-$agent_semantic_pending: กำลังดำเนินการ
-$agent_semantic_confirmed: ยืนยันแล้ว
-$agent_semantic_completed: เสร็จสมบูรณ์
-$agent_semantic_failed: ล้มเหลว
-$agent_semantic_expired: หมดอายุแล้ว
-$agent_semantic_active: ใช้งานอยู่
-$agent_semantic_unstaking: กำลังถอนสเตก
-$agent_semantic_ready: พร้อม
-$agent_semantic_frozen: ตรึงไว้
-$agent_semantic_locked: ล็อกไว้
-$agent_semantic_fungible: โทเค็น
-$agent_semantic_nft: NFT
-$agent_semantic_staking: การสเตก
-$agent_semantic_vesting: การทยอยปลดล็อก
-$agent_semantic_vault: ห้องนิรภัย
-$agent_semantic_transfer: การโอน
-$agent_semantic_swap: แลกเปลี่ยน
-$agent_semantic_stake: สเตก
-$agent_semantic_unstake: ถอนสเตก
-$agent_semantic_contract: สัญญา
-$agent_semantic_unknown: กิจกรรม
-$agent_semantic_spam_transactions: ธุรกรรมสแปม
-$agent_semantic_spam_assets: สินทรัพย์สแปม
-$agent_semantic_hidden_assets: สินทรัพย์ที่ซ่อนอยู่
-$agent_semantic_hidden_assets_warning: ชื่อสินทรัพย์ที่ซ่อนอยู่อาจทำให้เข้าใจผิด ชื่อจะแสดงเป็นข้อความธรรมดาและไม่สามารถเปิดเป็นลิงก์ได้
-$agent_semantic_quarantine_warning: รายการเหล่านี้ถูกรายงานว่าเป็นสแปม อย่าเชื่อถือชื่อหรือลิงก์ของรายการเหล่านี้
-$agent_semantic_redacted_asset: ชื่อถูกซ่อนไว้
-$agent_semantic_omitted_spam: "สแปมที่ถูกกรอง: %amount%"
-$agent_semantic_omitted_spam_minimum: "สแปมที่ถูกกรอง: อย่างน้อย %amount%"
-$agent_semantic_omitted_hidden: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: %amount%"
-$agent_semantic_omitted_hidden_minimum: "สินทรัพย์ที่ซ่อนอยู่ถูกละเว้น: อย่างน้อย %amount%"
-$agent_semantic_suspicious: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: %amount%"
-$agent_semantic_suspicious_minimum: "ชื่อที่ไม่ปลอดภัยถูกซ่อนไว้: อย่างน้อย %amount%"
-$agent_semantic_suspicious_shown: "ชื่อที่อาจไม่ปลอดภัย: %amount%"
-$agent_semantic_suspicious_shown_minimum: "ชื่อที่อาจไม่ปลอดภัย: อย่างน้อย %amount%"
-$agent_semantic_omitted_rows: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติม %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
-$agent_semantic_omitted_rows_minimum: มีข้อมูลมากเกินไป ไม่ได้รวมแถวเพิ่มเติมอย่างน้อย %amount% แถว โปรดจำกัดช่วงเวลาหรือตัวกรอง
-$agent_semantic_update_required: อัปเดตแอปเพื่อแสดงผลลัพธ์นี้
+Analyze it: วิเคราะห์
+Check allocation: ตรวจสอบสัดส่วน
+Compare with last month: "เทียบกับเดือนก่อน"
+Best & worst performers: "สินทรัพย์ที่ดีและแย่ที่สุด"
+Biggest profit today: "กำไรสูงสุดวันนี้"
+$agent_prompt_portfolio_share: "วิเคราะห์ว่าพอร์ตของฉันมีการกระจายการลงทุนมากน้อยเพียงใด และระบุการกระจุกตัวในสินทรัพย์ใดสินทรัพย์หนึ่ง"
+$agent_prompt_portfolio_compare: "เปรียบเทียบมูลค่าพอร์ตปัจจุบันของฉันกับมูลค่าเมื่อหนึ่งเดือนก่อน"
+$agent_prompt_portfolio_performers: "สินทรัพย์ใดในพอร์ตของฉันมีผลกำไรและขาดทุนดีที่สุดและแย่ที่สุดในช่วงเวลาที่เลือก (%period%)?"
+$agent_prompt_portfolio_best_day: "ในช่วงเวลาที่เลือก (%period%) พอร์ตของฉันทำกำไรสูงสุดในวันใด?"
+$agent_prompt_token_price: "วิเคราะห์ราคาของ %token%"
+$agent_hint_capabilities_title: คุณทำอะไรได้บ้าง?
 $agent_hint_portfolio_title: ประสิทธิภาพของพอร์ตโฟลิโอ
 $agent_hint_portfolio_prompt: วิเคราะห์ผลการดำเนินงานของพอร์ตโฟลิโอของฉัน
 $agent_hint_swap_title: สวอปทำงานอย่างไร
@@ -1506,167 +1343,17 @@ $agent_hint_security_title: ความปลอดภัยของกระ�
 $agent_hint_security_prompt: แสดงวิธีรักษาความปลอดภัยกระเป๋าเงินของฉัน
 $agent_hint_receive_title: รับโทเค็น
 $agent_hint_receive_prompt: ช่วยฉันรับโทเค็น
-$agent_action_review_transfer: ตรวจสอบการโอน
-$agent_action_open_receive: เปิดหน้ารับ
-$agent_action_open_send: เปิดหน้าส่ง
-$agent_action_open_staking: เปิดหน้าสเตก
-$agent_action_open_swap: เปิดหน้าสวอป
-$agent_activity_swap: กำลังเตรียมการแลกเปลี่ยน
-$agent_action_hide_spam: ซ่อนสินทรัพย์สแปม
-$agent_action_open_link: เปิดลิงก์
-$agent_action_open_agent: เปิดผู้ช่วย
-$agent_action_open_token: เปิดโทเค็นในกระเป๋าเงิน
-$agent_action_open_transaction: เปิดธุรกรรม
-$agent_input_asset: ป้อนสินทรัพย์
-$agent_input_timeframe: ป้อนช่วงเวลา
-$agent_input_amount: ป้อนจำนวนเงิน
-$agent_input_recipient: ป้อนผู้รับ
-$agent_input_swap_details: ป้อนรายละเอียดการแลกเปลี่ยน
-$agent_notice_agent_unavailable: ผู้ช่วยไม่สามารถใช้งานได้ในขณะนี้ โปรดลองอีกครั้งในภายหลัง
-$agent_notice_analysis_unavailable: เราไม่สามารถทำการวิเคราะห์นี้ให้เสร็จสมบูรณ์ได้ โปรดลองอีกครั้ง
-$agent_notice_analysis_planning_unavailable: เราไม่สามารถตีความคำขอได้เพียงพอเพื่อเตรียมการวิเคราะห์
-$agent_notice_analysis_source_unavailable: ข้อมูลที่จำเป็นสำหรับการวิเคราะห์นี้ยังไม่พร้อมใช้งานในขณะนี้
-$agent_notice_analysis_stale_evidence: ข้อมูลที่มีอยู่เก่าเกินไปที่จะทำการวิเคราะห์นี้ได้อย่างปลอดภัย
-$agent_notice_analysis_inconsistent_snapshot: ข้อมูลที่ต้องการเปลี่ยนแปลงระหว่างการวิเคราะห์ โปรดลองอีกครั้ง
-$agent_notice_analysis_compute_failed: เราไม่สามารถทำการคำนวณตามที่ร้องขอได้
-$agent_notice_analysis_deadline_exceeded: การวิเคราะห์ใช้เวลานานเกินไป โปรดลองอีกครั้ง
-$agent_notice_analysis_result_too_large: ผลการวิเคราะห์มีขนาดใหญ่เกินกว่าจะแสดงผลได้อย่างปลอดภัย
-$agent_notice_analysis_answer_generation_failed: เราได้รวบรวมข้อมูลแล้ว แต่ไม่สามารถเตรียมคำตอบได้ โปรดลองอีกครั้ง
-$agent_notice_asset_not_found: ไม่พบสินทรัพย์ที่ร้องขอ
-$agent_notice_clarification_required: หากต้องการรายละเอียดเพิ่มเติม โปรดแปลต่อ
-$agent_notice_clarification_asset: ระบุสินทรัพย์คริปโตที่คุณต้องการใช้
-$agent_notice_clarification_network: ระบุเครือข่ายบล็อกเชนที่คุณต้องการใช้
-$agent_notice_clarification_query: ฉันไม่แน่ใจว่าเข้าใจคำขอของคุณถูกต้องหรือไม่ โปรดบอกฉันว่าคุณต้องการทราบหรือทำอะไร
-$agent_notice_clarification_quote_currency: ฉันควรใช้สกุลเงินอ้างอิงใด
-$agent_notice_clarification_staking_product: ฉันควรใช้ผลิตภัณฑ์ การสเตก ตัวไหน?
-$agent_notice_clarification_time_horizon: ควรใช้ช่วงเวลาใด
-$agent_notice_clarification_price_assumption: ฉันควรใช้สมมติฐานราคาใด
-$agent_notice_repair_unrecognized_input: ฉันไม่เข้าใจข้อความนั้นเลย บอกฉันว่าคุณต้องการทราบหรือทำอะไร แล้วฉันจะพยายามช่วย
-$agent_notice_repair_ambiguous_request: ฉันไม่แน่ใจว่าเข้าใจคำขอถูกต้องหรือไม่ คุณต้องการทราบหรือทำอะไรเพิ่มเติม
-$agent_notice_repair_multiple_requests: ฉันเห็นคำขอหลายรายการในข้อความนั้น เราควรเริ่มจากรายการใดก่อน?
-$agent_notice_consent_required: อนุญาตให้เข้าถึงข้อมูลกระเป๋าเงินต่อไปได้
 $agent_notice_content_over_budget: ผลลัพธ์มีขนาดใหญ่เกินกว่าจะแสดงทั้งหมดได้
-$agent_notice_empty_result: ไม่พบผลลัพธ์ที่ตรงกัน
-$agent_notice_market_unavailable: ข้อมูลตลาดไม่พร้อมใช้งานในขณะนี้
-$agent_notice_market_analysis_unavailable: เราไม่สามารถจัดทำบทวิเคราะห์ตลาดได้ โปรดลองอีกครั้ง
-$agent_notice_market_analysis_asset_unsupported: การวิเคราะห์สำหรับเหรียญนี้ยังไม่ได้รับการสนับสนุนในขณะนี้
-$agent_notice_market_analysis_timeframe_unsupported: การวิเคราะห์สำหรับช่วงเวลานี้ยังไม่ได้รับการสนับสนุนในขณะนี้
-$agent_notice_market_quote_resolved: "%asset% มีมูลค่าปัจจุบัน %price% %currency% การเปลี่ยนแปลงใน 24 ชั่วโมง: %change%%"
-$agent_notice_market_quote_price_unavailable: ไม่มีราคาปัจจุบันสำหรับ %asset%
-$agent_notice_market_quote_ambiguous: "มีโทเค็นหลายรายการที่ตรงกัน: %assets% ระบุที่อยู่เครือข่ายหรือสัญญา"
-$agent_notice_market_quote_not_found: ไม่พบโทเค็นที่ตรงกับคำขอราคานี้
-$agent_notice_market_quote_planning_unavailable: คำขอราคาไม่สามารถแปลได้
-$agent_notice_market_quote_capability_unavailable: แอปนี้ไม่สามารถดูราคาได้
-$agent_notice_market_quote_wallet_context_unavailable: ข้อมูลบริบทของกระเป๋าเงินที่จำเป็นสำหรับการค้นหาราคาครั้งนี้ไม่พร้อมใช้งาน
-$agent_notice_market_quote_currency_unsupported: ไม่รองรับสกุลเงินอ้างอิงที่เลือกสำหรับการค้นหาราคานี้
-$agent_notice_market_quote_unavailable: ขณะนี้ยังไม่มีราคาสำหรับโทเค็นนี้
-$agent_notice_market_quote_wallet_context_changed: กระเป๋าเงินที่ใช้งานอยู่มีการเปลี่ยนแปลงก่อนที่การค้นหาราคาจะเสร็จสมบูรณ์
-$agent_notice_market_quote_timeout: การค้นหาราคาหมดเวลา
-$agent_notice_market_quote_tool_failed: บริการราคาไม่สามารถทำการค้นหาให้เสร็จสมบูรณ์ได้
-$agent_notice_market_quote_invalid_result: ไม่สามารถตรวจสอบการตอบสนองของราคาได้
-$agent_notice_market_quote_cancelled: การค้นหาราคาถูกยกเลิก
-$agent_notice_portfolio_unavailable: ข้อมูลพอร์ตโฟลิโอไม่พร้อมใช้งานในขณะนี้
-$agent_notice_receive_details_required: ระบุสินทรัพย์คริปโตและเครือข่ายสำหรับการฝาก
-$agent_notice_receive_asset_required: ระบุสินทรัพย์คริปโตสำหรับการฝาก
-$agent_notice_receive_network_required: ระบุเครือข่ายสำหรับการฝาก
-$agent_notice_receive_ready: หน้ารับพร้อมเปิดแล้ว
-$agent_notice_receive_memo_not_required: ไม่จำเป็นต้องกรอก Memo เมื่อเติมเงินเข้าบัญชี My Wallet ของคุณเอง — เว้นช่องว่างไว้
-$agent_notice_receive_unavailable: กระเป๋าเงินนี้ไม่รองรับการรับสินทรัพย์
-$agent_notice_receive_planning_unavailable: ไม่สามารถตีความคำขอรับสินทรัพย์ได้ โปรดเรียบเรียงใหม่หรือเปิดหน้ารับ
-$agent_notice_receive_active_account_unavailable: กระเป๋าเงินที่ใช้งานอยู่ไม่สามารถใช้งานได้ โปรดเปลี่ยนกระเป๋าเงินแล้วลองใหม่อีกครั้ง
-$agent_notice_receive_client_unavailable: แอปนี้ไม่รองรับการรับสินทรัพย์ผ่านผู้ช่วย โปรดเปิดหน้ารับแทน
-$agent_notice_receive_chain_unsupported: กระเป๋าเงินนี้ไม่รองรับ %requested_network% เครือข่ายที่ใช้งานอยู่คือ %active_network%
-$agent_notice_receive_active_network_mismatch: เครือข่ายที่ใช้งานอยู่คือ %active_network% โปรดเปลี่ยนไปใช้ %requested_network% เพื่อรับสินทรัพย์บนเครือข่ายนั้น
-$agent_notice_retry_required: โปรดลองส่งคำขออีกครั้ง
-$agent_notice_send_details_required: เพิ่มรายละเอียดการโอนที่ขาดหายไปเพื่อดำเนินการต่อ
-$agent_notice_send_form_amount_required: เปิดหน้าส่ง แล้วป้อนจำนวนในแบบฟอร์มการโอน
-$agent_notice_send_ready: แน่นอน การโอนเสร็จสมบูรณ์แล้ว โปรดตรวจสอบรายละเอียดก่อนส่ง
-$agent_notice_send_ready_inferred_asset: ดูเหมือนว่าคุณหมายถึง %symbol% ฉันได้เตรียมการโอนแล้ว โปรดตรวจสอบรายละเอียดก่อนส่ง
-$agent_notice_send_missing_amount: คุณต้องการส่งเงินจำนวนเท่าใด?
-$agent_notice_send_missing_asset: คุณต้องการส่งสกุลเงินใด
-$agent_notice_send_missing_recipient: คุณต้องการส่งให้ใคร?
-$agent_notice_send_no_sendable_balance: กระเป๋าเงินที่ใช้งานอยู่ขณะนี้ไม่มีเงินคงเหลือให้ส่ง
-$agent_notice_send_unavailable: การโอนไม่สามารถดำเนินการได้อย่างปลอดภัย โปรดใช้ปุ่มส่ง หรือลองใหม่อีกครั้งในภายหลัง
-$agent_notice_staking_ready: หน้าสเตกพร้อมเปิดแล้ว
-$agent_notice_staking_unavailable: ขณะนี้ไม่รองรับการสเตกผ่านผู้ช่วย โปรดเปิดหน้าสเตกจากกระเป๋าเงินแทน
-$agent_notice_staking_planning_unavailable: ไม่สามารถตีความคำขอสเตกได้ โปรดเรียบเรียงใหม่หรือเปิดหน้าสเตก
-$agent_notice_staking_active_account_unavailable: กระเป๋าเงินที่ใช้งานอยู่ไม่สามารถใช้งานได้ โปรดเปลี่ยนกระเป๋าเงินแล้วลองใหม่อีกครั้ง
-$agent_notice_staking_view_only: การสเตก ไม่สามารถใช้งานได้ในกระเป๋าเงินแบบดูอย่างเดียว โปรดเปลี่ยนไปใช้กระเป๋าเงินที่คุณสามารถลงชื่อได้
-$agent_notice_staking_client_unavailable: แอปนี้ไม่รองรับการสเตกผ่านผู้ช่วย โปรดเปิดหน้าสเตกจากกระเป๋าเงินแทน
-$agent_notice_staking_asset_unavailable: การสเตก สำหรับสินทรัพย์นี้ไม่สามารถใช้งานได้ในกระเป๋าเงินที่ใช้งานอยู่ เลือกสินทรัพย์ การสเตก อื่นที่ใช้งานได้
-$agent_notice_staking_amount_invalid: จำนวนเงิน การสเตก ที่ร้องขอไม่สามารถใช้ได้ โปรดป้อนจำนวนเงินอื่นใน การสเตก
-$agent_notice_staking_wallet_context_changed: ตัวเลือกการสเตกของกระเป๋าเงินที่ใช้งานอยู่เปลี่ยนไป โปรดขอให้ผู้ช่วยเตรียมการสเตกอีกครั้ง
-$agent_notice_swap_ready_indicative: "ราคาโดยประมาณ: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol% ราคาที่ดำเนินการได้ ค่าธรรมเนียม สลิปเพจ และผลกระทบต่อราคาจะโหลดในหน้าสวอป"
-$agent_notice_swap_ready_price_unavailable: ราคาโดยประมาณในเครื่องสำหรับ %from_symbol% → %to_symbol% ไม่พร้อมใช้งาน โปรดเปิดหน้าสวอปเพื่อโหลดราคาที่ดำเนินการได้ ค่าธรรมเนียม และสลิปเพจ
-$agent_notice_swap_details_source_asset: ระบุสกุลเงินดิจิทัลที่จะแลกเปลี่ยน
-$agent_notice_swap_details_destination_asset: ระบุสกุลเงินดิจิทัลที่ต้องการรับ
-$agent_notice_swap_details_amount: ระบุจำนวนเงินคริปโตที่เป็นบวกด้วย
-$agent_notice_swap_details_direction: ระบุสินทรัพย์ต้นทาง สินทรัพย์ปลายทาง และจำนวนเงินเพื่อดำเนินการต่อ
-$agent_notice_swap_details_candidates: "%prompt% ตรงกับ: %candidates%"
-$agent_notice_swap_unavailable: ขณะนี้ไม่รองรับการเตรียมสวอปผ่านผู้ช่วย โปรดเปิดหน้าสวอปจากกระเป๋าเงินแทน
-$agent_notice_swap_planning_unavailable: คำขอแลกเปลี่ยนไม่สามารถตีความได้ โปรดระบุทั้งสินทรัพย์คริปโตและจำนวนเงิน
-$agent_notice_swap_active_account_unavailable: กระเป๋าเงินที่ใช้งานอยู่ไม่สามารถใช้งานได้ โปรดเปลี่ยนกระเป๋าเงินแล้วลองใหม่อีกครั้ง
-$agent_notice_swap_view_only: การเตรียมการแลกเปลี่ยนไม่สามารถใช้งานได้สำหรับกระเป๋าเงินแบบดูอย่างเดียว เปลี่ยนไปใช้กระเป๋าเงินที่คุณสามารถลงชื่อได้
-$agent_notice_swap_client_unavailable: แอปนี้ไม่รองรับการเตรียมสวอปผ่านผู้ช่วย โปรดเปิดหน้าสวอปจากกระเป๋าเงินแทน
-$agent_notice_swap_wallet_context_changed: กระเป๋าเงินที่ใช้งานอยู่มีการเปลี่ยนแปลงก่อนที่การเตรียมการแลกเปลี่ยนจะเสร็จสมบูรณ์ ลองใหม่อีกครั้ง
-$agent_notice_swap_timeout: การเตรียมการแลกเปลี่ยนหมดเวลา ลองใหม่อีกครั้ง
-$agent_notice_swap_tool_failed: กระเป๋าเงินไม่สามารถเตรียมสวอปนี้ได้ โปรดลองอีกครั้งหรือเปิดหน้าสวอป
-$agent_notice_swap_invalid_result: การแลกเปลี่ยนที่เตรียมไว้ไม่สามารถตรวจสอบได้ โปรดลองอีกครั้ง
-$agent_notice_send_asset_not_held: สินทรัพย์นี้ไม่สามารถใช้งานได้ในกระเป๋าเงินที่ใช้งานอยู่ โปรดเลือกสินทรัพย์หรือกระเป๋าเงินอื่น
-$agent_notice_send_insufficient_balance: ยอดเงินไม่เพียงพอสำหรับการโอนนี้ ลดจำนวนเงินหรือเปลี่ยนกระเป๋าเงิน
-$agent_notice_send_recipient_not_found: ไม่พบกระเป๋าเงินหรือที่อยู่บันทึกไว้ที่ตรงกัน
-$agent_notice_send_recipient_not_found_named: ไม่พบกระเป๋าเงินของคุณเองหรือที่อยู่ที่บันทึกไว้ชื่อ “%recipient%”
-$agent_notice_send_recipient_ambiguous: อาจมีกระเป๋าเงินหรือรายชื่อติดต่อมากกว่าหนึ่งรายการที่ตรงกัน ระบุผู้รับ
-$agent_notice_send_address_book_unavailable: สมุดที่อยู่ปัจจุบันไม่สามารถโหลดได้ โปรดลองอีกครั้งหรือเลือกผู้ติดต่อในปุ่มส่ง
-$agent_notice_send_recipient_matching_unavailable: สมุดที่อยู่พร้อมใช้งาน แต่ผู้ช่วยไม่สามารถจับคู่ชื่อผู้รับได้อย่างชัดเจน โปรดระบุชื่อหรือเลือกผู้ติดต่อใน "ส่ง"
-$agent_notice_send_intent_extraction_unavailable: คุณต้องการส่งสินทรัพย์ใด
-$agent_notice_send_intent_provider_unavailable: บริการประมวลผลคำสั่งไม่สามารถใช้งานได้ชั่วคราว โปรดลองอีกครั้งหรือใช้คำสั่ง ส่ง
-$agent_notice_send_invalid_recipient: ที่อยู่ผู้รับไม่ถูกต้อง
-$agent_notice_send_recipient_unresolved: ไม่สามารถระบุผู้รับได้
-$agent_notice_send_recipient_inactive: บัญชีผู้รับไม่ใช้งานแล้ว
-$agent_notice_send_memo_required: การโอนครั้งนี้ต้องมีบันทึกช่วยจำ
-$agent_notice_send_wallet_not_initialized: กระเป๋าเงินของผู้รับยังไม่ได้เริ่มต้นใช้งาน
-$agent_notice_send_active_account_unavailable: กระเป๋าเงินที่ใช้งานอยู่ไม่สามารถใช้งานได้ สลับกระเป๋าเงิน
-$agent_notice_send_chain_unsupported: กระเป๋าเงินนี้ไม่สามารถส่งได้ในเครือข่ายที่เลือก เปลี่ยนเครือข่ายหรือกระเป๋าเงิน
-$agent_notice_send_client_unavailable: แอปนี้ไม่รองรับการโอนผ่านผู้ช่วย โปรดใช้หน้าส่งแทน
-$agent_notice_send_view_only: กระเป๋าเงินแบบดูอย่างเดียวไม่สามารถส่งเงินได้ สลับกระเป๋าเงิน
-$agent_notice_send_offline: เชื่อมต่ออินเทอร์เน็ตเพื่อเตรียมการโอนนี้
-$agent_notice_send_wallet_context_changed: กระเป๋าเงินที่ใช้งานอยู่เปลี่ยนไปแล้ว เตรียมการโอนอีกครั้ง
-$agent_notice_send_source_wallet_selection_required: ผู้ช่วยสามารถเตรียมการโอนนี้ได้เฉพาะจากกระเป๋าเงินปัจจุบันเท่านั้น โปรดเปลี่ยนไปใช้กระเป๋าเงินที่ระบุชื่อแล้วลองอีกครั้ง
-$agent_notice_send_validation_failed: รายละเอียดการโอนไม่ผ่านการตรวจสอบความถูกต้องของกระเป๋าเงิน
-$agent_notice_tool_unavailable: การดำเนินการนี้ไม่สามารถใช้งานได้ในไคลเอนต์ปัจจุบัน
-$agent_notice_wallet_unavailable: ข้อมูลกระเป๋าเงินไม่พร้อมใช้งานในขณะนี้
-$agent_notice_wallet_filter_ambiguous: เลือกกระเป๋าเงินหรือสินทรัพย์เพื่อจำกัดขอบเขตการค้นหา
-$agent_notice_web_unavailable: การค้นหาบนเว็บไม่สามารถใช้งานได้ในขณะนี้
-$agent_notice_web_capability_unavailable: การค้นหาบนเว็บไม่ได้รับการสนับสนุนโดยการตั้งค่าผู้ช่วยปัจจุบัน
-$agent_notice_web_planning_failed: ผู้ช่วยไม่สามารถเตรียมคำค้นหาได้
-$agent_notice_web_budget_denied: การค้นหาบนเว็บถึงขีดจำกัดแล้ว โปรดลองใหม่อีกครั้งในภายหลัง
-$agent_notice_web_provider_rate_limited: ผู้ให้บริการค้นหาจำกัดจำนวนคำขอชั่วคราว โปรดลองอีกครั้งในภายหลัง
-$agent_notice_web_provider_unavailable: ผู้ให้บริการค้นหาไม่ตอบสนอง โปรดลองอีกครั้งในภายหลัง
-$agent_notice_web_no_results: การค้นหาเสร็จสมบูรณ์แล้ว แต่ไม่พบผลลัพธ์ที่เกี่ยวข้อง
-$agent_notice_web_invalid_sources: ผลการค้นหาได้รับแล้ว แต่ไม่ผ่านการตรวจสอบความปลอดภัย
-$agent_notice_web_synthesis_timeout: พบผลลัพธ์ แต่การประมวลผลใช้เวลานานเกินไป
-$agent_notice_web_synthesis_invalid: พบผลลัพธ์แล้ว แต่ผู้ช่วยไม่สามารถสร้างสรุปที่ถูกต้องได้
-$agent_notice_web_synthesis_unavailable: พบผลลัพธ์แล้ว แต่โมเดลการสรุปข้อความไม่พร้อมใช้งานในขณะนี้
-$agent_notice_web_policy_rejected: สร้างสรุปแล้ว แต่ไม่ผ่านการตรวจสอบคุณภาพ
+$agent_notice_web_search_no_results: ไม่พบข้อมูลที่ตรงกับคำขอของคุณ
 $agent_error_session: เซสชันผู้ช่วยของคุณหมดอายุแล้ว โปรดเปิดผู้ช่วยอีกครั้งและลองใหม่อีกครั้ง
 $agent_error_limit: คำขอไม่สามารถดำเนินการได้เนื่องจากถึงขีดจำกัดผู้ช่วยแล้ว
 $agent_error_tool: การดำเนินการกับกระเป๋าเงินล้มเหลว โปรดลองอีกครั้ง
 $agent_error_conversation_updated: การสนทนาได้รับการอัปเดตแล้ว โปรดลองส่งคำขออีกครั้ง
 $agent_error_generic: ผู้ช่วยไม่สามารถดำเนินการตามคำขอได้ โปรดลองอีกครั้ง
+$agent_error_invalid_response: ไม่สามารถอ่านคำตอบของเอเจนต์ได้ โปรดลองอีกครั้ง
 $agent_error_update_required: อัปเดตแอปเพื่อดำเนินการต่อ
-$agent_semantic_transactions: ธุรกรรม
-$agent_semantic_positions: สถานะการถือครอง
-$agent_semantic_market: ภาพรวมตลาด
 $agent_wallet_page_navigation: หน้าข้อมูลกระเป๋าเงิน
-$agent_wallet_page_previous: ← ก่อนหน้า
-$agent_wallet_page_next: ถัดไป →
 $agent_wallet_page_indicator: "%current% ของ %total%"
-$agent_portfolio_unpriced: ไม่รวม
-$agent_portfolio_unpriced_value: ไม่รวม
-$agent_portfolio_more_positions: +%count% รายการ
-$agent_portfolio_history_on: ประวัติบนเครือข่าย %network%
-$agent_portfolio_no_activity: ไม่มีการเคลื่อนไหวล่าสุด
 Clear Chat: ล้างแชท
 Unsupported link: ลิงก์นี้ไม่รองรับ
 My Wallet Features: ฟีเจอร์ My Wallet
@@ -1711,10 +1398,13 @@ Manage Assets: จัดการสินทรัพย์
 Pulse: ชีพจร
 Edit Message: แก้ไขข้อความ
 Toggle Hints: เปิด/ปิดคำแนะนำ
-AgentErrorResponseFailed: "ข้อผิดพลาด: ไม่ได้รับการตอบกลับ"
-AgentErrorConnectionFailed: "ข้อผิดพลาด: การเชื่อมต่อล้มเหลว"
 Scroll To Bottom: เลื่อนลงล่างสุด
 $agent_clear_chat_confirm: คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการแชท?
+Report a Problem: รายงานปัญหา
+$agent_report_problem_description: ข้อความล่าสุดในแชทนี้จะถูกส่งไปยังทีมของเราเพื่อช่วยแก้ไขปัญหา
+$agent_report_problem_sent: ขอบคุณ! ส่งรายงานของคุณแล้ว
+$agent_report_problem_failed: ไม่สามารถส่งรายงานได้ โปรดลองอีกครั้ง
+$agent_report_problem_rate_limited: คุณส่งรายงานหลายครั้งเมื่อเร็วๆ นี้ โปรดลองอีกครั้งในภายหลัง
 $unknown_swap_token: ไม่รู้จักโทเค็นในลิงก์สวอป ใช้โทเค็นเริ่มต้นแทน
 $action_not_available_view_mode: การดำเนินการนี้ไม่สามารถใช้ได้สำหรับวอลเล็ตสำหรับดู
 Deposit: ฝากเงิน
@@ -2292,6 +1982,7 @@ Tokenized Gold: ทองโทเคนไนซ์
 Index Funds: กองทุนดัชนี
 Search token or stock: ค้นหาโทเค็นหรือหุ้น
 "Activity Failed to Load": "โหลดกิจกรรมไม่สำเร็จ"
+"$agent_source_bea_attribution": "ผลิตภัณฑ์นี้ใช้ API ข้อมูลของสำนักวิเคราะห์เศรษฐกิจ (BEA) แต่ไม่ได้รับการรับรองหรือการรับประกันจาก BEA"
 "Address was copied!": "คัดลอกที่อยู่แล้ว!"
 "Allow App Lock": "อนุญาตให้ล็อกแอป"
 "An error occurred": "เกิดข้อผิดพลาด"

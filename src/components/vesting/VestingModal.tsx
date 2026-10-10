@@ -13,7 +13,7 @@ import {
 import buildClassName from '../../util/buildClassName';
 import { formatFullDay, formatTime } from '../../util/dateFormat';
 import { formatCurrency } from '../../util/formatNumber';
-import { calcVestingAmountByStatus } from '../main/helpers/calcVestingAmountByStatus';
+import { calcVestingAmountByStatus } from '../../util/vesting';
 import { ANIMATED_STICKERS_PATHS } from '../ui/helpers/animatedAssets';
 
 import useAppTheme from '../../hooks/useAppTheme';

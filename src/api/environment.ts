@@ -33,8 +33,9 @@ export function resolveIsAgentV2Enabled(
   agentOverride: AgentOverride,
   backendVersion?: AgentProtocolVersion,
   isAndroidApp = false,
+  isIosApp = false,
 ) {
-  return !isAndroidApp && resolveAgentProtocolVersion(agentOverride, backendVersion) === 'v2';
+  return isAndroidApp || isIosApp || resolveAgentProtocolVersion(agentOverride, backendVersion) === 'v2';
 }
 
 function getAppOrigin(args: ApiInitArgs): string | undefined {
@@ -53,7 +54,7 @@ export function setEnvironment(args: ApiInitArgs) {
   environment = {
     ...args,
     agentOverride,
-    isAgentV2Enabled: resolveIsAgentV2Enabled(agentOverride, undefined, args.isAndroidApp),
+    isAgentV2Enabled: resolveIsAgentV2Enabled(agentOverride, undefined, args.isAndroidApp, args.isIosApp),
     isDappSupported: true,
     isSseSupported: args.isElectron || IS_AIR_APP,
     apiHeaders: appOrigin ? { 'X-App-Origin': appOrigin } : {},

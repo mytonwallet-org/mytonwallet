@@ -1,37 +1,26 @@
-import type { ApiBaseCurrency, ApiPortfolioHistoryResponse, ApiPriceHistoryPeriod } from '../types';
 import type {
-  AgentAccountListItem,
-  AgentActionProposal,
+  AgentAccountType, AgentAnswerLinkV1, AgentAnswerTableReferenceV1, AgentAnswerTableV1, AgentV2ErrorCode,
+} from './protocol/types';
+import type {
   AgentApiChain,
-  AgentAssetIdentityV2,
+  AgentCapabilities,
   AgentEntryPoint,
-  AgentErrorCodeV2,
   AgentHintsResponseV2,
   AgentPersistedMessageV2,
+  AgentProblemReportRequestV2,
   AgentPublicFollowUpV2,
-  AgentPublicInputContinuationV1,
   AgentRunActivityEvent,
   AgentSemanticContentV1,
   AgentStakeAmountV2,
+  AgentSwapAmountV1,
   AgentThreadMessagesPageV2,
   AgentThreadSummaryV2,
   AgentToolName,
   AgentToolStatusEvent,
   AgentUserQuotaV2,
-  AgentWalletScopeSelectionRefV2,
+  AgentV2LiveAction,
   AgentWalletSemanticOperationV2,
 } from './protocol/types';
-
-export interface AgentV2WalletConversationControls {
-  expiresAt: string;
-  scopeChoices: Array<{ choiceId: string; label: string }>;
-}
-
-export type AgentV2WalletConversationControl = {
-  kind: 'select_wallet';
-  choiceId: string;
-  label: string;
-};
 
 export interface AgentV2HostAsset {
   slug: string;
@@ -56,32 +45,30 @@ export interface AgentV2HostHolding {
   riskVerdict?: 'spam';
 }
 
-export interface AgentV2HostStakingOffer {
-  productId: string;
-  asset: AgentAssetIdentityV2;
-  annualYield: string;
-  yieldType: 'APY' | 'APR';
-  availability: 'available' | 'disabled';
-}
-
 export type AgentV2WalletDomain =
   | 'accounts'
-  | 'positions'
+  | AgentV2PositionKind
   | 'transactions'
   | 'value_series'
   | 'contacts';
+
+export type AgentV2PositionKind = 'fungible' | AgentV2HostPosition['kind'];
 
 export interface AgentV2HostDomainState {
   state: 'fresh' | 'stale' | 'notLoaded' | 'unavailable';
   updatedAt?: string;
 }
 
-export interface AgentV2HostPosition {
+/** An NFT is its own asset; every other position names the asset its quantity is denominated in */
+export type AgentV2HostPosition = AgentV2HostPositionFields & (
+  | { kind: 'nft'; asset?: AgentV2HostAsset }
+  | { kind: 'staking' | 'vesting' | 'vault'; asset: AgentV2HostAsset }
+);
+
+interface AgentV2HostPositionFields {
   id: string;
-  kind: 'nft' | 'staking' | 'vesting' | 'vault';
   chain: AgentApiChain;
   label: string;
-  asset?: AgentV2HostAsset;
   quantity?: string;
   valuationStatus: 'valued' | 'unpriced' | 'not_applicable';
   fiatValue?: string;
@@ -98,7 +85,7 @@ export interface AgentV2HostAccount {
   accountId: string;
   label?: string;
   state: 'active' | 'stale' | 'deleted';
-  accountType: AgentAccountListItem['accountType'];
+  accountType: AgentAccountType;
   isViewOnly: boolean;
   chains: AgentApiChain[];
   addresses: Partial<Record<AgentApiChain, string>>;
@@ -107,7 +94,9 @@ export interface AgentV2HostAccount {
   holdings: AgentV2HostHolding[];
   positions?: AgentV2HostPosition[];
   savedAddresses?: AgentV2HostSavedAddress[];
-  domainStates?: Partial<Record<AgentV2WalletDomain, AgentV2HostDomainState>>;
+  /** The networks whose NFTs the app has read in full; the SDK decides from them whether the NFTs of a read are */
+  nftLoadedChains?: AgentApiChain[];
+  domainStates?: Partial<Record<Exclude<AgentV2WalletDomain, 'nft'>, AgentV2HostDomainState>>;
 }
 
 export interface AgentV2HostSavedAddress {
@@ -117,14 +106,23 @@ export interface AgentV2HostSavedAddress {
   address: string;
 }
 
-export interface AgentV2PortfolioHistoryEntry {
-  response: ApiPortfolioHistoryResponse;
-  fetchedAtSlot: number;
+export interface AgentV2HostUiCapabilities {
+  supportedActions: AgentCapabilities['supportedActions'];
+  supportsFollowups: boolean;
+  supportsRunActivity: boolean;
+  supportsWalletDirectory: boolean;
+  supportsMessageEdit: boolean;
+  supportsRegenerate: boolean;
+  supportsSendRecipientWithoutAsset?: boolean;
 }
 
 export interface AgentV2HostContextSnapshot {
+  uiCapabilities: AgentV2HostUiCapabilities;
+  builtinDapps?: { name: string; url: string }[];
   platform: 'classic' | 'ios' | 'android';
   client: 'web' | 'electron' | 'extension' | 'tma' | 'native' | 'capacitor';
+  /** Frontend-only layout input for APIs whose catalog varies between compact and wide clients. */
+  isLandscape?: boolean;
   lang: string;
   baseCurrency: string;
   currencyRate?: string;
@@ -135,58 +133,34 @@ export interface AgentV2HostContextSnapshot {
   activeNetwork?: AgentApiChain;
   isTestnet?: boolean;
   /** Ordered frontend-owned staking products. Only eligible identities are projected into the run wallet grant. */
-  stakingOffers?: AgentV2HostStakingOffer[];
+  isStakingDisabled?: boolean;
   accounts: AgentV2HostAccount[];
   /** Bounded local token catalog. It is available to wallet tools and is never sent in a run request. */
   assetCatalog?: AgentV2HostAsset[];
   /** Locally loaded swap catalog used only by the Swap preparation tool. Never sent in a run request. */
   swapAssetCatalog?: AgentV2HostAsset[];
   savedAddresses: AgentV2HostSavedAddress[];
-  /** Already loaded Portfolio state. It stays in memory and is never sent in the run request. */
-  portfolioHistory?: Partial<Record<
-    '1d' | '7d' | '1m' | '3m' | '1y' | 'all',
-    AgentV2PortfolioHistoryEntry
-  >>;
 }
 
 type AgentV2RunCommandBase = {
   threadId?: string;
   expectedThreadRevision: number;
   /** Private, non-wire staging instruction captured when this run is started. */
-  customWriterInstruction?: string;
 };
 
 type AgentV2RunCommandWithoutOrigin = {
   entryPoint?: never;
   followupOf?: never;
-  continuationOf?: never;
-  walletScopeSelectionOf?: never;
 };
 
 type AgentV2AppendOrigin = AgentV2RunCommandWithoutOrigin
   | {
     entryPoint: AgentEntryPoint;
     followupOf?: never;
-    continuationOf?: never;
-    walletScopeSelectionOf?: never;
   }
   | {
     entryPoint?: never;
     followupOf: { messageId: string; followupId: string };
-    continuationOf?: never;
-    walletScopeSelectionOf?: never;
-  }
-  | {
-    entryPoint?: never;
-    followupOf?: never;
-    continuationOf: { messageId: string; continuationId: string };
-    walletScopeSelectionOf?: never;
-  }
-  | {
-    entryPoint?: never;
-    followupOf?: never;
-    continuationOf?: never;
-    walletScopeSelectionOf: AgentWalletScopeSelectionRefV2;
   };
 
 export type AgentV2AppendRunCommand = AgentV2RunCommandBase
@@ -198,10 +172,19 @@ export type AgentV2EditRunCommand = AgentV2RunCommandBase
   & AgentV2RunCommandWithoutOrigin;
 
 export type AgentV2RegenerateRunCommand = AgentV2RunCommandBase
-  & { input: { kind: 'regenerate'; targetAssistantMessageId: string } }
+  & {
+    input: {
+      kind: 'regenerate';
+      targetAssistantMessageId: string;
+      /** The user message the target answers, which the run answers again; only it can widen a wallet read's scope */
+      userMessageId?: string;
+    };
+  }
   & AgentV2RunCommandWithoutOrigin;
 
-export type AgentV2RunCommand = AgentV2AppendRunCommand | AgentV2EditRunCommand | AgentV2RegenerateRunCommand;
+export type AgentV2RunCommand = (AgentV2AppendRunCommand | AgentV2EditRunCommand | AgentV2RegenerateRunCommand) & {
+  developmentTraceId?: string;
+};
 
 type AgentV2RunCommandWithoutThread<T> = T extends AgentV2RunCommand
   ? Omit<T, 'threadId' | 'expectedThreadRevision'>
@@ -216,8 +199,11 @@ export interface AgentV2RunResult {
   state: 'completed' | 'failed' | 'cancelled' | 'interrupted';
 }
 
+/** A problem report on the conversation, or on one of its messages when `messageId` names it */
+export type AgentV2ProblemReport = Pick<AgentProblemReportRequestV2, 'comment' | 'messageId'>;
+
 export interface AgentV2OperationError {
-  code: AgentErrorCodeV2;
+  code: AgentV2ErrorCode;
   retryable: boolean;
 }
 
@@ -227,6 +213,7 @@ export type AgentV2OperationResult<T> =
 
 export interface AgentV2HostContextUpdate {
   authorityChanged: boolean;
+  preservesActiveRuns?: true;
   generation: number;
 }
 
@@ -235,13 +222,6 @@ export type AgentV2MutationResult<T> = AgentV2OperationResult<T>;
 
 export interface AgentV2RuntimeStatus {
   enabled: boolean;
-}
-
-export interface AgentV2SendReview {
-  tokenSlug: string;
-  amountAtomic: string;
-  toAddress: string;
-  comment?: string;
 }
 
 export type AgentV2ResolvedAction =
@@ -254,18 +234,14 @@ export type AgentV2ResolvedAction =
   }
   | {
     kind: 'openSwap';
-    tokenInSlug: string;
-    tokenOutSlug: string;
-    amount: string;
-    amountSide: 'source' | 'destination';
+    url: string;
+    tokenInSlug?: string;
+    tokenOutSlug?: string;
+    amount?: AgentSwapAmountV1['value'];
+    amountSide?: AgentSwapAmountV1['side'];
   }
-  | { kind: 'sendForm'; tokenSlug: string; toAddress?: string }
-  | { kind: 'reviewSend'; draftId: string; chain: AgentApiChain; review: AgentV2SendReview }
-  | { kind: 'hideSpamAssets'; slugs: string[] }
-  | { kind: 'openUrl'; url: string }
-  | { kind: 'openToken'; slug: string; chain: AgentApiChain; tokenAddress?: string }
-  | { kind: 'openTransaction'; chain: AgentApiChain; transactionRef: string }
-  | { kind: 'openAgent'; entryPoint: AgentEntryPoint }
+  | { kind: 'sendForm'; url: string; isMaxAmount?: true }
+  | { kind: 'openDapp'; url: string }
   | { kind: 'inactive' };
 
 export type AgentV2ActionPresentation =
@@ -293,7 +269,7 @@ type AgentV2BoundRunUpdate<T> = T & {
 
 type AgentV2RunFailure = {
   kind: 'runFailed';
-  code: AgentErrorCodeV2;
+  code: AgentV2ErrorCode;
   retryable: boolean;
   messageId?: string;
   resetAt?: number;
@@ -321,7 +297,9 @@ export type AgentV2ComposerStatus =
   }
   | (AgentV2RateLimitState & { mode: 'blocked' | 'informational' });
 
-export type AgentV2ClientUpdate =
+export type AgentV2ClientUpdate = AgentV2ClientUpdateBody & { developmentTraceId?: string };
+
+type AgentV2ClientUpdateBody =
   | {
     kind: 'runtimeReady';
     generation: number;
@@ -338,25 +316,27 @@ export type AgentV2ClientUpdate =
     kind: 'messageStarted';
     messageId: string;
     contentKind: 'markdown' | 'semantic';
+    responseLanguage?: AgentPersistedMessageV2['responseLanguage'];
   }>
+  | AgentV2BoundRunUpdate<{
+    kind: 'answerTablesChanged';
+    messageId: string;
+    tables: AgentAnswerTableV1[];
+    tableReferences: AgentAnswerTableReferenceV1[];
+  }>
+  | AgentV2BoundRunUpdate<{ kind: 'answerLinkAdded'; messageId: string; link: AgentAnswerLinkV1 }>
   | AgentV2BoundRunUpdate<{ kind: 'textDelta'; messageId: string; delta: string }>
   | AgentV2BoundRunUpdate<{ kind: 'messageContentEnded'; messageId: string }>
   | AgentV2BoundRunUpdate<{
     kind: 'messageCompleted';
     messageId: string;
     finishReason: string;
-    walletControls?: AgentV2WalletConversationControls;
   }>
-  | AgentV2BoundRunUpdate<{ kind: 'actionAvailable'; messageId: string; action: AgentActionProposal }>
+  | AgentV2BoundRunUpdate<{ kind: 'actionAvailable'; messageId: string; action: AgentV2LiveAction }>
   | AgentV2BoundRunUpdate<{
     kind: 'followupsAvailable';
     messageId: string;
     items: AgentPublicFollowUpV2[];
-  }>
-  | AgentV2BoundRunUpdate<{
-    kind: 'inputContinuationsAvailable';
-    messageId: string;
-    items: AgentPublicInputContinuationV1[];
   }>
   | AgentV2BoundRunUpdate<{
     kind: 'semanticContentAvailable';
@@ -368,7 +348,7 @@ export type AgentV2ClientUpdate =
     toolCallId: string;
     toolName: AgentToolName;
     operation?: AgentWalletSemanticOperationV2;
-    status: AgentToolStatusEvent['status'];
+    status: AgentToolStatusEvent['status'] | 'running';
   }>
   | AgentV2BoundRunUpdate<{
     kind: 'runActivityChanged';
@@ -397,6 +377,7 @@ export type AgentV2ClientUpdate =
   }
   | {
     kind: 'walletAuthorityChanged';
+    preservesActiveRuns?: true;
     clientRunId?: never;
     runId?: never;
     threadId?: string;
@@ -430,22 +411,11 @@ export interface AgentV2IncompatibleHistoryMessage {
   messageId?: string;
 }
 
-export type AgentV2HydratedMessage = AgentPersistedMessageV2 & {
-  walletControls?: AgentV2WalletConversationControls;
-};
+export type AgentV2HydratedMessage = AgentPersistedMessageV2;
 
 export type AgentV2Hints = AgentHintsResponseV2;
 
 export type ApiUpdateAgentV2 = {
   type: 'agentV2';
   update: AgentV2ClientUpdate;
-};
-
-export type ApiUpdateAgentV2PortfolioHistory = {
-  type: 'agentV2PortfolioHistory';
-  accountId: string;
-  baseCurrency: ApiBaseCurrency;
-  range: ApiPriceHistoryPeriod;
-  fetchedAtSlot: number;
-  netWorth: ApiPortfolioHistoryResponse;
 };

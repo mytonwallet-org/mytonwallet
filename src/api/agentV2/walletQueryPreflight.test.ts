@@ -1,8 +1,11 @@
 import type {
   AgentToolCall,
   AgentToolResultRequestV2,
+  AgentWalletDataQueryToolCall,
   AgentWalletDataTransactionRowV3,
   AgentWalletFilterClauseV1,
+  AgentWalletTransactionsDetailArgs,
+  AgentWalletTransactionsListArgs,
 } from './protocol/types';
 
 import { getWalletQueryPreflightFailure } from './walletQueryPreflight';
@@ -92,8 +95,8 @@ describe('wallet query preflight', () => {
       appliedFilterDigest: 'a'.repeat(64), transactions: [],
     });
     expect(getWalletQueryPreflightFailure({
-      ...listCall([]), name: 'action.send.prepare',
-    } as AgentToolCall, request)).toBeUndefined();
+      ...listCall([]), name: 'wallet.directory.query',
+    } as unknown as AgentToolCall, request)).toBeUndefined();
     expect(getWalletQueryPreflightFailure(listCall([]), {
       ...request, status: 'rejected', error: { code: 'validation_failed', retryable: false },
     } as AgentToolResultRequestV2)).toBeUndefined();
@@ -108,40 +111,42 @@ function preflight(rows: AgentWalletDataTransactionRowV3[], clauses: AgentWallet
 }
 
 function listCall(clauses: AgentWalletFilterClauseV1[]): AgentToolCall {
+  const arguments_: AgentWalletTransactionsListArgs = {
+    operation: 'transactions.list',
+    accountSelector: { kind: 'current' },
+    chains: [],
+    filters: { schemaVersion: 1, catalogDigest: 'a'.repeat(64), clauses },
+    riskMode: 'exclude',
+    pageSize: 50,
+  };
   return {
     ...callBase(),
-    arguments: {
-      schemaVersion: 5,
-      operation: 'transactions.list',
-      accountSelector: { kind: 'current' },
-      chains: [],
-      filters: { schemaVersion: 1, catalogDigest: 'a'.repeat(64), clauses },
-      riskMode: 'exclude',
-      pageSize: 50,
-    },
+    arguments: arguments_,
   };
 }
 
 function detailCall(hash = HASH): AgentToolCall {
+  const arguments_: AgentWalletTransactionsDetailArgs = {
+    operation: 'transactions.detail',
+    accountSelector: { kind: 'current' },
+    hash,
+  };
   return {
     ...callBase(),
-    arguments: {
-      schemaVersion: 5, operation: 'transactions.detail', accountSelector: { kind: 'current' }, hash,
-    },
+    arguments: arguments_,
   };
 }
 
-function callBase() {
+function callBase(): Omit<AgentWalletDataQueryToolCall, 'arguments'> {
   return {
     id: '11111111-1111-4111-8111-111111111111',
-    name: 'wallet.data.query' as const,
-    version: 5 as const,
-    scopes: ['wallet.data.read' as const],
+    name: 'wallet.data.query',
+    scopes: ['wallet.data.read'],
     timeoutMs: 5_000,
     walletContextSession: {
       sessionId: '22222222-2222-4222-8222-222222222222',
       revision: 1,
-      accountScope: 'current' as const,
+      accountScope: 'current',
       activeAccountRef: 'account_ref',
       activeNetwork: 'ton',
     },
@@ -152,7 +157,7 @@ function successRequest(
   result: Extract<AgentToolResultRequestV2, { status: 'success'; toolName: 'wallet.data.query' }>['result']['result'],
 ): AgentToolResultRequestV2 {
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     runId: '33333333-3333-4333-8333-333333333333',
     threadId: '44444444-4444-4444-8444-444444444444',
     toolCallId: '11111111-1111-4111-8111-111111111111',

@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .consent {
   display: flex;
   flex: 1;
@@ -165,48 +167,158 @@
 
   width: 100%;
   max-width: 100%;
+  margin-top: 0.1875rem;
 }
 
 .followupRow {
-  scrollbar-width: none;
-  scroll-snap-type: inline proximity;
-
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
   display: flex;
-  gap: 0.4375rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
 
   max-width: 100%;
-  padding: 0.125rem;
-}
+  margin-top: 0.8125rem;
+  // The answer wrapper starts at the bubble tail, while the buttons line up with the bubble body
+  margin-inline-start: 0.5rem;
 
-.followupRow::-webkit-scrollbar {
-  display: none;
+  @include mixins.transition("opacity 200ms ease, transform 200ms ease");
+
+  &:global(.closing) {
+    transform: translateY(0.375rem);
+    opacity: 0;
+  }
 }
 
 .followupButton {
+  --followup-base: rgba(233, 233, 234, 0.16);
+  --followup-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
+  --followup-glow: linear-gradient(111deg, rgba(0, 136, 255, 0.048) 0%, rgba(0, 190, 255, 0.12) 48%, rgba(182, 86, 255, 0.048) 100%);
+  --followup-ring: conic-gradient(
+    from 48deg at 50% 50%,
+    rgba(0, 136, 255, 0.6) 0deg,
+    rgba(0, 190, 255, 0.6) 46.8deg,
+    rgba(0, 136, 255, 0.6) 90deg,
+    rgba(0, 190, 255, 0.6) 135deg,
+    rgba(0, 136, 255, 0.6) 180deg,
+    rgba(0, 190, 255, 0.6) 226.8deg,
+    rgba(182, 86, 255, 0.6) 270deg,
+    rgba(0, 190, 255, 0.6) 316.8deg,
+    rgba(0, 136, 255, 0.6) 360deg
+  );
+  --followup-icon: linear-gradient(97deg, rgba(0, 136, 255, 0.6) 0%, rgba(0, 190, 255, 0.6) 48%, rgba(182, 86, 255, 0.6) 100%);
+  // The label gradient mirrors itself so the shimmer can loop over it
+  --followup-label: linear-gradient(90deg, #005DAF 0%, #007BA5 20%, #7D2EBA 50%, #007BA5 80%, #005DAF 100%);
+
   cursor: var(--custom-cursor, pointer);
-  scroll-snap-align: start;
 
-  overflow: hidden;
-  flex: 0 0 auto;
+  position: relative;
 
-  max-width: min(18rem, 80vw);
-  min-height: 2.75rem;
-  padding: 0.625rem 0.875rem;
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+
+  max-width: 100%;
+  padding: 0.5625rem 0.75rem;
   border: 0;
-  border-radius: 0.875rem;
+  border-radius: 5rem;
 
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--color-accent);
+  line-height: 1.25rem;
   text-align: start;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 
-  background: var(--color-accent-10o);
+  background-image:
+    var(--followup-sheen),
+    var(--followup-glow),
+    linear-gradient(var(--followup-base), var(--followup-base));
+
+  animation: followup-appear 260ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+
+  @include mixins.transition(opacity 200ms);
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+
+  // Trims the conic gradient down to the border ring
+  &::after {
+    pointer-events: none;
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    /* stylelint-disable-next-line plugin/whole-pixel */
+    padding: 0.0375rem;
+    border-radius: inherit;
+
+    background-image: var(--followup-ring);
+
+    mask:
+      linear-gradient(#FFF 0%, #FFF 100%) content-box,
+      linear-gradient(#FFF 0%, #FFF 100%);
+
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
 }
 
-.followupButton:hover { background: var(--color-interactive-item-hover); }
+.followupArrow::before {
+  content: "";
+
+  flex-shrink: 0;
+
+  width: 1rem;
+  height: 1rem;
+
+  background-image: var(--followup-icon);
+
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none'%3E%3Cpath stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round' d='M12.75 8H3.25V4m9.5 4-4-4m4 4-4 4'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+}
+
+.followupButton:hover {
+  opacity: 0.8;
+}
+
+:global(html.theme-dark) .followupButton {
+  // The design composites its layers over pure black, so the capsule carries that black itself
+  --followup-base: #000;
+  --followup-sheen: linear-gradient(180deg, rgba(32, 32, 32, 0.6) 0%, rgba(32, 32, 32, 0) 100%);
+  --followup-glow: linear-gradient(111deg, rgba(0, 136, 255, 0.096) 0%, rgba(0, 190, 255, 0.144) 48%, rgba(182, 86, 255, 0.096) 100%);
+  --followup-ring: conic-gradient(
+    from 48deg at 50% 50%,
+    rgba(0, 190, 255, 0.5) 0deg,
+    rgba(0, 190, 255, 0.5) 51.8deg,
+    rgba(0, 136, 255, 0.5) 138.6deg,
+    rgba(182, 86, 255, 0.5) 270deg,
+    rgba(0, 190, 255, 0.5) 360deg
+  );
+  --followup-icon: linear-gradient(97deg, rgba(109, 173, 230, 0.6) 0%, rgba(94, 182, 212, 0.6) 48%, rgba(196, 140, 238, 0.6) 100%);
+  --followup-label: linear-gradient(90deg, #6DADE6 0%, #5EB6D4 20%, #C48CEE 50%, #5EB6D4 80%, #6DADE6 100%);
+}
+
+@for $i from 2 through 6 {
+  .followupButton:nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 60}ms;
+  }
+}
+
+@keyframes followup-appear {
+  from {
+    transform: translateY(0.375rem);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+:global(html.animation-level-0) .followupButton {
+  animation: none;
+}
 
 .followupButton:focus-visible {
   outline: 0.125rem solid var(--color-accent);
@@ -214,3 +326,22 @@
 }
 
 .followupButton:disabled { cursor: default; opacity: 0.5; }
+
+.followupLabel {
+  overflow: hidden;
+
+  color: transparent;
+  text-overflow: ellipsis;
+
+  background-image: var(--followup-label);
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  @include mixins.gradient-shimmer(5s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .followupRow {
+    transition: none;
+  }
+}

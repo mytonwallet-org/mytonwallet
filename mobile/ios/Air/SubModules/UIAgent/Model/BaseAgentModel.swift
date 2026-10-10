@@ -5,10 +5,13 @@ protocol AgentModelDelegate: AnyObject {
     func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID])
     func agentModelDidUpdateItems(_ ids: [AgentItemID], animated: Bool, scrollToBottom: Bool)
     func agentModelDidUpdateHints(animated: Bool)
+    func agentModelDidUpdateState()
     func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void)
 }
 
 extension AgentModelDelegate {
+    func agentModelDidUpdateState() {}
+
     func agentModelWillRevealSentUserMessage(_ userMessageID: AgentItemID, then completion: @escaping () -> Void) {
         completion()
     }
@@ -21,20 +24,27 @@ class BaseAgentModel {
     }
 
     weak var delegate: AgentModelDelegate?
-    var isActive = false
+    var isActive = false {
+        didSet {
+            guard isActive != oldValue else { return }
+            backend.setActive(isActive)
+        }
+    }
 
     private var orderedItemIDs: [AgentItemID] = []
     private var itemsByID: [AgentItemID: AgentTimelineItem] = [:]
     private var availableHints: [AgentHint] = []
-    private var showsHintsInConversation = false
-    private var isPersistenceEnabled = false
     private var deferredTypingIndicator: AgentTimelineItem?
     private var pendingRevealUserMessageID: AgentItemID?
     private var isAwaitingTypingIndicatorReveal = false
-    private var backend: AgentBackend
+    private let backend: AgentBackend
     private lazy var backendContext = AgentBackendContext(
-        replaceTimelineHandler: { [weak self] items, animated in
-            self?.replaceTimeline(with: items, animated: animated)
+        replaceTimelineHandler: { [weak self] items, animated, reconfigureItemIDs in
+            self?.replaceTimeline(
+                with: items,
+                animated: animated,
+                reconfigureItemIDs: reconfigureItemIDs
+            )
         },
         setHintsHandler: { [weak self] hints, animated in
             self?.setHints(hints, animated: animated)
@@ -56,34 +66,48 @@ class BaseAgentModel {
         },
         itemIDsProvider: { [weak self] in
             self?.orderedItemIDs ?? []
+        },
+        stateDidChangeHandler: { [weak self] in
+            self?.delegate?.agentModelDidUpdateState()
+        },
+        sendMessageHandler: { [weak self] text, source in
+            self?.send(text: text, source: source)
         }
     )
 
     init(backend: AgentBackend) {
         self.backend = backend
         backend.attach(to: backendContext)
-        let persistedItems = loadPersistedTimeline()
-        if persistedItems.isEmpty {
-            replaceTimeline(with: [], animated: false)
-        } else {
-            let timelineItems = timelineItemsByInsertingDateMessages(into: persistedItems)
-            orderedItemIDs = timelineItems.map(\.id)
-            itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
-        }
+        replaceTimeline(with: [], animated: false)
         backend.loadHints(animated: false)
-        isPersistenceEnabled = true
     }
 
     var itemIDs: [AgentItemID] {
         orderedItemIDs
     }
 
-    var activeBackendKind: AgentBackendKind {
-        backend.kind
+    var canClearChat: Bool {
+        backend.canClearConversation
     }
 
-    var canToggleHintsVisibility: Bool {
-        hasUserMessages && !availableHints.isEmpty
+    var shouldConfirmChatClear: Bool {
+        backend.shouldConfirmConversationClear
+    }
+
+    var canReportProblem: Bool {
+        backend.canReportProblem
+    }
+
+    var typingIndicatorStatusText: String? {
+        backend.typingIndicatorStatusText
+    }
+
+    var typingIndicatorAccessibilityLabel: String? {
+        backend.typingIndicatorAccessibilityLabel
+    }
+
+    var accessibilityStatus: String? {
+        backend.accessibilityStatus
     }
 
     var areHintsVisible: Bool {
@@ -91,41 +115,52 @@ class BaseAgentModel {
     }
 
     var visibleHints: [AgentHint] {
-        shouldShowHints ? availableHints : []
+        hasUserMessages ? [] : availableHints
     }
 
     func item(for id: AgentItemID) -> AgentTimelineItem? {
-        itemsByID[id]
+        guard case .message(var message) = itemsByID[id], id != followupMessageID else {
+            return itemsByID[id]
+        }
+        message.controls.removeAll { $0.kind == .followup }
+        return .message(message)
+    }
+
+    private var followupMessageID: AgentItemID? {
+        for id in orderedItemIDs.reversed() {
+            guard case .message(let message) = itemsByID[id], message.role != .system else { continue }
+            return message.role == .assistant ? id : nil
+        }
+        return nil
     }
 
     func canSendMessage(draftText: String?) -> Bool {
-        normalizedText(from: draftText) != nil
-    }
-
-    func switchBackend(to backend: AgentBackend, animated: Bool = true) {
-        guard backend.kind != self.backend.kind else { return }
-        resetPendingTypingIndicator()
-        self.backend.detach()
-        self.backend = backend
-        self.backend.attach(to: backendContext)
-        self.backend.loadHints(animated: animated)
+        backend.canSendMessages && normalizedText(from: draftText) != nil
     }
 
     func refreshDerivedSystemMessages(animated: Bool = false) {
         setTimeline(baseTimelineItems, animated: animated)
+        backend.refreshPresentation()
     }
 
-    func send(text: String?, editingMessageID: AgentItemID? = nil) {
+    func send(
+        text: String?,
+        editingMessageID: AgentItemID? = nil,
+        source: AgentBackendSendSource = .composer
+    ) {
         guard let text = normalizedText(from: text) else { return }
-
-        showsHintsInConversation = false
 
         if let editingMessageID,
            let editContext = makeEditContext(for: editingMessageID) {
             backend.prepareForEditing(editContext)
             applyEditedMessage(text, id: editingMessageID)
             beginTypingIndicatorReveal(for: editingMessageID)
-            backend.didSendUserMessage(text, editContext: editContext)
+            backend.didSendUserMessage(
+                text,
+                userMessageID: editingMessageID,
+                source: source,
+                editContext: editContext
+            )
             cancelPendingTypingIndicatorReveal()
             return
         }
@@ -137,22 +172,41 @@ class BaseAgentModel {
         )
         appendMessage(message, animated: true)
         beginTypingIndicatorReveal(for: message.id)
-        backend.didSendUserMessage(text, editContext: nil)
+        backend.didSendUserMessage(
+            text,
+            userMessageID: message.id,
+            source: source,
+            editContext: nil
+        )
         cancelPendingTypingIndicatorReveal()
     }
 
     func clearChat(animated: Bool = true) {
+        guard backend.canClearConversation else { return }
         resetPendingTypingIndicator()
-        backend.reset()
-        showsHintsInConversation = false
-        replaceTimeline(with: [], animated: animated)
-        backend.loadHints(animated: animated)
+        backend.clearConversation { [weak self] didClear in
+            guard didClear, let self else { return }
+            self.replaceTimeline(with: [], animated: animated)
+            self.backend.loadHints(animated: animated)
+        }
     }
 
-    func toggleHintsVisibility(animated: Bool = true) {
-        guard canToggleHintsVisibility else { return }
-        showsHintsInConversation.toggle()
-        delegate?.agentModelDidUpdateHints(animated: animated)
+    func reportProblem(messageID: AgentItemID?, comment: String?) async -> Bool {
+        await backend.reportProblem(messageID: messageID, comment: comment)
+    }
+
+    func loadOlderMessages() async -> Bool {
+        await backend.loadOlderMessages()
+    }
+
+    func performControl(messageID: AgentItemID, controlID: String) {
+        guard case .message(let message) = item(for: messageID),
+              message.controls.contains(where: { $0.id == controlID && $0.isEnabled }) else { return }
+        backend.performControl(messageID: messageID, controlID: controlID)
+    }
+
+    func stop() {
+        backend.stop()
     }
 
     private func append(_ item: AgentTimelineItem, animated: Bool) {
@@ -214,6 +268,7 @@ class BaseAgentModel {
             return
         }
 
+        let previousFollowupMessageID = followupMessageID
         var insertedItems: [AgentTimelineItem] = []
         if shouldInsertDateMessage(before: message.timestamp) {
             insertedItems.append(.message(makeDateTimeSystemMessage(for: message.timestamp)))
@@ -224,19 +279,17 @@ class BaseAgentModel {
             orderedItemIDs.append(item.id)
             itemsByID[item.id] = item
         }
-        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
-        if !message.isStreaming {
-            doPersistStableTimelineIfNeeded()
-        }
+        delegate?.agentModelDidReloadTimeline(
+            animated: animated,
+            reconfigureItemIDs: previousFollowupMessageID != followupMessageID
+                ? previousFollowupMessageID.map { [$0] } ?? [] : []
+        )
     }
 
     private func appendDirectly(_ item: AgentTimelineItem, animated: Bool) {
         orderedItemIDs.append(item.id)
         itemsByID[item.id] = item
         delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
-        if case .message(let message) = item, !message.isStreaming {
-            doPersistStableTimelineIfNeeded()
-        }
     }
 
     private func replaceItem(id: AgentItemID, with item: AgentTimelineItem, animated: Bool) {
@@ -248,7 +301,10 @@ class BaseAgentModel {
     }
 
     private func removeItem(id: AgentItemID, animated: Bool) {
-        flushDeferredTypingIndicatorIfNeeded(for: id)
+        if deferredTypingIndicator?.id == id {
+            deferredTypingIndicator = nil
+            return
+        }
         guard itemsByID[id] != nil else { return }
         var baseItems = baseTimelineItems
         guard let index = baseItems.firstIndex(where: { $0.id == id }) else { return }
@@ -259,9 +315,6 @@ class BaseAgentModel {
     private func updateMessage(_ message: AgentMessage, animated: Bool, scrollToBottom: Bool) {
         itemsByID[message.id] = .message(message)
         delegate?.agentModelDidUpdateItems([message.id], animated: animated, scrollToBottom: scrollToBottom)
-        if !message.isStreaming {
-            doPersistStableTimelineIfNeeded()
-        }
     }
 
     private func message(for id: AgentItemID) -> AgentMessage? {
@@ -278,10 +331,6 @@ class BaseAgentModel {
 
         availableHints = filteredHints
 
-        if filteredHints.isEmpty {
-            showsHintsInConversation = false
-        }
-
         delegate?.agentModelDidUpdateHints(animated: animated)
     }
 
@@ -295,33 +344,14 @@ class BaseAgentModel {
         }
     }
 
-    private var shouldShowHints: Bool {
-        guard !availableHints.isEmpty else { return false }
-        return !hasUserMessages || showsHintsInConversation
-    }
-
-    var hasConversationMessages: Bool {
-        orderedItemIDs.contains { itemID in
-            guard let item = itemsByID[itemID],
-                  case .message(let message) = item else {
-                return false
-            }
-            return !message.isDateTimeSystemMessage
-        }
-    }
-
     private func makeEditContext(for id: AgentItemID) -> AgentBackendEditContext? {
-        guard let index = orderedItemIDs.firstIndex(of: id),
-              let item = itemsByID[id],
+        guard let item = itemsByID[id],
               case .message(let message) = item,
               message.role == .user else {
             return nil
         }
 
-        return AgentBackendEditContext(
-            originalText: message.text,
-            history: conversationHistory(before: index)
-        )
+        return AgentBackendEditContext(messageID: id)
     }
 
     private func applyEditedMessage(_ text: String, id: AgentItemID) {
@@ -336,63 +366,24 @@ class BaseAgentModel {
         message.text = text
         message.timestamp = Date()
         message.isStreaming = false
-        message.action = nil
         message.systemStyle = nil
         baseItems[index] = .message(message)
         setTimeline(baseItems, animated: true, reconfigureItemIDs: [id])
     }
 
-    private func conversationHistory(before itemIndex: Int) -> [AgentBackendConversationMessage] {
-        orderedItemIDs.prefix(itemIndex).compactMap { itemID in
-            guard let item = itemsByID[itemID],
-                  case .message(let message) = item else {
-                return nil
-            }
-
-            switch message.role {
-            case .user:
-                return AgentBackendConversationMessage(role: .user, text: message.text)
-            case .assistant:
-                return AgentBackendConversationMessage(role: .assistant, text: message.text)
-            case .system:
-                return nil
-            }
-        }
-    }
-
-    private func replaceTimeline(with items: [AgentTimelineItem], animated: Bool) {
+    private func replaceTimeline(
+        with items: [AgentTimelineItem],
+        animated: Bool,
+        reconfigureItemIDs: [AgentItemID] = []
+    ) {
+        resetPendingTypingIndicator()
         let timelineItems = timelineItemsByInsertingDateMessages(into: items)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
-        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: [])
-        doPersistStableTimelineIfNeeded()
-    }
-
-    private func doPersistStableTimelineIfNeeded() {
-        guard isPersistenceEnabled else { return }
-        persistStableTimelineIfNeeded(messages: persistedMessages)
-    }
-
-    func persistStableTimelineIfNeeded(messages: [AgentMessage]) {
-        assertionFailure("Override this")
-    }
-
-    func loadPersistedTimeline() -> [AgentTimelineItem] {
-        assertionFailure("Override this")
-        return []
-    }
-
-    private var persistedMessages: [AgentMessage] {
-        orderedItemIDs.compactMap { itemID in
-            guard let item = itemsByID[itemID],
-                  case .message(var message) = item,
-                  !message.isStreaming,
-                  !message.isDateTimeSystemMessage else {
-                return nil
-            }
-            message.isStreaming = false
-            return message
-        }
+        delegate?.agentModelDidReloadTimeline(
+            animated: animated,
+            reconfigureItemIDs: reconfigureItemIDs
+        )
     }
 
     var baseTimelineItems: [AgentTimelineItem] {
@@ -426,11 +417,18 @@ class BaseAgentModel {
         animated: Bool,
         reconfigureItemIDs: [AgentItemID] = []
     ) {
+        let previousFollowupMessageID = followupMessageID
         let timelineItems = timelineItemsByInsertingDateMessages(into: baseItems)
         orderedItemIDs = timelineItems.map(\.id)
         itemsByID = Dictionary(uniqueKeysWithValues: timelineItems.map { ($0.id, $0) })
-        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: reconfigureItemIDs)
-        doPersistStableTimelineIfNeeded()
+        var updatedIDs = Set(reconfigureItemIDs)
+        if previousFollowupMessageID != followupMessageID {
+            if let previousFollowupMessageID, itemsByID[previousFollowupMessageID] != nil {
+                updatedIDs.insert(previousFollowupMessageID)
+            }
+            if let followupMessageID { updatedIDs.insert(followupMessageID) }
+        }
+        delegate?.agentModelDidReloadTimeline(animated: animated, reconfigureItemIDs: Array(updatedIDs))
     }
 
     private func normalizedText(from text: String?) -> String? {
@@ -463,12 +461,22 @@ class BaseAgentModel {
 
     func formattedDate(for timestamp: Date) -> (date: String, time: String) {
         let dateText = timestamp.formatted(.dateTime.year(.defaultDigits).month(.wide).day())
-        let timeText = timestamp.formatted(
+        return (dateText, Self.formattedTime(timestamp))
+    }
+
+    static func formattedTime(
+        _ timestamp: Date,
+        locale: Locale = .autoupdatingCurrent,
+        hourCycle: Locale.HourCycle = Locale.autoupdatingCurrent.hourCycle
+    ) -> String {
+        var components = Locale.Components(locale: locale)
+        components.hourCycle = hourCycle
+        return timestamp.formatted(
             .dateTime
-                .hour(.defaultDigits(amPM: .omitted))
+                .hour(.defaultDigits(amPM: .abbreviated))
                 .minute()
+                .locale(Locale(components: components))
         )
-        return (dateText, timeText)
     }
 
     private func makeDateTimeSystemMessage(for timestamp: Date) -> AgentMessage {

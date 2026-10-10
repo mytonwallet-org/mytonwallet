@@ -2,17 +2,12 @@ import type { Storage } from '../storages/types';
 
 import { AGENT_V2_DEVICE_IDENTITY_STORAGE_KEY } from './identity';
 import { AGENT_V2_CONSENT_STORAGE_KEY } from './runtime';
-import { clearAgentV2WalletSensitiveProtocolState } from './walletSensitiveCache';
 import { clearPersistedAgentV2WalletSession } from './walletSession';
 
-export async function clearAgentV2PersistentState(
-  storage: Storage,
-  indexedDbFactory?: IDBFactory,
-) {
+export async function clearAgentV2PersistentState(storage: Storage) {
   await Promise.all([
     clearPersistedAgentV2WalletSession(),
     storage.removeItem(AGENT_V2_DEVICE_IDENTITY_STORAGE_KEY),
     storage.removeItem(AGENT_V2_CONSENT_STORAGE_KEY),
-    clearAgentV2WalletSensitiveProtocolState(indexedDbFactory),
   ]);
 }

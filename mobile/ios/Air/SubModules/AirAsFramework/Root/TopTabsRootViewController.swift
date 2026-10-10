@@ -3,7 +3,6 @@ import SwiftUI
 import SwiftNavigation
 import UIKit
 import UIBrowser
-import UIAgent
 import UIAssets
 import UIComponents
 import UIHome
@@ -152,6 +151,8 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
 
     func discardSearch() { searchController.discardSearch() }
 
+    func finishPaging() { pager?.finishPaging() }
+
     func applyTabConfiguration(_ orderedIds: [AppTabId]) {
         // Top Tabs follows the fixed order from the design.
     }
@@ -162,7 +163,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return detachedStandardSettingsStackForMigration
         }
         guard let page = page(for: id), let pageValue = pageValue(for: id) else { return nil }
-        let stack = [page.contentViewController] + (sharedNavigationPaths[pageValue] ?? [])
+        let path = sharedNavigationPaths[pageValue] ?? []
+        // An unused page has nothing to migrate; do not run its factory while leaving this layout.
+        guard page.loadedContentViewController != nil || !path.isEmpty else { return nil }
+        let stack = [page.contentViewController] + path
         stack.forEach(removeChrome)
         return stack
     }
@@ -246,11 +250,6 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }
     }
 
-    func debugOnly_resetAgentRoot() {
-        guard let sharedMainNavigationController else { return }
-        AgentEntryPoint.resetRootViewControllerForDebug(in: sharedMainNavigationController)
-    }
-
     func switchToSettings(path: [UIViewController]) {
         if let destination = path.last, pushFromSearch(destination) { return }
         _ = showStandardSettings(
@@ -272,7 +271,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
             return false
         }
         applyChromeInsets(to: viewController)
-        sharedMainNavigationController.pushViewController(viewController, animated: animated)
+        sharedMainNavigationController.pushViewController(
+            viewController,
+            animated: animated && sharedMainNavigationController.viewIfLoaded?.window != nil
+        )
         return true
     }
 
@@ -319,7 +321,7 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         let pages = [walletPage, marketPage, explorePage]
         let pager = WPagerViewController(pages: zip(items, pages).map { item, page in
             .init(id: item.id, makeViewController: { page })
-        })
+        }, preloadsPages: true)
         self.pager = pager
         pager.onProgressChanged = { [weak self] progress in
             self?.segmentedControl.setPagingProgress(progress.logicalOffset)
@@ -496,6 +498,10 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
     ) -> Bool {
         guard let sharedMainNavigationController else { return false }
 
+        loadViewIfNeeded()
+        // Older UIKit can drop an animated stack change before the container is onscreen.
+        let animated = animated && sharedMainNavigationController.viewIfLoaded?.window != nil
+
         let currentStack = sharedMainNavigationController.viewControllers
         let existingSettingsIndex = standardSettingsIndex(in: currentStack)
         let baseStack = existingSettingsIndex.map { Array(currentStack[..<$0]) } ?? currentStack
@@ -573,6 +579,9 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                 sharedMainNavigationController.viewControllers.dropFirst()
             )
             sharedMainNavigationController.setViewControllers([self], animated: false)
+            // Finish UIKit's nonanimated removal before another navigation container
+            // takes ownership of the outgoing detail controllers.
+            sharedMainNavigationController.viewIfLoaded?.layoutIfNeeded()
         }
 
         for page in [Page.wallet, .market, .explore] {

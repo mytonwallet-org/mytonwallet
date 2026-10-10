@@ -22,7 +22,7 @@ import { toBig } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { shortenAddress } from '../../util/shortenAddress';
-import { calcVestingAmountByStatus } from '../main/helpers/calcVestingAmountByStatus';
+import { calcVestingAmountByStatus } from '../../util/vesting';
 
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';

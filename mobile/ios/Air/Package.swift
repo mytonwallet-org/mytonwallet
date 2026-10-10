@@ -92,7 +92,6 @@ let package = Package(
         airLibrary("AirAsFramework"),
         airLibrary("Ledger"),
         airLibrary("NativeEnclave"),
-        airLibrary("MyAgent"),
         airLibrary("ProtectedAction"),
         airLibrary("UIAssets"),
         airLibrary("UIActivityList"),
@@ -512,27 +511,14 @@ let package = Package(
                 .product(name: "GraphKit", package: "GraphKit"),
             ]
         ),
-        .target(
-            name: "MyAgent",
-            dependencies: [
-                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
-            ],
-            path: "SubModules/MyAgent",
-            resources: [
-                .copy("I18n/Translations"),
-            ],
-            swiftSettings: sharedSwiftSettings
-        ),
         airTarget(
             "UIAgent",
             dependencies: [
                 "UIComponents",
                 "WalletContext",
                 "WalletCore",
-                "MyAgent",
                 .product(name: "BigInt", package: "swift-bigint"),
                 .product(name: "GraphKit", package: "GraphKit"),
-                .product(name: "GRDB", package: "grdb.swift"),
             ]
         ),
         airTarget(
@@ -668,6 +654,8 @@ let package = Package(
                 .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
                 "AirAsFramework",
                 "UIComponents",
+                "UIBrowser",
+                "WalletCore",
                 "WalletContext",
                 "WalletResources",
             ]

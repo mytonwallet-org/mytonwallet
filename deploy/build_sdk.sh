@@ -50,20 +50,6 @@ for sdk in dist-air/mytonwallet-sdk.js dist-air/gramwallet-sdk.js; do
   fi
 done
 
-# The frozen iOS Agent reads its protocol override from this bundle resource.
-AGENT_OVERRIDE_VALUE=$(node -r dotenv/config -e 'process.stdout.write(process.env.AGENT_OVERRIDE || "v1")')
-case "$AGENT_OVERRIDE_VALUE" in
-  no_override|v1|v2) ;;
-  *)
-    echo "Unsupported AGENT_OVERRIDE value: $AGENT_OVERRIDE_VALUE" >&2
-    exit 1
-    ;;
-esac
-node -e '
-const [override, agentApiBaseUrl] = process.argv.slice(1);
-process.stdout.write(`${JSON.stringify({ override, agentApiBaseUrl })}\n`);
-' "$AGENT_OVERRIDE_VALUE" "$AGENT_API_URL" > dist-air/agent-override-config.json
-
 mkdir -p dist
 bash ./deploy/copy_to_dist.sh
 
@@ -86,14 +72,12 @@ rm -f \
   "$IOS_MYTONWALLET_TARGET"/*-sdk.js.LICENSE.txt \
   "$IOS_MYTONWALLET_TARGET"/agent-*-config.json
 cp dist-air/mytonwallet-sdk.js "$IOS_MYTONWALLET_TARGET/"
-cp dist-air/agent-override-config.json "$IOS_MYTONWALLET_TARGET/"
 
 rm -f \
   "$IOS_GRAM_TARGET"/*-sdk.js \
   "$IOS_GRAM_TARGET"/*-sdk.js.LICENSE.txt \
   "$IOS_GRAM_TARGET"/agent-*-config.json
 cp dist-air/gramwallet-sdk.js "$IOS_GRAM_TARGET/"
-cp dist-air/agent-override-config.json "$IOS_GRAM_TARGET/"
 
 # Copy SDKs to Android flavor-specific asset dirs
 rm -f \

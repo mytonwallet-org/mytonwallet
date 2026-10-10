@@ -10,6 +10,7 @@ struct TokenSendConfiguration: Equatable, Sendable {
     let mode: TokenSendMode
     let initialAddress: String?
     let initialAmount: BigInt?
+    let isMaxAmount: Bool
     let initialTokenSlug: String?
     let jettonAddress: String?
     let initialComment: String

@@ -2,6 +2,7 @@ import React, {
   useEffect, useState,
 } from '../../lib/teact/teact';
 
+import type { AnswerTableProps } from '../agent/AnswerMessageContent';
 import type { TextRevealPresentation } from '../agent/hooks/textRevealPresentation';
 
 import { APP_NAME } from '../../config';
@@ -71,6 +72,9 @@ export function AgentV2ConsentScreen({ onAccept }: { onAccept: NoneToVoidFunctio
 export function AgentV2AssistantText({
   messageId,
   text,
+  tables,
+  tableReferences,
+  links,
   isStreaming,
   shouldAnimate,
   shouldCommitMarkdownTail,
@@ -79,7 +83,7 @@ export function AgentV2AssistantText({
   onTextRevealSessionSettled,
   onRevealProgress,
   onRevealComplete,
-}: {
+}: AnswerTableProps & {
   messageId: number;
   text: string;
   isStreaming: boolean;
@@ -115,18 +119,21 @@ export function AgentV2AssistantText({
       {activeTextRevealPresentation ? (
         <StreamingText
           text={text}
+          tables={tables}
+          tableReferences={tableReferences}
+          links={links}
           isStreaming={isStreaming}
           shouldAnimate={shouldAnimate}
           revealSessionKey={activeTextRevealPresentation.key}
           shouldRevealFromStart={shouldRevealFromStart}
           shouldCommitMarkdownTail={Boolean(shouldCommitMarkdownTail)}
-          areLinksEnabled={false}
-          markdownProfile="agentV2"
+          areLinksEnabled
+
           onRevealProgress={onRevealProgress}
           onRevealComplete={handleRevealComplete}
         />
       ) : (
-        <StaticText text={text} areLinksEnabled={false} markdownProfile="agentV2" />
+        <StaticText text={text} tables={tables} tableReferences={tableReferences} links={links} areLinksEnabled />
       )}
     </div>
   );

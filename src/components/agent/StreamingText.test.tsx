@@ -218,6 +218,30 @@ describe('StreamingText', () => {
     expect(getTextElement().tagName).toBe('DIV');
   });
 
+  it('activates a streamed Markdown link only after its destination is complete', async () => {
+    await renderText({
+      text: '[Store](https://example.com/store',
+      isStreaming: true,
+      shouldAnimate: false,
+    });
+    expect(root.querySelector('a')).toBeNull();
+
+    await renderText({
+      text: '[Store](https://example.com/store)',
+      isStreaming: true,
+      shouldAnimate: false,
+    });
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('https://example.com/store');
+
+    await renderText({
+      text: '[Store](https://example.com/store)',
+      isStreaming: false,
+      shouldAnimate: false,
+    });
+    expect(root.querySelectorAll('a')).toHaveLength(1);
+    expect(root.querySelector('a')?.textContent).toBe('Store');
+  });
+
   it('keeps an incomplete final Markdown tail mutable after the reveal completes', async () => {
     await renderText({
       text: 'Incomplete final paragraph',
@@ -350,72 +374,6 @@ describe('StreamingText', () => {
       expect(container.style.height).toBe('');
     } finally {
       restoreProperty(globalThis, 'ResizeObserver', originalResizeObserver);
-    }
-  });
-
-  it('keeps a bounded pool of grouped settling fragments for soft reveal', async () => {
-    const originalAnimate = Object.getOwnPropertyDescriptor(Element.prototype, 'animate');
-    const animations: Animation[] = [];
-    const animate = jest.fn(() => {
-      const animation = buildAnimation();
-      animations.push(animation);
-      return animation;
-    });
-
-    Object.defineProperty(Element.prototype, 'animate', {
-      configurable: true,
-      value: animate,
-    });
-    jest.spyOn(document, 'createRange').mockImplementation(buildRange);
-    mockOpaqueBackground();
-
-    try {
-      await renderText({
-        text: 'Reveal edge text keeps settling '.repeat(20),
-        isStreaming: true,
-        shouldAnimate: true,
-        revealSessionKey: 'reveal-edge-pool',
-        shouldRevealFromStart: true,
-      });
-      await pause(650);
-
-      const layer = root.querySelector('[data-agent-streaming-reveal-edge]')!;
-      expect(animate).toHaveBeenCalledWith(
-        [
-          {
-            offset: 0,
-            opacity: 0.16,
-            filter: 'blur(0.3rem)',
-            transform: 'translateY(0.08rem)',
-          },
-          {
-            offset: 0.45,
-            opacity: 0.72,
-            filter: 'blur(0.08rem)',
-            transform: 'translateY(0.02rem)',
-          },
-          {
-            offset: 1,
-            opacity: 1,
-            filter: 'blur(0)',
-            transform: 'translateY(0)',
-          },
-        ],
-        {
-          duration: 200,
-          easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-          fill: 'forwards',
-        },
-      );
-      expect(animate.mock.calls.length).toBeGreaterThan(24);
-      expect(layer.querySelectorAll('[data-agent-streaming-reveal-edge-cover]')).toHaveLength(24);
-      expect(layer.querySelectorAll('*')).toHaveLength(48);
-      expect(layer.querySelectorAll('[data-agent-streaming-reveal-edge-text]').length).toBe(
-        layer.querySelectorAll('[data-agent-streaming-reveal-edge-cover]').length,
-      );
-      expect(animations.some((animation) => (animation.cancel as jest.Mock).mock.calls.length > 0)).toBe(true);
-    } finally {
-      restoreProperty(Element.prototype, 'animate', originalAnimate);
     }
   });
 

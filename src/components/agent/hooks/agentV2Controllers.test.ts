@@ -1,5 +1,5 @@
 import type {
-  AgentPublicInputContinuationV1,
+  AgentThreadClearResponseV2,
   AgentThreadSummaryV2,
 } from '../../../api/agentV2/protocol/types';
 import type {
@@ -15,10 +15,13 @@ import type {
 } from './agentV2MessagesState';
 import type { TextRevealPresentations } from './textRevealPresentation';
 
+import { AgentClientTrace, type ClientTimingEvent } from '../../../api/agentV2/developmentTelemetry';
+import * as developmentTiming from './agentDevelopmentTiming';
 import { createAgentV2HydrationController } from './agentV2HydrationController';
 import {
   INITIAL_AGENT_V2_MESSAGES_STATE,
   reduceAgentV2MessagesState,
+  selectAgentV2Activity,
 } from './agentV2MessagesState';
 import { createAgentV2RunController } from './agentV2RunController';
 import { createAgentV2StreamController } from './agentV2StreamController';
@@ -30,6 +33,61 @@ const INPUT_MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
 const ASSISTANT_MESSAGE_ID = '55555555-5555-4555-8555-555555555555';
 
 describe('Agent V2 controllers', () => {
+  it('records the first UI frame after committing streamed text without repeating it for every delta', () => {
+    const timings: ClientTimingEvent[] = [];
+    const trace = new AgentClientTrace('a'.repeat(32), (events) => timings.push(...events));
+    const spy = jest.spyOn(developmentTiming, 'agentUiTrace').mockReturnValue(trace);
+    const state = createStateHarness();
+    const stream = createStreamHarness(state);
+    try {
+      stream.publish({ ...messageStarted(), developmentTraceId: trace.traceId });
+      stream.publish({ ...textDelta('First'), developmentTraceId: trace.traceId });
+      stream.publish({ ...textDelta(' response'), developmentTraceId: trace.traceId });
+      expect(timings.some((event) => event.operation === 'ui_text_frame')).toBe(false);
+      stream.flushFrames();
+      stream.flushFrames();
+      expect(state.actions).toContainEqual({ kind: 'textDeltasFlushed', deltas: [[1, 'First response']] });
+      expect(timings.filter((event) => event.operation === 'ui_text_committed')).toHaveLength(1);
+      expect(timings.filter((event) => event.operation === 'ui_text_frame')).toHaveLength(1);
+    } finally {
+      stream.controller.dispose();
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps live and persisted response languages scoped to their own messages', () => {
+    const state = createStateHarness();
+    const stream = createStreamHarness(state);
+
+    stream.publish({ ...messageStarted(), responseLanguage: 'ru' as const });
+    const persisted = stream.controller.mapPersistedMessageEntry({
+      ...persistedMessage('English response'),
+      id: '77777777-7777-4777-8777-777777777777',
+      responseLanguage: 'en',
+    });
+
+    expect(state.getState().messages[0].responseLanguage).toBe('ru');
+    expect(persisted.message.responseLanguage).toBe('en');
+  });
+
+  it('keeps live and persisted answer links on their messages', () => {
+    const state = createStateHarness();
+    const stream = createStreamHarness(state);
+    const link = { textOffset: 0, textLength: 4, url: 'https://help.mywallet.io/' };
+
+    stream.publish(messageStarted());
+    stream.publish({ kind: 'answerLinkAdded', ...routing(), messageId: ASSISTANT_MESSAGE_ID, link });
+    stream.publish({ kind: 'answerLinkAdded', ...routing(), messageId: ASSISTANT_MESSAGE_ID,
+      link: { ...link, textOffset: 5 } });
+    const persisted = stream.controller.mapPersistedMessageEntry({
+      ...persistedMessage('Help'),
+      content: { kind: 'markdown', text: 'Help', links: [link] },
+    });
+
+    expect(state.getState().messages[0].links).toEqual([link, { ...link, textOffset: 5 }]);
+    expect(persisted.message.links).toEqual([link]);
+  });
+
   it('owns stream IDs, RAF batching and terminal disposal', () => {
     const state = createStateHarness();
     const stream = createStreamHarness(state);
@@ -97,16 +155,15 @@ describe('Agent V2 controllers', () => {
     const controller = createAgentV2HydrationController({
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
-      getDefaultThread: () => Promise.resolve({
-        protocolVersion: 2,
+      getDefaultThread: () => Promise.resolve({ ok: true, value: {
+        protocolVersion: 3,
         thread: threadSummary(1),
         created: false,
-      }),
+      } }),
       getHints: () => Promise.resolve(undefined),
       getLangCode: () => 'en',
       getMessages,
       getState: state.getState,
-      getUnavailableError: () => 'Unavailable',
       isConsentAccepted: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
@@ -161,16 +218,15 @@ describe('Agent V2 controllers', () => {
     const controller = createAgentV2HydrationController({
       buildHistoryError: () => ({ message: 'History unavailable', isRetryable: true }),
       dispatch: state.dispatch,
-      getDefaultThread: () => Promise.resolve({
-        protocolVersion: 2,
+      getDefaultThread: () => Promise.resolve({ ok: true, value: {
+        protocolVersion: 3,
         thread: threadSummary(1),
         created: false,
-      }),
+      } }),
       getHints: () => Promise.resolve(undefined),
       getLangCode: () => 'en',
       getMessages: () => Promise.resolve(hydration),
       getState: state.getState,
-      getUnavailableError: () => 'Unavailable',
       isConsentAccepted: () => true,
       loadAvailability: () => Promise.resolve(undefined),
       loadUserQuota: () => Promise.resolve(undefined),
@@ -211,6 +267,7 @@ describe('Agent V2 controllers', () => {
       resetHistory: jest.fn(),
       startRun: () => runResult.promise,
       stream: stream.controller,
+      hideSecretPhrases: (text) => text,
     });
     const publish = (update: AgentV2ClientUpdate) => {
       stream.controller.handleUpdate(update);
@@ -240,16 +297,96 @@ describe('Agent V2 controllers', () => {
     expect(state.getState().run).toEqual({ phase: 'idle' });
   });
 
-  it('binds a structured input continuation to its authoritative assistant message', () => {
-    const sourceMessageId = 7;
+  it('cancels a running answer on a confirmed clear and ignores its later output', async () => {
     const state = createStateHarness({
       ...INITIAL_AGENT_V2_MESSAGES_STATE,
       thread: threadSummary(1),
-      messages: [{ id: sourceMessageId, text: '', isOutgoing: false, timestamp: 90 }],
-      sourceIdByMessageId: { [sourceMessageId]: ASSISTANT_MESSAGE_ID },
     });
     const stream = createStreamHarness(state);
-    stream.controller.bindMessageSource(sourceMessageId, ASSISTANT_MESSAGE_ID);
+    const runResult = createDeferred<AgentV2RunResult | undefined>();
+    const clearResult = createDeferred<AgentV2MutationResult<AgentThreadClearResponseV2> | undefined>();
+    const clearThread = jest.fn(() => clearResult.promise);
+    const hydrate = jest.fn(() => Promise.resolve());
+    const controller = createAgentV2RunController({
+      buildConnectionError: () => 'Connection interrupted',
+      clearThread,
+      dispatch: state.dispatch,
+      getErrorText: () => 'Run failed',
+      getState: state.getState,
+      hydrate,
+      now: () => 100,
+      retryRun: () => Promise.resolve(undefined),
+      resetHistory: jest.fn(),
+      startRun: () => runResult.promise,
+      stream: stream.controller,
+      hideSecretPhrases: (text) => text,
+    });
+    const publish = (update: AgentV2ClientUpdate) => {
+      if (controller.isCancelledRunUpdate(update)) return;
+      stream.controller.handleUpdate(update);
+      controller.handleUpdate(update);
+    };
+
+    controller.sendMessage('Question');
+    publish(runStarted());
+    publish(messageStarted());
+    publish(textDelta('Partial response'));
+    controller.clearChat();
+
+    expect(clearThread).toHaveBeenCalledWith(THREAD_ID, 2);
+    expect(state.getState()).toMatchObject({
+      messages: [],
+      sourceIdByMessageId: {},
+      threadMutation: { phase: 'clearing', threadRevision: 2 },
+    });
+    expect(selectAgentV2Activity(state.getState())).toBeUndefined();
+    expect(stream.getPresentations()).toEqual({});
+    expect(controller.isInputBlocked()).toBe(true);
+
+    publish(textDelta(' after the clear'));
+    publish(messageStarted('77777777-7777-4777-8777-777777777777'));
+    publish({ kind: 'runActivityChanged', ...routing(), event: runActivity() });
+    publish({ kind: 'runCancelled', ...routing() });
+    stream.flushFrames();
+    expect(state.getState().messages).toEqual([]);
+
+    clearResult.resolve({
+      ok: true,
+      value: { protocolVersion: 3, thread: threadSummary(4), duplicate: false },
+    });
+    await flushPromises();
+    expect(state.getState()).toMatchObject({
+      messages: [],
+      thread: { revision: 4 },
+      threadMutation: { phase: 'idle' },
+    });
+    // The cancelled operation keeps input blocked until its run settles
+    expect(controller.isInputBlocked()).toBe(true);
+
+    publish({ kind: 'messageCompleted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, finishReason: 'complete' });
+    runResult.resolve({
+      clientRunId: CLIENT_RUN_ID,
+      runId: RUN_ID,
+      inputMessageId: INPUT_MESSAGE_ID,
+      state: 'interrupted',
+    });
+    await flushPromises();
+
+    expect(state.getState()).toMatchObject({ messages: [], run: { phase: 'idle' }, error: undefined });
+    expect(hydrate).not.toHaveBeenCalled();
+    expect(controller.isInputBlocked()).toBe(false);
+  });
+
+  it('shows and sends a new or edited message with its recovery phrase replaced', async () => {
+    const editedMessageId = 7;
+    const state = createStateHarness({
+      ...INITIAL_AGENT_V2_MESSAGES_STATE,
+      thread: threadSummary(1),
+      messages: [{ id: editedMessageId, text: 'Earlier question', isOutgoing: true, timestamp: 90 }],
+      sourceIdByMessageId: { [editedMessageId]: INPUT_MESSAGE_ID },
+    });
+    const stream = createStreamHarness(state);
+    stream.controller.bindMessageSource(editedMessageId, INPUT_MESSAGE_ID);
     const startRun = jest.fn(() => Promise.resolve(undefined));
     const controller = createAgentV2RunController({
       buildConnectionError: () => 'Connection interrupted',
@@ -263,26 +400,24 @@ describe('Agent V2 controllers', () => {
       resetHistory: jest.fn(),
       startRun,
       stream: stream.controller,
+      hideSecretPhrases: (text) => text.replace('creek aisle average', '[removed]'),
     });
-    const continuation: AgentPublicInputContinuationV1 = {
-      id: 'continuation-1',
-      kind: 'collect_input',
-      code: 'prepare_swap_amount',
-      scenario: 'prepare-swap',
-      field: 'amount',
-    };
 
-    controller.sendMessage('2.5', undefined, { messageId: sourceMessageId, continuation });
+    controller.sendMessage('  My words: creek aisle average. Is my wallet safe?  ');
 
-    expect(startRun).toHaveBeenCalledWith({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 1,
-      input: { kind: 'append', text: '2.5' },
-      continuationOf: {
-        messageId: ASSISTANT_MESSAGE_ID,
-        continuationId: continuation.id,
-      },
-    });
+    expect(state.getState().messages).toContainEqual(
+      expect.objectContaining({ text: 'My words: [removed]. Is my wallet safe?', isOutgoing: true }),
+    );
+    expect(startRun).toHaveBeenLastCalledWith(expect.objectContaining({
+      input: { kind: 'append', text: 'My words: [removed]. Is my wallet safe?' },
+    }));
+    await flushPromises();
+
+    controller.sendMessage('Edited: creek aisle average', editedMessageId);
+
+    expect(startRun).toHaveBeenLastCalledWith(expect.objectContaining({
+      input: { kind: 'edit', targetUserMessageId: INPUT_MESSAGE_ID, text: 'Edited: [removed]' },
+    }));
   });
 
   it('ignores a run result that settles after disposal', async () => {
@@ -304,6 +439,7 @@ describe('Agent V2 controllers', () => {
       resetHistory: jest.fn(),
       startRun: () => runResult.promise,
       stream: stream.controller,
+      hideSecretPhrases: (text) => text,
     });
 
     controller.sendMessage('Question');
@@ -382,10 +518,6 @@ function threadSummary(revision: number): AgentThreadSummaryV2 {
   return {
     id: THREAD_ID,
     revision,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt: '2026-08-11T10:00:00.000Z',
     updatedAt: '2026-08-11T10:00:00.000Z',
     lastActivityAt: '2026-08-11T10:00:00.000Z',
@@ -427,7 +559,9 @@ function persistedMessage(text: string): AgentV2HydratedMessage {
   };
 }
 
-function messageStarted(messageId = ASSISTANT_MESSAGE_ID): AgentV2ClientUpdate {
+function messageStarted(
+  messageId = ASSISTANT_MESSAGE_ID,
+): Extract<AgentV2ClientUpdate, { kind: 'messageStarted' }> {
   return {
     kind: 'messageStarted',
     ...routing(),
@@ -451,6 +585,17 @@ function runStarted(): AgentV2ClientUpdate {
     ...routing(),
     threadRevision: 2,
     inputMessageId: INPUT_MESSAGE_ID,
+  };
+}
+
+function runActivity(): Extract<AgentV2ClientUpdate, { kind: 'runActivityChanged' }>['event'] {
+  return {
+    type: 'run_activity',
+    protocolVersion: 3,
+    runId: RUN_ID,
+    sequence: 4,
+    code: 'web.searching',
+    status: 'active',
   };
 }
 

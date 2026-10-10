@@ -8,6 +8,33 @@
   }
 }
 
+// Slides a horizontal gradient across the element in the reading direction by one image width per cycle.
+// The gradient must end with its first color, otherwise every cycle shows a seam.
+// The shimmer stops when the animation level is zero or the system asks for reduced motion.
+
+@mixin gradient-shimmer($duration) {
+  & {
+    background-size: 200% 100%;
+
+    @media (prefers-reduced-motion: no-preference) {
+      :global(html:not(.animation-level-0)) & {
+        animation: gradient-shimmer #{$duration} linear infinite;
+      }
+
+      :global(html[dir="rtl"]:not(.animation-level-0)) & {
+        animation-direction: reverse;
+      }
+    }
+  }
+
+  @keyframes gradient-shimmer {
+    to {
+      // With a 200% image a negative position shifts it to the right
+      background-position: -200% 0;
+    }
+  }
+}
+
 // Disables transition on `:active` to make tap/click feedback instant instead of waiting
 // for the transition duration.
 // Also reduces compositor workload by skipping unnecessary animations on press events.

@@ -28,8 +28,6 @@
 }
 
 .messages {
-  --hints-height: 88px;
-
   overflow-anchor: none;
 
   overflow-y: auto;
@@ -38,18 +36,15 @@
   flex-direction: column;
 
   min-height: 0;
-  padding: calc(var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 1rem) 0.5rem 0.5rem;
+  padding:
+    calc(var(--header-padding-top) + var(--header-padding-bottom) + var(--header-title-height) + 1rem)
+    0.5rem
+    calc(var(--agent-input-bar-height, 3.5rem) + 1rem);
 
   background-color: var(--color-background-first);
 
-  @include mixins.respond-below(xs) {
-    padding-bottom: calc(var(--agent-input-bar-height, 3.5rem) + 0.75rem);
-
-    :global(html.with-bottombar) & {
-      padding-bottom: calc(
-        var(--agent-input-bar-height, calc(3.5rem + var(--bottombar-height))) + 0.75rem
-      );
-    }
+  :global(html.with-bottombar) & {
+    padding-bottom: calc(var(--agent-input-bar-height, calc(3.5rem + var(--bottombar-height))) + 1rem);
   }
 
   &.hidden {
@@ -59,27 +54,34 @@
   :global(html.theme-dark) & {
     background-color: var(--color-background-window);
   }
-
-  @include mixins.respond-above(xs) {
-    padding-bottom: calc(var(--agent-input-bar-height, 3.5rem) + 1.75rem);
-  }
-
-  &:global(.hints-shown) {
-    margin-bottom: calc(var(--hints-height) * -1);
-  }
-
-  &:global(.hints-open),
-  &:global(.hints-closing) {
-    transition: transform 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  &:global(.hints-open) {
-    transform: translateY(calc(var(--hints-height) * -1));
-  }
 }
 
 .spacer {
   flex-grow: 1;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+// The percentage resolves against the content box of `.messages`, so the tail is as tall as the visible
+// area between the header and the composer. `.turn` must not shrink, otherwise an answer taller than
+// the screen would overflow its turn instead of growing it.
+// The extra top space reaches above the gap between the header and the list padding, so the previous
+// turn stays hidden behind the header while the question keeps its position.
+.liveTail {
+  min-height: calc(100% + 1rem);
+  padding-top: 1rem;
+}
+
+// In landscape a tail that follows another turn is shorter, so the end of that turn stays visible under
+// the header. The first question in a chat has nothing above it and keeps its place at the top.
+.turn + .liveTail {
+  @include mixins.respond-above(xs) {
+    min-height: calc(100% - 2.5rem);
+  }
 }
 
 .scrollToBottom {

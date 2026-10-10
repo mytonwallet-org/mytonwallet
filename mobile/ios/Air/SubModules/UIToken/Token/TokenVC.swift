@@ -242,7 +242,8 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             onPeriodChange: { [weak self] period in
                 guard let self else { return }
                 tokenVM.selectedPeriod = period
-            }
+            },
+            onAnalyze: nil
         )
     }
 
@@ -278,7 +279,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureActionsCustomSection(cell: cell)
         }
-        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
+        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID, usesInsetGroupedMargins: true) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
         }
 
@@ -286,7 +287,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureChartCustomSection(cell: cell)
         }
-        chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
+        chartCustomSectionDescriptor = CustomSectionDescriptor(id: chartCustomSectionID, usesInsetGroupedMargins: true) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: chartCustomSectionCellRegistration, for: indexPath, item: .custom(chartCustomSectionID))
         }
 
@@ -294,7 +295,7 @@ public class TokenVC: ActivityListViewController, SharedBottomToolbarContentProv
             cell.backgroundColor = .clear
             configureInfoCustomSection(cell: cell)
         }
-        infoCustomSectionDescriptor = CustomSectionDescriptor(id: infoCustomSectionID, appearance: .insetGrouped) { [unowned self] collectionView, indexPath in
+        infoCustomSectionDescriptor = CustomSectionDescriptor(id: infoCustomSectionID, usesInsetGroupedMargins: true) { [unowned self] collectionView, indexPath in
             collectionView.dequeueConfiguredReusableCell(using: infoCustomSectionCellRegistration, for: indexPath, item: .custom(infoCustomSectionID))
         }
     }

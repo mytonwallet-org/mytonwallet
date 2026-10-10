@@ -864,6 +864,17 @@ object WalletCore {
                     return
                 }
                 if (AccountStore.activeAccountId != accountId) return
+                // Only the active account keeps its NFTs, so only its networks can be read in full
+                val chain = update.chain
+                val isFullLoading = update.isFullLoading
+                if (chain != null && isFullLoading != null) {
+                    NftStore.recordFullLoad(
+                        accountId,
+                        chain,
+                        isFullLoading,
+                        update.streamedAddresses != null
+                    )
+                }
                 ensureMainThread {
                     NftStore.setNfts(
                         update.chain,

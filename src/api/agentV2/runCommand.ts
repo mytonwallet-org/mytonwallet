@@ -5,7 +5,7 @@ import { AgentV2HttpError } from './identity';
 
 export type AgentV2RunOrigin = Partial<Pick<
   AgentRunRequestWireV2,
-  'entryPoint' | 'followupOf' | 'continuationOf' | 'walletScopeSelectionOf'
+  'entryPoint' | 'followupOf'
 >>;
 
 export function buildAgentV2RunOrigin(command: AgentV2RunCommand): AgentV2RunOrigin {
@@ -17,8 +17,6 @@ export function buildAgentV2RunOrigin(command: AgentV2RunCommand): AgentV2RunOri
     case 'append':
       if (command.entryPoint) return { entryPoint: command.entryPoint };
       if (command.followupOf) return { followupOf: command.followupOf };
-      if (command.continuationOf) return { continuationOf: command.continuationOf };
-      if (command.walletScopeSelectionOf) return { walletScopeSelectionOf: command.walletScopeSelectionOf };
       return {};
     default:
       return assertUnreachable(command.input);
@@ -33,8 +31,6 @@ export function assertAgentV2RunCommandOrigin(command: AgentV2RunCommand) {
   const originCount = [
     command.entryPoint,
     command.followupOf,
-    command.continuationOf,
-    command.walletScopeSelectionOf,
   ].filter((value) => value !== undefined).length;
   if (originCount > 1 || (inputKind !== 'append' && originCount > 0)) {
     throw invalidRunCommand();

@@ -40,7 +40,6 @@ interface UseStreamingTextOptions {
   shouldAnimate: boolean;
   revealSessionKey?: string;
   shouldRevealFromStart: boolean;
-  onRevealStart?: NoneToVoidFunction;
   onRevealProgress?: NoneToVoidFunction;
   onRevealComplete?: NoneToVoidFunction;
 }
@@ -56,7 +55,6 @@ export default function useStreamingText({
   shouldAnimate,
   revealSessionKey,
   shouldRevealFromStart,
-  onRevealStart,
   onRevealProgress,
   onRevealComplete,
 }: UseStreamingTextOptions) {
@@ -86,7 +84,6 @@ export default function useStreamingText({
   const shouldAnimateRef = useRef(shouldAnimate);
   const appliedRevealSessionKeyRef = useRef(revealSessionKey);
   const hasActiveRevealRef = useRef(Boolean(isStreaming || revealSessionKey));
-  const hasNotifiedRevealStartRef = useRef(false);
   const hasNotifiedRevealCompleteRef = useRef(false);
 
   if (!controllerRef.current) {
@@ -118,10 +115,6 @@ export default function useStreamingText({
     onRevealProgress?.();
   });
 
-  const notifyRevealStart = useLastCallback(() => {
-    onRevealStart?.();
-  });
-
   const notifyRevealComplete = useLastCallback(() => {
     onRevealComplete?.();
   });
@@ -144,15 +137,6 @@ export default function useStreamingText({
 
   const commitSnapshot = useLastCallback((snapshot: ReturnType<TextRevealController['getSnapshot']>) => {
     const previousSnapshot = revealStateRef.current;
-    if (
-      snapshot.revealedGraphemeCount > 0
-      && hasActiveRevealRef.current
-      && !hasNotifiedRevealStartRef.current
-    ) {
-      hasNotifiedRevealStartRef.current = true;
-      notifyRevealStart();
-    }
-
     if (
       snapshot.revealedGraphemeCount === previousSnapshot.revealedGraphemeCount
       && snapshot.phase === previousSnapshot.phase
@@ -284,9 +268,6 @@ export default function useStreamingText({
     controllerRef.current = controller;
     if (isStreaming || revealSessionKey) {
       hasActiveRevealRef.current = true;
-      if (shouldStartNewReveal) {
-        hasNotifiedRevealStartRef.current = false;
-      }
       hasNotifiedRevealCompleteRef.current = false;
     }
     previousGraphemesRef.current = graphemes;
@@ -310,7 +291,10 @@ export default function useStreamingText({
     const previousCount = previousRenderedCountRef.current;
     const currentCount = visibleGraphemeCount;
     const content = contentRef.current;
-    const currentTextContent = content?.textContent ?? '';
+    const prose = content?.querySelectorAll('[data-agent-answer-prose]');
+    const currentTextContent = prose?.length
+      ? Array.from(prose).map((element) => element.textContent ?? '').join('')
+      : content?.textContent ?? '';
 
     previousRenderedCountRef.current = currentCount;
     if (previousCount !== currentCount) {

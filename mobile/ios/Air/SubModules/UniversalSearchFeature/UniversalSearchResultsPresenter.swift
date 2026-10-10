@@ -99,13 +99,28 @@ public struct UniversalSearchResultsPresenter {
                 return UniversalSearchWebIntent.isSameDestination(requestedURL, destination)
             }
         }
-        let topHit = resolvingHit == nil ? resolvedHits.first : nil
-        guard resolvingHit != nil || topHit != nil else {
+        guard resolvingHit != nil || !resolvedHits.isEmpty else {
             return fallbackPresentation(for: snapshot.query)
         }
 
-        let remainingHits = resolvedHits.dropFirst(topHit == nil ? 0 : 1)
+        let topHit: ResolvedHit?
+        if resolvingHit != nil {
+            topHit = nil
+        } else if snapshot.query.isMultiword {
+            topHit = resolvedHits.first {
+                $0.hit.rank.relevanceBand >= .term
+                    && $0.hit.match.matchedTermCount == $0.hit.match.totalTermCount
+            }
+        } else {
+            topHit = resolvedHits.first
+        }
+        let remainingHits = resolvedHits.filter { $0.hit.id != topHit?.hit.id }
         var sections: [UniversalSearchSection] = []
+        var routesByItemID = Dictionary(
+            uniqueKeysWithValues: resolvedHits.map {
+                ($0.result.item.id, $0.result.route)
+            }
+        )
         if let resolvingHit {
             sections.append(UniversalSearchSection(
                 id: "top-hit",
@@ -123,6 +138,12 @@ public struct UniversalSearchResultsPresenter {
                 showsLeadingSeparator: false,
                 items: [topHit.result.item]
             ))
+        } else {
+            appendAgentAction(
+                query: snapshot.query.text,
+                to: &sections,
+                routesByItemID: &routesByItemID
+            )
         }
 
         let groups: [(id: String, title: String, kinds: Set<SearchEntityKind>)] = [
@@ -157,11 +178,6 @@ public struct UniversalSearchResultsPresenter {
             isFirstResultSection = false
         }
 
-        var routesByItemID = Dictionary(
-            uniqueKeysWithValues: resolvedHits.map {
-                ($0.result.item.id, $0.result.route)
-            }
-        )
         appendFallbackActions(
             query: snapshot.query.text,
             to: &sections,
@@ -170,7 +186,9 @@ public struct UniversalSearchResultsPresenter {
 
         return UniversalSearchPresentation(
             sections: sections,
-            preselectedItemID: topHit?.result.item.id,
+            preselectedItemID: resolvingHit == nil
+                ? topHit?.result.item.id ?? agentActionID(for: snapshot.query.text)
+                : nil,
             routesByItemID: routesByItemID
         )
     }
@@ -365,7 +383,7 @@ public struct UniversalSearchResultsPresenter {
             to: &sections,
             routesByItemID: &routesByItemID
         )
-        if preselectedItemID == nil, shouldPreferAgent(for: query.text) {
+        if preselectedItemID == nil, query.isMultiword {
             preselectedItemID = agentActionID(for: query.text)
         }
         return UniversalSearchPresentation(
@@ -383,15 +401,9 @@ public struct UniversalSearchResultsPresenter {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
 
-        let agentID = agentActionID(for: query)
-        sections.append(UniversalSearchSection(
-            id: "ask-agent",
-            title: lang("Ask Agent"),
-            // A lone top hit (or Open Website) stays joined to the remaining results.
-            showsLeadingSeparator: sections.count > 1,
-            items: [UniversalSearchItem(id: agentID, content: .askAgent(query: query))]
-        ))
-        routesByItemID[agentID] = .agent(query: query)
+        if routesByItemID[agentActionID(for: query)] == nil {
+            appendAgentAction(query: query, to: &sections, routesByItemID: &routesByItemID)
+        }
 
         let googleID = "web-action:google:\(query.lowercased())"
         sections.append(UniversalSearchSection(
@@ -404,22 +416,25 @@ public struct UniversalSearchResultsPresenter {
         routesByItemID[googleID] = .google(query: query)
     }
 
-    private func agentActionID(for query: String) -> String {
-        "agent-action:\(query.lowercased())"
+    private func appendAgentAction(
+        query: String,
+        to sections: inout [UniversalSearchSection],
+        routesByItemID: inout [String: UniversalSearchFeatureRoute]
+    ) {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let agentID = agentActionID(for: query)
+        sections.append(UniversalSearchSection(
+            id: "ask-agent",
+            title: lang("Ask Agent"),
+            // A lone top hit (or Open Website) stays joined to the remaining results.
+            showsLeadingSeparator: sections.count > 1,
+            items: [UniversalSearchItem(id: agentID, content: .askAgent(query: query))]
+        ))
+        routesByItemID[agentID] = .agent(query: query)
     }
 
-    private func shouldPreferAgent(for query: String) -> Bool {
-        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let words = normalized.split(whereSeparator: \.isWhitespace)
-        guard words.count >= 2 else { return false }
-        if normalized.hasSuffix("?") || words.count >= 3 {
-            return true
-        }
-        let conversationalOpeners: Set<Substring> = [
-            "add", "buy", "can", "find", "help", "how", "learn", "send",
-            "show", "swap", "track", "transfer", "what", "when", "where", "why",
-        ]
-        return words.first.map(conversationalOpeners.contains) == true
+    private func agentActionID(for query: String) -> String {
+        "agent-action:\(query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
     }
 
     private static func resolveLiveResult(
@@ -507,7 +522,9 @@ public struct UniversalSearchResultsPresenter {
         _ document: SearchDocument
     ) -> UniversalSearchResolvedResult? {
         guard let title = document.attributeValue(for: UniversalSearchFeatureAttributeKey.title),
-              let prompt = document.attributeValue(for: UniversalSearchFeatureAttributeKey.query) else {
+              let prompt = document.attributeValue(for: UniversalSearchFeatureAttributeKey.query),
+              let hintID = document.attributeValue(for: UniversalSearchFeatureAttributeKey.agentHintID),
+              let catalogVersion = document.attributeValue(for: UniversalSearchFeatureAttributeKey.agentHintCatalogVersion) else {
             return nil
         }
         return UniversalSearchResolvedResult(
@@ -515,7 +532,7 @@ public struct UniversalSearchResultsPresenter {
                 id: document.id.rawValue,
                 content: .prompt(UniversalSearchPrompt(text: title))
             ),
-            route: .agent(query: prompt)
+            route: .agent(query: prompt, entryPoint: .emptyState(hintId: hintID, catalogVersion: catalogVersion))
         )
     }
 

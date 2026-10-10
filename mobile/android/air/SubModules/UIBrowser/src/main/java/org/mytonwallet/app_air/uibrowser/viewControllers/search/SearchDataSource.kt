@@ -643,7 +643,7 @@ internal class SearchDataSource(private val searchVC: SearchVC) :
                         configureCell = { cell, itemIndex, isLastItem ->
                             (cell as SearchRecentChatCell).configure(
                                 recentChats[itemIndex],
-                                isLastItem
+                                isLastItem && suggestedChats.isEmpty()
                             )
                         }
                     )

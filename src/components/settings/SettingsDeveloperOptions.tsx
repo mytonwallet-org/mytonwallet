@@ -240,15 +240,17 @@ function SettingsDeveloperOptions({
           onChange={handleSeasonalThemeOverrideChange}
         />
 
-        <div className={buildClassName(styles.item, styles.item_small)} onClick={handleGramDiamondToggle}>
-          <span className={styles.itemTitle}>{lang('3D Gram Diamond')}</span>
+        {!IS_GRAM_WALLET && (
+          <div className={buildClassName(styles.item, styles.item_small)} onClick={handleGramDiamondToggle}>
+            <span className={styles.itemTitle}>{lang('3D Gram Diamond')}</span>
 
-          <Switcher
-            className={styles.menuSwitcher}
-            label={lang('3D Gram Diamond')}
-            checked={Boolean(isGramDiamondEnabled)}
-          />
-        </div>
+            <Switcher
+              className={styles.menuSwitcher}
+              label={lang('3D Gram Diamond')}
+              checked={Boolean(isGramDiamondEnabled)}
+            />
+          </div>
+        )}
       </div>
 
       {(isCopyStorageEnabled || canRollbackMigration) && (

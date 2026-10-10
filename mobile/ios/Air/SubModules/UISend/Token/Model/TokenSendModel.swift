@@ -234,6 +234,19 @@ final class TokenSendModel: Sendable {
         feeQuote.start { [weak self] in
             self?.currentFeeQuoteRequest
         }
+        if configuration.isMaxAmount {
+            if maximumAmount == nil {
+                // Before the balance loads, the `.all` intent fills the maximum once it does
+                amountInput.selectAll(
+                    nil,
+                    price: environment.tokenPrice,
+                    tokenDecimals: environment.tokenDecimals,
+                    baseCurrencyDecimals: environment.baseCurrencyDecimals
+                )
+            } else {
+                selectAll()
+            }
+        }
     }
 
     var amount: BigInt? {

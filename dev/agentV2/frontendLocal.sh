@@ -86,7 +86,6 @@ echo "Local my-agent is ready: $AGENT_BASE_URL"
 stop_existing_frontend
 
 cd "$ROOT_DIR"
-AGENT_OVERRIDE=v2 \
-  AGENT_V2_QUOTA_STATUS_ENABLED=1 \
+AGENT_V2_QUOTA_STATUS_ENABLED=1 \
   AGENT_API_URL="$AGENT_BASE_URL/api" \
   exec npm run dev

@@ -1,5 +1,4 @@
 import { DEFAULT_PRICE_CURRENCY, IS_AIR_APP, IS_EXTENSION, IS_GRAM_WALLET } from '../../../config';
-import { getAgentOverride } from '../../../util/agent/agentProtocolVersion';
 import { captureBrowserAttribution } from '../../../util/installAttribution';
 import { mapValues } from '../../../util/iteratees';
 import { logDebug } from '../../../util/logs';
@@ -18,7 +17,7 @@ addActionHandler('initApi', async (global, actions) => {
     isElectron: IS_ELECTRON,
     isIosApp: false,
     isAndroidApp: false,
-    agentOverride: getAgentOverride(),
+    agentOverride: 'v2',
     langCode: global.settings.langCode,
     referrer: new URLSearchParams(window.location.search).get('r') ?? undefined,
     ...(IS_WEB && !IS_AIR_APP && ['http:', 'https:'].includes(location.protocol)

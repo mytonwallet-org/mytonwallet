@@ -7,7 +7,7 @@ const TOKEN_1 = `adt_v2.${'a'.repeat(43)}`;
 const TOKEN_2 = `adt_v2.${'b'.repeat(43)}`;
 
 describe('AgentV2IdentityService', () => {
-  it('single-flights issuance and never exposes credentials in the request body', async () => {
+  it('single-flights issuance, states the protocol and never exposes credentials in the request body', async () => {
     const storage = createMemoryStorage();
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = jest.fn((url: string | URL | Request, init?: RequestInit) => {
@@ -32,8 +32,10 @@ describe('AgentV2IdentityService', () => {
 
     expect(calls.filter(({ url }) => url.endsWith('/device-token'))).toHaveLength(1);
     const issuanceBody = JSON.parse(calls[0].init?.body as string);
-    expect(issuanceBody).toEqual({ protocolVersion: 2, deviceId: DEVICE_ID });
+    expect(issuanceBody).toEqual({ protocolVersion: 3, deviceId: DEVICE_ID });
     expect(JSON.stringify(issuanceBody)).not.toContain(TOKEN_1);
+    expect(calls.map(({ init }) => new Headers(init?.headers).get('Accept')))
+      .toEqual(Array(3).fill('application/json; agent-protocol=3'));
   });
 
   it('performs one shared reissue after concurrent 401 responses', async () => {
@@ -134,7 +136,7 @@ describe('AgentV2IdentityService', () => {
       now: () => Date.parse('2026-07-16T00:00:00.000Z'),
     });
     const body = JSON.stringify({
-      protocolVersion: 2,
+      protocolVersion: 3,
       clientOperationId: '33333333-3333-4333-8333-333333333333',
     });
 
@@ -176,7 +178,7 @@ describe('AgentV2IdentityService', () => {
       now: () => Date.parse('2026-07-16T00:00:00.000Z'),
     });
     const body = JSON.stringify({
-      protocolVersion: 2,
+      protocolVersion: 3,
       clientOperationId: '22222222-2222-4222-8222-222222222222',
     });
 
@@ -188,6 +190,29 @@ describe('AgentV2IdentityService', () => {
 
     expect(mutationBodies).toEqual([body, body]);
     expect(issuanceCount).toBe(2);
+  });
+
+  it('preserves an HTML ingress size rejection as a non-retryable HTTP 413', async () => {
+    const response = { status: 413, json: () => Promise.reject(new SyntaxError('Unexpected HTML')) } as Response;
+    await expect(decodeHttpError(response)).resolves.toMatchObject({
+      status: 413, code: 'invalid_request', retryable: false,
+    });
+    await expect(decodeHttpError({ ...response, status: 412 } as Response)).rejects.toThrow('Unexpected HTML');
+  });
+
+  it('reads a server request to update the app as the non-retryable update code', async () => {
+    await expect(decodeHttpError(jsonResponse({
+      protocolVersion: 3,
+      error: { code: 'client_update_required', retryable: false },
+    }, 426))).resolves.toMatchObject({ status: 426, code: 'client_update_required', retryable: false });
+  });
+
+  it('preserves invalid HTTP response decoding instead of inventing service unavailability', async () => {
+    await expect(decodeHttpError(jsonResponse({ protocolVersion: 3, error: { code: 123 } }, 400)))
+      .rejects.toThrow('Invalid Agent V2 contract');
+    const invalidJson = new SyntaxError('Invalid JSON');
+    await expect(decodeHttpError({ status: 400, json: () => Promise.reject(invalidJson) } as Response))
+      .rejects.toBe(invalidJson);
   });
 
   it('reuses a valid in-memory identity when persistent storage stops responding', async () => {
@@ -214,7 +239,6 @@ describe('AgentV2IdentityService', () => {
     await identity.authenticatedFetch('https://agent.test/api/v2/runs');
     isStorageResponsive = false;
 
-    await expect(identity.getDeviceId()).resolves.toBe(DEVICE_ID);
     await expect(identity.authenticatedFetch('https://agent.test/api/v2/runs/run-1/tool-results'))
       .resolves.toMatchObject({ ok: true });
     expect(storage.getItem).toHaveBeenCalledTimes(1);
@@ -245,14 +269,14 @@ describe('AgentV2IdentityService', () => {
       now: () => Date.parse('2026-07-16T00:00:00.000Z'),
     });
 
-    const deviceId = identity.getDeviceId();
+    const request = identity.authenticatedFetch('https://agent.test/api/v2/runs');
     await issuanceStarted;
     const destroy = identity.destroy({ shouldClearPersistentIdentity: true });
     expect(issuanceSignal?.aborted).toBe(true);
     resolveIssuance(jsonResponse(tokenResponse(TOKEN_1)));
 
     await destroy;
-    await expect(deviceId).rejects.toThrow('Agent V2 identity is destroyed');
+    await expect(request).rejects.toThrow('Agent V2 identity is destroyed');
     await expect(storage.getItem('agentV2DeviceIdentity')).resolves.toBeUndefined();
   });
 
@@ -275,12 +299,13 @@ describe('AgentV2IdentityService', () => {
     await identity.destroy();
 
     await expect(storage.getItem('agentV2DeviceIdentity')).resolves.toBe(storedIdentity);
-    await expect(identity.getDeviceId()).rejects.toThrow('Agent V2 identity is destroyed');
+    await expect(identity.authenticatedFetch('https://agent.test/api/v2/runs'))
+      .rejects.toThrow('Agent V2 identity is destroyed');
   });
 
   it('keeps HTTP error metadata separate from the safe error message', async () => {
     const error = await decodeHttpError(jsonResponse({
-      protocolVersion: 2,
+      protocolVersion: 3,
       error: {
         code: 'agent_capacity_exhausted',
         retryable: true,
@@ -297,11 +322,36 @@ describe('AgentV2IdentityService', () => {
     });
     expect(error.message).not.toContain(error.code);
   });
+
+  it('gives up on a device token issuance that gets no response', async () => {
+    jest.useFakeTimers({ now: Date.parse('2026-07-16T00:00:00.000Z') });
+    try {
+      const fetchMock = jest.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>(
+        (_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)),
+      )) as unknown as typeof fetch;
+      const identity = new AgentV2IdentityService({
+        storage: createMemoryStorage(),
+        baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock,
+        randomUuid: () => DEVICE_ID,
+        requestTimeoutMs: 1_000,
+      });
+
+      const request = identity.authenticatedFetch('https://agent.test/api/v2/threads/default');
+      const failure = expect(request).rejects.toMatchObject({ name: 'TimeoutError' });
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await failure;
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 function tokenResponse(deviceToken: string) {
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     deviceId: DEVICE_ID,
     deviceToken,
     expiresAt: '2026-10-14T00:00:00.000Z',

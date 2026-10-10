@@ -56,7 +56,7 @@ describe('Agent V2 active run update replay', () => {
   it('retains only the latest safe activity for each tool call', () => {
     publishAgentV2Update(runStarted());
     publishAgentV2Update(toolActivity(TOOL_CALL_ID, 'wallet.data.query', 'running'));
-    publishAgentV2Update(toolActivity(TOOL_CALL_ID_2, 'action.send.prepare', 'running'));
+    publishAgentV2Update(toolActivity(TOOL_CALL_ID_2, 'wallet.directory.query', 'running'));
     publishAgentV2Update(toolActivity(TOOL_CALL_ID, 'wallet.data.query', 'complete'));
 
     const replayedUpdates: AgentV2ClientUpdate[] = [];
@@ -65,7 +65,7 @@ describe('Agent V2 active run update replay', () => {
     expect(replayedUpdates).toEqual([
       runStarted(),
       toolActivity(TOOL_CALL_ID, 'wallet.data.query', 'complete'),
-      toolActivity(TOOL_CALL_ID_2, 'action.send.prepare', 'running'),
+      toolActivity(TOOL_CALL_ID_2, 'wallet.directory.query', 'running'),
     ]);
     unsubscribe();
   });
@@ -85,7 +85,7 @@ function textDelta(delta: string): AgentV2ClientUpdate {
 
 function toolActivity(
   toolCallId: string,
-  toolName: 'wallet.data.query' | 'action.send.prepare',
+  toolName: 'wallet.data.query' | 'wallet.directory.query',
   status: 'running' | 'complete',
 ): AgentV2ClientUpdate {
   return { kind: 'toolActivityChanged', ...routing(), toolCallId, toolName, status };

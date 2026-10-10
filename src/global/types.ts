@@ -1,16 +1,20 @@
 import type { TeactNode } from '../lib/teact/teact';
 
 import type {
-  AgentActionProposal,
-  AgentMessageErrorV2,
+  AgentAnswerLinkV1,
+  AgentAnswerTableReferenceV1,
+  AgentAnswerTableV1,
+} from '../api/agentV2/protocol/types';
+import type {
   AgentPersistedActionV2,
   AgentPublicFollowUpV2,
-  AgentPublicInputContinuationV1,
+  AgentResponseLanguageV1,
   AgentSemanticContentV1,
+  AgentV2LiveAction,
+  AgentV2MessageError,
 } from '../api/agentV2/protocol/types';
 import type {
   AgentV2ActionPresentation,
-  AgentV2WalletConversationControls,
 } from '../api/agentV2/types';
 import type { ApiTonWalletVersion } from '../api/chains/ton/types';
 import type { TonConnectProof } from '../api/dappProtocols/adapters';
@@ -575,6 +579,10 @@ export type AssetPairs = Record<string, {
 }>;
 
 export interface AgentMessage {
+  tables?: AgentAnswerTableV1[];
+  tableReferences?: AgentAnswerTableReferenceV1[];
+  /** Links over labels of `text`, which arrive before the text that carries them */
+  links?: AgentAnswerLinkV1[];
   id: number;
   text: string;
   shouldCommitMarkdownTail?: boolean;
@@ -582,13 +590,12 @@ export interface AgentMessage {
   timestamp: number;
   isTyping?: boolean;
   isStreaming?: boolean;
+  responseLanguage?: AgentResponseLanguageV1;
   semanticContent?: AgentSemanticContentV1;
-  walletControls?: AgentV2WalletConversationControls;
-  actions?: Array<AgentActionProposal | AgentPersistedActionV2>;
+  actions?: Array<AgentV2LiveAction | AgentPersistedActionV2>;
   actionPresentations?: Record<string, AgentV2ActionPresentation>;
   followups?: AgentPublicFollowUpV2[];
-  inputContinuations?: AgentPublicInputContinuationV1[];
-  error?: AgentMessageErrorV2;
+  error?: AgentV2MessageError;
   isRetryAvailable?: boolean;
 }
 
@@ -1212,8 +1219,6 @@ export type GlobalState = {
   customizeWalletReturnTo?: 'accountSelector' | 'settings';
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
-  agentMeta?: { messageCount: number; lastTimestamp?: number };
-  agentHints?: AgentHint[];
   isExploreOpen?: boolean;
   isMarketOpen?: boolean;
   isPortfolioOpen?: boolean;
@@ -1520,8 +1525,6 @@ export interface ActionPayloads {
 
   openAgent: undefined;
   closeAgent: undefined;
-  setAgentMeta: { messageCount: number; lastTimestamp?: number };
-  setAgentHints: { hints: AgentHint[] };
   openExplore: undefined;
   closeExplore: undefined;
   openMarket: undefined;

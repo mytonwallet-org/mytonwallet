@@ -340,8 +340,6 @@ def infer_parameter_kind(key: str, name: str, is_plural: bool) -> ParameterKind:
     override = PLACEHOLDER_TYPE_OVERRIDES.get(key, {}).get(name)
     if override is not None:
         return override
-    if key.startswith("$agent_semantic_") and name == "amount":
-        return ParameterKind.INTEGER
     if is_plural or name in INTEGER_PARAMETER_NAMES:
         return ParameterKind.INTEGER
     return ParameterKind.STRING

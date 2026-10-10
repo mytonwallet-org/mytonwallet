@@ -1,5 +1,5 @@
 import type { AccountType, GlobalState } from '../../global/types';
-import type { ApiUpdateAgentV2, ApiUpdateAgentV2PortfolioHistory } from '../agentV2/types';
+import type { ApiUpdateAgentV2 } from '../agentV2/types';
 import type { ApiTonWalletVersion } from '../chains/ton/types';
 import type { TonConnectProof } from '../dappProtocols/adapters';
 import type {
@@ -478,7 +478,6 @@ export type ApiUpdateAccountDomainData = {
 
 export type ApiUpdate =
   | ApiUpdateAgentV2
-  | ApiUpdateAgentV2PortfolioHistory
   | ApiUpdateBalances
   | ApiUpdateInitialActivities
   | ApiUpdateNewActivities

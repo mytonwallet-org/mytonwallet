@@ -112,6 +112,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
             return
         }
 
+        activeContentViewController?.descendantViewController(of: TopTabsRootViewController.self)?.finishPaging()
         searchController.prepareForLayoutChange()
         let navigationState = activeContentViewController.flatMap(AdaptiveRootNavigationState.init)
         let contentViewController = makeContentViewController(for: layout)
@@ -217,9 +218,9 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
 /// Captures the navigation stacks of all live tabs when the root layout is about to change
 /// (e.g. iPad rotation from split → compact), then restores them into the new container.
 @MainActor
-private struct AdaptiveRootNavigationState {
+struct AdaptiveRootNavigationState {
     let selectedTabId: AppTabId
-    let homePath: [AdaptiveRootHomeStackItem]?
+    private let homePath: [AdaptiveRootHomeStackItem]?
     let focusedHomeAccountId: String?
     let sourceUsesTopTabs: Bool
     let navigationStacks: [AppTabId: [UIViewController]]
@@ -286,11 +287,12 @@ private struct AdaptiveRootNavigationState {
         if let topTabsRootViewController = destinationTopTabsRootViewController {
             // Loading the navigation container does not guarantee its root view is loaded.
             topTabsRootViewController.loadViewIfNeeded()
-            if let homeStack = homeStack(for: layout) {
-                topTabsRootViewController.setNavigationStack(homeStack, for: .wallet)
+            if let homePath = restoredHomePath(for: layout) {
+                topTabsRootViewController.setNavigationPath(homePath, for: .wallet)
             }
             for (id, stack) in navigationStacks {
                 if replacesNavigationRoots {
+                    guard stack.count > 1 else { continue }
                     topTabsRootViewController.setNavigationPath(Array(stack.dropFirst()), for: id)
                 } else {
                     topTabsRootViewController.setNavigationStack(stack, for: id)
@@ -302,11 +304,12 @@ private struct AdaptiveRootNavigationState {
 
         switch viewController {
         case let splitRootViewController as SplitRootViewController:
-            if let homeStack = homeStack(for: layout) {
-                splitRootViewController.setNavigationStack(homeStack, for: .wallet)
+            if let homePath = restoredHomePath(for: layout) {
+                splitRootViewController.setNavigationPath(homePath, for: .wallet)
             }
             for (id, stack) in navigationStacks {
                 if replacesNavigationRoots {
+                    guard stack.count > 1 else { continue }
                     splitRootViewController.setNavigationPath(Array(stack.dropFirst()), for: id)
                 } else {
                     splitRootViewController.setNavigationStack(stack, for: id)
@@ -345,12 +348,10 @@ private struct AdaptiveRootNavigationState {
         return nil
     }
 
-    private func homeStack(for layout: RootContainerLayout) -> [UIViewController]? {
+    private func restoredHomePath(for layout: RootContainerLayout) -> [UIViewController]? {
         guard let homePath else { return nil }
-        return [makeHomeRoot(
-            for: layout,
-            accountSource: .current
-        )] + homePath.map { item in
+        // The destination container already owns the correctly configured current-account root.
+        return homePath.map { item in
             switch item {
             case .home(let accountSource):
                 makeHomeRoot(

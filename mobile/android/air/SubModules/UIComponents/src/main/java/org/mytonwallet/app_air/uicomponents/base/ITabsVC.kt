@@ -2,6 +2,7 @@ package org.mytonwallet.app_air.uicomponents.base
 
 import android.net.Uri
 import android.view.ViewGroup
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 
 interface ITabsVC {
     val mainNavigationController: WNavigationController?
@@ -26,7 +27,11 @@ interface ITabsVC {
     val isOnHomeScreen: Boolean
     fun switchToExplore(targetUri: Uri? = null)
     fun switchToMarket()
-    fun switchToAgent(prompt: String? = null, pinnedMessageId: String? = null): Boolean
+    fun switchToAgent(
+        prompt: String? = null,
+        pinnedMessageId: String? = null,
+        entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
+    ): Boolean
     fun switchToSettings(pushVC: WViewController? = null)
     fun navStackUpdated(nav: WNavigationController) {}
 

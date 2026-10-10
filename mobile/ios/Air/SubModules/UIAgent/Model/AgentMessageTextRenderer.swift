@@ -11,6 +11,9 @@ private enum AgentMessageTextRendererMetrics {
         failurePolicy: .returnPartiallyParsedIfPossible
     )
     static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    static let codeSpanPattern = #"`([^`\n]+)`"#
+    static let boldPattern = #"\*\*([^*\n]+)\*\*"#
+    static let italicPattern = #"(?<!\*)\*([^*\n]+)\*(?!\*)"#
 }
 
 enum AgentMessageMarkdownProfile: Equatable {
@@ -30,13 +33,20 @@ enum AgentMessageTextRenderer {
         rendersMarkdown: Bool,
         detectsLinks: Bool = true,
         markdownProfile: AgentMessageMarkdownProfile = .legacy,
-        baseFont: UIFont = WTypography.uiFont(.body)
+        isStreaming: Bool = false,
+        baseFont: UIFont = WTypography.uiFont(.body),
+        linkColor: UIColor = .tintColor
     ) -> NSAttributedString {
         let normalizedText = normalizedMessageSource(text)
         let attributedText: NSMutableAttributedString
 
         if rendersMarkdown, markdownProfile == .agentMarkdownV1 {
-            attributedText = makeAgentMarkdownText(normalizedText, textColor: textColor, baseFont: baseFont)
+            attributedText = makeAgentMarkdownText(
+                normalizedText,
+                isStreaming: isStreaming,
+                textColor: textColor,
+                baseFont: baseFont
+            )
         } else if rendersMarkdown,
                   let attributedString = try? AttributedString(
                     markdown: normalizedMarkdownSource(normalizedText),
@@ -72,6 +82,8 @@ enum AgentMessageTextRenderer {
         } else {
             attributedText.removeAttribute(.link, range: fullRange)
         }
+        // Answer links are checked when they are marked, so they apply whether or not other links are detected
+        AgentTextLinks.resolve(in: attributedText, linkColor: linkColor)
 
         return attributedText
     }
@@ -102,8 +114,10 @@ enum AgentMessageTextRenderer {
             .joined(separator: "\n")
     }
 
+    /// While `isStreaming`, the last line is still arriving and renders as it will once its open markers close
     private static func makeAgentMarkdownText(
         _ text: String,
+        isStreaming: Bool,
         textColor: UIColor,
         baseFont: UIFont
     ) -> NSMutableAttributedString {
@@ -132,6 +146,7 @@ enum AgentMessageTextRenderer {
 
             renderedLines.append(makeAgentMarkdownLine(
                 lines[index],
+                isArriving: isStreaming && index == lines.count - 1,
                 textColor: textColor,
                 baseFont: baseFont
             ))
@@ -150,15 +165,20 @@ enum AgentMessageTextRenderer {
 
     private static func makeAgentMarkdownLine(
         _ line: String,
+        isArriving: Bool,
         textColor: UIColor,
         baseFont: UIFont
     ) -> NSAttributedString {
+        if isArriving, line.range(of: #"^[-+*]$"#, options: .regularExpression) != nil {
+            return NSAttributedString()
+        }
+        let itemContent = isArriving ? "" : #"\S"#
         let unorderedPrefix = line.range(
-            of: #"^[-+*]\s+\S"#,
+            of: #"^[-+*]\s+"# + itemContent,
             options: .regularExpression
         )
         let orderedPrefix = line.range(
-            of: #"^\d+[.)]\s+\S"#,
+            of: #"^\d+[.)]\s+"# + itemContent,
             options: .regularExpression
         )
 
@@ -186,6 +206,7 @@ enum AgentMessageTextRenderer {
 
         let parsed = parseAgentInlineMarkdown(
             content,
+            isArriving: isArriving,
             textColor: textColor,
             baseFont: baseFont
         )
@@ -214,6 +235,7 @@ enum AgentMessageTextRenderer {
 
     private static func parseAgentInlineMarkdown(
         _ text: String,
+        isArriving: Bool,
         textColor: UIColor,
         baseFont: UIFont
     ) -> NSAttributedString {
@@ -230,10 +252,16 @@ enum AgentMessageTextRenderer {
             }
         )
         let passiveLinks = passiveAgentLinks(in: escapedText)
+        var arrivedText = passiveLinks
+        if isArriving {
+            arrivedText = droppingTrailingMarkers(from: arrivedText)
+            arrivedText = closingOpenMarker("`", in: arrivedText, pattern: AgentMessageTextRendererMetrics.codeSpanPattern)
+                ?? arrivedText
+        }
         var codeSpans: [String] = []
-        let protectedText = replaceMatches(
-            in: passiveLinks,
-            pattern: #"`([^`\n]+)`"#,
+        var protectedText = replaceMatches(
+            in: arrivedText,
+            pattern: AgentMessageTextRendererMetrics.codeSpanPattern,
             replacement: { match, source in
                 guard match.numberOfRanges == 2,
                       let contentRange = Range(match.range(at: 1), in: source) else { return nil }
@@ -242,6 +270,11 @@ enum AgentMessageTextRenderer {
                 return "\u{E000}\(index)\u{E001}"
             }
         )
+        if isArriving {
+            protectedText = closingOpenMarker("**", in: protectedText, pattern: AgentMessageTextRendererMetrics.boldPattern)
+                ?? closingOpenMarker("*", in: protectedText, pattern: AgentMessageTextRendererMetrics.italicPattern)
+                ?? protectedText
+        }
         let result = NSMutableAttributedString(
             string: protectedText,
             attributes: [
@@ -252,13 +285,13 @@ enum AgentMessageTextRenderer {
 
         applyInlineTrait(
             to: result,
-            pattern: #"\*\*([^*\n]+)\*\*"#,
+            pattern: AgentMessageTextRendererMetrics.boldPattern,
             markerLength: 2,
             trait: .traitBold
         )
         applyInlineTrait(
             to: result,
-            pattern: #"(?<!\*)\*([^*\n]+)\*(?!\*)"#,
+            pattern: AgentMessageTextRendererMetrics.italicPattern,
             markerLength: 1,
             trait: .traitItalic
         )
@@ -314,6 +347,27 @@ enum AgentMessageTextRenderer {
             )
         }
         return result
+    }
+
+    /// Markers at the end of an arriving line may still open or close a run, so they wait for the next characters
+    private static func droppingTrailingMarkers(from text: String) -> String {
+        var text = text
+        while text.last == "*" || text.last == "`" {
+            text.removeLast()
+        }
+        return text
+    }
+
+    /// `text` followed by `marker`, when that closes a run that `text` opens with a non-space character after its marker
+    private static func closingOpenMarker(_ marker: String, in text: String, pattern: String) -> String? {
+        let closedText = text + marker
+        let length = (closedText as NSString).length
+        guard let expression = try? NSRegularExpression(pattern: pattern),
+              let match = expression.matches(in: closedText, range: NSRange(location: 0, length: length)).last,
+              NSMaxRange(match.range) == length,
+              let contentRange = Range(match.range(at: 1), in: closedText),
+              closedText[contentRange].first?.isWhitespace == false else { return nil }
+        return closedText
     }
 
     private static func applyInlineTrait(

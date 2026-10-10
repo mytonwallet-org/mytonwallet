@@ -4,6 +4,16 @@ import WalletCore
 
 @Suite("Deeplink Parser")
 struct DeeplinkParserTests {
+    @Test
+    func parsesMultisend() throws {
+        let url = try #require(URL(string: "mtw://multisend"))
+        let deeplink = try #require(Deeplink(url: url))
+        guard case .multisend = deeplink else {
+            Issue.record("Expected multisend deeplink")
+            return
+        }
+    }
+
     @Test(arguments: ["", "receiver.ton"])
     func parsesSendFormWithOptionalRecipient(address: String) throws {
         let url = try #require(URL(string: "mtw://send/ton:\(address)?token=gram&amount=3000000000&text=Hello"))

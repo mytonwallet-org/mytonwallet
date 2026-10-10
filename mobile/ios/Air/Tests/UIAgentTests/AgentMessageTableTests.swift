@@ -1,5 +1,8 @@
 import XCTest
+import UIKit
 @testable import UIAgent
+import UIComponents
+import WalletResources
 
 final class AgentMessageTableTests: XCTestCase {
     func testPlainTextKeepsSingleBlockPath() {
@@ -211,5 +214,73 @@ private extension AgentMessageBlock {
     var table: AgentMessageTable? {
         if case .table(let table) = self { return table }
         return nil
+    }
+}
+
+@MainActor
+final class AgentMessageTableLayoutTests: XCTestCase {
+    private let source = """
+    Вот ваши активы в «My Wallet 25»:
+
+    | Актив | Сеть | Баланс |
+    | --- | --- | --- |
+    | TON | ton | 125.123456789 |
+    | USDT | ethereum | 42.50 |
+    """
+
+    func testRestoredTableUsesAvailableWidthBeforeAndAfterFitting() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        for initialWidth: CGFloat in [0, 44, 402] {
+            for hasAnswerBlocks in [false, true] {
+                let cell = AgentMessageCell(frame: CGRect(x: 0, y: 0, width: initialWidth, height: 80))
+                var message = AgentMessage(role: .assistant, text: source, isStreaming: false)
+                message.answerBlocks = hasAnswerBlocks ? AgentMessageBlockParser.parse(source) : nil
+                cell.configure(with: message, onURLTap: { _ in })
+                cell.layoutIfNeeded()
+                try assertTableLayout(cell, width: 402)
+                try assertTableLayout(cell, width: 320)
+                try assertTableLayout(cell, width: 874)
+                try assertTableLayout(cell, width: 402)
+            }
+        }
+    }
+
+    func testReusedTableKeepsWidthAfterFollowupsDisappear() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let cell = AgentMessageCell(frame: CGRect(x: 0, y: 0, width: 402, height: 80))
+        for role in [AgentMessage.Role.user, .assistant] {
+            cell.configure(with: AgentMessage(role: role, text: "T", isStreaming: false), onURLTap: { _ in })
+            cell.layoutIfNeeded()
+            cell.prepareForReuse()
+            var message = AgentMessage(role: .assistant, text: source, isStreaming: false,
+                controls: [AgentMessageControl(id: "followup:next", title: "Tell me more", isEnabled: true, kind: .followup)])
+            cell.configure(with: message, onURLTap: { _ in })
+            try assertTableLayout(cell, width: 402)
+            message.controls = []
+            cell.configure(with: message, onURLTap: { _ in })
+            try assertTableLayout(cell, width: 402)
+            cell.prepareForReuse()
+        }
+    }
+
+    private func assertTableLayout(_ cell: AgentMessageCell, width: CGFloat, file: StaticString = #filePath, line: UInt = #line) throws {
+        let attributes = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: 0, section: 0))
+        attributes.size = CGSize(width: width, height: 80)
+        let fitted = cell.preferredLayoutAttributesFitting(attributes)
+        cell.frame.size = fitted.size
+        cell.setNeedsLayout()
+        cell.layoutIfNeeded()
+        let richContent = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentRichMessageView }.first)
+        XCTAssertEqual(fitted.size.width, width, accuracy: 0.5, file: file, line: line)
+        XCTAssertFalse(richContent.isHidden, file: file, line: line)
+        XCTAssertGreaterThan(richContent.bounds.width, 200, file: file, line: line)
+        XCTAssertLessThanOrEqual(richContent.bounds.width, min(width, 580) - 60, file: file, line: line)
+        let introduction = try XCTUnwrap(descendants(of: richContent).compactMap { $0 as? UITextView }.first { $0.text.hasPrefix("Вот ваши активы") })
+        XCTAssertLessThan(introduction.bounds.height, 100, file: file, line: line)
+        XCTAssertLessThan(fitted.size.height, 350, file: file, line: line)
+    }
+
+    private func descendants(of view: UIView) -> [UIView] {
+        view.subviews.flatMap { [$0] + descendants(of: $0) }
     }
 }

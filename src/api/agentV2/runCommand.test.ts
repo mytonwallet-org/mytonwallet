@@ -15,20 +15,6 @@ describe('Agent V2 run command', () => {
     ['with a follow-up', appendCommand({
       followupOf: { messageId: MESSAGE_ID, followupId: 'followup-1' },
     }), { followupOf: { messageId: MESSAGE_ID, followupId: 'followup-1' } }],
-    ['with a continuation', appendCommand({
-      continuationOf: { messageId: MESSAGE_ID, continuationId: 'continuation-1' },
-    }), { continuationOf: { messageId: MESSAGE_ID, continuationId: 'continuation-1' } }],
-    ['with a wallet scope selection', appendCommand({
-      walletScopeSelectionOf: {
-        sourceAssistantMessageId: MESSAGE_ID,
-        choiceId: `choice_${'a'.repeat(32)}`,
-      },
-    }), {
-      walletScopeSelectionOf: {
-        sourceAssistantMessageId: MESSAGE_ID,
-        choiceId: `choice_${'a'.repeat(32)}`,
-      },
-    }],
   ] as const)('builds append origin %s', (_label, command, expected) => {
     expect(buildAgentV2RunOrigin(command)).toEqual(expected);
   });
@@ -37,7 +23,7 @@ describe('Agent V2 run command', () => {
     {
       ...appendCommand(),
       entryPoint: { kind: 'agentTab' },
-      continuationOf: { messageId: MESSAGE_ID, continuationId: 'continuation-1' },
+      followupOf: { messageId: MESSAGE_ID, followupId: 'followup-1' },
     },
     {
       threadId: THREAD_ID,

@@ -13,7 +13,9 @@ interface BrowserAttribution extends InstallAttributionCandidate {
 
 export const ATTRIBUTION_SOURCE_MAX_BYTES = 30;
 export const ATTRIBUTION_CHANNEL_FORMAT = new RegExp(`^[a-z0-9_]{1,${ATTRIBUTION_SOURCE_MAX_BYTES}}$`);
-const OWNED_ROOTS = ['mywallet.io', 'mytonwallet.io', 'mytonwallet.org', 'mytonwallet.app', 'my.tt'];
+const OWNED_ROOTS = [
+  'mywallet.io', 'mytonwallet.io', 'mytonwallet.org', 'mytonwallet.app', 'my.tt', 'gramwallet.io', 'gramwallet.app',
+];
 const COOKIE_NAME = 'mtw_attribution_v1';
 const DOMAIN_FORMAT = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;

@@ -13,6 +13,7 @@ import { throttle } from '../../../util/schedulers';
 import { getChainBySlug } from '../../../util/tokens';
 import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
 import { buildTokenSlug, getTokenByAddress, tokensPreload } from '../../common/tokens';
+import { onTokenSlugsMove } from '../../common/tokenSlugMoves';
 
 /** `poll` — HTTP / fallback sync (including first load after connect); `socket` — live wallet subscription. */
 export type BalanceStreamUpdateSource = 'poll' | 'socket';
@@ -121,6 +122,7 @@ export class BalanceStream {
   ) => Promise<void>);
 
   #isDestroyed = false;
+  #removeSlugMoveListener: NoneToVoidFunction;
 
   #ensureIsPollingNeeded?: () => Promise<boolean>;
   #walletStatus: 'active' | 'inactive' | undefined = undefined;
@@ -159,6 +161,7 @@ export class BalanceStream {
         onNewActivities,
       },
     );
+    this.#removeSlugMoveListener = onTokenSlugsMove(this.#handleTokenSlugsMove);
 
     if (!ensureIsPollingNeeded) {
       this.#walletStatus = 'active';
@@ -210,6 +213,7 @@ export class BalanceStream {
 
   public destroy() {
     this.#isDestroyed = true;
+    this.#removeSlugMoveListener();
     this.#walletWatcher.destroy();
     this.#fallbackPollingScheduler?.destroy();
   }
@@ -240,6 +244,19 @@ export class BalanceStream {
   #handleTraceInvalidated = () => {
     logDebug('toncenter: trace invalidated, forcing balance re-poll', { address: this.#address });
     this.#fallbackPollingScheduler?.forceImmediatePoll();
+  };
+
+  /**
+   * The balances already sent under a slug that passed to another token are amounts of the previous holder, which the
+   * UI now shows with the new holder's decimals and price. A stream that has sent nothing yet assigns the new slugs in
+   * its pending poll.
+   */
+  #handleTokenSlugsMove = (slugs: string[]) => {
+    if (!this.#balances && !crosschainAssetsByChain.has(this.#chain)) return;
+
+    if (slugs.some((slug) => getChainBySlug(slug) === this.#chain)) {
+      this.#fallbackPollingScheduler?.forceImmediatePoll();
+    }
   };
 
   #handleSocketBalanceUpdate: OnSocketBalancesUpdate = async (newBalances) => {

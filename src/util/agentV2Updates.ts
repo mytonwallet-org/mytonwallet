@@ -88,7 +88,8 @@ function recordActiveRunUpdate(update: AgentV2ClientUpdate) {
 
   if (index >= 0) {
     replay.updates[index] = update;
-  } else if (replay.updates.length < MAX_REPLAY_UPDATES_PER_RUN) {
+  } else if (replay.updates.length < MAX_REPLAY_UPDATES_PER_RUN || update.kind === 'answerLinkAdded') {
+    // Links add up instead of replacing each other; the SDK bounds them per message
     replay.updates.push(update);
   }
 }
@@ -101,6 +102,7 @@ function findReplaceableUpdate(updates: AgentV2ClientUpdate[], update: AgentV2Cl
       case 'textDelta':
       case 'messageContentEnded':
       case 'followupsAvailable':
+      case 'answerTablesChanged':
       case 'semanticContentAvailable':
         return candidate.kind === update.kind && candidate.messageId === update.messageId;
       case 'toolActivityChanged':

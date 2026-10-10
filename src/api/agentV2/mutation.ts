@@ -1,6 +1,6 @@
 import type { AgentV2OperationResult } from './types';
 
-import { AgentV2HttpError } from './identity';
+import { safeAgentV2OperationError } from './errors';
 
 export async function runSafeAgentV2Operation<T>(
   operation: () => Promise<T>,
@@ -8,22 +8,6 @@ export async function runSafeAgentV2Operation<T>(
   try {
     return { ok: true, value: await operation() };
   } catch (error) {
-    if (error instanceof AgentV2HttpError) {
-      return {
-        ok: false,
-        error: {
-          code: error.code,
-          retryable: error.retryable,
-        },
-      };
-    }
-
-    return {
-      ok: false,
-      error: {
-        code: 'network_error',
-        retryable: true,
-      },
-    };
+    return { ok: false, error: safeAgentV2OperationError(error) };
   }
 }

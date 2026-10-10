@@ -1345,7 +1345,7 @@ class WalletCardView(
             context.requireDrawableCompat(
                 R.drawable.ic_mint
             ).apply {
-                setTint(secondaryColor.colorWithAlpha(191))
+                setTint(secondaryColor)
             }
         )
         cardNft?.metadata?.overlayLabelBackground?.let { it ->

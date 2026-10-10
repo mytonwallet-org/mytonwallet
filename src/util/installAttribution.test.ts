@@ -6,7 +6,12 @@ import {
 describe('browser install attribution', () => {
   it('keeps only external http hostname', () => {
     expect(getExternalReferrerDomain('https://News.Example/a?q=secret', 'web.mywallet.io')).toBe('news.example');
-    for (const url of ['https://get.mywallet.io/a', 'https://foo.mytonwallet.app/', 'android-app://com.app', 'bad']) {
+    expect(getExternalReferrerDomain('https://gramwallet.io.example/', 'web.mywallet.io'))
+      .toBe('gramwallet.io.example');
+    for (const url of [
+      'https://get.mywallet.io/a', 'https://foo.mytonwallet.app/', 'https://gramwallet.io/get/',
+      'https://get.gramwallet.io/?utm_source=x', 'https://gramwallet.app/', 'android-app://com.app', 'bad',
+    ]) {
       expect(getExternalReferrerDomain(url, 'web.mywallet.io')).toBeUndefined();
     }
   });

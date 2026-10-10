@@ -113,6 +113,9 @@ dependencies {
   testImplementation libs.kotlin.reflect
   androidTestImplementation libs.androidx.junit
   androidTestImplementation libs.androidx.espresso.core
+  androidTestCompileOnly project("$airSubModulePath:UIAgent")
+  androidTestCompileOnly project("$airSubModulePath:WalletCore")
+  androidTestCompileOnly project("$airSubModulePath:WalletBaseContext")
   implementation libs.mlkit.barcode.scanning
   implementation libs.play.services.base
   implementation libs.camera.camera2

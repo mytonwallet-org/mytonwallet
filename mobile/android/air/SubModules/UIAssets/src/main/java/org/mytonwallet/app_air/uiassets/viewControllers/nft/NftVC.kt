@@ -161,13 +161,16 @@ class NftVC(
     private val effectiveActionRippleColor: Int
         get() = nftPalette?.rippleColor ?: WColor.BackgroundRipple.color
 
+    private val containerWidth: Int
+        get() = (view.parent as? View)?.width?.takeIf { it > 0 } ?: window?.windowView?.width ?: 0
+
     private val headerView: NftHeaderView by lazy {
         object : NftHeaderView(
             context,
             nft,
             collectionNFTs,
             navigationController?.getSystemBars()?.top ?: 0,
-            (view.parent as? View)?.width ?: 0,
+            containerWidth,
             WeakReference(this@NftVC)
         ) {
             override fun dispatchTouchEvent(ev: MotionEvent): Boolean =
@@ -256,10 +259,11 @@ class NftVC(
 
     private val isOwnNft: Boolean
         get() {
-            if (AccountStore.activeAccount?.accountType == MAccount.AccountType.VIEW) return false
+            val account = AccountStore.accountById(showingAccountId) ?: return false
+            if (account.accountType == MAccount.AccountType.VIEW) return false
             val ownerAddress = nft.ownerAddress ?: return false
             if (ownerAddress.isEmpty()) return false
-            return AccountStore.activeAccount?.addressByChain?.get(nft.chain?.name) == ownerAddress
+            return account.addressByChain?.get(nft.chain?.name) == ownerAddress
         }
 
     private val shouldShowOwnerSection: Boolean
@@ -530,7 +534,7 @@ class NftVC(
         val v = WView(context, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         v.setPadding(
             0,
-            NftHeaderView.OVERSCROLL_OFFSET.dp + ((view.parent as? View)?.width ?: 0),
+            NftHeaderView.OVERSCROLL_OFFSET.dp + containerWidth,
             0,
             (navigationController?.getSystemBars()?.bottom ?: 0)
         )

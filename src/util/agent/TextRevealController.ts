@@ -7,7 +7,7 @@ const STALL_FLOOR_SECONDS = 0.1;
 const TRAILING_STALL_SECONDS = 0.08;
 const MINIMUM_FINALIZE_TIME_SECONDS = 0.18;
 const MAXIMUM_FINALIZE_TIME_SECONDS = 0.5;
-const FRAME_DELTA_CAP_SECONDS = 0.05;
+const LATE_FRAME_SECONDS = 0.025;
 const MAX_INPUT_RATE = 240;
 const INITIAL_INPUT_RATE = 160;
 const INPUT_RATE_HOLD_CHUNKS = 1;
@@ -104,6 +104,11 @@ export class TextRevealController {
   }
 
   observeUpdate(target: TextRevealTarget, now: number) {
+    // Frames stop while nothing is left to reveal, so the next frame must not count the idle time
+    if (!this.shouldTick) {
+      this.lastFrameTime = now;
+    }
+
     const normalizedTarget = normalizeTarget(target);
     const targetLength = normalizedTarget.graphemeCount;
 
@@ -225,10 +230,7 @@ export class TextRevealController {
       this.lastSampleTime,
       now,
     );
-    const frameDelta = Math.max(
-      0,
-      Math.min(now - (this.lastFrameTime ?? now), FRAME_DELTA_CAP_SECONDS),
-    );
+    const frameDelta = Math.max(0, now - (this.lastFrameTime ?? now));
     const lag = Math.max(0, availableTargetCount - this.revealedCount);
     const inputRate = getInputRate(this.chunkCount);
     const targetVelocity = Math.min(
@@ -245,7 +247,7 @@ export class TextRevealController {
       const nextCount = this.advanceToMaximumCount(
         Math.min(
           availableTargetCount,
-          this.revealedCount + Math.min(GRAPHEME_STEP_CAP, creditedCount),
+          this.revealedCount + Math.min(getGraphemeStepCap(frameDelta), creditedCount),
         ),
       );
       const revealedDelta = nextCount - this.revealedCount;
@@ -263,6 +265,7 @@ export class TextRevealController {
     const startTime = this.finalizationStartTime ?? now;
     const startCount = this.finalizationStartCount ?? this.revealedCount;
     const elapsedTime = Math.max(0, now - startTime);
+    const frameDelta = Math.max(0, now - (this.lastFrameTime ?? startTime));
 
     const progress = elapsedTime / this.finalizationDuration;
     const projectedCount = Math.floor(
@@ -271,7 +274,7 @@ export class TextRevealController {
     const cappedCount = Math.min(
       this.target.graphemeCount,
       Math.max(projectedCount, this.revealedCount + 1),
-      this.revealedCount + GRAPHEME_STEP_CAP,
+      this.revealedCount + getGraphemeStepCap(frameDelta),
     );
 
     this.revealedCount = this.advanceToMaximumCount(cappedCount);
@@ -447,6 +450,14 @@ function normalizeTarget(target: TextRevealTarget): TextRevealTarget {
     graphemeCount,
     preferredInitialRevealCount: preferredInitialRevealCount || undefined,
   };
+}
+
+// A late frame reveals what the velocity ceiling allows over its real elapsed time,
+// so slow frames keep the wall-clock pace
+function getGraphemeStepCap(frameDelta: number) {
+  return frameDelta > LATE_FRAME_SECONDS
+    ? Math.ceil(frameDelta * VELOCITY_CEILING)
+    : GRAPHEME_STEP_CAP;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {

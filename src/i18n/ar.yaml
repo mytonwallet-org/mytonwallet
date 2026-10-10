@@ -213,6 +213,7 @@ Receiving Address: عنوان الاستلام
 Contract Address: عنوان العقد
 Fee: مصاريف
 Edit: يحرر
+Regenerate: إعادة التوليد
 Confirm: يتأكد
 Data Signed: البيانات الموقعة
 Details: تفاصيل
@@ -1251,8 +1252,6 @@ $agent_consent_feature_actions: قم بإعداد الإجراءات المدع�
 $agent_consent_feature_context: استخدم سياق المحفظة حتى تتمكن الإجابات من الرجوع إلى الأصول والعناوين ذات الصلة.
 $agent_consent_disclosure_text: من خلال النقر على "السماح للوكيل"، فإنك تسمح لـ %app_name% بإرسال رسائل الوكيل وسياق المحفظة ذات الصلة إلى وكيل %app_name% (agent.mywallet.io) وAnthropic Claude API، موفر الذكاء الاصطناعي التابع لجهة خارجية، لمعالجة طلباتك. قد يتضمن سياق المحفظة عناوين المحفظة والأرصدة والرموز المميزة والنشاط وتفاصيل الإجراء المطلوب. يتم استخدام البيانات فقط لتوفير استجابات الوكيل وإعداد الإجراءات التي تطلبها.
 $agent_consent_search_disclosure_text: عند البحث على الويب، قد تُرسل عبارات البحث فقط إلى Serper؛ ولا يُرسل سياق المحفظة أو سجل المحادثة.
-$agent_consent_debug_reset_button: إعادة تعيين حالة موافقة الوكيل
-$agent_consent_debug_reset_footer: يعرض شاشة موافقة الوكيل مرة أخرى عند فتح علامة تبويب الوكيل.
 $settings_token_change_threshold: حدّ التغيّر %
 $settings_token_change_threshold_description: يخفي تغيّرات النسبة المئوية خلال 24 ساعة التي تقل عن الحد المحدد.
 $settings_token_change_threshold_off: إيقاف
@@ -1270,18 +1269,19 @@ Retry: إعادة المحاولة
 $agent_chat_running: قيد التشغيل في الخلفية
 $agent_connection_interrupted: تم قطع اتصال الوكيل. حاول مرة أخرى.
 $agent_history_unavailable: تعذر تحميل سجل الدردشة. حاول مرة أخرى.
+$agent_secret_words_removed: "[تمت إزالة عبارات الاسترداد ولم تُرسل]"
 $agent_activity_analyzing_request: جارٍ تحليل طلبك…
 $agent_activity_wallet: جارٍ قراءة بيانات المحفظة…
 $agent_activity_transactions: جارٍ مراجعة نشاط المحفظة…
 $agent_activity_portfolio: جارٍ تحميل بيانات المحفظة الاستثمارية…
 $agent_activity_assets: جارٍ البحث عن الأصول…
 $agent_activity_addresses: جارٍ التحقق من العناوين المحفوظة…
-$agent_activity_transfer: جارٍ إعداد التحويل…
-$agent_activity_market_quote: جارٍ قراءة آخر سعر للرمز…
 $agent_activity_planning: جارٍ تخطيط الإجابة…
 $agent_activity_planning_completed: خطة الإجابة جاهزة
 $agent_activity_web_searching: جارٍ البحث على الويب…
 $agent_activity_web_searching_completed: تم العثور على مصادر ذات صلة
+$agent_activity_help_searching: جارٍ البحث في مركز المساعدة…
+$agent_activity_help_searching_completed: تم التحقق من مركز المساعدة
 $agent_activity_web_reading_sources: جارٍ مراجعة المصادر…
 $agent_activity_web_reading_sources_completed: "المصادر التي تمت مراجعتها: %count%"
 $agent_activity_web_reading_sources_completed_generic: تمت مراجعة المصادر
@@ -1294,181 +1294,18 @@ $agent_activity_computing_completed: اكتمل إجراء الحسابات
 $agent_activity_writing: جارٍ كتابة الإجابة…
 $agent_activity_writing_completed: الإجابة جاهزة
 $agent_activity_preparing_response: جارٍ إعداد إجابتك…
-$agent_receive_tokens: استلام الرموز
-$agent_portfolio_total: إجمالي قيمة المحفظة
-$agent_portfolio_value_is: قيمة محفظتك هي
-$agent_portfolio_24h_change: التغيير خلال 24 ساعة
-$agent_portfolio_top_contributor: أكبر مساهم اليوم
-$agent_portfolio_open_tracker: فتح المحفظة
-$agent_portfolio_analysis: تحليل المحفظة
-$agent_portfolio_insufficient: لا تتوفر بيانات كافية لإجراء تحليل كامل للمحفظة.
-$agent_portfolio_partial: بعض بيانات المحفظة غير متوفرة، لذا فإن التحليل جزئي.
-$agent_portfolio_current_only: الهيكل الحالي للمحفظة متاح. الأداء التاريخي غير متوفر حاليا.
-$agent_portfolio_stale: قد تكون بيانات المحفظة قديمة.
-$agent_portfolio_summary_up: ارتفعت قيمة محفظتك خلال آخر 24 ساعة.
-$agent_portfolio_summary_down: انخفضت قيمة محفظتك خلال آخر 24 ساعة.
-$agent_portfolio_summary_flat: ظلت قيمة محفظتك مستقرة خلال آخر 24 ساعة.
-$agent_portfolio_summary_ready: تحليل محفظتك متاح.
-$agent_portfolio_chart_title: قيمة المحفظة بمرور الوقت
-$agent_portfolio_largest_positions: أكبر المراكز
-$agent_portfolio_asset: الأصل
-$agent_portfolio_position_value: القيمة
-$agent_portfolio_share: الحصة
-$agent_portfolio_observations: ما يبرز
-$agent_portfolio_insight_performance_title: حركة المحفظة
-$agent_portfolio_insight_performance_text: راجع كيف تحركت قيمة المحفظة خلال الفترة المحددة.
-$agent_portfolio_insight_concentration_title: التركيز
-$agent_portfolio_insight_concentration_text: راجع التركيز داخل التوزيع المتاح؛ الأصول التي تم حذفها قد تغير صورة المحفظة الكاملة.
-$agent_portfolio_insight_chain_split_title: توزيع الشبكة
-$agent_portfolio_insight_chain_split_text: راجع تعرض الشبكة ضمن التوزيع المتاح؛ الأصول التي تم حذفها قد تغير صورة المحفظة الكاملة.
-$agent_portfolio_insight_data_quality_title: جودة البيانات
-$agent_portfolio_insight_data_quality_text: خذ بعين الاعتبار تغطية البيانات وحداثتها عند تفسير هذا التحليل.
 $agent_market_analysis_title: تحليل السوق
-$agent_market_as_of: حتى تاريخ
-$agent_market_closed_1d: آخر شمعة مغلقة ليوم واحد
-$agent_market_thesis: الأطروحة الفنية
-$agent_market_fear_greed_sentiment: معنويات السوق القائمة على البيتكوين
-$agent_market_fear_greed_index: مؤشر الخوف والجشع (0–100)
-$agent_market_fear_greed_sma_30: SMA 30
-$agent_market_fear_greed_sma_365: SMA 365
-$agent_market_fear_greed_regime: نظام السوق
-$agent_market_fear_greed_risk_on: معنويات الإقبال على المخاطرة
-$agent_market_fear_greed_risk_off: معنويات العزوف عن المخاطرة
-$agent_market_fear_greed_neutral: معنويات محايدة
-$agent_market_fear_greed_source: المصدر
-$agent_market_timeframes: هيكل السوق
-$agent_market_structure_bullish: مرتفعات أعلى وانخفاضات أعلى
-$agent_market_structure_bearish: مرتفعات أقل وانخفاضات أقل
-$agent_market_structure_range: نطاق
-$agent_market_structure_transition: انتقال
-$agent_market_structure_unavailable: البنية غير متوفرة
-$agent_market_event_none: لا يوجد كسر مؤكّد
-$agent_market_event_break_up: كسر فوق البنية
-$agent_market_event_break_down: كسر تحت البنية
-$agent_market_event_retest_up: إعادة اختبار صعودية
-$agent_market_event_retest_down: إعادة اختبار هبوطية
-$agent_market_live_approaching_upper: الاقتراب من الحد العلوي
-$agent_market_live_approaching_lower: الاقتراب من الحد السفلي
-$agent_market_level_map: المستويات الرئيسية
-$agent_market_level_primary: المستوى الأساسي
-$agent_market_level_secondary: المستوى الثانوي
-$agent_market_level_context: مستوى السياق
-$agent_market_levels_unavailable: المستويات الهيكلية المؤكدة غير متوفرة.
-$agent_market_profile_poc_full: مركز الحجم (POC)
-$agent_market_profile_value_area_full: حدود منطقة القيمة (VAL/VAH)
-$agent_market_profile_hvn_full: منطقة حجم مرتفع (HVN)
-$agent_market_profile_lvn_full: ممر حجم منخفض (LVN)
-$agent_market_profile_current_day: اليوم الحالي بالتوقيت العالمي
-$agent_market_profile_previous_day: اليوم السابق بالتوقيت العالمي
-$agent_market_profile_previous_week: الأسبوع السابق بالتوقيت العالمي
-$agent_market_profile_rolling_30d: آخر 30 جلسة بالتوقيت العالمي
-$agent_market_profile_above: السعر فوق منطقة القيمة
-$agent_market_profile_inside: السعر داخل منطقة القيمة
-$agent_market_profile_below: السعر تحت منطقة القيمة
-$agent_market_factors: العوامل الرئيسية
-$agent_market_factor_structure: "الهيكل اليومي: %direction%"
-$agent_market_factor_levels: تم تأكيد مناطق الدعم %supports% والمقاومة %resistances% لهذا الأفق.
-$agent_market_factor_profile: "توزيع الحجم: %position%."
-$agent_market_factor_profile_unavailable: ملف الحجم غير متاح؛ السيناريو يعتمد على هيكل السعر.
-$agent_market_factor_timeframe_alignment: "هيكل الإطار الزمني — 1D: %daily%؛ 4H: %fourHour%؛ 1H: %hourly%."
-$agent_market_factor_current_scenario: "النظام الحالي: %active%. السيناريو الشرطي: %conditional% بعد %activation%."
-$agent_market_factor_no_active_scenario: "لم يتم تأكيد أي سيناريو. السيناريو الشرطي: %conditional% بعد %activation%."
-$agent_market_primary_scenario: السيناريو الأساسي
-$agent_market_current_regime: النظام المؤكد الحالي
-$agent_market_conditional_scenario: السيناريو الشرطي
-$agent_market_no_active_scenario: لا يوجد سيناريو مؤكد حالياً.
-$agent_market_calculated_fallback: "التحليل المحسوب: شرح النموذج غير متاح مؤقتاً."
-$agent_market_other_horizons: آفاق أخرى مطلوبة
-$agent_market_horizon_3d: 3 أيام
-$agent_market_horizon_7d: 7 أيام
-$agent_market_horizon_30d: 30 يوماً
-$agent_market_scenario_bullish: اختراق صاعد
-$agent_market_scenario_range: توازن النطاق
-$agent_market_scenario_bearish: اختراق هابط
-$agent_market_scenario_unavailable: السيناريو الهيكلي غير متاح لهذا الأفق.
-$agent_market_confidence: الثقة
-$agent_market_confidence_low: منخفضة
-$agent_market_confidence_medium: متوسطة
-$agent_market_activation: التفعيل
-$agent_market_path: المسار
-$agent_market_terminal: المنطقة النهائية
-$agent_market_invalidation: الإبطال
-$agent_market_expected_range: نطاق السيناريو
-$agent_market_rationale: المبرر
-$agent_market_condition_above: إغلاق فوق
-$agent_market_condition_below: إغلاق تحت
-$agent_market_condition_inside: إغلاق داخل
-$agent_market_condition_outside: إغلاق خارج
-$agent_market_condition_waiting: انتظار التأكيد
-$agent_market_condition_approaching: الاقتراب
-$agent_market_condition_triggered: تم التأكيد
-$agent_market_scenario_zone: منطقة السيناريو
-$agent_market_expected_move: غلاف التقلب
-$agent_market_volatility_envelope: غلاف التقلب الكلي
-$agent_market_expected_move_note: تحرك مشروط، ليس احتمالية
-$agent_market_risk_caveat: السيناريوهات مشروطة ولا تشكل توصية تداول.
-$agent_market_partial_coverage: جزء من الأدلة السوقية غير متوفر؛ الثقة محدودة.
-$agent_market_thesis_bullish: البنية المؤكدة تفضل الاستمرار فوق المقاومة بينما يظل الإبطال تحت أقرب دعم.
-$agent_market_thesis_bearish: البنية المؤكدة تفضل الاستمرار تحت الدعم بينما يظل الإبطال فوق أقرب مقاومة.
-$agent_market_thesis_range: يظل السعر متوازنًا بين الدعم والمقاومة المؤكدين.
-$agent_market_thesis_mixed: الأطر الزمنية متضاربة، لذا فإن التأكيد عند الحد الهيكلي أهم من مؤشرات الاتجاه.
-$agent_market_thesis_insufficient: الأدلة المتاحة غير كافية لتأكيد بنية اتجاهية.
-$agent_market_thesis_unconfirmed: لم يتم تأكيد أي سيناريو؛ انتظر إغلاق الحد الهيكلي قبل اعتماد حالة اتجاهية.
-$agent_semantic_asset_search: بحث عن أصل
-$agent_semantic_web_digest: نتائج الويب
-$agent_semantic_no_results: لا توجد نتائج
-$agent_semantic_wallets: المحافظ
-$agent_semantic_wallet: المحفظة
-$agent_semantic_balance: الرصيد
-$agent_semantic_balance_unavailable: —
-$agent_semantic_access_regular: عادي
-$agent_semantic_access_view_only: عرض فقط
-$agent_semantic_wallets_unpriced: لا يتم تضمين مراكز %amount% في المجاميع المعروضة لأنها لا تحتوي على سعر.
-$agent_semantic_wallets_stale: قد تكون بعض أرصدة المحافظ قديمة.
-$agent_semantic_wallets_unavailable: بعض أرصدة المحافظ غير متاحة.
-$agent_semantic_wallets_partial: بعض بيانات المحافظ غير مكتملة.
-$agent_semantic_status: الحالة
-$agent_semantic_quantity: الكمية
-$agent_semantic_time: الوقت
-$agent_semantic_partial: بعض البيانات غير متاحة.
-$agent_semantic_pending: قيد الانتظار
-$agent_semantic_confirmed: تم التأكيد
-$agent_semantic_completed: مكتمل
-$agent_semantic_failed: فشل
-$agent_semantic_expired: منتهي الصلاحية
-$agent_semantic_active: نشط
-$agent_semantic_unstaking: جارٍ إلغاء التخزين
-$agent_semantic_ready: جاهز
-$agent_semantic_frozen: مجمد
-$agent_semantic_locked: مقفل
-$agent_semantic_fungible: رمز
-$agent_semantic_nft: NFT
-$agent_semantic_staking: التخزين
-$agent_semantic_vesting: الاستحقاق
-$agent_semantic_vault: الخزنة
-$agent_semantic_transfer: نقل
-$agent_semantic_swap: مبادلة
-$agent_semantic_stake: تخزين
-$agent_semantic_unstake: إلغاء التخزين
-$agent_semantic_contract: العقد
-$agent_semantic_unknown: النشاط
-$agent_semantic_spam_transactions: المعاملات المزعجة
-$agent_semantic_spam_assets: الأصول المزعجة
-$agent_semantic_hidden_assets: الأصول المخفية
-$agent_semantic_hidden_assets_warning: قد تكون أسماء الأصول المخفية مضللة. يتم عرضها كنص عادي ولا يمكن فتحها كرابط.
-$agent_semantic_quarantine_warning: تم الإبلاغ عن هذه العناصر كرسائل مزعجة. لا تثق بأسمائها أو روابطها.
-$agent_semantic_redacted_asset: الاسم مخفي
-$agent_semantic_omitted_spam: "الرسائل المزعجة المفلترة: %amount%"
-$agent_semantic_omitted_spam_minimum: "الرسائل المزعجة المفلترة: على الأقل %amount%"
-$agent_semantic_omitted_hidden: "تم حذف الأصول المخفية: %amount%"
-$agent_semantic_omitted_hidden_minimum: "تم حذف الأصول المخفية: على الأقل %amount%"
-$agent_semantic_suspicious: "تم إخفاء الأسماء غير الآمنة: %amount%"
-$agent_semantic_suspicious_minimum: "تم إخفاء الأسماء غير الآمنة: على الأقل %amount%"
-$agent_semantic_suspicious_shown: "الأسماء المحتملة غير الآمنة: %amount%"
-$agent_semantic_suspicious_shown_minimum: "الأسماء المحتملة غير الآمنة: على الأقل %amount%"
-$agent_semantic_omitted_rows: هناك بيانات كثيرة جدًا. لم يتم تضمين %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
-$agent_semantic_omitted_rows_minimum: هناك بيانات كثيرة جدًا. لم يتم تضمين على الأقل %amount% صفوف إضافية. قم بتضييق الفترة أو استخدام الفلاتر.
-$agent_semantic_update_required: قم بتحديث التطبيق لعرض هذا الرد.
+Analyze it: تحليل
+Check allocation: تقييم التوزيع
+Compare with last month: "مقارنة بالشهر الماضي"
+Best & worst performers: "الأفضل والأسوأ أداءً"
+Biggest profit today: "أكبر ربح اليوم"
+$agent_prompt_portfolio_share: "حلّل مدى تنوع محفظتي وحدّد أي تركّز في أصول بعينها."
+$agent_prompt_portfolio_compare: "قارن القيمة الحالية لمحفظتي بقيمتها قبل شهر."
+$agent_prompt_portfolio_performers: "ما الأصول في محفظتي التي حققت أفضل وأسوأ نتائج من حيث الأرباح والخسائر خلال الفترة المحددة (%period%)؟"
+$agent_prompt_portfolio_best_day: "في أي يوم خلال الفترة المحددة (%period%) حققت محفظتي أكبر ربح؟"
+$agent_prompt_token_price: "حلّل سعر %token%."
+$agent_hint_capabilities_title: ماذا يمكنك أن تفعل؟
 $agent_hint_portfolio_title: أداء المحفظة
 $agent_hint_portfolio_prompt: حلل أداء محفظتي.
 $agent_hint_swap_title: كيف تعمل المبادلات
@@ -1479,167 +1316,17 @@ $agent_hint_security_title: أمان المحفظة
 $agent_hint_security_prompt: أرني كيف أحافظ على أمان محفظتي.
 $agent_hint_receive_title: استقبال الرموز
 $agent_hint_receive_prompt: ساعدني على استقبال الرموز.
-$agent_action_review_transfer: مراجعة التحويل
-$agent_action_open_receive: فتح الاستلام
-$agent_action_open_send: فتح الإرسال
-$agent_action_open_staking: فتح التخزين
-$agent_action_open_swap: افتح المبادلة
-$agent_activity_swap: جارٍ تجهيز المبادلة
-$agent_action_hide_spam: إخفاء الأصول المزعجة
-$agent_action_open_link: افتح الرابط
-$agent_action_open_agent: افتح الوكيل
-$agent_action_open_token: افتح الرمز المميز في المحفظة
-$agent_action_open_transaction: افتح المعاملة
-$agent_input_asset: أدخل الأصل
-$agent_input_timeframe: أدخل الإطار الزمني
-$agent_input_amount: أدخل المبلغ
-$agent_input_recipient: أدخل المستلم
-$agent_input_swap_details: أدخل تفاصيل المبادلة
-$agent_notice_agent_unavailable: الوكيل غير متاح حالياً. يرجى المحاولة مرة أخرى لاحقاً.
-$agent_notice_analysis_unavailable: لم نتمكن من إكمال هذا التحليل. يرجى المحاولة مرة أخرى.
-$agent_notice_analysis_planning_unavailable: لم نتمكن من فهم الطلب بما يكفي لإعداد التحليل.
-$agent_notice_analysis_source_unavailable: البيانات المطلوبة لهذا التحليل غير متوفرة حالياً.
-$agent_notice_analysis_stale_evidence: البيانات المتوفرة قديمة جداً لإكمال هذا التحليل بأمان.
-$agent_notice_analysis_inconsistent_snapshot: تغيرت البيانات المطلوبة أثناء التحليل. يرجى المحاولة مرة أخرى.
-$agent_notice_analysis_compute_failed: لم نتمكن من إكمال الحساب المطلوب.
-$agent_notice_analysis_deadline_exceeded: استغرق التحليل وقتاً طويلاً للإكمال. يرجى المحاولة مرة أخرى.
-$agent_notice_analysis_result_too_large: نتيجة التحليل كبيرة جداً لتقديمها بأمان.
-$agent_notice_analysis_answer_generation_failed: جمعنا البيانات لكن لم نتمكن من إعداد الإجابة. يرجى المحاولة مرة أخرى.
-$agent_notice_asset_not_found: الأصل المطلوب لم يتم العثور عليه.
-$agent_notice_clarification_required: يلزم المزيد من التفاصيل للمتابعة.
-$agent_notice_clarification_asset: حدد أي أصل مشفر تريد استخدامه.
-$agent_notice_clarification_network: حدد أي شبكة بلوكشين تريد استخدامها.
-$agent_notice_clarification_query: لست متأكدًا من أنني فهمت الطلب. أخبرني بما تريد معرفته أو فعله.
-$agent_notice_clarification_quote_currency: أي عملة تسعير يجب أن أستخدمها؟
-$agent_notice_clarification_staking_product: أي منتج تخزين يجب أن أستخدمه؟
-$agent_notice_clarification_time_horizon: ما هو الأفق الزمني الذي يجب أن أستخدمه؟
-$agent_notice_clarification_price_assumption: ما هو افتراض السعر الذي يجب أن أستخدمه؟
-$agent_notice_repair_unrecognized_input: لم أتمكن من فهم تلك الرسالة. أخبرني بما أردت معرفته أو فعله، وسأحاول المساعدة.
-$agent_notice_repair_ambiguous_request: لست متأكدًا من أنني فهمت الطلب بشكل صحيح. ماذا تريد أن تعرف أو تفعل؟
-$agent_notice_repair_multiple_requests: أرى عدة طلبات في تلك الرسالة. بأي واحدة نبدأ؟
-$agent_notice_consent_required: اسمح بالوصول إلى بيانات المحفظة للمتابعة.
 $agent_notice_content_over_budget: النتيجة كبيرة جدًا لعرضها بالكامل.
-$agent_notice_empty_result: لم يتم العثور على نتائج مطابقة.
-$agent_notice_market_unavailable: بيانات السوق غير متوفرة حاليًا.
-$agent_notice_market_analysis_unavailable: لم نتمكن من إعداد تحليل السوق. حاول مرة أخرى.
-$agent_notice_market_analysis_asset_unsupported: التحليل لهذه العملة غير مدعوم حاليًا.
-$agent_notice_market_analysis_timeframe_unsupported: التحليل لهذه الفترة غير مدعوم حاليًا.
-$agent_notice_market_quote_resolved: "قيمة %asset% حاليًا هي %price% %currency%. التغير خلال 24 ساعة: %change%%."
-$agent_notice_market_quote_price_unavailable: لا يوجد سعر حالي متاح ل %asset%.
-$agent_notice_market_quote_ambiguous: "تطابق عدة رموز: %assets%. حدد الشبكة أو عنوان العقد."
-$agent_notice_market_quote_not_found: لم يتم العثور على رمز مطابق لطلب السعر هذا.
-$agent_notice_market_quote_planning_unavailable: تعذر تفسير طلب السعر.
-$agent_notice_market_quote_capability_unavailable: ميزة البحث عن السعر غير متوفرة في هذا التطبيق.
-$agent_notice_market_quote_wallet_context_unavailable: سياق المحفظة المطلوب لهذا البحث عن السعر غير متوفر.
-$agent_notice_market_quote_currency_unsupported: عملة الاقتباس المحددة غير مدعومة لهذا البحث عن السعر.
-$agent_notice_market_quote_unavailable: السعر الحالي غير متوفر لهذا الرمز.
-$agent_notice_market_quote_wallet_context_changed: تغيرت المحفظة النشطة قبل اكتمال البحث عن السعر.
-$agent_notice_market_quote_timeout: انتهت مهلة البحث عن السعر.
-$agent_notice_market_quote_tool_failed: خدمة السعر لم تتمكن من إكمال البحث.
-$agent_notice_market_quote_invalid_result: تعذر التحقق من استجابة السعر.
-$agent_notice_market_quote_cancelled: تم إلغاء البحث عن السعر.
-$agent_notice_portfolio_unavailable: بيانات المحفظة غير متوفرة الآن.
-$agent_notice_receive_details_required: حدد الأصل الرقمي والشبكة للإيداع.
-$agent_notice_receive_asset_required: حدد الأصل الرقمي للإيداع.
-$agent_notice_receive_network_required: حدد الشبكة للإيداع.
-$agent_notice_receive_ready: شاشة الاستلام جاهزة للفتح.
-$agent_notice_receive_memo_not_required: المذكرة غير مطلوبة عند تمويل عنوان My Wallet الخاص بك — اترك الحقل فارغًا.
-$agent_notice_receive_unavailable: الاستلام غير متاح لهذه المحفظة.
-$agent_notice_receive_planning_unavailable: تعذر تفسير طلب الاستلام. أعد صياغته أو افتح الاستلام.
-$agent_notice_receive_active_account_unavailable: المحفظة النشطة غير متوفرة. غيّر المحفظة وحاول مرة أخرى.
-$agent_notice_receive_client_unavailable: استلام عبر الوكيل غير متاح في هذا التطبيق. افتح الاستلام بدلاً من ذلك.
-$agent_notice_receive_chain_unsupported: هذه المحفظة لا تدعم %requested_network%. الشبكة النشطة هي %active_network%.
-$agent_notice_receive_active_network_mismatch: الشبكة النشطة هي %active_network%. قم بالتبديل إلى %requested_network% للاستلام هناك.
-$agent_notice_retry_required: يرجى محاولة الطلب مرة أخرى.
-$agent_notice_send_details_required: أضف تفاصيل التحويل المفقودة للمتابعة.
-$agent_notice_send_form_amount_required: افتح الإرسال، ثم أدخل المبلغ في نموذج التحويل.
-$agent_notice_send_ready: بالطبع — التحويل جاهز. راجع التفاصيل قبل الإرسال.
-$agent_notice_send_ready_inferred_asset: يبدو أنك كنت تقصد %symbol%. لقد جهّزت التحويل — راجع التفاصيل قبل الإرسال.
-$agent_notice_send_missing_amount: كم المبلغ الذي ترغب في إرساله؟
-$agent_notice_send_missing_asset: ما العملة التي ترغب في إرسالها؟
-$agent_notice_send_missing_recipient: إلى من ترغب في إرساله؟
-$agent_notice_send_no_sendable_balance: المحفظة النشطة ليس لديها رصيد متاح حالياً للإرسال.
-$agent_notice_send_unavailable: لم يكن بالإمكان تحضير التحويل بأمان. استخدم الإرسال أو حاول مرة أخرى لاحقاً.
-$agent_notice_staking_ready: التخزين جاهز للفتح.
-$agent_notice_staking_unavailable: التخزين عبر الوكيل غير متاح الآن. افتح التخزين من المحفظة بدلاً من ذلك.
-$agent_notice_staking_planning_unavailable: تعذر تفسير طلب التخزين. أعد صياغته أو افتح التخزين.
-$agent_notice_staking_active_account_unavailable: المحفظة النشطة غير متاحة. انتقل إلى محفظة أخرى وحاول مرة أخرى.
-$agent_notice_staking_view_only: التخزين غير متاح لمحفظة للعرض فقط. انتقل إلى محفظة يمكنك التوقيع بها.
-$agent_notice_staking_client_unavailable: التخزين من خلال الوكيل غير متاح في هذا التطبيق. افتح التخزين من المحفظة بدلاً من ذلك.
-$agent_notice_staking_asset_unavailable: التخزين لهذا الأصل غير متاح في المحفظة النشطة. اختر أصلاً آخر متاحاً للتخزين.
-$agent_notice_staking_amount_invalid: لا يمكن استخدام مبلغ التخزين المطلوب. أدخل مبلغاً آخر في التخزين.
-$agent_notice_staking_wallet_context_changed: تغيرت خيارات التخزين في المحفظة النشطة. اطلب من الوكيل تحضير التخزين مرة أخرى.
-$agent_notice_swap_ready_indicative: "تقدير توضيحي: %from_amount% %from_symbol% ≈ %to_amount% %to_symbol%. سيتم تحميل العرض التنفيذي، الرسوم، الانزلاق، وتأثير السعر في التبادل."
-$agent_notice_swap_ready_price_unavailable: السعر المحلي التوضيحي لـ %from_symbol% → %to_symbol% غير متاح. افتح التبادل لتحميل العرض التنفيذي والرسوم والانزلاق.
-$agent_notice_swap_details_source_asset: حدد الأصل الرقمي للتبادل.
-$agent_notice_swap_details_destination_asset: حدد الأصل الرقمي للاستلام.
-$agent_notice_swap_details_amount: حدد كمية رقمية موجبة.
-$agent_notice_swap_details_direction: حدد الأصل المصدر والأصل المستهدف والمبلغ للمتابعة.
-$agent_notice_swap_details_candidates: "مطابقات %prompt%: %candidates%."
-$agent_notice_swap_unavailable: تحضير التبادل من خلال الوكيل غير متاح حالياً. افتح التبادل من المحفظة بدلاً من ذلك.
-$agent_notice_swap_planning_unavailable: تعذر تفسير طلب التبادل. حدد كلا الأصلين الرقميين والمبلغ.
-$agent_notice_swap_active_account_unavailable: المحفظة النشطة غير متاحة. انتقل إلى محفظة أخرى وحاول مرة أخرى.
-$agent_notice_swap_view_only: تحضير التبادل غير متاح لمحفظة عرض فقط. انتقل إلى محفظة يمكنك التوقيع بها.
-$agent_notice_swap_client_unavailable: تحضير التبادل من خلال الوكيل غير متاح في هذا التطبيق. افتح التبادل من المحفظة بدلاً من ذلك.
-$agent_notice_swap_wallet_context_changed: تم تغيير المحفظة النشطة قبل اكتمال إعداد المبادلة. حاول مرة أخرى.
-$agent_notice_swap_timeout: انتهت مهلة إعداد المبادلة. حاول مرة أخرى.
-$agent_notice_swap_tool_failed: تعذر على المحفظة إعداد هذه المبادلة. حاول مرة أخرى أو افتح المبادلة.
-$agent_notice_swap_invalid_result: تعذر التحقق من المبادلة المعدة. حاول مرة أخرى.
-$agent_notice_send_asset_not_held: هذا الأصل غير متاح في المحفظة النشطة. اختر أصلًا آخر أو محفظة أخرى.
-$agent_notice_send_insufficient_balance: لا يوجد رصيد كافٍ لهذا التحويل. قلل المبلغ أو قم بتبديل المحافظ.
-$agent_notice_send_recipient_not_found: لم يتم العثور على محفظة خاصة أو عنوان محفوظ مطابق.
-$agent_notice_send_recipient_not_found_named: لم يتم العثور على محفظة خاصة أو عنوان محفوظ باسم “%recipient%”.
-$agent_notice_send_recipient_ambiguous: قد يطابق أكثر من محفظة أو جهة اتصال واحدة. حدد المستلم.
-$agent_notice_send_address_book_unavailable: لا يمكن تحميل دفتر العناوين الحالي. حاول مرة أخرى أو اختر جهة الاتصال في الإرسال.
-$agent_notice_send_recipient_matching_unavailable: دفتر العناوين متاح، لكن لم يتمكن الوكيل من مطابقة اسم المستلم بشكل واضح. حدد الاسم أو اختر جهة الاتصال في الإرسال.
-$agent_notice_send_intent_extraction_unavailable: أي أصل ترغب في إرساله؟
-$agent_notice_send_intent_provider_unavailable: خدمة معالجة الأوامر غير متوفرة مؤقتًا. حاول مرة أخرى أو استخدم الإرسال.
-$agent_notice_send_invalid_recipient: عنوان المستلم غير صالح.
-$agent_notice_send_recipient_unresolved: تعذر تحديد المستلم.
-$agent_notice_send_recipient_inactive: حساب المستلم غير نشط.
-$agent_notice_send_memo_required: يتطلب هذا التحويل ملاحظة.
-$agent_notice_send_wallet_not_initialized: المحفظة المستلمة غير مهيأة.
-$agent_notice_send_active_account_unavailable: المحفظة النشطة غير متاحة. قم بتبديل المحافظ.
-$agent_notice_send_chain_unsupported: لا يمكن لهذه المحفظة الإرسال على الشبكة المحددة. غيّر الشبكة أو المحفظة.
-$agent_notice_send_client_unavailable: تحويلات الوكيل غير متوفرة في هذا التطبيق. استخدم الإرسال بدلاً من ذلك.
-$agent_notice_send_view_only: لا يمكن للمحفظة للعرض فقط إرسال الأموال. غيّر المحفظة.
-$agent_notice_send_offline: اتصل بالإنترنت لتحضير هذا التحويل.
-$agent_notice_send_wallet_context_changed: تغيرت المحفظة النشطة. حضّر التحويل مرة أخرى.
-$agent_notice_send_source_wallet_selection_required: يمكن للوكيل تحضير هذا التحويل فقط من المحفظة الحالية. انتقل إلى المحفظة المسمّاة وحاول مرة أخرى.
-$agent_notice_send_validation_failed: تفاصيل التحويل لم تمر بالتحقق من المحفظة.
-$agent_notice_tool_unavailable: هذه العملية غير متوفرة في العميل الحالي.
-$agent_notice_wallet_unavailable: بيانات المحفظة غير متوفرة الآن.
-$agent_notice_wallet_filter_ambiguous: اختر محفظة أو أصل لتضييق الطلب.
-$agent_notice_web_unavailable: البحث على الويب غير متوفر حالياً.
-$agent_notice_web_capability_unavailable: البحث على الويب غير مدعوم بتكوين الوكيل الحالي.
-$agent_notice_web_planning_failed: تعذّر على الوكيل تحضير استعلام البحث.
-$agent_notice_web_budget_denied: تم الوصول إلى حد البحث على الويب. يرجى المحاولة لاحقاً.
-$agent_notice_web_provider_rate_limited: حدّ مزود البحث من الطلبات مؤقتاً. يرجى المحاولة لاحقاً.
-$agent_notice_web_provider_unavailable: لم يستجب مزود البحث. يرجى المحاولة لاحقاً.
-$agent_notice_web_no_results: اكتمل البحث، لكن لم يتم العثور على نتائج ذات صلة.
-$agent_notice_web_invalid_sources: تم استقبال نتائج البحث، لكنها لم تمر بفحوصات الأمان.
-$agent_notice_web_synthesis_timeout: تم العثور على النتائج، لكن معالجتها استغرقت وقتاً طويلاً.
-$agent_notice_web_synthesis_invalid: تم العثور على نتائج، لكن الوكيل لم يتمكن من إنتاج ملخص صالح.
-$agent_notice_web_synthesis_unavailable: تم العثور على نتائج، لكن نموذج التلخيص غير متاح حالياً.
-$agent_notice_web_policy_rejected: تم إنشاء الملخص، لكنه لم يجتاز اختبارات الجودة.
+$agent_notice_web_search_no_results: تعذّر العثور على معلومات مطابقة لطلبك.
 $agent_error_session: انتهت صلاحية جلسة الوكيل الخاصة بك. أعد فتح الوكيل وحاول مرة أخرى.
 $agent_error_limit: لا يمكن إكمال الطلب بسبب الوصول إلى حد الوكيل.
 $agent_error_tool: تعذر إتمام عملية المحفظة. الرجاء المحاولة مرة أخرى.
 $agent_error_conversation_updated: تم تحديث المحادثة. الرجاء إعادة محاولة الطلب.
 $agent_error_generic: لم يتمكن الوكيل من إكمال الطلب. الرجاء المحاولة مرة أخرى.
+$agent_error_invalid_response: تعذّرت قراءة رد الوكيل. يُرجى المحاولة مرة أخرى.
 $agent_error_update_required: قم بتحديث التطبيق للمتابعة.
-$agent_semantic_transactions: المعاملات
-$agent_semantic_positions: المراكز
-$agent_semantic_market: نظرة عامة على السوق
 $agent_wallet_page_navigation: صفحات بيانات المحفظة
-$agent_wallet_page_previous: ← السابق
-$agent_wallet_page_next: التالي →
 $agent_wallet_page_indicator: "%current% من %total%"
-$agent_portfolio_unpriced: غير مشمول
-$agent_portfolio_unpriced_value: غير مشمول
-$agent_portfolio_more_positions: +%count% المزيد
-$agent_portfolio_history_on: السجل على شبكة %network%
-$agent_portfolio_no_activity: لا يوجد نشاط حديث.
 Clear Chat: مسح الدردشة
 Unsupported link: رابط غير معتمد
 My Wallet Features: ميزات My Wallet
@@ -1674,10 +1361,13 @@ Manage Assets: إدارة الأصول
 Pulse: نبض
 Edit Message: تحرير الرسالة
 Toggle Hints: تبديل التلميحات
-AgentErrorResponseFailed: "خطأ: فشل في الحصول على الاستجابة"
-AgentErrorConnectionFailed: "خطأ: فشل الاتصال"
 Scroll To Bottom: قم بالتمرير إلى الأسفل
 $agent_clear_chat_confirm: هل أنت متأكد أنك تريد مسح سجل الدردشة؟
+Report a Problem: الإبلاغ عن مشكلة
+$agent_report_problem_description: سيتم إرسال الرسائل الأخيرة من هذه الدردشة إلى فريقنا للمساعدة في حل المشكلة.
+$agent_report_problem_sent: شكرًا لك! تم إرسال بلاغك.
+$agent_report_problem_failed: تعذّر إرسال البلاغ. يرجى المحاولة مرة أخرى.
+$agent_report_problem_rate_limited: لقد أرسلت عدة بلاغات مؤخرًا. يرجى المحاولة مرة أخرى لاحقًا.
 $unknown_swap_token: رمز غير معروف في رابط المبادلة. تم استخدام الرموز الافتراضية.
 $action_not_available_view_mode: هذا الإجراء غير متاح لعرض المحافظ
 Deposit: إيداع
@@ -2307,6 +1997,7 @@ Tokenized Gold: الذهب المرمّز
 Index Funds: صناديق المؤشرات
 Search token or stock: ابحث عن توكن أو سهم
 "Activity Failed to Load": "تعذر تحميل النشاط"
+"$agent_source_bea_attribution": "يستخدم هذا المنتج واجهة بيانات مكتب التحليل الاقتصادي (BEA)، لكنه غير معتمد أو مصدّق عليه من BEA."
 "Address was copied!": "تم نسخ العنوان!"
 "Allow App Lock": "السماح بقفل التطبيق"
 "An error occurred": "حدث خطأ"

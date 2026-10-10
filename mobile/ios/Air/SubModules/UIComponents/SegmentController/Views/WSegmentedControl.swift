@@ -41,6 +41,7 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
 
     private var hasAppliedSelection = false
     private var lastSelectedItemID: String?
+    private var appliedPagingSelection: SegmentedControlSelection?
     private var lastLayoutWidth: CGFloat = 0
     private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
     private var autoScrollWorkItem: DispatchWorkItem?
@@ -153,13 +154,20 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
             _ = model.isReordering
         } onChange: { [weak self] in
             DispatchQueue.main.async {
-                self?.syncFromModel()
-                self?.observeModel()
+                guard let self else { return }
+                // A pager frame was already applied synchronously. Still observe again,
+                // and do not suppress a subsequent item, selection, or reordering change.
+                if self.appliedPagingSelection == nil || self.appliedPagingSelection != self.model.selection
+                    || self.renderedItems != self.model.items || self.model.isReordering != self.isReorderingApplied {
+                    self.syncFromModel()
+                }
+                self.observeModel()
             }
         }
     }
 
     private func syncFromModel() {
+        appliedPagingSelection = nil
         let willRebuild = model.items != renderedItems
         if willRebuild || shouldSuppressTransientAnimations {
             UIView.performWithoutAnimation {
@@ -229,7 +237,21 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         guard model.rawProgress != progress else { return }
         autoScrollWorkItem?.cancel()
         model.setRawProgress(progress)
-        applyPendingModelChangesWithoutAnimation()
+        guard model.style == .compactRootHeader, hasAppliedSelection,
+              model.items == renderedItems, !model.isReordering, !isReorderingApplied,
+              !isInReplacementCrossfade else {
+            applyPendingModelChangesWithoutAnimation()
+            return
+        }
+        UIView.performWithoutAnimation {
+            // Selection changes move the lens and item accessories, not the header's
+            // geometry. Honor pending resize/layout work without remeasuring every frame.
+            layoutIfNeeded()
+            updateSelection(animated: false)
+            autoScrollToSelected(animated: false)
+        }
+        lastSelectedItemID = model.selectedItem?.id
+        appliedPagingSelection = model.selection
     }
 
     internal func applyPendingModelChangesWithoutAnimation() {

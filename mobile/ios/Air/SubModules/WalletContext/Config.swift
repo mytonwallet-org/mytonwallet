@@ -71,7 +71,7 @@ public var APP_WEBSITE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io" : 
 public let APP_BLOG_URL = "https://mywallet.io/en/blog/"
 public var APP_TERMS_OF_USE_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/terms-of-use/" : "https://mywallet.io/terms-of-use/" }
 public var APP_PRIVACY_POLICY_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/privacy-policy/" : "https://mywallet.io/privacy-policy/" }
-public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "https://apps.apple.com/us/app/gram-wallet/id6763345750" : "https://get.mywallet.io/ios-store?utm_source=app_share" }
+public var APP_INSTALL_URL: String { IS_GRAM_WALLET ? "https://gramwallet.io/ios-store?utm_source=app_share" : "https://get.mywallet.io/ios-store?utm_source=app_share" }
 public let BOT_USERNAME = "MyTonWalletBot"
 public let SUPPORT_USERNAME = "mysupport"
 

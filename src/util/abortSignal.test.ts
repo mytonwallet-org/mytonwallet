@@ -1,5 +1,6 @@
 import {
   mergeAbortSignals,
+  mergeAbortSignalsWithTimeout,
   pauseWithAbortSignal,
   raceWithAbortSignal,
 } from './abortSignal';
@@ -55,6 +56,36 @@ describe('mergeAbortSignals', () => {
 
     expect(merged.signal?.reason).toBe(reason);
     expect(secondAdd).not.toHaveBeenCalled();
+  });
+});
+
+describe('mergeAbortSignalsWithTimeout', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('aborts with a TimeoutError once the time runs out', () => {
+    const { signal } = mergeAbortSignalsWithTimeout(100, new AbortController().signal);
+
+    jest.advanceTimersByTime(99);
+    expect(signal.aborted).toBe(false);
+    jest.advanceTimersByTime(1);
+
+    expect(signal.aborted).toBe(true);
+    expect(signal.reason).toMatchObject({ name: 'TimeoutError' });
+  });
+
+  it('keeps the reason of another signal and never times out after cleanup', () => {
+    const controller = new AbortController();
+    const reason = new Error('runtime destroyed');
+    const first = mergeAbortSignalsWithTimeout(100, controller.signal);
+    const second = mergeAbortSignalsWithTimeout(100);
+
+    controller.abort(reason);
+    second.cleanup();
+    jest.advanceTimersByTime(100);
+
+    expect(first.signal.reason).toBe(reason);
+    expect(second.signal.aborted).toBe(false);
   });
 });
 

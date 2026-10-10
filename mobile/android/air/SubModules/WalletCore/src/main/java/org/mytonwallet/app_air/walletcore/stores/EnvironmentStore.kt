@@ -26,7 +26,7 @@ object EnvironmentStore : IStore {
             return ApplicationContextHolder.isBetaApp
         }
 
-    val isTokenPriceInsightEnabled: Boolean
+    val isAgentChartAnalysisEnabled: Boolean
         get() {
             return false
         }

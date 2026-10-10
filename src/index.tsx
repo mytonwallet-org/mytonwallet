@@ -12,8 +12,7 @@ import {
 } from './config';
 import { requestMutation } from './lib/fasterdom/fasterdom';
 import { enableStrict } from './lib/fasterdom/stricterdom';
-import { initAgentProtocolVersion } from './util/agent/agentProtocolVersion';
-import { initAgentWriterPrompt } from './util/agent/agentWriterPromptState';
+import { initAgentV2HostContext } from './global/initAgentV2HostContext';
 import { betterView } from './util/betterView';
 import { addChunkLoadErrorListener } from './util/chunkLoading';
 import { initElectron } from './util/electron';
@@ -58,9 +57,8 @@ addChunkLoadErrorListener(() => {
 void (async () => {
   await window.electron?.restoreStorage?.();
 
-  initAgentProtocolVersion();
-  initAgentWriterPrompt();
   getActions().init();
+  void initAgentV2HostContext();
 
   // Connecting to the API from remote tabs creates excessive polling in the API.
   // The remote tab doesn't need the API anyway.

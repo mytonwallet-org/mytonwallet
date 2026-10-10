@@ -17,7 +17,7 @@ import {
 } from '../../../config';
 import { requestMutation } from '../../../lib/fasterdom/fasterdom';
 import { parseAccountId } from '../../../util/account';
-import { clearAgentChat } from '../../../util/agent/agentStorage';
+import clearLegacyAgentStorage from '../../../util/agent/clearLegacyAgentStorage';
 import {
   getDeeplinkFromLocation,
   processDeeplink,
@@ -171,7 +171,7 @@ addActionHandler('afterSignOut', async (global, actions, payload) => {
     await enclave.reset();
     actions.resetApiSettings({ areAllDisabled: true });
 
-    void clearAgentChat();
+    void clearLegacyAgentStorage();
   }
 });
 

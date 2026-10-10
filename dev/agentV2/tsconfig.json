@@ -1,6 +1,8 @@
 {
   "extends": "../../tsconfig.json",
   "include": [
-    "../../src/api/agentV2/protocol/**/*.ts"
+    "../../src/api/agentV2/protocol/**/*.ts",
+    "../../src/@types/global.d.ts",
+    "../../src/electron/types.ts"
   ]
 }

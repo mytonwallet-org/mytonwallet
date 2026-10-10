@@ -190,6 +190,16 @@ struct DeeplinkProvenanceHandlerTests {
         }
     }
 
+    @Test
+    func `own domains never become referrers`() throws {
+        for host in ["gramwallet.io", "get.gramwallet.io", "gramwallet.app", "mywallet.io"] {
+            let url = try #require(URL(string: "https://my.tt/get?attribution_referrer=\(host)"))
+            #expect(splitAttributionDeeplink(url).snapshot == nil)
+        }
+        let external = try #require(URL(string: "https://my.tt/get?attribution_referrer=gramwallet.io.example"))
+        #expect(splitAttributionDeeplink(external).snapshot?.referrerDomain == "gramwallet.io.example")
+    }
+
     private func makeOfframpURL() -> URL? {
         URL(string: "\(SELF_PROTOCOL_SCHEME)://offramp?transactionId=test")
     }

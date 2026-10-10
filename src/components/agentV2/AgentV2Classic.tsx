@@ -1,12 +1,8 @@
 import React, { memo, useMemo, useRef } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type {
-  AgentPublicFollowUpV2,
-  AgentPublicInputContinuationV1,
-} from '../../api/agentV2/protocol/types';
-import type { AgentV2WalletConversationControl } from '../../api/agentV2/types';
-import type { AgentHint, AgentMessage, AnimationLevel } from '../../global/types';
+import type { AgentPublicFollowUpV2 } from '../../api/agentV2/protocol/types';
+import type { AgentMessage, AnimationLevel } from '../../global/types';
 import type {
   AgentConversationComposerHeightContext,
   AgentConversationComposerProps,
@@ -15,7 +11,6 @@ import type {
 } from '../agent/AgentConversationShell';
 
 import { AGENT_V2_QUOTA_STATUS_ENABLED } from '../../config';
-import { isAgentWriterPromptEditorEnabled } from '../../util/agent/agentWriterPromptState';
 import { updateAgentV2InputBarSpacing } from './inputBarSpacing';
 
 import useLang from '../../hooks/useLang';
@@ -28,8 +23,6 @@ import AgentRunActivity from '../agent/AgentRunActivity';
 import MessageBubble from '../agent/MessageBubble';
 import { AgentComposerStatus, AgentQuotaStatus } from './AgentStatusNotice';
 import { AgentV2ConsentScreen } from './AgentV2Conversation';
-import AgentV2IncomingMessage from './AgentV2IncomingMessage';
-import AgentV2WriterPrompt from './AgentV2WriterPrompt';
 
 interface OwnProps {
   isActive: boolean;
@@ -47,18 +40,14 @@ export function AgentV2Classic({
 }: OwnProps & StateProps) {
   const { switchToWallet } = getActions();
   const lang = useLang();
-  const inputContinuationRef = useRef<{
-    messageId: number;
-    continuation: AgentPublicInputContinuationV1;
-  }>();
-  const focusComposerRef = useRef<NoneToVoidFunction>();
-  const requestBottomStickRef = useRef<NoneToVoidFunction>();
+  const requestLiveTailRef = useRef<NoneToVoidFunction>();
   const {
     messages,
     hints,
     activity,
     isInitialLoadComplete,
     isInputDisabled,
+    isRunActive,
     isConsentAccepted,
     textRevealPresentations,
     hasOlderMessages,
@@ -67,8 +56,8 @@ export function AgentV2Classic({
     sendMessage,
     sendHint,
     sendFollowup,
-    sendWalletControl,
     clearChat,
+    reportProblem,
     acceptConsent,
     composerStatus,
     userQuota,
@@ -80,72 +69,37 @@ export function AgentV2Classic({
     settleTextRevealSession,
   } = useAgentV2Messages({ isActive, lang });
 
-  const resetComposerExtension = useLastCallback(() => {
-    inputContinuationRef.current = undefined;
-  });
-
-  const sendComposerMessage = useLastCallback((text: string, editingMessageId?: number) => {
-    const selectedInputContinuation = inputContinuationRef.current;
-    inputContinuationRef.current = undefined;
-    sendMessage(text, editingMessageId, selectedInputContinuation);
-  });
-
-  const sendSelectedHint = useLastCallback((hint: AgentHint) => {
-    inputContinuationRef.current = undefined;
-    sendHint(hint);
-  });
-
-  const handleInputContinuation = useLastCallback((
-    messageId: number,
-    continuation: AgentPublicInputContinuationV1,
-  ) => {
-    inputContinuationRef.current = { messageId, continuation };
-    focusComposerRef.current?.();
-  });
+  const lastMessage = messages[messages.length - 1];
+  // Once the answer message exists, it hosts the run indicator in place of its bubble
+  const isActivityInFooter = !lastMessage || lastMessage.isOutgoing;
 
   const handleFollowup = useLastCallback((messageId: number, followup: AgentPublicFollowUpV2) => {
-    inputContinuationRef.current = undefined;
-    requestBottomStickRef.current?.();
+    requestLiveTailRef.current?.();
     sendFollowup(messageId, followup);
-  });
-
-  const handleWalletControl = useLastCallback((
-    messageId: number,
-    control: AgentV2WalletConversationControl,
-  ) => {
-    inputContinuationRef.current = undefined;
-    requestBottomStickRef.current?.();
-    sendWalletControl(messageId, control);
-  });
-
-  const handleRetryMessage = useLastCallback((messageId: number) => {
-    inputContinuationRef.current = undefined;
-    retryMessage(messageId);
   });
 
   const renderMessage = useLastCallback((
     message: AgentMessage,
     context: AgentConversationMessageContext,
   ) => {
-    focusComposerRef.current = context.onFocusComposer;
-    requestBottomStickRef.current = context.onRequestBottomStick;
+    requestLiveTailRef.current = context.onRequestLiveTail;
+    const isLatest = message.id === lastMessage?.id;
 
     return (
       <MessageBubble
         key={message.id}
         message={message}
-        areLinksEnabled={false}
         isDisabled={isInputDisabled}
-        incomingMessageComponent={AgentV2IncomingMessage}
-        shouldRenderStreamingText
         shouldAnimateTextStreaming={context.shouldAnimateTextStreaming}
+        isLatest={isLatest}
+        activity={isLatest ? activity : undefined}
         textRevealPresentation={context.textRevealPresentation}
+        isJustAdded={context.isJustAdded}
         onEdit={context.onEditMessage}
         onFollowup={handleFollowup}
-        onInputContinuation={handleInputContinuation}
-        onWalletControl={handleWalletControl}
         onAction={activateAction}
-        onRetry={message.isRetryAvailable ? handleRetryMessage : undefined}
+        onRetry={message.isRetryAvailable ? retryMessage : undefined}
+        onReport={context.onReportMessage}
         onTextRevealSessionConsumed={consumeTextRevealSession}
         onTextRevealSessionSettled={settleTextRevealSession}
         onTextRevealProgress={context.onTextRevealProgress}
@@ -190,26 +144,22 @@ export function AgentV2Classic({
       statusNotice={statusSlot}
     />
   ));
-  const shouldShowWriterPrompt = isAgentWriterPromptEditorEnabled();
   const conversation = useMemo(() => ({
     messages,
     hints,
     isInitialLoadComplete,
+    isRunActive,
     textRevealPresentations,
     renderMessage,
-  }), [hints, isInitialLoadComplete, messages, renderMessage, textRevealPresentations]);
+  }), [hints, isInitialLoadComplete, isRunActive, messages, renderMessage, textRevealPresentations]);
   const composer = useMemo(() => ({
     isDisabled: isInputDisabled,
     shouldHide: !isInputVisible,
-    onSendMessage: sendComposerMessage,
-    onSendHint: sendSelectedHint,
-    onReset: resetComposerExtension,
+    onSendMessage: sendMessage,
+    onSendHint: sendHint,
     onHeightChange: handleComposerHeightChange,
     render: renderComposer,
-  }), [
-    handleComposerHeightChange, isInputDisabled, isInputVisible, renderComposer, resetComposerExtension,
-    sendComposerMessage, sendSelectedHint,
-  ]);
+  }), [handleComposerHeightChange, isInputDisabled, isInputVisible, renderComposer, sendHint, sendMessage]);
   const history = useMemo<AgentConversationHistory>(() => ({
     hasOlderMessages,
     isLoading: isLoadingOlderMessages,
@@ -218,15 +168,15 @@ export function AgentV2Classic({
   }), [hasOlderMessages, isLoadingOlderMessages, loadOlderMessages]);
   const slots = useMemo(() => ({
     body: isConsentAccepted === false ? <AgentV2ConsentScreen onAccept={acceptConsent} /> : undefined,
-    messageListFooter: activity && <AgentRunActivity key="activity" activity={activity} />,
-    beforeComposer: shouldShowWriterPrompt ? <AgentV2WriterPrompt /> : undefined,
+    messageListFooter: isActivityInFooter ? <AgentRunActivity key="activity" activity={activity} /> : undefined,
     bottomStickDependency: activity,
-  }), [acceptConsent, activity, isConsentAccepted, shouldShowWriterPrompt]);
+  }), [acceptConsent, activity, isActivityInFooter, isConsentAccepted]);
   const actions = useMemo(() => ({
     onBack: switchToWallet,
     onClearChat: clearChat,
+    onReportProblem: reportProblem,
     onScroll,
-  }), [clearChat, onScroll, switchToWallet]);
+  }), [clearChat, onScroll, reportProblem, switchToWallet]);
 
   return (
     <AgentConversationShell

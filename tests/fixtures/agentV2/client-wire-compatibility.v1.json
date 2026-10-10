@@ -5,8 +5,199 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "action": {
+            "id": "48484848-4848-4848-8848-484848484848",
+            "schemaVersion": 1,
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "url": "https://app.ston.fi/",
+            "requiresConfirmation": true,
+            "title": "Review prepared action"
+          }
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        },
+        {
+          "type": "semantic_content",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "content": {
+            "kind": "notice",
+            "schemaVersion": 1,
+            "code": "agent_unavailable"
+          }
+        },
+        {
+          "type": "semantic_content",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "content": {
+            "kind": "notice",
+            "schemaVersion": 1,
+            "code": "content_over_budget"
+          }
+        },
+        {
+          "type": "run_start",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "clientRunId": "44444444-4444-4444-8444-444444444444",
+          "threadId": "33333333-3333-4333-8333-333333333333",
+          "threadRevision": 1,
+          "sequence": 1
+        },
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "sequence": 3,
+          "toolCall": {
+            "id": "72727272-7272-4272-8272-727272727272",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "73737373-7373-4373-8373-737373737373"
+            },
+            "walletContextSession": {
+              "sessionId": "74747474-7474-4474-8474-747474747474",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "value.series",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "metric": "portfolio_value",
+              "assetSelectors": [],
+              "range": "1m",
+              "maxPoints": 64
+            }
+          }
+        },
+        {
+          "type": "semantic_content",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "content": {
+            "kind": "notice",
+            "schemaVersion": 1,
+            "code": "web_search_no_results"
+          }
+        },
+        {
+          "type": "text_draft",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review.",
+          "offset": 0
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "delta": "The requested result is ready to review.",
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "action": {
+            "id": "49494949-4949-4949-8949-494949494949",
+            "schemaVersion": 1,
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "url": "mtw://buy-with-card?chain=solana&provider=moonpay",
+            "requiresConfirmation": true,
+            "title": "Review prepared action"
+          }
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
           "type": "run_activity",
-          "protocolVersion": 2,
+          "ephemeral": true,
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 2,
           "code": "web.searching",
@@ -14,25 +205,20 @@
         },
         {
           "type": "run_activity",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 3,
           "code": "web.reading_sources",
-          "status": "completed",
-          "detail": {
-            "kind": "source_count",
-            "count": 4
-          }
+          "status": "completed"
         },
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 3,
           "toolCall": {
             "id": "44444444-4444-4444-8444-444444444444",
             "name": "wallet.data.query",
-            "version": 5,
             "scopes": [
               "wallet.data.read"
             ],
@@ -50,7 +236,6 @@
               "activeNetwork": "ton"
             },
             "arguments": {
-              "schemaVersion": 5,
               "operation": "positions.list",
               "accountSelector": {
                 "kind": "current"
@@ -69,58 +254,48 @@
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 4,
           "messageId": "22222222-2222-4222-8222-222222222222",
-          "content": {
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "positions",
-            "outcome": "partial",
-            "hasMore": false,
-            "omittedRows": {
-              "count": 4,
-              "accuracy": "lower_bound"
-            },
-            "policySummary": {
-              "presentation": "hidden_review",
-              "omittedSpam": {
-                "count": 2,
-                "accuracy": "exact"
-              },
-              "suspicious": {
-                "count": 1,
-                "accuracy": "lower_bound"
-              }
-            },
-            "rows": [
-              {
-                "chain": "ton",
-                "positionKind": "fungible",
-                "assetSymbol": "GRAM AT GRAMEVENT.ORG",
-                "assetName": "Gram Event",
-                "assetLabelStatus": "untrusted_plaintext"
-              }
-            ]
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 4,
           "messageId": "22222222-2222-4222-8222-222222222222",
-          "content": {
-            "kind": "notice",
+          "delta": "Рыночные данные сейчас недоступны."
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 5,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 6,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "action": {
+            "id": "47474747-4747-4747-8747-474747474747",
             "schemaVersion": 1,
-            "code": "market_analysis_unavailable"
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "url": "https://fragment.com/",
+            "requiresConfirmation": true,
+            "title": "Review prepared action"
           }
         },
         {
           "type": "message_content_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 5,
           "messageId": "22222222-2222-4222-8222-222222222222",
@@ -128,7 +303,7 @@
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "11111111-1111-4111-8111-111111111111",
           "sequence": 6,
           "messageId": "22222222-2222-4222-8222-222222222222",
@@ -140,124 +315,25 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "tool_call",
-          "protocolVersion": 2,
-          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
-          "sequence": 3,
-          "toolCall": {
-            "id": "c3c3c3c3-c3c3-43c3-83c3-c3c3c3c3c3c3",
-            "name": "action.swap.prepare",
-            "version": 1,
-            "scopes": [
-              "action.swap.prepare"
-            ],
-            "timeoutMs": 15000,
-            "maxResultBytes": 16384,
-            "intentSource": {
-              "kind": "userMessage",
-              "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2"
-            },
-            "walletContextSession": {
-              "sessionId": "c5c5c5c5-c5c5-45c5-85c5-c5c5c5c5c5c5",
-              "revision": 8,
-              "accountScope": "current",
-              "activeAccountRef": "account_current",
-              "activeNetwork": "ton"
-            },
-            "arguments": {
-              "schemaVersion": 1,
-              "sourceSelector": {
-                "kind": "query",
-                "query": "TON"
-              },
-              "destinationSelector": {
-                "kind": "query",
-                "query": "USDT",
-                "chain": "ton"
-              },
-              "amount": {
-                "value": "10",
-                "valueType": "decimal",
-                "side": "source"
-              }
-            }
-          }
-        },
-        {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
           "sequence": 4,
           "toolCallId": "c3c3c3c3-c3c3-43c3-83c3-c3c3c3c3c3c3",
           "status": "complete"
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
-          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
-          "sequence": 5,
-          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "swap_ready",
-            "arguments": {
-              "swapReady": {
-                "sourceAsset": {
-                  "slug": "toncoin",
-                  "chain": "ton",
-                  "symbol": "TON",
-                  "name": "Toncoin"
-                },
-                "destinationAsset": {
-                  "slug": "usdton",
-                  "chain": "ton",
-                  "symbol": "USDT",
-                  "name": "Tether USD"
-                },
-                "amount": {
-                  "value": "10",
-                  "valueType": "decimal",
-                  "side": "source"
-                },
-                "quote": {
-                  "status": "resolved",
-                  "kind": "indicative_spot",
-                  "from": {
-                    "value": "10",
-                    "valueType": "decimal",
-                    "decimals": 9,
-                    "symbol": "TON",
-                    "slug": "toncoin",
-                    "chain": "ton"
-                  },
-                  "to": {
-                    "value": "25",
-                    "valueType": "decimal",
-                    "decimals": 6,
-                    "symbol": "USDT",
-                    "slug": "usdton",
-                    "chain": "ton"
-                  },
-                  "observedAt": "2026-08-18T12:00:00.000Z"
-                }
-              }
-            }
-          }
-        },
-        {
           "type": "action",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
           "sequence": 6,
           "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
           "action": {
             "id": "c4c4c4c4-c4c4-44c4-84c4-c4c4c4c4c4c4",
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "kind": "swap",
             "labelCode": "open_swap",
             "effect": "open_swap",
-            "sourceToolCallId": "c3c3c3c3-c3c3-43c3-83c3-c3c3c3c3c3c3",
             "contextBinding": {
               "sessionId": "c5c5c5c5-c5c5-45c5-85c5-c5c5c5c5c5c5",
               "revision": 8,
@@ -281,12 +357,14 @@
               "side": "source"
             },
             "localDraftRequired": false,
-            "requiresConfirmation": false
+            "requiresConfirmation": false,
+            "url": "https://my.tt/swap?in=toncoin&out=usdton&amount=10",
+            "title": "Review prepared action"
           }
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
           "sequence": 7,
           "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
@@ -298,108 +376,25 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "tool_call",
-          "protocolVersion": 2,
-          "runId": "d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1",
-          "sequence": 3,
-          "toolCall": {
-            "id": "d3d3d3d3-d3d3-43d3-83d3-d3d3d3d3d3d3",
-            "name": "action.swap.prepare",
-            "version": 1,
-            "scopes": [
-              "action.swap.prepare"
-            ],
-            "timeoutMs": 15000,
-            "maxResultBytes": 16384,
-            "intentSource": {
-              "kind": "userMessage",
-              "messageId": "d2d2d2d2-d2d2-42d2-82d2-d2d2d2d2d2d2"
-            },
-            "walletContextSession": {
-              "sessionId": "d5d5d5d5-d5d5-45d5-85d5-d5d5d5d5d5d5",
-              "revision": 9,
-              "accountScope": "current",
-              "activeAccountRef": "account_current",
-              "activeNetwork": "ton"
-            },
-            "arguments": {
-              "schemaVersion": 1,
-              "sourceSelector": {
-                "kind": "query",
-                "query": "USDT",
-                "chain": "ton"
-              },
-              "destinationSelector": {
-                "kind": "query",
-                "query": "TON"
-              },
-              "amount": {
-                "value": "10",
-                "valueType": "decimal",
-                "side": "destination"
-              }
-            }
-          }
-        },
-        {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1",
           "sequence": 4,
           "toolCallId": "d3d3d3d3-d3d3-43d3-83d3-d3d3d3d3d3d3",
           "status": "complete"
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
-          "runId": "d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1",
-          "sequence": 5,
-          "messageId": "d2d2d2d2-d2d2-42d2-82d2-d2d2d2d2d2d2",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "swap_ready",
-            "arguments": {
-              "swapReady": {
-                "sourceAsset": {
-                  "slug": "usdton",
-                  "chain": "ton",
-                  "symbol": "USDT",
-                  "name": "Tether USD"
-                },
-                "destinationAsset": {
-                  "slug": "toncoin",
-                  "chain": "ton",
-                  "symbol": "TON",
-                  "name": "Toncoin"
-                },
-                "amount": {
-                  "value": "10",
-                  "valueType": "decimal",
-                  "side": "destination"
-                },
-                "quote": {
-                  "status": "unavailable",
-                  "reason": "price_unavailable",
-                  "observedAt": "2026-08-18T12:01:00.000Z"
-                }
-              }
-            }
-          }
-        },
-        {
           "type": "action",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1",
           "sequence": 6,
           "messageId": "d2d2d2d2-d2d2-42d2-82d2-d2d2d2d2d2d2",
           "action": {
             "id": "d4d4d4d4-d4d4-44d4-84d4-d4d4d4d4d4d4",
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "kind": "swap",
             "labelCode": "open_swap",
             "effect": "open_swap",
-            "sourceToolCallId": "d3d3d3d3-d3d3-43d3-83d3-d3d3d3d3d3d3",
             "contextBinding": {
               "sessionId": "d5d5d5d5-d5d5-45d5-85d5-d5d5d5d5d5d5",
               "revision": 9,
@@ -423,12 +418,14 @@
               "side": "destination"
             },
             "localDraftRequired": false,
-            "requiresConfirmation": false
+            "requiresConfirmation": false,
+            "url": "https://my.tt/swap?in=usdton&out=toncoin&amountOut=10",
+            "title": "Review prepared action"
           }
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1",
           "sequence": 7,
           "messageId": "d2d2d2d2-d2d2-42d2-82d2-d2d2d2d2d2d2",
@@ -441,7 +438,7 @@
       "values": [
         {
           "type": "followups",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
           "sequence": 4,
           "messageId": "72727272-7272-4272-8272-727272727272",
@@ -465,7 +462,7 @@
         },
         {
           "type": "followups",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "76767676-7676-4676-8676-767676767676",
           "sequence": 4,
           "messageId": "77777777-7777-4777-8777-777777777777",
@@ -489,7 +486,7 @@
         },
         {
           "type": "followups",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "7b7b7b7b-7b7b-4b7b-8b7b-7b7b7b7b7b7b",
           "sequence": 4,
           "messageId": "7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c",
@@ -503,7 +500,7 @@
         },
         {
           "type": "followups",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "80808080-8080-4080-8080-808080808080",
           "sequence": 4,
           "messageId": "81818181-8181-4181-8181-818181818181",
@@ -527,7 +524,7 @@
         },
         {
           "type": "followups",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "85858585-8585-4585-8585-858585858585",
           "sequence": 4,
           "messageId": "86868686-8686-4686-8686-868686868686",
@@ -555,8 +552,15 @@
       "schema": "AgentThreadMessagesPageV2",
       "values": [
         {
-          "protocolVersion": 2,
-          "threadId": "56565656-5656-4656-8656-565656565656",
+          "protocolVersion": 3,
+          "thread": {
+            "id": "56565656-5656-4656-8656-565656565656",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
           "messages": [
             {
               "id": "57575757-5757-4757-8757-575757575757",
@@ -564,12 +568,8 @@
               "role": "assistant",
               "status": "complete",
               "content": {
-                "kind": "semantic",
-                "content": {
-                  "kind": "notice",
-                  "schemaVersion": 1,
-                  "code": "receive_ready"
-                }
+                "kind": "markdown",
+                "text": "The requested result is ready to review."
               },
               "createdAt": "2026-08-13T12:00:00.000Z",
               "actions": [
@@ -581,15 +581,23 @@
                   "effect": "open_receive",
                   "targetNetwork": "tron",
                   "localDraftRequired": false,
-                  "requiresConfirmation": false
+                  "requiresConfirmation": false,
+                  "title": "Review prepared action"
                 }
               ]
             }
           ]
         },
         {
-          "protocolVersion": 2,
-          "threadId": "56565656-5656-4656-8656-565656565656",
+          "protocolVersion": 3,
+          "thread": {
+            "id": "56565656-5656-4656-8656-565656565656",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 2
+          },
           "messages": [
             {
               "id": "59595959-5959-4959-8959-595959595959",
@@ -655,109 +663,16 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "tool_call",
-          "protocolVersion": 2,
-          "runId": "41414141-4141-4141-8141-414141414141",
-          "sequence": 3,
-          "toolCall": {
-            "id": "42424242-4242-4242-8242-424242424242",
-            "name": "market.asset.quote",
-            "version": 1,
-            "scopes": [
-              "market.data.read"
-            ],
-            "timeoutMs": 5000,
-            "maxResultBytes": 16384,
-            "intentSource": {
-              "kind": "userMessage",
-              "messageId": "43434343-4343-4343-8343-434343434343"
-            },
-            "walletContextSession": {
-              "sessionId": "44444444-4444-4444-8444-444444444444",
-              "revision": 2,
-              "accountScope": "current",
-              "activeAccountRef": "account_current",
-              "activeNetwork": "ton"
-            },
-            "arguments": {
-              "schemaVersion": 1,
-              "quoteCurrency": "USD",
-              "selector": {
-                "kind": "query",
-                "query": "TON"
-              }
-            }
-          }
-        },
-        {
-          "type": "tool_call",
-          "protocolVersion": 2,
-          "runId": "47474747-4747-4747-8747-474747474747",
-          "sequence": 3,
-          "toolCall": {
-            "id": "48484848-4848-4848-8848-484848484848",
-            "name": "market.asset.quote",
-            "version": 1,
-            "scopes": [
-              "market.data.read"
-            ],
-            "timeoutMs": 5000,
-            "maxResultBytes": 16384,
-            "intentSource": {
-              "kind": "userMessage",
-              "messageId": "49494949-4949-4949-8949-494949494949"
-            },
-            "walletContextSession": {
-              "sessionId": "50505050-5050-4050-8050-505050505050",
-              "revision": 2,
-              "accountScope": "current",
-              "activeAccountRef": "account_current",
-              "activeNetwork": "ton"
-            },
-            "arguments": {
-              "schemaVersion": 1,
-              "quoteAsset": {
-                "slug": "usdton",
-                "chain": "ton",
-                "symbol": "USDT"
-              },
-              "selector": {
-                "kind": "asset",
-                "asset": {
-                  "slug": "toncoin",
-                  "chain": "ton",
-                  "symbol": "GRAM"
-                }
-              }
-            }
-          }
-        },
-        {
           "type": "text_delta",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "41414141-4141-4141-8141-414141414141",
           "sequence": 4,
           "messageId": "45454545-4545-4545-8545-454545454545",
           "delta": "Gram (TON) is currently worth 2.5 USD. 24-hour change: -1.25%."
         },
         {
-          "type": "action",
-          "protocolVersion": 2,
-          "runId": "41414141-4141-4141-8141-414141414141",
-          "sequence": 5,
-          "messageId": "45454545-4545-4545-8545-454545454545",
-          "action": {
-            "id": "46464646-4646-4646-8646-464646464646",
-            "kind": "openToken",
-            "labelCode": "open_token",
-            "slug": "toncoin",
-            "chain": "ton",
-            "requiresConfirmation": true
-          }
-        },
-        {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "41414141-4141-4141-8141-414141414141",
           "sequence": 6,
           "messageId": "45454545-4545-4545-8545-454545454545",
@@ -770,13 +685,12 @@
       "values": [
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "31313131-3131-4131-8131-313131313131",
           "sequence": 3,
           "toolCall": {
             "id": "32323232-3232-4232-8232-323232323232",
             "name": "wallet.data.query",
-            "version": 5,
             "scopes": [
               "wallet.data.read"
             ],
@@ -798,7 +712,6 @@
               "activeNetwork": "ton"
             },
             "arguments": {
-              "schemaVersion": 5,
               "operation": "account.inventory",
               "accountSelector": {
                 "kind": "explicitAll"
@@ -810,13 +723,12 @@
         },
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
           "sequence": 3,
           "toolCall": {
             "id": "72727272-7272-4272-8272-727272727272",
             "name": "wallet.data.query",
-            "version": 5,
             "scopes": [
               "wallet.data.read"
             ],
@@ -834,7 +746,6 @@
               "activeNetwork": "ton"
             },
             "arguments": {
-              "schemaVersion": 5,
               "operation": "assets.search",
               "query": "TON",
               "chains": [
@@ -846,13 +757,12 @@
         },
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "75757575-7575-4575-8575-757575757575",
           "sequence": 3,
           "toolCall": {
             "id": "76767676-7676-4676-8676-767676767676",
             "name": "wallet.data.query",
-            "version": 5,
             "scopes": [
               "wallet.data.read"
             ],
@@ -874,7 +784,6 @@
               "activeNetwork": "ton"
             },
             "arguments": {
-              "schemaVersion": 5,
               "operation": "positions.list",
               "accountSelector": {
                 "kind": "explicitAll"
@@ -898,39 +807,16 @@
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "31313131-3131-4131-8131-313131313131",
           "sequence": 4,
           "messageId": "35353535-3535-4535-8535-353535353535",
-          "content": {
-            "kind": "walletQuery",
-            "schemaVersion": 1,
-            "queryKind": "accounts",
-            "outcome": "partial",
-            "hasMore": false,
-            "rows": [
-              {
-                "accountLabel": "Main",
-                "accessMode": "regular",
-                "portfolioTotalStatus": "partial",
-                "portfolioTotal": {
-                  "value": "125.5",
-                  "baseCurrency": "USD",
-                  "unpricedCount": 1
-                }
-              },
-              {
-                "accountLabel": "Watch",
-                "accessMode": "view_only",
-                "portfolioTotalStatus": "unavailable"
-              }
-            ]
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "31313131-3131-4131-8131-313131313131",
           "sequence": 5,
           "messageId": "35353535-3535-4535-8535-353535353535",
@@ -943,7 +829,7 @@
       "values": [
         {
           "type": "action",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "51515151-5151-4151-8151-515151515151",
           "sequence": 3,
           "messageId": "52525252-5252-4252-8252-525252525252",
@@ -961,27 +847,21 @@
             },
             "targetNetwork": "ton",
             "localDraftRequired": false,
-            "requiresConfirmation": false
+            "requiresConfirmation": false,
+            "title": "Review prepared action"
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "51515151-5151-4151-8151-515151515151",
           "sequence": 4,
           "messageId": "52525252-5252-4252-8252-525252525252",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "receive_ready",
-            "arguments": {
-              "receiveMemoRequirement": "not_required"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "51515151-5151-4151-8151-515151515151",
           "sequence": 5,
           "messageId": "52525252-5252-4252-8252-525252525252",
@@ -993,39 +873,24 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "14141414-1414-4414-8414-141414141414",
           "sequence": 3,
           "messageId": "15151515-1515-4515-8515-151515151515",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "recipient_not_found",
-              "recipientLabel": "Pavel Durov"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "41414141-4141-4141-8141-414141414141",
           "sequence": 3,
           "messageId": "42424242-4242-4242-8242-424242424242",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "receive_details_required",
-            "arguments": {
-              "receiveFields": ["asset", "network"]
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "41414141-4141-4141-8141-414141414141",
           "sequence": 4,
           "messageId": "42424242-4242-4242-8242-424242424242",
@@ -1037,25 +902,16 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "22222222-2222-4222-8222-222222222222",
           "sequence": 3,
           "messageId": "23232323-2323-4323-8323-232323232323",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "receive_unavailable",
-            "arguments": {
-              "receiveFailure": "chain_unsupported",
-              "requestedChain": "tron",
-              "activeChain": "ton"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "22222222-2222-4222-8222-222222222222",
           "sequence": 4,
           "messageId": "23232323-2323-4323-8323-232323232323",
@@ -1067,19 +923,12 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "66666666-6666-4666-8666-666666666666",
           "sequence": 2,
           "messageId": "77777777-7777-4777-8777-777777777777",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "web_search_unavailable",
-            "arguments": {
-              "webSearchFailure": "synthesis_timeout"
-            }
-          }
+          "delta": "The requested result is ready to review."
         }
       ]
     },
@@ -1088,13 +937,12 @@
       "values": [
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "88888888-8888-4888-8888-888888888888",
           "sequence": 3,
           "toolCall": {
             "id": "99999999-9999-4999-8999-999999999999",
             "name": "wallet.data.query",
-            "version": 5,
             "scopes": [
               "wallet.data.read"
             ],
@@ -1111,7 +959,6 @@
               "activeNetwork": "ton"
             },
             "arguments": {
-              "schemaVersion": 5,
               "operation": "contacts.list",
               "accountSelector": {
                 "kind": "current"
@@ -1120,32 +967,24 @@
               "chains": [
                 "ton"
               ],
+              "ownWalletChains": [
+                "ton"
+              ],
               "pageSize": 100
             }
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "88888888-8888-4888-8888-888888888888",
           "sequence": 4,
           "messageId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "recipient_ambiguous",
-              "sendFailures": [
-                "recipient_ambiguous",
-                "insufficient_balance"
-              ]
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "88888888-8888-4888-8888-888888888888",
           "sequence": 5,
           "messageId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -1157,1238 +996,16 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
           "sequence": 4,
           "messageId": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-          "content": {
-            "kind": "market",
-            "schemaVersion": 1,
-            "view": "analysis",
-            "outcome": "partial",
-            "evidence": {
-              "schemaVersion": 6,
-              "requestedHorizons": [
-                "7d"
-              ],
-              "primaryDisplayHorizon": "7d",
-              "technicalEvidence": {
-                "schemaVersion": 4,
-                "asset": {
-                  "slug": "bitcoin",
-                  "chain": "bitcoin",
-                  "symbol": "BTC",
-                  "name": "Bitcoin"
-                },
-                "primaryTimeframe": "1d",
-                "quote": {
-                  "price": "100",
-                  "quoteCurrency": "USDT",
-                  "asOf": "2026-07-27T00:00:00.000Z"
-                },
-                "quoteSource": {
-                  "provider": "binance",
-                  "endpoint": "binance.ticker_price",
-                  "attributionRequired": true,
-                  "attributionLabel": "Binance",
-                  "attributionUrl": "https://www.binance.com/"
-                },
-                "asOf": "2026-07-27T00:00:00.000Z",
-                "timeframes": [
-                  {
-                    "status": "available",
-                    "timeframe": "1d",
-                    "evidence": {
-                      "schemaVersion": 3,
-                      "asset": {
-                        "slug": "bitcoin",
-                        "chain": "bitcoin",
-                        "symbol": "BTC",
-                        "name": "Bitcoin"
-                      },
-                      "timeframe": "1d",
-                      "quote": {
-                        "price": "100",
-                        "quoteCurrency": "USDT",
-                        "asOf": "2026-07-27T00:00:00.000Z"
-                      },
-                      "change": {
-                        "timeframe": "1d",
-                        "fromAt": "2026-07-27T00:00:00.000Z",
-                        "toAt": "2026-07-28T00:00:00.000Z",
-                        "absolute": "1",
-                        "percent": "1",
-                        "quoteCurrency": "USDT"
-                      },
-                      "freshness": {
-                        "isStale": false,
-                        "source": "memory_cache",
-                        "asOf": "2026-07-27T00:00:00.000Z",
-                        "maxStaleMs": 600000
-                      },
-                      "quoteSource": {
-                        "provider": "binance",
-                        "endpoint": "binance.ticker_price",
-                        "attributionRequired": true,
-                        "attributionLabel": "Binance",
-                        "attributionUrl": "https://www.binance.com/"
-                      },
-                      "changeSource": {
-                        "provider": "binance",
-                        "endpoint": "binance.klines",
-                        "attributionRequired": true,
-                        "attributionLabel": "Binance",
-                        "attributionUrl": "https://www.binance.com/"
-                      },
-                      "technical": {
-                        "asset": {
-                          "resolverVersion": "market-asset-resolver-v2",
-                          "assetRegistryVersion": "market-asset-registry-v4",
-                          "identityKey": "2e6af30455a02a14870c22c930b2ef17ae3048ee7dcdb3c16c25271bd052f79d",
-                          "assetClass": "native",
-                          "slug": "bitcoin",
-                          "chain": "bitcoin",
-                          "symbol": "BTC",
-                          "name": "Bitcoin",
-                          "providerBindings": {
-                            "binance": {
-                              "marketType": "spot",
-                              "symbol": "BTCUSDT",
-                              "quoteCurrency": "USDT"
-                            },
-                            "bybit": {
-                              "marketType": "spot",
-                              "symbol": "BTCUSDT",
-                              "quoteCurrency": "USDT"
-                            }
-                          }
-                        },
-                        "timeframe": "1d",
-                        "quoteCurrency": "USDT",
-                        "candleLimit": 201,
-                        "sourceSeriesDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        "source": {
-                          "provider": "binance",
-                          "endpoint": "binance.klines",
-                          "attributionRequired": true,
-                          "attributionLabel": "Binance",
-                          "attributionUrl": "https://www.binance.com/"
-                        },
-                        "freshness": {
-                          "asOf": "2026-07-27T00:00:00.000Z",
-                          "fetchedAt": "2026-07-27T00:00:00.000Z",
-                          "source": "memory_cache",
-                          "isStale": false,
-                          "ttlMs": 60000,
-                          "maxStaleMs": 600000
-                        },
-                        "indicators": [
-                          {
-                            "kind": "trend",
-                            "value": "up",
-                            "changePercent": "25.00000000"
-                          },
-                          {
-                            "kind": "sma_cross",
-                            "fastWindow": 50,
-                            "slowWindow": 200,
-                            "value": "above",
-                            "fastValue": "97.55000000",
-                            "slowValue": "90.05000000"
-                          },
-                          {
-                            "kind": "rsi",
-                            "window": 14,
-                            "value": "100.00000000",
-                            "zone": "overbought"
-                          },
-                          {
-                            "kind": "volatility",
-                            "windowPeriods": 30,
-                            "annualizationPeriodsPerYear": 365,
-                            "value": "0.01733798",
-                            "zone": "low"
-                          },
-                          {
-                            "kind": "drawdown",
-                            "value": "0.00000000",
-                            "zone": "normal"
-                          },
-                          {
-                            "kind": "atr",
-                            "window": 14,
-                            "value": "2.00000000",
-                            "percentOfClose": "2.00000000",
-                            "percentileRank": "0.00000000",
-                            "zone": "low"
-                          },
-                          {
-                            "kind": "adx_dmi",
-                            "window": 14,
-                            "adx": "100.00000000",
-                            "plusDi": "5.00000000",
-                            "minusDi": "0.00000000",
-                            "direction": "bullish",
-                            "zone": "very_strong"
-                          },
-                          {
-                            "kind": "bollinger_bands",
-                            "window": 20,
-                            "standardDeviationMultiplier": 2,
-                            "middle": "99.05000000",
-                            "upper": "100.20325626",
-                            "lower": "97.89674374",
-                            "percentB": "91.18772355",
-                            "bandwidthPercent": "2.32863455",
-                            "bandwidthPercentileRank": "0.00000000",
-                            "pricePosition": "inside_bands",
-                            "zone": "squeeze"
-                          },
-                          {
-                            "kind": "macd",
-                            "fastWindow": 12,
-                            "slowWindow": 26,
-                            "signalWindow": 9,
-                            "macd": "0.70000000",
-                            "signal": "0.70000000",
-                            "histogram": "0.00000000",
-                            "state": "neutral"
-                          },
-                          {
-                            "kind": "donchian_channel",
-                            "window": 20,
-                            "upper": "100.90000000",
-                            "lower": "97.00000000",
-                            "middle": "98.95000000",
-                            "positionPercent": "76.92307692",
-                            "state": "inside"
-                          },
-                          {
-                            "kind": "relative_volume_obv",
-                            "window": 20,
-                            "relativeVolume": "0.92307692",
-                            "volumeZScore": "-1.00548291",
-                            "obv": "224825.00000000",
-                            "obvChange": "22575.00000000",
-                            "confirmation": "confirming_up",
-                            "zone": "low"
-                          },
-                          {
-                            "kind": "ema_cross",
-                            "fastWindow": 20,
-                            "slowWindow": 50,
-                            "value": "above",
-                            "fastValue": "99.05000000",
-                            "slowValue": "97.55000000"
-                          },
-                          {
-                            "kind": "anchored_vwap",
-                            "anchorPolicy": "utc_month",
-                            "anchorAt": "2026-07-01T00:00:00.000Z",
-                            "value": "99.04141750",
-                            "priceDeltaPercent": "0.96786024",
-                            "position": "above"
-                          }
-                        ]
-                      },
-                      "technicalCoverage": {
-                        "requestedIndicatorCount": 13,
-                        "availableIndicatorCount": 13,
-                        "complete": true
-                      }
-                    }
-                  },
-                  {
-                    "status": "unavailable",
-                    "timeframe": "4h",
-                    "reason": "context_unavailable"
-                  },
-                  {
-                    "status": "unavailable",
-                    "timeframe": "1h",
-                    "reason": "context_unavailable"
-                  }
-                ],
-                "coverage": {
-                  "requestedTimeframeCount": 3,
-                  "availableTimeframeCount": 1,
-                  "requestedIndicatorCount": 39,
-                  "availableIndicatorCount": 13,
-                  "complete": false
-                }
-              },
-              "structures": [
-                {
-                  "timeframe": "1d"
-                },
-                {
-                  "timeframe": "4h"
-                },
-                {
-                  "timeframe": "1h"
-                }
-              ],
-              "levelMaps": {
-                "3d": {
-                  "status": "insufficient_data",
-                  "horizon": "3d",
-                  "reason": "required_timeframe_unavailable",
-                  "policyVersion": "market-level-map-v2"
-                },
-                "7d": {
-                  "status": "available",
-                  "horizon": "7d",
-                  "tolerance": "1.00000000",
-                  "supports": [
-                    {
-                      "id": "level.7d.support.structural",
-                      "lower": "95.00000000",
-                      "upper": "96.00000000",
-                      "role": "support",
-                      "strength": "primary",
-                      "sources": [
-                        {
-                          "kind": "anchored_vwap",
-                          "timeframe": "1d",
-                          "evidenceRef": "1d.anchored_vwap"
-                        }
-                      ],
-                      "touchCount": 2,
-                      "rejectionCount": 1,
-                      "state": "holding"
-                    }
-                  ],
-                  "resistances": [
-                    {
-                      "id": "level.7d.resistance.activation",
-                      "lower": "103.50000000",
-                      "upper": "104.00000000",
-                      "role": "resistance",
-                      "strength": "primary",
-                      "sources": [
-                        {
-                          "kind": "anchored_vwap",
-                          "timeframe": "1d",
-                          "evidenceRef": "1d.anchored_vwap"
-                        }
-                      ],
-                      "touchCount": 2,
-                      "rejectionCount": 1,
-                      "state": "holding"
-                    },
-                    {
-                      "id": "level.7d.resistance.hvn",
-                      "lower": "107.00000000",
-                      "upper": "108.00000000",
-                      "role": "resistance",
-                      "strength": "secondary",
-                      "sources": [
-                        {
-                          "kind": "anchored_vwap",
-                          "timeframe": "1d",
-                          "evidenceRef": "1d.anchored_vwap"
-                        },
-                        {
-                          "kind": "volume_profile_hvn",
-                          "timeframe": "profile",
-                          "evidenceRef": "profile.previous_week.hvn.1"
-                        }
-                      ],
-                      "touchCount": 0,
-                      "rejectionCount": 0,
-                      "state": "untested"
-                    }
-                  ],
-                  "coverage": {
-                    "candidateCount": 3,
-                    "zoneCount": 3,
-                    "actionableZoneCount": 3,
-                    "complete": true
-                  },
-                  "policyVersion": "market-level-map-v2"
-                },
-                "30d": {
-                  "status": "insufficient_data",
-                  "horizon": "30d",
-                  "reason": "invalid_levels",
-                  "policyVersion": "market-level-map-v2"
-                }
-              },
-              "expectedMoves": {
-                "3d": {
-                  "status": "insufficient_data",
-                  "horizon": "3d",
-                  "durationDays": 3,
-                  "targetAt": "2026-07-30T00:00:00.000Z",
-                  "reason": "required_timeframe_unavailable"
-                },
-                "7d": {
-                  "status": "available",
-                  "horizon": "7d",
-                  "durationDays": 7,
-                  "targetAt": "2026-08-03T00:00:00.000Z",
-                  "anchorTimeframe": "1d",
-                  "requiredTimeframes": [
-                    "1d"
-                  ],
-                  "stance": "bullish",
-                  "confidenceCeiling": "medium",
-                  "price": "100.00000000",
-                  "dailyAtrMovePct": "2.00000000",
-                  "dailyRealizedMovePct": "1.00000000",
-                  "movePct": "5.29150262",
-                  "ranges": {
-                    "bearish": {
-                      "lower": "89.41699476",
-                      "upper": "94.70849738"
-                    },
-                    "base": {
-                      "lower": "94.70849738",
-                      "upper": "105.29150262"
-                    },
-                    "bullish": {
-                      "lower": "105.29150262",
-                      "upper": "110.58300524"
-                    }
-                  }
-                },
-                "30d": {
-                  "status": "insufficient_data",
-                  "horizon": "30d",
-                  "durationDays": 30,
-                  "targetAt": "2026-08-26T00:00:00.000Z",
-                  "reason": "invalid_move"
-                }
-              },
-              "scenarioTrees": {
-                "3d": {
-                  "horizon": "3d",
-                  "targetAt": "2026-07-30T00:00:00.000Z",
-                  "directionalState": "insufficient_data",
-                  "paths": [
-                    {
-                      "status": "insufficient_data",
-                      "kind": "bullish_breakout",
-                      "priority": "tail",
-                      "horizon": "3d",
-                      "reason": "forecast_unavailable"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "range_balance",
-                      "priority": "tail",
-                      "horizon": "3d",
-                      "reason": "forecast_unavailable"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "bearish_breakdown",
-                      "priority": "tail",
-                      "horizon": "3d",
-                      "reason": "forecast_unavailable"
-                    }
-                  ],
-                  "policyVersion": "market-structural-scenarios-v2"
-                },
-                "7d": {
-                  "horizon": "7d",
-                  "targetAt": "2026-08-03T00:00:00.000Z",
-                  "directionalState": "bullish",
-                  "activeScenario": "bullish_breakout",
-                  "primaryScenario": "bullish_breakout",
-                  "paths": [
-                    {
-                      "status": "eligible",
-                      "kind": "bullish_breakout",
-                      "priority": "primary",
-                      "horizon": "7d",
-                      "targetAt": "2026-08-03T00:00:00.000Z",
-                      "activation": {
-                        "zoneIds": [
-                          "level.7d.resistance.activation"
-                        ],
-                        "direction": "above",
-                        "confirmationBasis": "1d_close",
-                        "state": "triggered"
-                      },
-                      "path": [
-                        {
-                          "zone": {
-                            "id": "level.7d.resistance.activation",
-                            "lower": "103.50000000",
-                            "upper": "104.00000000",
-                            "role": "resistance",
-                            "strength": "primary",
-                            "sources": [
-                              {
-                                "kind": "anchored_vwap",
-                                "timeframe": "1d",
-                                "evidenceRef": "1d.anchored_vwap"
-                              }
-                            ],
-                            "touchCount": 2,
-                            "rejectionCount": 1,
-                            "state": "holding"
-                          },
-                          "role": "acceptance",
-                          "expectedConfirmation": "1d_close",
-                          "insideExpectedMove": false
-                        },
-                        {
-                          "zone": {
-                            "id": "profile.previous_week.lvn.1",
-                            "lower": "105.50000000",
-                            "upper": "106.50000000",
-                            "role": "transition",
-                            "strength": "context",
-                            "sources": [
-                              {
-                                "kind": "volume_profile_lvn",
-                                "timeframe": "profile",
-                                "evidenceRef": "profile.previous_week.lvn.1"
-                              }
-                            ],
-                            "touchCount": 0,
-                            "rejectionCount": 0,
-                            "state": "untested"
-                          },
-                          "role": "transit",
-                          "expectedConfirmation": "1d_close",
-                          "insideExpectedMove": true
-                        },
-                        {
-                          "zone": {
-                            "id": "level.7d.resistance.hvn",
-                            "lower": "107.00000000",
-                            "upper": "108.00000000",
-                            "role": "resistance",
-                            "strength": "secondary",
-                            "sources": [
-                              {
-                                "kind": "anchored_vwap",
-                                "timeframe": "1d",
-                                "evidenceRef": "1d.anchored_vwap"
-                              },
-                              {
-                                "kind": "volume_profile_hvn",
-                                "timeframe": "profile",
-                                "evidenceRef": "profile.previous_week.hvn.1"
-                              }
-                            ],
-                            "touchCount": 0,
-                            "rejectionCount": 0,
-                            "state": "untested"
-                          },
-                          "role": "target",
-                          "expectedConfirmation": "1d_close",
-                          "insideExpectedMove": true
-                        }
-                      ],
-                      "terminalZone": {
-                        "id": "level.7d.resistance.hvn",
-                        "lower": "107.00000000",
-                        "upper": "108.00000000",
-                        "role": "resistance",
-                        "strength": "secondary",
-                        "sources": [
-                          {
-                            "kind": "anchored_vwap",
-                            "timeframe": "1d",
-                            "evidenceRef": "1d.anchored_vwap"
-                          },
-                          {
-                            "kind": "volume_profile_hvn",
-                            "timeframe": "profile",
-                            "evidenceRef": "profile.previous_week.hvn.1"
-                          }
-                        ],
-                        "touchCount": 0,
-                        "rejectionCount": 0,
-                        "state": "untested"
-                      },
-                      "invalidation": {
-                        "zoneIds": [
-                          "level.7d.resistance.activation"
-                        ],
-                        "direction": "below",
-                        "confirmationBasis": "1d_close",
-                        "state": "not_triggered"
-                      },
-                      "expectedMove": {
-                        "movePct": "5.29150262",
-                        "lower": "105.29150262",
-                        "upper": "110.58300524"
-                      },
-                      "evidenceRefs": [
-                        "level.7d.resistance.activation",
-                        "level.7d.resistance.hvn",
-                        "profile.previous_week.hvn.1",
-                        "profile.previous_week.lvn.1"
-                      ],
-                      "confidence": "medium"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "range_balance",
-                      "priority": "tail",
-                      "horizon": "7d",
-                      "reason": "forecast_unavailable"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "bearish_breakdown",
-                      "priority": "tail",
-                      "horizon": "7d",
-                      "reason": "forecast_unavailable"
-                    }
-                  ],
-                  "policyVersion": "market-structural-scenarios-v2"
-                },
-                "30d": {
-                  "horizon": "30d",
-                  "targetAt": "2026-08-26T00:00:00.000Z",
-                  "directionalState": "insufficient_data",
-                  "paths": [
-                    {
-                      "status": "insufficient_data",
-                      "kind": "bullish_breakout",
-                      "priority": "tail",
-                      "horizon": "30d",
-                      "reason": "forecast_unavailable"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "range_balance",
-                      "priority": "tail",
-                      "horizon": "30d",
-                      "reason": "forecast_unavailable"
-                    },
-                    {
-                      "status": "insufficient_data",
-                      "kind": "bearish_breakdown",
-                      "priority": "tail",
-                      "horizon": "30d",
-                      "reason": "forecast_unavailable"
-                    }
-                  ],
-                  "policyVersion": "market-structural-scenarios-v2"
-                }
-              },
-              "volumeProfileCoverage": {
-                "requestedProfileCount": 1,
-                "availableProfileCount": 1,
-                "complete": true,
-                "profiles": [
-                  {
-                    "kind": "previous_week",
-                    "status": "available",
-                    "position": "inside_value_area",
-                    "pointOfControl": "100.00000000",
-                    "valueAreaLow": "90.00000000",
-                    "valueAreaHigh": "110.00000000",
-                    "valueAreaCoveragePct": "70.00000000",
-                    "periodStartAt": "2026-07-20T00:00:00.000Z",
-                    "periodEndAt": "2026-07-27T00:00:00.000Z",
-                    "asOf": "2026-07-27T00:00:00.000Z",
-                    "state": "closed",
-                    "source": {
-                      "venue": "binance_spot",
-                      "symbol": "BTCUSDT",
-                      "method": "aggregate_trades",
-                      "sourceDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-                      "verification": "archive_verified"
-                    },
-                    "freshness": {
-                      "asOf": "2026-07-27T00:00:00.000Z",
-                      "fetchedAt": "2026-07-27T00:00:00.000Z",
-                      "source": "memory_cache",
-                      "isStale": false,
-                      "ttlMs": 300000,
-                      "maxStaleMs": 900000
-                    },
-                    "evidenceRefs": {
-                      "pointOfControl": "profile.previous_week.poc",
-                      "valueAreaLow": "profile.previous_week.val",
-                      "valueAreaHigh": "profile.previous_week.vah"
-                    }
-                  }
-                ]
-              },
-              "evidenceCatalog": [
-                {
-                  "id": "1d.trend",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.sma_cross",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.rsi",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.volatility",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.drawdown",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.atr",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.adx_dmi",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.bollinger_bands",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.macd",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.donchian_channel",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.relative_volume_obv",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.ema_cross",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "1d.anchored_vwap",
-                  "family": "indicator",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "4h.trend",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.sma_cross",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.rsi",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.volatility",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.drawdown",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.atr",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.adx_dmi",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.bollinger_bands",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.macd",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.donchian_channel",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.relative_volume_obv",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.ema_cross",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "4h.anchored_vwap",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.trend",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.sma_cross",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.rsi",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.volatility",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.drawdown",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.atr",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.adx_dmi",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.bollinger_bands",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.macd",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.donchian_channel",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.relative_volume_obv",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.ema_cross",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "1h.anchored_vwap",
-                  "family": "indicator",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "structure.1d",
-                  "family": "structure",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "structure.4h",
-                  "family": "structure",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "structure.1h",
-                  "family": "structure",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_day.low",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_day.high",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_week.low",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_week.high",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_month.low",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "period.previous_month.high",
-                  "family": "period",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.3d.bullish_breakout",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.3d.range_balance",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.3d.bearish_breakdown",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "level.7d.support.structural",
-                  "family": "level",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "level.7d.resistance.activation",
-                  "family": "level",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "level.7d.resistance.hvn",
-                  "family": "level",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "scenario.7d.bullish_breakout",
-                  "family": "scenario",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "scenario.7d.range_balance",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.7d.bearish_breakdown",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.30d.bullish_breakout",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.30d.range_balance",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "scenario.30d.bearish_breakdown",
-                  "family": "scenario",
-                  "available": false,
-                  "claimable": false
-                },
-                {
-                  "id": "profile.previous_week.poc",
-                  "family": "profile",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "profile.previous_week.val",
-                  "family": "profile",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "profile.previous_week.vah",
-                  "family": "profile",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "profile.previous_week.hvn.1",
-                  "family": "profile",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "profile.previous_week.lvn.1",
-                  "family": "profile",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "coverage.timeframes",
-                  "family": "coverage",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "coverage.level_maps",
-                  "family": "coverage",
-                  "available": true,
-                  "claimable": true
-                },
-                {
-                  "id": "coverage.scenarios",
-                  "family": "coverage",
-                  "available": true,
-                  "claimable": true
-                }
-              ],
-              "coverage": {
-                "structureTimeframeCount": 0,
-                "availableLevelMapCount": 1,
-                "eligibleScenarioCount": 1,
-                "complete": false
-              }
-            },
-            "fearGreedRegime": {
-              "schemaVersion": 1,
-              "policyVersion": "fear-greed-sma-regime-v1",
-              "basis": "closed_utc_daily",
-              "asOfDate": "2026-07-26",
-              "latestValue": 32,
-              "sma30": "28.40000000",
-              "sma365": "41.80000000",
-              "regime": "risk_off",
-              "seriesDigest": "f4f3d1df1196986a26416179a91e21b37ff08434bb3627777a69778a4c797e61",
-              "source": {
-                "provider": "alternative_me",
-                "endpoint": "alternative.fng",
-                "attributionRequired": true,
-                "attributionLabel": "Alternative.me",
-                "attributionUrl": "https://alternative.me/crypto/fear-and-greed-index/"
-              }
-            },
-            "analysis": {
-              "schemaVersion": 4,
-              "consideredEvidence": [
-                "1d.trend",
-                "1d.sma_cross",
-                "1d.rsi",
-                "1d.volatility",
-                "1d.drawdown",
-                "1d.atr",
-                "1d.adx_dmi",
-                "1d.bollinger_bands",
-                "1d.macd",
-                "1d.donchian_channel",
-                "1d.relative_volume_obv",
-                "1d.ema_cross",
-                "1d.anchored_vwap",
-                "4h.trend",
-                "4h.sma_cross",
-                "4h.rsi",
-                "4h.volatility",
-                "4h.drawdown",
-                "4h.atr",
-                "4h.adx_dmi",
-                "4h.bollinger_bands",
-                "4h.macd",
-                "4h.donchian_channel",
-                "4h.relative_volume_obv",
-                "4h.ema_cross",
-                "4h.anchored_vwap",
-                "1h.trend",
-                "1h.sma_cross",
-                "1h.rsi",
-                "1h.volatility",
-                "1h.drawdown",
-                "1h.atr",
-                "1h.adx_dmi",
-                "1h.bollinger_bands",
-                "1h.macd",
-                "1h.donchian_channel",
-                "1h.relative_volume_obv",
-                "1h.ema_cross",
-                "1h.anchored_vwap",
-                "structure.1d",
-                "structure.4h",
-                "structure.1h",
-                "period.previous_day.low",
-                "period.previous_day.high",
-                "period.previous_week.low",
-                "period.previous_week.high",
-                "period.previous_month.low",
-                "period.previous_month.high",
-                "scenario.3d.bullish_breakout",
-                "scenario.3d.range_balance",
-                "scenario.3d.bearish_breakdown",
-                "level.7d.support.structural",
-                "level.7d.resistance.activation",
-                "level.7d.resistance.hvn",
-                "scenario.7d.bullish_breakout",
-                "scenario.7d.range_balance",
-                "scenario.7d.bearish_breakdown",
-                "scenario.30d.bullish_breakout",
-                "scenario.30d.range_balance",
-                "scenario.30d.bearish_breakdown",
-                "profile.previous_week.poc",
-                "profile.previous_week.val",
-                "profile.previous_week.vah",
-                "profile.previous_week.hvn.1",
-                "profile.previous_week.lvn.1",
-                "coverage.timeframes",
-                "coverage.level_maps",
-                "coverage.scenarios"
-              ],
-              "summary": "Daily technical evidence is available while structural confirmation remains limited.",
-              "summaryEvidence": [
-                "1d.trend"
-              ],
-              "timeframeViews": [
-                {
-                  "timeframe": "1d",
-                  "text": "Daily evidence remains constructive but incomplete.",
-                  "evidence": [
-                    "1d.trend"
-                  ]
-                }
-              ],
-              "factors": [
-                {
-                  "category": "trend",
-                  "role": "supporting",
-                  "stance": "bullish",
-                  "text": "Daily trend supports the constructive case.",
-                  "evidence": [
-                    "1d.trend"
-                  ]
-                },
-                {
-                  "category": "levels",
-                  "role": "opposing",
-                  "stance": "mixed",
-                  "text": "The weekly value area can contain price.",
-                  "evidence": [
-                    "profile.previous_week.hvn.1",
-                    "profile.previous_week.lvn.1"
-                  ]
-                },
-                {
-                  "category": "risk",
-                  "role": "risk",
-                  "stance": "neutral",
-                  "text": "Missing lower-timeframe structure limits confirmation.",
-                  "evidence": [
-                    "coverage.timeframes"
-                  ]
-                }
-              ],
-              "materialRisk": {
-                "text": "A failed daily confirmation can invalidate the scenario.",
-                "evidence": [
-                  "1d.trend"
-                ]
-              },
-              "horizons": {
-                "3d": null,
-                "7d": {
-                  "rationale": "The backend-selected directional path crosses the low-volume corridor toward high-volume confluence.",
-                  "evidence": [
-                    "scenario.7d.bullish_breakout",
-                    "profile.previous_week.hvn.1",
-                    "profile.previous_week.lvn.1"
-                  ]
-                },
-                "30d": null
-              }
-            }
-          }
+          "delta": "**Market analysis**\n\nThe available evidence is limited."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
           "sequence": 5,
           "messageId": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
@@ -2401,7 +1018,7 @@
       "values": [
         {
           "type": "action",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "12121212-1212-4212-8212-121212121212",
           "sequence": 3,
           "messageId": "13131313-1313-4313-8313-131313131313",
@@ -2420,30 +1037,24 @@
               "slug": "gram",
               "chain": "ton"
             },
-            "recipient": {
-              "kind": "address",
-              "chain": "ton",
-              "address": "EQ-user-supplied"
-            },
             "localDraftRequired": false,
-            "requiresConfirmation": false
+            "requiresConfirmation": false,
+            "title": "Review prepared action",
+            "amount": "7.25",
+            "comment": "Invoice & delivery"
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "12121212-1212-4212-8212-121212121212",
           "sequence": 4,
           "messageId": "13131313-1313-4313-8313-131313131313",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_form_amount_required"
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "12121212-1212-4212-8212-121212121212",
           "sequence": 5,
           "messageId": "13131313-1313-4313-8313-131313131313",
@@ -2455,99 +1066,52 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "16161616-1616-4616-8616-161616161616",
           "sequence": 3,
           "messageId": "17171717-1717-4717-8717-171717171717",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "address_book_unavailable"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "18181818-1818-4818-8818-181818181818",
           "sequence": 3,
           "messageId": "19191919-1919-4919-8919-191919191919",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "intent_extraction_unavailable"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "20202020-2020-4020-8020-202020202020",
           "sequence": 3,
           "messageId": "21212121-2121-4121-8121-212121212121",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "intent_provider_unavailable"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "24242424-2424-4424-8424-242424242424",
           "sequence": 3,
           "messageId": "25252525-2525-4525-8525-252525252525",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "no_sendable_balance"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "28282828-2828-4828-8828-282828282828",
           "sequence": 3,
           "messageId": "29292929-2929-4929-8929-292929292929",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_unavailable",
-            "arguments": {
-              "sendFailure": "source_wallet_selection_required"
-            }
-          }
+          "delta": "The requested result is ready to review."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "26262626-2626-4626-8626-262626262626",
           "sequence": 3,
           "messageId": "27272727-2727-4727-8727-272727272727",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "send_ready",
-            "arguments": {
-              "asset": {
-                "slug": "gram",
-                "chain": "ton",
-                "symbol": "GRAM",
-                "name": "Gram"
-              }
-            }
-          }
+          "delta": "The requested result is ready to review."
         }
       ]
     },
@@ -2555,144 +1119,60 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "22222222-2222-4222-8222-222222222222",
           "sequence": 3,
           "messageId": "23232323-2323-4323-8323-232323232323",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": {
-              "marketQuote": {
-                "status": "resolved",
-                "asset": {
-                  "slug": "toncoin",
-                  "chain": "ton",
-                  "symbol": "TON",
-                  "name": "Toncoin"
-                },
-                "price": "3.25",
-                "quoteCurrency": "USD",
-                "percentChange24h": "-1.5",
-                "asOf": "2026-08-12T10:00:00.000Z"
-              }
-            }
-          }
+          "delta": "Рыночные данные сейчас недоступны."
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "22222222-2222-4222-8222-222222222222",
           "sequence": 4,
           "messageId": "23232323-2323-4323-8323-232323232323",
           "finishReason": "complete"
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "24242424-2424-4424-8424-242424242424",
           "sequence": 3,
           "messageId": "25252525-2525-4525-8525-252525252525",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": {
-              "marketQuote": {
-                "status": "price_unavailable",
-                "asset": {
-                  "slug": "unknown",
-                  "chain": "ton",
-                  "symbol": "UNK"
-                },
-                "asOf": "2026-08-12T10:00:00.000Z"
-              }
-            }
-          }
+          "delta": "Рыночные данные сейчас недоступны."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "26262626-2626-4626-8626-262626262626",
           "sequence": 3,
           "messageId": "27272727-2727-4727-8727-272727272727",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": {
-              "marketQuote": {
-                "status": "ambiguous",
-                "candidates": [
-                  {
-                    "slug": "usdt-ton",
-                    "chain": "ton",
-                    "symbol": "USDT"
-                  },
-                  {
-                    "slug": "usdt-tron",
-                    "chain": "tron",
-                    "symbol": "USDT"
-                  }
-                ],
-                "hasMore": true,
-                "asOf": "2026-08-12T10:00:00.000Z"
-              }
-            }
-          }
+          "delta": "Рыночные данные сейчас недоступны."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "28282828-2828-4828-8828-282828282828",
           "sequence": 3,
           "messageId": "29292929-2929-4929-8929-292929292929",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": {
-              "marketQuote": {
-                "status": "not_found",
-                "asOf": "2026-08-12T10:00:00.000Z"
-              }
-            }
-          }
+          "delta": "Рыночные данные сейчас недоступны."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "30303030-3030-4030-8030-303030303030",
           "sequence": 3,
           "messageId": "31313131-3131-4131-8131-313131313131",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "market_quote",
-            "arguments": {
-              "marketQuote": {
-                "status": "unavailable",
-                "reason": "tool_timeout"
-              }
-            }
-          }
+          "delta": "Рыночные данные сейчас недоступны."
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "32323232-3232-4232-8232-323232323232",
           "sequence": 3,
           "messageId": "33333333-3333-4333-8333-333333333333",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "wallet_data_unavailable",
-            "arguments": {
-              "walletQueryFailure": "result_not_presentable"
-            }
-          }
+          "delta": "The requested result is ready to review."
         }
       ]
     },
@@ -2701,16 +1181,17 @@
       "values": [
         {
           "type": "message_start",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "abababab-abab-4bab-8bab-abababababab",
           "sequence": 3,
           "messageId": "acacacac-acac-4cac-8cac-acacacacacac",
           "role": "assistant",
-          "contentKind": "markdown"
+          "contentKind": "markdown",
+          "responseLanguage": "en"
         },
         {
           "type": "text_delta",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "abababab-abab-4bab-8bab-abababababab",
           "sequence": 4,
           "messageId": "acacacac-acac-4cac-8cac-acacacacacac",
@@ -2718,7 +1199,7 @@
         },
         {
           "type": "text_delta",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "abababab-abab-4bab-8bab-abababababab",
           "sequence": 5,
           "messageId": "acacacac-acac-4cac-8cac-acacacacacac",
@@ -2726,7 +1207,7 @@
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "abababab-abab-4bab-8bab-abababababab",
           "sequence": 6,
           "messageId": "acacacac-acac-4cac-8cac-acacacacacac",
@@ -2738,14 +1219,22 @@
       "schema": "AgentThreadMessagesPageV2",
       "values": [
         {
-          "protocolVersion": 2,
-          "threadId": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
+          "protocolVersion": 3,
+          "thread": {
+            "id": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
           "messages": [
             {
               "id": "acacacac-acac-4cac-8cac-acacacacacac",
               "threadId": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
               "role": "assistant",
               "status": "complete",
+              "responseLanguage": "en",
               "content": {
                 "kind": "markdown",
                 "text": "**Bitcoin (BTC):** `100 USDT`\n\nThe market is balanced and has no confirmed directional move. A break from the current range is the main condition to watch."
@@ -2760,20 +1249,16 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "b1b1b1b1-b1b1-41b1-81b1-b1b1b1b1b1b1",
           "sequence": 2,
           "messageId": "b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "staking_ready"
-          }
+          "delta": "The requested result is ready to review."
         },
         {
           "type": "action",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "b1b1b1b1-b1b1-41b1-81b1-b1b1b1b1b1b1",
           "sequence": 3,
           "messageId": "b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2",
@@ -2796,14 +1281,18 @@
               "name": "Toncoin",
               "decimals": 9
             },
-            "amount": { "kind": "exact", "value": "10" },
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
             "localDraftRequired": false,
-            "requiresConfirmation": false
+            "requiresConfirmation": false,
+            "title": "Review prepared action"
           }
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "b1b1b1b1-b1b1-41b1-81b1-b1b1b1b1b1b1",
           "sequence": 4,
           "messageId": "b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2",
@@ -2815,8 +1304,15 @@
       "schema": "AgentThreadMessagesPageV2",
       "values": [
         {
-          "protocolVersion": 2,
-          "threadId": "b5b5b5b5-b5b5-45b5-85b5-b5b5b5b5b5b5",
+          "protocolVersion": 3,
+          "thread": {
+            "id": "b5b5b5b5-b5b5-45b5-85b5-b5b5b5b5b5b5",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
           "messages": [
             {
               "id": "b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2",
@@ -2824,12 +1320,8 @@
               "role": "assistant",
               "status": "complete",
               "content": {
-                "kind": "semantic",
-                "content": {
-                  "kind": "notice",
-                  "schemaVersion": 1,
-                  "code": "staking_ready"
-                }
+                "kind": "markdown",
+                "text": "The requested result is ready to review."
               },
               "createdAt": "2026-08-18T12:00:00.000Z",
               "actions": [
@@ -2847,9 +1339,13 @@
                     "name": "Toncoin",
                     "decimals": 9
                   },
-                  "amount": { "kind": "exact", "value": "10" },
+                  "amount": {
+                    "kind": "exact",
+                    "value": "10"
+                  },
                   "localDraftRequired": false,
-                  "requiresConfirmation": false
+                  "requiresConfirmation": false,
+                  "title": "Review prepared action"
                 }
               ]
             }
@@ -2861,228 +1357,12 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "text_delta",
+          "protocolVersion": 3,
           "runId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
           "sequence": 4,
           "messageId": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-          "content": {
-            "kind": "market",
-            "schemaVersion": 1,
-            "view": "overview",
-            "outcome": "complete",
-            "evidence": {
-              "schemaVersion": 2,
-              "basketVersion": "market-overview-v2",
-              "timeframe": "1d",
-              "quoteCurrency": "USDT",
-              "generatedAt": "2026-07-27T00:10:00.000Z",
-              "scope": "selected_assets",
-              "direction": "up",
-              "directionBasis": "latest_closed_candle",
-              "assets": [
-                {
-                  "asset": {
-                    "slug": "bitcoin",
-                    "chain": "bitcoin",
-                    "symbol": "BTC",
-                    "name": "Bitcoin"
-                  },
-                  "quote": {
-                    "price": "65000.5",
-                    "quoteCurrency": "USDT",
-                    "asOf": "2026-07-27T00:09:00.000Z"
-                  },
-                  "change": {
-                    "timeframe": "1d",
-                    "fromAt": "2026-07-26T00:00:00.000Z",
-                    "toAt": "2026-07-27T00:00:00.000Z",
-                    "percent": "1.52"
-                  },
-                  "freshness": {
-                    "isStale": false,
-                    "source": "memory_cache",
-                    "asOf": "2026-07-27T00:05:00.000Z",
-                    "maxStaleMs": 86400000
-                  },
-                  "quoteSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.ticker_price",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  },
-                  "changeSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.klines",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  }
-                },
-                {
-                  "asset": {
-                    "slug": "ethereum",
-                    "chain": "ethereum",
-                    "symbol": "ETH",
-                    "name": "Ethereum"
-                  },
-                  "quote": {
-                    "price": "3400.25",
-                    "quoteCurrency": "USDT",
-                    "asOf": "2026-07-27T00:09:00.000Z"
-                  },
-                  "change": {
-                    "timeframe": "1d",
-                    "fromAt": "2026-07-26T00:00:00.000Z",
-                    "toAt": "2026-07-27T00:00:00.000Z",
-                    "percent": "2.1"
-                  },
-                  "freshness": {
-                    "isStale": false,
-                    "source": "memory_cache",
-                    "asOf": "2026-07-27T00:05:00.000Z",
-                    "maxStaleMs": 86400000
-                  },
-                  "quoteSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.ticker_price",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  },
-                  "changeSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.klines",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  }
-                },
-                {
-                  "asset": {
-                    "slug": "toncoin",
-                    "chain": "ton",
-                    "symbol": "GRAM",
-                    "name": "Gram"
-                  },
-                  "quote": {
-                    "price": "5.62",
-                    "quoteCurrency": "USDT",
-                    "asOf": "2026-07-27T00:09:00.000Z"
-                  },
-                  "change": {
-                    "timeframe": "1d",
-                    "fromAt": "2026-07-26T00:00:00.000Z",
-                    "toAt": "2026-07-27T00:00:00.000Z",
-                    "percent": "0.9"
-                  },
-                  "freshness": {
-                    "isStale": false,
-                    "source": "memory_cache",
-                    "asOf": "2026-07-27T00:05:00.000Z",
-                    "maxStaleMs": 86400000
-                  },
-                  "quoteSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.ticker_price",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  },
-                  "changeSource": {
-                    "provider": "binance",
-                    "endpoint": "binance.klines",
-                    "attributionRequired": true,
-                    "attributionLabel": "Binance",
-                    "attributionUrl": "https://www.binance.com/"
-                  }
-                }
-              ],
-              "fearGreed": {
-                "value": 34,
-                "zone": "fear",
-                "zoneVersion": "fear-greed-zones-v1",
-                "asOf": "2026-07-26T23:55:00.000Z",
-                "freshness": {
-                  "isStale": false,
-                  "source": "memory_cache",
-                  "asOf": "2026-07-26T23:55:00.000Z",
-                  "maxStaleMs": 86400000
-                },
-                "source": {
-                  "provider": "alternative_me",
-                  "endpoint": "alternative.fng",
-                  "attributionRequired": true,
-                  "attributionLabel": "Alternative.me",
-                  "attributionUrl": "https://alternative.me/crypto/fear-and-greed-index/"
-                }
-              },
-              "btcDominance": {
-                "value": "56.4",
-                "unit": "percent",
-                "asOf": "2026-07-26T23:55:00.000Z",
-                "freshness": {
-                  "isStale": false,
-                  "source": "memory_cache",
-                  "asOf": "2026-07-26T23:55:00.000Z",
-                  "maxStaleMs": 7200000
-                },
-                "source": {
-                  "provider": "coingecko",
-                  "endpoint": "coingecko.global",
-                  "attributionRequired": true,
-                  "attributionLabel": "CoinGecko",
-                  "attributionUrl": "https://www.coingecko.com/"
-                }
-              },
-              "totalMarketCap": {
-                "value": "3421000000000.12",
-                "unit": "currency",
-                "currency": "USD",
-                "asOf": "2026-07-26T23:55:00.000Z",
-                "freshness": {
-                  "isStale": false,
-                  "source": "memory_cache",
-                  "asOf": "2026-07-26T23:55:00.000Z",
-                  "maxStaleMs": 7200000
-                },
-                "source": {
-                  "provider": "coingecko",
-                  "endpoint": "coingecko.global",
-                  "attributionRequired": true,
-                  "attributionLabel": "CoinGecko",
-                  "attributionUrl": "https://www.coingecko.com/"
-                }
-              },
-              "stablecoinDominance": {
-                "value": "7.02",
-                "unit": "percent",
-                "asOf": "2026-07-26T23:30:00.000Z",
-                "freshness": {
-                  "isStale": true,
-                  "source": "stale_cache",
-                  "asOf": "2026-07-26T23:30:00.000Z",
-                  "maxStaleMs": 7200000
-                },
-                "source": {
-                  "provider": "coingecko",
-                  "endpoint": "coingecko.simple_price",
-                  "attributionRequired": true,
-                  "attributionLabel": "CoinGecko",
-                  "attributionUrl": "https://www.coingecko.com/"
-                }
-              },
-              "coverage": {
-                "requestedAssetCount": 3,
-                "usableAssetCount": 3,
-                "isComplete": true
-              },
-              "limitations": [
-                "stale_within_maximum"
-              ]
-            }
-          }
+          "delta": "**Market analysis**\n\nThe available evidence is limited."
         }
       ]
     },
@@ -3091,19 +1371,20 @@
       "values": [
         {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 3,
           "toolCall": {
             "id": "62626262-6262-4262-8262-626262626262",
             "name": "wallet.directory.query",
-            "version": 1,
             "maxResultBytes": 32768,
             "arguments": {
               "schemaVersion": 1,
               "purpose": "send_wallet_resolution"
             },
-            "scopes": ["wallet.directory.read"],
+            "scopes": [
+              "wallet.directory.read"
+            ],
             "timeoutMs": 30000,
             "directorySession": {
               "sessionId": "63636363-6363-4363-8363-636363636363",
@@ -3126,7 +1407,7 @@
         },
         {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 4,
           "toolCallId": "62626262-6262-4262-8262-626262626262",
@@ -3134,25 +1415,23 @@
         },
         {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 4,
           "toolCallId": "62626262-6262-4262-8262-626262626262",
-          "status": "failed",
-          "detailCode": "result_unavailable"
+          "status": "failed"
         },
         {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 4,
           "toolCallId": "62626262-6262-4262-8262-626262626262",
-          "status": "rejected",
-          "detailCode": "result_rejected"
+          "status": "rejected"
         },
         {
           "type": "tool_status",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 4,
           "toolCallId": "62626262-6262-4262-8262-626262626262",
@@ -3160,7 +1439,7 @@
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "61616161-6161-4161-8161-616161616161",
           "sequence": 5,
           "messageId": "64646464-6464-4464-8464-646464646464",
@@ -3172,61 +1451,1798 @@
       "schema": "AgentStreamEventV2",
       "values": [
         {
+          "type": "message_start",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 2,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "role": "assistant",
+          "contentKind": "markdown"
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 3,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "delta": "Inflation background from the published PCE observations."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 4,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 5,
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "33333333-3333-4333-8333-333333333333",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "Inflation background."
+              },
+              "createdAt": "2026-09-06T12:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "action": {
+            "id": "48484848-4848-4848-8848-484848484848",
+            "schemaVersion": 1,
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "url": "https://app.ston.fi/",
+            "requiresConfirmation": true,
+            "title": "Review prepared action"
+          }
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The button opens the selected application."
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "action": {
+            "id": "48484848-4848-4848-8848-484848484848",
+            "schemaVersion": 1,
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "url": "https://app.ston.fi/",
+            "requiresConfirmation": true,
+            "title": "Review prepared action"
+          }
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
           "type": "tool_call",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 2,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 2,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 2,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "createdAt": "2026-08-13T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_start",
+          "sequence": 2,
+          "role": "assistant",
+          "contentKind": "markdown"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "table_data",
+          "sequence": 3,
+          "table": {
+            "id": "t1",
+            "content": {
+              "kind": "display",
+              "headers": [
+                "timestamp",
+                "chain",
+                "status",
+                "quantity"
+              ],
+              "rows": [
+                [
+                  "2026-08-29T12:00:00.000Z",
+                  "ton",
+                  "completed",
+                  "12.500000001"
+                ]
+              ],
+              "notes": []
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "text_delta",
+          "sequence": 4,
+          "delta": "Before\n\n"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "table_reference",
+          "sequence": 5,
+          "reference": {
+            "tableId": "t1",
+            "textOffset": 8
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "text_delta",
+          "sequence": 6,
+          "delta": "\n\nAfter"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_content_end",
+          "sequence": 7
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_end",
+          "sequence": 8,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "56565656-5656-4656-8656-565656565656",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "22222222-2222-4222-8222-222222222222",
+              "threadId": "33333333-3333-4333-8333-333333333333",
+              "role": "assistant",
+              "status": "complete",
+              "createdAt": "2026-09-08T12:00:00.000Z",
+              "content": {
+                "kind": "markdown",
+                "text": "Before\n\n\n\nAfter",
+                "tables": [
+                  {
+                    "id": "t1",
+                    "content": {
+                      "kind": "display",
+                      "headers": [
+                        "timestamp",
+                        "chain",
+                        "status",
+                        "quantity"
+                      ],
+                      "rows": [
+                        [
+                          "2026-08-29T12:00:00.000Z",
+                          "ton",
+                          "completed",
+                          "12.500000001"
+                        ]
+                      ],
+                      "notes": []
+                    }
+                  }
+                ],
+                "tableReferences": [
+                  {
+                    "tableId": "t1",
+                    "textOffset": 8
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_start",
+          "sequence": 2,
+          "role": "assistant",
+          "contentKind": "markdown"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "table_data",
+          "sequence": 3,
+          "table": {
+            "id": "t1",
+            "content": {
+              "kind": "display",
+              "headers": [
+                "Время (UTC)",
+                "Сеть",
+                "Статус",
+                "Количество"
+              ],
+              "rows": [
+                [
+                  "2026-08-29T12:00:00.000Z",
+                  "ton",
+                  "Завершено",
+                  "12.500000001 TON"
+                ]
+              ],
+              "notes": []
+            }
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "text_delta",
+          "sequence": 4,
+          "delta": "Before\n\n"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "table_reference",
+          "sequence": 5,
+          "reference": {
+            "tableId": "t1",
+            "textOffset": 8
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "text_delta",
+          "sequence": 6,
+          "delta": "\n\nAfter"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_content_end",
+          "sequence": 7
+        },
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 8,
+          "action": {
+            "id": "48484848-4848-4848-8848-484848484848",
+            "schemaVersion": 1,
+            "kind": "openDapp",
+            "labelCode": "open_external_link",
+            "title": "Открыть STON.fi",
+            "url": "https://app.ston.fi/",
+            "requiresConfirmation": true
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "createdAt": "2026-09-08T12:00:00.000Z",
+          "type": "message_end",
+          "sequence": 9,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "56565656-5656-4656-8656-565656565656",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "57575757-5757-4757-8757-575757575757",
+              "threadId": "56565656-5656-4656-8656-565656565656",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "Before\n\n\n\nAfter",
+                "tables": [
+                  {
+                    "id": "t1",
+                    "content": {
+                      "kind": "display",
+                      "headers": [
+                        "Время (UTC)",
+                        "Сеть",
+                        "Статус",
+                        "Количество"
+                      ],
+                      "rows": [
+                        [
+                          "2026-08-29T12:00:00.000Z",
+                          "ton",
+                          "Завершено",
+                          "12.500000001 TON"
+                        ]
+                      ],
+                      "notes": []
+                    }
+                  }
+                ],
+                "tableReferences": [
+                  {
+                    "tableId": "t1",
+                    "textOffset": 8
+                  }
+                ]
+              },
+              "createdAt": "2026-08-13T12:00:00.000Z",
+              "actions": [
+                {
+                  "id": "48484848-4848-4848-8848-484848484848",
+                  "schemaVersion": 3,
+                  "kind": "openDapp",
+                  "labelCode": "open_external_link",
+                  "title": "Открыть STON.fi",
+                  "url": "https://app.ston.fi/",
+                  "requiresConfirmation": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "createdAt": "2026-09-09T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        },
+        {
+          "type": "message_content_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 3,
+          "createdAt": "2026-09-09T12:00:00.000Z"
+        },
+        {
+          "type": "message_end",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 4,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "text_delta",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 2,
+          "delta": "The requested result is ready to review."
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "88888888-8888-4888-8888-888888888888",
+          "sequence": 3,
+          "toolCall": {
+            "id": "99999999-9999-4999-8999-999999999999",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "walletContextSession": {
+              "sessionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              "revision": 7,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "contacts.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "query": null,
+              "chains": [],
+              "ownWalletChains": [],
+              "pageSize": 300,
+              "purpose": "send_recipient_resolution"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "89898989-8989-4989-8989-898989898989",
+          "sequence": 3,
+          "toolCall": {
+            "id": "90909090-9090-4090-9090-909090909090",
+            "name": "wallet.data.query",
+            "maxResultBytes": 614400,
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "walletContextSession": {
+              "sessionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              "revision": 7,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "contacts.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "query": null,
+              "chains": [],
+              "ownWalletChains": [
+                "ton"
+              ],
+              "pageSize": 300,
+              "purpose": "send_recipient_resolution"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "91919191-9191-4191-8191-919191919191",
+          "sequence": 3,
+          "toolCall": {
+            "id": "92929292-9292-4292-8292-929292929292",
+            "name": "wallet.directory.query",
+            "maxResultBytes": 614400,
+            "arguments": {
+              "schemaVersion": 1,
+              "purpose": "send_wallet_resolution"
+            },
+            "scopes": [
+              "wallet.directory.read"
+            ],
+            "timeoutMs": 30000,
+            "directorySession": {
+              "sessionId": "63636363-6363-4363-8363-636363636363",
+              "revision": 5,
+              "activeAccountRef": "account_current"
+            },
+            "directoryGrant": {
+              "schemaVersion": 1,
+              "kind": "send_wallet_resolution",
+              "sourceCapabilityId": "wallet.send-prepare",
+              "messageId": "64646464-6464-4464-8464-646464646464",
+              "sessionId": "63636363-6363-4363-8363-636363636363",
+              "revision": 5
+            },
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "64646464-6464-4464-8464-646464646464"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "12121212-1212-4212-8212-121212121212",
+          "sequence": 3,
+          "messageId": "13131313-1313-4313-8313-131313131313",
+          "action": {
+            "id": "14141414-1414-4414-8414-141414141414",
+            "kind": "send",
+            "labelCode": "open_send",
+            "effect": "open_send",
+            "contextBinding": {
+              "sessionId": "15151515-1515-4515-8515-151515151515",
+              "revision": 7,
+              "activeAccountRef": "account-current",
+              "activeNetwork": "ton"
+            },
+            "localDraftRequired": false,
+            "requiresConfirmation": false,
+            "title": "Open Send"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "requiresFeatures": [
+        "sendRecipientWithoutAsset"
+      ],
+      "values": [
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "12121212-1212-4212-8212-121212121212",
+          "sequence": 4,
+          "messageId": "13131313-1313-4313-8313-131313131313",
+          "action": {
+            "id": "16161616-1616-4616-8616-161616161616",
+            "kind": "send",
+            "labelCode": "open_send",
+            "effect": "open_send",
+            "contextBinding": {
+              "sessionId": "15151515-1515-4515-8515-151515151515",
+              "revision": 7,
+              "activeAccountRef": "account-current",
+              "activeNetwork": "ton"
+            },
+            "localDraftRequired": false,
+            "requiresConfirmation": false,
+            "title": "Open Send",
+            "recipient": {
+              "kind": "savedAddress",
+              "addressRef": "address-current-contact"
+            },
+            "comment": "Coffee"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "message_start",
+          "sequence": 2,
+          "role": "assistant",
+          "contentKind": "markdown"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "text_draft",
+          "sequence": 2,
+          "offset": 0,
+          "delta": "See "
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "text_link",
+          "sequence": 3,
+          "link": {
+            "textOffset": 4,
+            "textLength": 11,
+            "url": "https://help.mywallet.io/ru/backup"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "text_draft",
+          "sequence": 2,
+          "offset": 4,
+          "delta": "Help Center for details."
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "text_delta",
+          "sequence": 4,
+          "offset": 0,
+          "delta": "See Help Center for details."
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "message_content_end",
+          "sequence": 5
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "message_end",
+          "sequence": 6,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "73737373-7373-4373-8373-737373737373",
+            "revision": 1,
+            "createdAt": "2026-10-01T12:00:00.000Z",
+            "updatedAt": "2026-10-01T12:00:00.000Z",
+            "lastActivityAt": "2026-10-01T12:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "72727272-7272-4272-8272-727272727272",
+              "threadId": "73737373-7373-4373-8373-737373737373",
+              "role": "assistant",
+              "status": "complete",
+              "createdAt": "2026-10-01T12:00:00.000Z",
+              "runId": "71717171-7171-4171-8171-717171717171",
+              "content": {
+                "kind": "markdown",
+                "text": "See Help Center for details.",
+                "links": [
+                  {
+                    "textOffset": 4,
+                    "textLength": 11,
+                    "url": "https://help.mywallet.io/ru/backup"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "runId": "71717171-7171-4171-8171-717171717171",
+          "messageId": "72727272-7272-4272-8272-727272727272",
+          "createdAt": "2026-10-01T12:00:00.000Z",
+          "type": "text_link",
+          "sequence": 3,
+          "link": {
+            "textOffset": 4,
+            "textLength": 10,
+            "url": "mtw://settings/appearance"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "73737373-7373-4373-8373-737373737373",
+            "revision": 1,
+            "createdAt": "2026-10-01T12:00:00.000Z",
+            "updatedAt": "2026-10-01T12:00:00.000Z",
+            "lastActivityAt": "2026-10-01T12:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "72727272-7272-4272-8272-727272727272",
+              "threadId": "73737373-7373-4373-8373-737373737373",
+              "role": "assistant",
+              "status": "complete",
+              "createdAt": "2026-10-01T12:00:00.000Z",
+              "runId": "71717171-7171-4171-8171-717171717171",
+              "content": {
+                "kind": "markdown",
+                "text": "Open Appearance to change the theme.",
+                "links": [
+                  {
+                    "textOffset": 5,
+                    "textLength": 10,
+                    "url": "mtw://settings/appearance"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
           "sequence": 3,
           "toolCall": {
             "id": "72727272-7272-4272-8272-727272727272",
-            "name": "staking.offer.read",
-            "version": 1,
-            "maxResultBytes": 16384,
-            "arguments": {
-              "schemaVersion": 1,
-              "productId": "stakee-gram",
-              "asset": {
-                "slug": "gram",
-                "chain": "ton",
-                "symbol": "GRAM"
-              }
-            },
-            "scopes": ["staking.data.read"],
-            "timeoutMs": 15000,
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
             "intentSource": {
               "kind": "userMessage",
               "messageId": "73737373-7373-4373-8373-737373737373"
             },
             "walletContextSession": {
               "sessionId": "74747474-7474-4474-8474-747474747474",
-              "revision": 2,
+              "revision": 1,
               "accountScope": "current",
               "activeAccountRef": "account_current",
               "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "portfolio.aggregate",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "range": "1m",
+              "groupBy": [
+                "account",
+                "asset",
+                "network"
+              ],
+              "riskMode": "all",
+              "visibilityMode": "all",
+              "historySource": "backend"
             }
           }
         },
         {
-          "type": "semantic_content",
-          "protocolVersion": 2,
+          "type": "message_content_end",
+          "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
-          "sequence": 4,
-          "messageId": "75757575-7575-4575-8575-757575757575",
-          "content": {
-            "kind": "notice",
-            "schemaVersion": 1,
-            "code": "analysis_unavailable",
-            "arguments": {
-              "analysisFailure": "source_unavailable"
-            }
-          }
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 5,
+          "createdAt": "2026-08-13T12:00:00.000Z"
         },
         {
           "type": "message_end",
-          "protocolVersion": 2,
+          "protocolVersion": 3,
           "runId": "71717171-7171-4171-8171-717171717171",
-          "sequence": 5,
-          "messageId": "75757575-7575-4575-8575-757575757575",
+          "messageId": "22222222-2222-4222-8222-222222222222",
+          "sequence": 6,
           "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentFeatureCapabilitiesResponseV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          },
+          "problemReport": {
+            "status": "available"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "walletQuery": {
+            "status": "disabled"
+          },
+          "problemReport": {
+            "status": "disabled"
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentHintsResponseV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "catalogVersion": "agent-starter-hints-v1",
+          "items": [
+            {
+              "id": "agent.capabilities"
+            },
+            {
+              "id": "learn.swap"
+            },
+            {
+              "id": "learn.staking"
+            },
+            {
+              "id": "learn.security"
+            },
+            {
+              "id": "receive.tokens",
+              "requiredCapabilities": [
+                "receive_action"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentWalletSnapshotAckV1",
+      "values": [
+        {
+          "snapshotRef": {
+            "instanceId": "11111111-1111-4111-8111-111111111111",
+            "sessionId": "22222222-2222-4222-8222-222222222222",
+            "revision": 7,
+            "snapshotRevision": 3
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 3,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16"
+              ],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 3,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32"
+              ],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 3,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "positions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [
+                "ton",
+                "chain1",
+                "chain2",
+                "chain3",
+                "chain4",
+                "chain5",
+                "chain6",
+                "chain7",
+                "chain8",
+                "chain9",
+                "chain10",
+                "chain11",
+                "chain12",
+                "chain13",
+                "chain14",
+                "chain15",
+                "chain16",
+                "chain17",
+                "chain18",
+                "chain19",
+                "chain20",
+                "chain21",
+                "chain22",
+                "chain23",
+                "chain24",
+                "chain25",
+                "chain26",
+                "chain27",
+                "chain28",
+                "chain29",
+                "chain30",
+                "chain31",
+                "chain32",
+                "chain33",
+                "chain34",
+                "chain35",
+                "chain36",
+                "chain37",
+                "chain38",
+                "chain39",
+                "chain40",
+                "chain41",
+                "chain42",
+                "chain43",
+                "chain44",
+                "chain45",
+                "chain46",
+                "chain47",
+                "chain48",
+                "chain49",
+                "chain50",
+                "chain51",
+                "chain52",
+                "chain53",
+                "chain54",
+                "chain55",
+                "chain56",
+                "chain57",
+                "chain58",
+                "chain59",
+                "chain60",
+                "chain61",
+                "chain62",
+                "chain63",
+                "chain64"
+              ],
+              "assetSelectors": [],
+              "positionKinds": [
+                "fungible"
+              ],
+              "riskMode": "exclude",
+              "visibilityMode": "visible",
+              "includeZero": false,
+              "sort": "wallet_order",
+              "pageSize": 100
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "11111111-1111-4111-8111-111111111111",
+          "sequence": 3,
+          "toolCall": {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "maxResultBytes": 98304,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "22222222-2222-4222-8222-222222222222"
+            },
+            "walletContextSession": {
+              "sessionId": "55555555-5555-4555-8555-555555555555",
+              "revision": 1,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "transactions.list",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "filters": {
+                "schemaVersion": 1,
+                "catalogDigest": "cbb752f15d98c9b9928dcd1c7db5a3b0b89b61387a308d8b0394680862021168",
+                "clauses": [
+                  {
+                    "field": "transaction.chain",
+                    "operator": "in",
+                    "values": [
+                      "ton",
+                      "chain1",
+                      "chain2",
+                      "chain3",
+                      "chain4",
+                      "chain5",
+                      "chain6",
+                      "chain7",
+                      "chain8",
+                      "chain9",
+                      "chain10",
+                      "chain11",
+                      "chain12",
+                      "chain13",
+                      "chain14",
+                      "chain15",
+                      "chain16",
+                      "chain17",
+                      "chain18",
+                      "chain19",
+                      "chain20",
+                      "chain21",
+                      "chain22",
+                      "chain23",
+                      "chain24",
+                      "chain25",
+                      "chain26",
+                      "chain27",
+                      "chain28",
+                      "chain29",
+                      "chain30",
+                      "chain31",
+                      "chain32",
+                      "chain33",
+                      "chain34",
+                      "chain35",
+                      "chain36",
+                      "chain37",
+                      "chain38",
+                      "chain39",
+                      "chain40",
+                      "chain41",
+                      "chain42",
+                      "chain43",
+                      "chain44",
+                      "chain45",
+                      "chain46",
+                      "chain47",
+                      "chain48",
+                      "chain49",
+                      "chain50",
+                      "chain51",
+                      "chain52",
+                      "chain53",
+                      "chain54",
+                      "chain55",
+                      "chain56",
+                      "chain57",
+                      "chain58",
+                      "chain59",
+                      "chain60",
+                      "chain61",
+                      "chain62",
+                      "chain63",
+                      "chain64"
+                    ]
+                  }
+                ]
+              },
+              "riskMode": "exclude",
+              "pageSize": 10
+            }
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
+          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
+          "type": "message_start",
+          "sequence": 2,
+          "role": "assistant",
+          "contentKind": "markdown"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
+          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
+          "type": "text_delta",
+          "sequence": 3,
+          "delta": "Use the button to choose the payment asset and amount."
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
+          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
+          "type": "action",
+          "sequence": 4,
+          "action": {
+            "id": "93939393-9393-4393-8393-939393939393",
+            "schemaVersion": 2,
+            "kind": "swap",
+            "labelCode": "open_swap",
+            "effect": "open_swap",
+            "contextBinding": {
+              "sessionId": "95959595-9595-4595-8595-959595959595",
+              "revision": 5,
+              "activeAccountRef": "account_current"
+            },
+            "destinationAsset": {
+              "slug": "trx",
+              "chain": "tron",
+              "symbol": "TRX",
+              "name": "Tron",
+              "decimals": 6
+            },
+            "localDraftRequired": false,
+            "requiresConfirmation": false,
+            "url": "https://my.tt/swap?out=trx",
+            "title": "Buy TRX"
+          }
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
+          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
+          "type": "message_content_end",
+          "sequence": 5,
+          "createdAt": "2026-10-07T07:48:53.000Z"
+        },
+        {
+          "protocolVersion": 3,
+          "runId": "c1c1c1c1-c1c1-41c1-81c1-c1c1c1c1c1c1",
+          "messageId": "c2c2c2c2-c2c2-42c2-82c2-c2c2c2c2c2c2",
+          "type": "message_end",
+          "sequence": 6,
+          "finishReason": "complete"
+        }
+      ]
+    },
+    {
+      "schema": "AgentThreadMessagesPageV2",
+      "values": [
+        {
+          "protocolVersion": 3,
+          "thread": {
+            "id": "56565656-5656-4656-8656-565656565656",
+            "revision": 1,
+            "createdAt": "2026-07-12T00:00:00.000Z",
+            "updatedAt": "2026-07-12T00:00:00.000Z",
+            "lastActivityAt": "2026-07-12T00:00:00.000Z",
+            "messageCount": 1
+          },
+          "messages": [
+            {
+              "id": "57575757-5757-4757-8757-575757575757",
+              "threadId": "56565656-5656-4656-8656-565656565656",
+              "role": "assistant",
+              "status": "complete",
+              "content": {
+                "kind": "markdown",
+                "text": "The requested result is ready to review."
+              },
+              "createdAt": "2026-08-13T12:00:00.000Z",
+              "actions": [
+                {
+                  "id": "93939393-9393-4393-8393-939393939393",
+                  "schemaVersion": 2,
+                  "kind": "swap",
+                  "labelCode": "open_swap",
+                  "effect": "open_swap",
+                  "destinationAsset": {
+                    "slug": "trx",
+                    "chain": "tron",
+                    "symbol": "TRX",
+                    "name": "Tron",
+                    "decimals": 6
+                  },
+                  "localDraftRequired": false,
+                  "requiresConfirmation": false,
+                  "url": "https://my.tt/swap?out=trx",
+                  "title": "Buy TRX"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "values": [
+        {
+          "type": "action",
+          "protocolVersion": 3,
+          "runId": "12121212-1212-4212-8212-121212121212",
+          "sequence": 4,
+          "messageId": "13131313-1313-4313-8313-131313131313",
+          "action": {
+            "id": "5b5b5b5b-5b5b-4b5b-8b5b-5b5b5b5b5b5b",
+            "kind": "send",
+            "labelCode": "open_send",
+            "effect": "open_send",
+            "contextBinding": {
+              "sessionId": "15151515-1515-4515-8515-151515151515",
+              "revision": 7,
+              "activeAccountRef": "account-current",
+              "activeNetwork": "ton"
+            },
+            "localDraftRequired": false,
+            "requiresConfirmation": false,
+            "title": "Open Send",
+            "recipient": {
+              "kind": "savedAddress",
+              "addressRef": "address-current-contact"
+            },
+            "asset": {
+              "slug": "toncoin",
+              "chain": "ton"
+            },
+            "isMaxAmount": true
+          }
+        }
+      ]
+    },
+    {
+      "schema": "AgentStreamEventV2",
+      "requiresFeatures": [
+        "walletChainLookup"
+      ],
+      "values": [
+        {
+          "type": "tool_call",
+          "protocolVersion": 3,
+          "runId": "91919191-9191-4919-9191-919191919191",
+          "sequence": 3,
+          "toolCall": {
+            "id": "92929292-9292-4929-9292-929292929292",
+            "name": "wallet.data.query",
+            "scopes": [
+              "wallet.data.read"
+            ],
+            "timeoutMs": 30000,
+            "intentSource": {
+              "kind": "userMessage",
+              "messageId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            },
+            "walletContextSession": {
+              "sessionId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              "revision": 7,
+              "accountScope": "current",
+              "activeAccountRef": "account_current",
+              "activeNetwork": "ton"
+            },
+            "arguments": {
+              "operation": "account.inventory",
+              "accountSelector": {
+                "kind": "current"
+              },
+              "chains": [],
+              "includePublicAddressReason": "chain_lookup"
+            }
+          }
         }
       ]
     }

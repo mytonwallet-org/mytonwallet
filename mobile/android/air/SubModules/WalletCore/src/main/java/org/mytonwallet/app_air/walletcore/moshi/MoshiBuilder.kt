@@ -12,6 +12,10 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONObjectAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdateAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.ReturnStrategyAdapter
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2MessageContent
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ResolvedAction
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 
 class MoshiBuilder {
@@ -48,6 +52,7 @@ class MoshiBuilder {
             )
             .add(
                 PolymorphicJsonAdapterFactory.of(ApiUpdate::class.java, "type")
+                    .withSubtype(ApiUpdate.ApiUpdateAgentV2::class.java, "agentV2")
                     .withSubtype(
                         ApiUpdate.ApiUpdateDappSendTransactions::class.java,
                         "dappSendTransactions"
@@ -175,6 +180,7 @@ class MoshiBuilder {
                     )
                     .withDefaultValue(null)
             )
+            .addAgentV2Adapters()
             .add(
                 PolymorphicJsonAdapterFactory.of(ApiParsedPayload::class.java, "type")
                     .withSubtype(ApiParsedPayload.ApiCommentPayload::class.java, "comment")
@@ -260,3 +266,50 @@ class MoshiBuilder {
             .build()
     }
 }
+
+internal fun Moshi.Builder.addAgentV2Adapters(): Moshi.Builder = this
+    .add(
+        PolymorphicJsonAdapterFactory.of(AgentV2MessageContent::class.java, "kind")
+            .withSubtype(AgentV2MessageContent.Markdown::class.java, "markdown")
+            .withSubtype(AgentV2MessageContent.Semantic::class.java, "semantic")
+            .withDefaultValue(null)
+    )
+    .add(
+        PolymorphicJsonAdapterFactory.of(AgentV2ActionPresentation::class.java, "kind")
+            .withSubtype(AgentV2ActionPresentation.Send::class.java, "send")
+            .withSubtype(AgentV2ActionPresentation.Inactive::class.java, "inactive")
+    )
+    .add(
+        PolymorphicJsonAdapterFactory.of(AgentV2ResolvedAction::class.java, "kind")
+            .withSubtype(AgentV2ResolvedAction.OpenReceive::class.java, "openReceive")
+            .withSubtype(AgentV2ResolvedAction.OpenStaking::class.java, "openStaking")
+            .withSubtype(AgentV2ResolvedAction.OpenSwap::class.java, "openSwap")
+            .withSubtype(AgentV2ResolvedAction.SendForm::class.java, "sendForm")
+            .withSubtype(AgentV2ResolvedAction.OpenDapp::class.java, "openDapp")
+            .withSubtype(AgentV2ResolvedAction.Inactive::class.java, "inactive")
+    )
+    .add(
+        PolymorphicJsonAdapterFactory.of(AgentV2Update::class.java, "kind")
+            .withSubtype(AgentV2Update.RunStarted::class.java, "runStarted")
+            .withSubtype(AgentV2Update.MessageStarted::class.java, "messageStarted")
+            .withSubtype(AgentV2Update.TextDelta::class.java, "textDelta")
+            .withSubtype(AgentV2Update.AnswerTablesChanged::class.java, "answerTablesChanged")
+            .withSubtype(AgentV2Update.AnswerLinkAdded::class.java, "answerLinkAdded")
+            .withSubtype(AgentV2Update.MessageContentEnded::class.java, "messageContentEnded")
+            .withSubtype(AgentV2Update.MessageCompleted::class.java, "messageCompleted")
+            .withSubtype(AgentV2Update.ActionAvailable::class.java, "actionAvailable")
+            .withSubtype(AgentV2Update.FollowupsAvailable::class.java, "followupsAvailable")
+            .withSubtype(
+                AgentV2Update.SemanticContentAvailable::class.java,
+                "semanticContentAvailable"
+            )
+            .withSubtype(AgentV2Update.RunFailed::class.java, "runFailed")
+            .withSubtype(AgentV2Update.RunCancelled::class.java, "runCancelled")
+            .withSubtype(
+                AgentV2Update.WalletAuthorityChanged::class.java,
+                "walletAuthorityChanged"
+            )
+            .withSubtype(AgentV2Update.ThreadChanged::class.java, "threadChanged")
+            .withSubtype(AgentV2Update.RuntimeReady::class.java, "runtimeReady")
+            .withDefaultValue(null)
+    )

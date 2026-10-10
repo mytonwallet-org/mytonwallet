@@ -21,6 +21,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  accountId?: string;
   areSettingsOpen?: boolean;
   isAgentOpen?: boolean;
   isExploreOpen?: boolean;
@@ -29,7 +30,7 @@ interface StateProps {
 }
 
 function LandscapeLayout({
-  onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
+  accountId, onStakedTokenClick, areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
 }: OwnProps & StateProps) {
   function renderSlide(isActive: boolean, _isFrom: boolean, currentKey: ContentTab) {
     switch (currentKey) {
@@ -42,29 +43,29 @@ function LandscapeLayout({
       case ContentTab.Explore:
         return (
           <div className={styles.standaloneWrapper}>
-            <Explore isActive={isActive} />
+            <Explore key={accountId} isActive={isActive} />
           </div>
         );
       case ContentTab.Market:
         return (
           <div className={buildClassName(styles.standaloneWrapper, styles.marketWrapper)}>
-            <Market isActive={isActive} />
+            <Market key={accountId} isActive={isActive} />
           </div>
         );
       case ContentTab.Settings:
         return (
           <div className={styles.settingsWrapper}>
-            <Settings isActive={isActive} />
+            <Settings key={accountId} isActive={isActive} />
           </div>
         );
       case ContentTab.Portfolio:
         return (
           <div className={buildClassName(styles.standaloneWrapper, styles.portfolioWrapper)}>
-            <Portfolio isActive={isActive} />
+            <Portfolio key={accountId} isActive={isActive} />
           </div>
         );
       default:
-        return <LandscapeContent onStakedTokenClick={onStakedTokenClick} />;
+        return <LandscapeContent key={accountId} onStakedTokenClick={onStakedTokenClick} />;
     }
   }
 
@@ -100,9 +101,9 @@ export default memo(
       } = global;
 
       return {
+        accountId: selectCurrentAccountId(global),
         areSettingsOpen, isAgentOpen, isExploreOpen, isMarketOpen, isPortfolioOpen,
       };
     },
-    (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(LandscapeLayout),
 );

@@ -65,8 +65,12 @@ import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 
 @SuppressLint("ViewConstructor")
-class StakingVC(context: Context, private val tokenSlug: String, mode: StakingViewModel.Mode) :
-    WViewControllerWithModelStore(context),
+class StakingVC(
+    context: Context,
+    private val tokenSlug: String,
+    mode: StakingViewModel.Mode,
+    private val prefilledAmount: String? = null
+) : WViewControllerWithModelStore(context),
     WalletCore.EventObserver {
     @Suppress("PropertyName")
     override val TAG = "Staking"
@@ -216,6 +220,11 @@ class StakingVC(context: Context, private val tokenSlug: String, mode: StakingVi
 
         initViewModel()
         setupObservers()
+        when (prefilledAmount) {
+            "all" -> onMaxBalanceButtonClicked()
+            null -> {}
+            else -> stakeInputView.amountEditText.setText(prefilledAmount)
+        }
     }
 
     private fun initViewModel() {

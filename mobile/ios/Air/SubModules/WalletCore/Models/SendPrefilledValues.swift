@@ -22,9 +22,12 @@ public struct SendPrefilledValues {
     public let binaryPayload: String?
     public let nfts: [ApiNft]?
     public let stateInit: String?
+    /// The form fills the most it can send of the token, as its Max button does, instead of `amount`
+    public let isMaxAmount: Bool
     
     public init(mode: SendMode = .regular, address: String? = nil, amount: BigInt? = nil, token: String? = nil, jetton: String? = nil,
-                commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, stateInit: String? = nil) {
+                commentOrMemo: String? = nil, binaryPayload: String? = nil, nfts: [ApiNft]? = nil, stateInit: String? = nil,
+                isMaxAmount: Bool = false) {
         self.mode = mode
         self.address = address
         self.amount = amount
@@ -34,5 +37,6 @@ public struct SendPrefilledValues {
         self.binaryPayload = binaryPayload
         self.nfts = nfts
         self.stateInit = stateInit
+        self.isMaxAmount = isMaxAmount
     }
 }

@@ -1,23 +1,23 @@
 import type {
-  AgentActionProposal,
-  AgentErrorCodeV2,
   AgentHintsResponseV2,
-  AgentMessageErrorV2,
   AgentPersistedActionV2,
   AgentPublicFollowUpV2,
-  AgentPublicInputContinuationV1,
   AgentRunActivityEvent,
   AgentThreadSummaryV2,
   AgentUserQuotaV2,
+  AgentV2ErrorCode,
+  AgentV2LiveAction,
+  AgentV2MessageError,
 } from '../../../api/agentV2/protocol/types';
 import type {
   AgentV2ActionPresentation,
   AgentV2AvailabilityState,
   AgentV2RateLimitState,
-  AgentV2WalletConversationControls,
 } from '../../../api/agentV2/types';
 import type { AgentHint, AgentMessage } from '../../../global/types';
 import type { AgentRunActivityType } from '../AgentRunActivity';
+
+import memoize from '../../../util/memoize';
 
 type AgentV2RunWithOperation = {
   operationId?: number;
@@ -74,10 +74,10 @@ export interface AgentV2MessagesState {
   error?: {
     text: string;
     timestamp: number;
-    cause?: AgentMessageErrorV2;
+    cause?: AgentV2MessageError;
   };
   admissionFailure?: {
-    error: AgentMessageErrorV2;
+    error: AgentV2MessageError;
     timestamp: number;
     clientRunId?: string;
     optimisticMessageId?: number;
@@ -124,6 +124,10 @@ export type AgentV2MessagesStateAction =
   | { kind: 'hintsLoaded'; hints: HydrationHints }
   | { kind: 'optimisticMessageAdded'; message: AgentMessage }
   | { kind: 'messageSourceBound'; messageId: number; sourceId: string }
+  | { kind: 'messageSourceReserved'; messageId: number; sourceId: string }
+  | { kind: 'messageSourcesPruned'; retainedMessageIds: Set<number> }
+  | { kind: 'messageSourcesReset' }
+  | { kind: 'threadMutationReconciled'; thread: AgentThreadSummaryV2; shouldMatchRevision: boolean }
   | { kind: 'historyPageStarted'; requestId: number; threadId: string; cursor: string }
   | {
     kind: 'historyPageSucceeded';
@@ -181,52 +185,49 @@ export type AgentV2MessagesStateAction =
   | { kind: 'messageContentEnded'; messageId: number }
   | { kind: 'followupsAvailable'; messageId: number; items: AgentPublicFollowUpV2[] }
   | {
-    kind: 'inputContinuationsAvailable';
-    messageId: number;
-    items: AgentPublicInputContinuationV1[];
-  }
-  | {
     kind: 'actionAvailable';
     messageId: number;
-    action: AgentActionProposal | AgentPersistedActionV2;
+    action: AgentV2LiveAction | AgentPersistedActionV2;
   }
-  | { kind: 'semanticContentAvailable'; messageId: number; content: AgentMessage['semanticContent'] }
-  | {
-    kind: 'messageCompleted';
-    clientRunId: string;
-    messageId: number;
-    finishReason: string;
-    walletControls?: AgentV2WalletConversationControls;
-  }
-  | { kind: 'threadChanged'; thread: AgentThreadSummaryV2 }
-  | {
-    kind: 'runFailed';
-    clientRunId: string;
-    code: AgentErrorCodeV2;
-    retryable: boolean;
-    messageId?: number;
-    resetAt?: number;
-    resetAtIso?: string;
-    hasRunId: boolean;
-    optimisticMessageId?: number;
-    retryMessageId?: number;
-    errorText: string;
-    timestamp: number;
-  }
-  | { kind: 'runCancelled'; clientRunId: string }
-  | { kind: 'runSettled'; operationId: number }
-  | { kind: 'admissionRetryConsumed'; operationId: number }
-  | { kind: 'composerStatusExpired' }
-  | { kind: 'availabilityChanged'; availability: AgentV2AvailabilityState }
-  | { kind: 'userQuotaChanged'; quota?: AgentUserQuotaV2 }
-  | { kind: 'walletAuthorityChanged'; threadId?: string }
-  | { kind: 'walletContextChanged' }
-  | {
-    kind: 'actionPresentationChanged';
-    messageId: number;
-    actionId: string;
-    presentation: AgentV2ActionPresentation;
-  };
+  | { kind: 'answerTablesChanged'; messageId: number; tables: AgentMessage['tables'];
+    tableReferences: AgentMessage['tableReferences']; }
+    | { kind: 'answerLinkAdded'; messageId: number; link: NonNullable<AgentMessage['links']>[number] }
+    | { kind: 'semanticContentAvailable'; messageId: number; content: AgentMessage['semanticContent'] }
+    | {
+      kind: 'messageCompleted';
+      clientRunId: string;
+      messageId: number;
+      finishReason: string;
+    }
+    | { kind: 'threadChanged'; thread: AgentThreadSummaryV2 }
+    | {
+      kind: 'runFailed';
+      clientRunId: string;
+      code: AgentV2ErrorCode;
+      retryable: boolean;
+      messageId?: number;
+      resetAt?: number;
+      resetAtIso?: string;
+      hasRunId: boolean;
+      optimisticMessageId?: number;
+      retryMessageId?: number;
+      errorText: string;
+      timestamp: number;
+    }
+    | { kind: 'runCancelled'; clientRunId: string }
+    | { kind: 'runSettled'; operationId: number }
+    | { kind: 'admissionRetryConsumed'; operationId: number }
+    | { kind: 'composerStatusExpired' }
+    | { kind: 'availabilityChanged'; availability: AgentV2AvailabilityState }
+    | { kind: 'userQuotaChanged'; quota?: AgentUserQuotaV2 }
+    | { kind: 'walletAuthorityChanged'; threadId?: string }
+    | { kind: 'walletContextChanged' }
+    | {
+      kind: 'actionPresentationChanged';
+      messageId: number;
+      actionId: string;
+      presentation: AgentV2ActionPresentation;
+    };
 
 const ANALYZING_REQUEST_ACTIVITY: AgentRunActivityType = { kind: 'analyzingRequest' };
 
@@ -312,7 +313,24 @@ export function reduceAgentV2MessagesState(
     case 'optimisticMessageAdded':
       return { ...state, messages: [...state.messages, action.message] };
     case 'messageSourceBound':
+      return state.messages.some(({ id }) => id === action.messageId)
+        ? bindMessageSource(state, action.messageId, action.sourceId)
+        : state;
+    case 'messageSourceReserved':
       return bindMessageSource(state, action.messageId, action.sourceId);
+    case 'messageSourcesPruned':
+      return {
+        ...state,
+        sourceIdByMessageId: Object.fromEntries(Object.entries(state.sourceIdByMessageId)
+          .filter(([id]) => action.retainedMessageIds.has(Number(id)))),
+      };
+    case 'messageSourcesReset':
+      return { ...state, sourceIdByMessageId: {} };
+    case 'threadMutationReconciled':
+      return {
+        ...state,
+        threadMutation: reconcileThreadMutation(state.threadMutation, action.thread, action.shouldMatchRevision),
+      };
     case 'historyPageStarted':
       if (!doesHistoryPageTargetCurrentCursor(state, action)) return state;
       return {
@@ -334,9 +352,12 @@ export function reduceAgentV2MessagesState(
       return truncateMessagesForEdit(state, action.targetMessageId, action.text);
     case 'regenerateRunAdmitted':
       return truncateMessagesForRegeneration(state, action.targetMessageId);
-    case 'threadClearStarted':
-      return {
+    case 'threadClearStarted': {
+      const clearing: AgentV2MessagesState = {
         ...state,
+        messages: [],
+        sourceIdByMessageId: {},
+        nextCursor: undefined,
         admissionFailure: undefined,
         error: undefined,
         isLoadingOlderMessages: false,
@@ -348,6 +369,11 @@ export function reduceAgentV2MessagesState(
           threadRevision: action.threadRevision,
         },
       };
+      // A cancelled answer's operation keeps input blocked until it settles, without showing its activity
+      return getRunOperationId(state.run) === undefined
+        ? { ...clearing, run: { phase: 'idle' } }
+        : clearRunActivity(clearing);
+    }
     case 'threadClearSucceeded':
       if (!selectIsAgentV2ThreadMutationCurrent(state, action.operationId)) return state;
       return selectDoesAgentV2ThreadMutationMatch(state, action.thread)
@@ -450,11 +476,6 @@ export function reduceAgentV2MessagesState(
         ...message,
         followups: action.items,
       }));
-    case 'inputContinuationsAvailable':
-      return updateMessage(state, action.messageId, (message) => ({
-        ...message,
-        inputContinuations: action.items,
-      }));
     case 'actionAvailable':
       return updateMessage(state, action.messageId, (message) => ({
         ...message,
@@ -465,6 +486,14 @@ export function reduceAgentV2MessagesState(
         ...(action.action.kind === 'send' ? {
           actionPresentations: removeActionPresentation(message.actionPresentations, action.action.id),
         } : {}),
+      }));
+    case 'answerTablesChanged':
+      return updateMessage(state, action.messageId, (message) => ({
+        ...message, tables: action.tables, tableReferences: action.tableReferences,
+      }));
+    case 'answerLinkAdded':
+      return updateMessage(state, action.messageId, (message) => ({
+        ...message, links: [...(message.links ?? []), action.link],
       }));
     case 'semanticContentAvailable':
       return clearRunActivity(updateMessage(state, action.messageId, (message) => ({
@@ -519,7 +548,7 @@ export function reduceAgentV2MessagesState(
         messages: action.kind === 'walletContextChanged'
           || !action.threadId
           || state.thread?.id === action.threadId
-          ? state.messages.map(({ walletControls, actionPresentations, ...message }) => message)
+          ? state.messages.map(({ actionPresentations, ...message }) => message)
           : state.messages,
       };
     case 'actionPresentationChanged':
@@ -625,7 +654,6 @@ function selectHistoryPageRequest(request: AgentV2HistoryPageRequest): AgentV2Hi
 }
 
 function bindMessageSource(state: AgentV2MessagesState, messageId: number, sourceId: string) {
-  if (!state.messages.some((message) => message.id === messageId)) return state;
   const sourceIdByMessageId = Object.fromEntries(
     Object.entries(state.sourceIdByMessageId).filter(([currentMessageId, currentSourceId]) => (
       Number(currentMessageId) !== messageId && currentSourceId !== sourceId
@@ -640,7 +668,7 @@ function prependHistoryPage(
   entries: AgentV2NormalizedMessageEntry[],
   nextCursor: string | undefined,
 ): AgentV2MessagesState {
-  const existingSourceIds = new Set(Object.values(state.sourceIdByMessageId));
+  const existingSourceIds = new Set(state.messages.map(({ id }) => state.sourceIdByMessageId[id]));
   const existingMessageIds = new Set(state.messages.map(({ id }) => id));
   const pageSourceIds = new Set<string>();
   const pageMessageIds = new Set<number>();
@@ -747,7 +775,6 @@ function completeMessage(
     isTyping: undefined,
     isStreaming: undefined,
     shouldCommitMarkdownTail: action.finishReason === 'complete',
-    ...(action.walletControls ? { walletControls: action.walletControls } : {}),
   }));
   if (!isRunUpdateCurrent(state.run, action.clientRunId)) return updated;
   const operationBinding = getRunOperationBinding(state.run);
@@ -768,7 +795,7 @@ function failRun(
   action: Extract<AgentV2MessagesStateAction, { kind: 'runFailed' }>,
 ): AgentV2MessagesState {
   let nextState = terminalizeStreamingMessages(state, action.messageId);
-  const cause: AgentMessageErrorV2 = {
+  const cause: AgentV2MessageError = {
     code: action.code,
     retryable: action.retryable,
     ...(action.resetAtIso ? { resetAt: action.resetAtIso } : {}),
@@ -843,7 +870,7 @@ function failRun(
 
 function buildAdmissionFailure(
   action: Extract<AgentV2MessagesStateAction, { kind: 'runFailed' }>,
-  error: AgentMessageErrorV2,
+  error: AgentV2MessageError,
 ): NonNullable<AgentV2MessagesState['admissionFailure']> {
   return {
     error,
@@ -916,9 +943,7 @@ function applyServerRunActivity(
   clientRunId: string,
   event: AgentRunActivityEvent,
 ): AgentV2RunState {
-  if (event.status !== 'active'
-    || event.code === 'analysis.checking_freshness'
-    || event.code === 'analysis.computing') {
+  if (event.status !== 'active' || event.code === 'analysis.computing') {
     return run;
   }
   return updateRunActivityCurrent(run, clientRunId, { kind: 'server', code: event.code });
@@ -935,7 +960,7 @@ function getRunOperationBinding(run: AgentV2RunState): AgentV2RunWithOperation {
   return { operationId: run.operationId, operationKind: run.operationKind };
 }
 
-function getRunOperationId(run: AgentV2RunState) {
+export function getRunOperationId(run: AgentV2RunState) {
   return run.phase === 'idle' ? undefined : run.operationId;
 }
 
@@ -959,14 +984,12 @@ function reconcileHydratedMessages(
   const reconciledMessages = hydratedMessages.map((message) => {
     const current = currentById.get(message.id);
     const semanticContent = message.semanticContent ?? current?.semanticContent;
-    const walletControls = current?.walletControls ?? message.walletControls;
     const actions = current?.actions ?? message.actions;
     const actionPresentations = current?.actionPresentations ?? message.actionPresentations;
-    if (!semanticContent && !walletControls && !actions && !actionPresentations) return message;
+    if (!semanticContent && !actions && !actionPresentations) return message;
     return {
       ...message,
       ...(semanticContent ? { semanticContent } : {}),
-      ...(walletControls ? { walletControls } : {}),
       ...(actions ? { actions } : {}),
       ...(actionPresentations ? { actionPresentations } : {}),
     };
@@ -1026,4 +1049,12 @@ function upsertMessage(messages: AgentMessage[], message: AgentMessage) {
 
 function assertUnreachable(value: never): never {
   throw new Error(`Unsupported Agent V2 messages state action: ${String(value)}`);
+}
+
+const getMessageIdBySourceId = memoize((sources: AgentV2MessagesState['sourceIdByMessageId']) => (
+  new Map(Object.entries(sources).map(([id, sourceId]) => [sourceId, Number(id)]))
+));
+
+export function findAgentV2MessageId(state: AgentV2MessagesState, sourceId: string) {
+  return getMessageIdBySourceId(state.sourceIdByMessageId).get(sourceId);
 }

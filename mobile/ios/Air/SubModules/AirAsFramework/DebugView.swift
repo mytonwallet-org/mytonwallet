@@ -171,16 +171,6 @@ struct DebugView: View {
         }
 
         Section {
-            Button(lang("$agent_consent_debug_reset_button")) {
-                log.info("Reset Agent consent state")
-                AirDebugActions.resetAgentConsentState()
-                dismiss()
-            }
-        } footer: {
-            Text(lang("$agent_consent_debug_reset_footer"))
-        }
-
-        Section {
             Button("Force Intro") {
                 log.info("Force Intro")
                 dismiss()

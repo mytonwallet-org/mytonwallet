@@ -96,13 +96,12 @@ npm run dev
 
 ### Agent V2 local cycle
 
-Agent V2 is bundled in Classic but normal builds force Agent V1 for the current release. `AGENT_OVERRIDE=v2` enables
-V2 explicitly for development, while `AGENT_OVERRIDE=no_override` follows the backend config and falls back to V1 when
-it is absent. On the regular Web app, `?agent=v2` enables V2 for the browser profile and `?agent=v1` switches it back
-when `AGENT_OVERRIDE=no_override` is set; both parameters are removed from the URL after the choice is saved. Native iOS
-uses the same override from the embedded SDK configuration and also defaults to V1 for the current release. To validate
-the common SDK and Classic integration against two local Agent replicas, keep the `agent` repository next to this
-repository and run:
+Agent V2 is bundled in Classic. `AGENT_OVERRIDE=v1` or `AGENT_OVERRIDE=v2` selects a build protocol, while the default
+`AGENT_OVERRIDE=no_override` follows the backend config and falls back to V1 when it is absent. On the regular Web app,
+`?agent=v2` enables V2 for the browser profile and `?agent=v1` switches it back; the saved browser choice takes priority
+over the build and backend selections, and both parameters are removed from the URL after the choice is saved. To
+validate the common SDK and Classic integration against two local Agent replicas, keep the `agent` repository next to
+this repository and run:
 
 ```sh
 npm run test:agent:v2

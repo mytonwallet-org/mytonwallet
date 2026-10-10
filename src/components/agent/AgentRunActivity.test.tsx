@@ -13,6 +13,7 @@ jest.mock('../../hooks/useLang', () => ({
     $agent_activity_transactions: 'Reviewing wallet activity…',
     $agent_activity_preparing_response: 'Preparing your answer…',
     $agent_activity_web_reading_sources: 'Reviewing sources…',
+    $agent_activity_help_searching: 'Searching the Help Center…',
   }[key] ?? key),
 }));
 
@@ -69,6 +70,19 @@ describe('AgentRunActivity', () => {
     expect(root.textContent).toBe('Reviewing sources…');
     expect(root.textContent).not.toContain('web.reading_sources');
     expect(root.querySelectorAll('[role="status"]')).toHaveLength(1);
+
+    TeactDOM.render(
+      <AgentRunActivity activity={{ kind: 'server', code: 'help.searching' }} />,
+      root,
+    );
+    await waitForCondition(() => root.textContent === 'Searching the Help Center…');
+    expect(root.textContent).toBe('Searching the Help Center…');
+
+    // The last phase stays on screen while the indicator fades out, then leaves the DOM
+    TeactDOM.render(<AgentRunActivity />, root);
+    await waitForCondition(() => root.querySelector('[role="status"]')?.classList.contains('closing') === true);
+    expect(root.textContent).toBe('Searching the Help Center…');
+    await waitForCondition(() => !root.querySelector('[role="status"]'));
 
     TeactDOM.render(undefined, root);
     root.remove();

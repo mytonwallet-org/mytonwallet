@@ -215,7 +215,7 @@ describe('initial token snapshots and quote availability', () => {
     await sdk.updateTokensFromBackend(jest.fn());
     await sdk.updateTokens([makeToken({ priceUsd: 6, percentChange24h: 3 })]);
 
-    expect(sdk.getTokensCache().bySlug['ethereum-snapshot']).toMatchObject({
+    expect(sdk.getTokensCache().bySlug['ethereum-0xsnapshot']).toMatchObject({
       priceUsd: 6, percentChange24h: 3, isPriceFromBackend: false,
     });
   });
@@ -243,7 +243,7 @@ describe('initial token snapshots and quote availability', () => {
 
 function makeToken(rest?: Partial<ApiTokenWithPrice>): ApiTokenWithMaybePrice {
   return {
-    slug: 'ethereum-snapshot', chain: 'ethereum', tokenAddress: '0xSnapshot',
+    slug: 'ethereum-0xsnapshot', chain: 'ethereum', tokenAddress: '0xSnapshot',
     name: 'Snapshot', symbol: 'SNAP', decimals: 18,
     priceUsd: undefined, percentChange24h: undefined, ...rest,
   };

@@ -61,9 +61,29 @@ public final class _NftStore: Sendable {
     @PerceptionIgnored
     private let _hiddenNftKeysByAccount: UnfairLock<[String: Set<HiddenNftKey>]> = .init(initialState: [:])
     private let _unhiddenNftIdsByAccount: UnfairLock<[String: Set<String>]> = .init(initialState: [:])
+    @PerceptionIgnored
+    private let _fullyLoadedChainsByAccount: UnfairLock<[String: Set<ApiChain>]> = .init(initialState: [:])
     
     public func getAccountNfts(accountId: String) -> OrderedDictionary<String, DisplayNft>? {
         _nfts.withLock { $0[accountId] }
+    }
+
+    /// The networks whose NFTs were read in full since launch, as the web app keeps them
+    public func getAccountFullyLoadedChains(accountId: String) -> Set<ApiChain> {
+        _fullyLoadedChainsByAccount.withLock { $0[accountId] ?? [] }
+    }
+
+    /// A network is read in full from the final update of a full load until another one starts
+    func recordFullLoad(_ update: ApiUpdate.UpdateNfts) {
+        guard let isFullLoading = update.isFullLoading else { return }
+        let isComplete = !isFullLoading && update.streamedAddresses != nil
+        _fullyLoadedChainsByAccount.withLock {
+            if isComplete {
+                $0[update.accountId, default: []].insert(update.chain)
+            } else {
+                $0[update.accountId]?.remove(update.chain)
+            }
+        }
     }
     public func getAccountShownNfts(accountId: String) -> OrderedDictionary<String, DisplayNft>? {
         guard let nfts = getAccountNfts(accountId: accountId) else { return nil }
@@ -351,6 +371,7 @@ public final class _NftStore: Sendable {
     
     public func clean() {
         _nfts.withLock { $0 = [:] }
+        _fullyLoadedChainsByAccount.withLock { $0 = [:] }
         _hiddenNftKeysByAccount.withLock { $0 = [:] }
         _unhiddenNftIdsByAccount.withLock { $0 = [:] }
         _database.withLock { $0 = nil }
@@ -380,6 +401,7 @@ public final class _NftStore: Sendable {
                         }
                     }
                     _pendingNewMtwCardsByAccount.withLock { $0 = [:] }
+                    _fullyLoadedChainsByAccount.withLock { $0 = [:] }
                     for accountId in accountIds {
                         WalletCoreData.notify(event: .nftsChanged(accountId: accountId))
                     }
@@ -862,6 +884,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
         switch event {
         case .accountDeleted(let accountId):
             _nfts.withLock { $0[accountId] = nil }
+            _fullyLoadedChainsByAccount.withLock { $0[accountId] = nil }
             _hiddenNftKeysByAccount.withLock { $0[accountId] = nil }
             _unhiddenNftIdsByAccount.withLock { $0[accountId] = nil }
             _pendingNewMtwCardsByAccount.withLock { $0[accountId] = nil }
@@ -876,6 +899,7 @@ extension _NftStore: WalletCoreData.EventsObserver {
             saveToCache()
 
         case .updateNfts(let update):
+            recordFullLoad(update)
             let shouldAppend = update.collectionAddress != nil || update.isFullLoading == true
             let streamPruneContext = update.streamedAddresses.map {
                 StreamPruneContext(chain: update.chain, addresses: Set($0))

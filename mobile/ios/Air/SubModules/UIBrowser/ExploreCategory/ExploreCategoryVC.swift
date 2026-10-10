@@ -55,6 +55,16 @@ final class ExploreCategoryVC: WViewController {
     }
     
     override func updateMaxContentWidthIfNeeded() {} // superclass imp breaks layout, override with empty imp
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        exploreVM.setActive(true)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        exploreVM.setActive(false)
+    }
     
     override func scrollToTop(animated: Bool) {
         collectionView.setContentOffset(.zero, animated: animated)

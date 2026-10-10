@@ -3,10 +3,12 @@ import type {
   AgentDeviceTokenIssueResponseV2,
   AgentErrorCodeV2,
   AgentFeatureCapabilitiesResponseV2,
+  AgentProblemReportCapabilityV1,
   AgentRunCancelResponseV2,
   AgentThreadSummaryV2,
   AgentUserQuotaResponseV2,
   AgentUserQuotaV2,
+  AgentWalletSnapshotAckV1,
 } from '../types';
 
 import {
@@ -29,9 +31,10 @@ import {
   uuid,
   validateErrorTiming,
 } from './readers';
+import { walletQueryCapability } from './wallet';
 
 export interface AgentV2DecodedApiError {
-  protocolVersion: 2;
+  protocolVersion: 3;
   error: {
     code: AgentErrorCodeV2;
     retryable: boolean;
@@ -68,7 +71,7 @@ export function decodeAgentV2ApiError(value: unknown): AgentV2DecodedApiError {
   }
   validateErrorTiming(code, error, '$.error');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     error: {
       code,
       retryable,
@@ -93,21 +96,21 @@ export function decodeAgentV2Availability(value: unknown): AgentAvailabilityResp
   if (state === 'available' && result.resetAt !== undefined) fail('$.resetAt');
   const resetAt = result.resetAt === undefined ? undefined : timestamp(result.resetAt, '$.resetAt');
   return state === 'available'
-    ? { protocolVersion: 2, state }
-    : { protocolVersion: 2, state, ...(resetAt !== undefined && { resetAt }) };
+    ? { protocolVersion: 3, state }
+    : { protocolVersion: 3, state, ...(resetAt !== undefined && { resetAt }) };
 }
 
 export function decodeAgentV2UserQuota(value: unknown): AgentUserQuotaResponseV2 {
   const result = object(value, '$');
   protocol(result, '$');
-  return { protocolVersion: 2, quota: userQuota(result.quota, '$.quota') };
+  return { protocolVersion: 3, quota: userQuota(result.quota, '$.quota') };
 }
 
 export function decodeAgentV2DeviceToken(value: unknown): AgentDeviceTokenIssueResponseV2 {
   const result = object(value, '$');
   protocol(result, '$');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     deviceId: uuid(result.deviceId, '$.deviceId'),
     deviceToken: string(result.deviceToken, '$.deviceToken'),
     expiresAt: timestamp(result.expiresAt, '$.expiresAt'),
@@ -117,39 +120,17 @@ export function decodeAgentV2DeviceToken(value: unknown): AgentDeviceTokenIssueR
 export function decodeAgentV2FeatureCapabilities(value: unknown): AgentFeatureCapabilitiesResponseV2 {
   const result = object(value, '$');
   protocol(result, '$');
-  const portfolioPositions = oneOf<'available' | 'disabled'>(
-    result.portfolioPositions,
-    new Set(['available', 'disabled']),
-    '$.portfolioPositions',
-  );
-  const walletQuery = result.walletQuery === undefined
-    ? 'disabled'
-    : oneOf<'available' | 'disabled'>(
-      result.walletQuery,
-      new Set(['available', 'disabled']),
-      '$.walletQuery',
-    );
-  const stakingOffer = result.stakingOffer === undefined
-    ? 'disabled'
-    : oneOf<'available' | 'disabled'>(
-      result.stakingOffer,
-      new Set(['available', 'disabled']),
-      '$.stakingOffer',
-    );
-  const stakingCatalog = result.stakingCatalog === undefined
-    ? 'disabled'
-    : oneOf<'available' | 'disabled'>(
-      result.stakingCatalog,
-      new Set(['available', 'disabled']),
-      '$.stakingCatalog',
-    );
   return {
-    protocolVersion: 2,
-    portfolioPositions,
-    stakingOffer,
-    stakingCatalog,
-    walletQuery,
+    protocolVersion: 3,
+    walletQuery: walletQueryCapability(result.walletQuery, '$.walletQuery'),
+    problemReport: { status: problemReportStatus(result.problemReport) },
   };
+}
+
+// A server that does not state problem reports leaves them off without taking wallet reads down with them
+function problemReportStatus(value: unknown): AgentProblemReportCapabilityV1['status'] {
+  const status = value && typeof value === 'object' ? (value as { status?: unknown }).status : undefined;
+  return status === 'available' ? 'available' : 'disabled';
 }
 
 export function decodeAgentV2RunCancel(value: unknown): AgentRunCancelResponseV2 {
@@ -165,7 +146,7 @@ export function decodeAgentV2RunCancel(value: unknown): AgentRunCancelResponseV2
   const thread = threadSummary(result.thread, '$.thread');
   const duplicate = result.duplicate === undefined ? undefined : boolean(result.duplicate, '$.duplicate');
   return {
-    protocolVersion: 2,
+    protocolVersion: 3,
     runId,
     state,
     lastSequence,
@@ -182,4 +163,14 @@ function userQuota(value: unknown, path: string): AgentUserQuotaV2 {
   const resetAt = timestamp(result.resetAt, `${path}.resetAt`);
   if (used > limit || remaining !== limit - used) fail(`${path}.remaining`);
   return { limit, used, remaining, resetAt };
+}
+
+export function decodeAgentV2WalletSnapshotAck(value: unknown): AgentWalletSnapshotAckV1 {
+  const result = object(object(value, '$').snapshotRef, '$.snapshotRef');
+  return { snapshotRef: {
+    instanceId: uuid(result.instanceId, '$.snapshotRef.instanceId'),
+    sessionId: uuid(result.sessionId, '$.snapshotRef.sessionId'),
+    revision: integer(result.revision, '$.snapshotRef.revision', 1),
+    snapshotRevision: integer(result.snapshotRevision, '$.snapshotRef.snapshotRevision', 1),
+  } };
 }

@@ -59,6 +59,5 @@ export type StorageKey = 'accounts'
   | 'agentConversationId'
   | 'agentV2DeviceIdentity'
   | 'agentV2Consent'
-  | 'agentV2WalletProtocolVersion'
   // For Headless
   | 'headlessBalanceSnapshots';

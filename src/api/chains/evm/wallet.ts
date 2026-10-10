@@ -24,7 +24,7 @@ import { getZerionFungibleImplementation, isZerionNativeFungible } from './util/
 import { untrackableRegistry } from './util/untrackable';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { getIsNegVerdictCacheEnabled } from '../../common/cache';
-import { buildTokenSlug, updateTokens } from '../../common/tokens';
+import { buildTokenSlug, updateTokens, waitForTokenSlugResolver } from '../../common/tokens';
 import { ApiServerError } from '../../errors';
 import { isValidAddress } from './address';
 import { EVM_RPC_URLS, getApiChainByZerionChain, getEvmApiUrl, getZerionChainByApiChain } from './constants';
@@ -258,10 +258,11 @@ async function fetchAccountAssetsUncoalesced(
   }
   throwIfAborted(signal);
 
+  const resolveTokenSlugs = await waitForTokenSlugResolver(signal);
   const tokenEntities: ApiTokenWithMaybePrice[] = [];
   const slugPairs: Record<string, bigint> = {};
 
-  response.data
+  const positions = response.data
     .filter((e) =>
       e.attributes.fungible_info.name
       && e.attributes.fungible_info.symbol
@@ -270,7 +271,7 @@ async function fetchAccountAssetsUncoalesced(
         e.relationships.chain.data.id,
         e),
     )
-    .forEach((e) => {
+    .flatMap((e) => {
       const assetChain = getApiChainByZerionChain(e.relationships.chain.data.id);
 
       const assetImplementation = getZerionFungibleImplementation(
@@ -278,28 +279,31 @@ async function fetchAccountAssetsUncoalesced(
         e.relationships.chain.data.id,
       );
 
-      if (!assetImplementation?.address) {
-        return;
-      }
+      const address = assetImplementation?.address;
 
-      const slug = buildTokenSlug(assetChain, assetImplementation.address);
-      // An explicit zero clears quotes cached before the token was marked as trash.
-      const priceUsd = e.attributes.flags.is_trash ? 0 : e.attributes.price;
-
-      slugPairs[slug] = BigInt(e.attributes.quantity.int ?? 0);
-
-      tokenEntities.push({
-        priceUsd: typeof priceUsd === 'number' ? priceUsd : undefined,
-        percentChange24h: undefined,
-        name: e.attributes.fungible_info.name,
-        symbol: e.attributes.fungible_info.symbol,
-        slug,
-        decimals: assetImplementation.decimals,
-        chain: assetChain,
-        image: e.attributes.fungible_info.icon?.url,
-        tokenAddress: assetImplementation.address,
-      });
+      return address ? [{ e, assetChain, address, decimals: assetImplementation.decimals }] : [];
     });
+  const slugs = resolveTokenSlugs(positions.map(({ assetChain, address }) => ({ chain: assetChain, address })));
+
+  positions.forEach(({ e, assetChain, address, decimals }, i) => {
+    const slug = slugs[i];
+    // An explicit zero clears quotes cached before the token was marked as trash.
+    const priceUsd = e.attributes.flags.is_trash ? 0 : e.attributes.price;
+
+    slugPairs[slug] = BigInt(e.attributes.quantity.int ?? 0);
+
+    tokenEntities.push({
+      priceUsd: typeof priceUsd === 'number' ? priceUsd : undefined,
+      percentChange24h: undefined,
+      name: e.attributes.fungible_info.name,
+      symbol: e.attributes.fungible_info.symbol,
+      slug,
+      decimals,
+      chain: assetChain,
+      image: e.attributes.fungible_info.icon?.url,
+      tokenAddress: address,
+    });
+  });
 
   const chainsForNative = (isCrossChain ? getChainsByStandard(chain) : [chain]) as EVMChain[];
 

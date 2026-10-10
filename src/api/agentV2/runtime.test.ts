@@ -1,27 +1,25 @@
 import type { Storage } from '../storages/types';
+import type { ClientTimingEvent } from './developmentTelemetry';
 import type {
   AgentSemanticContentV1,
   AgentToolCall,
   AgentToolResultRequestV2,
-  AgentWalletConversationContextV5,
 } from './protocol/types';
+import type { AgentWalletSnapshotV1 } from './protocol/types';
 import type {
-  AgentV2ActionPresentation,
   AgentV2ClientUpdate,
   AgentV2HostContextSnapshot,
-  AgentV2HydratedMessage,
+  AgentV2RunCommandInput,
 } from './types';
-import type { AgentV2WalletContextCacheBinding } from './walletConversationContextCache';
 
 import navigationActionFixture from '../../../tests/fixtures/agentV2/navigation-action-projection.v1.json';
 import terminalStructuredOutputFixture from '../../../tests/fixtures/agentV2/terminal-structured-output-stream.v1.json';
 import contractManifest from './generated/manifest.json';
-import {
-  AGENT_V2_CUSTOM_WRITER_INSTRUCTION_HEADER,
-  encodeAgentV2CustomWriterInstructionHeader,
-} from './customWriterInstruction';
+import { hostUiCapabilities } from './testing/hostUiCapabilities';
+import { runSafeAgentV2Operation } from './mutation';
 import { AgentV2Runtime, type AgentV2ToolExecutionContext } from './runtime';
-import { AgentV2WalletSession, createAgentV2WalletSession } from './walletSession';
+import { AgentV2WalletSession } from './walletSession';
+import { AgentV2WalletToolDispatcher } from './walletTools';
 
 const DEVICE_ID = '11111111-1111-4111-8111-111111111111';
 const CLIENT_RUN_ID = '22222222-2222-4222-8222-222222222222';
@@ -36,6 +34,7 @@ const MESSAGE_ID_3 = '55555555-5555-4555-8555-555555555557';
 const TOOL_CALL_ID = '66666666-6666-4666-8666-666666666666';
 const TOOL_RESULT_ID = '77777777-7777-4777-8777-777777777777';
 const WALLET_SESSION_ID = '88888888-8888-4888-8888-888888888888';
+const SNAPSHOT_INSTANCE_ID = '99999999-9999-4999-8999-999999999999';
 const PRIVATE_TOOL_ARGUMENT = 'PRIVATE_TOOL_ARGUMENT';
 const PRIVATE_TOOL_REASON = 'PRIVATE_TOOL_REASON';
 const PRIVATE_TOOL_STATUS_MESSAGE = 'PRIVATE_TOOL_STATUS_MESSAGE';
@@ -53,6 +52,61 @@ describe('AgentV2Runtime transport', () => {
   beforeEach(() => {
     sessionStorage.clear();
   });
+
+  it.each(['active', 'closed', 'noConsent'] as const)(
+    'resumes snapshot uploads after wallet context recovery only with eligible chat %s', async (chatState) => {
+      jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
+      let runtime: AgentV2Runtime | undefined;
+      try {
+        const storage = createMemoryStorage();
+        await storeIdentity(storage);
+        const snapshots: AgentWalletSnapshotV1[] = [];
+        const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+          const url = getRequestUrl(input);
+          if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
+          if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+          if (url.endsWith('/wallet-snapshots')) {
+            const snapshot = JSON.parse(init!.body as string) as AgentWalletSnapshotV1;
+            snapshots.push(snapshot);
+            const { instanceId, sessionId, revision, snapshotRevision } = snapshot;
+            return Promise.resolve(jsonResponse({
+              snapshotRef: { instanceId, sessionId, revision, snapshotRevision },
+            }));
+          }
+          return Promise.reject(new Error(`Unexpected URL ${url}`));
+        });
+        runtime = new AgentV2Runtime({
+          storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(),
+        });
+        const host = receiveHost('ton') as AgentV2HostContextSnapshot;
+        await runtime.updateHostContext(host);
+        if (chatState !== 'noConsent') await runtime.acceptConsent();
+        await runtime.getHints();
+        await runtime.setChatActive(true);
+        await jest.advanceTimersByTimeAsync(0);
+        const initialCount = chatState === 'active' || chatState === 'closed' ? 1 : 0;
+        expect(snapshots).toHaveLength(initialCount);
+
+        await runtime.updateHostContext();
+        if (chatState === 'closed') await runtime.setChatActive(false);
+        await jest.advanceTimersByTimeAsync(25_000);
+        expect(snapshots).toHaveLength(initialCount);
+
+        await runtime.updateHostContext(host);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(snapshots).toHaveLength(initialCount + (chatState === 'active' ? 1 : 0));
+        await jest.advanceTimersByTimeAsync(20_000);
+        expect(snapshots).toHaveLength(initialCount + (chatState === 'active' ? 2 : 0));
+        if (chatState === 'active') {
+          expect(snapshots[1].revision).toBeGreaterThan(snapshots[0].revision);
+          expect(snapshots[2].snapshotRevision).toBeGreaterThan(snapshots[1].snapshotRevision);
+        }
+      } finally {
+        await runtime?.destroy();
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it.each([
     ['missing', undefined, false],
@@ -73,6 +127,85 @@ describe('AgentV2Runtime transport', () => {
 
     await expect(runtime.getConsent()).resolves.toBe(expected);
     await runtime.destroy();
+  });
+
+  it('fails a chat load that gets no response instead of waiting for it', async () => {
+    jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request, init?: RequestInit) => new Promise<Response>(
+      (_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)),
+    )) as unknown as typeof fetch;
+    const runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(), requestTimeoutMs: 1_000,
+    });
+    try {
+      await runtime.acceptConsent();
+      const thread = runSafeAgentV2Operation(() => runtime.getDefaultThread());
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await expect(thread).resolves.toEqual({ ok: false, error: { code: 'network_error', retryable: true } });
+    } finally {
+      await runtime.destroy();
+      jest.useRealTimers();
+    }
+  });
+
+  it('fails a thread clear and a run cancel that get no response', async () => {
+    jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: unansweredFetch(),
+      onUpdate: jest.fn(),
+      requestTimeoutMs: 1_000,
+    });
+    try {
+      await runtime.acceptConsent();
+      const clear = runSafeAgentV2Operation(() => runtime.clearThread(THREAD_ID, 1));
+      const cancel = runSafeAgentV2Operation(() => runtime.cancelRun(RUN_ID));
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await expect(clear).resolves.toEqual({ ok: false, error: { code: 'network_error', retryable: true } });
+      await expect(cancel).resolves.toEqual({ ok: false, error: { code: 'network_error', retryable: true } });
+    } finally {
+      await runtime.destroy();
+      jest.useRealTimers();
+    }
+  });
+
+  it('checks availability and quota again after a check that got no response', async () => {
+    jest.useFakeTimers({ now: Date.parse('2026-09-22T12:00:00.000Z') });
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = unansweredFetch();
+    const runtime = new AgentV2Runtime({
+      storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock, onUpdate: jest.fn(), requestTimeoutMs: 1_000,
+    });
+    try {
+      await runtime.acceptConsent();
+      const availability = runtime.getAvailability();
+      const quota = runtime.getUserQuota();
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await expect(availability).resolves.toBeUndefined();
+      await expect(quota).resolves.toBeUndefined();
+      // These stay unanswered until the runtime is destroyed
+      void runtime.getAvailability().catch(() => undefined);
+      void runtime.getUserQuota().catch(() => undefined);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(fetchMock.mock.calls.map(([input]) => getRequestUrl(input))).toEqual([
+        'https://agent.test/api/v2/availability',
+        'https://agent.test/api/v2/quota',
+        'https://agent.test/api/v2/availability',
+        'https://agent.test/api/v2/quota',
+      ]);
+    } finally {
+      await runtime.destroy();
+      jest.useRealTimers();
+    }
   });
 
   it('persists one consent decision for the whole Agent runtime', async () => {
@@ -117,88 +250,27 @@ describe('AgentV2Runtime transport', () => {
 
     await runtime.destroy();
 
-    expect(clear).toHaveBeenCalledWith(undefined, { shouldClearPersistentState: false });
-  });
-
-  it('clears incompatible wallet protocol state once without clearing consent', async () => {
-    const storage = createMemoryStorage();
-    const clearWalletSensitiveProtocolState = jest.fn(() => Promise.resolve());
-    await storeIdentity(storage);
-    const storedIdentity = await storage.getItem('agentV2DeviceIdentity');
-    sessionStorage.setItem('agentV2WalletSession', JSON.stringify({
-      version: 2,
-      sessionId: WALLET_SESSION_ID,
-      revision: 3,
-      authorityFingerprint: 'legacy-authority',
-    }));
-    const walletSession = await createAgentV2WalletSession();
-    await storage.setItem('agentV2Consent', JSON.stringify({ version: 2, accepted: true }));
-    await storage.setItem('agentV2WalletProtocolVersion', '4');
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: jest.fn(),
-      clearWalletSensitiveProtocolState,
-      walletSession,
-    });
-
-    await expect(runtime.getConsent()).resolves.toBe(true);
-    await expect(runtime.getConsent()).resolves.toBe(true);
-
-    expect(clearWalletSensitiveProtocolState).toHaveBeenCalledTimes(1);
-    expect(walletSession.snapshot()).toMatchObject({ revision: 0 });
-    expect(walletSession.snapshot().sessionId).not.toBe(WALLET_SESSION_ID);
-    expect(sessionStorage.getItem('agentV2WalletSession')).toBeNull();
-    await expect(storage.getItem('agentV2WalletProtocolVersion')).resolves.toBe('5');
-    await expect(storage.getItem('agentV2Consent')).resolves.toBe(
-      JSON.stringify({ version: 2, accepted: true }),
-    );
-    await expect(storage.getItem('agentV2DeviceIdentity')).resolves.toBe(storedIdentity);
-    await runtime.destroy();
-  });
-
-  it('fails closed when incompatible wallet protocol state cannot be cleared', async () => {
-    const storage = createMemoryStorage();
-    const fetchMock = jest.fn() as unknown as typeof fetch;
-    await storage.setItem('agentV2Consent', JSON.stringify({ version: 2, accepted: true }));
-    await storage.setItem('agentV2WalletProtocolVersion', '4');
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: fetchMock,
-      onUpdate: jest.fn(),
-      clearWalletSensitiveProtocolState: () => Promise.reject(new Error('upgrade blocked')),
-    });
-
-    await expect(runtime.getConsent()).rejects.toThrow('upgrade blocked');
-
-    await expect(storage.getItem('agentV2WalletProtocolVersion')).resolves.toBe('4');
-    await expect(storage.getItem('agentV2Consent')).resolves.toBe(
-      JSON.stringify({ version: 2, accepted: true }),
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
-    await runtime.destroy();
+    expect(clear).toHaveBeenCalledWith();
   });
 
   it('does not start a run after runtime disposal during capability loading', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
-    let resolveHints!: (response: Response) => void;
-    let markHintsRequested!: () => void;
-    const hintsRequested = new Promise<void>((resolve) => {
-      markHintsRequested = resolve;
+    let resolveCapabilities!: (response: Response) => void;
+    let markCapabilitiesRequested!: () => void;
+    const capabilitiesRequested = new Promise<void>((resolve) => {
+      markCapabilitiesRequested = resolve;
     });
-    const hintsResponse = new Promise<Response>((resolve) => {
-      resolveHints = resolve;
+    const capabilitiesResponse = new Promise<Response>((resolve) => {
+      resolveCapabilities = resolve;
     });
     const requestedUrls: string[] = [];
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       requestedUrls.push(url);
-      if (url.includes('/hints')) {
-        markHintsRequested();
-        return hintsResponse;
+      if (url.endsWith('/capabilities')) {
+        markCapabilitiesRequested();
+        return capabilitiesResponse;
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
@@ -207,12 +279,6 @@ describe('AgentV2Runtime transport', () => {
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: jest.fn(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
     });
     await runtime.acceptConsent();
 
@@ -220,9 +286,9 @@ describe('AgentV2Runtime transport', () => {
       expectedThreadRevision: 0,
       input: { kind: 'append', text: 'Wallet balance' },
     });
-    await hintsRequested;
+    await capabilitiesRequested;
     await runtime.destroy({ shouldClearPersistentIdentity: true });
-    resolveHints(disabledHintsResponse());
+    resolveCapabilities(featureCapabilitiesResponse('disabled'));
 
     await expect(run).rejects.toThrow('Agent V2 runtime is destroyed');
     expect(requestedUrls).not.toContain('https://agent.test/api/v2/runs');
@@ -267,7 +333,7 @@ describe('AgentV2Runtime transport', () => {
 
       await runtime.destroy();
       pendingResponses.get('https://agent.test/api/v2/quota')!(jsonResponse({
-        protocolVersion: 2,
+        protocolVersion: 3,
         quota: {
           limit: 20,
           used: 5,
@@ -276,7 +342,7 @@ describe('AgentV2Runtime transport', () => {
         },
       }));
       pendingResponses.get('https://agent.test/api/v2/availability')!(jsonResponse({
-        protocolVersion: 2,
+        protocolVersion: 3,
         state: 'capacity_exhausted',
         resetAt: '2026-08-12T00:00:00.000Z',
       }));
@@ -309,7 +375,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/quota')) {
         quotaRequests += 1;
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           quota: {
             limit: 20,
             used: quotaRequests,
@@ -358,7 +424,7 @@ describe('AgentV2Runtime transport', () => {
     expect(quotaRequests).toBe(2);
   });
 
-  it('negotiates capacity support and rechecks availability when a known reset is reached', async () => {
+  it('rechecks availability when a known reset is reached', async () => {
     jest.useFakeTimers();
     let now = Date.parse('2026-07-29T12:00:00.000Z');
     const resetAt = now + 60_000;
@@ -366,47 +432,26 @@ describe('AgentV2Runtime transport', () => {
     await storeIdentity(storage);
     const updates: unknown[] = [];
     let availabilityRequests = 0;
-    let runRequest: Record<string, any> | undefined;
-    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+    const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/availability')) {
         availabilityRequests += 1;
         return Promise.resolve(jsonResponse(availabilityRequests === 1
           ? {
-            protocolVersion: 2,
+            protocolVersion: 3,
             state: 'capacity_exhausted',
             resetAt: new Date(resetAt).toISOString(),
           }
-          : { protocolVersion: 2, state: 'available' }));
-      }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          portfolioPositions: 'disabled',
-          walletQuery: 'disabled',
-        }));
-      }
-      if (url.endsWith('/runs')) {
-        runRequest = JSON.parse(init?.body as string);
-        return Promise.resolve(ndjsonResponse([
-          runStart(),
-          messageStart(),
-          textDelta('Ready'),
-          threadEvent(4),
-          messageEnd(5),
-        ]));
+          : { protocolVersion: 3, state: 'available' }));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
-    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
     const runtime = new AgentV2Runtime({
       storage,
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: (update) => updates.push(update),
       now: () => now,
-      randomUuid: () => ids.shift() ?? DEVICE_ID,
     });
     await runtime.acceptConsent();
 
@@ -423,13 +468,6 @@ describe('AgentV2Runtime transport', () => {
       kind: 'availabilityChanged',
       availability: { state: 'available' },
     });
-
-    await expect(runtime.startRun({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 1,
-      input: { kind: 'append', text: 'Ready?' },
-    })).resolves.toMatchObject({ state: 'completed' });
-    expect(runRequest?.capabilities.supportsAgentCapacityError).toBe(true);
 
     await runtime.destroy();
     jest.useRealTimers();
@@ -457,13 +495,13 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/availability')) {
         availabilityRequests += 1;
         if (availabilityRequests === 1) {
-          return Promise.resolve(jsonResponse({ protocolVersion: 2, state: 'capacity_exhausted' }));
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, state: 'capacity_exhausted' }));
         }
         if (availabilityRequests === 2) {
           markStaleAvailabilityRequested();
           return staleAvailability;
         }
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, state: 'available' }));
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, state: 'available' }));
       }
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
@@ -509,7 +547,7 @@ describe('AgentV2Runtime transport', () => {
       expectedThreadRevision: 1,
       input: { kind: 'append', text: 'Ready?' },
     })).resolves.toMatchObject({ state: 'completed' });
-    resolveStaleAvailability(jsonResponse({ protocolVersion: 2, state: 'capacity_exhausted' }));
+    resolveStaleAvailability(jsonResponse({ protocolVersion: 3, state: 'capacity_exhausted' }));
     await staleProbe;
     await terminalAvailabilityRefreshed;
 
@@ -539,7 +577,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/availability')) {
         availabilityRequests += 1;
         if (availabilityRequests === 1) {
-          return Promise.resolve(jsonResponse({ protocolVersion: 2, state: 'available' }));
+          return Promise.resolve(jsonResponse({ protocolVersion: 3, state: 'available' }));
         }
         markStaleAvailabilityRequested();
         return staleAvailability;
@@ -583,7 +621,7 @@ describe('AgentV2Runtime transport', () => {
       availability: { state: 'capacity_exhausted' },
     });
 
-    resolveStaleAvailability(jsonResponse({ protocolVersion: 2, state: 'available' }));
+    resolveStaleAvailability(jsonResponse({ protocolVersion: 3, state: 'available' }));
     await staleProbe;
     await Promise.resolve();
 
@@ -615,7 +653,7 @@ describe('AgentV2Runtime transport', () => {
         const isAfterReset = now >= resetAt;
         const used = quotaRequests === 1 ? 1 : 5;
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           quota: {
             limit: 20,
             used: isAfterReset ? 0 : used,
@@ -669,7 +707,6 @@ describe('AgentV2Runtime transport', () => {
       input: { kind: 'append', text: 'Use quota' },
     });
     await terminalQuotaRefreshed;
-    expect(runRequests[0].capabilities.supportsUserQuotaError).toBe(true);
     expect(quotaRequests).toBe(3);
     expect(updates).toContainEqual(expect.objectContaining({
       kind: 'userQuotaChanged',
@@ -716,7 +753,7 @@ describe('AgentV2Runtime transport', () => {
           return initialQuota;
         }
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           quota: { limit: 20, used: 1, remaining: 19, resetAt },
         }));
       }
@@ -756,7 +793,7 @@ describe('AgentV2Runtime transport', () => {
     });
 
     resolveInitialQuota(jsonResponse({
-      protocolVersion: 2,
+      protocolVersion: 3,
       quota: { limit: 20, used: 0, remaining: 20, resetAt },
     }));
     await initialProbe;
@@ -788,7 +825,7 @@ describe('AgentV2Runtime transport', () => {
         quotaRequests += 1;
         const used = quotaRequests < 3 ? 1 : 5;
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           quota: { limit: 20, used, remaining: 20 - used, resetAt },
         }));
       }
@@ -845,7 +882,7 @@ describe('AgentV2Runtime transport', () => {
         runRequests.push(JSON.parse(init?.body as string));
         if (runRequests.length === 1) {
           return Promise.resolve(jsonResponse({
-            protocolVersion: 2,
+            protocolVersion: 3,
             error: {
               code: 'rate_limited',
               retryable: true,
@@ -908,13 +945,11 @@ describe('AgentV2Runtime transport', () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const runRequests: Record<string, any>[] = [];
-    const runHeaders: Headers[] = [];
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
         runRequests.push(JSON.parse(init?.body as string));
-        runHeaders.push(new Headers(init?.headers));
         if (runRequests.length <= 3) return Promise.reject(new TypeError('Failed to fetch'));
         return Promise.resolve(ndjsonResponse([
           runStart(),
@@ -941,7 +976,6 @@ describe('AgentV2Runtime transport', () => {
       threadId: THREAD_ID,
       expectedThreadRevision: 1,
       input: { kind: 'append', text: 'Retry after reconnect' },
-      customWriterInstruction: 'Заверши ответ точной строкой: WRITER-PROMPT-ACTIVE.',
     })).resolves.toMatchObject({
       clientRunId: CLIENT_RUN_ID,
       inputMessageId: MESSAGE_ID,
@@ -954,11 +988,6 @@ describe('AgentV2Runtime transport', () => {
     });
     expect(runRequests).toHaveLength(4);
     expect(runRequests[3]).toEqual(runRequests[0]);
-    expect(runRequests[0]).not.toHaveProperty('customWriterInstruction');
-    expect(runHeaders.map((headers) => headers.get(AGENT_V2_CUSTOM_WRITER_INSTRUCTION_HEADER)))
-      .toEqual(Array(4).fill(encodeAgentV2CustomWriterInstructionHeader(
-        'Заверши ответ точной строкой: WRITER-PROMPT-ACTIVE.',
-      )));
     await runtime.destroy();
   });
 
@@ -973,7 +1002,7 @@ describe('AgentV2Runtime transport', () => {
         if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
         if (url.endsWith('/runs')) {
           return Promise.resolve(jsonResponse({
-            protocolVersion: 2,
+            protocolVersion: 3,
             error: {
               code: 'rate_limited',
               retryable: true,
@@ -1016,7 +1045,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           error: {
             code: 'rate_limited',
             retryable: true,
@@ -1026,7 +1055,7 @@ describe('AgentV2Runtime transport', () => {
       }
       if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           thread: threadSummary({ revision: 2 }),
           duplicate: false,
         }));
@@ -1053,44 +1082,282 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
-  it('returns authenticated hints with backend capability metadata intact', async () => {
-    const fetchMock = jest.fn((input: string | URL | Request) => {
+  it('cancels a reconnecting answer before its clear and clears past the revision the answer moved', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    const clearRevisions: number[] = [];
+    let reconnectSignal: AbortSignal | undefined;
+    let markReconnecting!: () => void;
+    const reconnecting = new Promise<void>((resolve) => {
+      markReconnecting = resolve;
+    });
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
-      if (url.endsWith('/device-token')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          deviceId: DEVICE_ID,
-          deviceToken: `adt_v2.${'a'.repeat(43)}`,
-          expiresAt: '2026-10-14T00:00:00.000Z',
-        }));
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/runs')) {
+        if (!JSON.parse(init!.body as string).resumeAfterSequence) {
+          return Promise.resolve(ndjsonResponse([runStart(), messageStart(), textDelta('Partial ')]));
+        }
+        reconnectSignal = init!.signal!;
+        markReconnecting();
+        return new Promise<Response>((_resolve, reject) => {
+          reconnectSignal!.addEventListener('abort', () => reject(reconnectSignal!.reason));
+        });
       }
-      if (url.includes('/hints')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          catalogVersion: 'agent-starter-hints-v1',
-          items: [],
-          serverCapabilities: { webSearch: 'available' },
-        }));
-      }
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          portfolioPositions: 'disabled',
-        }));
+      if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+        clearRevisions.push(JSON.parse(init!.body as string).expectedThreadRevision);
+        return Promise.resolve(clearRevisions.length === 1
+          ? jsonResponse({
+            protocolVersion: 3,
+            error: {
+              code: 'thread_revision_conflict',
+              retryable: true,
+              threadId: THREAD_ID,
+              currentThread: threadSummary({ revision: 3, messageCount: 2 }),
+            },
+          }, 409)
+          : jsonResponse({ protocolVersion: 3, thread: threadSummary({ revision: 4 }), duplicate: false }));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
     const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: (update) => updates.push(update),
+      randomUuid: () => ids.shift() ?? DEVICE_ID,
+      wait: () => Promise.resolve(),
+    });
+    await runtime.acceptConsent();
+
+    const run = runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 0,
+      input: { kind: 'append', text: 'Hello' },
+    });
+    await reconnecting;
+    await expect(runtime.clearThread(THREAD_ID, 1)).resolves.toMatchObject({ thread: { revision: 4 } });
+
+    await expect(run).resolves.toMatchObject({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, state: 'cancelled' });
+    expect(reconnectSignal!.aborted).toBe(true);
+    expect(clearRevisions).toEqual([1, 3]);
+    const cancelledIndex = updates.findIndex(({ kind }) => kind === 'runCancelled');
+    expect(updates[cancelledIndex]).toEqual({
+      kind: 'runCancelled', clientRunId: CLIENT_RUN_ID, runId: RUN_ID, threadId: THREAD_ID,
+    });
+    expect(updates.slice(cancelledIndex + 1).filter(({ clientRunId }) => clientRunId)).toEqual([]);
+    expect(updates.at(-1)).toMatchObject({ kind: 'threadChanged', thread: { revision: 4 } });
+    await runtime.destroy();
+  });
+
+  it('keeps a clear that cancelled no answer bound to the revision its caller read', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn(() => Promise.resolve(jsonResponse({
+      protocolVersion: 3,
+      error: {
+        code: 'thread_revision_conflict',
+        retryable: true,
+        threadId: THREAD_ID,
+        currentThread: threadSummary({ revision: 3 }),
+      },
+    }, 409))) as unknown as typeof fetch;
+    const runtime = new AgentV2Runtime({
+      storage,
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: jest.fn(),
     });
     await runtime.acceptConsent();
 
-    await expect(runtime.getHints('en')).resolves.toMatchObject({
-      serverCapabilities: { webSearch: 'available' },
+    await expect(runtime.clearThread(THREAD_ID, 1)).rejects.toMatchObject({ code: 'thread_revision_conflict' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await runtime.destroy();
+  });
+
+  it('reports a problem with a trimmed comment and repeats an unanswered report under the same id', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const report = jsonResponse({ protocolVersion: 3, reportId: RUN_ID, duplicate: false });
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(report))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const ids = [CLIENT_RUN_ID, CLIENT_RUN_ID_2];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => ids.shift()!,
     });
+    await runtime.acceptConsent();
+
+    const answer = { messageId: MESSAGE_ID, comment: '  Wrong balance  ' };
+    await expect(runtime.reportProblem(THREAD_ID, answer)).rejects.toThrow();
+    await expect(runtime.reportProblem(THREAD_ID, answer))
+      .resolves.toEqual({ protocolVersion: 3, reportId: RUN_ID, duplicate: false });
+    await runtime.reportProblem(THREAD_ID, { comment: '   ' });
+
+    const [[url, lostInit], [, retryInit], [, blankCommentInit]] = fetchMock.mock.calls;
+    expect(getRequestUrl(url)).toBe(`https://agent.test/api/v2/threads/${THREAD_ID}/reports`);
+    expect(retryInit!.method).toBe('POST');
+    expect(JSON.parse(retryInit!.body as string)).toEqual({
+      protocolVersion: 3, clientOperationId: CLIENT_RUN_ID, messageId: MESSAGE_ID, comment: 'Wrong balance',
+    });
+    expect(lostInit!.body).toBe(retryInit!.body);
+    expect(JSON.parse(blankCommentInit!.body as string))
+      .toEqual({ protocolVersion: 3, clientOperationId: CLIENT_RUN_ID_2 });
+    await runtime.destroy();
+  });
+
+  it('removes a recovery phrase from a problem report comment', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request, _init?: RequestInit) => Promise.resolve(
+      jsonResponse({ protocolVersion: 3, reportId: RUN_ID, duplicate: false }),
+    ));
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => CLIENT_RUN_ID,
+    });
+    await runtime.acceptConsent();
+
+    await runtime.reportProblem(THREAD_ID, {
+      comment: 'It cannot restore scheme spot photo card baby mountain device kick cradle pact join borrow',
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({
+      protocolVersion: 3,
+      clientOperationId: CLIENT_RUN_ID,
+      comment: 'It cannot restore [secret words removed and not sent]',
+    });
+    await runtime.destroy();
+  });
+
+  it('keeps a later report retryable when an earlier one settles, and asks again whether reports are on', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const reports: Array<{ clientOperationId: string; messageId?: string }> = [];
+    let resolveEarlier: ((response: Response) => void) | undefined;
+    let capabilityRequestCount = 0;
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      if (getRequestUrl(input).endsWith('/capabilities')) {
+        capabilityRequestCount += 1;
+        return Promise.resolve(featureCapabilitiesResponse('disabled'));
+      }
+      const report = JSON.parse(init!.body as string) as (typeof reports)[number];
+      reports.push(report);
+      if (report.messageId) {
+        return new Promise<Response>((resolve) => {
+          resolveEarlier = resolve;
+        });
+      }
+      if (reports.length === 2) return Promise.reject(new TypeError('Failed to fetch'));
+      return Promise.resolve(jsonResponse({ protocolVersion: 3, reportId: RUN_ID_2, duplicate: true }));
+    });
+    const ids = [CLIENT_RUN_ID, CLIENT_RUN_ID_2];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => ids.shift()!,
+    });
+    await runtime.acceptConsent();
+    await runtime.getProblemReportAvailability();
+
+    const earlier = runtime.reportProblem(THREAD_ID, { messageId: MESSAGE_ID });
+    for (let attempt = 0; attempt < 20 && !resolveEarlier; attempt += 1) await Promise.resolve();
+    await expect(runtime.reportProblem(THREAD_ID, { comment: 'Later' })).rejects.toThrow();
+    resolveEarlier!(jsonResponse({ protocolVersion: 3, reportId: RUN_ID, duplicate: false }));
+    await earlier;
+    await runtime.reportProblem(THREAD_ID, { comment: 'Later' });
+    await runtime.getProblemReportAvailability();
+
+    expect(reports.map(({ clientOperationId }) => clientOperationId))
+      .toEqual([CLIENT_RUN_ID, CLIENT_RUN_ID_2, CLIENT_RUN_ID_2]);
+    expect(capabilityRequestCount).toBe(2);
+    await runtime.destroy();
+  });
+
+  it.each([
+    ['takes them', () => Promise.resolve(featureCapabilitiesResponse('disabled')), true],
+    ['turned them off', () => Promise.resolve(jsonResponse({
+      protocolVersion: 3, walletQuery: { status: 'disabled' }, problemReport: { status: 'disabled' },
+    })), false],
+    ['cannot be reached', () => Promise.reject(new TypeError('Failed to fetch')), false],
+  ] as const)('offers problem reports only while the server takes them: it %s', async (_case, respond, expected) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const fetchMock = jest.fn((_input: string | URL | Request) => respond());
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.getProblemReportAvailability()).resolves.toBe(expected);
+    expect(getRequestUrl(fetchMock.mock.calls[0][0])).toBe('https://agent.test/api/v2/capabilities');
+    await runtime.destroy();
+  });
+
+  it('cancels a run that a thread clear finds still being prepared', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    let resolveCapabilities!: (response: Response) => void;
+    let markCapabilitiesRequested!: () => void;
+    const capabilitiesRequested = new Promise<void>((resolve) => {
+      markCapabilitiesRequested = resolve;
+    });
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/capabilities')) {
+        markCapabilitiesRequested();
+        return new Promise<Response>((resolve) => {
+          resolveCapabilities = resolve;
+        });
+      }
+      if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          thread: threadSummary({ revision: 2 }),
+          duplicate: false,
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: jest.fn(),
+      randomUuid: () => ids.shift() ?? DEVICE_ID,
+    });
+    await runtime.acceptConsent();
+
+    const run = runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 1,
+      input: { kind: 'append', text: 'Hello' },
+    });
+    await capabilitiesRequested;
+    await runtime.clearThread(THREAD_ID, 1);
+    resolveCapabilities(featureCapabilitiesResponse('disabled'));
+
+    await expect(run).resolves.toEqual({
+      clientRunId: CLIENT_RUN_ID,
+      inputMessageId: MESSAGE_ID,
+      state: 'cancelled',
+    });
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).endsWith('/runs'))).toBe(false);
+    await runtime.destroy();
   });
 
   it('keeps generic hints when wallet capabilities are unavailable', async () => {
@@ -1101,7 +1368,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.includes('/hints')) {
         return Promise.resolve(starterHintsResponse([
           { id: 'learn.security' },
-          { id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] },
+          { id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] },
         ]));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
@@ -1120,55 +1387,15 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
-  it('stores an available staking offer negotiation in the current wallet session', async () => {
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    const fetchMock = jest.fn((input: string | URL | Request) => {
-      const url = getRequestUrl(input);
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(featureCapabilitiesResponse('disabled', 'available'));
-      }
-      return Promise.reject(new Error(`Unexpected URL ${url}`));
-    }) as unknown as typeof fetch;
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: fetchMock,
-      onUpdate: jest.fn(),
-    });
-    await runtime.acceptConsent();
-    await runtime.updateHostContext(stakingOfferHost());
-    const internals = runtime as unknown as {
-      probeFeatureCapabilities: () => Promise<void>;
-      walletSession: AgentV2WalletSession;
-    };
-
-    await internals.probeFeatureCapabilities();
-
-    expect(internals.walletSession.buildContext().capabilities.supportedTools).toContainEqual({
-      name: 'staking.offer.read',
-      version: 1,
-      scopes: ['staking.data.read'],
-      timeoutMs: 15_000,
-      maxResultBytes: 16_384,
-    });
-    await runtime.destroy();
-  });
-
-  it('keeps wallet-read hints only when wallet.data.query V5 is advertised', async () => {
+  it('keeps wallet-read hints when the server offers the pinned wallet filter catalog', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.includes('/hints')) {
         return Promise.resolve(starterHintsResponse([
-          { id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] },
+          { id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] },
         ]));
-      }
-      if (url.endsWith('/capabilities/wallet-query/v2')) {
-        return Promise.resolve(walletQueryCapabilitiesResponse(
-          contractManifest.walletFilterCatalogSha256,
-        ));
       }
       if (url.endsWith('/capabilities')) {
         return Promise.resolve(featureCapabilitiesResponse('available'));
@@ -1185,7 +1412,7 @@ describe('AgentV2Runtime transport', () => {
     await runtime.updateHostContext(receiveHost('ton'));
 
     await expect(runtime.getHints('en')).resolves.toMatchObject({
-      items: [{ id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] }],
+      items: [{ id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] }],
     });
     await runtime.destroy();
   });
@@ -1200,15 +1427,12 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.includes('/hints')) {
         return Promise.resolve(starterHintsResponse([
-          { id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] },
+          { id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] },
           { id: 'learn.security' },
         ]));
       }
-      if (url.endsWith('/capabilities/wallet-query/v2') && digest) {
-        return Promise.resolve(walletQueryCapabilitiesResponse(digest));
-      }
       if (url.endsWith('/capabilities')) {
-        return Promise.resolve(featureCapabilitiesResponse(walletQuery));
+        return Promise.resolve(featureCapabilitiesResponse(walletQuery, digest));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
@@ -1289,19 +1513,19 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
-  it('preserves catalog, server, order, and requirement metadata while filtering hints', async () => {
+  it('preserves catalog, order, and requirement metadata while filtering hints', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const responseItems = [
       { id: 'learn.security' },
-      { id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] },
+      { id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] },
       { id: 'receive.tokens', requiredCapabilities: ['receive_action'] },
       { id: 'learn.swap' },
     ];
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.includes('/hints')) {
-        return Promise.resolve(starterHintsResponse(responseItems, 'unavailable'));
+        return Promise.resolve(starterHintsResponse(responseItems));
       }
       if (url.endsWith('/capabilities')) {
         return Promise.resolve(featureCapabilitiesResponse('disabled'));
@@ -1318,14 +1542,13 @@ describe('AgentV2Runtime transport', () => {
     await runtime.updateHostContext(receiveHost('ton'));
 
     await expect(runtime.getHints()).resolves.toEqual({
-      protocolVersion: 2,
+      protocolVersion: 3,
       catalogVersion: 'agent-starter-hints-v1',
       items: [
         { id: 'learn.security' },
         { id: 'receive.tokens', requiredCapabilities: ['receive_action'] },
         { id: 'learn.swap' },
       ],
-      serverCapabilities: { webSearch: 'unavailable' },
     });
     await runtime.destroy();
   });
@@ -1357,12 +1580,6 @@ describe('AgentV2Runtime transport', () => {
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: jest.fn(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
     });
     await runtime.acceptConsent();
     await runtime.updateHostContext({ ...receiveHost('ton'), activeAccountId: undefined });
@@ -1380,7 +1597,7 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
-  it('rechecks feature capabilities after a delayed Android-to-Classic host transition', async () => {
+  it('uses Android feature capabilities while filtering delayed hints', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     let resolveHints!: (response: Response) => void;
@@ -1398,11 +1615,6 @@ describe('AgentV2Runtime transport', () => {
         markHintsRequested();
         return hintsResponse;
       }
-      if (url.endsWith('/capabilities/wallet-query/v2')) {
-        return Promise.resolve(walletQueryCapabilitiesResponse(
-          contractManifest.walletFilterCatalogSha256,
-        ));
-      }
       if (url.endsWith('/capabilities')) {
         featureCapabilityRequests += 1;
         return Promise.resolve(featureCapabilitiesResponse('available'));
@@ -1418,20 +1630,20 @@ describe('AgentV2Runtime transport', () => {
     await runtime.acceptConsent();
     await runtime.updateHostContext({
       ...receiveHost('ton'),
-      platform: 'android',
+      platform: 'android', uiCapabilities: hostUiCapabilities('android'),
       client: 'native',
     });
 
     const hints = runtime.getHints();
     await hintsRequested;
-    expect(featureCapabilityRequests).toBe(0);
+    expect(featureCapabilityRequests).toBe(1);
     await runtime.updateHostContext(receiveHost('ton'));
     resolveHints(starterHintsResponse([
-      { id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] },
+      { id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] },
     ]));
 
     await expect(hints).resolves.toMatchObject({
-      items: [{ id: 'portfolio.performance', requiredCapabilities: ['wallet_read'] }],
+      items: [{ id: 'agent.capabilities', requiredCapabilities: ['wallet_read'] }],
     });
     expect(featureCapabilityRequests).toBe(1);
     await runtime.destroy();
@@ -1472,7 +1684,7 @@ describe('AgentV2Runtime transport', () => {
     await runtime.destroy();
   });
 
-  it('runs hints and feature-capability preflight before a direct Classic V2 run', async () => {
+  it('runs the feature-capability preflight before a direct Classic V2 run', async () => {
     const walletSession = new AgentV2WalletSession();
     const requestedUrls: string[] = [];
     let runRequest: Record<string, unknown> | undefined;
@@ -1481,26 +1693,13 @@ describe('AgentV2Runtime transport', () => {
       requestedUrls.push(url);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          catalogVersion: 'agent-starter-hints-v1',
-          items: [],
-          serverCapabilities: { webSearch: 'available' },
-        }));
-      }
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          portfolioPositions: 'disabled',
-        }));
-      }
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       if (url.endsWith('/runs')) {
         runRequest = JSON.parse(init?.body as string);
         return Promise.resolve(ndjsonResponse([
@@ -1531,25 +1730,26 @@ describe('AgentV2Runtime transport', () => {
       input: { kind: 'append', text: 'Search current news' },
     })).resolves.toMatchObject({ state: 'completed' });
 
-    expect(requestedUrls.findIndex((url) => url.includes('/hints')))
-      .toBeLessThan(requestedUrls.findIndex((url) => url.endsWith('/runs')));
     expect(requestedUrls.findIndex((url) => url.endsWith('/capabilities')))
       .toBeLessThan(requestedUrls.findIndex((url) => url.endsWith('/runs')));
     expect(runRequest).toHaveProperty('context.permissions', { agentConsentAccepted: true });
     expect(runRequest).toMatchObject({
       capabilities: {
-        supportedEventTypes: expect.arrayContaining(['semantic_content']),
+        protocolVersion: 3,
+        features: ['followups', 'sendRecipientWithoutAsset'],
       },
     });
   });
 
-  it('serializes an input continuation reference into the run request', async () => {
-    let runRequest: Record<string, unknown> | undefined;
+  it('removes a recovery phrase from a run request before it leaves the device', async () => {
+    // The BIP39 test vector for entropy c0ba5a8e914111210f2bd131f3d5e08d, a public value that guards no funds
+    const phrase = 'scheme spot photo card baby mountain device kick cradle pact join borrow';
+    const runRequests: string[] = [];
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -1557,11 +1757,11 @@ describe('AgentV2Runtime transport', () => {
       }
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
-        runRequest = JSON.parse(init?.body as string);
+        runRequests.push(init?.body as string);
         return Promise.resolve(ndjsonResponse([
           runStart(),
           messageStart(),
-          textDelta('Ready'),
+          textDelta('Never share these words'),
           threadEvent(4),
           messageEnd(5),
         ]));
@@ -1581,24 +1781,29 @@ describe('AgentV2Runtime transport', () => {
     await expect(runtime.startRun({
       threadId: THREAD_ID,
       expectedThreadRevision: 1,
-      input: { kind: 'append', text: '10' },
-      continuationOf: {
-        messageId: MESSAGE_ID_2,
-        continuationId: 'continuation-amount',
-      },
+      input: { kind: 'append', text: `My words: ${phrase}. Is my wallet safe?` },
+      entryPoint: { kind: 'agentTab' },
     })).resolves.toMatchObject({ state: 'completed' });
-
-    expect(runRequest).toMatchObject({
-      continuationOf: {
-        messageId: MESSAGE_ID_2,
-        continuationId: 'continuation-amount',
-      },
-      input: {
-        kind: 'append',
-        message: { id: MESSAGE_ID, text: '10' },
-      },
+    // The stream answers with the first run's ids, so only the edit's request is checked
+    await runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 2,
+      input: { kind: 'edit', targetUserMessageId: MESSAGE_ID, text: phrase.toUpperCase() },
     });
-    expect(runRequest).not.toHaveProperty('entryPoint');
+
+    expect(runRequests.map((body) => JSON.parse(body).input)).toEqual([
+      {
+        kind: 'append',
+        message: { id: MESSAGE_ID, text: 'My words: [secret words removed and not sent]. Is my wallet safe?' },
+      },
+      {
+        kind: 'edit',
+        targetUserMessageId: MESSAGE_ID,
+        message: { id: expect.any(String), text: '[secret words removed and not sent]' },
+      },
+    ]);
+    for (const body of runRequests) expect(body.toLowerCase()).not.toContain('cradle pact');
+    await runtime.destroy();
   });
 
   it('serializes a follow-up reference as the only run origin', async () => {
@@ -1649,38 +1854,109 @@ describe('AgentV2Runtime transport', () => {
       },
     });
     expect(runRequest).not.toHaveProperty('entryPoint');
-    expect(runRequest).not.toHaveProperty('continuationOf');
-    expect(runRequest).not.toHaveProperty('walletScopeSelectionOf');
   });
 
-  it('publishes all wallet query rows in one semantic update without text deltas', async () => {
-    const content: AgentSemanticContentV1 = {
-      kind: 'walletQuery',
-      schemaVersion: 1,
-      queryKind: 'transactions',
-      outcome: 'complete',
-      hasMore: false,
-      rows: [
-        {
-          chain: 'ton', transactionType: 'transfer', status: 'completed', direction: 'incoming',
-          timestamp: '2026-08-07T09:00:00.000Z', assetSymbol: 'TON', quantity: '1',
-        },
-        {
-          chain: 'ethereum', transactionType: 'swap', status: 'confirmed', direction: 'outgoing',
-          timestamp: '2026-08-07T09:01:00.000Z', assetSymbol: 'USDT', quantity: '2',
-        },
-        {
-          chain: 'bitcoin', transactionType: 'transfer', status: 'pending', direction: 'self',
-          timestamp: '2026-08-07T09:02:00.000Z', assetSymbol: 'BTC', quantity: '3',
-        },
-      ],
-    };
+  it.each(['valid', 'delayed-text', 'unknown', 'duplicate', 'offset', 'after-end'] as const)(
+    'handles inline table stream references: %s', async (mode) => {
+      const table = { id: 't1', content: { kind: 'display', headers: ['Name', 'Network', 'Address'], notes: [],
+        rows: [['Contact', 'ton', 'abcd…1234']] } };
+      const reference = { tableId: mode === 'unknown' ? 't9' : 't1', textOffset: mode === 'offset' ? 1000 : 4 };
+      const updates: AgentV2ClientUpdate[] = [];
+      const events = [runStart(), event({ type: 'message_start', sequence: 2,
+        messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown' }),
+      event({ type: 'table_data', sequence: 3, messageId: MESSAGE_ID, table }),
+      ...(mode === 'delayed-text' ? [event({ type: 'table_reference', sequence: 4,
+        messageId: MESSAGE_ID, reference })] : []),
+      event({ type: 'text_delta', sequence: 4, messageId: MESSAGE_ID, delta: '🪙\n\n' }),
+      ...(mode === 'after-end' ? [event({ type: 'message_content_end', sequence: 5, messageId: MESSAGE_ID })] : []),
+      ...(mode !== 'delayed-text' ? [event({ type: 'table_reference', sequence: mode === 'after-end' ? 6 : 5,
+        messageId: MESSAGE_ID, reference })] : []),
+      ...(mode === 'duplicate'
+        ? [event({ type: 'table_reference', sequence: 6, messageId: MESSAGE_ID, reference })] : []),
+      event({ type: 'text_delta', sequence: 7, messageId: MESSAGE_ID, delta: 'After' }), messageEnd(8)];
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = getRequestUrl(input);
+        if (url.endsWith('/device-token')) {
+          return Promise.resolve(jsonResponse({ protocolVersion: 3,
+            deviceId: JSON.parse(init?.body as string).deviceId, deviceToken: `adt_v2.${'a'.repeat(43)}`,
+            expiresAt: '2026-10-14T00:00:00.000Z' }));
+        }
+        if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+        if (url.endsWith('/runs')) {
+          return Promise.resolve(ndjsonResponse(events.map((item, index) => ({ ...item, sequence: index + 1 }))));
+        }
+        return Promise.reject(new Error(`Unexpected URL ${url}`));
+      }) as unknown as typeof fetch;
+      const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+      const runtime = new AgentV2Runtime({ storage: createMemoryStorage(), baseUrl: 'https://agent.test/api/v2',
+        fetch: fetchMock, onUpdate: (update) => updates.push(update), randomUuid: () => ids.shift() ?? DEVICE_ID });
+      await runtime.acceptConsent();
+      const result = await runtime.startRun({ threadId: THREAD_ID, expectedThreadRevision: 0,
+        input: { kind: 'append', text: 'Show contacts' } });
+      if (mode === 'valid' || mode === 'delayed-text') {
+        expect(result.state).toBe('completed');
+        expect(updates.filter(({ kind }) => kind === 'answerTablesChanged')).toEqual([
+          expect.objectContaining({ tables: [table], tableReferences: [] }),
+          expect.objectContaining({ tables: [table], tableReferences: [reference] }),
+        ]);
+        expect(updates.findIndex((update) => update.kind === 'answerTablesChanged'
+          && update.tableReferences.length === 1)).toBeLessThan(
+          updates.findIndex((update) => update.kind === 'textDelta' && update.delta === 'After'),
+        );
+      } else {
+        expect(updates).toContainEqual(expect.objectContaining({ kind: 'runFailed', code: 'invalid_event' }));
+      }
+      await runtime.destroy();
+    },
+  );
+
+  it('publishes the answer links it can place and completes the answer without the others', async () => {
+    const link = { textOffset: 4, textLength: 4, url: 'https://help.mywallet.io/backup' };
+    const updates: AgentV2ClientUpdate[] = [];
+    const events = [runStart(), event({ type: 'message_start', sequence: 2,
+      messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown' }),
+    event({ type: 'text_link', sequence: 3, messageId: MESSAGE_ID, link }),
+    event({ type: 'text_link', sequence: 4, messageId: MESSAGE_ID, link: { ...link, textOffset: 6 } }),
+    event({ type: 'text_link', sequence: 5, messageId: MESSAGE_ID,
+      link: { ...link, textOffset: 9, url: 'http://help.mywallet.io' } }),
+    event({ type: 'text_delta', sequence: 6, messageId: MESSAGE_ID, delta: 'See Help or Docs' }),
+    event({ type: 'message_content_end', sequence: 7, messageId: MESSAGE_ID }), messageEnd(8)];
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/device-token')) {
+        return Promise.resolve(jsonResponse({ protocolVersion: 3,
+          deviceId: JSON.parse(init?.body as string).deviceId, deviceToken: `adt_v2.${'a'.repeat(43)}`,
+          expiresAt: '2026-10-14T00:00:00.000Z' }));
+      }
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/runs')) {
+        return Promise.resolve(ndjsonResponse(events.map((item, index) => ({ ...item, sequence: index + 1 }))));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({ storage: createMemoryStorage(), baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock, onUpdate: (update) => updates.push(update), randomUuid: () => ids.shift() ?? DEVICE_ID });
+    await runtime.acceptConsent();
+    const result = await runtime.startRun({ threadId: THREAD_ID, expectedThreadRevision: 0,
+      input: { kind: 'append', text: 'Where is the backup guide?' } });
+
+    expect(result.state).toBe('completed');
+    expect(updates.filter(({ kind }) => kind === 'answerLinkAdded'))
+      .toEqual([expect.objectContaining({ messageId: MESSAGE_ID, link })]);
+    expect(updates.findIndex(({ kind }) => kind === 'answerLinkAdded'))
+      .toBeLessThan(updates.findIndex(({ kind }) => kind === 'textDelta'));
+    await runtime.destroy();
+  });
+
+  it('publishes an operational notice atomically without text deltas', async () => {
+    const content: AgentSemanticContentV1 = { kind: 'notice', schemaVersion: 1, code: 'content_over_budget' };
     const updates: AgentV2ClientUpdate[] = [];
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -1738,16 +2014,14 @@ describe('AgentV2Runtime transport', () => {
     const content: AgentSemanticContentV1 = {
       kind: 'notice',
       schemaVersion: 1,
-      code: 'send_unavailable',
-      arguments: { sendFailure: 'prepare_unavailable' },
+      code: 'agent_unavailable',
     };
     const updates: AgentV2ClientUpdate[] = [];
-    const registerAction = jest.fn();
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -1792,7 +2066,6 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        registerAction,
       },
     });
     await runtime.acceptConsent();
@@ -1811,7 +2084,6 @@ describe('AgentV2Runtime transport', () => {
       }),
     ]);
     expect(updates.some(({ kind }) => kind === 'actionAvailable')).toBe(false);
-    expect(registerAction).not.toHaveBeenCalled();
     expect(updates.filter(({ kind }) => kind === 'messageCompleted')).toEqual([
       expect.objectContaining({ finishReason: 'tool_unavailable' }),
     ]);
@@ -1819,13 +2091,11 @@ describe('AgentV2Runtime transport', () => {
 
   it('drops a pending action after an error and ignores trailing completion events', async () => {
     const updates: AgentV2ClientUpdate[] = [];
-    const registerAction = jest.fn();
-    const resolveAction = jest.fn(() => ({ kind: 'openReceive', chain: 'ton' } as const));
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -1860,8 +2130,6 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        registerAction,
-        resolveAction,
       },
     });
     await runtime.acceptConsent();
@@ -1874,26 +2142,28 @@ describe('AgentV2Runtime transport', () => {
 
     expect(updates.some(({ kind }) => kind === 'actionAvailable')).toBe(false);
     expect(updates.some(({ kind }) => kind === 'messageCompleted')).toBe(false);
-    expect(registerAction).not.toHaveBeenCalled();
     expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
-    expect(resolveAction).not.toHaveBeenCalled();
   });
 
-  it('delegates a live Swap action to the wallet tool executor', async () => {
-    const registerAction = jest.fn();
-    const resolveAction = jest.fn(() => ({
-      kind: 'openSwap',
-      tokenInSlug: 'toncoin',
-      tokenOutSlug: 'usdton',
-      amount: '10',
-      amountSide: 'source',
-    } as const));
-    const swapAction = liveSwapAction();
+  it('resolves a live Bitcoin Swap action against the current wallet without executing a tool', async () => {
+    const walletSession = new AgentV2WalletSession();
+    walletSession.update(stakeHost());
+    const snapshot = walletSession.snapshot();
+    const swapAction = {
+      ...liveSwapAction(),
+      url: 'https://my.tt/swap?in=toncoin&out=btc&amount=10',
+      destinationAsset: { slug: 'btc', chain: 'bitcoin', symbol: 'BTC', decimals: 8 },
+      contextBinding: {
+        sessionId: snapshot.sessionId,
+        revision: snapshot.revision,
+        activeAccountRef: snapshot.accountRefs.get('view-account')!,
+      },
+    };
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -1912,54 +2182,52 @@ describe('AgentV2Runtime transport', () => {
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
     const ids = [CLIENT_RUN_ID, MESSAGE_ID, DEVICE_ID];
+    const execute = jest.fn();
     const runtime = new AgentV2Runtime({
       storage: createMemoryStorage(),
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: jest.fn(),
       randomUuid: () => ids.shift()!,
+      walletSession,
       toolExecutor: {
-        execute: jest.fn(),
+        execute,
         discard: jest.fn(),
-        registerAction,
-        resolveAction,
       },
     });
     await runtime.acceptConsent();
     await runtime.startRun({
       threadId: THREAD_ID,
       expectedThreadRevision: 1,
-      input: { kind: 'append', text: 'Swap 10 TON to USDT' },
+      input: { kind: 'append', text: 'Swap 10 TON to BTC' },
     });
 
-    expect(registerAction).toHaveBeenCalledWith(THREAD_ID, MESSAGE_ID, swapAction);
+    expect(execute).not.toHaveBeenCalled();
     expect(runtime.resolveAction(MESSAGE_ID, swapAction.id)).toEqual({
       kind: 'openSwap',
+      url: 'https://my.tt/swap?in=toncoin&out=btc&amount=10',
       tokenInSlug: 'toncoin',
-      tokenOutSlug: 'usdton',
+      tokenOutSlug: 'btc',
       amount: '10',
       amountSide: 'source',
     });
-    expect(resolveAction).toHaveBeenCalledWith(THREAD_ID, MESSAGE_ID, swapAction);
   });
 
-  it('delegates a hydrated Swap action to current local resolution', async () => {
+  it('revalidates a hydrated Bitcoin Swap action against the current wallet', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
-    const persistedAction = persistedSwapAction();
-    const resolvePersistedAction = jest.fn(() => ({
-      kind: 'openSwap',
-      tokenInSlug: 'usdton',
-      tokenOutSlug: 'toncoin',
-      amount: '10',
-      amountSide: 'destination',
-    } as const));
+    const persistedAction = {
+      ...persistedSwapAction(),
+      url: 'https://my.tt/swap?in=usdton&out=btc&amount=10',
+      destinationAsset: { slug: 'btc', chain: 'bitcoin', symbol: 'BTC', decimals: 8 },
+      amount: { value: '10', valueType: 'decimal' as const, side: 'source' as const },
+    };
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
@@ -1971,9 +2239,6 @@ describe('AgentV2Runtime transport', () => {
           }],
         }));
       }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-      }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
     const runtime = new AgentV2Runtime({
@@ -1984,41 +2249,34 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        resolvePersistedAction,
       },
     });
     await runtime.acceptConsent();
+    await runtime.updateHostContext(stakeHost());
     await runtime.getMessages(THREAD_ID);
 
-    expect(runtime.resolveAction(MESSAGE_ID, persistedAction.id)).toMatchObject({
-      kind: 'openSwap', amountSide: 'destination',
+    expect(runtime.resolveAction(MESSAGE_ID, persistedAction.id)).toEqual({
+      kind: 'openSwap',
+      url: 'https://my.tt/swap?in=usdton&out=btc&amount=10',
+      tokenInSlug: 'usdton',
+      tokenOutSlug: 'btc',
+      amount: '10',
+      amountSide: 'source',
     });
-    expect(resolvePersistedAction).toHaveBeenCalledWith(THREAD_ID, MESSAGE_ID, persistedAction);
+    await runtime.updateHostContext({ ...stakeHost(), isTestnet: true });
+    expect(runtime.resolveAction(MESSAGE_ID, persistedAction.id)).toEqual({ kind: 'inactive' });
   });
 
-  it('restores the presentation for a hydrated Send action', async () => {
+  it('keeps a hydrated Send review inactive without an in-memory draft', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const persistedAction = persistedSendAction();
-    const presentation: AgentV2ActionPresentation = {
-      kind: 'send',
-      status: 'active',
-      amount: { value: '0.5', symbol: 'GRAM' },
-      network: 'ton',
-      accountLabel: 'Main',
-      recipient: { kind: 'savedAddress', label: 'Mom' },
-      feeStatus: 'calculated_in_wallet',
-      warningCodes: [],
-      expiresAt: persistedAction.draftExpiresAt,
-    };
-    const hydrateAction = jest.fn(() => Promise.resolve());
-    const getActionPresentation = jest.fn(() => presentation);
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
@@ -2030,9 +2288,6 @@ describe('AgentV2Runtime transport', () => {
           }],
         }));
       }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-      }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
     const runtime = new AgentV2Runtime({
@@ -2043,23 +2298,58 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        hydrateAction,
-        getActionPresentation,
       },
     });
     await runtime.acceptConsent();
     await runtime.getMessages(THREAD_ID);
 
-    expect(runtime.getActionPresentation(MESSAGE_ID, persistedAction.id)).toEqual(presentation);
-    expect(hydrateAction).toHaveBeenCalledWith(THREAD_ID, MESSAGE_ID, persistedAction);
-    expect(getActionPresentation).toHaveBeenCalledWith(THREAD_ID, MESSAGE_ID, persistedAction);
+    expect(runtime.getActionPresentation(MESSAGE_ID, persistedAction.id)).toEqual({ kind: 'inactive' });
   });
+
+  it.each(['complete', 'cancelled'] as const)(
+    'isolates a malformed action while preserving valid siblings and terminal %s',
+    async (finishReason) => {
+      const updates: AgentV2ClientUpdate[] = [];
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const runtime = new AgentV2Runtime({
+        storage,
+        baseUrl: 'https://agent.test/api/v2',
+        onUpdate: (update) => updates.push(update),
+        fetch: jest.fn((input: string | URL | Request) => {
+          if (getRequestUrl(input).includes('/hints')) return Promise.resolve(disabledHintsResponse());
+          return Promise.resolve(ndjsonResponse([
+            runStart(),
+            event({ type: 'message_start', sequence: 2, messageId: MESSAGE_ID,
+              role: 'assistant', contentKind: 'markdown' }),
+            textDelta('Valid answer', 3),
+            actionEvent(4),
+            event({ type: 'action', sequence: 5, messageId: MESSAGE_ID, action: { kind: 'receive' } }),
+            event({ type: 'message_end', sequence: 6, messageId: MESSAGE_ID, finishReason }),
+          ]));
+        }) as unknown as typeof fetch,
+        randomUuid: () => CLIENT_RUN_ID,
+      });
+      await runtime.acceptConsent();
+      const result = await runtime.startRun({ threadId: THREAD_ID, expectedThreadRevision: 1,
+        input: { kind: 'append', text: 'Show receive' } });
+      expect(result.state).toBe(finishReason === 'cancelled' ? 'cancelled' : 'failed');
+      expect(updates.filter(({ kind }) => kind === 'actionAvailable'))
+        .toHaveLength(finishReason === 'complete' ? 1 : 0);
+      expect(updates.some(({ kind }) => kind === 'runCancelled')).toBe(finishReason === 'cancelled');
+      if (finishReason === 'complete') {
+        expect(updates).toContainEqual(expect.objectContaining({ kind: 'runFailed',
+          code: 'invalid_event', retryable: false }));
+      }
+      expect(updates).toContainEqual(expect.objectContaining({ kind: 'messageCompleted',
+        finishReason: finishReason === 'complete' ? 'error' : finishReason }));
+    },
+  );
 
   it.each(terminalStructuredOutputFixture.cases)(
     'executes the backend terminal fixture $id through the runtime state machine',
     async (fixtureCase) => {
       const updates: AgentV2ClientUpdate[] = [];
-      const registerAction = jest.fn();
       const streamEvents = (fixtureCase.events as TerminalFixtureEvent[]).map((fixtureEvent) => {
         switch (fixtureEvent.type) {
           case 'run_start':
@@ -2086,7 +2376,7 @@ describe('AgentV2Runtime transport', () => {
               content: {
                 kind: 'notice',
                 schemaVersion: 1,
-                code: 'empty_result',
+                code: 'agent_unavailable',
               },
             });
           case 'thread':
@@ -2128,7 +2418,6 @@ describe('AgentV2Runtime transport', () => {
         toolExecutor: {
           execute: jest.fn(),
           discard: jest.fn(),
-          registerAction,
         },
       });
       await runtime.acceptConsent();
@@ -2147,7 +2436,6 @@ describe('AgentV2Runtime transport', () => {
       expect(updates.filter(({ kind }) => kind === 'actionAvailable')).toHaveLength(
         fixtureCase.expectedHydration.actionIds.length,
       );
-      expect(registerAction).toHaveBeenCalledTimes(fixtureCase.expectedHydration.actionIds.length);
       expect(updates.filter(({ kind }) => kind === 'semanticContentAvailable')).toHaveLength(
         fixtureCase.expectedHydration.semanticContentCount,
       );
@@ -2161,14 +2449,14 @@ describe('AgentV2Runtime transport', () => {
     const content: AgentSemanticContentV1 = {
       kind: 'notice',
       schemaVersion: 1,
-      code: 'empty_result',
+      code: 'agent_unavailable',
     };
     const updates: AgentV2ClientUpdate[] = [];
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2230,7 +2518,6 @@ describe('AgentV2Runtime transport', () => {
     const threadChanged = new Promise<void>((resolve) => {
       markThreadChanged = resolve;
     });
-    const registerAction = jest.fn();
     const stream = openNdjsonResponse([
       runStart(),
       messageStart(),
@@ -2241,7 +2528,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2264,7 +2551,6 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        registerAction,
       },
     });
     await runtime.acceptConsent();
@@ -2277,7 +2563,6 @@ describe('AgentV2Runtime transport', () => {
     await threadChanged;
 
     expect(updates.some(({ kind }) => kind === 'actionAvailable')).toBe(false);
-    expect(registerAction).not.toHaveBeenCalled();
 
     stream.finish([messageEnd(5)]);
     await expect(run).resolves.toMatchObject({ state: 'completed' });
@@ -2286,12 +2571,12 @@ describe('AgentV2Runtime transport', () => {
     const completionUpdateIndex = updates.findIndex(({ kind }) => kind === 'messageCompleted');
     expect(actionUpdateIndex).toBeGreaterThan(-1);
     expect(completionUpdateIndex).toBeGreaterThan(actionUpdateIndex);
-    expect(registerAction).toHaveBeenCalledTimes(1);
   });
 
   it('reconnects with the same client run and emits only safe updates', async () => {
     const storage = createMemoryStorage();
     const updates: unknown[] = [];
+    const timings: ClientTimingEvent[] = [];
     const runRequests: Record<string, unknown>[] = [];
     const runHeaders: Headers[] = [];
     let runFetch = 0;
@@ -2299,7 +2584,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2324,6 +2609,7 @@ describe('AgentV2Runtime transport', () => {
     }) as unknown as typeof fetch;
     const ids = [CLIENT_RUN_ID, MESSAGE_ID];
     const runtime = new AgentV2Runtime({
+      telemetrySink: (batch) => timings.push(...batch),
       storage,
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
@@ -2337,7 +2623,6 @@ describe('AgentV2Runtime transport', () => {
     const result = await runtime.startRun({
       expectedThreadRevision: 0,
       input: { kind: 'append', text: 'Hello' },
-      customWriterInstruction: 'Use short paragraphs.',
       entryPoint: {
         kind: 'emptyState',
         surface: 'agentTab',
@@ -2352,6 +2637,18 @@ describe('AgentV2Runtime transport', () => {
       inputMessageId: MESSAGE_ID,
       state: 'completed',
     });
+    expect(timings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ operation: 'client_reconnect_wait', outcome: 'success' }),
+      expect.objectContaining({ operation: 'client_request', outcome: 'success' }),
+      expect.objectContaining({ operation: 'client_first_text' }),
+    ]));
+    expect(timings.filter((event) => event.operation === 'client_first_text')).toHaveLength(1);
+    const traceId = timings[0].traceId;
+    expect(runHeaders.every((headers) => headers.get('x-agent-trace-id') === traceId)).toBe(true);
+    expect(runHeaders.every((headers) => (
+      /^[a-f0-9]{16}$/.test(headers.get('x-agent-parent-span-id') ?? '')
+    ))).toBe(true);
+    expect(JSON.stringify(timings)).not.toMatch(/Hello|adt_v2/);
     expect(runRequests).toHaveLength(2);
     expect(runRequests[0]).toMatchObject({
       input: { kind: 'append', message: { text: 'Hello' } },
@@ -2363,9 +2660,6 @@ describe('AgentV2Runtime transport', () => {
       },
     });
     expect(runRequests[1]).toMatchObject({ clientRunId: CLIENT_RUN_ID, resumeAfterSequence: 3 });
-    expect(runRequests[0]).not.toHaveProperty('customWriterInstruction');
-    expect(runHeaders.map((headers) => headers.get(AGENT_V2_CUSTOM_WRITER_INSTRUCTION_HEADER)))
-      .toEqual(Array(2).fill(encodeAgentV2CustomWriterInstructionHeader('Use short paragraphs.')));
     expect(updates.filter((update: any) => update.kind === 'runStarted')).toHaveLength(1);
     expect(updates).toContainEqual(expect.objectContaining({
       kind: 'runStarted', inputMessageId: MESSAGE_ID,
@@ -2388,7 +2682,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2404,7 +2698,7 @@ describe('AgentV2Runtime transport', () => {
             textDelta('Partial response'),
           ])
           : jsonResponse({
-            protocolVersion: 2,
+            protocolVersion: 3,
             error: {
               code: 'run_replay_expired',
               retryable: false,
@@ -2465,7 +2759,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2473,7 +2767,7 @@ describe('AgentV2Runtime transport', () => {
       }
       if (url.endsWith('/tool-results')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           runId: RUN_ID,
           toolCallId: TOOL_CALL_ID,
           clientToolResultId: TOOL_RESULT_ID,
@@ -2485,7 +2779,7 @@ describe('AgentV2Runtime transport', () => {
         return Promise.resolve(ndjsonResponse([
           runStart(),
           privateToolCallEvent(2),
-          toolStatusEvent(3, 'complete', 'processing'),
+          toolStatusEvent(3, 'complete'),
           event({
             type: 'message_start', sequence: 4, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown',
           }),
@@ -2536,7 +2830,7 @@ describe('AgentV2Runtime transport', () => {
     }]);
 
     resolveExecution({
-      protocolVersion: 2,
+      protocolVersion: 3,
       runId: RUN_ID,
       threadId: THREAD_ID,
       toolCallId: TOOL_CALL_ID,
@@ -2578,7 +2872,7 @@ describe('AgentV2Runtime transport', () => {
         const request = JSON.parse(init?.body as string) as AgentToolResultRequestV2;
         toolResultRequests.push(request);
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           runId: RUN_ID,
           toolCallId: TOOL_CALL_ID,
           clientToolResultId: request.clientToolResultId,
@@ -2603,7 +2897,7 @@ describe('AgentV2Runtime transport', () => {
       call: AgentToolCall,
       context: AgentV2ToolExecutionContext,
     ): Promise<AgentToolResultRequestV2> => Promise.resolve({
-      protocolVersion: 2,
+      protocolVersion: 3,
       runId: context.runId,
       threadId: context.threadId,
       toolCallId: call.id,
@@ -2638,10 +2932,113 @@ describe('AgentV2Runtime transport', () => {
     expect(toolResultRequests).toHaveLength(1);
   });
 
-  it('rejects cross-wallet intent from a different user message', async () => {
+  it('rejects a tool it does not know as unsupported and completes the run', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
+    const toolResultRequests: AgentToolResultRequestV2[] = [];
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/tool-results')) {
+        const request = JSON.parse(init?.body as string) as AgentToolResultRequestV2;
+        toolResultRequests.push(request);
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          runId: RUN_ID,
+          toolCallId: TOOL_CALL_ID,
+          clientToolResultId: request.clientToolResultId,
+          accepted: true,
+          duplicate: false,
+        }));
+      }
+      if (url.endsWith('/runs')) {
+        return Promise.resolve(ndjsonResponse([
+          runStart(),
+          event({
+            type: 'tool_call',
+            sequence: 2,
+            toolCall: {
+              id: TOOL_CALL_ID,
+              name: 'wallet.future.query',
+              scopes: ['wallet.future.read'],
+              timeoutMs: 1_000,
+              futureSession: { sessionId: WALLET_SESSION_ID },
+              arguments: {},
+            },
+          }),
+          toolStatusEvent(3, 'rejected'),
+          event({
+            type: 'message_start', sequence: 4, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown',
+          }),
+          messageEnd(5),
+        ]));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
     const execute = jest.fn();
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID, SNAPSHOT_INSTANCE_ID, TOOL_RESULT_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: jest.fn(),
+      randomUuid: () => ids.shift()!,
+      toolExecutor: { execute, discard: jest.fn() },
+    });
+    await runtime.acceptConsent();
+
+    await expect(runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 1,
+      input: { kind: 'append', text: 'Search for TON' },
+    })).resolves.toMatchObject({ state: 'completed' });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(toolResultRequests).toEqual([{
+      protocolVersion: 3,
+      runId: RUN_ID,
+      threadId: THREAD_ID,
+      toolCallId: TOOL_CALL_ID,
+      clientToolResultId: TOOL_RESULT_ID,
+      toolName: 'wallet.future.query',
+      status: 'rejected',
+      completedAt: expect.any(String),
+      error: { code: 'tool_unsupported', retryable: false },
+    }]);
+  });
+
+  it.each<{ title: 'admits' | 'rejects'; source: string; command: AgentV2RunCommandInput }>([
+    {
+      title: 'rejects',
+      source: 'a different user message',
+      command: { input: { kind: 'append', text: 'Show all wallets' } },
+    },
+    {
+      title: 'rejects',
+      source: 'a regenerated request without its question',
+      command: { input: { kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID_3 } },
+    },
+    {
+      title: 'rejects',
+      source: 'a question other than the regenerated one',
+      command: { input: { kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID_3, userMessageId: MESSAGE_ID } },
+    },
+    {
+      title: 'admits',
+      source: 'the question a regenerated request answers',
+      command: { input: { kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID_3, userMessageId: MESSAGE_ID_2 } },
+    },
+  ])('$title cross-wallet intent from $source', async ({ title, command }) => {
+    const isAdmitted = title === 'admits';
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    let markExecutionStarted!: () => void;
+    const executionStarted = new Promise<void>((resolve) => {
+      markExecutionStarted = resolve;
+    });
+    const execute = jest.fn(() => {
+      markExecutionStarted();
+      return new Promise<never>(() => undefined);
+    });
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/runs')) {
@@ -2653,9 +3050,7 @@ describe('AgentV2Runtime transport', () => {
             toolCall: {
               id: TOOL_CALL_ID,
               name: 'wallet.data.query',
-              version: 5,
               arguments: {
-                schemaVersion: 5,
                 operation: 'account.inventory',
                 accountSelector: { kind: 'explicitAll' },
                 chains: [],
@@ -2688,12 +3083,13 @@ describe('AgentV2Runtime transport', () => {
     });
     await runtime.acceptConsent();
 
-    await expect(runtime.startRun({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 1,
-      input: { kind: 'append', text: 'Show all wallets' },
-    })).resolves.toMatchObject({ state: 'failed' });
-    expect(execute).not.toHaveBeenCalled();
+    const run = runtime.startRun({ ...command, threadId: THREAD_ID, expectedThreadRevision: 1 });
+    if (isAdmitted) {
+      await Promise.race([executionStarted, run]);
+      await runtime.destroy();
+    }
+    await expect(run).resolves.toMatchObject({ state: isAdmitted ? 'interrupted' : 'failed' });
+    expect(execute).toHaveBeenCalledTimes(isAdmitted ? 1 : 0);
   });
 
   it('submits a timeout result when tool execution does not settle before its deadline', async () => {
@@ -2715,7 +3111,7 @@ describe('AgentV2Runtime transport', () => {
           toolResultRequest = request;
           resultSignal = init?.signal;
           return Promise.resolve(jsonResponse({
-            protocolVersion: 2,
+            protocolVersion: 3,
             runId: RUN_ID,
             toolCallId: TOOL_CALL_ID,
             clientToolResultId: request.clientToolResultId,
@@ -2727,7 +3123,7 @@ describe('AgentV2Runtime transport', () => {
           return Promise.resolve(ndjsonResponse([
             runStart(),
             toolCallEvent(2),
-            toolStatusEvent(3, 'complete', 'processing'),
+            toolStatusEvent(3, 'complete'),
             event({
               type: 'message_start', sequence: 4, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown',
             }),
@@ -2737,7 +3133,7 @@ describe('AgentV2Runtime transport', () => {
         return Promise.reject(new Error(`Unexpected URL ${url}`));
       }) as unknown as typeof fetch;
       const discard = jest.fn();
-      const ids = [CLIENT_RUN_ID, MESSAGE_ID, TOOL_RESULT_ID];
+      const ids = [CLIENT_RUN_ID, MESSAGE_ID, SNAPSHOT_INSTANCE_ID, TOOL_RESULT_ID];
       const runtime = new AgentV2Runtime({
         storage,
         baseUrl: 'https://agent.test/api/v2',
@@ -2778,6 +3174,129 @@ describe('AgentV2Runtime transport', () => {
     }
   });
 
+  it('retries a tool result submission that gets no response', async () => {
+    // A stored identity and a fixed clock keep the short deadline to the tool result alone
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    let runFetch = 0;
+    let resultFetch = 0;
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.endsWith('/tool-results')) {
+        resultFetch += 1;
+        if (resultFetch === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+          });
+        }
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          runId: RUN_ID,
+          toolCallId: TOOL_CALL_ID,
+          clientToolResultId: TOOL_RESULT_ID,
+          accepted: true,
+          duplicate: false,
+        }));
+      }
+      if (url.endsWith('/runs')) {
+        runFetch += 1;
+        return Promise.resolve(ndjsonResponse(runFetch === 1 ? [runStart(), toolCallEvent(2)] : [
+          toolCallEvent(2),
+          event({
+            type: 'message_start', sequence: 3, messageId: MESSAGE_ID, role: 'assistant', contentKind: 'markdown',
+          }),
+          messageEnd(4),
+        ]));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
+    const execute = jest.fn((
+      call: AgentToolCall,
+      context: AgentV2ToolExecutionContext,
+    ): Promise<AgentToolResultRequestV2> => Promise.resolve({
+      protocolVersion: 3,
+      runId: context.runId,
+      threadId: context.threadId,
+      toolCallId: call.id,
+      clientToolResultId: TOOL_RESULT_ID,
+      completedAt: '2026-07-16T00:00:00.000Z',
+      ...(call.name === 'wallet.directory.query'
+        ? { directorySession: call.directorySession, toolName: call.name }
+        : { walletContextSession: call.walletContextSession, toolName: call.name }),
+      status: 'rejected',
+      error: { code: 'tool_unsupported', retryable: false },
+    }));
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: jest.fn(),
+      now: () => Date.parse('2026-09-22T12:00:00.000Z'),
+      randomUuid: () => ids.shift()!,
+      wait: () => Promise.resolve(),
+      requestTimeoutMs: 20,
+      toolExecutor: { execute, discard: jest.fn() },
+    });
+    try {
+      await runtime.acceptConsent();
+
+      await expect(runtime.startRun({
+        threadId: THREAD_ID,
+        expectedThreadRevision: 1,
+        input: { kind: 'append', text: 'Search for TON' },
+      })).resolves.toMatchObject({ state: 'completed' });
+      expect(resultFetch).toBe(2);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
+  it('stops a run locally when its cancel gets no response', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    let markStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const stream = openNdjsonResponse([runStart(), messageStart()]);
+    const unanswered = unansweredFetch();
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => (
+      getRequestUrl(input).endsWith('/runs') ? Promise.resolve(stream.response) : unanswered(input, init)
+    )) as unknown as typeof fetch;
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: (update) => {
+        updates.push(update);
+        if (update.kind === 'runStarted') markStarted();
+      },
+      now: () => Date.parse('2026-09-22T12:00:00.000Z'),
+      randomUuid: () => ids.shift() ?? TOOL_RESULT_ID,
+      requestTimeoutMs: 50,
+    });
+    try {
+      await runtime.acceptConsent();
+      const run = runtime.startRun({
+        threadId: THREAD_ID,
+        expectedThreadRevision: 1,
+        input: { kind: 'append', text: 'Start response' },
+      });
+      await started;
+
+      await expect(runSafeAgentV2Operation(() => runtime.cancelRun(RUN_ID)))
+        .resolves.toEqual({ ok: false, error: { code: 'network_error', retryable: true } });
+      stream.finish([textDelta('After the stop')]);
+      await run;
+      expect(updates.some((update) => update.kind === 'textDelta')).toBe(false);
+    } finally {
+      await runtime.destroy();
+    }
+  });
+
   it('replays a pending tool call and retries its byte-identical runtime result', async () => {
     const updates: unknown[] = [];
     const runRequests: Record<string, unknown>[] = [];
@@ -2788,7 +3307,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2799,7 +3318,7 @@ describe('AgentV2Runtime transport', () => {
         toolResultRequests.push(JSON.parse(init?.body as string));
         if (resultFetch <= 3) return Promise.reject(new TypeError('offline'));
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           runId: RUN_ID,
           toolCallId: TOOL_CALL_ID,
           clientToolResultId: TOOL_RESULT_ID,
@@ -2828,7 +3347,7 @@ describe('AgentV2Runtime transport', () => {
       context: AgentV2ToolExecutionContext,
     ): Promise<AgentToolResultRequestV2> => {
       return Promise.resolve({
-        protocolVersion: 2,
+        protocolVersion: 3,
         runId: context.runId,
         threadId: context.threadId,
         toolCallId: call.id,
@@ -2876,6 +3395,106 @@ describe('AgentV2Runtime transport', () => {
     expect(discard).not.toHaveBeenCalled();
   });
 
+  it.each(['html413', 'typedSizeError', 'errorResult413', 'conflict409', 'precondition412'] as const)(
+    'recovers only explicit size refusal and preserves replacement identity through lost ACK: %s', async (failure) => {
+      const storage = createMemoryStorage();
+      await storeIdentity(storage);
+      const walletSession = new AgentV2WalletSession();
+      const host: AgentV2HostContextSnapshot = { ...stakeHost(), timeZone: 'UTC', currencyRate: '1' };
+      host.accounts[0].domainStates = { fungible: { state: 'fresh' } };
+      host.accounts[0].holdings = [{ asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
+        balance: '7', valuationStatus: 'unpriced' }];
+      walletSession.update(host);
+      const snapshot = walletSession.snapshot();
+      const call: AgentToolCall = {
+        id: TOOL_CALL_ID, name: 'wallet.data.query', scopes: ['wallet.data.read'],
+        timeoutMs: 1_000, maxResultBytes: 98_304,
+        intentSource: { kind: 'userMessage', messageId: MESSAGE_ID }, arguments: {
+          operation: 'positions.list', accountSelector: { kind: 'current' },
+          chains: [], assetSelectors: [], positionKinds: ['fungible'], riskMode: 'all',
+          visibilityMode: 'all', includeZero: false, sort: 'wallet_order', pageSize: 100,
+        }, walletContextSession: {
+          sessionId: snapshot.sessionId, revision: snapshot.revision, accountScope: 'current' as const,
+          activeAccountRef: snapshot.accountRefs.get('view-account')!, activeNetwork: 'ton' as const,
+        } };
+      const updates: AgentV2ClientUpdate[] = [];
+      const requests: AgentToolResultRequestV2[] = [];
+      let runFetch = 0;
+      const isSizeFailure = failure === 'html413' || failure === 'typedSizeError' || failure === 'errorResult413';
+      const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => Promise.resolve().then(() => {
+        const url = getRequestUrl(input);
+        if (url.includes('/hints')) return disabledHintsResponse();
+        if (url.endsWith('/capabilities')) return featureCapabilitiesResponse('available');
+        if (url.endsWith('/tool-results')) {
+          const result = JSON.parse(init!.body as string) as AgentToolResultRequestV2;
+          requests.push(result);
+          if (requests.length === 1 || failure === 'errorResult413') {
+            if (failure === 'typedSizeError') {
+              return jsonResponse({ protocolVersion: 3,
+                error: { code: 'tool_result_too_large', retryable: false } }, 400);
+            }
+            if (failure === 'conflict409') {
+              return jsonResponse({ protocolVersion: 3, error: { code: 'invalid_request', retryable: false } }, 409);
+            }
+            return { ...jsonResponse({}, isSizeFailure ? 413 : 412),
+              json: () => Promise.reject(new SyntaxError('Unexpected HTML')) };
+          }
+          if (requests.length <= 4) throw new TypeError('offline');
+          return jsonResponse({ protocolVersion: 3, runId: RUN_ID, toolCallId: TOOL_CALL_ID,
+            clientToolResultId: result.clientToolResultId, accepted: true, duplicate: true });
+        }
+        if (url.endsWith('/runs')) {
+          runFetch += 1;
+          return ndjsonResponse(runFetch === 1 ? [
+            runStart(),
+            event({ type: 'message_start', sequence: 2, messageId: MESSAGE_ID,
+              role: 'assistant', contentKind: 'markdown' }),
+            event({ type: 'text_delta', sequence: 3, messageId: MESSAGE_ID, delta: 'Already visible answer.' }),
+            event({ type: 'tool_call', sequence: 4, toolCall: call }),
+            messageEnd(5),
+          ] : [event({ type: 'tool_call', sequence: 4, toolCall: call }), messageEnd(5)]);
+        }
+        throw new Error(`Unexpected URL ${url}`);
+      }));
+      const ids = [CLIENT_RUN_ID, MESSAGE_ID, SNAPSHOT_INSTANCE_ID, CLIENT_RUN_ID_2];
+      const dispatcher = new AgentV2WalletToolDispatcher({
+        session: walletSession, getConsent: () => Promise.resolve(true), randomUuid: () => TOOL_RESULT_ID,
+      });
+      const execute = jest.fn(dispatcher.execute.bind(dispatcher));
+      const discard = jest.fn();
+      const runtime = new AgentV2Runtime({
+        storage, baseUrl: 'https://agent.test/api/v2', fetch: fetchMock,
+        onUpdate: (update) => updates.push(update), walletSession,
+        randomUuid: () => ids.shift()!, wait: () => Promise.resolve(), toolExecutor: { execute, discard },
+      });
+      try {
+        await runtime.acceptConsent();
+        const outcome = await runtime.startRun({ threadId: THREAD_ID, expectedThreadRevision: 1,
+          input: { kind: 'append', text: 'Find TON' } });
+        expect(outcome).toMatchObject({
+          state: isSizeFailure && failure !== 'errorResult413' ? 'completed' : 'failed',
+        });
+        expect(execute).toHaveBeenCalledTimes(1);
+        expect(requests[0].status).toBe('success');
+        expect(requests).toHaveLength(isSizeFailure ? (failure === 'errorResult413' ? 2 : 5) : 1);
+        expect(JSON.stringify(updates)).toContain('Already visible answer.');
+        if (isSizeFailure) {
+          expect(runFetch).toBe(failure === 'errorResult413' ? 1 : 2);
+          expect(requests[1]).toMatchObject({
+            toolCallId: call.id, walletContextSession: call.walletContextSession,
+            status: 'error', error: { code: 'result_too_large', retryable: false },
+          });
+          expect(requests[1]).not.toHaveProperty('result');
+          expect(requests[1].clientToolResultId).not.toBe(requests[0].clientToolResultId);
+          expect(requests.slice(1).every((value) => JSON.stringify(value) === JSON.stringify(requests[1]))).toBe(true);
+          expect(discard).toHaveBeenCalledWith(call.id);
+        }
+      } finally {
+        await runtime.destroy();
+      }
+    },
+  );
+
   it('discards an unacknowledged tool result after an invalid acknowledgement', async () => {
     const updates: unknown[] = [];
     const rawResultMarker = 'PRIVATE_WALLET_RESULT';
@@ -2883,7 +3502,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -2891,7 +3510,7 @@ describe('AgentV2Runtime transport', () => {
       }
       if (url.endsWith('/tool-results')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           runId: RUN_ID,
           toolCallId: TOOL_CALL_ID,
           clientToolResultId: '77777777-7777-4777-8777-777777777778',
@@ -2905,7 +3524,7 @@ describe('AgentV2Runtime transport', () => {
       call: AgentToolCall,
       context: AgentV2ToolExecutionContext,
     ): Promise<AgentToolResultRequestV2> => Promise.resolve({
-      protocolVersion: 2,
+      protocolVersion: 3,
       runId: context.runId,
       threadId: context.threadId,
       toolCallId: call.id,
@@ -3020,7 +3639,7 @@ describe('AgentV2Runtime transport', () => {
     ]));
   });
 
-  it('degrades an incompatible local host context to no-wallet and accepts recovery', async () => {
+  it('degrades an incompatible critical host context to no-wallet and accepts recovery', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     let requestBody: any;
@@ -3043,33 +3662,23 @@ describe('AgentV2Runtime transport', () => {
         return () => values.shift()!;
       })(),
       wait: () => Promise.resolve(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
     });
     await runtime.acceptConsent();
     await runtime.updateHostContext(receiveHost('ton'));
 
-    await expect(runtime.updateHostContext({
+    const incompatibleHost = {
       ...receiveHost('tron'),
-      assetCatalog: [{ slug: 'invalid-asset', chain: 'tron', symbol: '', decimals: 6 }],
-    })).resolves.toBe(true);
+      accounts: undefined,
+    } as unknown as AgentV2HostContextSnapshot;
+    await expect(runtime.updateHostContext(incompatibleHost)).resolves.toBe(true);
     await expect(runtime.startRun({
       expectedThreadRevision: 0,
       input: { kind: 'append', text: 'Explain staking' },
     })).resolves.toMatchObject({ state: 'completed' });
 
     expect(requestBody.walletContext).toEqual({ mode: 'none', reason: 'noWallet' });
-    expect(requestBody.capabilities.supportedTools).toEqual([]);
-    expect(requestBody.capabilities).toMatchObject({
-      supportsFollowups: false,
-      supportsInputContinuations: true,
-    });
-    expect(requestBody.capabilities.supportedEventTypes).not.toContain('followups');
-    expect(requestBody.capabilities.supportedEventTypes).toContain('input_continuations');
+    expect(requestBody).not.toHaveProperty('walletBucketHash');
+    expect(requestBody.capabilities.features).toEqual([]);
 
     await expect(runtime.updateHostContext(receiveHost('tron'))).resolves.toBe(true);
     const internals = runtime as unknown as { walletSession: AgentV2WalletSession };
@@ -3088,7 +3697,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/device-token')) {
         const body = JSON.parse(init?.body as string);
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: body.deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -3108,6 +3717,7 @@ describe('AgentV2Runtime transport', () => {
               id: '66666666-6666-4666-8666-666666666666',
               kind: 'receive',
               labelCode: 'open_receive',
+              title: 'Review prepared action',
               effect: 'open_receive',
               contextBinding: {
                 sessionId: requestBody.walletContext.sessionId,
@@ -3131,12 +3741,6 @@ describe('AgentV2Runtime transport', () => {
       fetch: fetchMock,
       onUpdate: () => {},
       wait: () => Promise.resolve(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
       randomUuid: (() => {
         const values = [CLIENT_RUN_ID, MESSAGE_ID, DEVICE_ID];
         return () => values.shift()!;
@@ -3153,7 +3757,6 @@ describe('AgentV2Runtime transport', () => {
     });
     await expect(runtime.updateHostContext({
       ...host,
-      stakingOffers: stakeHost().stakingOffers,
     })).resolves.toBe(false);
     expect(runtime.resolveAction(MESSAGE_ID, '66666666-6666-4666-8666-666666666666')).toEqual({
       kind: 'openReceive', chain: 'ton',
@@ -3172,7 +3775,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/device-token')) {
         const body = JSON.parse(init?.body as string);
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: body.deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -3193,6 +3796,7 @@ describe('AgentV2Runtime transport', () => {
               schemaVersion: 2,
               kind: 'stake',
               labelCode: 'open_staking',
+              title: 'Review prepared action',
               effect: 'open_staking',
               contextBinding: {
                 sessionId: requestBody.walletContext.sessionId,
@@ -3224,10 +3828,13 @@ describe('AgentV2Runtime transport', () => {
       })(),
     });
     await runtime.acceptConsent();
-    const host = { ...stakeHost(), platform: 'ios' as const, client: 'native' as const };
+    const host = {
+      ...stakeHost(), platform: 'ios' as const, uiCapabilities: hostUiCapabilities('ios'), client: 'native' as const,
+    };
     await expect(runtime.updateHostContext(host)).resolves.toBe(true);
     await runtime.startRun({ expectedThreadRevision: 0, input: { kind: 'append', text: 'Stake' } });
 
+    expect(requestBody).not.toHaveProperty('walletBucketHash');
     expect(requestBody.capabilities.supportedActions).toContain('stake');
     expect(requestBody.walletContext.activeAccount.supportedActions).toContain('stake');
     expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
@@ -3239,7 +3846,6 @@ describe('AgentV2Runtime transport', () => {
 
     const refreshedHost = {
       ...host,
-      stakingOffers: [{ ...host.stakingOffers[0], annualYield: '15' }],
     };
     await expect(runtime.updateHostContext(refreshedHost)).resolves.toBe(false);
     expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
@@ -3251,15 +3857,65 @@ describe('AgentV2Runtime transport', () => {
 
     await expect(runtime.updateHostContext({
       ...refreshedHost,
-      platform: 'android',
+      platform: 'android', uiCapabilities: hostUiCapabilities('android'),
     })).resolves.toBe(false);
+    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
+      kind: 'openStaking',
+      productId: 'liquid',
+      tokenSlug: 'toncoin',
+      amount: { kind: 'exact', value: '10' },
+    });
+
+    await expect(runtime.updateHostContext({
+      ...refreshedHost,
+      accounts: [...refreshedHost.accounts, {
+        ...refreshedHost.accounts[0],
+        accountId: 'secondary-account',
+        addresses: { ton: 'EQ-secondary-address' },
+      }],
+      activeAccountId: 'secondary-account',
+    })).resolves.toBe(true);
+    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
+      kind: 'openStaking',
+      productId: 'liquid',
+      tokenSlug: 'toncoin',
+      amount: { kind: 'exact', value: '10' },
+    });
+
+    await expect(runtime.updateHostContext(refreshedHost)).resolves.toBe(true);
+
+    await expect(runtime.updateHostContext({
+      ...refreshedHost,
+      accounts: [...refreshedHost.accounts, {
+        ...refreshedHost.accounts[0],
+        accountId: 'view-only-account',
+        accountType: 'viewOnly' as const,
+        isViewOnly: true,
+        addresses: { ton: 'EQ-view-only-address' },
+      }],
+      activeAccountId: 'view-only-account',
+    })).resolves.toBe(true);
+    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({ kind: 'inactive' });
+
+    await expect(runtime.updateHostContext(refreshedHost)).resolves.toBe(true);
+    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
+      kind: 'openStaking',
+      productId: 'liquid',
+      tokenSlug: 'toncoin',
+      amount: { kind: 'exact', value: '10' },
+    });
+
+    const ineligibleHost = { ...refreshedHost, isStakingDisabled: true };
+    await expect(runtime.updateHostContext(ineligibleHost)).resolves.toBe(false);
     expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({ kind: 'inactive' });
 
     await expect(runtime.updateHostContext(refreshedHost)).resolves.toBe(false);
-
-    const { stakingOffers: _stakingOffers, ...ineligibleHost } = refreshedHost;
-    await expect(runtime.updateHostContext(ineligibleHost)).resolves.toBe(false);
-    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({ kind: 'inactive' });
+    expect(runtime.resolveAction(MESSAGE_ID, actionId)).toEqual({
+      kind: 'openStaking',
+      productId: 'liquid',
+      tokenSlug: 'toncoin',
+      amount: { kind: 'exact', value: '10' },
+    });
   });
 
   it('revalidates current local staking eligibility for a hydrated action', async () => {
@@ -3270,8 +3926,8 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
@@ -3284,6 +3940,7 @@ describe('AgentV2Runtime transport', () => {
               schemaVersion: 2,
               kind: 'stake',
               labelCode: 'open_staking',
+              title: 'Review prepared action',
               effect: 'open_staking',
               productId: 'liquid',
               asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
@@ -3293,9 +3950,6 @@ describe('AgentV2Runtime transport', () => {
             }],
           }],
         }));
-      }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
@@ -3320,11 +3974,11 @@ describe('AgentV2Runtime transport', () => {
 
     await runtime.updateHostContext({
       ...host,
-      stakingOffers: [{ ...host.stakingOffers[0], productId: 'ethena' }],
+      isStakingDisabled: true,
     });
     expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
 
-    const { stakingOffers: _stakingOffers, ...ineligibleHost } = host;
+    const ineligibleHost = { ...host, accounts: host.accounts.map((account) => ({ ...account, isViewOnly: true })) };
     await runtime.updateHostContext(ineligibleHost);
     expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
   });
@@ -3337,7 +3991,7 @@ describe('AgentV2Runtime transport', () => {
       if (url.endsWith('/device-token')) {
         const body = JSON.parse(init?.body as string);
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: body.deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -3358,6 +4012,7 @@ describe('AgentV2Runtime transport', () => {
               schemaVersion: 3,
               kind: 'receive',
               labelCode: 'open_receive',
+              title: 'Review prepared action',
               effect: 'open_receive',
               contextBinding: {
                 sessionId: requestBody.walletContext.sessionId,
@@ -3379,6 +4034,7 @@ describe('AgentV2Runtime transport', () => {
               schemaVersion: 3,
               kind: 'receive',
               labelCode: 'open_receive',
+              title: 'Review prepared action',
               effect: 'open_receive',
               contextBinding: {
                 sessionId: requestBody.walletContext.sessionId,
@@ -3403,12 +4059,6 @@ describe('AgentV2Runtime transport', () => {
       fetch: fetchMock,
       onUpdate: () => {},
       wait: () => Promise.resolve(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
       randomUuid: (() => {
         const values = [CLIENT_RUN_ID, MESSAGE_ID, DEVICE_ID];
         return () => values.shift()!;
@@ -3418,7 +4068,6 @@ describe('AgentV2Runtime transport', () => {
     await runtime.updateHostContext(receiveHost('tron', false));
     await runtime.startRun({ expectedThreadRevision: 0, input: { kind: 'append', text: 'Receive GRAM' } });
 
-    expect(requestBody.capabilities.receiveActionVersion).toBe(3);
     expect(runtime.resolveAction(MESSAGE_ID, '67676767-6767-4767-8767-676767676767')).toEqual({
       kind: 'openReceive', chain: 'ton',
     });
@@ -3434,8 +4083,8 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
@@ -3448,6 +4097,7 @@ describe('AgentV2Runtime transport', () => {
               schemaVersion: 3,
               kind: 'receive',
               labelCode: 'open_receive',
+              title: 'Review prepared action',
               effect: 'open_receive',
               targetNetwork: 'tron',
               localDraftRequired: false,
@@ -3455,9 +4105,6 @@ describe('AgentV2Runtime transport', () => {
             }],
           }],
         }));
-      }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
@@ -3482,56 +4129,6 @@ describe('AgentV2Runtime transport', () => {
     expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
   });
 
-  it('bounds retained actions and wallet conversation threads with their exact TTLs', () => {
-    let now = 0;
-    const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: jest.fn(),
-      now: () => now,
-      walletConversationContextCache: undefined,
-    });
-    const internals = runtime as unknown as {
-      actions: { set: (namespace: string, key: string, value: unknown) => number; size: number };
-      walletConversationContexts: {
-        set: (namespace: string, key: string, value: unknown) => number;
-        size: number;
-      };
-    };
-
-    for (let index = 0; index < 513; index++) {
-      internals.actions.set(index % 2 ? 'live' : 'persisted', String(index), { index });
-    }
-    for (let index = 0; index < 33; index++) {
-      internals.walletConversationContexts.set('context', String(index), {
-        schemaVersion: 5,
-        sourceAssistantMessageId: String(index),
-        sessionId: 'session',
-        revision: 1,
-        operation: 'account.inventory',
-        query: {
-          schemaVersion: 5,
-          operation: 'account.inventory',
-          accountSelector: { kind: 'current' },
-          chains: [],
-        },
-        scopeChoices: [],
-        expiresAt: new Date(60 * 60_000).toISOString(),
-      });
-    }
-
-    expect(internals.actions.size).toBe(512);
-    expect(internals.walletConversationContexts.size).toBe(32);
-
-    now = 30 * 60_000;
-    expect(internals.walletConversationContexts.size).toBe(0);
-    expect(internals.actions.size).toBe(512);
-
-    now = 24 * 60 * 60_000;
-    expect(internals.actions.size).toBe(0);
-  });
-
   it('invalidates thread-bound local actions before edit or regenerate admission', async () => {
     const clear = jest.fn();
     const updates: any[] = [];
@@ -3539,7 +4136,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -3578,6 +4175,60 @@ describe('AgentV2Runtime transport', () => {
     expect(updates).toContainEqual({ kind: 'walletAuthorityChanged', threadId: THREAD_ID });
   });
 
+  it('announces wallet selection without retiring the active response', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    let markTextReceived!: () => void;
+    const textReceived = new Promise<void>((resolve) => {
+      markTextReceived = resolve;
+    });
+    const stream = openNdjsonResponse([runStart(), messageStart(), textDelta('Before')]);
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/runs')) return Promise.resolve(stream.response);
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const runtime = new AgentV2Runtime({
+      storage,
+      randomUuid: () => CLIENT_RUN_ID,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock as unknown as typeof fetch,
+      onUpdate: (update) => {
+        updates.push(update);
+        if (update.kind === 'textDelta') markTextReceived();
+      },
+      walletSession: new AgentV2WalletSession({ randomUuid: () => WALLET_SESSION_ID }),
+    });
+    const host = receiveHost('ton');
+    host.accounts.push({
+      ...host.accounts[0],
+      accountId: 'secondary-account',
+      addresses: { ton: 'EQ-secondary', tron: 'T-secondary' },
+    });
+    await runtime.acceptConsent();
+    await runtime.updateHostContext(host);
+    const run = runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 1,
+      input: { kind: 'append', text: 'Start response' },
+    });
+    await textReceived;
+    updates.length = 0;
+
+    await runtime.updateHostContext({ ...host, activeAccountId: 'secondary-account' });
+    expect(updates).toEqual([{ kind: 'walletAuthorityChanged', preservesActiveRuns: true }]);
+    stream.finish([textDelta(' after', 4), actionEvent(5), messageEnd(6)]);
+    await expect(run).resolves.toMatchObject({ state: 'completed' });
+    expect(updates).toContainEqual(expect.objectContaining({ kind: 'textDelta', delta: ' after' }));
+    expect(updates).toContainEqual(expect.objectContaining({ kind: 'messageCompleted', finishReason: 'complete' }));
+    expect(updates).toContainEqual(expect.objectContaining({ kind: 'actionAvailable', messageId: MESSAGE_ID }));
+    expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'openReceive', chain: 'ton' });
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).endsWith('/cancel'))).toBe(false);
+    await runtime.destroy();
+  });
+
   it('establishes the local authority barrier before remote cancellation settles', async () => {
     let resolveCancel!: () => void;
     const cancelPending = new Promise<void>((resolve) => {
@@ -3594,12 +4245,6 @@ describe('AgentV2Runtime transport', () => {
         execute: jest.fn(),
         discard,
         clear,
-      },
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
       },
     });
     const host = receiveHost('ton');
@@ -3650,7 +4295,7 @@ describe('AgentV2Runtime transport', () => {
     expect(pendingToolResults.size).toBe(0);
     expect(discard).toHaveBeenCalledWith(TOOL_CALL_ID);
     expect(cancelRunRemotely).toHaveBeenCalledWith(RUN_ID);
-    expect(clear).toHaveBeenCalledWith(undefined, { shouldRetainRevalidatedActions: true });
+    expect(clear).toHaveBeenCalledWith();
 
     resolveCancel();
     await Promise.resolve();
@@ -3664,7 +4309,7 @@ describe('AgentV2Runtime transport', () => {
       const thread = threadSummary({ revision: 3, messageCount: 2 });
       const updates: AgentV2ClientUpdate[] = [];
       const fetchMock = jest.fn(() => Promise.resolve(jsonResponse({
-        protocolVersion: 2,
+        protocolVersion: 3,
         runId: RUN_ID,
         state: 'cancelled',
         lastSequence: 5,
@@ -3696,7 +4341,6 @@ describe('AgentV2Runtime transport', () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const updates: AgentV2ClientUpdate[] = [];
-    const registerAction = jest.fn();
     let markThreadChanged!: () => void;
     const threadChanged = new Promise<void>((resolve) => {
       markThreadChanged = resolve;
@@ -3730,7 +4374,6 @@ describe('AgentV2Runtime transport', () => {
       toolExecutor: {
         execute: jest.fn(),
         discard: jest.fn(),
-        registerAction,
       },
     });
     await runtime.acceptConsent();
@@ -3754,7 +4397,6 @@ describe('AgentV2Runtime transport', () => {
     stream.finish([messageEnd(5)]);
 
     await expect(run).resolves.toMatchObject({ state: 'cancelled', inputMessageId: MESSAGE_ID });
-    expect(registerAction).not.toHaveBeenCalled();
     expect(updates.slice(updatesBeforeSwitch).map(({ kind }) => kind)).toEqual([
       'walletAuthorityChanged',
     ]);
@@ -3830,270 +4472,6 @@ describe('AgentV2Runtime transport', () => {
       .toBeLessThan(updates.findIndex(({ kind }) => kind === 'messageCompleted'));
   });
 
-  it('retains a revalidated Send action after an unrelated wallet-profile update', async () => {
-    const action = persistedSendAction();
-    const resolved = {
-      kind: 'reviewSend' as const,
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'toncoin',
-        amountAtomic: '500000000',
-        toAddress: 'EQ-mom-private',
-      },
-    };
-    const clear = jest.fn();
-    const onUpdate = jest.fn();
-    const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate,
-      toolExecutor: {
-        execute: jest.fn(),
-        discard: jest.fn(),
-        clear,
-        resolvePersistedAction: () => resolved,
-      },
-    });
-    const host: AgentV2HostContextSnapshot = receiveHost('ton');
-    host.accounts.push({
-      ...host.accounts[0],
-      accountId: 'secondary-account',
-      label: 'Savings',
-      addresses: { ...host.accounts[0].addresses, ton: 'EQ-secondary-address' },
-    });
-    await runtime.updateHostContext(host);
-    const internals = runtime as unknown as {
-      actions: {
-        set: (
-          namespace: string,
-          key: string,
-          value: unknown,
-          options: { threadId: string },
-        ) => number;
-      };
-    };
-    internals.actions.set('persisted', `${MESSAGE_ID}:${action.id}`, {
-      messageId: MESSAGE_ID,
-      threadId: THREAD_ID,
-      action,
-    }, { threadId: THREAD_ID });
-    clear.mockClear();
-    onUpdate.mockClear();
-
-    await expect(runtime.updateHostContext({
-      ...host,
-      accounts: host.accounts.map((account) => (
-        account.accountId === 'secondary-account' ? { ...account, label: 'Cold Savings' } : account
-      )),
-    })).resolves.toBe(false);
-
-    expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual(resolved);
-    expect(clear).not.toHaveBeenCalled();
-    expect(onUpdate).toHaveBeenCalledWith({ kind: 'walletContextChanged' });
-  });
-
-  it('removes a stale wallet conversation cache write after an authority change', async () => {
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    let resolvePut!: () => void;
-    let markPutStarted!: () => void;
-    const putStarted = new Promise<void>((resolve) => {
-      markPutStarted = resolve;
-    });
-    const putPending = new Promise<void>((resolve) => {
-      resolvePut = resolve;
-    });
-    const deleteContext = jest.fn(() => Promise.resolve());
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: jest.fn(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: deleteContext,
-        get: () => Promise.resolve(undefined),
-        put: () => {
-          markPutStarted();
-          return putPending;
-        },
-      },
-    });
-    await runtime.updateHostContext(receiveHost('ton'));
-    const internals = runtime as unknown as {
-      authorityGeneration: number;
-      cacheWalletConversationContext: (
-        threadId: string,
-        messageId: string,
-        context: AgentWalletConversationContextV5,
-        authorityGeneration: number,
-      ) => Promise<boolean>;
-      walletSession: AgentV2WalletSession;
-    };
-    const authority = internals.walletSession.snapshot();
-    const generation = internals.authorityGeneration;
-    const context = walletConversationContextV5(authority.sessionId, authority.revision);
-
-    const cacheWrite = internals.cacheWalletConversationContext(
-      THREAD_ID,
-      MESSAGE_ID,
-      context,
-      generation,
-    );
-    await putStarted;
-    await runtime.updateHostContext(receiveHost('tron'));
-    resolvePut();
-
-    await expect(cacheWrite).resolves.toBe(false);
-    expect(deleteContext).toHaveBeenCalledWith(expect.objectContaining({
-      threadId: THREAD_ID,
-      messageId: MESSAGE_ID,
-    }));
-  });
-
-  it('removes a stale cache read after an authority change without restoring local controls', async () => {
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    let resolveGet!: (context: AgentWalletConversationContextV5) => void;
-    let markGetStarted!: () => void;
-    const getStarted = new Promise<void>((resolve) => {
-      markGetStarted = resolve;
-    });
-    const getPending = new Promise<AgentWalletConversationContextV5>((resolve) => {
-      resolveGet = resolve;
-    });
-    const deleteContext = jest.fn(() => Promise.resolve());
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: jest.fn(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: deleteContext,
-        get: () => {
-          markGetStarted();
-          return getPending;
-        },
-        put: () => Promise.resolve(),
-      },
-    });
-    await runtime.updateHostContext(receiveHost('ton'));
-    const internals = runtime as unknown as {
-      authorityGeneration: number;
-      hydrateWalletConversationContexts: (
-        threadId: string,
-        messages: AgentV2HydratedMessage[],
-        authorityGeneration: number,
-      ) => Promise<AgentV2HydratedMessage[]>;
-      walletConversationContexts: Map<string, unknown>;
-      walletSession: AgentV2WalletSession;
-    };
-    const authority = internals.walletSession.snapshot();
-    const context = walletConversationContextV5(authority.sessionId, authority.revision);
-    const messages: AgentV2HydratedMessage[] = [{
-      id: MESSAGE_ID,
-      threadId: THREAD_ID,
-      role: 'assistant',
-      status: 'complete',
-      content: { kind: 'semantic', content: { kind: 'notice', schemaVersion: 1, code: 'empty_result' } },
-      createdAt: '2026-08-11T12:00:00.000Z',
-    }];
-
-    const hydration = internals.hydrateWalletConversationContexts(
-      THREAD_ID,
-      messages,
-      internals.authorityGeneration,
-    );
-    await getStarted;
-    await runtime.updateHostContext(receiveHost('tron'));
-    resolveGet(context);
-
-    await expect(hydration).resolves.toEqual(messages);
-    expect(internals.walletConversationContexts.size).toBe(0);
-    expect(deleteContext).toHaveBeenCalledWith(expect.objectContaining({
-      threadId: THREAD_ID,
-      messageId: MESSAGE_ID,
-    }));
-  });
-
-  it('does not delete a new-authority cache binding resolved by a stale replacement', async () => {
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    const deleteContext = jest.fn(() => Promise.resolve());
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: jest.fn(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: deleteContext,
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
-    });
-    await runtime.updateHostContext(receiveHost('ton'));
-    let resolveBinding!: (binding: AgentV2WalletContextCacheBinding) => void;
-    let markBindingStarted!: () => void;
-    const bindingStarted = new Promise<void>((resolve) => {
-      markBindingStarted = resolve;
-    });
-    const bindingPending = new Promise<AgentV2WalletContextCacheBinding>((resolve) => {
-      resolveBinding = resolve;
-    });
-    const internals = runtime as unknown as {
-      authorityGeneration: number;
-      rememberWalletConversationContext: (
-        threadId: string,
-        messageId: string,
-        context: AgentWalletConversationContextV5,
-      ) => void;
-      replaceWalletConversationContext: (
-        threadId: string,
-        messageId: string,
-        context: AgentWalletConversationContextV5,
-        authorityGeneration: number,
-      ) => Promise<boolean>;
-      walletContextBinding: (
-        threadId: string,
-        messageId: string,
-      ) => Promise<AgentV2WalletContextCacheBinding>;
-      walletSession: AgentV2WalletSession;
-    };
-    const oldAuthority = internals.walletSession.snapshot();
-    const oldContext = walletConversationContextV5(oldAuthority.sessionId, oldAuthority.revision);
-    internals.rememberWalletConversationContext(THREAD_ID, MESSAGE_ID, oldContext);
-    const generation = internals.authorityGeneration;
-    internals.walletContextBinding = () => {
-      markBindingStarted();
-      return bindingPending;
-    };
-    const replacement = internals.replaceWalletConversationContext(
-      THREAD_ID,
-      MESSAGE_ID_2,
-      { ...oldContext, sourceAssistantMessageId: MESSAGE_ID_2 },
-      generation,
-    );
-    await bindingStarted;
-    await runtime.updateHostContext(receiveHost('tron'));
-    const newAuthority = internals.walletSession.snapshot();
-    resolveBinding({
-      accountDigest: 'new-account-digest',
-      profileDigest: 'new-profile-digest',
-      deviceId: DEVICE_ID,
-      messageId: MESSAGE_ID,
-      revision: newAuthority.revision,
-      sessionId: newAuthority.sessionId,
-      threadId: THREAD_ID,
-    });
-
-    await expect(replacement).resolves.toBe(false);
-    expect(deleteContext).not.toHaveBeenCalled();
-  });
-
   it('rejects delayed message hydration before it restores persisted actions after authority change', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
@@ -4111,9 +4489,6 @@ describe('AgentV2Runtime transport', () => {
         markMessagesRequested();
         return messagesPending;
       }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-      }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
     }) as unknown as typeof fetch;
     const runtime = new AgentV2Runtime({
@@ -4129,8 +4504,8 @@ describe('AgentV2Runtime transport', () => {
     await messagesRequested;
     await runtime.updateHostContext(receiveHost('tron'));
     resolveMessages(jsonResponse({
-      protocolVersion: 2,
-      threadId: THREAD_ID,
+      protocolVersion: 3,
+      thread: threadSummary(),
       messages: [{
         id: MESSAGE_ID,
         threadId: THREAD_ID,
@@ -4142,6 +4517,7 @@ describe('AgentV2Runtime transport', () => {
           id: TOOL_CALL_ID,
           kind: 'receive',
           labelCode: 'open_receive',
+          title: 'Review prepared action',
           effect: 'open_receive',
           localDraftRequired: false,
           requiresConfirmation: false,
@@ -4153,37 +4529,89 @@ describe('AgentV2Runtime transport', () => {
     expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
   });
 
-  it('does not commit staged persisted actions when authority changes during local hydration', async () => {
+  it('does not restore actions from delayed message hydration after the thread is cleared', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
-    let finishHydration!: () => void;
-    let markHydrationStarted!: () => void;
-    const hydrationStarted = new Promise<void>((resolve) => {
-      markHydrationStarted = resolve;
+    let resolveMessages!: (response: Response) => void;
+    let markMessagesRequested!: () => void;
+    const messagesRequested = new Promise<void>((resolve) => {
+      markMessagesRequested = resolve;
     });
-    const hydrationPending = new Promise<void>((resolve) => {
-      finishHydration = resolve;
+    const messagesPending = new Promise<Response>((resolve) => {
+      resolveMessages = resolve;
     });
+    const action = {
+      id: TOOL_CALL_ID,
+      schemaVersion: 3 as const,
+      kind: 'openUrl' as const,
+      labelCode: 'open_external_link' as const,
+      title: 'Review prepared action',
+      url: 'https://example.com/help',
+      requiresConfirmation: true,
+    };
+    const fetchMock = jest.fn((input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/messages?')) {
+        markMessagesRequested();
+        return messagesPending;
+      }
+      if (url.endsWith(`/threads/${THREAD_ID}/clear`)) {
+        return Promise.resolve(jsonResponse({
+          protocolVersion: 3,
+          thread: threadSummary({ revision: 2 }),
+          duplicate: false,
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    }) as unknown as typeof fetch;
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: jest.fn(),
+    });
+    await runtime.acceptConsent();
+
+    const hydration = runtime.getMessages(THREAD_ID);
+    await messagesRequested;
+    await runtime.clearThread(THREAD_ID, 1);
+    resolveMessages(jsonResponse({
+      protocolVersion: 3,
+      thread: threadSummary(),
+      messages: [{
+        id: MESSAGE_ID,
+        threadId: THREAD_ID,
+        role: 'assistant',
+        status: 'complete',
+        content: { kind: 'markdown', text: 'Open help' },
+        createdAt: '2026-08-11T12:00:00.000Z',
+        actions: [action],
+      }],
+    }));
+
+    await expect(hydration).rejects.toMatchObject({ code: 'invalid_event' });
+    expect(runtime.resolveAction(MESSAGE_ID, action.id)).toEqual({ kind: 'inactive' });
+  });
+
+  it('hydrates executable V3 navigation targets', async () => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const persistedActions = navigationActionFixture.projectionCases
+      .map(({ expectedPersisted }) => ({ ...expectedPersisted, title: 'Review prepared action' }));
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
             role: 'assistant',
             status: 'complete',
+            content: { kind: 'markdown', text: 'Open' },
             createdAt: '2026-08-11T12:00:00.000Z',
-            actions: [{
-              id: TOOL_CALL_ID,
-              kind: 'receive',
-              labelCode: 'open_receive',
-              effect: 'open_receive',
-              localDraftRequired: false,
-              requiresConfirmation: false,
-            }],
+            actions: persistedActions,
           }],
         }));
       }
@@ -4195,151 +4623,15 @@ describe('AgentV2Runtime transport', () => {
       fetch: fetchMock,
       onUpdate: jest.fn(),
     });
-    runtime.setToolExecutor({
-      execute: () => Promise.reject(new Error('Not used')),
-      discard: () => {},
-      hydrateAction: () => {
-        markHydrationStarted();
-        return hydrationPending;
-      },
-    });
     await runtime.acceptConsent();
-    await runtime.updateHostContext(receiveHost('ton'));
-
-    const hydration = runtime.getMessages(THREAD_ID);
-    await hydrationStarted;
-    await runtime.updateHostContext(receiveHost('tron'));
-    finishHydration();
-
-    await expect(hydration).rejects.toMatchObject({ code: 'wallet_context_changed' });
-    expect(runtime.resolveAction(MESSAGE_ID, TOOL_CALL_ID)).toEqual({ kind: 'inactive' });
-  });
-
-  it('hydrates executable V3 navigation targets while keeping legacy rows inactive', async () => {
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    const persistedActions = navigationActionFixture.projectionCases
-      .map(({ expectedPersisted }) => expectedPersisted);
-    const robinhoodTargets = [
-      {
-        id: '10000000-0000-4000-8000-000000000006',
-        schemaVersion: 3,
-        kind: 'openToken',
-        labelCode: 'open_token',
-        slug: 'robinhood',
-        chain: 'robinhood',
-        requiresConfirmation: true,
-      },
-      {
-        id: '10000000-0000-4000-8000-000000000007',
-        schemaVersion: 3,
-        kind: 'openTransaction',
-        labelCode: 'open_transaction',
-        chain: 'robinhood',
-        transactionRef: 'transaction-2',
-        requiresConfirmation: true,
-      },
-      {
-        id: '10000000-0000-4000-8000-000000000008',
-        schemaVersion: 3,
-        kind: 'openAgent',
-        labelCode: 'open_agent',
-        entryPoint: {
-          kind: 'portfolioChart',
-          chartId: 'net-worth',
-          range: '3m',
-          datasetFocus: { chain: 'robinhood' },
-        },
-        requiresConfirmation: true,
-      },
-    ] as const;
-    const fetchMock = jest.fn((input: string | URL | Request) => {
-      const url = getRequestUrl(input);
-      if (url.includes('/messages?')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
-          messages: [
-            {
-              id: MESSAGE_ID,
-              threadId: THREAD_ID,
-              role: 'assistant',
-              status: 'complete',
-              content: { kind: 'markdown', text: 'Open' },
-              createdAt: '2026-08-11T12:00:00.000Z',
-              actions: [...persistedActions, ...robinhoodTargets],
-            },
-            {
-              id: MESSAGE_ID_2,
-              threadId: THREAD_ID,
-              role: 'assistant',
-              status: 'complete',
-              content: { kind: 'markdown', text: 'Legacy' },
-              createdAt: '2026-08-11T11:00:00.000Z',
-              actions: navigationActionFixture.legacyReadCases,
-            },
-          ],
-        }));
-      }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-      }
-      return Promise.reject(new Error(`Unexpected URL ${url}`));
-    }) as unknown as typeof fetch;
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: fetchMock,
-      onUpdate: jest.fn(),
-    });
-    await runtime.acceptConsent();
-    const host: AgentV2HostContextSnapshot = {
-      ...receiveHost('ton'),
-      isTestnet: false,
-      assetCatalog: [
-        { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-        {
-          slug: 'tether',
-          chain: 'ton',
-          tokenAddress: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
-          symbol: 'USD₮',
-          decimals: 6,
-        },
-        { slug: 'robinhood', chain: 'robinhood', symbol: 'HOOD', decimals: 18 },
-      ],
-    };
+    const host: AgentV2HostContextSnapshot = { ...receiveHost('ton'), isTestnet: false };
     await runtime.updateHostContext(host);
 
     await runtime.getMessages(THREAD_ID);
 
     expect(persistedActions.map(({ id }) => runtime.resolveAction(MESSAGE_ID, id))).toEqual([
-      { kind: 'openUrl', url: 'https://example.com/help' },
-      { kind: 'openToken', slug: 'toncoin', chain: 'ton' },
-      {
-        kind: 'openToken',
-        slug: 'tether',
-        chain: 'ton',
-        tokenAddress: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
-      },
-      { kind: 'openTransaction', chain: 'ton', transactionRef: 'transaction-1' },
-      { kind: 'openAgent', entryPoint: { kind: 'agentTab' } },
+      { kind: 'openDapp', url: 'https://fragment.com/' },
     ]);
-    expect(robinhoodTargets.map(({ id }) => runtime.resolveAction(MESSAGE_ID, id))).toEqual([
-      { kind: 'openToken', slug: 'robinhood', chain: 'robinhood' },
-      { kind: 'openTransaction', chain: 'robinhood', transactionRef: 'transaction-2' },
-      {
-        kind: 'openAgent',
-        entryPoint: {
-          kind: 'portfolioChart',
-          chartId: 'net-worth',
-          range: '3m',
-          datasetFocus: { chain: 'robinhood' },
-        },
-      },
-    ]);
-    navigationActionFixture.legacyReadCases.forEach(({ id }) => {
-      expect(runtime.resolveAction(MESSAGE_ID_2, id)).toEqual({ kind: 'inactive' });
-    });
 
     await runtime.updateHostContext({
       ...host,
@@ -4349,7 +4641,7 @@ describe('AgentV2Runtime transport', () => {
       ],
     });
     expect(runtime.resolveAction(MESSAGE_ID, persistedActions[0].id)).toEqual({
-      kind: 'openUrl', url: 'https://example.com/help',
+      kind: 'openDapp', url: 'https://fragment.com/',
     });
   });
 
@@ -4357,13 +4649,27 @@ describe('AgentV2Runtime transport', () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const runRequests: unknown[] = [];
+    let now = Date.now();
+    let resolveCapabilities!: (response: Response) => void;
+    let markCapabilitiesStarted!: () => void;
+    const capabilitiesStarted = new Promise<void>((resolve) => {
+      markCapabilitiesStarted = resolve;
+    });
+    const capabilitiesPending = new Promise<Response>((resolve) => {
+      resolveCapabilities = resolve;
+    });
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
+      if (url.endsWith('/capabilities')) {
+        if (!runRequests.length) return Promise.resolve(featureCapabilitiesResponse('disabled'));
+        markCapabilitiesStarted();
+        return capabilitiesPending;
+      }
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
         runRequests.push(JSON.parse(init?.body as string));
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           error: {
             code: 'rate_limited',
             retryable: true,
@@ -4376,6 +4682,7 @@ describe('AgentV2Runtime transport', () => {
     const ids = [CLIENT_RUN_ID, MESSAGE_ID];
     const runtime = new AgentV2Runtime({
       storage,
+      now: () => now,
       baseUrl: 'https://agent.test/api/v2',
       fetch: fetchMock,
       onUpdate: jest.fn(),
@@ -4389,26 +4696,11 @@ describe('AgentV2Runtime transport', () => {
       input: { kind: 'append', text: 'Retry me' },
     });
 
-    let resolveCapabilities!: () => void;
-    let markCapabilitiesStarted!: () => void;
-    const capabilitiesStarted = new Promise<void>((resolve) => {
-      markCapabilitiesStarted = resolve;
-    });
-    const capabilitiesPending = new Promise<void>((resolve) => {
-      resolveCapabilities = resolve;
-    });
-    const internals = runtime as unknown as {
-      ensureServerCapabilities: () => Promise<void>;
-    };
-    internals.ensureServerCapabilities = () => {
-      markCapabilitiesStarted();
-      return capabilitiesPending;
-    };
-
+    now += 5 * 60_000;
     const retry = runtime.retryRun(CLIENT_RUN_ID);
     await capabilitiesStarted;
     await runtime.updateHostContext(receiveHost('tron'));
-    resolveCapabilities();
+    resolveCapabilities(featureCapabilitiesResponse('disabled'));
 
     await expect(retry).rejects.toMatchObject({
       code: 'wallet_context_changed',
@@ -4449,306 +4741,13 @@ describe('AgentV2Runtime transport', () => {
     }
   });
 
-  it('attaches a live wallet choice context to its exact selection message', async () => {
-    const now = Date.parse('2026-08-02T12:00:00.000Z');
-    let requestBody: any;
-    let runRequestCount = 0;
-    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
-      const url = getRequestUrl(input);
-      if (url.endsWith('/device-token')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          deviceId: JSON.parse(init?.body as string).deviceId,
-          deviceToken: `adt_v2.${'a'.repeat(43)}`,
-          expiresAt: '2026-10-14T00:00:00.000Z',
-        }));
-      }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          portfolioPositions: 'available',
-          walletQuery: 'available',
-        }));
-      }
-      if (url.endsWith('/runs')) {
-        runRequestCount += 1;
-        requestBody = JSON.parse(init?.body as string);
-        return Promise.resolve(ndjsonResponse([runStart(), messageStart(), messageEnd(3)]));
-      }
-      return Promise.reject(new Error(`Unexpected URL ${url}`));
-    }) as unknown as typeof fetch;
-    const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: fetchMock,
-      onUpdate: () => {},
-      now: () => now,
-      randomUuid: (() => {
-        const values = [
-          CLIENT_RUN_ID,
-          MESSAGE_ID,
-          DEVICE_ID,
-          CLIENT_RUN_ID_2,
-          '55555555-5555-4555-8555-555555555557',
-        ];
-        return () => values.shift()!;
-      })(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
-    });
-    await runtime.acceptConsent();
-    await runtime.updateHostContext(receiveHost('ton'));
-    const wallet = (runtime as any).walletSession.snapshot();
-    const conversationContext = {
-      schemaVersion: 5,
-      sourceAssistantMessageId: MESSAGE_ID_2,
-      sessionId: wallet.sessionId,
-      revision: wallet.revision,
-      operation: 'account.inventory',
-      query: {
-        schemaVersion: 5,
-        operation: 'account.inventory',
-        accountSelector: { kind: 'named', label: 'Savings' },
-        chains: ['ton'],
-      },
-      scopeChoices: [{
-        choiceId: `choice_${'b'.repeat(32)}`,
-        scopeAnchor: `scope_${'c'.repeat(32)}`,
-        label: 'Savings',
-        ordinal: 1,
-        chains: ['ton'],
-      }],
-      expiresAt: '2026-08-02T12:15:00.000Z',
-    } as const;
-    (runtime as any).rememberWalletConversationContext(THREAD_ID, MESSAGE_ID_2, conversationContext);
-
-    await runtime.startRun({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 1,
-      input: { kind: 'append', text: 'Savings' },
-      walletScopeSelectionOf: {
-        sourceAssistantMessageId: MESSAGE_ID_2,
-        choiceId: `choice_${'b'.repeat(32)}`,
-      },
-    });
-
-    expect(requestBody.walletConversationContext).toEqual(conversationContext);
-    expect(requestBody.walletScopeSelectionOf).toEqual({
-      sourceAssistantMessageId: MESSAGE_ID_2,
-      choiceId: `choice_${'b'.repeat(32)}`,
-    });
-    const completedRunRequests = runRequestCount;
-    await expect(runtime.startRun({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 1,
-      input: { kind: 'append', text: 'Savings' },
-      walletScopeSelectionOf: {
-        sourceAssistantMessageId: MESSAGE_ID,
-        choiceId: `choice_${'b'.repeat(32)}`,
-      },
-    })).rejects.toMatchObject({ code: 'wallet_context_changed' });
-    expect(runRequestCount).toBe(completedRunRequests);
-  });
-
-  it('emits TTL-bound controls from an authority-matched message_end V5 context', async () => {
-    const now = Date.parse('2026-08-05T12:00:00.000Z');
-    const updates: any[] = [];
-    const put = jest.fn((
-      _binding: AgentV2WalletContextCacheBinding,
-      _context: AgentWalletConversationContextV5,
-    ) => Promise.resolve());
-    const walletSession = new AgentV2WalletSession();
-    walletSession.update(receiveHost('ton'));
-    const authority = walletSession.snapshot();
-    const conversationContext = walletConversationContextV5(authority.sessionId, authority.revision);
-    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
-      const url = getRequestUrl(input);
-      if (url.endsWith('/device-token')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          deviceId: JSON.parse(init?.body as string).deviceId,
-          deviceToken: `adt_v2.${'a'.repeat(43)}`,
-          expiresAt: '2026-10-14T00:00:00.000Z',
-        }));
-      }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
-      if (url.endsWith('/capabilities')) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          portfolioPositions: 'disabled',
-          walletQuery: 'disabled',
-        }));
-      }
-      if (url.endsWith('/runs')) {
-        return Promise.resolve(ndjsonResponse([
-          runStart(),
-          event({
-            type: 'message_start',
-            sequence: 2,
-            messageId: MESSAGE_ID,
-            role: 'assistant',
-            contentKind: 'semantic',
-          }),
-          event({
-            type: 'message_end',
-            sequence: 3,
-            messageId: MESSAGE_ID,
-            finishReason: 'complete',
-            walletConversationContext: conversationContext,
-          }),
-        ]));
-      }
-      return Promise.reject(new Error(`Unexpected URL ${url}`));
-    }) as unknown as typeof fetch;
-    const runtime = new AgentV2Runtime({
-      storage: createMemoryStorage(),
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: fetchMock,
-      onUpdate: (update) => updates.push(update),
-      now: () => now,
-      walletSession,
-      randomUuid: (() => {
-        const values = [CLIENT_RUN_ID, MESSAGE_ID, DEVICE_ID];
-        return () => values.shift()!;
-      })(),
-      walletConversationContextCache: {
-        clear: () => Promise.resolve(),
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put,
-      },
-    });
-    await runtime.acceptConsent();
-
-    await runtime.startRun({
-      threadId: THREAD_ID,
-      expectedThreadRevision: 0,
-      input: { kind: 'append', text: 'Transactions' },
-    });
-
-    expect(updates).toContainEqual(expect.objectContaining({
-      kind: 'messageCompleted',
-      messageId: MESSAGE_ID,
-      walletControls: {
-        expiresAt: '2026-08-05T12:15:00.000Z',
-        scopeChoices: [{ choiceId: `choice_${'b'.repeat(32)}`, label: 'Wallet A' }],
-      },
-    }));
-    expect(put).toHaveBeenCalledWith(expect.objectContaining({
-      threadId: THREAD_ID,
-      messageId: MESSAGE_ID,
-      sessionId: authority.sessionId,
-      revision: authority.revision,
-    }), conversationContext);
-    const binding = put.mock.calls[0][0];
-    expect(binding.profileDigest).not.toBe(binding.accountDigest);
-    expect(binding).toEqual(expect.objectContaining({
-      accountDigest: expect.any(String),
-      profileDigest: expect.any(String),
-      deviceId: DEVICE_ID,
-    }));
-  });
-
-  it.each(['classic', 'ios'] as const)(
-    'restores authority-matched wallet controls from message hydration on %s',
-    async (platform) => {
-      const now = Date.parse('2026-08-05T12:00:00.000Z');
-      const storage = createMemoryStorage();
-      await storeIdentity(storage);
-      const walletSession = new AgentV2WalletSession();
-      const host = {
-        ...receiveHost('ton'),
-        platform,
-        client: platform === 'classic' ? 'web' as const : 'native' as const,
-      };
-      walletSession.update(host);
-      const authority = walletSession.snapshot();
-      const conversationContext = walletConversationContextV5(authority.sessionId, authority.revision);
-      const get = jest.fn(() => Promise.resolve(conversationContext));
-      const fetchMock = jest.fn((input: string | URL | Request) => {
-        const url = getRequestUrl(input);
-        if (url.includes('/messages?')) {
-          return Promise.resolve(jsonResponse({
-            protocolVersion: 2,
-            threadId: THREAD_ID,
-            messages: [{
-              id: MESSAGE_ID,
-              threadId: THREAD_ID,
-              role: 'assistant',
-              status: 'complete',
-              content: { kind: 'semantic', content: { kind: 'notice', schemaVersion: 1, code: 'empty_result' } },
-              createdAt: '2026-08-05T12:00:00.000Z',
-            }],
-          }));
-        }
-        if (url.endsWith(`/threads/${THREAD_ID}`)) {
-          return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-        }
-        return Promise.reject(new Error(`Unexpected URL ${url}`));
-      }) as unknown as typeof fetch;
-      const runtime = new AgentV2Runtime({
-        storage,
-        baseUrl: 'https://agent.test/api/v2',
-        fetch: fetchMock,
-        onUpdate: () => {},
-        now: () => now,
-        walletSession,
-        walletConversationContextCache: {
-          clear: () => Promise.resolve(),
-          delete: () => Promise.resolve(),
-          get,
-          put: () => Promise.resolve(),
-        },
-      });
-      await runtime.acceptConsent();
-
-      const hydration = await runtime.getMessages(THREAD_ID);
-
-      expect(hydration.messages[0].walletControls).toEqual({
-        expiresAt: '2026-08-05T12:15:00.000Z',
-        scopeChoices: [{ choiceId: `choice_${'b'.repeat(32)}`, label: 'Wallet A' }],
-      });
-      expect(get).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it('clears cached wallet contexts on identity logout', async () => {
-    const clear = jest.fn(() => Promise.resolve());
-    const storage = createMemoryStorage();
-    await storeIdentity(storage);
-    const runtime = new AgentV2Runtime({
-      storage,
-      baseUrl: 'https://agent.test/api/v2',
-      fetch: jest.fn() as unknown as typeof fetch,
-      onUpdate: () => {},
-      walletConversationContextCache: {
-        clear,
-        delete: () => Promise.resolve(),
-        get: () => Promise.resolve(undefined),
-        put: () => Promise.resolve(),
-      },
-    });
-
-    await runtime.acceptConsent();
-    await runtime.destroy({ shouldClearPersistentIdentity: true });
-
-    expect(clear).toHaveBeenCalledTimes(1);
-    await expect(storage.getItem('agentV2Consent')).resolves.toBeUndefined();
-    await expect(storage.getItem('agentV2DeviceIdentity')).resolves.toBeUndefined();
-  });
-
   it('maps unknown finish reasons to interruption without reporting completion', async () => {
     const storage = createMemoryStorage();
     const fetchMock = jest.fn((input: string | URL | Request) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: DEVICE_ID,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -4777,14 +4776,17 @@ describe('AgentV2Runtime transport', () => {
     expect(result).toMatchObject({ state: 'interrupted', inputMessageId: MESSAGE_ID });
   });
 
-  it('omits inputMessageId from regenerate admission and settlement', async () => {
+  it('omits a duplicate user message when regenerating', async () => {
     const storage = createMemoryStorage();
     await storeIdentity(storage);
     const updates: AgentV2ClientUpdate[] = [];
-    const fetchMock = jest.fn((input: string | URL | Request) => {
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
       if (url.endsWith('/runs')) {
+        expect(JSON.parse(init?.body as string).input).toEqual({
+          kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID,
+        });
         return Promise.resolve(ndjsonResponse([runStart(), messageStart(), messageEnd(3)]));
       }
       return Promise.reject(new Error(`Unexpected URL ${url}`));
@@ -4796,14 +4798,16 @@ describe('AgentV2Runtime transport', () => {
       onUpdate: (update) => updates.push(update),
       randomUuid: () => CLIENT_RUN_ID,
     });
+    await runtime.updateHostContext(receiveHost('ton'));
     await runtime.acceptConsent();
 
     const result = await runtime.startRun({
       threadId: THREAD_ID,
       expectedThreadRevision: 1,
-      input: { kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID },
+      input: { kind: 'regenerate', targetAssistantMessageId: MESSAGE_ID, userMessageId: MESSAGE_ID_2 },
     });
 
+    expect(result.state).toBe('completed');
     expect(result).not.toHaveProperty('inputMessageId');
     expect(updates.find(({ kind }) => kind === 'runStarted')).not.toHaveProperty('inputMessageId');
   });
@@ -4815,13 +4819,13 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       return Promise.resolve(ndjsonResponse([
         runStart(),
@@ -4860,6 +4864,59 @@ describe('AgentV2Runtime transport', () => {
     });
   });
 
+  it.each([false, true])('bounds protocol retries despite transient activity, with journal progress: %s', async (
+    shouldAdvance,
+  ) => {
+    const storage = createMemoryStorage();
+    await storeIdentity(storage);
+    const updates: AgentV2ClientUpdate[] = [];
+    const cursors: (number | undefined)[] = [];
+    const wait = jest.fn<Promise<void>, [number]>(() => Promise.resolve());
+    let runRequests = 0;
+    const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = getRequestUrl(input);
+      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (!url.endsWith('/runs')) return Promise.reject(new Error(`Unexpected URL ${url}`));
+      runRequests += 1;
+      cursors.push((JSON.parse(init?.body as string) as { resumeAfterSequence?: number }).resumeAfterSequence);
+      const sequence = shouldAdvance && runRequests >= 3 ? 3 : 2;
+      if (runRequests >= 5) return Promise.resolve(ndjsonResponse([messageEnd(sequence + 1)]));
+      return Promise.resolve(ndjsonResponse([
+        ...(runRequests === 1 ? [runStart(), messageStart()] : []),
+        ...(shouldAdvance && runRequests === 3 ? [textDelta('Recovered', 3)] : []),
+        event({ type: 'run_activity', sequence, ephemeral: true, code: 'web.searching', status: 'active' }),
+        textDelta('Gap', sequence + 2),
+      ]));
+    }) as unknown as typeof fetch;
+    const ids = [CLIENT_RUN_ID, MESSAGE_ID];
+    const runtime = new AgentV2Runtime({
+      storage,
+      baseUrl: 'https://agent.test/api/v2',
+      fetch: fetchMock,
+      onUpdate: (update) => updates.push(update),
+      randomUuid: () => ids.shift()!,
+      wait,
+    });
+    await runtime.acceptConsent();
+
+    const result = await runtime.startRun({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 1,
+      input: { kind: 'append', text: 'Hello' },
+    });
+    await runtime.destroy();
+
+    expect(result.state).toBe(shouldAdvance ? 'completed' : 'failed');
+    expect(cursors).toEqual(shouldAdvance ? [undefined, 2, 2, 3, 3] : [undefined, 2, 2]);
+    expect(wait.mock.calls.map(([delay]) => delay)).toEqual(shouldAdvance ? [500, 1000, 500, 1000] : [500, 1000]);
+    expect(updates.filter(({ kind }) => kind === 'runActivityChanged')).toHaveLength(shouldAdvance ? 4 : 3);
+    if (!shouldAdvance) {
+      expect(updates).toContainEqual(expect.objectContaining({
+        kind: 'runFailed', code: 'invalid_event', retryable: false,
+      }));
+    }
+  });
+
   it('surfaces a malformed replay event as a terminal safe failure', async () => {
     const updates: any[] = [];
     let runRequests = 0;
@@ -4867,13 +4924,13 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       return Promise.resolve(rawNdjsonResponse(`${JSON.stringify(runStart())}\n{malformed\n`));
     }) as unknown as typeof fetch;
@@ -4911,13 +4968,13 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       return Promise.resolve(ndjsonResponse([runStart()]));
     }) as unknown as typeof fetch;
@@ -4945,7 +5002,7 @@ describe('AgentV2Runtime transport', () => {
 
     expect(runRequests).toBe(1);
     expect(updates).toContainEqual(expect.objectContaining({
-      kind: 'runFailed', code: 'invalid_event', retryable: false,
+      kind: 'runFailed', code: 'internal_error', retryable: false,
     }));
   });
 
@@ -4955,13 +5012,13 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       if (runRequests === 1) return Promise.reject(new DOMException('Offline', 'NetworkError'));
       return Promise.resolve(ndjsonResponse([
@@ -4988,26 +5045,34 @@ describe('AgentV2Runtime transport', () => {
     expect(runRequests).toBe(2);
   });
 
-  it('retries pre-admission server failures within the bounded attempt budget', async () => {
+  it.each([
+    { status: 503, body: JSON.stringify({
+      protocolVersion: 3,
+      error: { code: 'provider_unavailable', retryable: true },
+    }) },
+    { status: 502, body: '<html>Bad Gateway</html>' },
+    { status: 503, body: JSON.stringify({ error: 'Service unavailable' }) },
+    { status: 408, body: '' },
+  ])('retries pre-admission HTTP $status ($body) within the bounded attempt budget', async ({ status, body }) => {
     const updates: any[] = [];
     let runRequests = 0;
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       if (runRequests < 3) {
-        return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          error: { code: 'provider_unavailable', retryable: true },
-        }, 503));
+        return Promise.resolve({
+          ...jsonResponse(undefined, status),
+          json: () => Promise.resolve().then(() => JSON.parse(body)),
+        });
       }
       return Promise.resolve(ndjsonResponse([runStart(), messageStart(), messageEnd(3)]));
     }) as unknown as typeof fetch;
@@ -5041,13 +5106,13 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       return Promise.resolve(ndjsonResponse([
         runStart(),
@@ -5095,14 +5160,14 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
       return Promise.resolve(jsonResponse({
-        protocolVersion: 2,
+        protocolVersion: 3,
         error: {
           code: 'thread_not_found',
           retryable: false,
@@ -5141,16 +5206,16 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
-      if (url.includes('/hints')) return Promise.resolve(disabledHintsResponse());
+      if (url.endsWith('/capabilities')) return Promise.resolve(featureCapabilitiesResponse('disabled'));
       runRequests += 1;
       return Promise.resolve(jsonResponse({
-        protocolVersion: 2,
+        protocolVersion: 3,
         error: {
           code: 'thread_revision_conflict',
           retryable: true,
@@ -5191,7 +5256,7 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -5232,13 +5297,13 @@ describe('AgentV2Runtime transport', () => {
     }]);
   });
 
-  it('uses only default, get, message-history and clear thread requests', async () => {
+  it('uses only default, message-history and clear thread requests', async () => {
     const requests: { url: string; method?: string; body?: any }[] = [];
     const fetchMock = jest.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
@@ -5250,20 +5315,17 @@ describe('AgentV2Runtime transport', () => {
         ...(init?.body ? { body: JSON.parse(init.body as string) } : {}),
       });
       if (url.includes('/messages?')) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, threadId: THREAD_ID, messages: [] }));
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, thread: threadSummary(), messages: [] }));
       }
       if (url.endsWith('/clear')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           thread: threadSummary({ revision: 2 }),
           duplicate: false,
         }));
       }
       if (url.endsWith('/threads/default')) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary(), created: false }));
-      }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
+        return Promise.resolve(jsonResponse({ protocolVersion: 3, thread: threadSummary(), created: false }));
       }
       throw new Error(`Unexpected request: ${url}`);
     }) as unknown as typeof fetch;
@@ -5275,26 +5337,25 @@ describe('AgentV2Runtime transport', () => {
       randomUuid: () => DEVICE_ID,
     });
     await runtime.acceptConsent();
-    await runtime.updateHostContext(receiveHost('ton'));
+    await runtime.updateHostContext(stakeHost());
     await runtime.getDefaultThread();
     await runtime.getMessages(THREAD_ID, 'older_page', 20);
     await runtime.clearThread(THREAD_ID, 1);
+    await runtime.getMessages(THREAD_ID);
 
     expect(requests).toEqual([
       { url: 'https://agent.test/api/v2/threads/default' },
-      {
-        url: `https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=20&cursor=older_page`,
-      },
-      { url: `https://agent.test/api/v2/threads/${THREAD_ID}` },
+      { url: `https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=20&cursor=older_page` },
       {
         url: `https://agent.test/api/v2/threads/${THREAD_ID}/clear`,
         method: 'POST',
         body: {
-          protocolVersion: 2,
+          protocolVersion: 3,
           expectedThreadRevision: 1,
           clientOperationId: expect.any(String),
         },
       },
+      { url: `https://agent.test/api/v2/threads/${THREAD_ID}/messages?limit=100` },
     ]);
   });
 
@@ -5305,8 +5366,8 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.includes('/messages?')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
-          threadId: THREAD_ID,
+          protocolVersion: 3,
+          thread: threadSummary(),
           messages: [{
             id: MESSAGE_ID,
             threadId: THREAD_ID,
@@ -5333,9 +5394,6 @@ describe('AgentV2Runtime transport', () => {
           }],
         }));
       }
-      if (url.endsWith(`/threads/${THREAD_ID}`)) {
-        return Promise.resolve(jsonResponse({ protocolVersion: 2, thread: threadSummary() }));
-      }
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }) as unknown as typeof fetch;
     const runtime = new AgentV2Runtime({
@@ -5356,15 +5414,15 @@ describe('AgentV2Runtime transport', () => {
       const url = getRequestUrl(input);
       if (url.endsWith('/device-token')) {
         return Promise.resolve(jsonResponse({
-          protocolVersion: 2,
+          protocolVersion: 3,
           deviceId: JSON.parse(init?.body as string).deviceId,
           deviceToken: `adt_v2.${'a'.repeat(43)}`,
           expiresAt: '2026-10-14T00:00:00.000Z',
         }));
       }
       return Promise.resolve(jsonResponse({
-        protocolVersion: 2,
-        threadId: THREAD_ID_2,
+        protocolVersion: 3,
+        thread: threadSummary({ id: THREAD_ID_2 }),
         messages: [],
       }));
     }) as unknown as typeof fetch;
@@ -5414,6 +5472,7 @@ function actionEvent(sequence: number) {
       id: TOOL_CALL_ID,
       kind: 'receive',
       labelCode: 'open_receive',
+      title: 'Review prepared action',
       effect: 'open_receive',
       contextBinding: {
         sessionId: WALLET_SESSION_ID,
@@ -5434,9 +5493,7 @@ function toolCallEvent(sequence: number) {
     toolCall: {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       arguments: {
-        schemaVersion: 5,
         operation: 'assets.search',
         query: 'TON',
         chains: ['ton'],
@@ -5463,9 +5520,7 @@ function privateToolCallEvent(sequence: number) {
     toolCall: {
       id: TOOL_CALL_ID,
       name: 'wallet.data.query',
-      version: 5,
       arguments: {
-        schemaVersion: 5,
         operation: 'assets.search',
         query: PRIVATE_TOOL_ARGUMENT,
         chains: ['ton'],
@@ -5487,16 +5542,9 @@ function privateToolCallEvent(sequence: number) {
 
 function toolStatusEvent(
   sequence: number,
-  status: 'queued' | 'running' | 'complete' | 'failed' | 'timeout' | 'rejected' | 'cancelled',
-  detailCode?: 'awaiting_wallet' | 'processing' | 'result_rejected' | 'result_timeout' | 'result_unavailable',
+  status: 'complete' | 'failed' | 'timeout' | 'rejected' | 'cancelled',
 ) {
-  return event({
-    type: 'tool_status',
-    sequence,
-    toolCallId: TOOL_CALL_ID,
-    status,
-    ...(detailCode ? { detailCode } : {}),
-  });
+  return event({ type: 'tool_status', sequence, toolCallId: TOOL_CALL_ID, status });
 }
 
 function threadEvent(sequence: number) {
@@ -5514,39 +5562,12 @@ function messageEnd(sequence: number) {
   return event({ type: 'message_end', sequence, messageId: MESSAGE_ID, finishReason: 'complete' });
 }
 
-function walletConversationContextV5(
-  sessionId: string,
-  revision: number,
-): AgentWalletConversationContextV5 {
-  return {
-    schemaVersion: 5,
-    sourceAssistantMessageId: MESSAGE_ID,
-    sessionId,
-    revision,
-    operation: 'account.inventory',
-    query: {
-      schemaVersion: 5,
-      operation: 'account.inventory',
-      accountSelector: { kind: 'named', label: 'Wallet A' },
-      chains: ['ton'],
-    },
-    scopeChoices: [{
-      choiceId: `choice_${'b'.repeat(32)}`,
-      scopeAnchor: `scope_${'c'.repeat(32)}`,
-      label: 'Wallet A',
-      ordinal: 1,
-      chains: ['ton'],
-    }],
-    expiresAt: '2026-08-05T12:15:00.000Z',
-  };
-}
-
 function event(extra: Record<string, unknown>) {
-  return { protocolVersion: 2, runId: RUN_ID, ...extra };
+  return { protocolVersion: 3, runId: RUN_ID, ...extra };
 }
 
 function boundEvent(runId: string, extra: Record<string, unknown>) {
-  return { protocolVersion: 2, runId, ...extra };
+  return { protocolVersion: 3, runId, ...extra };
 }
 
 function ndjsonResponse(events: unknown[]): Response {
@@ -5603,48 +5624,28 @@ function jsonResponse(value: unknown, status = 200): Response {
 }
 
 function disabledHintsResponse(): Response {
-  return jsonResponse({
-    protocolVersion: 2,
-    catalogVersion: 'agent-starter-hints-v1',
-    items: [],
-    serverCapabilities: { webSearch: 'disabled' },
-  });
+  return starterHintsResponse([]);
 }
 
-function starterHintsResponse(
-  items: unknown[],
-  webSearch: 'available' | 'disabled' | 'unavailable' = 'available',
-): Response {
+function starterHintsResponse(items: unknown[]): Response {
   return jsonResponse({
-    protocolVersion: 2,
+    protocolVersion: 3,
     catalogVersion: 'agent-starter-hints-v1',
     items,
-    serverCapabilities: { webSearch },
   });
 }
 
 function featureCapabilitiesResponse(
   walletQuery: 'available' | 'disabled',
-  stakingOffer?: 'available' | 'disabled',
+  digest = contractManifest.walletFilterCatalogSha256,
 ): Response {
   return jsonResponse({
-    protocolVersion: 2,
+    protocolVersion: 3,
     portfolioPositions: 'disabled',
-    walletQuery,
-    ...(stakingOffer ? { stakingOffer } : {}),
-  });
-}
-
-function walletQueryCapabilitiesResponse(digest: string): Response {
-  return jsonResponse({
-    protocolVersion: 2,
-    status: 'available',
-    supportedToolVersions: [5],
-    filterCatalog: {
-      version: 1,
-      digest,
-      requiresClientTimeZone: true,
-    },
+    walletQuery: walletQuery === 'available'
+      ? { status: 'available', filterCatalog: { version: 1, digest, requiresClientTimeZone: true } }
+      : { status: 'disabled' },
+    problemReport: { status: 'available' },
   });
 }
 
@@ -5652,10 +5653,6 @@ function threadSummary(extra: Record<string, unknown> = {}) {
   return {
     id: THREAD_ID,
     revision: 1,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt: '2026-07-16T00:00:00.000Z',
     updatedAt: '2026-07-16T00:00:00.000Z',
     lastActivityAt: '2026-07-16T00:00:00.000Z',
@@ -5665,7 +5662,7 @@ function threadSummary(extra: Record<string, unknown> = {}) {
 }
 
 function createMemoryStorage(): Storage {
-  const values = new Map<string, unknown>([['agentV2WalletProtocolVersion', '5']]);
+  const values = new Map<string, unknown>();
   return {
     getItem: (name) => Promise.resolve(values.get(name)),
     setItem(name, value) {
@@ -5696,9 +5693,16 @@ function getRequestUrl(input: string | URL | Request) {
   return typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
 }
 
+/** A server that never answers: each request ends only when its signal aborts */
+function unansweredFetch() {
+  return jest.fn((_input: string | URL | Request, init?: RequestInit) => new Promise<Response>(
+    (_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)),
+  ));
+}
+
 function receiveHost(activeNetwork: 'ton' | 'tron', isViewOnly = true) {
   return {
-    platform: 'classic' as const,
+    platform: 'classic' as const, uiCapabilities: hostUiCapabilities('classic'),
     client: 'web' as const,
     lang: 'en',
     baseCurrency: 'USD',
@@ -5724,41 +5728,18 @@ function stakeHost() {
     assetCatalog: [{
       slug: 'toncoin', chain: 'ton' as const, symbol: 'TON', decimals: 9,
     }],
-    stakingOffers: [{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton' as const, symbol: 'TON', decimals: 9 },
-      annualYield: '14.09',
-      yieldType: 'APY' as const,
-      availability: 'available' as const,
-    }],
-  };
-}
-
-function stakingOfferHost() {
-  return {
-    ...receiveHost('ton'),
-    isTestnet: false,
-    assetCatalog: [{
-      slug: 'toncoin', chain: 'ton', symbol: 'TON', name: 'Toncoin', decimals: 9,
-    }],
-    stakingOffers: [{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', name: 'Toncoin', decimals: 9 },
-      annualYield: '14.09',
-      yieldType: 'APY' as const,
-      availability: 'available' as const,
-    }],
   };
 }
 
 function liveSwapAction() {
   return {
     id: '69696969-6969-4969-8969-696969696968',
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     kind: 'swap' as const,
     labelCode: 'open_swap' as const,
+    title: 'Review prepared action',
     effect: 'open_swap' as const,
-    sourceToolCallId: TOOL_CALL_ID,
+    url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
     contextBinding: {
       sessionId: WALLET_SESSION_ID,
       revision: 4,
@@ -5775,10 +5756,12 @@ function liveSwapAction() {
 function persistedSwapAction() {
   return {
     id: '69696969-6969-4969-8969-696969696967',
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     kind: 'swap' as const,
     labelCode: 'open_swap' as const,
+    title: 'Review prepared action',
     effect: 'open_swap' as const,
+    url: 'https://my.tt/swap?in=usdton&out=toncoin&amountOut=10',
     sourceAsset: { slug: 'usdton', chain: 'ton' as const, symbol: 'USDT', decimals: 6 },
     destinationAsset: { slug: 'toncoin', chain: 'ton' as const, symbol: 'TON', decimals: 9 },
     amount: { value: '10', valueType: 'decimal' as const, side: 'destination' as const },
@@ -5789,15 +5772,9 @@ function persistedSwapAction() {
 
 function persistedSendAction() {
   return {
-    id: '69696969-6969-4969-8969-696969696966',
-    kind: 'send' as const,
-    labelCode: 'review_transfer' as const,
-    draftId: '69696969-6969-4969-8969-696969696965',
-    draftExpiresAt: '2099-08-18T12:10:00.000Z',
-    sourceToolCallId: TOOL_CALL_ID,
-    effect: 'open_wallet_review' as const,
-    localDraftRequired: true as const,
-    requiresConfirmation: true as const,
+    id: '69696969-6969-4969-8969-696969696966', kind: 'send' as const,
+    labelCode: 'open_send' as const, title: 'Open transfer', effect: 'live_only' as const,
+    localDraftRequired: false as const, requiresConfirmation: false as const,
   };
 }
 

@@ -37,7 +37,6 @@ import useSyncEffect from '../hooks/useSyncEffect';
 import useTimeout from '../hooks/useTimeout';
 
 import Agent from './agent/AgentRuntime';
-import AgentV2HostContextBridgeRuntime from './agent/AgentV2HostContextBridgeRuntime';
 import AppEmpty from './AppEmpty';
 import AppInactive from './AppInactive';
 import AppLocked from './appLocked/AppLocked';
@@ -198,11 +197,12 @@ function App({
     requestAnimationFrame(updateSizes);
   }, [isFullscreen]);
 
-  useSyncEffect(() => {
-    if (accountId) {
+  useSyncEffect(([previousAccountId]) => {
+    // The landscape Agent shares Main, but its conversation belongs to the profile.
+    if (accountId && accountId !== previousAccountId && (!isAgentOpen || isPortrait)) {
       mainKey += 1;
     }
-  }, [accountId]);
+  }, [accountId, isAgentOpen, isPortrait]);
 
   const appTheme = useAppTheme(theme);
   useAccentColor('body', appTheme, accentColorIndex);
@@ -259,7 +259,6 @@ function App({
 
   return (
     <>
-      <AgentV2HostContextBridgeRuntime />
       {IS_ELECTRON && <ElectronHeader withTitle />}
 
       <Transition

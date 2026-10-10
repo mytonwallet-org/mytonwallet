@@ -589,7 +589,13 @@ class JSWebViewBridge(context: Context) : WebView(context) {
 
             val adapter = WalletCore.moshi.adapter(ApiUpdate::class.java)
             val update = adapter.fromJson(updateString) ?: return
-            WalletCore.notifyApiUpdate(update)
+            if (update is ApiUpdate.ApiUpdateAgentV2) {
+                withContext(Dispatchers.Main) {
+                    WalletCore.notifyApiUpdate(update)
+                }
+            } else {
+                WalletCore.notifyApiUpdate(update)
+            }
         }
 
         @JavascriptInterface

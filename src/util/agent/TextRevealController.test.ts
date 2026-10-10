@@ -6,7 +6,23 @@ import {
   getCommonGraphemePrefixLength,
   getInputRate,
   TextRevealController,
+  type TextRevealPhase,
 } from './TextRevealController';
+
+interface RevealFrame {
+  time: number;
+  revealedGraphemeCount: number;
+  phase: TextRevealPhase;
+}
+
+const DISPLAY_FRAME_SECONDS = 1 / 60;
+const VELOCITY_CEILING = 240;
+const MINIMUM_FINALIZE_TIME_SECONDS = 0.18;
+const STREAM_CHUNK_GRAPHEMES = 40;
+const STREAM_CHUNK_INTERVAL_SECONDS = 0.12;
+const STREAM_TEXT = 'An answer that arrives faster than slow frames can show it. '.repeat(20);
+const FRAME_TIME_TOLERANCE_SECONDS = 1e-9;
+const REVEAL_RATE_TOLERANCE = 0.95;
 
 describe('TextRevealController', () => {
   it.each([60, 120])('reveals text at %i Hz with a three-grapheme frame cap', (refreshRate) => {
@@ -151,17 +167,56 @@ describe('TextRevealController', () => {
     });
   });
 
-  it('caps a long frame before advancing the reveal', () => {
-    const target = buildRevealTarget('word '.repeat(20));
-    const delayedController = new TextRevealController(0, target);
-    const regularController = new TextRevealController(0, target);
+  it('does not count the idle time before new text as frame time', () => {
+    const initialTarget = buildRevealTarget('Short');
+    const nextTarget = buildRevealTarget('Short answer that continues after a pause');
+    const controller = new TextRevealController(0, initialTarget);
 
-    delayedController.observeUpdate(target, 0);
-    regularController.observeUpdate(target, 0);
-    delayedController.tick(0);
-    regularController.tick(0);
+    controller.observeUpdate(initialTarget, 0);
+    expect(controller.tick(0.3).revealedGraphemeCount).toBe(initialTarget.graphemeCount);
 
-    expect(delayedController.tick(2)).toEqual(regularController.tick(0.05));
+    controller.observeUpdate(nextTarget, 5);
+    controller.tick(5 + DISPLAY_FRAME_SECONDS);
+
+    expect(controller.getSnapshot().revealedGraphemeCount).toBeLessThanOrEqual(
+      initialTarget.graphemeCount + 3,
+    );
+  });
+
+  it.each([0.2, 1])('streams at least as fast with %s second frames as at 60 Hz', (frameInterval) => {
+    const referenceFrames = simulateStreamingReveal(DISPLAY_FRAME_SECONDS).frames;
+    const slowFrames = simulateStreamingReveal(frameInterval).frames;
+
+    expect(getRevealRate(slowFrames, 1, 3)).toBeGreaterThanOrEqual(
+      getRevealRate(referenceFrames, 1, 3) * REVEAL_RATE_TOLERANCE,
+    );
+  });
+
+  it.each([0.2, 1])('drains a finalized backlog within the finalization duration with %s second frames', (
+    frameInterval,
+  ) => {
+    const { frames, finalizeTime, finalizeBacklog } = simulateStreamingReveal(frameInterval);
+    const finalizationDuration = getFinalizationDuration(finalizeBacklog);
+    const completeFrame = frames.find(({ phase }) => phase === 'complete');
+
+    expect(finalizeBacklog).toBeGreaterThan(100);
+    expect(completeFrame).toBeDefined();
+    expect(completeFrame!.time).toBeLessThan(finalizeTime + finalizationDuration + frameInterval);
+  });
+
+  it('completes the drain on a single frame after the finalization duration', () => {
+    const target = buildRevealTarget('late frame '.repeat(60));
+    const controller = new TextRevealController(0, target);
+
+    controller.observeUpdate(target, 0);
+    const seededCount = controller.tick(DISPLAY_FRAME_SECONDS).revealedGraphemeCount;
+    controller.finalize(target, DISPLAY_FRAME_SECONDS);
+    const finalizationDuration = getFinalizationDuration(target.graphemeCount - seededCount);
+
+    expect(controller.tick(DISPLAY_FRAME_SECONDS + finalizationDuration)).toEqual({
+      revealedGraphemeCount: target.graphemeCount,
+      phase: 'complete',
+    });
   });
 
   it('drains a completed response without a final jump', () => {
@@ -221,6 +276,50 @@ describe('Agent text segmentation', () => {
     expect(getCommonGraphemePrefixLength(first, second)).toBe(6);
   });
 });
+
+function simulateStreamingReveal(frameInterval: number) {
+  const graphemes = segmentGraphemes(STREAM_TEXT);
+  const controller = new TextRevealController(0, buildRevealTarget(''));
+  const frames: RevealFrame[] = [];
+  let deliveredCount = 0;
+  let chunkIndex = 0;
+  let finalizeTime = 0;
+  let finalizeBacklog = 0;
+
+  for (let frameIndex = 1; controller.getSnapshot().phase !== 'complete'; frameIndex++) {
+    const time = frameIndex * frameInterval;
+
+    while (deliveredCount < graphemes.length && chunkIndex * STREAM_CHUNK_INTERVAL_SECONDS <= time) {
+      const chunkTime = chunkIndex * STREAM_CHUNK_INTERVAL_SECONDS;
+      deliveredCount = Math.min(graphemes.length, deliveredCount + STREAM_CHUNK_GRAPHEMES);
+      const target = buildRevealTarget(graphemes.slice(0, deliveredCount).join(''));
+
+      controller.observeUpdate(target, chunkTime);
+      if (deliveredCount === graphemes.length) {
+        finalizeTime = chunkTime;
+        finalizeBacklog = deliveredCount - controller.getSnapshot().revealedGraphemeCount;
+        controller.finalize(target, chunkTime);
+      }
+      chunkIndex += 1;
+    }
+
+    frames.push({ time, ...controller.tick(time) });
+  }
+
+  return { frames, finalizeTime, finalizeBacklog };
+}
+
+function getFinalizationDuration(backlog: number) {
+  return Math.max(MINIMUM_FINALIZE_TIME_SECONDS, backlog / VELOCITY_CEILING);
+}
+
+function getRevealRate(frames: RevealFrame[], startTime: number, endTime: number) {
+  return (getRevealedCountAt(frames, endTime) - getRevealedCountAt(frames, startTime)) / (endTime - startTime);
+}
+
+function getRevealedCountAt(frames: RevealFrame[], time: number) {
+  return frames.filter((frame) => frame.time <= time + FRAME_TIME_TOLERANCE_SECONDS).at(-1)!.revealedGraphemeCount;
+}
 
 function getSteadyDeltas(snapshots: number[]) {
   const firstRevealIndex = snapshots.findIndex((count) => count > 0);

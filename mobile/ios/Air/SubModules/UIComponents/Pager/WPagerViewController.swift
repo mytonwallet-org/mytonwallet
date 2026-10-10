@@ -1,7 +1,7 @@
 import UIKit
 
-/// A full-viewport pager. Controllers are created on demand and retained, but only the
-/// selected page (and a transition destination) participate in containment and layout.
+/// A full-viewport pager with optional staged preparation of retained, hidden pages.
+/// Preparation never sends appearance callbacks; only navigation does.
 @MainActor
 public final class WPagerViewController: UIViewController, UIScrollViewDelegate {
     public struct Page {
@@ -22,6 +22,10 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         public var logicalOffset: CGFloat {
             CGFloat(source) + CGFloat(destination - source) * fraction
         }
+
+        fileprivate func contains(_ index: Int) -> Bool {
+            index == source || index == destination
+        }
     }
 
     public private(set) var selectedIndex: Int
@@ -30,18 +34,34 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     public var isPagingEnabled = true {
         didSet {
             guard oldValue != isPagingEnabled, isViewLoaded else { return }
-            if !isPagingEnabled { settle(at: selectedIndex) }
+            if !isPagingEnabled { settle(at: interruptionIndex) }
             scrollView.isScrollEnabled = isPagingEnabled
+            schedulePreparation()
         }
     }
 
     private let pages: [Page]
+    private let preloadsPages: Bool
+    private var preparationTimer: Timer?
+    private var didReceiveMemoryPressure = false
     private var cachedControllers: [Int: UIViewController] = [:]
     private var hosts: [Int: PagerPageHost] = [:]
     private var slots: [Int] = []
-    private var settledIndex: Int
+    // Appearance ownership can advance through intermediate pages during a long
+    // drag; selection is committed only when scrolling finishes (or a tab is tapped).
+    private var appearanceIndex: Int
     private var destination: Int?
-    private var isProgrammatic = false
+    private enum Motion {
+        case idle
+        case dragging
+        case decelerating
+        case toolbar(start: CGFloat, origin: Int)
+        case animating(target: Int)
+
+        var isIdle: Bool { if case .idle = self { true } else { false } }
+    }
+
+    private var motion = Motion.idle
     private var isUpdatingLayout = false
     private var isVisible = false
     private var containerAppearance: (controller: UIViewController, appearing: Bool)?
@@ -49,7 +69,6 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     private let animation = PagerAnimation()
     private var layoutSize = CGSize.zero
     private var layoutDirection: UIUserInterfaceLayoutDirection?
-    private var additionalPagingStart: CGFloat?
     private var additionalPagingGesture: WSegmentedPagingGesture?
     private var contentForwardGesture: WSegmentedPagingGesture?
     private var beginForwardTransition: (() -> WInteractivePushTransition?)?
@@ -57,15 +76,18 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     private var allowsForwardNavigationFromEdge = false
 
     // The gesture adapter shares behavior with older pagers without owning their scroll views.
-    private(set) var scrollView: UIScrollView! = UIScrollView()
+    private let pagingScrollView = PagerScrollView()
+    var scrollView: UIScrollView! { pagingScrollView }
     var pageCount: Int { pages.count }
+    var canInterruptDeceleration: Bool { true }
 
-    public init(pages: [Page], selectedIndex: Int = 0) {
+    public init(pages: [Page], selectedIndex: Int = 0, preloadsPages: Bool = false) {
         precondition(pages.indices.contains(selectedIndex))
         precondition(Set(pages.map(\.id)).count == pages.count)
         self.pages = pages
+        self.preloadsPages = preloadsPages
         self.selectedIndex = selectedIndex
-        self.settledIndex = selectedIndex
+        self.appearanceIndex = selectedIndex
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -94,17 +116,20 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
             scrollView.leftEdgeEffect.isHidden = true
             scrollView.rightEdgeEffect.isHidden = true
         }
-        mount(settledIndex)
+        mount(appearanceIndex)
         resetSlots()
+        NotificationCenter.default.addObserver(self, selector: #selector(schedulePreparation),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
     }
 
     public override var shouldAutomaticallyForwardAppearanceMethods: Bool { false }
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if let controller = cachedControllers[settledIndex] {
+        if let controller = cachedControllers[appearanceIndex] {
             controller.beginAppearanceTransition(true, animated: animated)
             containerAppearance = (controller, true)
+            layoutPage(controller)
         }
     }
 
@@ -113,13 +138,16 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         containerAppearance?.controller.endAppearanceTransition()
         containerAppearance = nil
         isVisible = true
+        schedulePreparation()
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         // Finish/cancel the page transition before forwarding the container disappearance.
-        settle(at: selectedIndex)
+        settle(at: interruptionIndex)
         isVisible = false
-        if let controller = cachedControllers[settledIndex] {
+        preparationTimer?.invalidate()
+        preparationTimer = nil
+        if let controller = cachedControllers[appearanceIndex] {
             controller.beginAppearanceTransition(false, animated: animated)
             containerAppearance = (controller, false)
         }
@@ -136,10 +164,10 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         super.viewDidLayoutSubviews()
         let direction = view.effectiveUserInterfaceLayoutDirection
         if layoutSize != view.bounds.size || layoutDirection != direction {
+            let index = interruptionIndex
             layoutSize = view.bounds.size
             layoutDirection = direction
-            cancelNativeDrag()
-            settle(at: selectedIndex)
+            settle(at: index)
         }
         layoutHosts()
     }
@@ -147,40 +175,95 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     public override var childForStatusBarStyle: UIViewController? { cachedControllers[selectedIndex] }
     public override var childForStatusBarHidden: UIViewController? { cachedControllers[selectedIndex] }
 
+    public override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        didReceiveMemoryPressure = true
+        preparationTimer?.invalidate()
+        preparationTimer = nil
+        // Keep controller-owned state, but shed inactive viewport hosts and stop warming
+        // them again. Subsequent navigation falls back to mounting only the active pages.
+        for index in Array(hosts.keys) where index != appearanceIndex && index != destination {
+            unmount(index)
+        }
+    }
+
+    private var retainsPreparedPages: Bool { preloadsPages && !didReceiveMemoryPressure }
+
+    private var canPreparePage: Bool {
+        retainsPreparedPages && isVisible && isPagingEnabled && viewIfLoaded?.window != nil
+            && (view.window?.windowScene?.activationState ?? .foregroundActive) == .foregroundActive
+            && motion.isIdle
+            && !scrollView.isTracking && !scrollView.isDecelerating
+            && layoutSize == scrollView.bounds.size && layoutSize.width > 0
+    }
+
+    @objc private func schedulePreparation() {
+        preparationTimer?.invalidate()
+        preparationTimer = nil
+        guard canPreparePage, pages.indices.contains(where: { hosts[$0] == nil }) else { return }
+        // One page per idle turn, after the selected page has appeared. Default run-loop
+        // mode also postpones work while a nested Home/Market scroll view is tracking.
+        let timer = Timer(timeInterval: 0.1, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.prepareNextPage() }
+        }
+        preparationTimer = timer
+        RunLoop.main.add(timer, forMode: .default)
+    }
+
+    func prepareNextPage() {
+        preparationTimer?.invalidate()
+        preparationTimer = nil
+        guard canPreparePage, let index = pages.indices.first(where: { hosts[$0] == nil }) else { return }
+        UIView.performWithoutAnimation { mount(index) }
+        schedulePreparation()
+    }
+
     public func select(index: Int, animated: Bool) {
         guard pages.indices.contains(index) else { return }
         if !isViewLoaded {
             selectedIndex = index
-            settledIndex = index
+            appearanceIndex = index
             onSelectionChanged?(index)
             return
         }
-        cancelNativeDrag()
-        // Retire the old transition synchronously. No old animation completion can select a page.
-        settle(at: selectedIndex, notify: false)
-        guard index != settledIndex else {
-            onSelectionChanged?(index)
-            return
-        }
-        selectedIndex = index
+        let wasIdle = motion.isIdle
+        stopMotion()
         guard animated, isVisible, UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled,
               view.window != nil, view.bounds.width > 0 else {
-            changeDestination(to: index, animated: false)
             settle(at: index)
             return
         }
-        isProgrammatic = true
-        slots = [settledIndex, index].sorted()
-        if isRTL { slots.reverse() }
-        updateScrollGeometry()
-        changeDestination(to: index)
+        // Keep an interrupted transition's geometry. Reversing a tap or taking over
+        // deceleration must start at the rendered position, not the previous selection.
+        if !slots.contains(index) {
+            settle(at: nearestPage, notify: false)
+        }
+        if wasIdle, abs(index - selectedIndex) > 1 {
+            slots = [selectedIndex, index].sorted()
+            if isRTL { slots.reverse() }
+            updateScrollGeometry()
+        }
+        selectedIndex = index
+        if abs(scrollView.contentOffset.x - offset(for: appearanceIndex).x) < 0.5, index != appearanceIndex {
+            changeDestination(to: index)
+        }
         animate(to: index)
     }
 
-    private func cancelNativeDrag() {
-        guard scrollView.isDragging || scrollView.isDecelerating else { return }
-        scrollView.panGestureRecognizer.isEnabled = false
-        scrollView.panGestureRecognizer.isEnabled = isPagingEnabled
+    /// Resolve the current input before an owner snapshots or moves this container.
+    public func finishPaging() {
+        guard isViewLoaded, !motion.isIdle else { return }
+        settle(at: interruptionIndex)
+    }
+
+    private func stopMotion() {
+        motion = .idle
+        animation.cancel()
+        if scrollView.isDragging || scrollView.isDecelerating {
+            scrollView.panGestureRecognizer.isEnabled = false
+            scrollView.panGestureRecognizer.isEnabled = isPagingEnabled
+        }
+        scrollView.setContentOffset(scrollView.contentOffset, animated: false)
     }
 
     private var isRTL: Bool { view.effectiveUserInterfaceLayoutDirection == .rightToLeft }
@@ -196,10 +279,11 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
     private func mount(_ index: Int) {
         guard hosts[index] == nil else { return }
         let controller = controller(at: index)
-        let host = PagerPageHost(frame: scrollView.bounds)
+        let host = PagerPageHost(frame: viewport.bounds)
+        host.isHidden = index != appearanceIndex && index != destination
         hosts[index] = host
         addChild(controller)
-        scrollView.addSubview(host)
+        viewport.addSubview(host)
         controller.view.frame = host.bounds
         controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         host.addSubview(controller.view)
@@ -216,74 +300,144 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
         host.removeFromSuperview()
     }
 
+    private var viewport: UIView { pagingScrollView.viewport }
+
     private func resetSlots() {
-        slots = Array(max(0, settledIndex - 1)...min(pages.count - 1, settledIndex + 1))
+        slots = Array(pages.indices)
         if isRTL { slots.reverse() }
         updateScrollGeometry()
     }
 
     private func updateScrollGeometry() {
+        let wasUpdatingLayout = isUpdatingLayout
         isUpdatingLayout = true
         scrollView.contentSize = CGSize(width: CGFloat(slots.count) * scrollView.bounds.width, height: scrollView.bounds.height)
-        scrollView.setContentOffset(offset(for: settledIndex), animated: false)
-        isUpdatingLayout = false
+        scrollView.setContentOffset(offset(for: selectedIndex), animated: false)
         layoutHosts()
+        isUpdatingLayout = wasUpdatingLayout
     }
 
     private func offset(for index: Int) -> CGPoint {
         CGPoint(x: CGFloat(slots.firstIndex(of: index) ?? 0) * scrollView.bounds.width, y: 0)
     }
 
-    private func layoutHosts() {
+    /// The same two slots drive both the rendered pages and the tab indicator.
+    /// Unlike a delta from the last selection, this remains valid across several
+    /// page boundaries and when a new gesture interrupts deceleration.
+    private var viewportProgress: Progress {
+        guard !slots.isEmpty, scrollView.bounds.width > 0 else {
+            return .init(source: selectedIndex, destination: selectedIndex, fraction: 0)
+        }
+        let width = layoutSize.width > 0 ? layoutSize.width : scrollView.bounds.width
+        let position = min(CGFloat(slots.count - 1), max(0, scrollView.contentOffset.x / width))
+        let lower = Int(floor(position))
+        let upper = Int(ceil(position))
+        let fraction = position - CGFloat(lower)
+        if slots[lower] > slots[upper] {
+            return .init(source: slots[upper], destination: slots[lower], fraction: 1 - fraction)
+        }
+        return .init(source: slots[lower], destination: slots[upper], fraction: fraction)
+    }
+
+    private var interruptionIndex: Int {
+        switch motion {
+        case .idle: selectedIndex
+        case let .animating(target): target
+        case .dragging, .decelerating, .toolbar: nearestPage
+        }
+    }
+
+    private var nearestPage: Int {
+        let progress = viewportProgress
+        return progress.fraction < 0.5 ? progress.source : progress.destination
+    }
+
+    private func layoutHosts(progress: Progress? = nil) {
+        pagingScrollView.layoutViewport()
+        let progress = progress ?? viewportProgress
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (index, host) in hosts {
-            // Layout always occupies the viewport. Moving a controller's actual frame outside
-            // it changes UIKit's inherited safe area and minimum margins during every swipe.
-            // Translate the rendered subtree instead; leave all layout guides and child insets
-            // under UIKit's ownership. At rest the translation is identity.
-            host.frame = scrollView.bounds
-            host.setRenderingOffset(offset(for: index).x - scrollView.contentOffset.x)
-            host.isUserInteractionEnabled = destination == nil && additionalPagingStart == nil && !scrollView.isDragging && !scrollView.isDecelerating
-            host.accessibilityElementsHidden = index != selectedIndex || destination != nil
+            // Only this common viewport follows the scroll view's bounds. Page model
+            // geometry remains fixed, including at a direct-jump route normalization.
+            if host.frame != viewport.bounds { host.frame = viewport.bounds }
+            let hidden = !progress.contains(index)
+            if host.isHidden != hidden { host.isHidden = hidden }
+            host.setRenderingOffset(host.isHidden ? 0 : offset(for: index).x - scrollView.contentOffset.x)
+            let interactive = index == selectedIndex && motion.isIdle
+            if host.isUserInteractionEnabled != interactive { host.isUserInteractionEnabled = interactive }
+            if host.accessibilityElementsHidden == interactive { host.accessibilityElementsHidden = !interactive }
         }
         CATransaction.commit()
     }
 
+    private func updateViewport() {
+        let progress = viewportProgress
+        mount(progress.source)
+        if progress.destination != progress.source { mount(progress.destination) }
+        layoutHosts(progress: progress)
+        // If a fast gesture passes the current pair, complete that pair before
+        // starting the next. Appearance and retained-host visibility are independent.
+        if !progress.contains(appearanceIndex) {
+            let next = destination.flatMap { progress.contains($0) ? $0 : nil } ?? progress.source
+            changeDestination(to: next)
+            if progress.source != progress.destination {
+                finishAppearance(completed: true)
+                appearanceIndex = next
+                destination = nil
+            }
+        }
+        if progress.contains(appearanceIndex) {
+            let other = appearanceIndex == progress.source ? progress.destination : progress.source
+            changeDestination(to: other == appearanceIndex ? nil : other)
+        }
+        if !retainsPreparedPages {
+            for index in Array(hosts.keys) where !progress.contains(index) && index != appearanceIndex {
+                unmount(index)
+            }
+        }
+        onProgressChanged?(progress)
+    }
+
     private func changeDestination(to index: Int?, animated: Bool = true) {
         guard destination != index else { return }
-        if let previous = destination {
+        if destination != nil {
             finishAppearance(completed: false)
-            unmount(previous)
         }
         destination = index
         guard let index else { return }
         mount(index)
         if isVisible {
-            cachedControllers[settledIndex]?.beginAppearanceTransition(false, animated: animated)
+            cachedControllers[appearanceIndex]?.beginAppearanceTransition(false, animated: animated)
             cachedControllers[index]?.beginAppearanceTransition(true, animated: animated)
             appearanceTransitionActive = true
         }
+        if let controller = cachedControllers[index] { layoutPage(controller) }
+    }
+
+    private func layoutPage(_ controller: UIViewController) {
+        // A retained page may have deferred layout while hidden. Resolve its native
+        // safe area after appearance begins, before rendering the first transition frame.
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
     }
 
     private func finishAppearance(completed: Bool) {
         guard appearanceTransitionActive, let destination else { return }
         if !completed {
-            cachedControllers[settledIndex]?.beginAppearanceTransition(true, animated: true)
+            cachedControllers[appearanceIndex]?.beginAppearanceTransition(true, animated: true)
             cachedControllers[destination]?.beginAppearanceTransition(false, animated: true)
         }
-        cachedControllers[settledIndex]?.endAppearanceTransition()
+        cachedControllers[appearanceIndex]?.endAppearanceTransition()
         cachedControllers[destination]?.endAppearanceTransition()
         appearanceTransitionActive = false
     }
 
     private func settle(at index: Int, notify: Bool = true) {
         guard isViewLoaded else { return }
-        animation.cancel()
+        stopMotion()
         isUpdatingLayout = true
-        scrollView.setContentOffset(scrollView.contentOffset, animated: false)
-        additionalPagingStart = nil
-        let pendingAppearance = settledIndex != index ? containerAppearance : nil
+        let pendingAppearance = appearanceIndex != index ? containerAppearance : nil
         if let pendingAppearance {
             if pendingAppearance.appearing {
                 pendingAppearance.controller.beginAppearanceTransition(false, animated: false)
@@ -291,66 +445,73 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
             pendingAppearance.controller.endAppearanceTransition()
             containerAppearance = nil
         }
-        let completed = destination == index
-        finishAppearance(completed: completed)
-        isProgrammatic = false
-        destination = nil
+        // Normalize geometry before completing appearance. In particular, a bridge
+        // jump must not deliver didAppear with the old viewport's safe-area cache.
         selectedIndex = index
-        settledIndex = index
+        resetSlots()
         mount(index)
+        layoutHosts()
+        changeDestination(to: index == appearanceIndex ? nil : index, animated: false)
+        if let controller = cachedControllers[index] { layoutPage(controller) }
+        finishAppearance(completed: index == destination)
+        destination = nil
+        appearanceIndex = index
+        if !retainsPreparedPages {
+            for other in Array(hosts.keys) where other != index { unmount(other) }
+        }
         if pendingAppearance?.appearing == true, let controller = cachedControllers[index] {
             controller.beginAppearanceTransition(true, animated: false)
             containerAppearance = (controller, true)
+            layoutPage(controller)
         }
-        for other in Array(hosts.keys) where other != index { unmount(other) }
         isUpdatingLayout = false
-        resetSlots()
         setNeedsStatusBarAppearanceUpdate()
         if notify { onSelectionChanged?(index) }
+        schedulePreparation()
     }
 
     public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        settle(at: selectedIndex, notify: false)
+        // UIKit has already stopped its old deceleration. Do not reset contentOffset
+        // here: the new pan's translation is relative to this exact position.
+        animation.cancel()
+        motion = .dragging
+        updateViewport()
     }
 
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard !isUpdatingLayout, scrollView.bounds.width > 0 else { return }
-        if isProgrammatic, let destination {
-            let start = offset(for: settledIndex).x
-            let distance = offset(for: destination).x - start
-            let fraction = distance == 0 ? 1 : (scrollView.contentOffset.x - start) / distance
-            onProgressChanged?(.init(source: settledIndex, destination: destination, fraction: min(1, max(0, fraction))))
-        } else {
-            let delta = (scrollView.contentOffset.x - offset(for: settledIndex).x) / scrollView.bounds.width
-            let step = delta > 0 ? 1 : -1
-            let target = settledIndex + step * (isRTL ? -1 : 1)
-            let next = abs(delta) > 0.0001 && pages.indices.contains(target) ? target : nil
-            changeDestination(to: next)
-            onProgressChanged?(.init(source: settledIndex, destination: next ?? settledIndex, fraction: min(1, abs(delta))))
-        }
-        layoutHosts()
+        guard !isUpdatingLayout, !motion.isIdle, scrollView.bounds.width > 0,
+              scrollView.bounds.size == layoutSize,
+              layoutDirection == view.effectiveUserInterfaceLayoutDirection else { return }
+        updateViewport()
     }
 
     public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { finishScrolling() }
+        guard case .dragging = motion else { return }
+        if decelerate {
+            motion = .decelerating
+        } else {
+            settle(at: nearestPage)
+        }
     }
 
-    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { finishScrolling() }
+    public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        guard case .decelerating = motion, !scrollView.isTracking else { return }
+        settle(at: nearestPage)
+    }
 
     private func animate(to index: Int) {
         let start = scrollView.contentOffset.x
         let end = offset(for: index).x
+        guard abs(start - end) > 0.5 else {
+            settle(at: index)
+            return
+        }
+        motion = .animating(target: index)
         animation.start(duration: 0.3) { [weak self] progress in
             self?.scrollView.contentOffset.x = start + (end - start) * progress
         } completion: { [weak self] in
             self?.settle(at: index)
         }
-    }
-
-    private func finishScrolling() {
-        guard !animation.isRunning, scrollView.bounds.width > 0 else { return }
-        let slot = min(slots.count - 1, max(0, Int((scrollView.contentOffset.x / scrollView.bounds.width).rounded())))
-        settle(at: isProgrammatic ? selectedIndex : slots[slot])
     }
 }
 
@@ -389,7 +550,7 @@ extension WPagerViewController: WSegmentedPagingGestureTarget {
     }
 
     func canBeginForwardNavigation(velocity: CGFloat, fromEdge: Bool = false) -> Bool {
-        isPagingEnabled && destination == nil && additionalPagingStart == nil
+        isPagingEnabled && motion.isIdle
             && (selectedIndex == pages.count - 1 || (fromEdge && allowsForwardNavigationFromEdge))
             && velocity * (isRTL ? 1 : -1) > 0
     }
@@ -401,12 +562,14 @@ extension WPagerViewController: WSegmentedPagingGestureTarget {
     }
 
     func beginAdditionalPaging() {
-        settle(at: selectedIndex, notify: false)
-        additionalPagingStart = scrollView.contentOffset.x
+        let origin = nearestPage
+        stopMotion()
+        motion = .toolbar(start: scrollView.contentOffset.x, origin: origin)
+        updateViewport()
     }
 
     func updateAdditionalPaging(translation: CGFloat) {
-        guard let start = additionalPagingStart else { return }
+        guard case let .toolbar(start, _) = motion else { return }
         let proposed = start - translation
         let maxOffset = max(0, scrollView.contentSize.width - scrollView.bounds.width)
         let limited = min(maxOffset, max(0, proposed))
@@ -416,13 +579,15 @@ extension WPagerViewController: WSegmentedPagingGestureTarget {
     }
 
     func endAdditionalPaging(translation: CGFloat, velocity: CGFloat, cancelled: Bool) {
-        guard let start = additionalPagingStart, scrollView.bounds.width > 0 else { return }
-        additionalPagingStart = nil
-        let projectedSlot = Int(((start - translation - velocity * 0.2) / scrollView.bounds.width).rounded())
-        let target = cancelled ? settledIndex : slots[min(slots.count - 1, max(0, projectedSlot))]
-        let targetOffset = offset(for: target)
-        if !UIView.areAnimationsEnabled || UIAccessibility.isReduceMotionEnabled || view.window == nil || abs(scrollView.contentOffset.x - targetOffset.x) < 0.5 {
-            if target != settledIndex { changeDestination(to: target) }
+        guard case let .toolbar(start, origin) = motion, scrollView.bounds.width > 0 else { return }
+        // Match native paging: velocity may advance one page beyond the release
+        // position, but a short flick must not skip an unseen intermediate page.
+        let width = scrollView.bounds.width
+        let release = (start - translation) / width
+        let projection = release - velocity * 0.2 / width
+        let slot = Int(min(ceil(release), max(floor(release), projection.rounded())))
+        let target = cancelled ? origin : slots[min(slots.count - 1, max(0, slot))]
+        if !UIView.areAnimationsEnabled || UIAccessibility.isReduceMotionEnabled || view.window == nil {
             settle(at: target)
         } else {
             animate(to: target)
@@ -430,8 +595,35 @@ extension WPagerViewController: WSegmentedPagingGestureTarget {
     }
 }
 
+private final class PagerScrollView: UIScrollView {
+    let viewport = UIView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(viewport)
+    }
+
+    override var bounds: CGRect {
+        didSet { layoutViewport() }
+    }
+
+    override func layoutSubviews() {
+        layoutViewport()
+        super.layoutSubviews()
+    }
+
+    func layoutViewport() {
+        if viewport.frame != bounds { viewport.frame = bounds }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
 private final class PagerPageHost: UIView {
     private let pageMask = CAShapeLayer()
+    private var renderingOffset: CGFloat?
+    private var maskBounds: CGRect?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -439,6 +631,14 @@ private final class PagerPageHost: UIView {
     }
 
     func setRenderingOffset(_ offset: CGFloat) {
+        if maskBounds != bounds {
+            maskBounds = bounds
+            // The sublayer transform also moves the mask. Keep its path in page
+            // coordinates so adjacent pages meet without clipping the translation twice.
+            pageMask.path = CGPath(rect: bounds, transform: nil)
+        }
+        guard renderingOffset != offset else { return }
+        renderingOffset = offset
         // Only the presentation tree moves. Model transforms must stay identity, including
         // while a nested UIKit/SwiftUI controller recalculates its safe area after reattachment.
         if offset == 0 {
@@ -453,9 +653,6 @@ private final class PagerPageHost: UIView {
             translation.isRemovedOnCompletion = false
             layer.add(translation, forKey: "pageTranslation")
         }
-        // The sublayer transform also moves the mask. Its path stays in page coordinates;
-        // adding the offset here would clip twice and expose a gap between adjacent pages.
-        pageMask.path = CGPath(rect: bounds, transform: nil)
     }
 
     @available(*, unavailable)

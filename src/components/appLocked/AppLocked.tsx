@@ -9,6 +9,7 @@ import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import { stopEvent } from '../../util/domEvents';
 import { vibrate } from '../../util/haptics';
+import trapFocus from '../../util/trapFocus';
 import { IS_ELECTRON } from '../../util/windowEnvironment';
 
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
@@ -209,6 +210,9 @@ function AppLocked({
       setIsAppLockActive({ isActive: !!isLocked });
     }
   }, [isLocked]);
+
+  // The lock screen is not a `Modal`, so it traps Tab itself to keep focus away from the app behind it
+  useEffect(() => (isLocked ? trapFocus(transitionRef.current!) : undefined), [isLocked, transitionRef]);
 
   const forceLockApp = useLastCallback(() => {
     lock();

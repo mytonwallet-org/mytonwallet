@@ -1,109 +1,163 @@
+import type { AgentFeatureCapabilitiesResponseV2 } from './protocol/types';
 import type { AgentV2SessionStorage } from './sessionStorage';
 import type { AgentV2HostContextSnapshot } from './types';
 
 import { APP_NAME } from '../../config';
+import { getSupportedChains } from '../../util/chain';
 import contractManifest from './generated/manifest.json';
+import { hostUiCapabilities } from './testing/hostUiCapabilities';
 import { AgentV2WalletSession, createAgentV2WalletSession } from './walletSession';
 
 const WALLET_SESSION_STORAGE_KEY = 'agentV2WalletSession';
 const LEGACY_SESSION_ID = '11111111-1111-4111-8111-111111111111';
 const CURRENT_SESSION_ID = '22222222-2222-4222-8222-222222222222';
+const CHAIN_LISTS = [
+  { name: 'runtime catalog', chains: [...getSupportedChains()] },
+  { name: 'future networks', chains: ['ton', ...Array.from({ length: 64 }, (_, index) => `future-chain-${index}`)] },
+];
+const CHAIN_CONTEXT_CASES = (['classic', 'ios', 'android'] as const).flatMap((platform) => (
+  CHAIN_LISTS.map((entry) => ({ ...entry, platform }))
+));
 
 describe('AgentV2WalletSession semantic capabilities', () => {
   beforeEach(() => sessionStorage.clear());
 
-  it('advertises the validated current application identity', () => {
+  it('uses declared UI support independently of the platform name and wallet authority', () => {
+    const session = new AgentV2WalletSession();
+    const host = hostContext();
+    host.uiCapabilities = {
+      ...hostUiCapabilities('android'),
+      supportedActions: ['receive', 'stake'],
+      supportsFollowups: true,
+    };
+    session.update(host);
+    expect(session.buildContext().capabilities).toEqual({
+      protocolVersion: 3,
+      supportedActions: ['receive', 'stake'],
+      features: ['followups'],
+    });
+
+    host.accounts[0].isViewOnly = true;
+    session.update(host);
+    expect(session.buildContext().capabilities.supportedActions).toEqual(['receive']);
+    session.update({ ...host, uiCapabilities: { ...host.uiCapabilities, supportedActions: [] } });
+    expect(session.buildContext().capabilities.supportedActions).toEqual([]);
+  });
+
+  it('rejects an incompatible host UI capability contract', () => {
+    const session = new AgentV2WalletSession();
+    expect(() => session.update({
+      ...hostContext(), uiCapabilities: undefined,
+    } as unknown as AgentV2HostContextSnapshot)).toThrow('Invalid Agent V2 host context');
+  });
+
+  it('uses the interface language without advertising a separate response language catalog', () => {
     const session = new AgentV2WalletSession();
     session.update(hostContext());
 
-    expect(session.buildContext().context.appName).toBe(APP_NAME);
+    const context = session.buildContext();
+    expect(context.context.appName).toBe(APP_NAME);
+    expect(context.context.lang).toBe('en');
+    expect(context.capabilities).not.toHaveProperty('supportedResponseLanguages');
   });
 
-  it.each(['classic', 'ios'] as const)('advertises semantic content without renderer handshakes on %s', (platform) => {
+  it('quarantines invalid optional catalog assets without losing wallet context', () => {
     const session = new AgentV2WalletSession();
-    session.update({ ...hostContext(), platform });
-    const { capabilities } = session.buildContext();
+    const host = hostContext();
+    const validAsset = host.assetCatalog![0];
+    const validSwapAsset = {
+      slug: 'usdton',
+      chain: 'ton',
+      symbol: 'USDT',
+      decimals: 6,
+      priceUsd: '1',
+    };
+    host.assetCatalog = [
+      validAsset,
+      { slug: 'solana-invalid', chain: 'solana', symbol: '', decimals: 8 },
+    ];
+    host.swapAssetCatalog = [
+      validSwapAsset,
+      { slug: 'solana-invalid', chain: 'solana', symbol: '', decimals: 8 },
+    ];
 
-    expect(capabilities.supportedEventTypes).toContain('semantic_content');
-    expect(capabilities.supportedEventTypes).toContain('run_activity');
-    expect(capabilities).not.toHaveProperty('supportedWidgets');
-    expect(capabilities).not.toHaveProperty('supportedTextFormats');
-    expect(capabilities).not.toHaveProperty('presentation');
+    session.update(host);
+
+    expect(session.snapshot().host?.assetCatalog).toEqual([validAsset]);
+    expect(session.snapshot().host?.swapAssetCatalog).toEqual([validSwapAsset]);
+    expect(session.buildContext().walletContext).toMatchObject({
+      mode: 'wallet',
+      activeNetwork: 'ton',
+    });
   });
 
-  it('does not advertise follow-up presentation on unsupported clients', () => {
+  it('advertises only host-supplied built-in destinations and withdraws them on host changes', () => {
     const session = new AgentV2WalletSession();
-    session.update({ ...hostContext(), platform: 'android', client: 'native' });
-
-    const { capabilities } = session.buildContext();
-
-    expect(capabilities.supportsFollowups).toBe(false);
-    expect(capabilities.supportedEventTypes).not.toContain('followups');
-    expect(capabilities.supportsInputContinuations).toBe(false);
-    expect(capabilities.supportedEventTypes).not.toContain('input_continuations');
-  });
-
-  it('advertises only supported presentation events without a wallet host', () => {
-    const session = new AgentV2WalletSession();
-
-    const { capabilities } = session.buildContext();
-
-    expect(capabilities.supportsFollowups).toBe(false);
-    expect(capabilities.supportedEventTypes).not.toContain('followups');
-    expect(capabilities.supportsInputContinuations).toBe(true);
-    expect(capabilities.supportedEventTypes).toContain('input_continuations');
-  });
-
-  it.each(['classic', 'ios'] as const)(
-    'advertises model-owned follow-ups on %s',
-    (platform) => {
-      const session = new AgentV2WalletSession();
-      session.update({ ...hostContext(), platform });
-
-      expect(session.buildContext().capabilities).toMatchObject({
-        supportsFollowups: true,
-        supportedEventTypes: expect.arrayContaining(['followups']),
-      });
-    },
-  );
-
-  it('admits wallet query V5 without presentation negotiation once the server contract is ready', () => {
-    const session = new AgentV2WalletSession();
-    session.update(hostContext());
-    enableWalletQuery(session);
-
-    expect(session.buildContext().capabilities.supportedTools).toContainEqual(expect.objectContaining({
-      name: 'wallet.data.query', version: 5, timeoutMs: 30_000,
-    }));
-    expect(session.buildContext().walletContext).not.toHaveProperty('allowedAccountScopes');
-  });
-
-  it('advertises quote, wallet query V5, and eligible send preparation', () => {
-    const session = new AgentV2WalletSession();
-    session.update({ ...hostContext(), platform: 'ios', client: 'native' });
-    enableWalletQuery(session);
-
-    const { capabilities, context } = session.buildContext();
-    const advertised = capabilities.supportedTools.map(({ name, version }) => `${name}@${version}`).sort();
-    expect(advertised).toEqual([
-      'action.send.prepare@1',
-      'market.asset.quote@1',
-      'wallet.data.query@5',
-      'wallet.directory.query@1',
-    ]);
-    expect(context.permissions).toEqual({ agentConsentAccepted: true });
+    const builtinDapps = [{ name: 'Buy SOL via MoonPay',
+      url: 'mtw://buy-with-card?chain=solana&provider=moonpay' }];
+    session.update({ ...hostContext(), builtinDapps });
+    expect(session.buildContext().capabilities.builtinDapps).toEqual(builtinDapps);
+    session.update({ ...hostContext(), builtinDapps: [] });
+    expect(session.buildContext().capabilities.builtinDapps).toBeUndefined();
   });
 
   it.each([
-    ['classic', true],
-    ['ios', true],
-    ['android', false],
-  ] as const)('advertises the text-only local market quote tool on %s', (platform, expected) => {
+    ['classic', ['followups', 'walletDirectory', 'sendRecipientWithoutAsset']],
+    ['ios', ['followups', 'walletDirectory', 'sendRecipientWithoutAsset']],
+    ['android', ['followups']],
+  ] as const)('advertises only the presentation features the %s host renders', (platform, features) => {
     const session = new AgentV2WalletSession();
-    session.update({ ...hostContext(), platform });
+    session.update({ ...hostContext(), platform, uiCapabilities: hostUiCapabilities(platform) });
 
-    expect(session.buildContext().capabilities.supportedTools.some(({ name }) => name === 'market.asset.quote'))
-      .toBe(expected);
+    expect(session.buildContext().capabilities.features).toEqual(features);
+  });
+
+  it('advertises no presentation features without a wallet host', () => {
+    const session = new AgentV2WalletSession();
+
+    expect(session.buildContext().capabilities.features).toEqual([]);
+  });
+
+  it('admits wallet query and the client time zone once the server offers the pinned filter catalog', () => {
+    const session = new AgentV2WalletSession();
+    session.update({ ...hostContext(), timeZone: 'Europe/Berlin' });
+    expect(session.isWalletQueryAvailable()).toBe(false);
+    expect(session.buildContext().context).not.toHaveProperty('timeZone');
+    expect(session.buildContext().capabilities.features).not.toContain('walletChainLookup');
+
+    session.updateFeatureCapabilities(featureCapabilities());
+
+    const { context, walletContext, capabilities } = session.buildContext();
+    expect(session.isWalletQueryAvailable()).toBe(true);
+    // The server may then read the account's public addresses to look them up on the blockchain
+    expect(capabilities.features).toContain('walletChainLookup');
+    expect(context.timeZone).toBe('Europe/Berlin');
+    expect(context.permissions).toEqual({ agentConsentAccepted: true });
+    expect(walletContext).not.toHaveProperty('allowedAccountScopes');
+  });
+
+  it.each(CHAIN_CONTEXT_CASES)('preserves the complete $name on $platform', ({ platform, chains }) => {
+    const session = new AgentV2WalletSession();
+    const host = hostContext();
+    host.platform = platform;
+    host.uiCapabilities = hostUiCapabilities(platform);
+    host.client = platform === 'classic' ? 'web' : 'native';
+    host.accounts[0].chains = [...chains];
+    host.accounts[0].addresses = Object.fromEntries(chains.map((chain) => [chain, `${chain}-public-address`]));
+    session.update(host);
+    session.updateFeatureCapabilities(featureCapabilities());
+
+    const { context, capabilities, walletContext } = session.buildContext();
+    expect(context.activeWalletChains).toEqual(chains);
+    expect(walletContext.mode).toBe('wallet');
+    if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
+    expect(walletContext.activeAccount.chains).toEqual(chains);
+    expect(capabilities.features.includes('walletDirectory')).toBe(platform !== 'android');
+    if (platform !== 'android') {
+      const directory = session.buildWalletDirectory('2026-08-20T00:00:00.000Z');
+      expect(directory.accounts[0].chains).toEqual(chains);
+      expect(directory.coverage).toEqual({ accountsRequested: 1, accountsIncluded: 1, rowsOmitted: 0 });
+    }
   });
 
   it.each([
@@ -114,6 +168,7 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     const session = new AgentV2WalletSession();
     const host = hostContext();
     host.platform = platform;
+    host.uiCapabilities = hostUiCapabilities(platform);
     host.client = platform === 'classic' ? 'web' : 'native';
     host.accounts.push({
       ...host.accounts[0],
@@ -123,8 +178,7 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     });
     session.update(host);
 
-    expect(session.buildContext().capabilities.supportedTools
-      .some(({ name }) => name === 'wallet.directory.query')).toBe(expected);
+    expect(session.buildContext().capabilities.features.includes('walletDirectory')).toBe(expected);
     if (expected) {
       expect(session.buildWalletDirectory('2026-08-20T00:00:00.000Z')).toMatchObject({
         status: 'complete',
@@ -146,151 +200,67 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     host.accounts[0].label = label;
     session.update(host);
 
-    expect(session.buildContext().capabilities.supportedTools)
-      .not.toContainEqual(expect.objectContaining({ name: 'wallet.directory.query' }));
+    expect(session.buildContext().capabilities.features).not.toContain('walletDirectory');
   });
 
-  it('withdraws the market quote tool when local quote data is unavailable', () => {
+  it('withdraws wallet query when the catalog digest does not match', () => {
     const session = new AgentV2WalletSession();
-    const host = hostContext();
-    delete host.currencyRate;
-    session.update(host);
+    session.update({ ...hostContext(), timeZone: 'Europe/Berlin' });
+    session.updateFeatureCapabilities(featureCapabilities('0'.repeat(64)));
 
-    expect(session.buildContext().capabilities.supportedTools).not.toContainEqual(expect.objectContaining({
-      name: 'market.asset.quote',
-    }));
-  });
-
-  it('keeps the staking offer read inert when an old backend omits negotiation', () => {
-    const session = new AgentV2WalletSession();
-    session.update(hostContext());
-    session.updateFeatureCapabilities('disabled', 'disabled');
-
-    expect(session.buildContext().capabilities.supportedTools).not.toContainEqual(
-      expect.objectContaining({ name: 'staking.offer.read' }),
-    );
-  });
-
-  it('advertises the exact staking offer read for a consented active mainnet session', () => {
-    const session = new AgentV2WalletSession();
-    const host = hostContext();
-    host.accounts[0].accountType = 'viewOnly';
-    host.accounts[0].isViewOnly = true;
-    host.accounts[0].holdings[0].balance = '0';
-    session.update(host);
-    session.updateFeatureCapabilities('disabled', 'disabled', 'available');
-
-    expect(session.buildContext().capabilities.supportedTools).toContainEqual({
-      name: 'staking.offer.read',
-      version: 1,
-      scopes: ['staking.data.read'],
-      timeoutMs: 15_000,
-      maxResultBytes: 16_384,
-    });
-    expect(JSON.stringify(session.buildContext())).not.toContain('annualYield');
-    expect(JSON.stringify(session.buildContext())).not.toContain('stakingOffers');
-    const { walletContext } = session.buildContext();
-    expect(walletContext.mode).toBe('wallet');
-    if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
-    expect(walletContext.activeAccount.stakingYieldOffers).toEqual([{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-    }]);
-  });
-
-  it.each([
-    ['on testnet', true, true],
-    ['without a matching local asset', false, false],
-  ] as const)(
-    'withdraws the staking offer read %s',
-    (_case, isTestnet, hasMatchingAsset) => {
-      const session = new AgentV2WalletSession();
-      const host = hostContext();
-      host.isTestnet = isTestnet;
-      if (!hasMatchingAsset) host.assetCatalog = [];
-      session.update(host);
-      session.updateFeatureCapabilities('disabled', 'disabled', 'available');
-
-      expect(session.buildContext().capabilities.supportedTools).not.toContainEqual(
-        expect.objectContaining({ name: 'staking.offer.read' }),
-      );
-    },
-  );
-
-  it('withdraws wallet query V5 when the catalog digest does not match', () => {
-    const session = new AgentV2WalletSession();
-    session.update(hostContext());
-    session.updateFeatureCapabilities('available', 'available');
-    session.updateWalletQueryCapabilities({
-      status: 'available',
-      supportedToolVersions: [5],
-      filterCatalog: { version: 1, digest: '0'.repeat(64), requiresClientTimeZone: true },
-    });
-
-    expect(session.buildContext().capabilities.supportedTools).not.toContainEqual(expect.objectContaining({
-      name: 'wallet.data.query',
-    }));
+    expect(session.isWalletQueryAvailable()).toBe(false);
+    expect(session.buildContext().context).not.toHaveProperty('timeZone');
   });
 
   it.each([
     ['classic', 'web', [
-      'send', 'receive', 'stake', 'hideSpamAssets', 'openUrl', 'openToken', 'openTransaction', 'openAgent',
-    ], ['send', 'receive', 'stake'], true, false],
+      'send', 'receive', 'stake', 'swap', 'openDapp',
+    ], ['send', 'receive', 'stake', 'swap']],
     ['ios', 'native', [
-      'send', 'receive', 'stake', 'hideSpamAssets', 'openUrl', 'openToken', 'openTransaction', 'openAgent',
-    ], ['send', 'receive', 'stake'], false, false],
-    ['android', 'native', ['send', 'receive'], ['send', 'receive'], true, true],
+      'send', 'receive', 'stake', 'swap', 'openDapp',
+    ], ['send', 'receive', 'stake', 'swap']],
+    ['android', 'native', [
+      'send', 'receive', 'stake', 'swap', 'openDapp',
+    ], ['send', 'receive', 'stake', 'swap']],
   ] as const)(
     'advertises the exact prepared-action matrix on %s',
-    (platform, client, supportedActions, walletSupportedActions, supportsMessageEdit, supportsRegenerate) => {
+    (platform, client, supportedActions, walletSupportedActions) => {
       const session = new AgentV2WalletSession();
-      session.update({ ...hostContext(), platform, client });
-      session.updateFeatureCapabilities('available', 'available');
+      session.update({ ...hostContext(), platform, client, uiCapabilities: hostUiCapabilities(platform) });
+      session.updateFeatureCapabilities(featureCapabilities());
 
       const { capabilities, walletContext } = session.buildContext();
 
       expect(capabilities.supportedActions).toEqual(supportedActions);
-      expect(capabilities.receiveActionVersion).toBe(3);
-      expect(capabilities.supportsMessageEdit).toBe(supportsMessageEdit);
-      expect(capabilities.supportsRegenerate).toBe(supportsRegenerate);
-      expect(capabilities.supportedTools).toContainEqual(expect.objectContaining({
-        name: 'action.send.prepare', version: 1,
-      }));
       expect(walletContext.mode).toBe('wallet');
       if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
       expect(walletContext.activeAccount.supportedActions).toEqual(walletSupportedActions);
     },
   );
 
-  it('keeps answer-driving Classic and iOS capability contracts in parity', () => {
+  it('keeps Classic and iOS wallet authority and action kinds in parity', () => {
     const classic = new AgentV2WalletSession();
     const ios = new AgentV2WalletSession();
     classic.update({
       ...hostContext(),
-      platform: 'classic',
+      platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
       client: 'web',
       swapAssetCatalog: swapAssetCatalog(),
     });
     ios.update({
       ...hostContext(),
-      platform: 'ios',
+      platform: 'ios', uiCapabilities: hostUiCapabilities('ios'),
       client: 'native',
       swapAssetCatalog: swapAssetCatalog(),
     });
-    enableWalletQuery(classic);
-    enableWalletQuery(ios);
-    classic.updateFeatureCapabilities('available', 'available', 'available');
-    ios.updateFeatureCapabilities('available', 'available', 'available');
+    classic.updateFeatureCapabilities(featureCapabilities());
+    ios.updateFeatureCapabilities(featureCapabilities());
 
     const classicContext = classic.buildContext();
     const iosContext = ios.buildContext();
 
-    expect(iosContext.capabilities.supportedTools).toEqual(classicContext.capabilities.supportedTools);
-    expect(iosContext.capabilities.supportedActions).toEqual(classicContext.capabilities.supportedActions);
-    expect(iosContext.capabilities.supportsFollowups).toBe(classicContext.capabilities.supportsFollowups);
-    expect(iosContext.capabilities.supportsInputContinuations).toBe(
-      classicContext.capabilities.supportsInputContinuations,
-    );
+    expect(iosContext.capabilities).toEqual(classicContext.capabilities);
+    expect(ios.isWalletQueryAvailable()).toBe(classic.isWalletQueryAvailable());
     expect(iosContext.walletContext.mode).toBe('wallet');
     expect(classicContext.walletContext.mode).toBe('wallet');
     if (iosContext.walletContext.mode !== 'wallet' || classicContext.walletContext.mode !== 'wallet') {
@@ -299,82 +269,48 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     expect(iosContext.walletContext.activeAccount.supportedActions).toEqual(
       classicContext.walletContext.activeAccount.supportedActions,
     );
-    expect(iosContext.walletContext.activeAccount.stakingOffers).toEqual(
-      classicContext.walletContext.activeAccount.stakingOffers,
-    );
-    // Editing is intentionally excluded from answer-logic parity in the native product.
-    expect(iosContext.capabilities.supportsMessageEdit).toBe(false);
-    expect(classicContext.capabilities.supportsMessageEdit).toBe(true);
   });
 
   it.each([
-    ['eligible Classic wallet', 'classic', false, 'toncoin', true],
-    ['eligible iOS wallet', 'ios', false, 'toncoin', true],
-    ['unsupported Android client', 'android', false, 'toncoin', false],
-    ['view-only wallet', 'classic', true, 'toncoin', false],
-    ['missing local stake asset', 'classic', false, undefined, false],
-  ] as const)(
-    'advertises Stake only for an %s',
-    (_name, platform, isViewOnly, hasStakingOffers, expected) => {
-      const session = new AgentV2WalletSession();
-      const host = hostContext();
-      host.platform = platform;
-      host.client = platform === 'classic' ? 'web' : 'native';
-      host.accounts[0].accountType = isViewOnly ? 'viewOnly' : 'regular';
-      host.accounts[0].isViewOnly = isViewOnly;
-      if (!hasStakingOffers) delete host.stakingOffers;
-      else {
-        Object.assign(host.stakingOffers![0].asset, {
-          priceUsd: '3',
-          percentChange24h: '1.5',
-        });
-      }
-      session.update(host);
-
-      const { capabilities, walletContext } = session.buildContext();
-      expect(capabilities.supportedActions.includes('stake')).toBe(expected);
-      expect(walletContext.mode).toBe('wallet');
-      if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
-      expect(walletContext.activeAccount.supportedActions.includes('stake')).toBe(expected);
-      expect(walletContext.activeAccount.stakingOffers).toEqual(expected ? [{
-        productId: 'liquid',
-        asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-      }] : undefined);
-    },
-  );
-
-  it('advertises a disabled product only for informational yield reads', () => {
+    ['classic', false, false, false, true],
+    ['ios', false, false, false, true],
+    ['android', false, false, false, true],
+    ['classic', true, false, false, false],
+    ['classic', false, true, false, false],
+    ['classic', false, false, true, false],
+  ] as const)('advertises staking from account policy on %s', (
+    platform, isViewOnly, isTestnet, isStakingDisabled, expected,
+  ) => {
     const session = new AgentV2WalletSession();
     const host = hostContext();
-    host.stakingOffers![0].availability = 'disabled';
+    host.platform = platform;
+    host.uiCapabilities = hostUiCapabilities(platform);
+    host.isTestnet = isTestnet;
+    host.isStakingDisabled = isStakingDisabled;
+    host.accounts[0].isViewOnly = isViewOnly;
+    host.accounts[0].accountType = isViewOnly ? 'viewOnly' : 'regular';
+    host.assetCatalog = [];
     session.update(host);
-    session.updateFeatureCapabilities('disabled', 'disabled', 'available');
-
-    const { capabilities, walletContext } = session.buildContext();
-    expect(capabilities.supportedActions).not.toContain('stake');
-    expect(walletContext.mode).toBe('wallet');
-    if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
-    expect(walletContext.activeAccount.stakingOffers).toBeUndefined();
-    expect(walletContext.activeAccount.stakingYieldOffers).toEqual([{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-    }]);
+    const context = session.buildContext();
+    expect(context.capabilities.supportedActions.includes('stake')).toBe(expected);
+    expect(JSON.stringify(context)).not.toMatch(/stakingOffers|stakingYieldOffers|staking\.offer\.read/);
   });
 
   it.each([
     ['eligible Classic mainnet wallet', 'classic', false, 'regular', false, 2, true],
     ['eligible iOS mainnet wallet', 'ios', false, 'regular', false, 2, true],
-    ['unsupported Android client', 'android', false, 'regular', false, 2, false],
+    ['eligible Android mainnet wallet', 'android', false, 'regular', false, 2, true],
     ['testnet wallet', 'classic', true, 'regular', false, 2, false],
     ['Ledger wallet', 'classic', false, 'ledger', false, 2, false],
     ['view-only wallet', 'classic', false, 'viewOnly', true, 2, false],
-    ['incomplete local catalog', 'classic', false, 'regular', false, 1, false],
+    ['empty local catalog', 'classic', false, 'regular', false, 0, true],
   ] as const)(
-    'advertises Swap preparation only for an %s',
+    'advertises the Swap action only for an %s without a client preparation tool',
     (_name, platform, isTestnet, accountType, isViewOnly, catalogSize, expected) => {
       const session = new AgentV2WalletSession();
       const host = hostContext();
       host.platform = platform;
+      host.uiCapabilities = hostUiCapabilities(platform);
       host.client = platform === 'classic' ? 'web' : 'native';
       host.isTestnet = isTestnet;
       host.accounts[0].accountType = accountType;
@@ -383,7 +319,6 @@ describe('AgentV2WalletSession semantic capabilities', () => {
       session.update(host);
 
       const { capabilities, walletContext } = session.buildContext();
-      expect(capabilities.supportedTools.some(({ name }) => name === 'action.swap.prepare')).toBe(expected);
       expect(capabilities.supportedActions.includes('swap')).toBe(expected);
       expect(walletContext.mode).toBe('wallet');
       if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
@@ -392,34 +327,26 @@ describe('AgentV2WalletSession semantic capabilities', () => {
   );
 
   it.each([
-    ['classic', 'web', [
-      'receive', 'hideSpamAssets', 'openUrl', 'openToken', 'openTransaction', 'openAgent',
-    ], ['receive'], true],
-    ['ios', 'native', [
-      'receive', 'hideSpamAssets', 'openUrl', 'openToken', 'openTransaction', 'openAgent',
-    ], ['receive'], true],
-    ['android', 'native', ['receive'], ['receive'], false],
+    ['classic', 'web', ['send', 'receive', 'openDapp'], ['send', 'receive']],
+    ['ios', 'native', ['send', 'receive', 'openDapp'], ['send', 'receive']],
+    ['android', 'native', ['send', 'receive', 'openDapp'], ['send', 'receive']],
   ] as const)(
-    'keeps eligible reads but withdraws Send capabilities for a view-only wallet on %s',
-    (platform, client, supportedActions, walletSupportedActions, isWalletQuerySupported) => {
+    'advertises supported view-only wallet actions on %s',
+    (platform, client, supportedActions, walletSupportedActions) => {
       const session = new AgentV2WalletSession();
       const host = hostContext();
       host.platform = platform;
+      host.uiCapabilities = hostUiCapabilities(platform);
       host.client = client;
       host.accounts[0].accountType = 'viewOnly';
       host.accounts[0].isViewOnly = true;
       session.update(host);
-      enableWalletQuery(session);
+      session.updateFeatureCapabilities(featureCapabilities());
 
       const { capabilities, walletContext } = session.buildContext();
 
-      expect(capabilities.supportedTools.some(({ name }) => name === 'wallet.data.query'))
-        .toBe(isWalletQuerySupported);
-      expect(capabilities.supportedTools).not.toContainEqual(expect.objectContaining({
-        name: 'action.send.prepare',
-      }));
+      expect(session.isWalletQueryAvailable()).toBe(true);
       expect(capabilities.supportedActions).toEqual(supportedActions);
-      expect(capabilities.receiveActionVersion).toBe(3);
       expect(walletContext.mode).toBe('wallet');
       if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
       expect(walletContext.activeAccount.supportedActions).toEqual(walletSupportedActions);
@@ -434,11 +361,8 @@ describe('AgentV2WalletSession semantic capabilities', () => {
 
     const { capabilities, walletContext } = session.buildContext();
 
-    expect(capabilities.supportedTools).toEqual([]);
-    expect(capabilities.supportedActions).toEqual([
-      'openUrl', 'openToken', 'openTransaction', 'openAgent',
-    ]);
-    expect(capabilities).not.toHaveProperty('receiveActionVersion');
+    expect(capabilities.features).not.toContain('walletDirectory');
+    expect(capabilities.supportedActions).toEqual(['openDapp']);
     expect(walletContext.mode).toBe('wallet');
     if (walletContext.mode !== 'wallet') throw new Error('Expected wallet context');
     expect(walletContext.activeAccount).toMatchObject({ state: 'deleted', supportedActions: [] });
@@ -455,7 +379,6 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     expect(session.update({ ...host, lang: 'ru' })).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: false,
     });
     expect(session.snapshot().revision).toBe(revision);
     expect(session.update({
@@ -470,7 +393,6 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     })).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: false,
     });
     expect(session.snapshot().revision).toBe(revision);
     expect(session.update({ ...host, activeNetwork: 'tron' })).toMatchObject({
@@ -497,7 +419,6 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     expect(session.update(refreshedPrices)).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: false,
     });
     expect(session.snapshot().revision).toBe(revision);
     expect(session.update({
@@ -508,7 +429,6 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     })).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: true,
     });
     expect(session.snapshot().revision).toBe(revision);
     expect(session.update({ ...host, isTestnet: true })).toMatchObject({
@@ -526,11 +446,10 @@ describe('AgentV2WalletSession semantic capabilities', () => {
 
     expect(session.update({
       ...host,
-      stakingOffers: [{ ...host.stakingOffers![0], annualYield: '15' }],
+      isStakingDisabled: true,
     })).toEqual({
       hasAuthorityChanged: false,
       hasWalletContextChanged: false,
-      hasActionPolicyChanged: true,
     });
     expect(session.snapshot().revision).toBe(revision);
   });
@@ -569,6 +488,43 @@ describe('AgentV2WalletSession semantic capabilities', () => {
       hasWalletContextChanged: true,
     });
     expect(session.snapshot().revision).toBe(restoredRevision + 1);
+  });
+
+  it('reuses an immutable authority binding across price and UI policy updates', async () => {
+    const session = new AgentV2WalletSession();
+    const host = hostContext();
+    session.update(host);
+    const initial = await session.walletAuthorityBinding();
+    expect(Object.isFrozen(initial)).toBe(true);
+    expect(await session.walletAuthorityBinding()).toBe(initial);
+    session.update({
+      ...host,
+      isStakingDisabled: true,
+      accounts: host.accounts.map((account) => ({
+        ...account,
+        holdings: account.holdings.map((holding) => ({ ...holding, balance: '42' })),
+      })),
+    });
+    expect(await session.walletAuthorityBinding()).toBe(initial);
+
+    session.update({ ...host, accounts: [{ ...host.accounts[0], label: 'Renamed' }] });
+    const renamed = await session.walletAuthorityBinding();
+    expect(renamed).not.toBe(initial);
+    expect(renamed.accountDigest).toBe(initial.accountDigest);
+    expect(renamed.profileDigest).not.toBe(initial.profileDigest);
+    expect(renamed.revision).toBe(initial.revision + 1);
+  });
+
+  it('converges an in-flight binding on the new session after reset', async () => {
+    const session = new AgentV2WalletSession();
+    session.update(hostContext());
+    const originalSessionId = session.snapshot().sessionId;
+    const pending = session.walletAuthorityBinding();
+    await session.reset();
+    const current = await session.walletAuthorityBinding();
+    expect(current.sessionId).not.toBe(originalSessionId);
+    expect(current.revision).toBe(0);
+    await expect(pending).resolves.toBe(current);
   });
 
   it('converges authority binding when a secondary account changes during hashing', async () => {
@@ -761,97 +717,24 @@ describe('AgentV2WalletSession semantic capabilities', () => {
     });
     expect(session.snapshot().addresses.get(refs!.addressRef)).toBe('EQ-public-address');
   });
-
-  it.each(['classic', 'ios'] as const)(
-    'retains fetched portfolio history across reordered wallet keys on %s',
-    (platform) => {
-      const session = new AgentV2WalletSession();
-      const initialHost = { ...hostContext(), platform };
-      initialHost.accounts[0].portfolioWalletKeys = ['ton:EQ-main', 'tron:T-main'];
-      session.update(initialHost);
-      session.rememberPortfolioHistory({
-        accountId: 'account-id',
-        baseCurrency: 'USD',
-        range: '3M',
-        fetchedAtSlot: 123,
-        netWorth: {
-          status: 'ok',
-          base: 'USD',
-          density: '1d',
-          points: [[1, 10], [2, 12]],
-        },
-      });
-
-      const refreshedHost = { ...hostContext(), platform };
-      refreshedHost.accounts[0].portfolioWalletKeys = ['tron:T-main', 'ton:EQ-main'];
-      session.update(refreshedHost);
-
-      expect(session.snapshot().host?.portfolioHistory?.['3m']).toEqual({
-        fetchedAtSlot: 123,
-        response: expect.objectContaining({ base: 'USD', points: [[1, 10], [2, 12]] }),
-      });
-    },
-  );
-
-  it('drops fetched portfolio history when the active wallet keys change', () => {
-    const session = new AgentV2WalletSession();
-    const initialHost = hostContext();
-    initialHost.accounts[0].portfolioWalletKeys = ['ton:EQ-main'];
-    session.update(initialHost);
-    session.rememberPortfolioHistory({
-      accountId: 'account-id',
-      baseCurrency: 'USD',
-      range: '1D',
-      fetchedAtSlot: 123,
-      netWorth: { status: 'ok', base: 'USD', density: '1h', points: [[1, 10]] },
-    });
-
-    const refreshedHost = hostContext();
-    refreshedHost.accounts[0].portfolioWalletKeys = ['ton:EQ-main', 'tron:T-main'];
-    refreshedHost.portfolioHistory = {
-      '1d': {
-        fetchedAtSlot: 123,
-        response: { status: 'ok', base: 'USD', density: '1h', points: [[1, 10]] },
-      },
-    };
-    session.update(refreshedHost);
-
-    expect(session.snapshot().host?.portfolioHistory).toBeUndefined();
-  });
-
-  it('does not carry portfolio history across account or base-currency authority changes', () => {
-    const session = new AgentV2WalletSession();
-    session.update(hostContext());
-    session.rememberPortfolioHistory({
-      accountId: 'account-id',
-      baseCurrency: 'USD',
-      range: '1D',
-      fetchedAtSlot: 123,
-      netWorth: { status: 'ok', base: 'USD', density: '1h', points: [[1, 10]] },
-    });
-
-    session.update({ ...hostContext(), baseCurrency: 'EUR' });
-
-    expect(session.snapshot().host?.portfolioHistory).toBeUndefined();
-  });
 });
 
-function enableWalletQuery(session: AgentV2WalletSession) {
-  session.updateFeatureCapabilities('available', 'available');
-  session.updateWalletQueryCapabilities({
-    status: 'available',
-    supportedToolVersions: [5],
-    filterCatalog: {
-      version: 1,
-      digest: contractManifest.walletFilterCatalogSha256,
-      requiresClientTimeZone: true,
+function featureCapabilities(
+  digest = contractManifest.walletFilterCatalogSha256,
+): AgentFeatureCapabilitiesResponseV2 {
+  return {
+    protocolVersion: 3,
+    walletQuery: {
+      status: 'available',
+      filterCatalog: { version: 1, digest, requiresClientTimeZone: true },
     },
-  });
+    problemReport: { status: 'available' },
+  };
 }
 
 function hostContext(): AgentV2HostContextSnapshot {
   return {
-    platform: 'classic',
+    platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
     client: 'web',
     lang: 'en',
     baseCurrency: 'USD',
@@ -866,13 +749,6 @@ function hostContext(): AgentV2HostContextSnapshot {
       decimals: 9,
       priceUsd: '3',
       percentChange24h: '1.5',
-    }],
-    stakingOffers: [{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-      annualYield: '14.09',
-      yieldType: 'APY',
-      availability: 'available',
     }],
     accounts: [{
       accountId: 'account-id',

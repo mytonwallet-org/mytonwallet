@@ -22,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentInfo
 import org.mytonwallet.app_air.walletcore.moshi.WcPayPaymentOption
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2Update
 
 @JsonClass(generateAdapter = false)
 enum class ApiTokenUpdateKind {
@@ -42,6 +43,9 @@ enum class ApiTokenUpdateKind {
 }
 
 sealed class ApiUpdate {
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateAgentV2(val update: AgentV2Update?) : ApiUpdate()
 
     interface ApiUpdateDappSignRequest {
         val promiseId: String

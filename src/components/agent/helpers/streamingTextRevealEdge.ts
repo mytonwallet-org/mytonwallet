@@ -234,6 +234,10 @@ function getRevealEdgeVisualFragments(content: HTMLElement, startOffset: number)
 
   while (currentNode) {
     const textNode = currentNode as Text;
+    if (textNode.parentElement?.closest('[data-agent-answer-table]')) {
+      currentNode = walker.nextNode();
+      continue;
+    }
     const text = textNode.data;
     const nodeStartOffset = textOffset;
     const nodeEndOffset = nodeStartOffset + text.length;

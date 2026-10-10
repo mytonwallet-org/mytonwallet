@@ -476,7 +476,9 @@ final class RootSearchToolbarController: NSObject {
         let isRoot = host?.searchRootContentControllers.contains { $0 === controller } == true
         let usesToolbar = (controller as? any SharedBottomToolbarContentProviding)?.isSharedBottomToolbarEnabled == true
         let bottom: CGFloat = isRoot || usesToolbar ? rootBottomChromeHeight : 0
-        controller.additionalSafeAreaInsets.bottom += bottom - previous
+        if bottom != previous {
+            controller.additionalSafeAreaInsets.bottom += bottom - previous
+        }
         contentInsets[identifier] = ContentInset(controller: controller, bottom: bottom)
     }
 
@@ -960,8 +962,11 @@ final class RootSearchToolbarController: NSObject {
                 addressOrDomainByChain: addressOrDomainByChain
             )
 
-        case .agent(let query):
-            AppActions.showAgent(query: query)
+        case .agent(let query, let entryPoint):
+            AppActions.showAgent(
+                query: query,
+                entryPoint: query.map { _ in entryPoint }
+            )
 
         case .website(let url, let title):
             AppActions.openInBrowser(

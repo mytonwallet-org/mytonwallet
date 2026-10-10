@@ -1,7 +1,12 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+# A .husky pointer runs this file without _/h, so honour HUSKY=0 here as well.
+[ "${HUSKY-}" = 0 ] && exit 0
+# .husky/_ is committed, so this runs in fresh worktrees too; refuse while dependencies are missing.
 
 if ! git diff --cached --quiet -- . ':(exclude)mobile/**'; then
+  [ -x node_modules/.bin/tsc ] && [ -x node_modules/.bin/lint-staged ] || {
+    echo "husky - dependencies are not installed in $PWD: run node dev/worktree.mjs prep --deps-only"; exit 1; }
+
   if [ -f "$HOME/.nvm/nvm.sh" ]; then
     export NVM_DIR="$HOME/.nvm/nvm.sh"
     . "$(dirname $NVM_DIR)/nvm.sh"

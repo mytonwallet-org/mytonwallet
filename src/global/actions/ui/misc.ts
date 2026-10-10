@@ -752,14 +752,6 @@ addActionHandler('closeAgent', (global) => {
   return { ...global, isAgentOpen: undefined };
 });
 
-addActionHandler('setAgentMeta', (global, actions, payload) => {
-  return { ...global, agentMeta: { ...global.agentMeta, ...payload } };
-});
-
-addActionHandler('setAgentHints', (global, actions, { hints }) => {
-  return { ...global, agentHints: hints };
-});
-
 addActionHandler('closeExplore', (global) => {
   return { ...global, isExploreOpen: undefined };
 });

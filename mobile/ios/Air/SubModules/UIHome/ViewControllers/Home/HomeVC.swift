@@ -759,7 +759,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         }
         assetsCustomSectionDescriptor = CustomSectionDescriptor(
             id: assetsCustomSectionID,
-            appearance: .insetGrouped,
+            usesInsetGroupedMargins: true,
             dequeueCell: { [unowned self] collectionView, indexPath in
                 collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
             },
@@ -777,7 +777,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         if hasStructuralChanges {
             applySnapshot(makeSnapshot(reconfiguringCustomSections: [tokensCustomSectionID]), animatingDifferences: animated)
         } else {
-            reconfigureCustomSection(id: tokensCustomSectionID)
+            reconfigureCustomSection(id: tokensCustomSectionID, animated: animated)
         }
         updateSkeletonState()
     }
@@ -790,6 +790,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     }
 
     func updateTableViewHeaderFrame(animated: Bool = true, reason: String = #function) {
+        let animated = animated && shouldAnimateContentUpdates && skeletonState != .loading
         let headerHeight = headerPlaceholderHeight
         let balanceHeight = bhvHeight
         let assetsHeight = assetsCustomSectionHeight
@@ -813,11 +814,11 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
                         invalidateCustomSectionLayout(id: assetsCustomSectionID)
                     } else {
                         // A batch update can temporarily hide the cell; queue its new height.
-                        reconfigureCustomSection(id: assetsCustomSectionID)
+                        reconfigureCustomSection(id: assetsCustomSectionID, animated: animated)
                     }
                 }
             }
-            if animated && skeletonState != .loading {
+            if animated {
                 UIView.animateAdaptive(duration: isExpandingProgrammatically == true ? 0.2 : 0.3) { [self] in
                     updates()
                     view.layoutIfNeeded()
@@ -1041,9 +1042,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
 
     private func actionsRowHeightChanged() {
         guard !isCommittingAccount else { return }
-        UIView.animate(withDuration: 0.30) { [self] in
-            walletAssetDidChangeHeight(animated: true)
-        }
+        walletAssetDidChangeHeight(animated: shouldAnimateContentUpdates)
     }
 
     private func updateContent(accountId: String) {

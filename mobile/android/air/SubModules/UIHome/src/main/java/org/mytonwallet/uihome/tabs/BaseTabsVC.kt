@@ -9,6 +9,7 @@ import org.mytonwallet.app_air.uiagent.viewControllers.agent.AgentVC
 import org.mytonwallet.app_air.uiassets.viewControllers.CollectionsMenuHelpers
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC
 import org.mytonwallet.app_air.uiassets.viewControllers.assets.AssetsVC.CollectionMode
+import org.mytonwallet.app_air.uiassets.viewControllers.nft.NftVC
 import org.mytonwallet.app_air.uiassets.viewControllers.token.TokenVC
 import org.mytonwallet.app_air.uibrowser.viewControllers.explore.ExploreVC
 import org.mytonwallet.app_air.uicomponents.base.ITabsVC
@@ -33,7 +34,9 @@ import org.mytonwallet.app_air.walletcore.helpers.SubprojectHelpers
 import org.mytonwallet.app_air.walletcore.models.InAppBrowserConfig
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2EntryPoint
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
+import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
 import org.mytonwallet.uihome.home.HomeVC
 import org.mytonwallet.uihome.home.promotion.PromotionVC
@@ -166,12 +169,15 @@ abstract class BaseTabsVC(context: Context) :
     private fun initialHomeVC(): HomeVC? =
         activeNavigationController?.viewControllers?.singleOrNull() as? HomeVC
 
-    protected fun submitAgentPrompt(prompt: String?) {
+    protected fun submitAgentPrompt(
+        prompt: String?,
+        entryPoint: AgentV2EntryPoint = AgentV2EntryPoint()
+    ) {
         if (prompt.isNullOrBlank()) return
         val agentVC = getNavigationStack(AppTabsManager.ID_AGENT)
             .viewControllers
             .firstOrNull() as? AgentVC ?: return
-        agentVC.submitPrompt(prompt)
+        agentVC.submitPrompt(prompt, entryPoint)
     }
 
     protected fun showAgentMessage(messageId: String?) {
@@ -400,6 +406,15 @@ abstract class BaseTabsVC(context: Context) :
                         token
                     )
                 )
+                return true
+            }
+
+            is WalletEvent.OpenNft -> {
+                val nft = NftStore.getCachedNft(walletEvent.accountId, walletEvent.nft.address)
+                    ?: walletEvent.nft
+                val nav = WNavigationController(window)
+                nav.setRoot(NftVC(context, walletEvent.accountId, nft, listOf(nft)))
+                window.present(nav)
                 return true
             }
 

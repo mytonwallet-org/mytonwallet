@@ -57,7 +57,7 @@ final class MarketScreenModel: ObservableObject {
             }
             self.initialContentTask = nil
         }
-        fetchIfNeeded()
+        refreshIfNeeded()
     }
 
     func scrollToTop() {
@@ -67,11 +67,11 @@ final class MarketScreenModel: ObservableObject {
     func reloadTokens() {
         guard hasStarted else { return }
         rebuildSections()
-        fetchIfNeeded()
+        refreshIfNeeded()
     }
 
-    private func fetchIfNeeded() {
-        guard fetchTask == nil else { return }
+    func refreshIfNeeded() {
+        guard hasStarted, fetchTask == nil else { return }
         if let lastFetchedAt,
            now().timeIntervalSince(lastFetchedAt) < Self.refreshInterval {
             return

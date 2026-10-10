@@ -50,6 +50,7 @@ private extension TokenSendConfiguration {
                 : .send,
             initialAddress: prefilledValues.address,
             initialAmount: prefilledValues.amount,
+            isMaxAmount: prefilledValues.isMaxAmount,
             initialTokenSlug: prefilledValues.token?.nilIfEmpty,
             jettonAddress: prefilledValues.jetton?.nilIfEmpty,
             initialComment: prefilledValues.commentOrMemo ?? "",

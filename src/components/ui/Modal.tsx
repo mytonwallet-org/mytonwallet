@@ -74,6 +74,10 @@ export function closeModal() {
   setModalCloseSignal(Date.now());
 }
 
+export function getIsAnyModalOpen() {
+  return openModalEntries.size > 0;
+}
+
 function Modal({
   dialogRef,
   title,

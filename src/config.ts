@@ -235,7 +235,7 @@ export const MULTISEND_DAPP_URL = process.env.MULTISEND_DAPP_URL || 'https://mul
 export const PORTFOLIO_DAPP_URL = process.env.PORTFOLIO_DAPP_URL || 'https://portfolio.mywallet.io/';
 export const PORTFOLIO_API_URL = process.env.PORTFOLIO_API_URL || 'https://api-portfolio.mywallet.io/api';
 export const AGENT_API_URL = process.env.AGENT_API_URL || 'https://agent.mywallet.io/api';
-export const AGENT_OVERRIDE = parseAgentOverride(process.env.AGENT_OVERRIDE ?? 'v1');
+export const AGENT_OVERRIDE = parseAgentOverride(process.env.AGENT_OVERRIDE);
 export const AGENT_V2_QUOTA_STATUS_ENABLED = process.env.AGENT_V2_QUOTA_STATUS_ENABLED === '1';
 
 export const NFT_MARKETPLACE_URL = 'https://opensea.io/';
@@ -750,7 +750,7 @@ export const ARBITRUM_USDC_MAINNET = {
   decimals: 6,
   chain: 'arbitrum',
   slug: 'arbitrum-0xaf88d065',
-  tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  tokenAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
   label: 'ERC-20',
   image: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
   priceUsd: 1,
@@ -911,7 +911,6 @@ export const ACTIVE_TAB_STORAGE_KEY = IS_GRAM_WALLET
 
 export const INDEXED_DB_NAME = IS_EXPLORER ? 'explorer-keyval-store' : 'keyval-store';
 export const INDEXED_DB_STORE_NAME = 'keyval';
-export const AGENT_WALLET_SENSITIVE_CACHE_DATABASE_NAME = 'mytonwallet-agent-v2-sensitive-cache';
 
 export const WINDOW_PROVIDER_CHANNEL = 'windowProvider';
 export const WINDOW_PROVIDER_PORT = `${IS_GRAM_WALLET ? 'GramWallet' : 'MyWallet'}_popup_reversed`;

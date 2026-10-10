@@ -73,16 +73,17 @@ describe('AgentV2AssistantText', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it('renders settled V2 Markdown statically with passive links', async () => {
+  it.each(['active', 'settled'] as const)('renders clickable V2 Markdown with a %s reveal session', async (status) => {
     TeactDOM.render(
       <AgentV2AssistantText
         messageId={8}
-        text="[Source](https://example.com)"
+        text="[Source](https://example.com) [Receive](mtw://receive)"
         isStreaming={false}
-        shouldAnimate
+        shouldAnimate={false}
+        shouldCommitMarkdownTail
         textRevealPresentation={{
           key: 'v2:8:1',
-          status: 'settled',
+          status,
           shouldRevealFromStart: false,
         }}
       />,
@@ -90,9 +91,9 @@ describe('AgentV2AssistantText', () => {
     );
     await flushUi();
 
-    expect(root.querySelector('[data-agent-static-text]')?.textContent)
-      .toBe('Source (https://example.com)');
-    expect(root.querySelector('a')).toBeNull();
+    expect(root.textContent).toBe('Source Receive');
+    expect(root.querySelectorAll('a')).toHaveLength(1);
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
   });
 
   it('renders branded consent copy and forwards the allow action', async () => {

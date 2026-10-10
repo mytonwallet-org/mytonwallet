@@ -18,15 +18,6 @@ export function createTextRevealPresentation(
   };
 }
 
-export function filterTextRevealPresentations(
-  presentations: TextRevealPresentations,
-  maximumMessageId: number,
-) {
-  return Object.fromEntries(
-    Object.entries(presentations).filter(([messageId]) => Number(messageId) < maximumMessageId),
-  ) as TextRevealPresentations;
-}
-
 export function updateTextRevealPresentation(
   presentations: TextRevealPresentations,
   messageId: number,

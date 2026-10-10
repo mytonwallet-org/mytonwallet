@@ -49,12 +49,12 @@ final class TokenChartCell: FirstRowCell {
 
     func configure(token: ApiToken,
                    historyData: [[Double]]?,
-                   onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void) {
+                   onPeriodChange: @escaping (ApiPriceHistoryPeriod) -> Void,
+                   onAnalyze: (() -> Void)?) {
         chartContainerView?.configure(token: token,
-                                      historyData: historyData) { [weak self] period in
-            guard let _ = self else { return }
-            onPeriodChange(period)
-        }
+                                      historyData: historyData,
+                                      onPeriodChange: onPeriodChange,
+                                      onAnalyze: onAnalyze)
     }
 
 }

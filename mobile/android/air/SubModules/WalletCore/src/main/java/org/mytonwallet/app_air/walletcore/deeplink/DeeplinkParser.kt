@@ -55,7 +55,8 @@ sealed class Deeplink {
         override val accountAddress: String?,
         val from: String?,
         val to: String?,
-        val amountIn: Double?
+        val amountIn: Double?,
+        val amountOut: Double? = null
     ) : Deeplink()
 
     data class Receive(override val accountAddress: String?, val chain: String? = null) : Deeplink()
@@ -70,7 +71,12 @@ sealed class Deeplink {
         val depositWalletAddressTag: String?
     ) : Deeplink()
 
-    data class Stake(override val accountAddress: String?) : Deeplink()
+    data class Stake(
+        override val accountAddress: String?,
+        val tokenSlug: String? = null,
+        val amount: String? = null
+    ) : Deeplink()
+    data class Multisend(override val accountAddress: String?) : Deeplink()
     data class Portfolio(override val accountAddress: String?) : Deeplink()
     data class Market(override val accountAddress: String?) : Deeplink()
     data class MintCard(override val accountAddress: String?) : Deeplink()
@@ -137,6 +143,8 @@ class DeeplinkParser {
             "connect.mytonwallet.org",
             "connect.gramwallet.io"
         )
+        private val STAKE_AMOUNT_PATTERN = Regex("[0-9]+(?:\\.[0-9]+)?")
+        private const val STAKE_PARAMETER_MAX_LENGTH = 128
 
         fun parse(intent: Intent): Deeplink? = parse(intent.data) ?: parse(intent.extras)
 
@@ -372,6 +380,7 @@ class DeeplinkParser {
                     var from: String? = null
                     var to: String? = null
                     var amountIn: Double? = null
+                    var amountOut: Double? = null
 
                     uri.query?.let { query ->
                         val components = query.decodeUrlOrNull()?.split("&")?.mapNotNull {
@@ -388,16 +397,28 @@ class DeeplinkParser {
                         }?.toMap() ?: emptyMap()
 
                         components["amountIn"]?.toDoubleOrNull()?.let { amountIn = it }
+                        components["amountOut"]?.let { value ->
+                            amountOut = value.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+                                ?: return null
+                        }
                         components["in"]?.let { from = it }
                         components["out"]?.let { to = it }
                     }
+
+                    if (amountIn != null && amountOut != null) return null
 
                     if (uri.host == "buy-with-crypto") {
                         if (to == null && from != "toncoin") to = "toncoin"
                         if (from == null) from = TRON_USDT_SLUG
                     }
 
-                    Deeplink.Swap(accountAddress = null, from = from, to = to, amountIn = amountIn)
+                    Deeplink.Swap(
+                        accountAddress = null,
+                        from = from,
+                        to = to,
+                        amountIn = amountIn,
+                        amountOut = amountOut
+                    )
                 }
 
                 "wc" -> handleWalletConnectWrapper(uri)
@@ -412,6 +433,8 @@ class DeeplinkParser {
 
                 "sell-on-card" -> Deeplink.SellOnCard(accountAddress = null)
 
+                "multisend" -> Deeplink.Multisend(accountAddress = null)
+
                 "offramp" -> Deeplink.Offramp(
                     accountAddress = null,
                     transactionId = uri.getQueryParameter("transactionId"),
@@ -421,7 +444,32 @@ class DeeplinkParser {
                     depositWalletAddressTag = uri.getQueryParameter("depositWalletAddressTag")
                 )
 
-                "stake" -> Deeplink.Stake(accountAddress = null)
+                "stake" -> {
+                    val assetSlug = uri.getQueryParameter("asset")
+                    val tokenParameter = uri.getQueryParameter("token")
+                    if (assetSlug != null && tokenParameter != null &&
+                        assetSlug != tokenParameter
+                    ) {
+                        return null
+                    }
+                    val tokenSlug = assetSlug ?: tokenParameter
+                    val amount = uri.getQueryParameter("amount")
+                    if ((tokenSlug?.length ?: 0) > STAKE_PARAMETER_MAX_LENGTH ||
+                        (amount?.length ?: 0) > STAKE_PARAMETER_MAX_LENGTH
+                    ) {
+                        return null
+                    }
+                    if (tokenSlug != null && tokenSlug.isBlank()) return null
+                    if (amount != null && tokenSlug == null) return null
+                    if (amount != null && amount != "all" && (
+                            !STAKE_AMOUNT_PATTERN.matches(amount) ||
+                                amount.toBigDecimalOrNull()?.signum() != 1
+                            )
+                    ) {
+                        return null
+                    }
+                    Deeplink.Stake(accountAddress = null, tokenSlug = tokenSlug, amount = amount)
+                }
 
                 "portfolio" -> Deeplink.Portfolio(accountAddress = null)
 

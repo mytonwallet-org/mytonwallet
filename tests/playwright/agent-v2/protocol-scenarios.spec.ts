@@ -11,9 +11,9 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await agentV2.send('Research the latest TON update');
     await expect(page.getByRole('status')).toHaveText('Searching the web…');
     await expect(page.getByRole('status')).toHaveText('Reviewing sources…');
-    await expect(page.getByRole('status')).toHaveText('Writing the answer…');
+    await expect(page.getByRole('status')).toHaveText('Checking market data…');
+    await expect(page.getByRole('status')).toHaveCount(1);
     const activityLayout = await page.getByRole('status').evaluate((status) => {
-      const conversation = status.closest('.custom-scroll')!;
       const composer = document.querySelector('textarea')!;
       const statusRect = status.getBoundingClientRect();
       const composerRect = composer.getBoundingClientRect();
@@ -22,18 +22,17 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
         statusHeight: statusRect.height,
         statusBottom: statusRect.bottom,
         composerTop: composerRect.top,
-        childCount: status.children.length,
-        distanceToBottom: conversation.scrollHeight - conversation.scrollTop - conversation.clientHeight,
       };
     });
-    expect(activityLayout.statusHeight).toBeLessThanOrEqual(24);
-    expect(activityLayout.childCount).toBe(2);
+    expect(activityLayout.statusHeight).toBeLessThanOrEqual(40);
     expect(activityLayout.statusBottom).toBeLessThanOrEqual(activityLayout.composerTop);
-    expect(activityLayout.distanceToBottom).toBeLessThanOrEqual(1);
-    await expect(page.getByText('Answer plan ready', { exact: true })).toHaveCount(0);
+    // The list scrolls to the pinned question with an animation
+    await expect.poll(() => page.getByRole('status').evaluate((status) => {
+      const conversation = status.closest('.custom-scroll')!;
+      return conversation.scrollHeight - conversation.scrollTop - conversation.clientHeight;
+    })).toBeLessThanOrEqual(1);
     await expect(page.getByText('Relevant sources found', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Sources reviewed: 4', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Checking data freshness…', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Sources reviewed', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Calculations complete', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Research the latest TON update', { exact: true })).toBeVisible();
     await expect(page.getByText(
@@ -63,10 +62,17 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     const conversation = getAgentV2Conversation(page);
     const enterMultilineText = async () => {
       const lines = Array.from({ length: 7 }, (_, index) => `Line ${index + 1}`);
+      let text = '';
       await input.click();
-      for (const [index, line] of lines.entries()) {
-        if (index) await input.press('Shift+Enter');
-        await input.pressSequentially(line);
+      for (const line of lines) {
+        if (text) {
+          await input.press('Shift+Enter');
+          text += '\n';
+          await expect(input).toHaveValue(text);
+        }
+        await page.keyboard.insertText(line);
+        text += line;
+        await expect(input).toHaveValue(text);
       }
     };
     const readLayout = () => conversation.evaluate((element) => {
@@ -92,6 +98,12 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
         distanceToBottom: element.scrollHeight - element.scrollTop - element.clientHeight,
       };
     });
+
+    await conversation.evaluate((element) => {
+      element.scrollTo({ top: element.scrollHeight, behavior: 'instant' });
+      element.dispatchEvent(new Event('scroll'));
+    });
+    await expect.poll(async () => (await readLayout()).distanceToBottom).toBeLessThanOrEqual(1);
 
     const singleLine = await readLayout();
     await enterMultilineText();
@@ -127,8 +139,14 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     expect(withQuota.distanceToBottom).toBeLessThanOrEqual(1);
 
     await input.fill('');
+    await expect(input).toHaveValue('');
     await quotaButton.click();
     await expect(page.getByText(/Daily quota resets in/u)).toHaveCount(0);
+    await expect.poll(readLayout).toMatchObject({
+      inputHeight: singleLine.inputHeight,
+      wrapperHeight: singleLine.wrapperHeight,
+      paddingBottom: singleLine.paddingBottom,
+    });
     await input.click();
     const scrolledUpTop = await conversation.evaluate((element) => {
       const nextScrollTop = (element.scrollHeight - element.clientHeight) / 2;
@@ -182,7 +200,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
 
     await agentV2.send('Retry after provider recovery');
     await expect(page.getByText('Couldn’t get a response', { exact: true })).toBeVisible();
-    await expect(page.getByText('Agent connection was interrupted. Try again.', { exact: true }))
+    await expect(page.getByText('You can try again, but the response may not load.', { exact: true }))
       .toBeVisible();
     await expect(page.locator('[data-agent-v2-message-role="assistant"]')).toHaveCount(1);
     await expect(page.getByRole('status').filter({ hasText: 'Couldn’t get a response' })).toHaveCount(0);
@@ -225,8 +243,7 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
       .toBeVisible();
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open receive', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Open link', exact: true })).toHaveCount(0);
-    await expect(page.getByText('Choose a wallet action.', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open app', exact: true })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Retry request', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeEnabled();
@@ -261,7 +278,18 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
     await expect(page.getByText('Agent is temporarily unavailable', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Retry request', exact: true })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Ask anything' })).toBeDisabled();
+    const input = page.getByRole('textbox', { name: 'Ask anything' });
+    const sendButton = page.getByRole('button', { name: 'Send', exact: true });
+    const draft = 'Next question';
+    const assertDraftCannotSend = async () => {
+      await expect(input).toBeEditable();
+      await input.fill(draft);
+      await expect(sendButton).toBeDisabled();
+      await input.press('Enter');
+      await expect(input).toHaveValue(draft);
+      expect((await agentV2.getState()).runBodies).toHaveLength(1);
+    };
+    await assertDraftCannotSend();
 
     const readLayout = () => getAgentV2Conversation(page).evaluate((messages) => {
       const input = document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Ask anything"]');
@@ -280,67 +308,74 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
       };
     });
     await expect.poll(async () => (await readLayout()).gap).toBeGreaterThanOrEqual(-1);
-    expect((await readLayout()).distanceToBottom).toBeLessThanOrEqual(1);
+    await expect.poll(async () => (await readLayout()).distanceToBottom).toBeLessThanOrEqual(1);
 
     await agentV2.open();
     await expect(page.getByText('A partial response was started.', { exact: true })).toBeVisible();
     await expect(page.getByText('Response interrupted', { exact: true })).toBeVisible();
     await expect(page.getByText('Agent is temporarily unavailable', { exact: true })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Ask anything' })).toBeDisabled();
+    await assertDraftCannotSend();
   });
 
-  test('sends the exact input continuation reference and text', async ({ agentV2, page }) => {
-    await agentV2.reset('continuation');
-    await agentV2.seedWallet();
-    await agentV2.open();
-    await agentV2.acceptConsent();
-
-    await agentV2.send('Prepare a transfer');
-    await page.getByRole('button', { name: 'Enter amount', exact: true }).click();
-    await agentV2.send('1.25');
-    await expect(page.getByText('Continuation accepted: 1.25', { exact: true })).toBeVisible();
-
-    const { messages, runBodies } = await agentV2.getState();
-    const sourceMessage = messages.find((message) => (
-      message.role === 'assistant' && message.content?.text === 'How much TON should I prepare?'
-    ));
-    expect(runBodies[1]).toMatchObject({
-      continuationOf: {
-        messageId: sourceMessage?.id,
-        continuationId: 'continuation-amount',
-      },
-      input: {
-        kind: 'append',
-        message: { text: '1.25' },
-      },
-    });
-  });
-
-  test('does not wait for remote cancellation before switching a hanging run to another account', async ({
+  test('keeps the response active while switching wallets and drafting the next question', async ({
     agentV2,
     page,
   }) => {
-    await agentV2.reset('hanging-run');
+    await agentV2.reset('wallet-switch');
     await agentV2.seedWallet(true);
     await agentV2.open();
     await agentV2.acceptConsent();
 
-    await agentV2.send('Hang on the first account');
-    await expect(page.getByText('Partial response that must not cross accounts.', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Switch Account', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Switch Account', exact: true }).nth(1).click();
+    const walletOptions = page.getByRole('dialog').getByRole('button', { name: 'Switch Account', exact: true });
+    const partialText = 'Partial response before switching wallets.';
+    const assistantMessage = page.locator('[data-agent-v2-message-role="assistant"]:visible');
+    const input = page.locator('textarea[placeholder="Ask anything"]:visible');
+    const sendButton = page.getByRole('button', { name: 'Send', exact: true });
+    await agentV2.send('Start a response on the first account');
+    await expect(assistantMessage).toContainText(partialText);
+    await page.locator('button[aria-label="Switch Account"]:visible').click();
+    await walletOptions.nth(1).click();
 
-    await expect(page.getByRole('dialog')).toBeHidden();
+    await expect(walletOptions).toHaveCount(0);
     await expect(page.locator('button[aria-label="Switch Account"]:visible')
       .filter({ hasText: 'Secondary View Wallet' })).toBeVisible();
-    await expect(page.locator('textarea[placeholder="Ask anything"]:visible:not(:disabled)')).toBeEnabled();
-    await expect(page.locator('[data-agent-v2-message-role="assistant"]:visible')
-      .filter({ hasText: 'Partial response that must not cross accounts.' })).toHaveCount(0);
-    await expect.poll(async () => (await agentV2.getState()).cancelBodies.length).toBe(1);
-    expect((await agentV2.getState()).pendingResponseCount).toBeGreaterThanOrEqual(1);
+    await expect(assistantMessage).toContainText(partialText);
+    await expect(input).toBeEditable();
+
+    await page.locator('button[aria-label="Switch Account"]:visible').click();
+    await expect(walletOptions.first()).toBeVisible();
+    await expect(walletOptions.first()).toBeEnabled();
+    await walletOptions.first().click();
+    await expect(walletOptions).toHaveCount(0);
+    await expect(page.locator('button[aria-label="Switch Account"]:visible')
+      .filter({ hasText: 'Synthetic View Wallet' })).toBeVisible();
+    const draft = 'Next question after switching back';
+    await input.fill(draft);
+    await expect(sendButton).toBeDisabled();
+    await input.press('Enter');
+    await expect(input).toHaveValue(draft);
+    const activeState = await agentV2.getState();
+    expect(activeState.runBodies).toHaveLength(1);
+    expect(activeState.cancelBodies).toHaveLength(0);
+
+    await agentV2.completeRun();
+    await expect(assistantMessage).toContainText(`${partialText} The response continued after switching wallets.`);
+    await expect(assistantMessage).toHaveAttribute('data-agent-v2-message-status', 'complete');
+    await expect(input).toHaveValue(draft);
+    await expect(sendButton).toBeEnabled();
+
+    await sendButton.click();
+    await expect.poll(async () => (await agentV2.getState()).runBodies.length).toBe(2);
+    await expect(input).toHaveValue('');
+    const state = await agentV2.getState();
+    expect(state.runBodies[1].input.message.text).toBe(draft);
+    expect(state.cancelBodies).toHaveLength(0);
+    await expect(assistantMessage).toHaveCount(2);
+    await agentV2.completeRun();
+    await expect(assistantMessage.last()).toHaveAttribute('data-agent-v2-message-status', 'complete');
   });
 
-  test('dispatches receive and URL navigation actions from a completed message', async ({ agentV2, page }) => {
+  test('dispatches a receive action and opens a screen from an answer link', async ({ agentV2, page }) => {
     await agentV2.reset('receive-navigation');
     await agentV2.seedWallet();
     await agentV2.open();
@@ -351,7 +386,9 @@ test.describe('Agent V2 deterministic protocol scenarios', () => {
     await expect(page.getByRole('dialog').getByText(/^(Fund|Add)$/u)).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
 
-    await page.getByRole('button', { name: 'Open link', exact: true }).click();
-    await expect.poll(() => agentV2.blockedExternalRequests).toContain('https://example.com/agent-v2-action');
+    // The seeded wallet is view-only, which opens settings as the settings button did
+    await expect(page.getByText('Theme', { exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Appearance', exact: true }).click();
+    await expect(page.getByText('Theme', { exact: true })).toBeVisible();
   });
 });

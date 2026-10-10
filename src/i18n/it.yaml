@@ -211,6 +211,7 @@ Receiving Address: Indirizzo di ricezione
 Contract Address: Indirizzo del contratto
 Fee: Commissione
 Edit: Modifica
+Regenerate: Rigenera
 Confirm: Conferma
 Data Signed: Dati firmati
 Details: Dettagli
@@ -1342,6 +1343,7 @@ Retry: Riprova
 $agent_chat_running: In esecuzione in background
 $agent_connection_interrupted: La connessione con Agent è stata interrotta. Riprova.
 $agent_history_unavailable: Impossibile caricare la cronologia chat. Riprova.
+$agent_secret_words_removed: "[parole segrete rimosse e non inviate]"
 $agent_activity_analyzing_request: Analisi della richiesta in corso…
 $agent_activity_wallet: Lettura dei dati del wallet…
 $agent_activity_transactions: Verifica dell'attività del wallet…
@@ -1388,7 +1390,6 @@ $agent_hint_security_title: Sicurezza del wallet
 $agent_hint_security_prompt: Mostrami come mantenere al sicuro il mio wallet.
 $agent_hint_receive_title: Ricevi token
 $agent_hint_receive_prompt: Aiutami a ricevere token.
-$agent_input_timeframe: Inserisci timeframe
 $agent_notice_content_over_budget: Il risultato è troppo ampio per essere visualizzato completamente.
 $agent_notice_web_search_no_results: Non è stata trovata alcuna informazione corrispondente alla tua richiesta.
 $agent_error_session: La sessione di Agent è scaduta. Riapri Agent e riprova.
@@ -1446,6 +1447,11 @@ Edit Message: Modifica messaggio
 Toggle Hints: Mostra/Nascondi suggerimenti
 Scroll To Bottom: Scorri fino in fondo
 $agent_clear_chat_confirm: Sei sicuro di voler cancellare la cronologia della chat?
+Report a Problem: Segnala un problema
+$agent_report_problem_description: I messaggi recenti di questa chat verranno inviati al nostro team per aiutarci a risolvere il problema.
+$agent_report_problem_sent: Grazie! La tua segnalazione è stata inviata.
+$agent_report_problem_failed: Impossibile inviare la segnalazione. Riprova.
+$agent_report_problem_rate_limited: Hai inviato diverse segnalazioni di recente. Riprova più tardi.
 $unknown_swap_token: Token sconosciuto nel link di scambio. Sono stati usati i token predefiniti.
 $action_not_available_view_mode: Questa azione non è disponibile per i wallet di sola visualizzazione
 Deposit: Deposita

@@ -11,7 +11,7 @@ import withCacheAsync from '../../../util/withCacheAsync';
 import { getSolanaClient } from './util/client';
 import { getKnownAddressInfo } from '../../common/addresses';
 import { callBackendGet } from '../../common/backend';
-import { buildTokenSlug, updateTokens } from '../../common/tokens';
+import { buildTokenSlug, updateTokens, waitForTokenSlugResolver } from '../../common/tokens';
 import { isValidAddress } from './address';
 import { NETWORK_CONFIG, SOLANA_DERIVATION_PATHS, SOLANA_PROGRAM_IDS } from './constants';
 
@@ -98,27 +98,29 @@ export async function fetchAccountAssets(
   );
   throwIfAborted(signal);
 
-  response.result.items
-    .filter((e) => e.content.metadata.symbol && e.content.metadata.name)
-    .forEach((e) => {
-      const slug = buildTokenSlug('solana', e.id);
+  const resolveTokenSlugs = await waitForTokenSlugResolver(signal);
+  const items = response.result.items.filter((e) => e.content.metadata.symbol && e.content.metadata.name);
+  const slugs = resolveTokenSlugs(items.map((e) => ({ chain: 'solana', address: e.id })));
 
-      slugPairs[slug] = BigInt(e.token_info.balance ?? 0);
+  items.forEach((e, i) => {
+    const slug = slugs[i];
 
-      tokenEntities.push({
-        priceUsd: e.token_info.price_info?.price_per_token,
-        percentChange24h: undefined,
-        type: e.token_info.token_program === SOLANA_PROGRAM_IDS.token[1] ? 'token_2022' : 'legacy_token',
-        name: e.content.metadata.name,
-        symbol: e.content.metadata.symbol,
-        slug,
-        decimals: e.token_info.decimals,
-        chain: 'solana',
-        image: e.content.files?.[0]?.uri || e.content.files?.[0]?.cdn_uri || e.content?.links?.image,
-        tokenAddress: e.id,
-        tokenWalletAddress: e.token_info.associated_token_address,
-      });
+    slugPairs[slug] = BigInt(e.token_info.balance ?? 0);
+
+    tokenEntities.push({
+      priceUsd: e.token_info.price_info?.price_per_token,
+      percentChange24h: undefined,
+      type: e.token_info.token_program === SOLANA_PROGRAM_IDS.token[1] ? 'token_2022' : 'legacy_token',
+      name: e.content.metadata.name,
+      symbol: e.content.metadata.symbol,
+      slug,
+      decimals: e.token_info.decimals,
+      chain: 'solana',
+      image: e.content.files?.[0]?.uri || e.content.files?.[0]?.cdn_uri || e.content?.links?.image,
+      tokenAddress: e.id,
+      tokenWalletAddress: e.token_info.associated_token_address,
     });
+  });
 
   slugPairs[SOLANA.slug] = BigInt(response.result.nativeBalance?.lamports ?? 0);
 

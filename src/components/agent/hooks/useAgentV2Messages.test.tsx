@@ -2,9 +2,10 @@ import React from '../../../lib/teact/teact';
 import TeactDOM from '../../../lib/teact/teact-dom';
 
 import type {
-  AgentActionProposal,
+  AgentHintsResponseV2,
   AgentThreadClearResponseV2,
   AgentThreadSummaryV2,
+  AgentV2LiveAction,
 } from '../../../api/agentV2/protocol/types';
 import type {
   AgentV2ActionPresentation,
@@ -16,50 +17,68 @@ import type {
 } from '../../../api/agentV2/types';
 import type { LangFn } from '../../../hooks/useLang';
 
+import { buildAgentV2HostContext } from '../../../global/agentV2/buildHostContext';
+import { buildAgentBuiltinDapps } from '../../../global/agentV2/builtinDapps';
 import {
   cancelAgentV2ActiveRunReplays,
   publishAgentV2Update,
 } from '../../../util/agentV2Updates';
-import { processDeeplink } from '../../../util/deeplink';
+import { parseDeeplinkTransferParams, processDeeplink } from '../../../util/deeplink';
 import { openUrl } from '../../../util/openUrl';
 import { pause, waitFor } from '../../../util/schedulers';
 import { callApi } from '../../../api';
-import { buildAgentV2HostContext } from '../../agentV2/buildHostContext';
+import { hostUiCapabilities } from '../../../api/agentV2/testing/hostUiCapabilities';
+import { openSite } from '../../explore/helpers/utils';
 import useAgentV2Messages, { type UseAgentV2MessagesResult } from './useAgentV2Messages';
 
-const mockSetAgentMeta = jest.fn();
 const mockOpenReceiveModal = jest.fn();
-const mockOpenTransactionInfo = jest.fn();
-const mockShowTokenActivity = jest.fn();
 const mockSetSwapAmountIn = jest.fn();
 const mockSetSwapAmountOut = jest.fn();
 const mockStartStaking = jest.fn();
 const mockStartSwap = jest.fn();
 const mockStartTransfer = jest.fn();
-const mockSwitchToAgent = jest.fn();
+const mockShowError = jest.fn();
 const mockSwitchToWallet = jest.fn();
-const mockToggleTokenVisibility = jest.fn();
+const FRAGMENT_SITE = {
+  url: 'https://fragment.com/',
+  name: 'Fragment',
+  canBeRestricted: true,
+  isExternal: false,
+};
+let mockExploreSites = [FRAGMENT_SITE];
+let mockIsLimitedRegion = false;
+let mockAccountState: { balances?: { bySlug: Record<string, bigint> } } = {};
+let mockSwapTokensBySlug: Record<string, { slug: string }> = {};
 
 jest.mock('../../../api', () => ({ callApi: jest.fn() }));
-jest.mock('../../../util/deeplink', () => ({ processDeeplink: jest.fn() }));
+jest.mock('../../../util/deeplink', () => ({
+  ...jest.requireActual('../../../util/deeplink'), processDeeplink: jest.fn(), parseDeeplinkTransferParams: jest.fn(),
+}));
 jest.mock('../../../util/openUrl', () => ({ openUrl: jest.fn() }));
-jest.mock('../../agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
+jest.mock('../../explore/helpers/utils', () => ({
+  ...jest.requireActual('../../explore/helpers/utils'),
+  openSite: jest.fn(),
+}));
+jest.mock('../../../global/agentV2/builtinDapps', () => ({ buildAgentBuiltinDapps: jest.fn(() => []) }));
+jest.mock('../../../global/agentV2/buildHostContext', () => ({ buildAgentV2HostContext: jest.fn() }));
 jest.mock('../../../global', () => ({
   ...jest.requireActual('../../../global'),
-  getGlobal: () => ({}),
+  getGlobal: () => ({
+    exploreData: { sites: mockExploreSites },
+    restrictions: { isLimitedRegion: mockIsLimitedRegion },
+    currentAccountId: '0-mainnet',
+    byAccountId: { '0-mainnet': mockAccountState },
+    swapTokenInfo: { bySlug: mockSwapTokensBySlug },
+  }),
   getActions: () => ({
     openReceiveModal: mockOpenReceiveModal,
-    openTransactionInfo: mockOpenTransactionInfo,
-    setAgentMeta: mockSetAgentMeta,
     setSwapAmountIn: mockSetSwapAmountIn,
     setSwapAmountOut: mockSetSwapAmountOut,
-    showTokenActivity: mockShowTokenActivity,
     startStaking: mockStartStaking,
     startSwap: mockStartSwap,
+    showError: mockShowError,
     startTransfer: mockStartTransfer,
-    switchToAgent: mockSwitchToAgent,
     switchToWallet: mockSwitchToWallet,
-    toggleTokenVisibility: mockToggleTokenVisibility,
   }),
 }));
 
@@ -77,6 +96,7 @@ const callApiMock = jest.mocked(callApi);
 const buildAgentV2HostContextMock = jest.mocked(buildAgentV2HostContext);
 const processDeeplinkMock = jest.mocked(processDeeplink);
 const openUrlMock = jest.mocked(openUrl);
+const openSiteMock = jest.mocked(openSite);
 const lang = Object.assign(
   (key: string) => key === '$agent_error_conversation_updated'
     ? 'The conversation was updated. Please try the request again.'
@@ -94,6 +114,7 @@ describe('useAgentV2Messages', () => {
     | AgentV2MutationResult<AgentThreadClearResponseV2>
     | Promise<AgentV2MutationResult<AgentThreadClearResponseV2> | undefined>
     | undefined;
+  let hintsResponse: AgentHintsResponseV2 | undefined;
   let hydratedMessages: AgentV2HydratedMessage[];
   let hydrationNextCursor: string | undefined;
   let olderHydratedMessages: AgentV2HydratedMessage[];
@@ -101,6 +122,7 @@ describe('useAgentV2Messages', () => {
   let shouldFailOlderMessages: boolean;
   let hasAuthorityChanged: boolean | undefined;
   let isConsentAccepted: boolean;
+  let isProblemReportAvailable: boolean;
   let retryRunResponse: AgentV2RunResult | Promise<AgentV2RunResult | undefined> | undefined;
   let setConsentResult: true | undefined;
   let startRunResponses: Array<AgentV2RunResult | Promise<AgentV2RunResult | undefined>>;
@@ -108,6 +130,7 @@ describe('useAgentV2Messages', () => {
   let threadRevision: number;
 
   beforeEach(() => {
+    jest.mocked(buildAgentBuiltinDapps).mockReturnValue([]);
     root = document.createElement('div');
     document.body.appendChild(root);
     result = undefined;
@@ -122,29 +145,34 @@ describe('useAgentV2Messages', () => {
     shouldFailOlderMessages = false;
     hasAuthorityChanged = false;
     isConsentAccepted = true;
+    isProblemReportAvailable = false;
     retryRunResponse = undefined;
     setConsentResult = true;
     startRunResponses = [];
     defaultThreadId = THREAD_ID;
     threadRevision = 5;
-    mockSetAgentMeta.mockReset();
     mockOpenReceiveModal.mockReset();
-    mockOpenTransactionInfo.mockReset();
-    mockShowTokenActivity.mockReset();
     mockSetSwapAmountIn.mockReset();
     mockSetSwapAmountOut.mockReset();
     mockStartStaking.mockReset();
     mockStartSwap.mockReset();
     mockStartTransfer.mockReset();
-    mockSwitchToAgent.mockReset();
+    mockShowError.mockReset();
     mockSwitchToWallet.mockReset();
-    mockToggleTokenVisibility.mockReset();
+    mockAccountState = { balances: { bySlug: {} } };
+    mockSwapTokensBySlug = Object.fromEntries(['toncoin', 'usdton', 'trx'].map((slug) => [slug, { slug }]));
+    mockExploreSites = [FRAGMENT_SITE];
+    mockIsLimitedRegion = false;
+    jest.mocked(parseDeeplinkTransferParams).mockReset();
+    jest.mocked(parseDeeplinkTransferParams).mockReturnValue({ tokenSlug: 'toncoin', amount: 500000000n });
     processDeeplinkMock.mockReset();
     processDeeplinkMock.mockResolvedValue(true);
     openUrlMock.mockReset();
+    openSiteMock.mockReset();
     buildAgentV2HostContextMock.mockReset();
     buildAgentV2HostContextMock.mockReturnValue(hostContext());
     callApiMock.mockReset();
+    hintsResponse = undefined;
     callApiMock.mockImplementation((...args) => {
       const method = args[0];
       switch (method) {
@@ -153,11 +181,11 @@ describe('useAgentV2Messages', () => {
         case 'acceptAgentV2Consent':
           return Promise.resolve(setConsentResult);
         case 'getAgentV2DefaultThread':
-          return Promise.resolve({
-            protocolVersion: 2,
+          return Promise.resolve({ ok: true, value: {
+            protocolVersion: 3,
             thread: { ...threadSummary(threadRevision), id: defaultThreadId },
             created: false,
-          });
+          } });
         case 'getAgentV2Messages':
           if (args[2]) {
             if (shouldFailOlderMessages) {
@@ -184,9 +212,12 @@ describe('useAgentV2Messages', () => {
             },
           });
         case 'getAgentV2Hints':
+          return Promise.resolve(hintsResponse);
         case 'getAgentV2Availability':
         case 'getAgentV2UserQuota':
           return Promise.resolve(undefined);
+        case 'getAgentV2ProblemReportAvailability':
+          return Promise.resolve(isProblemReportAvailable);
         case 'startAgentV2Run':
           return Promise.resolve(startRunResponses.shift() ?? {
             clientRunId: CLIENT_RUN_ID,
@@ -218,6 +249,74 @@ describe('useAgentV2Messages', () => {
     cancelAgentV2ActiveRunReplays();
   });
 
+  it('restores snapshot synchronization after runtime recovery and stops on unmount', async () => {
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => (
+      callApiMock.mock.calls.some(([method, active]) => method === 'setAgentV2ChatActive' && active === true)
+    ), 10, 20)).toBe(true);
+    callApiMock.mockClear();
+
+    publishAgentV2Update({ kind: 'runtimeReady', generation: 104 });
+    expect(await waitFor(() => (
+      callApiMock.mock.calls.some(([method, active]) => method === 'setAgentV2ChatActive' && active === true)
+    ), 10, 20)).toBe(true);
+
+    TeactDOM.render(undefined, root);
+    expect(callApiMock).toHaveBeenLastCalledWith('setAgentV2ChatActive', false);
+    callApiMock.mockClear();
+    publishAgentV2Update({ kind: 'runtimeReady', generation: 105 });
+    expect(callApiMock).not.toHaveBeenCalledWith('setAgentV2ChatActive', true);
+  });
+
+  it('does not activate snapshot synchronization on recovery without consent', async () => {
+    isConsentAccepted = false;
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isConsentAccepted === false, 10, 20)).toBe(true);
+    callApiMock.mockClear();
+
+    publishAgentV2Update({ kind: 'runtimeReady', generation: 106 });
+    expect(callApiMock).not.toHaveBeenCalledWith('setAgentV2ChatActive', true);
+  });
+
+  it('sends the visible starter hint title to the chat and the API', async () => {
+    hintsResponse = {
+      protocolVersion: 3,
+      catalogVersion: 'agent-starter-hints-v1',
+      items: [{ id: 'learn.staking' }],
+    };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => Boolean(result?.hints?.length), 10, 20)).toBe(true);
+
+    const hint = result!.hints![0];
+    result!.sendHint(hint);
+
+    expect(await waitFor(
+      () => Boolean(result?.messages.some((message) => message.text === hint.title)), 10, 20,
+    )).toBe(true);
+    expect(callApiMock).toHaveBeenCalledWith('startAgentV2Run', expect.objectContaining({
+      input: { kind: 'append', text: hint.title },
+      entryPoint: {
+        kind: 'emptyState', surface: 'agentTab', hintId: 'learn.staking',
+        catalogVersion: 'agent-starter-hints-v1',
+      },
+    }));
+  });
+
+  it('shows and sends a message with its recovery phrase replaced by the localized placeholder', async () => {
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+
+    result!.sendMessage('My words: scheme spot photo card baby mountain device kick cradle pact join borrow. Safe?');
+
+    const sent = 'My words: $agent_secret_words_removed. Safe?';
+    expect(await waitFor(() => Boolean(result?.messages.some(({ text }) => text === sent)), 10, 20)).toBe(true);
+    expect(await waitFor(() => callApiMock.mock.calls.some(([method]) => method === 'startAgentV2Run'), 10, 20))
+      .toBe(true);
+    expect(callApiMock).toHaveBeenCalledWith('startAgentV2Run', expect.objectContaining({
+      input: { kind: 'append', text: sent },
+    }));
+  });
+
   it('hydrates after Agent consent is persisted', async () => {
     isConsentAccepted = false;
     TeactDOM.render(<Harness />, root);
@@ -233,6 +332,18 @@ describe('useAgentV2Messages', () => {
     expect(result!.isConsentAccepted).toBe(true);
     expect(callApiMock).toHaveBeenCalledWith('getAgentV2DefaultThread');
     expect(callApiMock).toHaveBeenCalledWith('getAgentV2Messages', THREAD_ID);
+  });
+
+  it.each([true, false])('offers problem reports only while the server takes them: %s', async (isAvailable) => {
+    isProblemReportAvailable = isAvailable;
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInitialLoadComplete === true, 10, 20)).toBe(true);
+    expect(await waitFor(() => callApiMock.mock.calls.some(
+      ([method]) => method === 'getAgentV2ProblemReportAvailability',
+    ), 10, 20)).toBe(true);
+    await waitFor(() => Boolean(result?.reportProblem), 5, 20);
+
+    expect(Boolean(result!.reportProblem)).toBe(isAvailable);
   });
 
   it('keeps Agent consent rejected when persistence fails', async () => {
@@ -497,9 +608,127 @@ describe('useAgentV2Messages', () => {
       10,
       20,
     )).toBe(true);
-    expect(callApiMock).toHaveBeenLastCalledWith('startAgentV2Run', expect.objectContaining({
+    expect(callApiMock).toHaveBeenCalledWith('startAgentV2Run', expect.objectContaining({
       input: { kind: 'append', text: 'Retry after clear failure' },
     }));
+  });
+
+  it('shows a cleared thread when a clear that got no answer reached the server', async () => {
+    clearThreadResponse = {
+      ok: false,
+      error: { code: 'network_error', retryable: true },
+    };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(
+      () => result?.isInputDisabled === false && result.messages.length === 1,
+      10,
+      20,
+    )).toBe(true);
+    threadRevision = 6;
+    hydratedMessages = [];
+
+    result!.clearChat();
+    expect(await waitFor(
+      () => result?.isInputDisabled === false && result.messages.length === 0,
+      10,
+      20,
+    )).toBe(true);
+    clearThreadResponse = {
+      ok: true,
+      value: { protocolVersion: 3, thread: { ...threadSummary(7), id: THREAD_ID }, duplicate: false },
+    };
+    result!.clearChat();
+
+    expect(await waitFor(
+      () => callApiMock.mock.calls.filter(([method]) => method === 'clearAgentV2Thread').length === 2,
+      10,
+      20,
+    )).toBe(true);
+    expect(callApiMock).toHaveBeenLastCalledWith('clearAgentV2Thread', THREAD_ID, 6);
+  });
+
+  it('clears the chat while an answer runs and never shows the cancelled answer', async () => {
+    let resolveRun!: (result: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    let resolveClear!: (value: AgentV2MutationResult<AgentThreadClearResponseV2>) => void;
+    clearThreadResponse = new Promise((resolve) => {
+      resolveClear = resolve;
+    });
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+
+    result!.sendMessage('Question');
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    expect(await waitFor(() => result?.messages.length === 3 && result.activity !== undefined, 10, 20)).toBe(true);
+
+    result!.clearChat();
+    expect(await waitFor(() => result?.messages.length === 0, 10, 20)).toBe(true);
+    expect(result!.activity).toBeUndefined();
+    expect(result!.isInputDisabled).toBe(true);
+    expect(callApiMock).toHaveBeenCalledWith('clearAgentV2Thread', THREAD_ID, 6);
+
+    publishAgentV2Update({ kind: 'textDelta', ...routing(), messageId: ASSISTANT_MESSAGE_ID, delta: 'Late text' });
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: SECOND_ASSISTANT_MESSAGE_ID, contentKind: 'markdown',
+    });
+    publishAgentV2Update({ kind: 'runCancelled', ...routing() });
+    resolveClear(successfulClear(8));
+    await pause(20);
+    expect(result!.messages).toEqual([]);
+    expect(result!.isInputDisabled).toBe(true);
+
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'cancelled' });
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+    expect(result!.messages).toEqual([]);
+
+    result!.sendMessage('Next question');
+    expect(await waitFor(
+      () => callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run').length === 2,
+      10,
+      20,
+    )).toBe(true);
+    expect(callApiMock).toHaveBeenLastCalledWith('startAgentV2Run', expect.objectContaining({
+      threadId: THREAD_ID,
+      expectedThreadRevision: 8,
+      input: { kind: 'append', text: 'Next question' },
+    }));
+    expect(await waitFor(() => result?.messages.map(({ text }) => text).join() === 'Next question', 10, 20)).toBe(true);
+  });
+
+  it('restores the server chat with the clear failure after cancelling a running answer', async () => {
+    let resolveRun!: (result: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    clearThreadResponse = { ok: false, error: { code: 'network_error', retryable: true } };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.isInputDisabled === false && result.messages.length === 1, 10, 20)).toBe(true);
+
+    result!.sendMessage('Question');
+    publishAgentV2Update({ kind: 'runStarted', ...routing(), threadRevision: 5, inputMessageId: INPUT_MESSAGE_ID });
+    result!.clearChat();
+    expect(await waitFor(
+      () => result?.messages.at(-1)?.text === 'Agent connection was interrupted.',
+      10,
+      20,
+    )).toBe(true);
+    expect(result!.messages.map(({ text }) => text)).toEqual([
+      'Persisted request',
+      'Agent connection was interrupted.',
+    ]);
+    expect(result!.isInputDisabled).toBe(true);
+
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'cancelled' });
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+    expect(result!.messages.map(({ text }) => text)).toEqual([
+      'Persisted request',
+      'Agent connection was interrupted.',
+    ]);
   });
 
   it('synchronizes newly saved addresses before starting a run', async () => {
@@ -559,7 +788,7 @@ describe('useAgentV2Messages', () => {
       thread: { ...threadSummary(9), id: REPLACEMENT_THREAD_ID },
     });
     expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
-    expect(result!.messages.map(({ text }) => text)).toEqual(['Persisted request']);
+    expect(result!.messages).toEqual([]);
 
     result!.sendMessage('Request on replacement thread');
     expect(await waitFor(
@@ -574,18 +803,10 @@ describe('useAgentV2Messages', () => {
       }),
     ]);
 
-    const clearMetaCallsBeforeCompletion = mockSetAgentMeta.mock.calls
-      .filter(([meta]) => meta.messageCount === 0).length;
     resolveClear(successfulClear(6));
     await pause(20);
 
-    expect(result!.messages.map(({ text }) => text)).toEqual([
-      'Persisted request',
-      'Request on replacement thread',
-    ]);
-    expect(mockSetAgentMeta.mock.calls.filter(([meta]) => meta.messageCount === 0)).toHaveLength(
-      clearMetaCallsBeforeCompletion,
-    );
+    expect(result!.messages.map(({ text }) => text)).toEqual(['Request on replacement thread']);
   });
 
   it('binds an admitted append to its canonical input ID without ordinary hydration', async () => {
@@ -713,6 +934,42 @@ describe('useAgentV2Messages', () => {
     });
   });
 
+  it('hides a historical failure after a newer user question is hydrated', async () => {
+    hydratedMessages = conversationMessages();
+    hydratedMessages[1] = {
+      ...hydratedMessages[1], status: 'error', error: { code: 'provider_error', retryable: true },
+    };
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 4, 10, 20)).toBe(true);
+    expect(result!.messages[1].text).toBe('First response');
+    expect(result!.messages[1].error).toBeUndefined();
+    expect(result!.messages[1].isRetryAvailable).toBeUndefined();
+  });
+
+  it('hides the previous failure when a new question is admitted and preserves its partial text', async () => {
+    hydratedMessages = [persistedUserMessage(), {
+      ...persistedAssistantTextMessage(), status: 'error', error: { code: 'provider_error', retryable: true },
+    }];
+    let resolveRun!: (value: AgentV2RunResult) => void;
+    startRunResponses = [new Promise((resolve) => {
+      resolveRun = resolve;
+    })];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    const failedMessage = result!.messages[1];
+    result!.sendMessage('A new question');
+    expect(await waitFor(() => result?.isInputDisabled === true, 10, 20)).toBe(true);
+    expect(result!.messages[1].error).toEqual(failedMessage.error);
+    publishAgentV2Update({
+      kind: 'runStarted', ...routing(), threadRevision: 6, inputMessageId: INPUT_MESSAGE_ID,
+    });
+    expect(await waitFor(() => result?.messages[1].error === undefined, 10, 20)).toBe(true);
+    expect(result!.messages[1]).toMatchObject({ id: failedMessage.id, text: failedMessage.text });
+    expect(result!.messages[1].isRetryAvailable).toBeUndefined();
+    resolveRun({ clientRunId: CLIENT_RUN_ID, runId: RUN_ID, inputMessageId: INPUT_MESSAGE_ID, state: 'completed' });
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+  });
+
   it('renders a pre-admission network failure as an assistant message and retries the exact admission', async () => {
     let resolveInitial!: (result: AgentV2RunResult) => void;
     let resolveRetry!: (result: AgentV2RunResult) => void;
@@ -822,6 +1079,51 @@ describe('useAgentV2Messages', () => {
       10,
       20,
     )).toBe(true);
+  });
+
+  it('starts a fresh regeneration after a non-retryable admission rejection', async () => {
+    let resolveRetryRequest!: (result: AgentV2RunResult) => void;
+    hydratedMessages = [
+      persistedUserMessage(),
+      {
+        ...persistedAssistantTextMessage(),
+        status: 'error',
+        error: { code: 'provider_error', retryable: true },
+      },
+    ];
+    startRunResponses = [new Promise((resolve) => {
+      resolveRetryRequest = resolve;
+    })];
+    TeactDOM.render(<Harness />, root);
+    expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
+    const failedMessageId = result!.messages.at(-1)!.id;
+    result!.retryMessage(failedMessageId);
+    expect(await waitFor(() => result?.isInputDisabled === true, 10, 20)).toBe(true);
+    publishAgentV2Update({
+      kind: 'runFailed',
+      clientRunId: CLIENT_RUN_ID,
+      threadId: THREAD_ID,
+      code: 'regenerate_target_invalid',
+      retryable: false,
+    });
+    resolveRetryRequest({ clientRunId: CLIENT_RUN_ID, state: 'failed' });
+    expect(await waitFor(() => result?.isInputDisabled === false, 10, 20)).toBe(true);
+    expect(result!.messages.at(-1)).toMatchObject({ id: failedMessageId, isRetryAvailable: true });
+
+    result!.retryMessage(failedMessageId);
+    expect(await waitFor(
+      () => callApiMock.mock.calls.filter(([method]) => method === 'startAgentV2Run').length === 2,
+      10,
+      20,
+    )).toBe(true);
+    expect(callApiMock).toHaveBeenLastCalledWith('startAgentV2Run', expect.objectContaining({
+      input: {
+        kind: 'regenerate',
+        targetAssistantMessageId: persistedAssistantTextMessage().id,
+        userMessageId: persistedUserMessage().id,
+      },
+    }));
+    expect(callApiMock).not.toHaveBeenCalledWith('retryAgentV2Run', CLIENT_RUN_ID);
   });
 
   it('removes an unadmitted optimistic message when the user starts a different request', async () => {
@@ -1300,7 +1602,7 @@ describe('useAgentV2Messages', () => {
     });
   });
 
-  it('opens the existing transfer review for an activated Send action', async () => {
+  it('opens a wallet deeplink only after activating Send', async () => {
     TeactDOM.render(<Harness />, root);
     await pause(20);
     const action = sendAction();
@@ -1328,15 +1630,8 @@ describe('useAgentV2Messages', () => {
     expect(message.actions).toEqual([action]);
     expect(message.actionPresentations?.[action.id]).toEqual(sendPresentation());
     resolvedAction = {
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'usd-tether',
-        amountAtomic: '100000000',
-        toAddress: 'EQ-mom-private',
-        comment: 'Спасибо',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     };
 
     result!.activateAction(message.id, action);
@@ -1347,20 +1642,20 @@ describe('useAgentV2Messages', () => {
     expect(synchronizeCall).toBeGreaterThanOrEqual(0);
     expect(resolveCall).toBeGreaterThan(synchronizeCall);
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
+    expect(parseDeeplinkTransferParams).toHaveBeenCalledWith(
+      'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000', expect.anything(),
+    );
     expect(mockStartTransfer).toHaveBeenCalledWith({
-      tokenSlug: 'usd-tether',
-      amount: 100000000n,
-      toAddress: 'EQ-mom-private',
-      comment: 'Спасибо',
-      shouldRequireFreshAuth: true,
+      tokenSlug: 'toncoin', amount: 500000000n, shouldRequireFreshAuth: true,
     });
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
   });
 
   it('opens Send without an amount through the direct Open Send action', async () => {
+    jest.mocked(parseDeeplinkTransferParams).mockReturnValue({ tokenSlug: 'gram' });
     resolvedAction = {
       kind: 'sendForm',
-      tokenSlug: 'gram',
-      toAddress: 'EQ-defi-private',
+      url: 'mtw://send/ton:EQ-defi-private?token=gram',
     } satisfies AgentV2ResolvedAction;
     actionPresentationPromise = Promise.resolve(sendFormPresentation());
     TeactDOM.render(<Harness />, root);
@@ -1388,13 +1683,77 @@ describe('useAgentV2Messages', () => {
     await pause(20);
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
-    expect(mockStartTransfer).toHaveBeenCalledWith({
-      tokenSlug: 'gram',
-      amount: undefined,
-      toAddress: 'EQ-defi-private',
-      comment: undefined,
-      shouldRequireFreshAuth: true,
+    expect(mockStartTransfer).toHaveBeenCalledWith({ tokenSlug: 'gram', shouldRequireFreshAuth: true });
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ toncoin: 5_000_000_000n }, { amount: 5_000_000_000n }],
+    [{}, {}],
+  ])('fills Send with the balance of an asset the agent was asked to send in full: %o', async (
+    bySlug,
+    expectedAmount,
+  ) => {
+    mockAccountState = { balances: { bySlug } };
+    jest.mocked(parseDeeplinkTransferParams).mockReturnValue({ toAddress: 'EQ-mom-private', tokenSlug: 'toncoin' });
+    resolvedAction = { kind: 'sendForm', url: 'mtw://send/ton:EQ-mom-private?token=toncoin', isMaxAmount: true };
+    actionPresentationPromise = Promise.resolve(sendFormPresentation());
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    const action = sendFormAction();
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'semantic',
     });
+    publishAgentV2Update({ kind: 'actionAvailable', ...routing(), messageId: ASSISTANT_MESSAGE_ID, action });
+    await pause(20);
+    const message = result!.messages.find(({ actions }) => actions?.some(({ id }) => id === action.id))!;
+
+    result!.activateAction(message.id, action);
+    await pause(20);
+
+    expect(mockStartTransfer).toHaveBeenCalledWith({
+      toAddress: 'EQ-mom-private', tokenSlug: 'toncoin', ...expectedAmount, shouldRequireFreshAuth: true,
+    });
+  });
+
+  it.each([
+    [false, '$dont_have_required_token', { toAddress: 'EQ-mom-private', tokenSlug: 'usdton' }],
+    [true, '$dont_have_required_token', undefined],
+    [false, '$unknown_token_address', undefined],
+    [true, '$unknown_token_address', undefined],
+    [false, '$transfer_link_expired', undefined],
+    [true, '$transfer_link_expired', undefined],
+  ])('opens Send with the requested asset only while balances load, loaded=%s, error=%s', async (
+    areBalancesLoaded,
+    error,
+    expectedTransfer,
+  ) => {
+    mockAccountState = areBalancesLoaded ? { balances: { bySlug: {} } } : {};
+    jest.mocked(parseDeeplinkTransferParams).mockReturnValue({
+      toAddress: 'EQ-mom-private', tokenSlug: 'toncoin', error,
+    });
+    resolvedAction = { kind: 'sendForm', url: 'mtw://send/ton:EQ-mom-private?token=usdton' };
+    actionPresentationPromise = Promise.resolve(sendFormPresentation());
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    const action = sendFormAction();
+    publishAgentV2Update({
+      kind: 'messageStarted', ...routing(), messageId: ASSISTANT_MESSAGE_ID, contentKind: 'semantic',
+    });
+    publishAgentV2Update({ kind: 'actionAvailable', ...routing(), messageId: ASSISTANT_MESSAGE_ID, action });
+    await pause(20);
+    const message = result!.messages.find(({ actions }) => actions?.some(({ id }) => id === action.id))!;
+
+    result!.activateAction(message.id, action);
+    await pause(20);
+
+    if (expectedTransfer) {
+      expect(mockStartTransfer).toHaveBeenCalledWith({ ...expectedTransfer, shouldRequireFreshAuth: true });
+      expect(mockShowError).not.toHaveBeenCalled();
+    } else {
+      expect(mockStartTransfer).not.toHaveBeenCalled();
+      expect(mockShowError).toHaveBeenCalledWith({ error });
+    }
   });
 
   it.each([
@@ -1405,50 +1764,14 @@ describe('useAgentV2Messages', () => {
       verify: () => expect(mockOpenReceiveModal).toHaveBeenCalledWith({ chain: 'ton' }),
     },
     {
-      name: 'Hide spam assets',
-      action: hideSpamAssetsAction(),
-      resolved: { kind: 'hideSpamAssets', slugs: ['spam-one', 'spam-two'] } satisfies AgentV2ResolvedAction,
-      verify: () => expect(mockToggleTokenVisibility.mock.calls).toEqual([
-        [{ slug: 'spam-one', shouldShow: false }],
-        [{ slug: 'spam-two', shouldShow: false }],
-      ]),
-    },
-    {
-      name: 'Open URL',
-      action: openUrlAction(),
-      resolved: { kind: 'openUrl', url: 'https://example.com/help' } satisfies AgentV2ResolvedAction,
-      verify: () => expect(openUrlMock).toHaveBeenCalledWith(
-        'https://example.com/help',
-        { isExternal: true },
+      name: 'Open DApp',
+      action: openDappAction(),
+      resolved: { kind: 'openDapp', url: FRAGMENT_SITE.url } satisfies AgentV2ResolvedAction,
+      verify: () => expect(openSiteMock).toHaveBeenCalledWith(
+        FRAGMENT_SITE.url,
+        FRAGMENT_SITE.isExternal,
+        FRAGMENT_SITE.name,
       ),
-    },
-    {
-      name: 'Open token',
-      action: openTokenAction(),
-      resolved: { kind: 'openToken', slug: 'toncoin', chain: 'ton' } satisfies AgentV2ResolvedAction,
-      verify: () => {
-        expect(mockShowTokenActivity).toHaveBeenCalledWith({ slug: 'toncoin' });
-        expect(mockSwitchToWallet).toHaveBeenCalledTimes(1);
-      },
-    },
-    {
-      name: 'Open transaction',
-      action: openTransactionAction(),
-      resolved: {
-        kind: 'openTransaction',
-        chain: 'ton',
-        transactionRef: 'transaction-hash',
-      } satisfies AgentV2ResolvedAction,
-      verify: () => expect(mockOpenTransactionInfo).toHaveBeenCalledWith({
-        txHash: 'transaction-hash',
-        chain: 'ton',
-      }),
-    },
-    {
-      name: 'Open Agent',
-      action: openAgentAction(),
-      resolved: { kind: 'openAgent', entryPoint: { kind: 'agentTab' } } satisfies AgentV2ResolvedAction,
-      verify: () => expect(mockSwitchToAgent).toHaveBeenCalledTimes(1),
     },
   ])('dispatches a resolved $name action after an explicit click', async ({ action, resolved, verify }) => {
     TeactDOM.render(<Harness />, root);
@@ -1462,6 +1785,52 @@ describe('useAgentV2Messages', () => {
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
     verify();
+  });
+
+  it.each([
+    ['the app was removed from Explore', false, []],
+    ['the app is restricted in the current region', true, [FRAGMENT_SITE]],
+  ] as const)('does not open a DApp when %s', async (_name, isLimitedRegion, sites) => {
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    const action = openDappAction();
+    publishAction(action);
+    await pause(20);
+    resolvedAction = { kind: 'openDapp', url: FRAGMENT_SITE.url } satisfies AgentV2ResolvedAction;
+    mockExploreSites = [...sites];
+    mockIsLimitedRegion = isLimitedRegion;
+
+    result!.activateAction(result!.messages.at(-1)!.id, action);
+    await pause(20);
+
+    expect(openSiteMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['mtw://buy-with-card?chain=solana&provider=moonpay', true],
+    ['mtw://buy-with-card?chain=ton&provider=moonpay', false],
+    ['mtw://multisend', true],
+    ['mtw://send', false],
+    ['https://unlisted.example/', false],
+  ] as const)('opens only the exact built-in route outside Explore: %s', async (url, shouldOpen) => {
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    jest.mocked(buildAgentBuiltinDapps).mockReturnValue([{ name: 'Buy SOL via MoonPay',
+      url: 'mtw://buy-with-card?chain=solana&provider=moonpay' }]);
+    const action = { ...openDappAction(), url };
+    publishAction(action);
+    await pause(20);
+    mockExploreSites = [];
+    resolvedAction = { kind: 'openDapp', url };
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
+
+    result!.activateAction(result!.messages.at(-1)!.id, action);
+    await pause(20);
+
+    if (shouldOpen) expect(processDeeplinkMock).toHaveBeenCalledWith(url);
+    else expect(processDeeplinkMock).not.toHaveBeenCalled();
+    expect(openSiteMock).not.toHaveBeenCalled();
+    expect(openUrlMock).not.toHaveBeenCalled();
   });
 
   it('marks an action inactive when explicit resolution rejects it', async () => {
@@ -1486,36 +1855,46 @@ describe('useAgentV2Messages', () => {
       action: swapAction('source'),
       resolved: {
         kind: 'openSwap',
+        url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
         tokenInSlug: 'toncoin',
         tokenOutSlug: 'usdton',
         amount: '10',
         amountSide: 'source',
       } satisfies AgentV2ResolvedAction,
-      verify: () => {
-        expect(mockStartSwap).toHaveBeenCalledWith({
-          tokenInSlug: 'toncoin', tokenOutSlug: 'usdton', amountIn: '10',
-        });
-        expect(mockSetSwapAmountIn).toHaveBeenCalledWith({ amount: '10' });
-        expect(mockSetSwapAmountOut).not.toHaveBeenCalled();
-      },
+
     },
     {
       name: 'destination-sided Swap',
       action: swapAction('destination'),
       resolved: {
         kind: 'openSwap',
+        url: 'https://my.tt/swap?in=usdton&out=toncoin&amountOut=10',
         tokenInSlug: 'usdton',
         tokenOutSlug: 'toncoin',
         amount: '10',
         amountSide: 'destination',
       } satisfies AgentV2ResolvedAction,
-      verify: () => {
-        expect(mockStartSwap).toHaveBeenCalledWith({ tokenInSlug: 'usdton', tokenOutSlug: 'toncoin' });
-        expect(mockSetSwapAmountOut).toHaveBeenCalledWith({ amount: '10' });
-        expect(mockSetSwapAmountIn).not.toHaveBeenCalled();
-      },
+
     },
-  ])('revalidates and opens $name in the existing Swap flow', async ({ action, resolved, verify }) => {
+    {
+      name: 'TRX purchase form without a source token or amount',
+      action: {
+        ...swapAction('source'),
+        sourceAsset: undefined,
+        destinationAsset: { slug: 'trx', chain: 'tron', symbol: 'TRX', decimals: 6 },
+        amount: undefined,
+        url: 'https://my.tt/swap?out=trx',
+      },
+      resolved: {
+        kind: 'openSwap',
+        url: 'https://my.tt/swap?out=trx',
+        tokenInSlug: undefined,
+        tokenOutSlug: 'trx',
+        amount: undefined,
+        amountSide: undefined,
+      } satisfies AgentV2ResolvedAction,
+    },
+  ])('revalidates and opens $name in the existing Swap flow', async ({ action, resolved }) => {
     TeactDOM.render(<Harness />, root);
     await pause(20);
     publishAction(action);
@@ -1526,12 +1905,66 @@ describe('useAgentV2Messages', () => {
     await pause(20);
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
-    expect(mockSwitchToWallet).toHaveBeenCalledTimes(1);
+    expect(mockSwitchToWallet).not.toHaveBeenCalled();
+    expect(mockStartSwap).toHaveBeenCalledWith({
+      tokenInSlug: resolved.tokenInSlug,
+      tokenOutSlug: resolved.tokenOutSlug,
+      amountIn: resolved.amountSide === 'source' ? resolved.amount : undefined,
+    });
+    if (resolved.amountSide === 'destination') {
+      expect(mockSetSwapAmountOut).toHaveBeenCalledWith({ amount: resolved.amount });
+    } else {
+      expect(mockSetSwapAmountOut).not.toHaveBeenCalled();
+    }
     expect(processDeeplinkMock).not.toHaveBeenCalled();
-    verify();
   });
 
-  it('revalidates exact Staking before opening its exact deeplink', async () => {
+  it('rejects a partial Swap when its requested token disappears from the current swap catalog', async () => {
+    const action = {
+      ...swapAction('source'),
+      sourceAsset: undefined,
+      destinationAsset: { slug: 'trx', chain: 'tron', symbol: 'TRX', decimals: 6 },
+      amount: undefined,
+      url: 'https://my.tt/swap?out=trx',
+    };
+    resolvedAction = { kind: 'openSwap', url: action.url, tokenOutSlug: 'trx' };
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    publishAction(action);
+    await pause(20);
+    delete mockSwapTokensBySlug.trx;
+
+    result!.activateAction(result!.messages.at(-1)!.id, action);
+    await pause(20);
+
+    expect(mockShowError).toHaveBeenCalledWith({ error: '$unknown_swap_token' });
+    expect(mockStartSwap).not.toHaveBeenCalled();
+    expect(mockSwitchToWallet).not.toHaveBeenCalled();
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a resolved Swap when current wallet eligibility has not reached the runtime yet', async () => {
+    const action = swapAction('source');
+    resolvedAction = {
+      kind: 'openSwap', url: action.url, tokenInSlug: 'toncoin', tokenOutSlug: 'usdton',
+      amount: '10', amountSide: 'source',
+    };
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    publishAction(action);
+    await pause(20);
+    buildAgentV2HostContextMock.mockReturnValue({ ...hostContext(), isTestnet: true });
+
+    result!.activateAction(result!.messages.at(-1)!.id, action);
+    await pause(20);
+
+    expect(mockStartSwap).not.toHaveBeenCalled();
+    expect(mockSwitchToWallet).not.toHaveBeenCalled();
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])('keeps Agent open when the staking deeplink is handled=%s', async (isHandled) => {
+    processDeeplinkMock.mockResolvedValue(isHandled);
     const action = exactStakeAction();
     const resolved = {
       kind: 'openStaking',
@@ -1551,13 +1984,14 @@ describe('useAgentV2Messages', () => {
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
     expect(processDeeplinkMock).toHaveBeenCalledWith(deeplink);
-    expect(mockSwitchToWallet).toHaveBeenCalledTimes(1);
+    expect(mockSwitchToWallet).not.toHaveBeenCalled();
   });
 
   it('uses current runtime authority for Swap without Send-specific host synchronization', async () => {
     const action = swapAction('source');
     resolvedAction = {
       kind: 'openSwap',
+      url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
       tokenInSlug: 'toncoin',
       tokenOutSlug: 'usdton',
       amount: '10',
@@ -1572,9 +2006,7 @@ describe('useAgentV2Messages', () => {
     await pause(20);
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
-    expect(mockStartSwap).toHaveBeenCalledWith({
-      tokenInSlug: 'toncoin', tokenOutSlug: 'usdton', amountIn: '10',
-    });
+    expect(mockStartSwap).toHaveBeenCalledWith({ tokenInSlug: 'toncoin', tokenOutSlug: 'usdton', amountIn: '10' });
     expect(callApiMock.mock.calls.filter(([method]) => method === 'updateAgentV2HostContext')).toHaveLength(0);
   });
 
@@ -1599,7 +2031,7 @@ describe('useAgentV2Messages', () => {
     resolvedActionPromise = resolution.promise;
     TeactDOM.render(<Harness />, root);
     await pause(20);
-    const action = hideSpamAssetsAction();
+    const action = receiveAction();
     publishAction(action);
     await pause(20);
 
@@ -1610,10 +2042,10 @@ describe('useAgentV2Messages', () => {
       20,
     )).toBe(true);
     buildAgentV2HostContextMock.mockReturnValue(hostContext('account-two'));
-    resolution.resolve({ kind: 'hideSpamAssets', slugs: ['spam-one'] });
+    resolution.resolve({ kind: 'openReceive', chain: 'ton' });
     await pause(20);
 
-    expect(mockToggleTokenVisibility).not.toHaveBeenCalled();
+    expect(mockOpenReceiveModal).not.toHaveBeenCalled();
     expect(callApiMock.mock.calls.filter(([method]) => method === 'updateAgentV2HostContext')).toHaveLength(0);
   });
 
@@ -1638,23 +2070,14 @@ describe('useAgentV2Messages', () => {
     expect(mockStartTransfer).not.toHaveBeenCalled();
   });
 
-  it('opens a hydrated Send action when its local draft was restored', async () => {
+  it('keeps a hydrated Send action inactive', async () => {
     const action = sendAction();
     hydratedMessages = [
       persistedUserMessage(),
       persistedAssistantMessage(action),
     ];
     actionPresentationPromise = Promise.resolve(sendPresentation());
-    resolvedAction = {
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'gram',
-        amountAtomic: '500000000',
-        toAddress: 'EQ-mom-private',
-      },
-    } satisfies AgentV2ResolvedAction;
+    resolvedAction = { kind: 'inactive' } satisfies AgentV2ResolvedAction;
 
     TeactDOM.render(<Harness />, root);
     expect(await waitFor(() => result?.messages.length === 2, 10, 20)).toBe(true);
@@ -1666,13 +2089,7 @@ describe('useAgentV2Messages', () => {
     await pause(20);
 
     expect(callApiMock).toHaveBeenCalledWith('resolveAgentV2Action', ASSISTANT_MESSAGE_ID, action.id);
-    expect(mockStartTransfer).toHaveBeenCalledWith({
-      tokenSlug: 'gram',
-      amount: 500000000n,
-      toAddress: 'EQ-mom-private',
-      comment: undefined,
-      shouldRequireFreshAuth: true,
-    });
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
   });
 
   it('reloads Send presentation after wallet authority changes and ignores the stale result', async () => {
@@ -1705,17 +2122,15 @@ describe('useAgentV2Messages', () => {
     expect(result!.messages.at(-1)?.actionPresentations?.[action.id]).toEqual(sendPresentation());
   });
 
-  it('opens Send after an unrelated wallet-profile authority update', async () => {
+  it.each([false, true])('opens Send after a profile update with view-only=%s', async (isViewOnly) => {
+    const host = hostContext();
+    host.accounts[0].isViewOnly = isViewOnly;
+    host.accounts[0].accountType = isViewOnly ? 'viewOnly' : 'regular';
+    buildAgentV2HostContextMock.mockReturnValue(host);
     actionPresentationPromise = Promise.resolve(sendPresentation());
     resolvedAction = {
-      kind: 'reviewSend',
-      draftId: sendAction().draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'gram',
-        amountAtomic: '500000000',
-        toAddress: 'EQ-mom-private',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     } satisfies AgentV2ResolvedAction;
     hasAuthorityChanged = true;
     TeactDOM.render(<Harness />, root);
@@ -1727,12 +2142,32 @@ describe('useAgentV2Messages', () => {
     result!.activateAction(result!.messages.at(-1)!.id, action);
     await pause(20);
 
+    expect(parseDeeplinkTransferParams).toHaveBeenCalledWith(
+      'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000', expect.anything(),
+    );
     expect(mockStartTransfer).toHaveBeenCalledWith({
-      tokenSlug: 'gram',
-      amount: 500000000n,
-      toAddress: 'EQ-mom-private',
-      shouldRequireFreshAuth: true,
+      tokenSlug: 'toncoin', amount: 500000000n, shouldRequireFreshAuth: true,
     });
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
+  });
+
+  it('opens the existing empty Send form for a view-only wallet', async () => {
+    const host = hostContext();
+    host.accounts[0].isViewOnly = true;
+    host.accounts[0].accountType = 'viewOnly';
+    buildAgentV2HostContextMock.mockReturnValue(host);
+    actionPresentationPromise = Promise.resolve(sendPresentation());
+    resolvedAction = { kind: 'sendForm', url: 'mtw://send' };
+    TeactDOM.render(<Harness />, root);
+    await pause(20);
+    const action = sendAction();
+    publishSendAction(action);
+    await pause(20);
+    result!.activateAction(result!.messages.at(-1)!.id, action);
+    await pause(20);
+    expect(mockStartTransfer).toHaveBeenCalledWith({ shouldRequireFreshAuth: true });
+    expect(parseDeeplinkTransferParams).not.toHaveBeenCalled();
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
   });
 
   it('opens Send when an unrelated wallet-profile update arrives during action resolution', async () => {
@@ -1756,26 +2191,21 @@ describe('useAgentV2Messages', () => {
     )).toBe(true);
     publishAgentV2Update({ kind: 'walletAuthorityChanged' });
     resolveSend({
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'gram',
-        amountAtomic: '500000000',
-        toAddress: 'EQ-mom-private',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     });
     await pause(20);
 
+    expect(parseDeeplinkTransferParams).toHaveBeenCalledWith(
+      'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000', expect.anything(),
+    );
     expect(mockStartTransfer).toHaveBeenCalledWith({
-      tokenSlug: 'gram',
-      amount: 500000000n,
-      toAddress: 'EQ-mom-private',
-      shouldRequireFreshAuth: true,
+      tokenSlug: 'toncoin', amount: 500000000n, shouldRequireFreshAuth: true,
     });
+    expect(processDeeplinkMock).not.toHaveBeenCalled();
   });
 
-  it('does not open Send when wallet authority changes during action resolution', async () => {
+  it.each(['account', 'view-only'])('does not open Send when %s changes during resolution', async (change) => {
     let resolveSend!: (resolved: unknown) => void;
     resolvedActionPromise = new Promise((resolve) => {
       resolveSend = resolve;
@@ -1794,17 +2224,13 @@ describe('useAgentV2Messages', () => {
       10,
       20,
     )).toBe(true);
-    buildAgentV2HostContextMock.mockReturnValue(hostContext('account-two'));
+    const changedHost = hostContext(change === 'account' ? 'account-two' : 'account-one');
+    if (change === 'view-only') changedHost.accounts[0].isViewOnly = true;
+    buildAgentV2HostContextMock.mockReturnValue(changedHost);
     hasAuthorityChanged = true;
     resolveSend({
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'toncoin',
-        amountAtomic: '1500000000',
-        toAddress: 'EQ-private',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     });
     await pause(20);
 
@@ -1837,14 +2263,8 @@ describe('useAgentV2Messages', () => {
     buildAgentV2HostContextMock.mockReturnValue(changedContext);
     hasAuthorityChanged = true;
     resolveSend({
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'toncoin',
-        amountAtomic: '1500000000',
-        toAddress: 'EQ-private',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     });
     await pause(20);
 
@@ -1873,14 +2293,8 @@ describe('useAgentV2Messages', () => {
     )).toBe(true);
     publishAgentV2Update({ kind: 'runtimeReady', generation: 98 });
     resolveSend({
-      kind: 'reviewSend',
-      draftId: action.draftId,
-      chain: 'ton',
-      review: {
-        tokenSlug: 'toncoin',
-        amountAtomic: '1500000000',
-        toAddress: 'EQ-private',
-      },
+      kind: 'sendForm',
+      url: 'mtw://send/ton:EQ-mom-private?token=toncoin&amount=500000000',
     });
     await pause(20);
 
@@ -1979,7 +2393,7 @@ describe('useAgentV2Messages', () => {
     publishAction(action);
   }
 
-  function publishAction(action: AgentActionProposal) {
+  function publishAction(action: AgentV2LiveAction) {
     publishAgentV2Update({
       kind: 'messageStarted',
       ...routing(),
@@ -2026,10 +2440,6 @@ function threadSummary(revision: number): AgentThreadSummaryV2 {
   return {
     id: THREAD_ID,
     revision,
-    metadataRevision: 1,
-    titleSource: 'none',
-    isPinned: false,
-    isDefault: true,
     createdAt: '2026-08-07T10:00:00.000Z',
     updatedAt: '2026-08-07T10:00:00.000Z',
     lastActivityAt: '2026-08-07T10:00:00.000Z',
@@ -2041,7 +2451,7 @@ function successfulClear(revision: number): AgentV2MutationResult<AgentThreadCle
   return {
     ok: true,
     value: {
-      protocolVersion: 2,
+      protocolVersion: 3,
       thread: threadSummary(revision),
       duplicate: false,
     },
@@ -2057,24 +2467,15 @@ function routing() {
 }
 
 function sendAction() {
-  return {
-    id: '66666666-6666-4666-8666-666666666666',
-    kind: 'send' as const,
-    labelCode: 'review_transfer' as const,
-    draftId: '77777777-7777-4777-8777-777777777777',
-    draftExpiresAt: '2099-08-07T10:10:00.000Z',
-    sourceToolCallId: '88888888-8888-4888-8888-888888888888',
-    effect: 'open_wallet_review' as const,
-    localDraftRequired: true as const,
-    requiresConfirmation: true as const,
-  };
+  return { ...sendFormAction(), id: '66666666-6666-4666-8666-666666666666' };
 }
 
-function receiveAction(): Extract<AgentActionProposal, { kind: 'receive' }> {
+function receiveAction(): Extract<AgentV2LiveAction, { kind: 'receive' }> {
   return {
     id: '66666666-6666-4666-8666-666666666661',
     kind: 'receive',
     labelCode: 'open_receive',
+    title: 'Review prepared action',
     effect: 'open_receive',
     contextBinding: {
       sessionId: '99999999-9999-4999-8999-999999999999',
@@ -2087,12 +2488,13 @@ function receiveAction(): Extract<AgentActionProposal, { kind: 'receive' }> {
   };
 }
 
-function exactStakeAction(): Extract<AgentActionProposal, { kind: 'stake' }> {
+function exactStakeAction(): Extract<AgentV2LiveAction, { kind: 'stake' }> {
   return {
     id: '66666666-6666-4666-8666-666666666660',
     schemaVersion: 2,
     kind: 'stake',
     labelCode: 'open_staking',
+    title: 'Review prepared action',
     effect: 'open_staking',
     contextBinding: {
       sessionId: '99999999-9999-4999-8999-999999999999',
@@ -2109,17 +2511,18 @@ function exactStakeAction(): Extract<AgentActionProposal, { kind: 'stake' }> {
   };
 }
 
-function swapAction(side: 'source' | 'destination'): Extract<AgentActionProposal, { kind: 'swap' }> {
+function swapAction(side: 'source' | 'destination'): Extract<AgentV2LiveAction, { kind: 'swap' }> {
   const isSource = side === 'source';
   return {
     id: isSource
       ? '66666666-6666-4666-8666-666666666667'
       : '66666666-6666-4666-8666-666666666668',
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: 'swap',
     labelCode: 'open_swap',
+    title: 'Review prepared action',
     effect: 'open_swap',
-    sourceToolCallId: '88888888-8888-4888-8888-888888888888',
+    url: 'https://my.tt/swap?in=toncoin&out=usdton&amount=10',
     contextBinding: {
       sessionId: '99999999-9999-4999-8999-999999999999',
       revision: 1,
@@ -2137,11 +2540,12 @@ function swapAction(side: 'source' | 'destination'): Extract<AgentActionProposal
   };
 }
 
-function sendFormAction(): Extract<AgentActionProposal, { kind: 'send'; effect: 'open_send' }> {
+function sendFormAction(): Extract<AgentV2LiveAction, { kind: 'send'; effect: 'open_send' }> {
   return {
     id: '66666666-6666-4666-8666-666666666660',
     kind: 'send',
     labelCode: 'open_send',
+    title: 'Review prepared action',
     effect: 'open_send',
     contextBinding: {
       sessionId: '99999999-9999-4999-8999-999999999999',
@@ -2156,62 +2560,14 @@ function sendFormAction(): Extract<AgentActionProposal, { kind: 'send'; effect: 
   };
 }
 
-function hideSpamAssetsAction(): Extract<AgentActionProposal, { kind: 'hideSpamAssets' }> {
+function openDappAction(): Extract<AgentV2LiveAction, { kind: 'openDapp' }> {
   return {
-    id: '66666666-6666-4666-8666-666666666662',
-    kind: 'hideSpamAssets',
-    labelCode: 'hide_spam_assets',
-    sourceToolCallId: '88888888-8888-4888-8888-888888888888',
-    assetRefs: ['spam-one', 'spam-two'],
-    contextBinding: {
-      sessionId: '99999999-9999-4999-8999-999999999999',
-      revision: 1,
-      activeAccountRef: 'current',
-    },
-    effect: 'hide_spam_assets',
-    localMutationRequired: true,
-    requiresConfirmation: false,
-  };
-}
-
-function openUrlAction(): Extract<AgentActionProposal, { kind: 'openUrl' }> {
-  return {
-    id: '66666666-6666-4666-8666-666666666663',
-    kind: 'openUrl',
+    id: '77777777-7777-4777-8777-777777777777',
+    schemaVersion: 1,
+    kind: 'openDapp',
     labelCode: 'open_external_link',
-    url: 'https://example.com/help',
-    requiresConfirmation: true,
-  };
-}
-
-function openTokenAction(): Extract<AgentActionProposal, { kind: 'openToken' }> {
-  return {
-    id: '66666666-6666-4666-8666-666666666664',
-    kind: 'openToken',
-    labelCode: 'open_token',
-    slug: 'toncoin',
-    chain: 'ton',
-    requiresConfirmation: true,
-  };
-}
-
-function openTransactionAction(): Extract<AgentActionProposal, { kind: 'openTransaction' }> {
-  return {
-    id: '66666666-6666-4666-8666-666666666665',
-    kind: 'openTransaction',
-    labelCode: 'open_transaction',
-    chain: 'ton',
-    transactionRef: 'transaction-hash',
-    requiresConfirmation: true,
-  };
-}
-
-function openAgentAction(): Extract<AgentActionProposal, { kind: 'openAgent' }> {
-  return {
-    id: '66666666-6666-4666-8666-666666666666',
-    kind: 'openAgent',
-    labelCode: 'open_agent',
-    entryPoint: { kind: 'agentTab' },
+    title: 'Review prepared action',
+    url: FRAGMENT_SITE.url,
     requiresConfirmation: true,
   };
 }
@@ -2270,7 +2626,8 @@ function persistedAssistantMessage(action: ReturnType<typeof sendAction>): Agent
     threadId: THREAD_ID,
     role: 'assistant',
     status: 'complete',
-    actions: [action],
+    actions: [{ id: action.id, kind: 'send', labelCode: 'open_send', title: action.title,
+      effect: 'live_only', localDraftRequired: false, requiresConfirmation: false }],
     createdAt: '2026-08-07T10:00:01.000Z',
   };
 }
@@ -2302,20 +2659,13 @@ function conversationMessages() {
 
 function hostContext(accountId = 'account-one'): AgentV2HostContextSnapshot {
   return {
-    platform: 'classic',
+    platform: 'classic', uiCapabilities: hostUiCapabilities('classic'),
     client: 'web',
     lang: 'en',
     baseCurrency: 'USD',
     activeAccountId: accountId,
     activeNetwork: 'ton',
     isTestnet: false,
-    stakingOffers: [{
-      productId: 'liquid',
-      asset: { slug: 'toncoin', chain: 'ton', symbol: 'TON', decimals: 9 },
-      annualYield: '14.09',
-      yieldType: 'APY',
-      availability: 'available',
-    }],
     accounts: [{
       accountId,
       label: 'Main',

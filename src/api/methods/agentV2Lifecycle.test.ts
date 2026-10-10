@@ -5,6 +5,7 @@ import {
   initAgentV2IfEnabled,
   reconcileAgentV2ProtocolVersion,
   resetAgentV2,
+  resolveAgentV2ProtocolVersionForRouting,
 } from './agentV2Lifecycle';
 
 jest.mock('../agentV2/service', () => ({
@@ -154,18 +155,18 @@ describe('Agent V2 lifecycle', () => {
     expect(setIsAgentV2EnabledMock).not.toHaveBeenCalled();
   });
 
-  it('keeps V2 disabled on Android when the backend enables it', async () => {
+  it('initializes V2 on Android despite a forced V1 override', async () => {
     environment = {
-      agentOverride: 'no_override',
-      isAgentV2Enabled: false,
+      agentOverride: 'v1',
+      isAgentV2Enabled: true,
       isAndroidApp: true,
     } as ReturnType<typeof getEnvironment>;
-    await initAgentV2IfEnabled(jest.fn());
+    const onUpdate = jest.fn();
 
-    await reconcileAgentV2ProtocolVersion('v2');
+    await initAgentV2IfEnabled(onUpdate);
 
-    expect(initAgentV2Mock).not.toHaveBeenCalled();
-    expect(setIsAgentV2EnabledMock).not.toHaveBeenCalled();
+    expect(initAgentV2Mock).toHaveBeenCalledWith(onUpdate);
+    expect(resolveAgentV2ProtocolVersionForRouting('v1')).toBe('v2');
   });
 
   it('applies the latest protocol while an older transition is pending', async () => {
@@ -206,7 +207,6 @@ describe('Agent V2 lifecycle', () => {
   it('keeps routing on V1 until V2 initialization succeeds', async () => {
     const initialization = createDeferred<void>();
     initAgentV2Mock.mockReturnValueOnce(initialization.promise);
-    const { resolveAgentV2ProtocolVersionForRouting } = await import('./agentV2Lifecycle');
     await initAgentV2IfEnabled(jest.fn());
 
     const reconciliation = reconcileAgentV2ProtocolVersion('v2');

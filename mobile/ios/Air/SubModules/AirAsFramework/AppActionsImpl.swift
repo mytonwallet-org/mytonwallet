@@ -512,8 +512,8 @@ private class AppActionsImpl: AppActionsProtocol {
         }
     }
 
-    static func showAgent(query: String?) {
-        AgentEntryPoint.enqueueQuery(query)
+    static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) {
+        AgentEntryPoint.enqueue(query: query, entryPoint: entryPoint)
         rootContainerRouter.showAgent()
     }
     

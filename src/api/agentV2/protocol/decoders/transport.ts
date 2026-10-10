@@ -4,13 +4,15 @@ import type {
 } from '../types';
 import type { JsonObject } from '../wireReader';
 
+import { AGENT_EVENT_TYPES, AGENT_RUN_ACTIVITY_CODES } from '../../generated/constants';
+import { AGENT_V2_TOOL_CONTRACTS } from '../toolContractCatalog';
 import {
   AgentV2CompatibilityError,
+  AgentV2ContractError,
   array,
   boolean,
   boundedString,
   fail,
-  filterUnsupportedItems,
   integer,
   literal,
   object,
@@ -21,15 +23,17 @@ import {
 import {
   action,
 } from './actions';
+import { decodeAnswerLink } from './answerLinks';
+import { decodeAnswerTable, decodeAnswerTableReference } from './answerTables';
 import {
+  decodeResponseLanguage,
   filterFollowups,
   followup,
-  inputContinuation,
   threadSummary,
 } from './messages';
 import {
   ERROR_CODES,
-  RETRYABLE_ERROR_CODES,
+  protocol,
   uuid,
 } from './readers';
 import {
@@ -37,57 +41,28 @@ import {
 } from './semantic';
 import {
   toolCall,
-  walletConversationContextV5,
 } from './wallet';
 
-const EVENT_TYPES = new Set([
-  'run_start',
-  'thread',
-  'message_start',
-  'text_delta',
-  'tool_call',
-  'tool_status',
-  'run_activity',
-  'action',
-  'followups',
-  'input_continuations',
-  'semantic_content',
-  'message_content_end',
-  'message_end',
-  'rate_limit',
-  'error',
-]);
+const EVENT_TYPES: ReadonlySet<string> = new Set(AGENT_EVENT_TYPES);
 
-const TOOL_STATUSES = new Set(['queued', 'running', 'complete', 'failed', 'timeout', 'rejected', 'cancelled']);
-
-const TOOL_STATUS_DETAIL_CODES = new Set([
-  'awaiting_wallet', 'processing', 'result_rejected', 'result_timeout', 'result_unavailable',
+const MESSAGE_EXTENSION_EVENTS = new Set([
+  'action', 'table_data', 'table_reference', 'semantic_content', 'followups',
 ]);
+// A malformed link, its message binding included, is dropped; its label stays text and the message completes
+const OPTIONAL_EVENTS = new Set([...MESSAGE_EXTENSION_EVENTS, 'run_activity', 'text_link']);
+const CONTENT_EVENTS = new Set(['action', 'table_data', 'table_reference', 'semantic_content']);
 
-const RUN_ACTIVITY_CODES = new Set([
-  'request.planning',
-  'web.searching',
-  'web.reading_sources',
-  'data.reading_market',
-  'analysis.checking_freshness',
-  'analysis.computing',
-  'answer.writing',
-]);
+const TOOL_STATUSES = new Set(['complete', 'failed', 'timeout', 'rejected', 'cancelled']);
+
+const RUN_ACTIVITY_CODES: ReadonlySet<string> = new Set(AGENT_RUN_ACTIVITY_CODES);
 
 const RUN_ACTIVITY_STATUSES = new Set(['active', 'completed']);
 
-const FINISH_REASONS = new Set([
-  'complete',
-  'cancelled',
-  'error',
-  'tool_unavailable',
-  'rate_limited',
-  'run_interrupted',
-  'max_output_tokens',
-]);
+const FINISH_REASONS = new Set(['complete', 'cancelled', 'tool_unavailable', 'run_interrupted']);
 
 export interface AgentV2StreamEnvelope {
-  protocolVersion: 2;
+  ephemeral?: true;
+  protocolVersion: 3;
   runId: string;
   sequence: number;
   createdAt?: string;
@@ -100,6 +75,13 @@ export type AgentV2StreamFrame = {
   disposition: 'ignore';
   envelope: AgentV2StreamEnvelope;
   wireType: string;
+  incompleteMessageId?: string;
+  ignoredTableId?: string;
+  boundary?: string;
+} | {
+  disposition: 'unsupportedTool';
+  envelope: AgentV2StreamEnvelope;
+  toolCall: { id: string; name: string };
 };
 
 export function decodeAgentV2StreamFrame(value: unknown): AgentV2StreamFrame {
@@ -107,71 +89,78 @@ export function decodeAgentV2StreamFrame(value: unknown): AgentV2StreamFrame {
   const envelope = readStreamEnvelope(result);
   const wireType = boundedString(result.type, '$.type', 1, 64);
   if (!EVENT_TYPES.has(wireType)) return { disposition: 'ignore', envelope, wireType };
-
-  const normalized = { ...result };
-  if (wireType === 'tool_status') {
-    uuid(result.toolCallId, '$.toolCallId');
-    const status = boundedString(result.status, '$.status', 1, 64);
-    if (!TOOL_STATUSES.has(status)) return { disposition: 'ignore', envelope, wireType };
-    if (result.detailCode !== undefined) {
-      const detailCode = boundedString(result.detailCode, '$.detailCode', 1, 64);
-      if (!TOOL_STATUS_DETAIL_CODES.has(detailCode)) delete normalized.detailCode;
-    }
-  } else if (wireType === 'run_activity') {
-    const code = boundedString(result.code, '$.code', 1, 64);
-    const status = boundedString(result.status, '$.status', 1, 64);
-    if (!RUN_ACTIVITY_CODES.has(code) || !RUN_ACTIVITY_STATUSES.has(status)) {
-      return { disposition: 'ignore', envelope, wireType };
-    }
-  } else if (wireType === 'followups') {
-    uuid(result.messageId, '$.messageId');
-    normalized.items = filterFollowups(result.items, '$.items', 1);
-    if (!(normalized.items as unknown[]).length) return { disposition: 'ignore', envelope, wireType };
-  } else if (wireType === 'input_continuations') {
-    uuid(result.messageId, '$.messageId');
-    normalized.items = filterUnsupportedItems(result.items, '$.items', 3, inputContinuation, 1);
-    if (!(normalized.items as unknown[]).length) return { disposition: 'ignore', envelope, wireType };
-  } else if (wireType === 'message_end') {
-    const finishReason = boundedString(result.finishReason, '$.finishReason', 1, 64);
-    if (!FINISH_REASONS.has(finishReason)) {
-      normalized.finishReason = 'run_interrupted';
-      delete normalized.walletConversationContext;
-    }
-  } else if (wireType === 'error') {
-    const retryable = boolean(result.retryable, '$.retryable');
-    const code = boundedString(result.code, '$.code', 1, 128);
-    if (!ERROR_CODES.has(code)) {
-      normalized.code = retryable ? 'internal_error' : 'invalid_event';
-      delete normalized.retryAfterMs;
-      delete normalized.resetAt;
-    }
+  if (wireType === 'tool_call') {
+    const toolCall = readUnsupportedToolCall(result.toolCall);
+    if (toolCall) return { disposition: 'unsupportedTool', envelope, toolCall };
   }
 
+  const normalized = { ...result };
+  if (MESSAGE_EXTENSION_EVENTS.has(wireType)) {
+    uuid(result.messageId, '$.messageId');
+  }
   try {
+    if (wireType === 'tool_status') {
+      uuid(result.toolCallId, '$.toolCallId');
+      const status = boundedString(result.status, '$.status', 1, 64);
+      if (!TOOL_STATUSES.has(status)) return { disposition: 'ignore', envelope, wireType };
+    } else if (wireType === 'run_activity') {
+      const code = boundedString(result.code, '$.code', 1, 64);
+      const status = boundedString(result.status, '$.status', 1, 64);
+      if (!RUN_ACTIVITY_CODES.has(code) || !RUN_ACTIVITY_STATUSES.has(status)) {
+        return { disposition: 'ignore', envelope, wireType };
+      }
+    } else if (wireType === 'followups') {
+      uuid(result.messageId, '$.messageId');
+      normalized.items = filterFollowups(result.items, '$.items', 1);
+      if (!(normalized.items as unknown[]).length) return { disposition: 'ignore', envelope, wireType };
+    } else if (wireType === 'message_end') {
+      const finishReason = boundedString(result.finishReason, '$.finishReason', 1, 64);
+      if (!FINISH_REASONS.has(finishReason)) {
+        normalized.finishReason = 'run_interrupted';
+      }
+    } else if (wireType === 'error') {
+      const retryable = boolean(result.retryable, '$.retryable');
+      const code = boundedString(result.code, '$.code', 1, 128);
+      if (!ERROR_CODES.has(code)) {
+        normalized.code = retryable ? 'internal_error' : 'invalid_event';
+        delete normalized.retryAfterMs;
+        delete normalized.resetAt;
+      }
+    }
+
     return { disposition: 'handle', event: decodeAgentV2StreamEvent(normalized) };
   } catch (error) {
-    if (wireType === 'action'
-      && error instanceof AgentV2CompatibilityError
-      && error.boundary.startsWith('$.action.')) {
-      return { disposition: 'ignore', envelope, wireType };
+    if (OPTIONAL_EVENTS.has(wireType)
+      && (error instanceof AgentV2ContractError || error instanceof AgentV2CompatibilityError)) {
+      const isContentInvalid = CONTENT_EVENTS.has(wireType)
+        && error instanceof AgentV2ContractError;
+      return { disposition: 'ignore', envelope, wireType,
+        ...(isContentInvalid ? { incompleteMessageId: result.messageId as string } : {}),
+        ...(wireType === 'table_data' && result.table && typeof result.table === 'object'
+          && typeof (result.table as JsonObject).id === 'string'
+          ? { ignoredTableId: (result.table as JsonObject).id as string } : {}),
+        boundary: error instanceof AgentV2ContractError ? error.path : error.boundary };
     }
     throw error;
   }
 }
 
+// The server waits for a result of every tool call, so a call this client cannot run is answered with a rejection
+function readUnsupportedToolCall(value: unknown) {
+  const toolCall = object(value, '$.toolCall');
+  const id = uuid(toolCall.id, '$.toolCall.id');
+  const name = boundedString(toolCall.name, '$.toolCall.name', 1, 64);
+  return AGENT_V2_TOOL_CONTRACTS.some((contract) => contract.name === name) ? undefined : { id, name };
+}
+
 function readStreamEnvelope(result: JsonObject): AgentV2StreamEnvelope {
-  if (result.protocolVersion !== 2) {
-    throw new AgentV2CompatibilityError(
-      '$.protocolVersion',
-      undefined,
-      typeof result.protocolVersion === 'number' ? result.protocolVersion : undefined,
-    );
-  }
+  protocol(result, '$');
   const runId = uuid(result.runId, '$.runId');
   const sequence = integer(result.sequence, '$.sequence', 1);
   const createdAt = result.createdAt === undefined ? undefined : timestamp(result.createdAt, '$.createdAt');
   return {
-    protocolVersion: 2,
+    ...(result.type === 'run_activity' && result.ephemeral === true && { ephemeral: true as const }),
+    protocolVersion: 3,
     runId,
     sequence,
     ...(createdAt !== undefined && { createdAt }),
@@ -187,7 +176,7 @@ export function decodeAgentV2StreamEvent(value: unknown): AgentStreamEventV2 {
 function validateAgentV2StreamEvent(
   result: JsonObject,
 ): asserts result is JsonObject & AgentStreamEventV2 {
-  if (result.protocolVersion !== 2) {
+  if (result.protocolVersion !== 3) {
     throw new AgentV2CompatibilityError(
       '$.protocolVersion',
       undefined,
@@ -220,10 +209,33 @@ function validateAgentV2StreamEvent(
       uuid(result.messageId, '$.messageId');
       literal(result.role, 'assistant', '$.role');
       oneOf(result.contentKind, new Set(['markdown', 'semantic']), '$.contentKind');
+      if (result.responseLanguage !== undefined) {
+        const language = decodeResponseLanguage(result.responseLanguage);
+        if (language) result.responseLanguage = language;
+        else delete result.responseLanguage;
+      }
       break;
+    case 'table_data':
+      uuid(result.messageId, '$.messageId');
+      result.table = decodeAnswerTable(result.table, '$.table');
+      break;
+    case 'table_reference':
+      uuid(result.messageId, '$.messageId');
+      result.reference = decodeAnswerTableReference(result.reference, '$.reference');
+      break;
+    case 'text_link':
+      uuid(result.messageId, '$.messageId');
+      result.link = decodeAnswerLink(result.link, '$.link');
+      break;
+    case 'text_draft':
     case 'text_delta':
       uuid(result.messageId, '$.messageId');
       string(result.delta, '$.delta');
+      if (result.type === 'text_draft' || result.offset !== undefined) {
+        if (!Number.isSafeInteger(result.offset) || Number(result.offset) < 0 || Number(result.offset) > 200000) {
+          fail('$.offset');
+        }
+      }
       break;
     case 'tool_call':
       toolCall(result.toolCall, '$.toolCall');
@@ -231,22 +243,12 @@ function validateAgentV2StreamEvent(
     case 'tool_status':
       uuid(result.toolCallId, '$.toolCallId');
       oneOf(result.status, TOOL_STATUSES, '$.status');
-      if (result.detailCode !== undefined) {
-        oneOf(result.detailCode, TOOL_STATUS_DETAIL_CODES, '$.detailCode');
-      }
       break;
-    case 'run_activity': {
-      const code = oneOf(result.code, RUN_ACTIVITY_CODES, '$.code');
-      const status = oneOf(result.status, RUN_ACTIVITY_STATUSES, '$.status');
-      if (result.detail !== undefined) {
-        if (code !== 'web.reading_sources' || status !== 'completed') fail('$.detail');
-        const detail = object(result.detail, '$.detail');
-        literal(detail.kind, 'source_count', '$.detail.kind');
-        const count = integer(detail.count, '$.detail.count', 1);
-        if (count > 11) fail('$.detail.count');
-      }
+    case 'run_activity':
+      if (result.ephemeral !== undefined) literal(result.ephemeral, true, '$.ephemeral');
+      oneOf(result.code, RUN_ACTIVITY_CODES, '$.code');
+      oneOf(result.status, RUN_ACTIVITY_STATUSES, '$.status');
       break;
-    }
     case 'action':
       uuid(result.messageId, '$.messageId');
       action(result.action, '$.action');
@@ -254,12 +256,6 @@ function validateAgentV2StreamEvent(
     case 'followups':
       uuid(result.messageId, '$.messageId');
       array(result.items, '$.items', 3).forEach((item, index) => followup(item, `$.items[${index}]`));
-      break;
-    case 'input_continuations':
-      uuid(result.messageId, '$.messageId');
-      array(result.items, '$.items', 3).forEach((item, index) => {
-        inputContinuation(item, `$.items[${index}]`);
-      });
       break;
     case 'semantic_content':
       uuid(result.messageId, '$.messageId');
@@ -271,23 +267,11 @@ function validateAgentV2StreamEvent(
     case 'message_end':
       uuid(result.messageId, '$.messageId');
       oneOf(result.finishReason, FINISH_REASONS, '$.finishReason');
-      if (result.walletConversationContext !== undefined) {
-        if (result.finishReason !== 'complete') fail('$.walletConversationContext');
-        walletConversationContextV5(result.walletConversationContext, '$.walletConversationContext');
-      }
-      break;
-    case 'rate_limit':
-      literal(result.code, 'rate_limited', '$.code');
-      if (result.retryAfterMs === undefined && result.resetAt === undefined) fail('$.retryAfterMs');
-      if (result.retryAfterMs !== undefined) integer(result.retryAfterMs, '$.retryAfterMs', 1);
-      if (result.resetAt !== undefined) timestamp(result.resetAt, '$.resetAt');
       break;
     case 'error': {
       const code = oneOf<AgentErrorCodeV2>(result.code, ERROR_CODES, '$.code');
-      const retryable = boolean(result.retryable, '$.retryable');
-      if (retryable !== RETRYABLE_ERROR_CODES.has(code)) fail('$.retryable');
+      boolean(result.retryable, '$.retryable');
       if (result.messageId !== undefined) uuid(result.messageId, '$.messageId');
-      if (result.toolCallId !== undefined) uuid(result.toolCallId, '$.toolCallId');
       if (result.retryAfterMs !== undefined) integer(result.retryAfterMs, '$.retryAfterMs', 1);
       if (result.resetAt !== undefined) timestamp(result.resetAt, '$.resetAt');
       if ((result.retryAfterMs !== undefined || result.resetAt !== undefined)

@@ -7,24 +7,24 @@ on:
   pull_request:
 
 jobs:
-  # Only one of the localization checks needs a Mac, and it needs one only when its own inputs
-  # move. Answering that here, in its own job, rather than as a first step of the checks below
-  # keeps the Mac starting as early as it used to instead of queueing behind them.
-  detect-localization-changes:
-    name: Detect localization changes
+  # Decides which costly jobs below the change can affect: the Mac localization check runs only when
+  # its own inputs move, and the web jobs only when a pull request touches what they read.
+  detect-changes:
+    name: Detect changes
     permissions:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       swift-catalogs: ${{ steps.filter.outputs.swift-catalogs }}
+      web: ${{ steps.filter.outputs.web }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # The push window below starts at a revision this checkout has to be able to name, and
-          # how far back that is depends on how many commits the push carried.
-          fetch-depth: 0
+          # A pull request needs only its merge commit and the base tip, while the push window below
+          # starts as far back as the push carried commits.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
           persist-credentials: false
 
       - name: Check changed paths
@@ -49,13 +49,21 @@ jobs:
             BASE="$PUSH_BEFORE"
           fi
 
+          # A push to master runs every web job, which also catches what a wrong skip let through
+          WEB="true"
+          if [ "$EVENT_NAME" = "pull_request" ] && bash dev/web-untouched.sh actions "$BASE" HEAD; then
+            WEB="false"
+          fi
+          echo "web=$WEB" >> "$GITHUB_OUTPUT"
+          echo "web=$WEB"
+
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             echo "No usable base revision ($EVENT_NAME, ${BASE:-empty}) - running the Swift catalog test"
             echo "swift-catalogs=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          CHANGED=$(git diff --name-only --no-renames "$BASE" HEAD)
 
           SWIFT_CATALOGS="false"
           while IFS= read -r file; do
@@ -108,8 +116,8 @@ jobs:
     name: Localization health (Swift catalogs)
     permissions:
       contents: read
-    needs: detect-localization-changes
-    if: ${{ needs.detect-localization-changes.outputs.swift-catalogs == 'true' }}
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.swift-catalogs == 'true' }}
     # Match the Xcode 27 toolchain used for iOS releases.
     runs-on: xcode-27
     timeout-minutes: 10
@@ -139,6 +147,9 @@ jobs:
 
   test:
     name: Simple tests
+    needs: detect-changes
+    # A failed detection leaves the output empty, and that runs the job
+    if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
@@ -165,11 +176,14 @@ jobs:
       - name: Test iOS signing expiry schedule
         run: npm run test:signing-schedule
 
+      - name: Test web change detection
+        run: npm run test:web-untouched
+
       - name: Test
         run: npm test
 
       - name: Check Agent V2 contracts
-        run: node dev/checkAgentV2Contract.mjs
+        run: npm run contract:agent:v2:check
 
       # The standalone Air SDK sets `NO_EXTRA_FEATURES=1` to exclude guarded extra features from the bundle
       - name: Build the standalone SDK bundle
@@ -177,6 +191,8 @@ jobs:
 
   chromium-e2e:
     name: Agent V2 / Chromium E2E
+    needs: detect-changes
+    if: ${{ !cancelled() && needs.detect-changes.outputs.web != 'false' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
