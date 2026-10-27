@@ -4,6 +4,7 @@ import QuartzCore
 /// One pose drives both the card transform and its light response.
 struct CardPressMotion {
     var depth: Double = 0.7
+    var releaseFrequency: Double = 14
     private(set) var value = SIMD3<Double>.zero
     private var velocity = SIMD3<Double>.zero
     private var target = SIMD3<Double>.zero
@@ -34,7 +35,7 @@ struct CardPressMotion {
 
     mutating func advance(by dt: TimeInterval) {
         // Exact critically damped spring integration: same response at 30 and 60 Hz.
-        let frequency = target.z > 0 ? 28.0 : 14.0
+        let frequency = target.z > 0 ? 28.0 : releaseFrequency
         let offset = value - target
         let term = velocity + offset * frequency
         let decay = exp(-frequency * dt)

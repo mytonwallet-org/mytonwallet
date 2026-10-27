@@ -2,7 +2,13 @@
 
 @use "../../../../styles/scssVariables" as v;
 
+// The column scrollbar sits at the window edge and counts toward the 1rem trailing gap. The cap
+// shrinks by the same width, so a capped box keeps its content width.
+$contentMaxWidth: calc(#{v.$landscapeMainContentMaxWidth} - var(--scrollbar-width));
+
 .wrapper {
+  scrollbar-gutter: stable;
+
   overflow-y: auto;
   display: flex;
   flex: 1 1 auto;
@@ -27,7 +33,7 @@
   flex-shrink: 0;
   gap: 1rem;
 
-  padding-inline-end: 1rem;
+  @include mixins.adapt-padding-to-scrollbar(1rem);
 
   &::-webkit-scrollbar {
     display: none !important;
@@ -51,8 +57,9 @@
   flex-direction: column;
 
   width: 100%;
-  max-width: v.$landscapeMainContentMaxWidth;
-  padding-inline-end: 1rem;
+  max-width: $contentMaxWidth;
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
 }
 
 .hiddenCheck {
@@ -62,8 +69,9 @@
 .stretchedCell {
   flex: 1 1 auto;
   width: 100% !important;
-  max-width: v.$landscapeMainContentMaxWidth;
-  padding-inline-end: 1rem;
+  max-width: $contentMaxWidth;
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
 }
 
 .gifIconFix {

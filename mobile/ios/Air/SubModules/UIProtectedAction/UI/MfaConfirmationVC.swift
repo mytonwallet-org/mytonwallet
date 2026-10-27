@@ -85,6 +85,7 @@ public final class MfaConfirmationVC: WViewController {
         self.compactRepresentation = compactRepresentation
         self.prefersNavigationTitleWithCustomHeader = prefersNavigationTitleWithCustomHeader
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 580, height: 520)
         model.onEvent = { [weak self] event in
             self?.handleModelEvent(event)
         }

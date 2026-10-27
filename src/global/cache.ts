@@ -31,6 +31,7 @@ import isEmptyObject from '../util/isEmptyObject';
 import {
   cloneDeep, filterValues, mapValues, omit, pick, pickTruthy, unique,
 } from '../util/iteratees';
+import { normalizeNftAddress } from '../util/nft';
 import {
   clearPoisoningCache,
   updatePoisoningCacheFromGlobalState,
@@ -725,6 +726,18 @@ function migrateCache(cached: GlobalState, initialState: GlobalState) {
   }
   if (cached.stateVersion === 64) {
     cached.stateVersion = 65;
+  }
+  if (cached.stateVersion === 65) {
+    for (const state of Object.values(cached.byAccountId ?? {})) {
+      state.blacklistedNftAddresses = state.blacklistedNftAddresses?.map(normalizeNftAddress);
+      state.whitelistedNftAddresses = state.whitelistedNftAddresses?.map(normalizeNftAddress);
+      for (const activity of Object.values(state.activities?.byId ?? {})) {
+        if (activity.kind === 'transaction' && activity.nft) {
+          activity.nft.address = normalizeNftAddress(activity.nft.address);
+        }
+      }
+    }
+    cached.stateVersion = 66;
   }
   // When adding migration here, increase `STATE_VERSION`
 }

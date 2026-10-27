@@ -44,6 +44,7 @@ struct DebugView: View {
     @State private var showsClearCachesConfirmation = false
     @State private var isClearingCaches = false
     @State private var showsClearCachesError = false
+    @State private var recoveryDiagnostics: WalletRecoveryDiagnostics?
     
     var body: some View {
         NavigationStack {
@@ -68,6 +69,9 @@ struct DebugView: View {
             .disabled(isClearingCaches)
         }
         .interactiveDismissDisabled(isClearingCaches)
+        .task {
+            recoveryDiagnostics = await WalletRecoveryDiagnostics.collect()
+        }
         .onDisappear {
             DuoNavigationSettings.notifyDidChange()
         }
@@ -84,6 +88,10 @@ struct DebugView: View {
             }
         } header: {
             Text("Logs")
+        }
+
+        if let recoveryDiagnostics {
+            WalletRecoveryDiagnosticsSection(diagnostics: recoveryDiagnostics)
         }
 
         Section {

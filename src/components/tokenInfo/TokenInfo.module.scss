@@ -52,8 +52,21 @@
 .summary,
 .activity {
   @include mixins.respond-above(xs) {
-    max-width: v.$landscapeMainContentMaxWidth;
+    max-width: v.$landscapeBlockMaxWidth;
+  }
+}
+
+// The header sits outside the scrolling `.body`, so it has no scrollbar to absorb
+.header {
+  @include mixins.respond-above(xs) {
     margin-inline-end: 1rem;
+  }
+}
+
+.summary,
+.activity {
+  @include mixins.respond-above(xs) {
+    @include mixins.adapt-margin-to-scrollbar(1rem);
   }
 }
 

@@ -5,10 +5,12 @@ import java.math.BigInteger
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uisend.sendNft.sendNftConfirm.ConfirmNftVC.Mode
 import org.mytonwallet.app_air.walletbasecontext.logger.Logger
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.moshi.ApiSubmitTransfersResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckNftDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -17,6 +19,7 @@ import org.mytonwallet.app_air.walletcore.stores.AccountStore
 class ConfirmNftVM(mode: Mode, delegate: Delegate) {
     interface Delegate {
         fun showError(error: MBridgeError?)
+        fun showPartialFailure(completedCount: Int, totalCount: Int)
         fun feeUpdated(fee: BigInteger?, err: MBridgeError?)
     }
 
@@ -101,26 +104,37 @@ class ConfirmNftVM(mode: Mode, delegate: Delegate) {
                 isNftBurn = isNftBurn
             )
         ) { result, err ->
-            if (err != null) {
-                delegate.get()?.showError(err.parsed)
-            } else if (result == null) {
-                delegate.get()?.showError(null)
+            handleSubmitResult(result, err, nfts.size, onSent, onMfaRequested)
+        }
+    }
+
+    internal fun handleSubmitResult(
+        result: ApiSubmitTransfersResult?,
+        err: JSWebViewBridge.ApiError?,
+        totalCount: Int,
+        onSent: () -> Unit,
+        onMfaRequested: (String) -> Unit
+    ) {
+        val response = result ?: err?.parsedResult as? ApiSubmitTransfersResult
+        val error = err?.parsed ?: response?.error?.let {
+            MBridgeError.fromErrorName(it) ?: MBridgeError.Type.UNEXPECTED_ERROR
+        }
+        val mfaHash = response?.mfaRequestHash
+        if (error != null) {
+            val completedCount = response?.activityIds?.size ?: 0
+            if (completedCount > 0) {
+                delegate.get()?.showPartialFailure(completedCount, totalCount)
             } else {
-                result.error?.let { error ->
-                    delegate.get()?.showError(
-                        MBridgeError.fromErrorName(error) ?: MBridgeError.Type.UNEXPECTED_ERROR
-                    )
-                    return@call
-                }
-                val mfaHash = result.mfaRequestHash
-                if (mfaHash != null) {
-                    onMfaRequested(mfaHash)
-                } else if (result.activityIds.isNullOrEmpty()) {
-                    delegate.get()?.showError(MBridgeError.Type.UNEXPECTED_ERROR)
-                } else {
-                    onSent()
-                }
+                delegate.get()?.showError(error)
             }
+        } else if (err != null || response == null) {
+            delegate.get()?.showError(null)
+        } else if (mfaHash != null) {
+            onMfaRequested(mfaHash)
+        } else if (response.activityIds.isNullOrEmpty()) {
+            delegate.get()?.showError(MBridgeError.Type.UNEXPECTED_ERROR)
+        } else {
+            onSent()
         }
     }
 

@@ -52,6 +52,7 @@ private struct TokenSendAmountReviewSection: View {
     let fee: MFee?
     let explainedFee: ExplainedTransferFee?
     let isFeeError: Bool
+    let isAmountError: Bool
 
     @Dependency(\.tokenStore) private var tokenStore
 
@@ -64,6 +65,7 @@ private struct TokenSendAmountReviewSection: View {
         self.fee = model.showingFee
         self.explainedFee = model.explainedFee
         self.isFeeError = model.hasInsufficientFee
+        self.isAmountError = model.hasInsufficientAmount
     }
 
     init(confirmed: ConfirmedTokenSend) {
@@ -73,12 +75,13 @@ private struct TokenSendAmountReviewSection: View {
         self.fee = confirmed.explainedFee?.realFee
         self.explainedFee = confirmed.explainedFee
         self.isFeeError = false
+        self.isAmountError = false
     }
 
     var body: some View {
         if let amount {
             InsetSection {
-                AmountCell(amount: amount, token: token)
+                AmountCell(amount: amount, token: token, isError: isAmountError)
             } header: {
                 Text(lang("Amount"))
             } footer: {

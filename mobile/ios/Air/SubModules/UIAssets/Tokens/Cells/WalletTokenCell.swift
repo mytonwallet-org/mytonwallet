@@ -130,10 +130,10 @@ final class WalletTokenContentView: UIView {
     private let tokenNameLabel: UILabel = UILabel()
     private let tokenNameFadeMask = CAGradientLayer()
     private var tokenPriceLabel: UILabel!
-    private var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
+    private var amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing, reservesMaskWidth: true)
     private var amountLabel: WAmountLabel!
     private var amountWidthConstraint: NSLayoutConstraint!
-    private var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
+    private var amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing, reservesMaskWidth: true)
     private var baseCurrencyAmountLabel: WAmountLabel!
     private var baseCurrencyAmountWidthConstraint: NSLayoutConstraint!
     private let badge = BadgeView()
@@ -229,6 +229,7 @@ final class WalletTokenContentView: UIView {
             tokenPriceLabel.topAnchor.constraint(equalTo: tokenNameClipView.bottomAnchor, constant: 1),
         ])
         tokenPriceLabel.applyTextStyle(.supporting, content: .technical)
+        tokenPriceLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         amountLabel = WAmountLabel(showNegativeSign: false)
         amountLabel.applyTextStyle(.callout, content: .technical)
@@ -238,6 +239,8 @@ final class WalletTokenContentView: UIView {
         mainView.addSubview(amountContainer)
         amountContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
         amountWidthConstraint = amountLabel.widthAnchor.constraint(equalToConstant: 0)
+        // The hidden balance may need more room than its text.
+        amountWidthConstraint.priority = .init(999)
         tokenNameClipTrailingConstraint = tokenNameClipView.trailingAnchor.constraint(equalTo: amountLabel.leadingAnchor)
         NSLayoutConstraint.activate([
             amountWidthConstraint,
@@ -254,10 +257,12 @@ final class WalletTokenContentView: UIView {
         mainView.addSubview(amount2Container)
         amount2Container.setContentCompressionResistancePriority(.required, for: .horizontal)
         baseCurrencyAmountWidthConstraint = baseCurrencyAmountLabel.widthAnchor.constraint(equalToConstant: 0)
+        baseCurrencyAmountWidthConstraint.priority = .init(999)
         NSLayoutConstraint.activate([
             baseCurrencyAmountWidthConstraint,
             baseCurrencyAmountLabel.trailingAnchor.constraint(equalTo: amountLabel.trailingAnchor),
             baseCurrencyAmountLabel.firstBaselineAnchor.constraint(equalTo: tokenPriceLabel.firstBaselineAnchor),
+            baseCurrencyAmountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: tokenPriceLabel.trailingAnchor, constant: 6),
         ])
 
         amountContainer.isTapToRevealEnabled = false
@@ -587,7 +592,7 @@ final class WalletTokenContentView: UIView {
         }
 
         let changeAttributes: [NSAttributedString.Key: Any] = [
-            .font: font,
+            .font: WTypography.uiFont(.supporting),
             .foregroundColor: percentChangeColor,
         ]
         guard effectiveUserInterfaceLayoutDirection == .rightToLeft else {

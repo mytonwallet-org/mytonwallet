@@ -1,5 +1,6 @@
 package org.mytonwallet.app_air.uiagent.viewControllers.agent.cells
 
+import android.animation.AnimatorSet
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -187,11 +188,9 @@ class AgentMessageCell(context: Context) :
 
     // Fires after message content and its controls finish their reveal
     var onContentSettled: (() -> Unit)? = null
-    private var deeplinksAnimating = false
-
     val isContentSettling: Boolean
-        get() = isInsertAnimationPending || insertAnimation?.isRunning == true ||
-            messageLabel.isRevealAnimating || deeplinksAnimating ||
+        get() = isInsertAnimationPending || insertAnimation != null ||
+            messageLabel.isRevealAnimating || deeplinkAnimator != null ||
             pendingRichMessageId != null || richTransitionAnimator?.isRunning == true ||
             typingCrossfadeAnimator?.isRunning == true
 
@@ -203,6 +202,7 @@ class AgentMessageCell(context: Context) :
     }
 
     private var insertAnimation: SpringAnimation? = null
+    private var insertAnimationOnFinished: (() -> Unit)? = null
     private var isInsertAnimationPending = false
     private var insertAnimationTargetHeight = 0
     internal val layoutTargetHeight: Int
@@ -213,10 +213,11 @@ class AgentMessageCell(context: Context) :
     private var renderedDeeplinks: List<AgentDeeplink> = emptyList()
     private var renderedDeeplinkTint = 0
     private var renderedDeeplinkMaxWidth = 0
-    private var deeplinkExpandAnimator: ValueAnimator? = null
+    private var deeplinkAnimator: AnimatorSet? = null
     private var pendingRichMessageId: String? = null
     private var richTransitionAnimator: ValueAnimator? = null
     private var typingCrossfadeAnimator: ValueAnimator? = null
+    private var isRenderingEnabled = true
     private var richContentWidth = 0
     private var parsedRichBlocksKey: ParsedRichBlocksKey? = null
     private var parsedRichBlocks: List<MarkdownParser.Block>? = null
@@ -246,6 +247,31 @@ class AgentMessageCell(context: Context) :
             return msg.hasText && !isStreamingCell
         }
 
+    fun setRenderingActive(active: Boolean) {
+        isRenderingEnabled = active
+        messageLabel.setRenderingActive(active)
+        typingIndicator.setRenderingActive(active)
+        updateRenderingAnimations()
+    }
+
+    private fun updateRenderingAnimations() {
+        val active = isRenderingEnabled && isAttachedToWindow
+        if (active) {
+            insertAnimation?.start()
+            scheduleInsertAnimation()
+        } else {
+            // Retain the spring's value and velocity until rendering resumes
+            insertAnimation?.cancel()
+        }
+        for (animator in arrayOf(
+            typingCrossfadeAnimator,
+            richTransitionAnimator,
+            deeplinkAnimator
+        )) {
+            if (active) animator?.resume() else animator?.pause()
+        }
+    }
+
     fun configure(
         message: AgentMessage,
         recyclerWidth: Int,
@@ -255,7 +281,6 @@ class AgentMessageCell(context: Context) :
         val previousMessageId = currentMessage?.id
         if (previousMessageId != message.id) {
             onContentSettled = null
-            deeplinksAnimating = false
             insertAnimationTargetHeight = 0
             cancelTypingCrossfade()
             resetRichMessagePresentation()
@@ -424,13 +449,9 @@ class AgentMessageCell(context: Context) :
         if (shouldAnimateInsert) {
             setInsertAppearance(alpha = 0f, scale = 0.8f)
             updateLayoutParams { height = 1 }
-            doOnPreDraw {
-                if (isInsertAnimationPending && currentMessage?.id == message.id) {
-                    startInsertAnimation()
-                }
-            }
+            scheduleInsertAnimation()
         } else {
-            insertAnimation?.cancel()
+            finishInsertAnimation()
             setInsertAppearance(alpha = 1f, scale = 1f)
             updateLayoutParams { height = WRAP_CONTENT }
             if (onInsertAnimationStarted != null) {
@@ -471,6 +492,7 @@ class AgentMessageCell(context: Context) :
             notifyContentSettled()
         }
         animator.start()
+        updateRenderingAnimations()
     }
 
     private fun cancelTypingCrossfade() {
@@ -606,6 +628,7 @@ class AgentMessageCell(context: Context) :
             notifyContentSettled()
         }
         animator.start()
+        updateRenderingAnimations()
     }
 
     private fun cancelRichTransition() {
@@ -616,6 +639,7 @@ class AgentMessageCell(context: Context) :
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        updateRenderingAnimations()
         if (renderedRichKey != null && !isStreamingCell &&
             !messageLabel.isRevealAnimating && pendingRichMessageId == null &&
             richTransitionAnimator == null
@@ -626,10 +650,11 @@ class AgentMessageCell(context: Context) :
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        deeplinkAnimator?.pause()
         cancelRichTransition()
         cancelTypingCrossfade()
         isInsertAnimationPending = false
-        insertAnimation?.cancel()
+        finishInsertAnimation()
         setInsertAppearance(alpha = 1f, scale = 1f)
         updateLayoutParams { height = WRAP_CONTENT }
         richMessageView.alpha = 1f
@@ -663,10 +688,10 @@ class AgentMessageCell(context: Context) :
 
     private fun setupDeeplinks(deeplinks: List<AgentDeeplink>, maxWidth: Int, animate: Boolean) {
         if (deeplinks.isEmpty()) {
+            cancelDeeplinkAnimation()
             renderedDeeplinks = emptyList()
             deeplinkContainer.removeAllViews()
             deeplinkContainer.visibility = GONE
-            deeplinksAnimating = false
             return
         }
         val accentColor = WColor.Tint.color
@@ -679,10 +704,7 @@ class AgentMessageCell(context: Context) :
         renderedDeeplinks = deeplinks
         renderedDeeplinkTint = accentColor
         renderedDeeplinkMaxWidth = maxWidth
-        deeplinkExpandAnimator?.cancel()
-        deeplinkExpandAnimator = null
-        setDeeplinkClipping(enabled = true)
-        deeplinkContainer.updateLayoutParams { height = WRAP_CONTENT }
+        cancelDeeplinkAnimation()
         deeplinkContainer.removeAllViews()
         deeplinkContainer.visibility = VISIBLE
         deeplinkContainer.updateLayoutParams<LinearLayout.LayoutParams> {
@@ -695,6 +717,7 @@ class AgentMessageCell(context: Context) :
             currentMessage?.id?.let { pendingDeeplinkAnimationIds.remove(it) }
         }
         val labelMaxWidth = maxWidth - 34.dp
+        val labelAnimators = mutableListOf<ValueAnimator>()
 
         for ((index, deeplink) in deeplinks.withIndex()) {
             val isLast = index == deeplinks.size - 1
@@ -744,35 +767,34 @@ class AgentMessageCell(context: Context) :
             deeplinkContainer.addView(label, lp)
 
             if (shouldAnimate) {
-                deeplinksAnimating = true
                 label.alpha = 0f
                 label.translationY = 8f.dp
-                label.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(AnimationConstants.VERY_QUICK_ANIMATION)
-                    .setStartDelay(AnimationConstants.VERY_QUICK_ANIMATION + index * 50L)
-                    .setInterpolator(AccelerateDecelerateInterpolator())
-                    .apply {
-                        if (isLast) {
-                            val animatedMessageId = currentMessage?.id
-                            withEndAction {
-                                setDeeplinkClipping(enabled = true)
-                                animatedMessageId?.let {
-                                    pendingDeeplinkAnimationIds.remove(it)
-                                }
-                                deeplinksAnimating = false
-                                notifyContentSettled()
-                            }
+                labelAnimators.add(
+                    ValueAnimator.ofFloat(0f, 1f).apply {
+                        duration = AnimationConstants.VERY_QUICK_ANIMATION
+                        startDelay = AnimationConstants.VERY_QUICK_ANIMATION + index * 50L
+                        interpolator = AccelerateDecelerateInterpolator()
+                        addUpdateListener {
+                            val progress = it.animatedValue as Float
+                            label.alpha = progress
+                            label.translationY = 8f.dp * (1f - progress)
                         }
                     }
-                    .start()
+                )
             }
         }
 
         if (shouldAnimate) {
-            animateDeeplinkExpansion(maxWidth)
+            animateDeeplinkExpansion(maxWidth, labelAnimators)
         }
+    }
+
+    private fun cancelDeeplinkAnimation() {
+        val animator = deeplinkAnimator ?: return
+        deeplinkAnimator = null
+        animator.cancel()
+        setDeeplinkClipping(enabled = true)
+        deeplinkContainer.updateLayoutParams { height = WRAP_CONTENT }
     }
 
     private fun setDeeplinkClipping(enabled: Boolean) {
@@ -784,15 +806,14 @@ class AgentMessageCell(context: Context) :
         clipToPadding = enabled
     }
 
-    private fun animateDeeplinkExpansion(maxWidth: Int) {
+    private fun animateDeeplinkExpansion(maxWidth: Int, labelAnimators: List<ValueAnimator>) {
         deeplinkContainer.measure(
             MeasureSpec.makeMeasureSpec(maxWidth, MeasureSpec.AT_MOST),
             MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
         )
         val targetHeight = deeplinkContainer.measuredHeight
-        if (targetHeight <= 0) return
         deeplinkContainer.updateLayoutParams { height = 0 }
-        deeplinkExpandAnimator = ValueAnimator.ofInt(0, targetHeight).apply {
+        val expansionAnimator = ValueAnimator.ofInt(0, targetHeight).apply {
             duration = AnimationConstants.VERY_QUICK_ANIMATION
             interpolator = AccelerateDecelerateInterpolator()
             addUpdateListener { animator ->
@@ -800,10 +821,22 @@ class AgentMessageCell(context: Context) :
             }
             doOnEnd {
                 deeplinkContainer.updateLayoutParams { height = WRAP_CONTENT }
-                deeplinkExpandAnimator = null
             }
-            start()
         }
+        val animatedMessageId = currentMessage?.id
+        val animator = AnimatorSet().apply {
+            playTogether(labelAnimators + expansionAnimator)
+            doOnEnd {
+                if (deeplinkAnimator !== this) return@doOnEnd
+                deeplinkAnimator = null
+                setDeeplinkClipping(enabled = true)
+                animatedMessageId?.let { pendingDeeplinkAnimationIds.remove(it) }
+                notifyContentSettled()
+            }
+        }
+        deeplinkAnimator = animator
+        animator.start()
+        updateRenderingAnimations()
     }
 
     private fun showCopyMenu() {
@@ -961,18 +994,25 @@ class AgentMessageCell(context: Context) :
         return WMenuPopup.BackgroundStyle.Cutout.fromView(bubbleContainer, roundRadius = 21f.dp)
     }
 
+    private fun scheduleInsertAnimation() {
+        if (!isInsertAnimationPending || !isRenderingEnabled || !isAttachedToWindow) return
+        doOnPreDraw {
+            if (isInsertAnimationPending && isRenderingEnabled) startInsertAnimation()
+        }
+    }
+
     private fun startInsertAnimation() {
-        insertAnimation?.cancel()
+        finishInsertAnimation()
 
         val targetHeight = measureExpandedHeight()
         insertAnimationTargetHeight = targetHeight
         notifyInsertAnimationStarted(targetHeight)
-        val onFinished = onInsertAnimationFinished
+        insertAnimationOnFinished = onInsertAnimationFinished
         onInsertAnimationFinished = null
         val startHeight = (targetHeight * 0.3f).toInt().coerceAtLeast(1)
         updateLayoutParams { height = startHeight }
 
-        insertAnimation = SpringAnimation(FloatValueHolder()).apply {
+        insertAnimation = SpringAnimation(FloatValueHolder(startHeight.toFloat())).apply {
             setStartValue(startHeight.toFloat())
             spring = SpringForce(targetHeight.toFloat()).apply {
                 stiffness = 500f
@@ -985,17 +1025,25 @@ class AgentMessageCell(context: Context) :
                     ((value - appearStart) / (targetHeight - appearStart)).coerceIn(0f, 1f)
                 setInsertAppearance(lerp(0f, 1f, fraction), lerp(0.8f, 1f, fraction))
             }
-            addEndListener { _, _, _, _ ->
-                setInsertAppearance(alpha = 1f, scale = 1f)
-                updateLayoutParams { height = WRAP_CONTENT }
-                insertAnimation = null
-                insertAnimationTargetHeight = 0
-                onFinished?.invoke()
-                notifyContentSettled()
+            addEndListener { _, canceled, _, _ ->
+                if (!canceled) finishInsertAnimation()
             }
             start()
         }
         isInsertAnimationPending = false
+    }
+
+    private fun finishInsertAnimation() {
+        val animation = insertAnimation ?: return
+        insertAnimation = null
+        animation.cancel()
+        setInsertAppearance(alpha = 1f, scale = 1f)
+        updateLayoutParams { height = WRAP_CONTENT }
+        insertAnimationTargetHeight = 0
+        val onFinished = insertAnimationOnFinished
+        insertAnimationOnFinished = null
+        onFinished?.invoke()
+        notifyContentSettled()
     }
 
     private fun measureExpandedHeight(): Int {

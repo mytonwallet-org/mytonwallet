@@ -15,6 +15,7 @@ import {
 import { getDoesUsePinPad } from '../../util/biometrics';
 import buildClassName from '../../util/buildClassName';
 import captureKeyboardListeners from '../../util/captureKeyboardListeners';
+import { getChainConfig } from '../../util/chain';
 import { toDecimal } from '../../util/decimals';
 import { formatCurrency } from '../../util/formatNumber';
 import { getIsViewAccountDisabled } from '../../util/isViewAccount';
@@ -89,9 +90,10 @@ function TransferModal({
   const decimals = selectedToken?.decimals;
   const renderedTransactionAmount = usePrevious(amount, true);
   const symbol = selectedToken?.symbol || '';
-  // A transfer of more NFTs than fit in one transaction is sent as one API call per batch, and every
-  // call signs on its own, so the batches past the first need a secret read each
-  const extraNftBatchCount = nfts?.length ? Math.ceil(nfts.length / NFT_BATCH_SIZE) - 1 : 0;
+  const extraNftBatchCount = nfts?.length && !getChainConfig(nfts[0].chain).canSubmitMultipleNftTransactions
+    ? Math.ceil(nfts.length / NFT_BATCH_SIZE) - 1
+    : 0;
+  const isPartialNftTransfer = Boolean(nfts?.length && sentNftsCount && sentNftsCount < nfts.length);
   // Closing the modal clears the transfer before the closing animation ends, while the last slide is still shown
   const renderedTransfer = useCurrentOrPrev(isOpen ? currentTransfer : undefined, true);
   const isBurning = renderedTransfer?.toAddress === BURN_ADDRESS || renderedTransfer?.isNftBurn;
@@ -204,7 +206,7 @@ function TransferModal({
           />
         );
       case TransferState.Complete:
-        return (nfts?.length || 0) <= NFT_BATCH_SIZE ? (
+        return (nfts?.length || 0) <= NFT_BATCH_SIZE && !isPartialNftTransfer ? (
           <TransferComplete
             isActive={isActive}
             nfts={nfts}
@@ -223,6 +225,7 @@ function TransferModal({
           <TransferMultiNftProcess
             nfts={nfts!}
             sentNftsCount={sentNftsCount}
+            isPartial={isPartialNftTransfer}
             toAddress={renderedToAddress}
             onClose={handleClose}
           />

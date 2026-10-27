@@ -244,6 +244,31 @@ describe('addPastActivities main feed', () => {
 });
 
 describe('addNewActivities', () => {
+  it('corrects a cached false LI.FI completion when fresh backend history is pending', () => {
+    const backendPending: ApiSwapActivity = {
+      id: '2462348::backend-swap',
+      kind: 'swap',
+      from: 'base:usdt',
+      fromAmount: '1',
+      fromAddress: '0x0000000000000000000000000000000000000001',
+      to: 'arbitrum:usdc',
+      toAmount: '2',
+      networkFee: '0',
+      swapFee: '0',
+      status: 'pendingTrusted',
+      timestamp: 1000,
+      hashes: [],
+      transactionIds: {},
+      lifi: { quotedTo: 'arbitrum:usdc', quotedToAmount: '2' },
+    };
+    let global = buildGlobal();
+    global = addNewActivities(global, ACCOUNT_ID, [{ ...backendPending, status: 'completed' }]);
+    global = addNewActivities(global, ACCOUNT_ID, [backendPending]);
+
+    expect(global.byAccountId[ACCOUNT_ID].activities!.byId[backendPending.id].status)
+      .toBe('pendingTrusted');
+  });
+
   it('does not regress a completed activity to pending after a late pending update', () => {
     let global = buildGlobal();
     const completedActivity = makeActivity('same-id', 'toncoin', 1000, 'completed');

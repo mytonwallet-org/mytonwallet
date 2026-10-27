@@ -43,7 +43,6 @@ final class EarnHistoryHeaderCell: UICollectionViewCell {
         earnedLabel.textAlignment = .right
         earnedLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         earnedContainer.addContent(earnedLabel)
-        earnedContainer.isTapToRevealEnabled = false
         contentView.addSubview(earnedContainer)
 
         NSLayoutConstraint.activate([
@@ -59,6 +58,7 @@ final class EarnHistoryHeaderCell: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        earnedContainer.resetReveal()
         titleLabel.text = nil
         earnedLabel.text = nil
         earnedContainer.isHidden = true

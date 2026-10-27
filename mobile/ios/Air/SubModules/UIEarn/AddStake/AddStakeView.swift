@@ -13,7 +13,16 @@ struct AddStakeView: View {
     var body: some View {
         WithPerceptionTracking {
             @Perception.Bindable var model = model
-            InsetList(topPadding: 0) {
+            InsetList(topPadding: model.foreignStakingBanners.isEmpty ? 0 : 16) {
+                if !model.foreignStakingBanners.isEmpty {
+                    HomePromotionStack(
+                        promotions: model.foreignStakingBanners,
+                        loadingActionId: model.foreignUnstakeLoadingId,
+                        onAction: { model.onForeignUnstake?($0) },
+                        onDismiss: model.dismissForeignBanner
+                    )
+                    .padding(.horizontal, 16)
+                }
                 AmountSection(model: model)
 
                 StakeInfoSection(model: model)
@@ -57,6 +66,7 @@ fileprivate struct AmountSection: View {
                 token: displayToken,
                 balance: model.maxAmount,
                 insufficientFunds: model.insufficientFunds,
+                isFeeError: model.insufficientFee,
                 amountInBaseCurrency: $model.amountInBaseCurrency,
                 switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
                 fee: model.fee,
@@ -162,7 +172,6 @@ fileprivate struct StakeInfoSection: View {
         Text(formatPercent(model.apy / 100, showPlus: false))
             .textStyle(
                 .calloutEmphasized,
-                content: .technical,
                 scaling: .dynamic
             )
             .lineSpacing(3)

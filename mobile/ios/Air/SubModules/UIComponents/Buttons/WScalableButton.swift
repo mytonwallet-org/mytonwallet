@@ -11,7 +11,7 @@ import WalletContext
 public class WScalableButton: UIControl {
     
     public enum Style {
-        case standard, thinGlass
+        case standard, thinGlass, plain
     }
     
     public var onTap: (() -> Void)?
@@ -35,27 +35,25 @@ public class WScalableButton: UIControl {
     
     public var fillColor: UIColor? {
         didSet {
-            assert(style == .thinGlass)
-            thinGlassView?.fillColor = fillColor
+            assert(style == .thinGlass || style == .plain)
+            if style == .plain { containerView.backgroundColor = fillColor }
+            else { thinGlassView?.fillColor = fillColor }
         }
     }
 
     public var highlightedFillColor: UIColor? {
         didSet {
-            assert(style == .thinGlass)
+            assert(style == .thinGlass || style == .plain)
         }
     }
 
     public var edgeColor: UIColor? {
         didSet {
-            assert(style == .thinGlass)
-            thinGlassView?.edgeColor = edgeColor
+            assert(style == .thinGlass || style == .plain)
+            if style == .thinGlass { thinGlassView?.edgeColor = edgeColor }
         }
     }
 
-    private var titleLabelBottomConstraint: NSLayoutConstraint!
-    private var titleLabelCenterYConstraint: NSLayoutConstraint!
-    private var isCompact: Bool = false
     public static let preferredHeight: CGFloat = 66
     public static let preferredCornerRadius: CGFloat = 24
 
@@ -103,6 +101,13 @@ public class WScalableButton: UIControl {
             view.isUserInteractionEnabled = false
             return view
             
+        case .plain:
+            let view = UIView()
+            view.layer.cornerRadius = baseCornerRadius
+            view.layer.cornerCurve = .continuous
+            view.isUserInteractionEnabled = false
+            return view
+
         case .thinGlass:
             let view = ThinGlassView()
             view.isUserInteractionEnabled = false
@@ -126,7 +131,7 @@ public class WScalableButton: UIControl {
             } else {
                 containerView
             }
-        case .thinGlass:
+        case .thinGlass, .plain:
             containerView
         }
     }
@@ -171,19 +176,17 @@ public class WScalableButton: UIControl {
 
         addSubview(containerView)
 
-        titleLabelBottomConstraint = titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9)
-        titleLabelCenterYConstraint = titleLabel.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor)
-        
         var constraints: [NSLayoutConstraint] = [
             containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            containerView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            // Keep the content layout fixed so the icon and title scale as one unit.
+            containerView.heightAnchor.constraint(equalToConstant: Self.preferredHeight),
                   
             imageView.centerXAnchor.constraint(equalTo: containerContentView.centerXAnchor, constant: 0),
             imageView.centerYAnchor.constraint(equalTo: containerContentView.centerYAnchor, constant: -10),
             
-            titleLabelBottomConstraint,
+            titleLabel.bottomAnchor.constraint(equalTo: containerContentView.bottomAnchor, constant: -9),
             titleLabel.leadingAnchor.constraint(equalTo: containerContentView.leadingAnchor, constant: titleLabelHorMargin),
             titleLabel.trailingAnchor.constraint(equalTo: containerContentView.trailingAnchor, constant: -titleLabelHorMargin),
         ]
@@ -214,6 +217,10 @@ public class WScalableButton: UIControl {
                 guard !IOS_26_MODE_ENABLED else { return }
                 UIView.animate(withDuration: isHighlighted ? 0.1 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
                     self.containerView.backgroundColor = self.isHighlighted ? .air.highlight : .air.groupedItem
+                }
+            case .plain:
+                UIView.animate(withDuration: isHighlighted ? 0.1 : 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                    self.alpha = self.isHighlighted ? 0.5 : 1
                 }
             case .thinGlass:
                 UIView.animate(withDuration: isHighlighted ? 0.1 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
@@ -251,72 +258,9 @@ public class WScalableButton: UIControl {
     public override func layoutSubviews() {
         super.layoutSubviews()
 
-        let height = bounds.height
-        let scale = height < Self.preferredHeight ? height / Self.preferredHeight : 1
-        set(scale: scale)
-    }
-
-    private func set(scale: CGFloat) {
-        let radius = baseCornerRadius * scale
-        
-        if #available(iOS 26, iOSApplicationExtension 26, *),
-           let effectView = containerView as? UIVisualEffectView {
-            effectView.alpha = scale
-            effectView.transform = CGAffineTransform(scaleX: scale, y: scale)
-            effectView.cornerConfiguration = .corners(radius: UICornerRadius(floatLiteral: radius))
-        } else {
-            containerView.alpha = scale
-            containerView.layer.cornerRadius = radius
-            containerView.transform = CGAffineTransform(scaleX: scale, y: scale)
-        }
-
-        // Keep short labels visually stable during collapse, but let long
-        // localized labels fit the shrinking bubble.
-        let labelScale = fittingLabelScale(containerScale: scale)
-        titleLabel.transform = CGAffineTransform(scaleX: labelScale, y: labelScale)
-
-        // Switch compact state
-        let shouldCompact = scale < 0.9
-        if shouldCompact != isCompact {
-            isCompact = shouldCompact
-            
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-
-                UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
-                    if shouldCompact {
-                        self.imageView.alpha = 0
-                        self.imageView.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
-                    } else {
-                        self.imageView.alpha = 1
-                        self.imageView.transform = .identity
-                    }
-                    
-                    self.titleLabelBottomConstraint.isActive = !shouldCompact
-                    self.titleLabelCenterYConstraint.isActive = shouldCompact
-                    self.layoutIfNeeded()
-                }
-            }
-        }
-    }
-
-    private func fittingLabelScale(containerScale: CGFloat) -> CGFloat {
-        let preferredScale = 1 / max(containerScale, 0.7)
-        guard bounds.width > 0,
-              let text = titleLabel.text?.nilIfEmpty,
-              let font = titleLabel.font else {
-            return preferredScale
-        }
-
-        let textWidth = (text as NSString).size(withAttributes: [.font: font]).width
-        guard textWidth > 0 else {
-            return preferredScale
-        }
-
-        let minVisualHorizontalMargin: CGFloat = 3
-        let availableWidth = max(CGFloat(1), bounds.width - minVisualHorizontalMargin * 2)
-        let maxFittingScale = availableWidth / textWidth
-        return min(preferredScale, maxFittingScale)
+        let scale = min(1, max(0, bounds.height / Self.preferredHeight))
+        containerView.alpha = scale
+        containerView.transform = CGAffineTransform(scaleX: scale, y: scale)
     }
 }
 

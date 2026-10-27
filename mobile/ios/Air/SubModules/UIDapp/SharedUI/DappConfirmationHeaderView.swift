@@ -23,25 +23,39 @@ struct DappConfirmationHeaderView: ConfirmationContent {
     var body: some View {
         WithPerceptionTracking {
             VStack(spacing: 16) {
-                if case .connect = action {
-                    DappIcon(iconUrl: dapp.iconUrl)
-                        .frame(width: 80, height: 80)
-                        .clipShape(.rect(cornerRadius: 16))
-                        .accessibilityHidden(true)
-                } else if !assets.isEmpty {
-                    assetIcons
-                        .zIndex(1)
-                }
-                VStack(spacing: 12) {
-                    summary
-                        .frame(minHeight: 42)
+                if let swapPayload {
+                    SwapOverviewView(
+                        fromAmount: TokenAmount(swapPayload.amount, TokenStore.getNativeToken(chain: .ton)),
+                        toAmount: swapOutputAmount ?? swapPayload.minimumReceived,
+                        toAmountIsEstimated: swap != nil
+                    )
+                    if swap == nil {
+                        Text(lang("Minimum Received"))
+                            .textStyle(.footnote)
+                            .foregroundStyle(Color.air.secondaryLabel)
+                    }
                     destination
+                } else {
+                    if case .connect = action {
+                        DappIcon(iconUrl: dapp.iconUrl)
+                            .frame(width: 80, height: 80)
+                            .clipShape(.rect(cornerRadius: 16))
+                            .accessibilityHidden(true)
+                    } else if !assets.isEmpty {
+                        assetIcons
+                            .zIndex(1)
+                    }
+                    VStack(spacing: 12) {
+                        summary
+                            .frame(minHeight: 42)
+                        destination
+                    }
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 172)
             .padding(.horizontal, 16)
-            .padding(.vertical, 33)
+            .padding(.vertical, swapPayload != nil ? 16 : 33)
             .multilineTextAlignment(.center)
         }
     }
@@ -69,6 +83,39 @@ struct DappConfirmationHeaderView: ConfirmationContent {
             }
             return .token(TokenAmount(transaction.effectiveAmount, transaction.getToken(chain: request.operationChain)))
         }
+    }
+
+    var swapPayload: ApiDedustNativeSwapPayload? {
+        guard case .send(let request) = action,
+              request.shouldHideTransfers != true, request.transactions.count == 1,
+              !request.combinedInfo.isDangerous, !request.combinedInfo.isScam,
+              case .dedustNativeSwap(let payload) = request.transactions[0].payload else { return nil }
+        return payload
+    }
+
+    var swap: ApiSwapActivity? {
+        guard let swapPayload, case .send(let request) = action,
+              let activities = request.emulation?.activities else { return nil }
+        let swaps = activities.compactMap(\.swap)
+        guard swaps.count == 1, let swap = swaps.first,
+              swap.status == .completed || swap.status == .confirmed,
+              swap.isCanceled != true, swap.from != swap.to,
+              swap.fromAmount.value > 0, swap.toAmount.value > 0,
+              swap.from == request.operationChain.nativeToken.slug, swap.to == swapPayload.toSlug,
+              swap.displayFromAmount.amount == swapPayload.amount,
+              TokenAmount.fromDouble(swap.toAmount.value, swapPayload.toToken).amount >= swapPayload.minimumAmountOut,
+              activities.allSatisfy({ activity in
+                  if activity.swap != nil { return true }
+                  guard let transaction = activity.transaction else { return false }
+                  return transaction.type == .excess && transaction.isIncoming && transaction.amount >= 0
+                      && transaction.slug == request.operationChain.nativeToken.slug && transaction.status == .completed
+              }) else { return nil }
+        return swap
+    }
+
+    var swapOutputAmount: TokenAmount? {
+        guard let swap, let swapPayload else { return nil }
+        return TokenAmount.fromDouble(swap.toAmount.value, swapPayload.toToken)
     }
 
     private var assetIcons: some View {
@@ -176,11 +223,21 @@ struct DappConfirmationHeaderView: ConfirmationContent {
         case .connect: lang("Connect")
         case .signData: lang("Sign Data")
         case .send:
-            assets.isEmpty ? lang("Unknown Transfer") : L10n.manyTransactions(count: assets.count)
+            if swapPayload != nil {
+                lang("Swap")
+            } else {
+                assets.isEmpty ? lang("Unknown Transfer") : L10n.manyTransactions(count: assets.count)
+            }
         }
     }
 
     private var compactSummary: String {
+        if let swapPayload {
+            let from = TokenAmount(swapPayload.amount, TokenStore.getNativeToken(chain: .ton)).formatted(.defaultAdaptive)
+            let to = (swapOutputAmount ?? swapPayload.minimumReceived).formatted(.defaultAdaptive, roundHalfUp: false, precision: swap != nil ? .approximate : nil)
+            let prefix = swap != nil ? "" : "\(lang("Minimum Received")): "
+            return "\(lang("Swap")) · \(from) → \(prefix)\(to)"
+        }
         if assets.count == 1, let asset = assets.first {
             switch asset {
             case .token(let amount): return amount.formatted(.defaultAdaptive)
@@ -231,7 +288,12 @@ struct DappConfirmationHeaderView: ConfirmationContent {
         switch action {
         case .connect: nil
         case .signData: lang("$dapp_sign_data_for_prefix")
-        case .send(let request): request.transactions.count <= 1 ? nil : lang("to")
+        case .send(let request):
+            if swapPayload != nil {
+                "\(lang("Swap")) ·"
+            } else {
+                request.transactions.count <= 1 ? nil : lang("to")
+            }
         }
     }
 }

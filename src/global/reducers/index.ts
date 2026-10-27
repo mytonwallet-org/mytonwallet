@@ -12,3 +12,4 @@ export * from './domains';
 export * from './hardware';
 export * from './portfolio';
 export * from './walletConnectPay';
+export * from './banners';

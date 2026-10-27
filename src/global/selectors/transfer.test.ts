@@ -271,7 +271,7 @@ describe('ramp availability by allowed currencies', () => {
 
   describe('selectDefaultOnRampChain', () => {
     it('skips a leading chain the ramp does not serve', () => {
-      expect(selectDefaultOnRampChain(buildAccountGlobal(['hyperliquid', 'robinhood']))).toBe('robinhood');
+      expect(selectDefaultOnRampChain(buildAccountGlobal(['monad', 'robinhood']))).toBe('robinhood');
     });
 
     it('keeps the account order among the chains it does serve', () => {
@@ -279,7 +279,7 @@ describe('ramp availability by allowed currencies', () => {
     });
 
     it('answers nothing when the account has nothing to buy on', () => {
-      expect(selectDefaultOnRampChain(buildAccountGlobal(['hyperliquid']))).toBeUndefined();
+      expect(selectDefaultOnRampChain(buildAccountGlobal(['monad']))).toBeUndefined();
     });
 
     // The Buy button reads this and nothing else, so an answer the ramp then refuses would be a button

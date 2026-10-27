@@ -28,6 +28,10 @@ func swapEstimateIssue(from error: Error) -> SwapIssue {
         return .invalidPair
     case "Too small amount":
         return .tooSmallAmount
+    case "No swap quote available":
+        return .quoteUnavailable
+    case "Swap routers are unavailable":
+        return .serviceUnavailable
     default:
         return .unexpectedEstimateError
     }

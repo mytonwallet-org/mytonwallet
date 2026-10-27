@@ -297,9 +297,14 @@ class ImportWalletVC(
                 if (hasFocus) {
                     activeField = wordInputView
                     suggestionView.attachToWordInput(wordInputView)
-                    if (isKeyboardOpen) scrollToWordInput(wordInputView)
+                    scrollToWordInput(wordInputView)
                 } else {
                     wordInputView.checkValue()
+                    // Focus moving to another word field re-attaches the suggestions right after
+                    if (activeField == wordInputView) {
+                        activeField = null
+                        suggestionView.attachToWordInput(null)
+                    }
                 }
             }
         }
@@ -391,7 +396,8 @@ class ImportWalletVC(
 
             prevLeftWordInput?.let { topToBottom(continueButton, it, 16f) }
             toCenterX(continueButton, 32f)
-            toBottomPx(continueButton, 48.dp + bottomInset)
+            // Keeps Continue above the suggestions footprint even while they are empty
+            toBottomPx(continueButton, bottomInset + suggestionFootprint + 16.dp)
         }
     }
 
@@ -400,6 +406,10 @@ class ImportWalletVC(
             navigationController?.getSystemBars()?.bottom ?: 0,
             navigationController?.imeInsetBottom ?: 0
         )
+
+    // Suggestions height plus their bottom margin, see applySuggestionViewConstraints
+    private val suggestionFootprint: Int
+        get() = 64.dp + 8.dp
 
     private fun setActiveWordCount(count: Int) {
         if (activeWordCount == count) return
@@ -461,15 +471,11 @@ class ImportWalletVC(
         val wasKeyboardOpen = isKeyboardOpen
         super.insetsUpdated()
         scrollView.setPaddingRelative(systemBarStartInset, 0, systemBarEndInset, 0)
+        scrollView.bottomObscuredInset = bottomInset + suggestionFootprint
         applyWordInputConstraints(scrollingContentView)
         applySuggestionViewConstraints()
         if (isKeyboardOpen != wasKeyboardOpen) {
-            if (isKeyboardOpen) {
-                activeField?.let { suggestionView.attachToWordInput(it) }
-                scrollToActiveFieldAfterLayout()
-            } else {
-                suggestionView.attachToWordInput(null)
-            }
+            scrollToActiveFieldAfterLayout()
         }
         updateTopBar()
         scrollingContentView.setConstraints {
@@ -540,7 +546,6 @@ class ImportWalletVC(
     }
 
     private fun scrollToActiveFieldAfterLayout() {
-        if (!isKeyboardOpen) return
         val field = activeField?.takeIf { it.isVisible } ?: return
         scrollingContentView.doOnLayout { scrollToWordInput(field) }
     }

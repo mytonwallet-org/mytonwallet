@@ -21,8 +21,8 @@ extension Api {
         return try await bridge.callApi("swapBuildTransfer", accountId, enclaveToken, request, decoding: ApiSwapBuildResponse.self)
     }
     
-    public static func swapSubmit(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?, calls: [ApiEvmSwapCall]? = nil, needsBatch: Bool? = nil) async throws -> ApiSwapSubmitResult {
-        try await bridge.callApi("swapSubmit", chain, accountId, enclaveToken, transfers, historyItem, isGasless, transaction, calls, needsBatch, decoding: ApiSwapSubmitResult.self)
+    public static func swapSubmit(chain: ApiChain, accountId: String, enclaveToken: EnclaveToken, transfers: [ApiSwapTransfer]?, historyItem: ApiSwapHistoryItem, isGasless: Bool?, transaction: String?, calls: [ApiEvmSwapCall]? = nil, transactionRequest: ApiEvmSwapTransactionRequest? = nil, needsBatch: Bool? = nil) async throws -> ApiSwapSubmitResult {
+        try await bridge.callApi("swapSubmit", chain, accountId, enclaveToken, transfers, historyItem, isGasless, transaction, calls, transactionRequest, needsBatch, decoding: ApiSwapSubmitResult.self)
     }
     
     public static func swapEstimate(accountId: String, request: ApiSwapEstimateRequest) async throws -> ApiSwapEstimateResponse {
@@ -114,8 +114,22 @@ public struct ApiSwapBuildResponse: Codable, Sendable {
     public let fee: BigInt?
     public let chain: ApiChain?
     public let transaction: String?
+    public let transactionRequest: ApiEvmSwapTransactionRequest?
     public let calls: [ApiEvmSwapCall]?
+    public let needsBatch: Bool?
     public let error: ApiAnyDisplayError?
+}
+
+public struct ApiEvmSwapTransactionRequest: Codable, Equatable, Sendable {
+    public let from: String
+    public let to: String
+    public let chainId: Int
+    public let data: String
+    public let value: String?
+    public let gasPrice: String?
+    public let gasLimit: String?
+    public let maxFeePerGas: String?
+    public let maxPriorityFeePerGas: String?
 }
 
 public struct ApiEvmSwapCall: Codable, Equatable, Sendable {

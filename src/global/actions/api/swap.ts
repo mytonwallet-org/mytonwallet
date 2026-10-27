@@ -14,6 +14,7 @@ import type {
   AssetPairs,
   GlobalState,
 } from '../../types';
+import { SWAP_ROUTERS_UNAVAILABLE_ERROR, URANUS_PRICE_DRIFT_ERROR } from '../../../api/types/swap';
 import {
   SwapErrorType,
   SwapInputSource,
@@ -78,6 +79,7 @@ import {
   selectCurrentSwapTokenIn,
   selectCurrentSwapTokenOut,
   selectCurrentToncoinBalance,
+  selectSwapRoute,
   selectSwapType,
   selectToken,
 } from '../../selectors';
@@ -94,6 +96,8 @@ const SERVER_ERRORS_MAP = {
   'Asset not found': SwapErrorType.InvalidPair,
   'Pair not found': SwapErrorType.InvalidPair,
   'Too small amount': SwapErrorType.TooSmallAmount,
+  'No swap quote available': SwapErrorType.QuoteUnavailable,
+  [SWAP_ROUTERS_UNAVAILABLE_ERROR]: SwapErrorType.ServiceUnavailable,
 };
 
 export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransactionRequest {
@@ -126,9 +130,13 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
   if (!historyAddress) {
     throw new Error('TON history address is required to build swap transaction');
   }
+  const toAddress = getIsSupportedChain(tokenOut.chain)
+    ? account?.byChain[tokenOut.chain]?.address
+    : global.currentSwap.toAddress;
   const nativeTokenIn = findNativeToken(getChainBySlug(tokenIn.slug));
   const nativeTokenInBalance = nativeTokenIn ? selectCurrentAccountTokenBalance(global, nativeTokenIn.slug) : undefined;
   const swapType = selectSwapType(global);
+  const route = selectSwapRoute(global);
   return {
     from,
     to,
@@ -140,8 +148,9 @@ export function buildSwapBuildRequest(global: GlobalState): ApiSwapBuildTransact
     swapMode: inputSource === SwapInputSource.Out ? 'exact_out' : 'exact_in',
     slippage,
     fromAddress: account?.byChain[tokenIn.chain as ApiChain]?.address ?? historyAddress,
+    toAddress,
     historyAddress,
-    shouldTryDiesel: shouldSwapBeGasless({ ...global.currentSwap, swapType, nativeTokenInBalance }),
+    shouldTryDiesel: shouldSwapBeGasless({ ...global.currentSwap, swapType, route, nativeTokenInBalance }),
     dexRouterLabel: dexRouterLabel || undefined,
     needsBatch,
     dexLabel,
@@ -185,7 +194,7 @@ function processNativeMaxSwap(global: GlobalState) {
 
   if (
     global.currentSwap.amountIn
-    && selectSwapType(global) === SwapType.OnChain
+    && selectSwapRoute(global) === 'dex'
     && global.currentSwap.inputSource === SwapInputSource.In
     && global.currentSwap.isMaxAmount
   ) {
@@ -364,10 +373,97 @@ addActionHandler('submitSwap', withEnclaveSessionRelease(async (global, actions,
     return;
   }
 
-  const swapBuildRequest = buildSwapBuildRequest(global);
-  const buildResult = await callApi(
+  let swapBuildRequest = buildSwapBuildRequest(global);
+  const accountId = selectCurrentAccountId(global)!;
+  const confirmedSwapId = global.currentSwap.swapId;
+  let wasRetried = false;
+  let buildResult = await callApi(
     'swapBuildTransfer', selectCurrentAccountId(global)!, enclaveToken, swapBuildRequest,
   );
+
+  if (buildResult && 'error' in buildResult && buildResult.error === URANUS_PRICE_DRIFT_ERROR) {
+    const isIntact = () => {
+      const current = getGlobal();
+      return selectCurrentAccountId(current) === accountId
+        && current.currentSwap.swapId === confirmedSwapId
+        && current.currentSwap.state === SwapState.Password
+        && isSwapEstimateInputEqual(global, current)
+        && buildSwapBuildRequest(current).to === swapBuildRequest.to;
+    };
+    if (!isIntact()) {
+      reportErrorTransferResult({ error: 'Swap changed during price verification' }, updateCurrentSwap);
+      return;
+    }
+
+    let refreshed: SwapEstimateResult;
+    try {
+      refreshed = await estimateSwap(global, () => !isIntact());
+    } catch {
+      reportErrorTransferResult({ error: 'Could not verify the updated swap price' }, updateCurrentSwap);
+      return;
+    }
+    if (!isIntact() || !refreshed || typeof refreshed === 'string'
+      || refreshed.route !== 'dex' || refreshed.errorType !== undefined
+      || !refreshed.amountOutMin || !refreshed.quotedAmountOut) {
+      reportErrorTransferResult({ error: 'Could not verify the updated swap price' }, updateCurrentSwap);
+      return;
+    }
+
+    // The original confirmation is a lower bound for the retry, even though its quote came from the backend.
+    // The second build must still pass the independent on-chain emulation before any transfer is submitted.
+    const feeKeys = ['networkFee', 'realNetworkFee', 'swapFee', 'ourFee', 'dieselFee'] as const;
+    let feesNotWorse: boolean;
+    let quoteNotWorse: boolean;
+    try {
+      feesNotWorse = feeKeys.every((key) => {
+        const before = global.currentSwap[key];
+        const after = refreshed[key];
+        return before === undefined ? after === undefined : after !== undefined && Big(after).lte(before);
+      });
+      quoteNotWorse = Big(refreshed.amountOutMin).gte(swapBuildRequest.toMinAmount!)
+        && Big(refreshed.quotedAmountOut).gte(refreshed.amountOutMin);
+    } catch {
+      reportErrorTransferResult({ error: 'Could not verify the updated swap price' }, updateCurrentSwap);
+      return;
+    }
+    const inputUnchanged = refreshed.amountIn === undefined || refreshed.amountIn === swapBuildRequest.fromAmount;
+    const sameProvider = refreshed.dexLabel === global.currentSwap.dexLabel
+      && refreshed.dexRouterLabel === global.currentSwap.dexRouterLabel;
+
+    const current = getGlobal();
+    const canAutoRetry = feesNotWorse && inputUnchanged && quoteNotWorse && sameProvider;
+    setGlobal(updateCurrentSwap(current, {
+      ...refreshed,
+      isLoading: canAutoRetry ? true : undefined,
+      state: canAutoRetry ? SwapState.Password : SwapState.Initial,
+    }, true));
+    if (!canAutoRetry) return; // The changed terms need a fresh user confirmation.
+
+    const retryRequest = buildSwapBuildRequest(getGlobal());
+    if (retryRequest.from !== swapBuildRequest.from || retryRequest.to !== swapBuildRequest.to
+      || retryRequest.fromAmount !== swapBuildRequest.fromAmount
+      || retryRequest.fromAddress !== swapBuildRequest.fromAddress
+      || retryRequest.toMinAmount === undefined
+      || Big(retryRequest.toMinAmount).lt(swapBuildRequest.toMinAmount!)) {
+      reportErrorTransferResult({ error: 'Swap changed during price verification' }, updateCurrentSwap);
+      return;
+    }
+    swapBuildRequest = retryRequest;
+    wasRetried = true;
+    buildResult = await callApi('swapBuildTransfer', accountId, enclaveToken, swapBuildRequest);
+    if (buildResult && 'error' in buildResult && buildResult.error === URANUS_PRICE_DRIFT_ERROR) {
+      setGlobal(updateCurrentSwap(getGlobal(), { state: SwapState.Initial, isLoading: undefined }));
+      return; // At most one requote/rebuild. The next attempt requires the user.
+    }
+  }
+
+  if (wasRetried && (selectCurrentAccountId(getGlobal()) !== accountId
+    || getGlobal().currentSwap.swapId !== confirmedSwapId
+    || getGlobal().currentSwap.state !== SwapState.Password
+    || buildSwapBuildRequest(getGlobal()).to !== swapBuildRequest.to)) {
+    reportErrorTransferResult({ error: 'Swap changed during price verification' }, updateCurrentSwap);
+    return;
+  }
 
   if (!handleTransferResult(buildResult, updateCurrentSwap)) {
     logDebugError('submitSwap:build', buildResult);
@@ -390,9 +486,9 @@ addActionHandler('submitSwap', withEnclaveSessionRelease(async (global, actions,
     fromAmount: swapBuildRequest.fromAmount,
     to: swapBuildRequest.to,
     toAmount: swapBuildRequest.toAmount!,
-    networkFee: global.currentSwap.realNetworkFee ?? global.currentSwap.networkFee!,
-    swapFee: global.currentSwap.swapFee!,
-    ourFee: global.currentSwap.ourFee,
+    networkFee: swapBuildRequest.networkFee!,
+    swapFee: swapBuildRequest.swapFee!,
+    ourFee: swapBuildRequest.ourFee,
     hashes: [],
     transactionIds: {},
   };
@@ -407,6 +503,7 @@ addActionHandler('submitSwap', withEnclaveSessionRelease(async (global, actions,
     swapBuildRequest.shouldTryDiesel,
     buildResult.transaction,
     buildResult.calls,
+    buildResult.transactionRequest,
     buildResult.needsBatch,
   );
 
@@ -749,6 +846,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
 
   const swapType = selectSwapType(global);
   const isOnChain = swapType === SwapType.OnChain;
+  const canUseBackendDexRoute = isOnChain || swapType === SwapType.CrosschainInsideWallet;
 
   const from = resolveSwapAssetId(tokenIn);
   const to = resolveSwapAssetId(tokenOut);
@@ -758,7 +856,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
   let isFromAmountMax: boolean | undefined;
   let toncoinBalance: bigint | undefined;
 
-  if (isOnChain) {
+  if (canUseBackendDexRoute) {
     const account = selectCurrentAccount(global)!;
     const chain = tokenIn.chain as ApiChain;
     const address = account.byChain[chain]!.address;
@@ -784,7 +882,9 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
       to,
       slippage: global.currentSwap.slippage,
       fromAddress: address,
-      toAddress: address,
+      toAddress: getIsSupportedChain(tokenOut.chain)
+        ? account.byChain[tokenOut.chain]?.address
+        : global.currentSwap.toAddress,
       shouldTryDiesel,
       isFromAmountMax,
       toncoinBalance: toncoinBalance !== undefined
@@ -846,7 +946,7 @@ export async function estimateSwap(global: GlobalState, shouldStop: () => boolea
   }
 
   if (estimate.route === 'dex') {
-    if (!isOnChain) {
+    if (!canUseBackendDexRoute) {
       logDebugError('estimateSwap', 'Unexpected DEX estimate response', estimate);
 
       return {

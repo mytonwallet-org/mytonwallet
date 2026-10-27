@@ -1,8 +1,26 @@
+import Foundation
 import Testing
 import WalletContext
 
 @Suite("WalletContext Number Formatting")
 struct WalletContextNumberFormattingTests {
+    @Test(arguments: [
+        ("en", "+\(signSpace)15.59%", "-\(signSpace)0.66%", "13.3%", "0.0%", "13%"),
+        ("fa", "+\(signSpace)۱۵.۵۹%", "-\(signSpace)۰.۶۶%", "۱۳.۳%", "۰.۰%", "۱۳%"),
+        ("ar@numbers=arab", "+\(signSpace)١٥.٥٩%", "-\(signSpace)٠.٦٦%", "١٣.٣%", "٠.٠%", "١٣%"),
+    ])
+    func `percentages localize digits and preserve signs and precision`(
+        identifier: String, positive: String, negative: String, unsigned: String, zero: String, whole: String
+    ) {
+        let locale = Locale(identifier: identifier)
+        #expect(formatPercent(0.1559, locale: locale) == positive)
+        #expect(formatPercent(-0.0066, locale: locale) == negative)
+        #expect(formatPercent(0.133, showPlus: false, locale: locale) == unsigned)
+        #expect(formatPercent(-0.133, showMinus: false, locale: locale) == unsigned)
+        #expect(formatPercent(-0.000001, locale: locale) == zero)
+        #expect(formatPercent(0.133, decimals: 0, showPlus: false, locale: locale) == whole)
+    }
+
     struct RoundDecimalsCase: Sendable {
         let amount: BigInt
         let decimals: Int

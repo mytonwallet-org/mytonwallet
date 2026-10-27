@@ -162,6 +162,17 @@ describe('updateNfts api update', () => {
     expect(nft).toMatchObject({ name: 'From batch' });
     expect(nft.isMetadataMissing).toBeUndefined();
   });
+
+  it('restores an NFT put up for sale after its listing activity has removed it', () => {
+    getApiUpdateHandler()(makeGlobal(ACCOUNT_ID), {}, {
+      type: 'nftPutUpForSale', accountId: ACCOUNT_ID, nftAddress: NFT_ADDRESS, nft: makeNft({ isOnSale: true }),
+    });
+    const [updatedGlobal] = (setGlobal as jest.Mock).mock.calls.at(-1)!;
+    const { nfts } = (updatedGlobal as GlobalState).byAccountId[ACCOUNT_ID];
+
+    expect(nfts?.byAddress?.[NFT_ADDRESS]?.isOnSale).toBe(true);
+    expect(nfts?.orderedAddresses).toEqual([NFT_ADDRESS]);
+  });
 });
 
 describe('removeAccounts api update', () => {

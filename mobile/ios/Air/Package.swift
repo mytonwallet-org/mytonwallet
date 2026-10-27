@@ -277,6 +277,7 @@ let package = Package(
             resources: [
                 .process("Resources"),
                 .process("TelegramDiamond/GramDiamond.metal"),
+                .process("TelegramAmount/TelegramAmount.metal"),
             ]
         ),
         airTarget(
@@ -597,6 +598,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Kingfisher", package: "kingfisher"),
                 "ProtectedAction",
+                "UIActivityList",
                 "UIAssets",
                 "UIAgent",
                 "UIComponents",
@@ -723,6 +725,10 @@ let package = Package(
             ]
         ),
         airTestTarget(
+            "UITransactionTests",
+            dependencies: ["UITransaction", "UIComponents", "WalletCore", "WalletContext", "WalletResources"]
+        ),
+        airTestTarget(
             "UISendTests",
             dependencies: [
                 "UISend",
@@ -785,6 +791,7 @@ let package = Package(
             dependencies: [
                 "UIPortfolio",
                 "WalletCore",
+                "WalletResources",
                 .product(name: "GraphKit", package: "GraphKit"),
             ]
         ),
@@ -828,7 +835,11 @@ let package = Package(
             "UIDappTests",
             dependencies: [
                 "UIDapp",
+                "UIComponents",
+                "UIPasscode",
+                "UIProtectedAction",
                 "WalletCore",
+                "WalletResources",
             ]
         ),
     ],

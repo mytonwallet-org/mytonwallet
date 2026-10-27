@@ -51,7 +51,6 @@ class TokenActionsView: WTouchPassStackView {
     private var swapButton: UIView!
     private var earnButton: UIView!
     private var sendButton: UIView!
-    private var heightConstraint: NSLayoutConstraint!
     
     private let buttonsToolbar = ButtonsToolbar()
 
@@ -60,11 +59,6 @@ class TokenActionsView: WTouchPassStackView {
         spacing = 16
         distribution = .fill
         clipsToBounds = false
-        
-        heightConstraint = heightAnchor.constraint(equalToConstant: rowHeight)
-        NSLayoutConstraint.activate([
-            heightConstraint,
-        ])
         
         var buttons: [UIView] = []
         

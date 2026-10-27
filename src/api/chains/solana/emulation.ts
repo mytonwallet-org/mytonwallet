@@ -5,13 +5,13 @@ import {
   getTransactionDecoder,
 } from '@solana/kit';
 
-import type { ApiDappTransfer, ApiEmulationResult, ApiNetwork } from '../../types';
+import type { ApiActivity, ApiDappTransfer, ApiEmulationResult, ApiNetwork } from '../../types';
 import type { SolanaCompiledTransaction, SolanaTransactionEmulationResultRaw } from './types';
 
 import { SOLANA } from '../../../config';
 import { getTransferSolInstructionDataDecoder } from '../../../lib/solana-program/system';
 import { fetchJson } from '../../../util/fetch';
-import { parseTokenOperation } from './util/programParsers';
+import { parseTokenOperation, parseUserPaidTokenAccountRent } from './util/programParsers';
 import { updateActivityMetadata } from '../../common/helpers';
 import { DEFAULT_FEE, NETWORK_CONFIG, SOLANA_PROGRAM_IDS } from './constants';
 
@@ -49,7 +49,13 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
   if (isComplexTransaction(decompiled)) {
     const emulated = await emulateTransaction(rawTx, network);
 
-    const tokenOperation = await parseTokenOperation(network, emulated as any, address, decompiled.staticAccounts);
+    const tokenOperation = await parseTokenOperation(
+      network,
+      emulated as any,
+      address,
+      decompiled.staticAccounts,
+      parseUserPaidTokenAccountRent(decompiled, emulated?.innerInstructions, address),
+    );
 
     if (tokenOperation?.assets) {
       transfers.push(getFakeTransfer(rawTx, false));
@@ -81,16 +87,16 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
           realFee: BigInt(swap.networkFee),
         };
       } else {
-        const { transfer } = tokenOperation;
+        const fee = tokenOperation.networkFee;
 
         emulation = {
-          networkFee: BigInt(transfer.fee),
+          networkFee: fee,
           received: 0n,
           traceOutputs: [],
           // We need to pass TON-like structure, but it's not actual emulation,
           // so we don't have all the fields, but have essential
-          activities: [updateActivityMetadata({
-            id: '',
+          activities: tokenOperation.transfers.map((transfer, index) => updateActivityMetadata({
+            id: String(index),
             kind: 'transaction',
             timestamp: 0,
             comment: undefined,
@@ -105,8 +111,8 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
             normalizedAddress: transfer.normalizedAddress,
             fee: BigInt(transfer.fee),
             status: 'completed',
-          })],
-          realFee: BigInt(transfer.fee),
+          })),
+          realFee: fee,
         };
       }
     }
@@ -118,6 +124,7 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
   }
 
   const decompiledMessage = decompileTransactionMessage(decompiled);
+  const activities: ApiActivity[] = [];
 
   for (const instruction of decompiledMessage.instructions) {
     // Simple transfer
@@ -136,26 +143,28 @@ export async function parseTransactionForPreview(rawTx: string, address: string,
 
       transfers.push(getFakeTransfer(rawTx, false));
 
+      activities.push(updateActivityMetadata({
+        id: String(activities.length),
+        kind: 'transaction',
+        timestamp: 0,
+        comment: undefined,
+        fromAddress: source,
+        toAddress: destination,
+        // Sign of `amount` drives the `+`/`−` in the preview; isIncoming is only
+        // a zero-amount fallback (see formatCurrencyExtended).
+        amount: isIncoming ? parsed.amount : -parsed.amount,
+        slug: SOLANA.slug,
+        isIncoming,
+        normalizedAddress: isIncoming ? source : destination,
+        fee: DEFAULT_FEE,
+        status: 'completed',
+      }));
+
       emulation = {
         networkFee: DEFAULT_FEE,
         received: 1n,
         traceOutputs: [],
-        activities: [updateActivityMetadata({
-          id: '',
-          kind: 'transaction',
-          timestamp: 0,
-          comment: undefined,
-          fromAddress: source,
-          toAddress: destination,
-          // Sign of `amount` drives the `+`/`−` in the preview; isIncoming is only
-          // a zero-amount fallback (see formatCurrencyExtended).
-          amount: isIncoming ? parsed.amount : -parsed.amount,
-          slug: SOLANA.slug,
-          isIncoming,
-          normalizedAddress: isIncoming ? source : destination,
-          fee: DEFAULT_FEE,
-          status: 'completed',
-        })],
+        activities,
         realFee: DEFAULT_FEE,
       };
     }

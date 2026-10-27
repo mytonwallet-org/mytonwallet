@@ -129,9 +129,9 @@ addActionHandler('closeHideNftModal', (global) => {
   });
 });
 
-addActionHandler('openReportNftModal', (global, actions, { chain, address }) => {
+addActionHandler('openReportNftModal', (global, actions, payload) => {
   return updateCurrentAccountState(global, {
-    selectedNftToReport: { chain, address },
+    selectedNftToReport: payload,
   });
 });
 

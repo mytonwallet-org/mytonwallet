@@ -4,14 +4,15 @@ import { ApiTransactionError } from '../../types';
 
 import { sendExternal } from './util/sendExternal';
 import { getTonClient } from './util/tonCore';
-import { fetchStoredWallet } from '../../common/accounts';
+import { fetchStoredChainAccount, fetchStoredWallet } from '../../common/accounts';
 import { withoutTransferConcurrency } from '../../common/preventTransferConcurrency';
 import { ApiServerError } from '../../errors';
-import { sendSignedTransactions } from './transfer';
+import { sendSignedTransactions, submitMultiTransferWithMfa } from './transfer';
 import { getTonWallet, getWalletInfo } from './wallet';
 
 jest.mock('../../common/accounts', () => ({
   fetchStoredWallet: jest.fn(),
+  fetchStoredChainAccount: jest.fn(),
 }));
 
 jest.mock('./util/sendExternal', () => ({
@@ -101,5 +102,21 @@ describe('sendSignedTransactions', () => {
     await expect(sendSignedTransactions('1-mainnet', [
       { chain: 'ton', payload: { base64, seqno: 5 } },
     ])).resolves.toEqual({ error: ApiTransactionError.ConcurrentTransaction });
+  });
+
+  it('does not sign or broadcast a new batch while the preceding seqno is unconsumed', async () => {
+    jest.mocked(fetchStoredChainAccount).mockResolvedValue({
+      type: 'ton', byChain: { ton: { address: walletAddress, version: 'v4R2', index: 0 } },
+    } as Awaited<ReturnType<typeof fetchStoredChainAccount>>);
+    const signTransactions = jest.fn();
+    const signer = { signTransactions } as unknown as Parameters<typeof submitMultiTransferWithMfa>[0]['signer'];
+
+    const result = await submitMultiTransferWithMfa({
+      accountId: '1-mainnet', signer, messages: [], previousSeqno: walletSeqno,
+    });
+
+    expect(result).toEqual({ error: ApiTransactionError.ConcurrentTransaction });
+    expect(signTransactions).not.toHaveBeenCalled();
+    expect(sendExternal).not.toHaveBeenCalled();
   });
 });

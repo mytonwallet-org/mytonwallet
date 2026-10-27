@@ -15,6 +15,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     @MainActor
     public protocol CustomSectionDataProvider {
         var id: String { get }
+        var sectionAccountId: String? { get }
         var itemIdentifiers: [String] { get }
 
         func prepareForUse()
@@ -42,17 +43,23 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         public let dequeueCell: @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell
         private let onWillDisplay: (@MainActor (UICollectionViewCell) -> Void)?
         private let usesInsetGroupedMargins: Bool
+        private let topSpacing: CGFloat
+        private let bottomSpacing: CGFloat
 
         public var itemIdentifiers: [String] { [id] }
 
         public init(
             id: String,
             usesInsetGroupedMargins: Bool = false,
+            topSpacing: CGFloat = 0,
+            bottomSpacing: CGFloat = 16,
             dequeueCell: @escaping @MainActor (UICollectionView, IndexPath) -> UICollectionViewCell,
             willDisplay: (@MainActor (UICollectionViewCell) -> Void)? = nil
         ) {
             self.id = id
             self.usesInsetGroupedMargins = usesInsetGroupedMargins
+            self.topSpacing = topSpacing
+            self.bottomSpacing = bottomSpacing
             self.dequeueCell = dequeueCell
             self.onWillDisplay = willDisplay
         }
@@ -85,8 +92,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             // Keep UIKit's asymmetric margins without its rounded list-cell clipping.
             section.contentInsetsReference = listSection.contentInsetsReference
             section.contentInsets = listSection.contentInsets
-            section.contentInsets.top = 0
-            section.contentInsets.bottom = 16
+            section.contentInsets.top = topSpacing
+            section.contentInsets.bottom = bottomSpacing
             return section
         }
     }
@@ -234,6 +241,10 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         allCustomSectionDataProviders.first { $0.id == id }
     }
 
+    private func customSectionIdentifier(for id: String) -> Section {
+        .custom(id, accountId: customSectionDataProvider(id: id)?.sectionAccountId)
+    }
+
     private func customRow(sectionID: String, itemIdentifier: String) -> Row {
         .custom(sectionID + Self.customItemIdentifierSeparator + itemIdentifier)
     }
@@ -334,7 +345,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             }
             
             return switch self.dataSource?.sectionIdentifier(for: sectionIndex)?.value {
-            case .custom(let id):
+            case .custom(let id, _):
                 if let customLayout = customSectionDataProvider(id: id)?.makeLayoutSection(
                     layoutEnvironment: layoutEnvironment
                 ) {
@@ -401,7 +412,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             switch section.value {
             case .transactions(_, let date):
                 cell.configure(with: date)
-            case .headerPlaceholder, .custom(_), .emptyPlaceholder, .loadingPlaceholder:
+            case .headerPlaceholder, .custom, .emptyPlaceholder, .loadingPlaceholder:
                 break
             }
         }
@@ -413,7 +424,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 return collectionView.dequeueConfiguredReusableCell(using: headerPlaceholderCellRegistration, for: indexPath, item: item)
 
             case .custom:
-                guard case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
+                guard case .custom(let sectionID, _) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
                       let dataProvider = self.customSectionDataProvider(id: sectionID),
                       let itemIdentifier = self.customItemIdentifier(from: item, sectionID: sectionID) else {
                     assertionFailure("Missing custom section data provider at \(indexPath)")
@@ -436,7 +447,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             }
         }
         dataSource.supplementaryViewProvider = { [unowned self] collectionView, kind, indexPath in
-            if case .custom(let sectionID) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
+            if case .custom(let sectionID, _) = self.dataSource?.sectionIdentifier(for: indexPath.section)?.value,
                let supplementaryView = customSectionDataProvider(id: sectionID)?.dequeueSupplementaryView(
                    collectionView,
                    kind: kind,
@@ -500,7 +511,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                     assertionFailure("Missing custom section data provider for id \(customSectionID)")
                     continue
                 }
-                let section = Section.custom(customSectionID)
+                let section = customSectionIdentifier(for: customSectionID)
                 snapshot.appendSections([section])
                 let rows = customRows(for: dataProvider)
                 snapshot.appendItems(rows, toSection: section)
@@ -519,9 +530,9 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                 return nil
             }
             let activeLeadingIDs = activeCustomSectionIDs
-            let activeLeadingSections = activeLeadingIDs.map(Section.custom)
+            let activeLeadingSections = activeLeadingIDs.map(customSectionIdentifier)
             let activeTrailingIDs = activeTrailingCustomSectionIDs
-            let activeTrailingSections = activeTrailingIDs.map(Section.custom)
+            let activeTrailingSections = activeTrailingIDs.map(customSectionIdentifier)
             let activeCustomSections = activeLeadingSections + activeTrailingSections
 
             if currentCustomSections != activeCustomSections {
@@ -573,7 +584,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
                         assertionFailure("Missing custom section data provider for id \(customSectionID)")
                         continue
                     }
-                    let section = Section.custom(customSectionID)
+                    let section = customSectionIdentifier(for: customSectionID)
                     snapshot.appendSections([section])
                     let rows = customRows(for: dataProvider)
                     snapshot.appendItems(rows, toSection: section)
@@ -659,7 +670,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
             let sections = snapshot.sectionIdentifiers.map { section -> String in
                 let name: String = switch section.value {
                 case .headerPlaceholder: "header"
-                case .custom(let id): id
+                case .custom(let id, _): id
                 default: "activity"
                 }
                 return "\(name):\(snapshot.numberOfItems(inSection: section))"
@@ -745,20 +756,29 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
         guard let original = layout.layoutAttributesForItem(at: indexPath),
               original.size.height != headerPlaceholderLayoutHeight else { return }
         // The layout owns this known height, including while the placeholder is offscreen.
-        let context = UICollectionViewLayoutInvalidationContext()
-        context.invalidateItems(at: [indexPath])
         collectionView.traceHome("layout.invalidate.header", "oldH=\(original.size.height) newH=\(headerPlaceholderLayoutHeight) animated=\(animated)")
-        layout.invalidateLayout(with: context)
+        invalidateItemLayout(at: [indexPath])
     }
     
     public func invalidateCustomSectionLayout(id: String) {
         guard let dataProvider = customSectionDataProvider(id: id) else { return }
         let indexPaths = customRows(for: dataProvider).compactMap { dataSource?.indexPath(for: $0) }
         guard !indexPaths.isEmpty else { return }
-        let context = UICollectionViewLayoutInvalidationContext()
-        context.invalidateItems(at: indexPaths)
         collectionView.traceHome("layout.invalidate.section", "section=\(id) items=\(indexPaths.count)")
-        collectionView.collectionViewLayout.invalidateLayout(with: context)
+        invalidateItemLayout(at: indexPaths)
+    }
+
+    private func invalidateItemLayout(at indexPaths: [IndexPath]) {
+        let layout = collectionView.collectionViewLayout
+        if #available(iOS 26, *) {
+            let context = UICollectionViewLayoutInvalidationContext()
+            context.invalidateItems(at: indexPaths)
+            layout.invalidateLayout(with: context)
+        } else {
+            // Older compositional layouts reset unrelated self-sized rows to their estimates
+            // on partial invalidation without measuring them again (e.g. 60-point tokens become 44).
+            layout.invalidateLayout()
+        }
     }
 
     public func reconfigureCustomSection(id: String, animated: Bool = true) {
@@ -888,7 +908,7 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
     ) -> ((any CustomSectionDataProvider), String)? {
         guard let dataSource,
               let row = dataSource.itemIdentifier(for: indexPath),
-              case .custom(let sectionID) = dataSource.sectionIdentifier(for: indexPath.section)?.value,
+              case .custom(let sectionID, _) = dataSource.sectionIdentifier(for: indexPath.section)?.value,
               let dataProvider = customSectionDataProvider(id: sectionID),
               let itemIdentifier = customItemIdentifier(from: row, sectionID: sectionID) else {
             return nil
@@ -1011,6 +1031,8 @@ open class ActivityListViewController: WViewController, ActivityCell.Delegate, U
 }
 
 public extension ActivityListViewController.CustomSectionDataProvider {
+    var sectionAccountId: String? { nil }
+
     func prepareForUse() { }
 
     func makeLayoutSection(

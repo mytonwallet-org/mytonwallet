@@ -5,7 +5,7 @@ import type { ApiChain } from '../../../api/types';
 
 import renderText from '../../../global/helpers/renderText';
 import buildClassName from '../../../util/buildClassName';
-import { getChainTitle } from '../../../util/chain';
+import { getChainConfig, getChainTitle, isUtxoChain } from '../../../util/chain';
 
 import useLang from '../../../hooks/useLang';
 import useQrCode from '../../../hooks/useQrCode';
@@ -36,6 +36,7 @@ function Address({
   const { verifyHardwareAddress } = getActions();
 
   const lang = useLang();
+  const chainTitle = getChainTitle(chain);
   const { qrCodeRef } = useQrCode({
     address,
     chain,
@@ -62,10 +63,17 @@ function Address({
         chain={chain}
         address={address}
         className={styles.addressWrapper}
-        copyNotification={lang('%chain% Address Copied', { chain: getChainTitle(chain) }) as string}
+        copyNotification={lang('%chain% Address Copied', { chain: chainTitle }) as string}
         noSavedAddress
         noDimming
       />
+
+      <div className={styles.sendOnlyWarning}>
+        {lang(isUtxoChain(chain) ? '$send_only_chain_no_tokens' : '$send_only_chain', {
+          symbol: getChainConfig(chain).nativeToken.symbol,
+          chain: chainTitle,
+        })}
+      </div>
 
       {isViewMode && (
         <WarningMessage className={styles.viewModeWarning}>

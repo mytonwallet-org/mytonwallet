@@ -27,7 +27,6 @@ import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletcore.models.MExploreCategory
 import org.mytonwallet.app_air.walletcore.models.MExploreSite
-import org.mytonwallet.app_air.walletcore.stores.ConfigStore
 
 @SuppressLint("ViewConstructor")
 class ExploreCategoryCell(
@@ -136,8 +135,7 @@ class ExploreCategoryCell(
         val allImages = listOf(img1, img2, img3)
         for (i in allImages.indices) {
             allImages[i].setOnClickListener {
-                allImages.getOrNull(i)
-                category?.sites?.get(i)?.let {
+                sites.getOrNull(i)?.let {
                     onSiteTap(it)
                 }
             }
@@ -150,6 +148,7 @@ class ExploreCategoryCell(
     }
 
     private var category: MExploreCategory? = null
+    private var sites: List<MExploreSite> = emptyList()
     private var isBottomLeft: Boolean = false
     private var isBottomRight: Boolean = false
     fun configure(
@@ -162,6 +161,7 @@ class ExploreCategoryCell(
         isBottomTrailing: Boolean
     ) {
         this.category = category
+        this.sites = category?.sites?.filter { it.canBeShown } ?: emptyList()
         this.isBottomLeft = isBottomLeading
         this.isBottomRight = isBottomTrailing
         outerContainerView.setConstraints {
@@ -191,10 +191,6 @@ class ExploreCategoryCell(
         titleLabel.isInvisible = category == null
         category?.let {
             titleLabel.text = category.name
-
-            val sites = category.sites.filter {
-                ConfigStore.isLimited != true || !it.canBeRestricted
-            }
 
             if (sites.isNotEmpty()) {
                 img1.set(

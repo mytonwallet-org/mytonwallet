@@ -60,7 +60,7 @@ public final class MtwCardContentView: UIView {
     private var data: MtwCardContentData?
     private var progress: CGFloat = 0
     private var topTabs = false
-    private var minimumFontScale: CGFloat = 1
+    private var balanceStyle: MtwCardBalanceView.Style = .homeCard
 
     private var showsMintAction: Bool {
         data?.showsMintAction == true
@@ -109,12 +109,8 @@ public final class MtwCardContentView: UIView {
                           animatesBalance: Bool = true) {
         self.data = data
         progress = collapseProgress
-        topTabs = usesTopTabs
-        self.minimumFontScale = minimumFontScale
-        let style: MtwCardBalanceView.Style = mode == .expanded
-            ? .homeCard(cardWidth: cardWidth, minimumScale: minimumFontScale)
-            : (usesTopTabs ? .homeNavigationBarCollapsed : .homeCollaped)
-        balance.configure(balance: data.balance, style: style, nft: data.nft, usesCardGradient: mode == .expanded,
+        updateLayout(cardWidth: cardWidth, minimumFontScale: minimumFontScale, usesTopTabs: usesTopTabs)
+        balance.configure(balance: data.balance, style: balanceStyle, nft: data.nft, usesCardGradient: mode == .expanded,
                           isHidden: isSensitiveDataHidden, isScrolling: isScrolling, animates: animatesBalance)
         change.configure(balance: data.balance, previous: data.previousBalance, percent: data.balanceChange, nft: data.nft,
                          style: mode == .expanded ? .card : .plainBackground, isHidden: isSensitiveDataHidden,
@@ -139,6 +135,28 @@ public final class MtwCardContentView: UIView {
         isHidden = false
     }
 
+    /// Prepare both faces' geometry without rendering the inactive balance.
+    public func updateLayout(cardWidth: CGFloat, minimumFontScale: CGFloat, usesTopTabs: Bool) {
+        topTabs = usesTopTabs
+        balanceStyle = mode == .expanded
+            ? .homeCard(cardWidth: cardWidth, minimumScale: minimumFontScale)
+            : (usesTopTabs ? .homeNavigationBarCollapsed : .homeCollaped)
+        setNeedsLayout()
+    }
+
+    public func balanceAlignmentFrame(for amount: BaseCurrencyAmount?, isSensitiveDataHidden: Bool) -> CGRect {
+        layoutIfNeeded()
+        let frame = balance.alignmentFrame(for: amount, style: balanceStyle, isHidden: isSensitiveDataHidden)
+        return balance.convert(frame, to: self)
+    }
+
+    /// Scroll geometry must not reconfigure balances, privacy transitions or menus.
+    public func updateCollapseProgress(_ value: CGFloat) {
+        guard progress != value else { return }
+        progress = value
+        setNeedsLayout()
+    }
+
     public func prepareForReuse() {
         isHidden = true
         balance.prepareForReuse()
@@ -155,14 +173,21 @@ public final class MtwCardContentView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        guard let data else { return }
+        // Lay out the printed positions, then restore the material planes.
+        // Setting a transformed view's frame otherwise cancels its visible
+        // parallax offset whenever balances or header geometry are refreshed.
+        let planes: [UIView] = mode == .expanded ? [balance, change, accountLine, seasonal] : []
+        let transforms = planes.map(\.transform)
+        planes.forEach { $0.transform = .identity }
+        defer { for (plane, transform) in zip(planes, transforms) { plane.transform = transform } }
         let displayScale = max(traitCollection.displayScale, 1)
-        let height = (balance.lineHeight * displayScale).rounded() / displayScale
-        let layoutHeight = ceil(balance.lineHeight * displayScale) / displayScale
+        let lineHeight = balanceStyle.integerFont.lineHeight
+        let height = (lineHeight * displayScale).rounded() / displayScale
+        let layoutHeight = ceil(lineHeight * displayScale) / displayScale
         if mode == .expanded {
             // SwiftUI's reveal mask imposed a 224 pt minimum balance width, plus
             // the 65 pt balance insets. Preserve that layout in narrow sidebars.
-            let contentWidth = max(bounds.width, data.balance == nil ? 0 : 289)
+            let contentWidth = max(bounds.width, data?.balance == nil ? 0 : 289)
             let contentX = (bounds.width - contentWidth) / 2
             let scale = interpolate(from: 1, to: 17.0 / 40, progress: progress)
             let bottom = interpolate(from: 0, to: -16 + (IOS_26_MODE_ENABLED ? -3 : -14), progress: progress)
@@ -174,6 +199,7 @@ public final class MtwCardContentView: UIView {
             let balanceX = ceil((bounds.midX + leading - balanceWidth / 2) * displayScale) / displayScale
             balance.frame = CGRect(x: balanceX - contentX, y: 0, width: balanceWidth, height: height)
             change.frame = CGRect(x: 0, y: height + 5, width: contentWidth, height: 26)
+            guard let data else { return }
             let rawLineHeight = data.showsWalletName ? WTypography.uiFont(.bodyStrong).lineHeight : UIFont.compactDisplay(ofSize: 17, weight: .medium).lineHeight
             let lineHeight = (rawLineHeight * displayScale).rounded() / displayScale
             let padding: CGFloat = data.showsWalletName ? 20 : 16

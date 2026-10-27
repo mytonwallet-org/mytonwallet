@@ -36,6 +36,9 @@ function useFontScale(inputRef: ElementRef<HTMLElement>, shouldGetParentWidth?: 
         el.textContent = el.dataset.measureText!;
         el.style.display = 'inline';
       });
+
+      // Decorative layers, like the dust canvas in `CardPrivacy`, reach past the text and are not measured
+      measureEl.current.querySelectorAll('[data-measure-exclude]').forEach((el) => el.remove());
       document.body.appendChild(measureEl.current);
 
       // Every `scrollWidth` read below forces a synchronous layout, so the largest fitting step is found by

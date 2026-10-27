@@ -113,6 +113,7 @@ $logout_selected_wallets_warning: سيؤدي هذا إلى إزالة المحا
 $logout_all_wallets_warning: سيؤدي هذا إلى إزالة جميع المحافظ من التطبيق.
 $secret_words_backup_reminder: تأكد من حفظ **عبارات الاسترداد** احتياطيًا.
 $all_secret_words_backup_reminder: تأكد من حفظ جميع **عبارات الاسترداد** احتياطيًا.
+$secret_word_input_aria_label: "كلمة الاسترداد %number%"
 Create Deposit Link: إنشاء رابط الإيداع
 $receive_invoice_description: |-
   يمكنك تحديد المبلغ والغرض منه
@@ -244,6 +245,11 @@ Dark: مظلم
 System: نظام
 $stake_asset: حصة %symbol%
 Add Stake: أضف حصة
+"🔒 %amount% %symbol% locked in another staking": "\u200F🔒 \u200E%amount% %symbol%\u200F مقفلة في استيكينغ آخر"
+"Unstake them to restake with **higher returns**.": "اسحبها لإعادة الاستيكينغ مع **عوائد أعلى**."
+"💎 More profitable staking available": "💎 يتوفر استيكينغ أكثر ربحية"
+"Tap to restake your %symbol% with higher returns.": "اضغط لإعادة استيكينغ %symbol% الخاصة بك مع عوائد أعلى."
+"Restake Now": "أعد الاستيكينغ الآن"
 Earn from your tokens while holding them: اربح من الاحتفاظ بـ %symbol%
 Current APY: أبي الحالي
 Est. Yearly Earnings: "\u200FEST. الأرباح السنوية"
@@ -285,8 +291,8 @@ The network fee has slightly changed, try sending again.: لقد تغيرت رس
 Transfer was unsuccessful. Try again later.: لم ينجح النقل. حاول مرة أخرى لاحقًا.
 Action Partially Completed: اكتمل الإجراء جزئيًا
 $action_partially_completed_description: "اكتملت %completed% من أصل %total% عمليات. لم تكتمل العمليات المتبقية. تحقق من نشاطك قبل المحاولة مرة أخرى."
-Action Status Unknown: حالة الإجراء غير معروفة
-$action_status_unknown_description: "تعذر التحقق من حالة الاكتمال. تحقق من نشاطك ورصيدك قبل إعادة المحاولة؛ فقد تؤدي إعادة المحاولة الآن إلى إرسال الإجراء مرتين."
+Check Your Activity: تحقّق من سجل نشاطك
+$action_status_unknown_description: "ربما تم تنفيذ طلبك بالفعل. تحقّق من سجل نشاطك ورصيدك قبل المحاولة مجددًا لتجنّب إرساله مرتين."
 $action_will_continue_in_background: سيستمر الإجراء في الخلفية.
 Invalid amount: مبلغ غير صالح
 Invalid address: عنوان غير صالح
@@ -414,6 +420,7 @@ $swap_minimum_received_tooltip1: هذا هو أقل قدر من الرموز ا�
 $swap_minimum_received_tooltip2: إنه الحد الأدنى المتوقع، ولكن إذا تغيرت الظروف كثيرًا أثناء معالجة المبادلة الخاصة بك، فقد يكون المبلغ النهائي أقل.
 $swap_price_impact_tooltip1: يوضح هذا مقدار تأثير تجارتك على سعر التوكن.
 $swap_price_impact_tooltip2: الصفقات الكبيرة يمكن أن تجعل السعر يرتفع أو ينخفض ​​أكثر. أقل عادة ما يكون أفضل.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: الانزلاق هو الفرق بين سعر التداول المتوقع والسعر الفعلي بسبب تغيرات السعر أثناء التنفيذ.
 $swap_slippage_tooltip1: يحدد هذا المبلغ المسموح للسعر بالتغيير قبل معالجة المبادلة الخاصة بك.
 $swap_slippage_tooltip2: إذا تغير السعر أكثر من هذه القيمة أثناء معالجة المبادلة الخاصة بك، فسيتم إلغاء طلبك.
 Slippage not specified: الانزلاق غير محدد
@@ -437,6 +444,8 @@ Swap Again: مبادلة مرة أخرى
 Terms of Use: شروط الاستخدام
 Privacy Policy: سياسة الخصوصية
 Insufficient liquidity: سيولة غير كافية
+$swap_quote_unavailable: لا توجد عروض
+$swap_service_unavailable: المبادلة غير متاحة
 This address is new and never received transfers before.: هذا العنوان جديد ولم يتم استقبال تحويلات من قبل.
 Create Backup: إنشاء نسخة احتياطية
 Sending: إرسال
@@ -638,6 +647,11 @@ $dapp_liquid_staking_vote_payload: التصويت بـ "%vote%" لاقتراح %
 $dapp_single_nominator_change_validator_payload: تغيير عنوان مدقق عقد التوقيع المساحي SingleNominator إلى %address%
 $dapp_single_nominator_withdraw_payload: سحب %amount% من عقد التوقيع المساحي SingleNominator
 $dapp_vesting_add_whitelist_payload: إضافة %address% إلى القائمة البيضاء للمحفظة
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: مشكلة مزامنة الوقت. يرجى التأكد من صحة إعدادات الوقت بجهازك.
 Data Copied: تم نسخ البيانات
 URL Copied: تم نسخ URL
@@ -841,7 +855,7 @@ Blockchain Fee Details: تفاصيل رسوم البلوكشين
 Final Fee: الرسوم النهائية
 Excess: إفراط
 $fee_details: |-
-  يجب خصم %full_fee% على الفور من محفظتك لدفع الرسوم. سيتم إرجاع جزء من هذا **في **%excess_symbol% إليك كفائض في غضون بضع دقائق.
+  يجب خصم %full_fee% على الفور من محفظتك لدفع الرسوم. سيتم إرجاع جزء من هذا **في** %excess_symbol% إليك كفائض في غضون بضع دقائق.
 
   هذه هي الطريقة التي يعمل بها %chain_name% Blockchain.
 Got It: فهمتها
@@ -909,6 +923,12 @@ Bounced: ارتد
 Bouncing: كذاب
 $bounce_action: ترتد
 NFT Auction Bid: عرض مزاد NFT
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: المزايدة في مزاد NFT
 Buying NFT: شراء NFT
 Bought NFT: اشترى NFT
@@ -1721,40 +1741,40 @@ $web_permission_this_site: هذا الموقع
 push_title_wallet: "%wallet_title%"
 push_activity_token_sent: تم إرسال %amount% %symbol%
 push_activity_token_received: تم استلام %amount% %symbol%
-push_activity_contract_called: يسمى العقد الذكي
-push_activity_contract_deployed: نشر العقد الذكي
-push_activity_token_minted: سك %amount% %symbol%
+push_activity_contract_called: تم استدعاء العقد الذكي
+push_activity_contract_deployed: تم نشر العقد الذكي
+push_activity_token_minted: تم سك %amount% %symbol%
 push_activity_token_burned: تم حرق %amount% %symbol%
 push_activity_nft_sent: تم إرسال NFT
 push_activity_nft_sent_named: "تم إرسال NFT: %name%"
 push_activity_nft_received: تم استلام NFT
 push_activity_nft_received_named: "تم استلام NFT: %name%"
-push_activity_nft_minted: سك NFT
-push_activity_nft_minted_named: "سك NFT: %name%"
-push_activity_liquidity_deposited: توفير السيولة
-push_activity_liquidity_withdrawn: سحب السيولة
-push_activity_stake_deposit: رهنا %amount% %symbol%
-push_activity_stake_withdrawal: "%amount% غير المقيد %symbol%"
-push_activity_stake_withdrawal_request: طلب سحب الرهن العقاري
-push_activity_auction_bid: تم تقديم عرض المزاد %amount% %symbol%
+push_activity_nft_minted: تم سك NFT
+push_activity_nft_minted_named: "تم سك NFT: %name%"
+push_activity_liquidity_deposited: تم توفير السيولة
+push_activity_liquidity_withdrawn: تم سحب السيولة
+push_activity_stake_deposit: تم تخزين %amount% %symbol%
+push_activity_stake_withdrawal: تم إلغاء تخزين %amount% %symbol%
+push_activity_stake_withdrawal_request: تم طلب إلغاء التخزين
+push_activity_auction_bid: تم تقديم عرض في المزاد %amount% %symbol%
 push_activity_dns_changed: تم تحديث سجل DNS
-push_activity_dns_deleted: سجل DNS المحذوف
-push_activity_dns_renewed: تجديد DNS
+push_activity_dns_deleted: تم حذف سجل DNS
+push_activity_dns_renewed: تم تجديد DNS
 push_activity_subscription_started: بدأ الاشتراك
 push_activity_subscription_payment_received: تم استلام دفعة الاشتراك %amount% %symbol%
 push_activity_subscription_canceled: تم إلغاء الاشتراك
-push_activity_swap_completed: تم تبديل %from_symbol% → %to_symbol%
-push_activity_swap_failed: تبديل %from_symbol% → فشل %to_symbol%
-push_activity_swap_expired: مبادلة %from_symbol% → انتهت صلاحية %to_symbol%
+push_activity_swap_completed: تمت مبادلة %from_symbol% → %to_symbol%
+push_activity_swap_failed: فشلت مبادلة %from_symbol% → %to_symbol%
+push_activity_swap_expired: انتهت صلاحية مبادلة %from_symbol% → %to_symbol%
 push_activity_swap_pending: مبادلة %from_symbol% → %to_symbol% %status%
-push_activity_staking_profit: تكديس الأرباح %amount% GRAM
-push_activity_staking_loyalty_profit: تكديس أرباح الولاء %amount% GRAM
-push_domain_title_renew: تجديد المجال الخاص بك
+push_activity_staking_profit: أرباح التخزين %amount% GRAM
+push_activity_staking_loyalty_profit: أرباح ولاء التخزين %amount% GRAM
+push_domain_title_renew: جدّد نطاقك
 push_domain_expired_yesterday: انتهت صلاحية نطاقك %domain% أمس. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
-push_domain_expired_days_ago: انتهت صلاحية نطاقك %domain% منذ أيام %days%. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
+push_domain_expired_days_ago: انتهت صلاحية نطاقك %domain% منذ %days% أيام. يرجى تجديده في أقرب وقت ممكن لتجنب فقدان الوصول
 push_domain_expires_today: ستنتهي صلاحية نطاقك %domain% اليوم. يرجى تجديده لتجنب فقدان الوصول
 push_domain_expires_tomorrow: ستنتهي صلاحية نطاقك %domain% غدًا. يرجى تجديده لتجنب فقدان الوصول
-push_domain_expires_in_days: ستنتهي صلاحية نطاقك %domain% خلال أيام %days%. يرجى تجديده لتجنب فقدان الوصول
+push_domain_expires_in_days: ستنتهي صلاحية نطاقك %domain% خلال %days% أيام. يرجى تجديده لتجنب فقدان الوصول
 $more_nfts:
   zeroValue: لا يوجد NFTs
   oneValue: +1 NFT
@@ -2075,3 +2095,9 @@ Hold to enlarge. Drag to rotate.: اضغط مطولًا للتكبير. اسحب
 "Max": "الأقصى"
 Explorer mode: وضع المستكشف
 Open a link to a wallet, transfer, token or collectible to see its details here.: افتح رابطًا لمحفظة أو تحويل أو توكن أو مقتنى لعرض تفاصيله هنا.
+Receiver %blockchain% Address: عنوان %blockchain% للمتلقي
+
+Save to Photos: حفظ في الصور
+Image Saved: تم حفظ الصورة
+Allow access to Photos in Settings to save NFT images.: اسمح بالوصول إلى الصور في الإعدادات لحفظ صور NFT.
+Could not save the image. Please try again.: تعذر حفظ الصورة. يُرجى المحاولة مرة أخرى.

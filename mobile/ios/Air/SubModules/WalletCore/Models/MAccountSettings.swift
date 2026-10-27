@@ -9,6 +9,7 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
     public var accentColorIndex: Int?
     public var isAllowSuspiciousActions: Bool?
     public var portfolioTimeRange: String?
+    public var dismissedHomeBannerIds: [String]?
 
     public init(
         accountId: String,
@@ -16,7 +17,8 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
         accentColorNft: ApiNft?,
         accentColorIndex: Int?,
         isAllowSuspiciousActions: Bool?,
-        portfolioTimeRange: String?
+        portfolioTimeRange: String?,
+        dismissedHomeBannerIds: [String]? = nil
     ) {
         self.accountId = accountId
         self.cardBackgroundNft = cardBackgroundNft
@@ -24,6 +26,7 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
         self.accentColorIndex = accentColorIndex
         self.isAllowSuspiciousActions = isAllowSuspiciousActions
         self.portfolioTimeRange = portfolioTimeRange
+        self.dismissedHomeBannerIds = dismissedHomeBannerIds
     }
 
     public init(accountId: String, settingsDict: [String: Any]) {
@@ -33,7 +36,8 @@ public struct MAccountSettings: Equatable, Hashable, Codable, Sendable, Fetchabl
             accentColorNft: settingsDict["accentColorNft"].flatMap { try? JSONSerialization.decode(ApiNft.self, from: $0) },
             accentColorIndex: settingsDict["accentColorIndex"] as? Int,
             isAllowSuspiciousActions: settingsDict["isAllowSuspiciousActions"] as? Bool,
-            portfolioTimeRange: nil
+            portfolioTimeRange: nil,
+            dismissedHomeBannerIds: settingsDict["dismissedHomeBannerIds"] as? [String]
         )
     }
 
@@ -47,5 +51,6 @@ extension MAccountSettings {
             || accentColorIndex != nil
             || isAllowSuspiciousActions != nil
             || portfolioTimeRange != nil
+            || dismissedHomeBannerIds?.isEmpty == false
     }
 }

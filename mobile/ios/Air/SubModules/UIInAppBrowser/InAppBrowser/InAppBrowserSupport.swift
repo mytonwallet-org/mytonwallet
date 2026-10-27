@@ -119,6 +119,7 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
         }
         browser.view.layer.removeAllAnimations()
         browser.view.alpha = 1
+        browser.preferredContentSize = CGSize(width: 1100, height: 1100)
 
         if browser.presentingViewController != nil {
             configureSystemSheet(browser)
@@ -131,7 +132,9 @@ public final class InAppBrowserSupport: NSObject, WalletCoreData.EventsObserver,
             return
         }
 
-        browser.modalPresentationStyle = .pageSheet
+        // A narrow presenting sheet can have compact traits even in a regular-width window.
+        let windowTraits = presenter.view.window?.traitCollection ?? presenter.traitCollection
+        browser.modalPresentationStyle = windowTraits.horizontalSizeClass == .regular ? .formSheet : .pageSheet
         presenter.present(browser, animated: true) { [weak self, weak browser] in
             guard let self, let browser else { return }
             self.configureSystemSheet(browser)

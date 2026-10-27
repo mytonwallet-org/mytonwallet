@@ -1,7 +1,8 @@
 import type {
-  ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiSwapAsset,
+  ApiBalanceBySlug, ApiBaseCurrency, ApiChain, ApiCurrencyRates, ApiSwapAsset, ApiSwapRouteType,
 } from '../../api/types';
 import type { AccountSettings, GlobalState, TradeDirection, UserSwapToken } from '../types';
+import { SwapType } from '../../util/swap/types';
 
 import {
   DEFAULT_SWAP_FIRST_TOKEN_SLUG,
@@ -238,8 +239,9 @@ export function selectSwapType(global: GlobalState) {
   return getSwapType(tokenInSlug, tokenOutSlug, byChain);
 }
 
-export function selectSwapRoute(global: GlobalState) {
-  return global.currentSwap.route;
+/** The venue of the last estimate, or the topology default when none has answered yet. */
+export function selectSwapRoute(global: GlobalState): ApiSwapRouteType {
+  return global.currentSwap.route ?? (selectSwapType(global) === SwapType.OnChain ? 'dex' : 'cex');
 }
 
 export function selectIsSwapDisabled(global: GlobalState) {

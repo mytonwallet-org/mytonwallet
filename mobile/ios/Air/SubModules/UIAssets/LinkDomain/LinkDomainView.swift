@@ -24,6 +24,13 @@ struct LinkDomainView: View {
                 }
                 InsetSection {
                     LinkDomainAddressInput(viewModel: viewModel)
+                        .overlay {
+                            if viewModel.hasAddressError {
+                                RoundedRectangle(cornerRadius: S.insetSectionCornerRadius, style: .continuous)
+                                    .strokeBorder(Color.air.error, lineWidth: 1.5)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                 } header: {
                     Text(viewModel.addressLabel)
                 }
@@ -74,6 +81,7 @@ struct LinkDomainView: View {
                     fee: fee,
                     explainedTransferFee: nil,
                     includeLabel: true,
+                    isError: viewModel.isInsufficientBalance,
                     textStyle: .supporting,
                     textScaling: .fixed
                 )
@@ -119,6 +127,7 @@ private struct LinkDomainAddressInput: View {
                     AddressTextField(
                         value: $viewModel.walletAddress,
                         isFocused: $viewModel.isAddressFocused,
+                        isError: viewModel.hasAddressError,
                         onNext: { viewModel.isAddressFocused = false }
                     )
                     .offset(y: 1)
@@ -210,8 +219,10 @@ private struct LinkDomainWalletButton: View {
     @State var account: AccountContext
 
     var body: some View {
-        InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: onTap) {
-            AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
+        WithPerceptionTracking {
+            InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: onTap) {
+                AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false, addressChain: viewModel.nft?.chain)
+            }
         }
     }
 
@@ -232,16 +243,16 @@ private struct LinkDomainResolvedAddressView: View {
                 if let primary = display.primary {
                     Text(primary)
                         .textStyle(.body, content: display.secondary == nil ? .technical : .default)
-                        .foregroundStyle(Color.air.primaryLabel)
+                        .foregroundStyle(viewModel.hasAddressError ? Color.air.error : Color.air.primaryLabel)
                         .truncationMode(.middle)
                 }
                 if let secondary = display.secondary {
                     Text("·")
                         .textStyle(.body, content: .technical)
-                        .foregroundStyle(Color.air.secondaryLabel)
+                        .foregroundStyle(viewModel.hasAddressError ? Color.air.error : Color.air.secondaryLabel)
                     Text(secondary)
                         .textStyle(.body, content: .technical)
-                        .foregroundStyle(Color.air.secondaryLabel)
+                        .foregroundStyle(viewModel.hasAddressError ? Color.air.error : Color.air.secondaryLabel)
                 }
             }
             .animation(.default, value: display.primary)

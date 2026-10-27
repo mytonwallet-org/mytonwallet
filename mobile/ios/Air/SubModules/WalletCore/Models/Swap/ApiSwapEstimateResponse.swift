@@ -40,6 +40,14 @@ public enum ApiSwapEstimateResponse: Equatable, Decodable, Sendable {
         }
     }
 
+    public var routeKind: SwapRouteKind? {
+        switch self {
+        case .dex: .dex
+        case .cex: .cex
+        case .error: nil
+        }
+    }
+
     private enum CodingKeys: String, CodingKey {
         case route, error
     }

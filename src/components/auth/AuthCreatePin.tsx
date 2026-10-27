@@ -21,6 +21,7 @@ import styles from './Auth.module.scss';
 interface OwnProps {
   isActive?: boolean;
   method?: AuthMethod;
+  error?: string;
 }
 
 const SUBMIT_PAUSE_MS = 750;
@@ -28,8 +29,9 @@ const SUBMIT_PAUSE_MS = 750;
 const AuthCreatePin = ({
   isActive,
   method,
+  error,
 }: OwnProps) => {
-  const { createPin, resetAuth } = getActions();
+  const { createPin, resetAuth, cleanAuthError } = getActions();
 
   const lang = useLang();
   const headerRef = useRef<HTMLDivElement>();
@@ -46,6 +48,13 @@ const AuthCreatePin = ({
   useHistoryBack({
     isActive,
     onBack: resetAuth,
+  });
+
+  const handleChange = useLastCallback((value: string) => {
+    setPin(value);
+    if (error) {
+      cleanAuthError();
+    }
   });
 
   const handleSubmit = useLastCallback(async (value: string) => {
@@ -74,10 +83,11 @@ const AuthCreatePin = ({
         </div>
         <PinPad
           isActive={isActive}
-          title={lang('Create a code to protect it')}
+          title={error ? lang(error) : lang('Create a code to protect it')}
+          type={error ? 'error' : undefined}
           length={PIN_LENGTH}
           value={pin}
-          onChange={setPin}
+          onChange={handleChange}
           onSubmit={handleSubmit}
         />
       </div>

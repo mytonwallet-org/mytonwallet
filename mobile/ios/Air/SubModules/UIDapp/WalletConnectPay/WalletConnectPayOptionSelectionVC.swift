@@ -39,6 +39,7 @@ final class WalletConnectPayOptionSelectionVC: WViewController, UISheetPresentat
         self.onSwitchAccount = onSwitchAccount
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 650)
     }
 
     required init?(coder: NSCoder) {

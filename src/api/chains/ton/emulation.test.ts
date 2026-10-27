@@ -575,7 +575,7 @@ describe('parseEmulation', () => {
           amount: -100000000n,
           status: 'completed',
           slug: 'toncoin',
-          type: 'callContract',
+          type: 'nftAuctionStart',
         },
         {
           kind: 'transaction',
@@ -600,7 +600,7 @@ describe('parseEmulation', () => {
           amount: -100000000n,
           status: 'completed',
           slug: 'toncoin',
-          type: 'callContract',
+          type: 'nftAuctionStart',
         },
         {
           kind: 'transaction',

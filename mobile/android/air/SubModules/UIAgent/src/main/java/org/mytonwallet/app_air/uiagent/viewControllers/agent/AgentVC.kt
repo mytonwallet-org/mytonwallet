@@ -223,6 +223,15 @@ class AgentVC(
         }
     }
 
+    private val streamRenderer = AgentStreamRenderer(
+        postFrame = { chatRecyclerView.postOnAnimation(it) },
+        cancelFrame = { chatRecyclerView.removeCallbacks(it) },
+        renderMessages = { messageIds ->
+            messageIds.forEach(::onStreamEvent)
+            onHintsUpdated(vm.visibleHints)
+        }
+    )
+
     private val viewport: AgentTimelineViewport by lazy {
         AgentTimelineViewport(object : AgentTimelineViewport.Host {
             override fun onMessagePinned(messageId: String) {
@@ -389,6 +398,7 @@ class AgentVC(
     override fun viewWillAppear() {
         super.viewWillAppear()
         isPreparingAppearance = true
+        setMessageRenderingActive(window?.isPaused != true)
         vm.setActive(this, true)
         updateVisibleHintsAvailability()
         when {
@@ -409,6 +419,7 @@ class AgentVC(
     }
 
     override fun viewWillDisappear() {
+        setMessageRenderingActive(false)
         hasAppeared = false
         isPreparingAppearance = false
         viewport.shareScrollPosition()
@@ -417,6 +428,8 @@ class AgentVC(
     }
 
     override fun onDestroy() {
+        streamRenderer.setActive(false)
+        streamRenderer.clear()
         pendingPrompts.clear()
         viewport.shareScrollPosition()
         cancelHintsSettleFallback()
@@ -934,8 +947,20 @@ class AgentVC(
             timelineItems = newItems
             diff.dispatchUpdatesTo(WRecyclerViewAdapter.OffsetUpdateCallback(rvAdapter, 0))
             val index = viewport.timelineIndexOf(messageId)
-            if (index >= 0 && top != null) {
-                layoutManager.scrollToPositionWithOffset(index, top - chatRecyclerView.paddingTop)
+            if (index >= 0) {
+                val anchorIndex = newItems.agentPinAnchorIndex(index)
+                if (anchorIndex != index) {
+                    // Rebinding clears visibility inherited from the edit presentation
+                    rvAdapter.notifyItemChanged(anchorIndex)
+                }
+                if (viewport.pinnedMessageId == messageId && anchorIndex != index) {
+                    layoutManager.scrollToPositionWithOffset(anchorIndex, 0)
+                } else if (top != null) {
+                    layoutManager.scrollToPositionWithOffset(
+                        index,
+                        top - chatRecyclerView.paddingTop
+                    )
+                }
             }
             pendingIncomingReveals[messageId]?.let(::schedulePendingIncomingReveal)
             chatRecyclerView.doOnNextLayout { viewport.shareScrollPosition() }
@@ -1147,26 +1172,15 @@ class AgentVC(
     }
 
     override fun onStreamingUpdate(messageId: String) {
-        onStreamEvent(messageId)
+        streamRenderer.enqueue(messageId)
     }
 
     override fun onStreamingFinished(messageId: String) {
-        onStreamEvent(messageId)
+        streamRenderer.enqueue(messageId)
     }
 
     override fun onFollowupsChanged(messageId: String, animated: Boolean) {
-        if (hiddenIncomingMessageIds.contains(messageId)) return
-        val index = viewport.timelineIndexOf(messageId)
-        if (index < 0) return
-        val message = vm.messages.firstOrNull { it.id == messageId } ?: return
-        timelineItems = timelineItems.toMutableList().apply {
-            set(index, AgentTimelineItem.Message(message))
-        }
-        if (vm.visibleFollowups(messageId).isNotEmpty()) {
-            onStreamEvent(messageId)
-        } else if (!updateVisibleCell(messageId)) {
-            rvAdapter.notifyItemChanged(index)
-        }
+        streamRenderer.enqueue(messageId)
         updateVisibleHintsAvailability()
     }
 
@@ -1223,6 +1237,9 @@ class AgentVC(
             // Hold hints back until the message's own animations (text reveal, deeplink
             // appearance) have finished playing.
             newItems = newItems.dropLast(1)
+        } else if (previousHints != null && newItems.lastOrNull() !is AgentTimelineItem.Hints) {
+            // Keep the old hints listed until onHintsUpdated finishes their collapse.
+            newItems = newItems + previousHints
         }
         timelineItems = newItems
         val updatedInPlace = updateVisibleCell(messageId)
@@ -1434,7 +1451,16 @@ class AgentVC(
         }
     }
 
+    private fun setMessageRenderingActive(active: Boolean) {
+        streamRenderer.setActive(active)
+        for (index in 0 until chatRecyclerView.childCount) {
+            (chatRecyclerView.getChildAt(index) as? AgentMessageCell)?.setRenderingActive(active)
+        }
+        chatRecyclerView.suppressLayout(!active || isPopupVisible)
+    }
+
     private fun updateVisibleCell(messageId: String): Boolean {
+        if (!streamRenderer.isActive) return false
         val idx = viewport.timelineIndexOf(messageId)
         if (idx < 0) return false
 
@@ -1450,7 +1476,7 @@ class AgentVC(
 
     private fun onCopyPopupVisibilityChanged(visible: Boolean, bubbleView: View?) {
         isPopupVisible = visible
-        chatRecyclerView.suppressLayout(visible)
+        chatRecyclerView.suppressLayout(visible || !streamRenderer.isActive)
         if (visible && bubbleView != null) {
             if (viewsOverlap(bubbleView, topReversedCornerView)) {
                 topReversedCornerView?.fadeOut()
@@ -1498,6 +1524,7 @@ class AgentVC(
     }
 
     override fun onHintsUpdated(hints: List<AgentHint>) {
+        if (streamRenderer.hasPendingUpdates) return
         val hadHints = timelineItems.lastOrNull() is AgentTimelineItem.Hints
         val newItems = buildTimelineItems(vm.messages)
         val hasHints = newItems.lastOrNull() is AgentTimelineItem.Hints
@@ -1533,6 +1560,7 @@ class AgentVC(
             val hintsIndex = timelineItems.size - 1
             val holder = chatRecyclerView.findViewHolderForAdapterPosition(hintsIndex)
             val cell = (holder as? WCell.Holder)?.cell as? AgentHintsCell
+            if (cell?.isCollapsing == true) return
             if (cell != null) {
                 cell.collapse {
                     val stillListed = timelineItems.lastOrNull() is AgentTimelineItem.Hints
@@ -1761,6 +1789,7 @@ class AgentVC(
             is AgentTimelineItem.Message -> {
                 when (val cell = cellHolder.cell) {
                     is AgentMessageCell -> {
+                        cell.setRenderingActive(streamRenderer.isActive)
                         val messageId = item.message.id
                         val tracksIncomingReveal =
                             pendingIncomingReveals.containsKey(messageId)

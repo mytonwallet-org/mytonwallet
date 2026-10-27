@@ -58,6 +58,17 @@ public extension AccountContext {
         account.addressLine(orderedChains: displayedChains, tokenChains: addressLineTokenChains)
     }
 
+    var topAddressLine: MAccount.AddressLine {
+        let visibleChains = Set(addressLine.items.map(\.chain))
+        let topChain = orderedChains.first { visibleChains.contains($0.0) }
+        return account.addressLine(orderedChains: topChain.map { [$0] } ?? [])
+    }
+
+    func addressLine(for chain: ApiChain) -> MAccount.AddressLine {
+        let chainInfo = account.getChainInfo(chain: chain)
+        return account.addressLine(orderedChains: chainInfo.map { [(chain, $0)] } ?? [])
+    }
+
     var shareLink: URL {
         account.shareLink(visibleChains: Set(displayedChains.map(\.0)))
     }

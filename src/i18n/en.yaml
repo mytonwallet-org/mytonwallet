@@ -116,6 +116,7 @@ $logout_selected_wallets_warning: This will remove the selected wallets from the
 $logout_all_wallets_warning: This will remove all wallets from the app.
 $secret_words_backup_reminder: Make sure you have your **secret words** backed up.
 $all_secret_words_backup_reminder: Make sure you have all your **secret words** backed up.
+$secret_word_input_aria_label: "Secret word %number%"
 Create Deposit Link: Create Deposit Link
 $receive_invoice_description: |
   You can specify the amount and purpose of
@@ -242,6 +243,11 @@ Dark: Dark
 System: System
 $stake_asset: Stake %symbol%
 Add Stake: Add Stake
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% locked in another staking"
+"Unstake them to restake with **higher returns**.": "Unstake them to restake with **higher returns**."
+"💎 More profitable staking available": "💎 More profitable staking available"
+"Tap to restake your %symbol% with higher returns.": "Tap to restake your %symbol% with higher returns."
+"Restake Now": "Restake Now"
 Earn from your tokens while holding them: Earn from your %symbol% while holding them
 Current APY: Current APY
 Est. Yearly Earnings: Est. Yearly Earnings
@@ -283,8 +289,8 @@ The network fee has slightly changed, try sending again.: The network fee has sl
 Transfer was unsuccessful. Try again later.: Transfer was unsuccessful. Try again later.
 Action Partially Completed: Action Partially Completed
 $action_partially_completed_description: "Completed %completed% of %total% operations. The remaining operations were not completed. Check your activity before trying again."
-Action Status Unknown: Action Status Unknown
-$action_status_unknown_description: "The completion status could not be verified. Check your activity and balance before retrying; retrying now may submit the action twice."
+Check Your Activity: Check Your Activity
+$action_status_unknown_description: "Your request may already have gone through. Check your activity and balance before trying again to avoid sending it twice."
 $action_will_continue_in_background: Action will continue in background.
 Invalid amount: Invalid amount
 Invalid address: Invalid address
@@ -414,6 +420,7 @@ $swap_minimum_received_tooltip1: This is the least amount of new tokens you'll g
 $swap_minimum_received_tooltip2: It's an expected minimum, but if the conditions change a lot while your swap is being processed, the final amount could be less.
 $swap_price_impact_tooltip1: This shows how much your trade might change the token's price.
 $swap_price_impact_tooltip2: Big trades can make the price go up or down more. Lower is usually better.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: Slippage is the difference between the expected and actual trade price caused by price changes during execution.
 $swap_slippage_tooltip1: This sets how much the price is allowed to change before your swap is processed.
 $swap_slippage_tooltip2: If during the processing of your swap, the price changes more than this value, your order will be canceled.
 Slippage not specified: Slippage not specified
@@ -442,6 +449,8 @@ Swap Again: Swap Again
 Terms of Use: Terms of Use
 Privacy Policy: Privacy Policy
 Insufficient liquidity: Insufficient liquidity
+$swap_quote_unavailable: No quote available
+$swap_service_unavailable: Swap unavailable
 This address is new and never received transfers before.: This address is new and never received transfers before.
 Create Backup: Create Backup
 Sending: Sending
@@ -657,6 +666,11 @@ $dapp_liquid_staking_vote_payload: Voting "%vote%" for proposal %votingAddress%
 $dapp_single_nominator_change_validator_payload: Changing address of SingleNominator staking contract validator to %address%
 $dapp_single_nominator_withdraw_payload: Withdrawal of %amount% from SingleNominator staking contract
 $dapp_vesting_add_whitelist_payload: Adding %address% to vesting wallet whitelist
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Please ensure your device's time settings are correct.
 Data Copied: Data Copied
 URL Copied: URL Copied
@@ -862,7 +876,7 @@ Blockchain Fee Details: Blockchain Fee Details
 Final Fee: Final Fee
 Excess: Excess
 $fee_details: |
-  %full_fee% need to be immediately debited from your wallet to pay the fee. Part of this will be returned **in **%excess_symbol% to you as excess within a few minutes.
+  %full_fee% need to be immediately debited from your wallet to pay the fee. Part of this will be returned **in** %excess_symbol% to you as excess within a few minutes.
 
   This is how %chain_name% Blockchain works.
 Got It: Got It
@@ -933,6 +947,12 @@ Bouncing: Bouncing
 $bounce_action: Bounce
 NFT Auction Bid: NFT Auction Bid
 Bidding at NFT Auction: Bidding at NFT Auction
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Buying NFT: Buying NFT
 Bought NFT: Bought NFT
 $buy_nft_action: Buy NFT
@@ -2071,3 +2091,9 @@ Hold to enlarge. Drag to rotate.: Hold to enlarge. Drag to rotate.
 "Max": "Max"
 Explorer mode: Explorer mode
 Open a link to a wallet, transfer, token or collectible to see its details here.: Open a link to a wallet, transfer, token or collectible to see its details here.
+Receiver %blockchain% Address: Receiver %blockchain% Address
+
+Save to Photos: Save to Photos
+Image Saved: Image Saved
+Allow access to Photos in Settings to save NFT images.: Allow access to Photos in Settings to save NFT images.
+Could not save the image. Please try again.: Could not save the image. Please try again.

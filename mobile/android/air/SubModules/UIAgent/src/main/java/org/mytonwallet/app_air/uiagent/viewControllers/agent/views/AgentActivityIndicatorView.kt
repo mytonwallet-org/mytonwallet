@@ -44,7 +44,14 @@ class AgentActivityIndicatorView(context: Context) : View(context) {
     private var gradientIsDark: Boolean? = null
 
     private val text = LocaleController.getString("\$agent_analyzing")
+    private val textWidth = textPaint.measureText(text)
+    private val textBaselineOffset = textPaint.fontMetrics.let { -(it.ascent + it.descent) / 2f }
     private var displayText = text
+    private var displayTextWidth = textWidth
+    private var textLeft = 0f
+    private var textBaseline = 0f
+    private var renderingActive = true
+    private var isAggregatedVisible = false
 
     private var shimmerProgress = 0f
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -62,20 +69,42 @@ class AgentActivityIndicatorView(context: Context) : View(context) {
         setPaddingRelative(20.dp, 0, 14.dp, 0)
     }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        if (WGlobalStorage.getAreAnimationsActive()) animator.start()
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        isAggregatedVisible = isVisible
+        updateAnimation()
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         animator.cancel()
         shimmerProgress = 0f
+        isAggregatedVisible = false
+    }
+
+    fun setRenderingActive(active: Boolean) {
+        if (renderingActive == active) return
+        renderingActive = active
+        updateAnimation()
+    }
+
+    private fun updateAnimation() {
+        val shouldAnimate = renderingActive && isAttachedToWindow && isAggregatedVisible &&
+            WGlobalStorage.getAreAnimationsActive()
+        if (shouldAnimate) {
+            if (!animator.isStarted) {
+                animator.start()
+            } else if (animator.isPaused) {
+                animator.resume()
+            }
+        } else if (animator.isStarted && !animator.isPaused) {
+            animator.pause()
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = paddingLeft + iconSize + iconGap +
-            textPaint.measureText(text).toInt() + paddingRight
+            textWidth.toInt() + paddingRight
         setMeasuredDimension(
             resolveSize(width, widthMeasureSpec),
             minHeight + paddingTop + paddingBottom
@@ -91,29 +120,31 @@ class AgentActivityIndicatorView(context: Context) : View(context) {
             availableTextWidth.coerceAtLeast(0).toFloat(),
             TextUtils.TruncateAt.END
         ).toString()
+        displayTextWidth = textPaint.measureText(displayText)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
+        val contentTop = paddingTop
+        val contentHeight = height - paddingTop - paddingBottom
+        val iconLeft = if (isRtl) width - paddingStart - iconSize else paddingStart
+        textLeft = if (isRtl) {
+            iconLeft - iconGap - displayTextWidth
+        } else {
+            (iconLeft + iconSize + iconGap).toFloat()
+        }
+        val iconTop = contentTop + (contentHeight - iconSize) / 2
+        textBaseline = contentTop + contentHeight / 2f + textBaselineOffset
+        icon?.setBounds(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val isRtl = layoutDirection == LAYOUT_DIRECTION_RTL
-        val contentTop = paddingTop
-        val contentHeight = height - paddingTop - paddingBottom
-        val textWidth = textPaint.measureText(displayText)
-        val iconLeft = if (isRtl) width - paddingStart - iconSize else paddingStart
-        val textLeft = if (isRtl) {
-            iconLeft - iconGap - textWidth
-        } else {
-            (iconLeft + iconSize + iconGap).toFloat()
-        }
-        val iconTop = contentTop + (contentHeight - iconSize) / 2
-        val fontMetrics = textPaint.fontMetrics
-        val baseline =
-            contentTop + contentHeight / 2f - (fontMetrics.ascent + fontMetrics.descent) / 2f
-
         val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
-        icon?.setBounds(iconLeft, iconTop, iconLeft + iconSize, iconTop + iconSize)
         icon?.draw(canvas)
-        canvas.drawText(displayText, textLeft, baseline, textPaint)
+        canvas.drawText(displayText, textLeft, textBaseline, textPaint)
         updateGradient()
         val shift = 2 * width * shimmerProgress
         gradientMatrix.setTranslate(if (isRtl) -shift else shift, 0f)

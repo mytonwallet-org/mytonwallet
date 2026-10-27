@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.stores
 
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -330,18 +331,20 @@ object AuthStore : IStore {
             return it
         }
 
-        val needsSDKPreparation = MultichainAccountUpgradeDetector.needsSDKPreparation()
-        if (!needsSDKPreparation) {
-            cachedMultichainUpgradeAccountIds = emptyList()
-            return emptyList()
-        }
-
         return try {
+            val needsSDKPreparation = MultichainAccountUpgradeDetector.needsSDKPreparation()
+            if (!needsSDKPreparation) {
+                cachedMultichainUpgradeAccountIds = emptyList()
+                return emptyList()
+            }
+
             WalletCore.call(ApiMethod.Auth.RepairInvalidBip39TonAuthTokens())
             val encryptedAccountIds = MultichainAccountUpgradeDetector.encryptedAccountIds()
             WalletCore.call(ApiMethod.Auth.GetMultichainUpgradeCandidateIds(encryptedAccountIds))
                 .toList()
                 .also { cachedMultichainUpgradeAccountIds = it }
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             Logger.e(
                 Logger.LogTag.WALLET_CORE,

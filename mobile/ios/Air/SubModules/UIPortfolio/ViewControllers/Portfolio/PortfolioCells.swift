@@ -523,6 +523,8 @@ final class PortfolioChartTileCell: PortfolioTileCell {
         hidesVerticalAxisLabels: Bool
     ) {
         let signature = "\(kind.rawValue):\(presentation.json)"
+        // Shorten narrow plots while retaining the original height in wider panels.
+        chartView.plotAspectRatio = 356.0 / 235.0
 
         let isNewSignature = chartSignature != signature
         let isRangeSwitch = pendingRangeReset && isNewSignature
@@ -535,6 +537,7 @@ final class PortfolioChartTileCell: PortfolioTileCell {
             let chartStrings = makePortfolioChartStrings()
             if let pieController = controller as? PercentPieChartController {
                 pieController.keepsFullRangePreviewWhenZoomed = kind.keepsFullRangePreviewWhenZoomed
+                pieController.drawsDonut = true
             }
             controller.hidesVerticalAxisLabels = hidesVerticalAxisLabels
             applyDetailsPresentation(presentation, to: controller)

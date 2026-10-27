@@ -8,6 +8,9 @@ import Perception
 struct SwapSelectorsView: View {
     
     var model: SwapInputModel
+    var hasAmountError: Bool
+    var hasInsufficientFunds: Bool
+    var onAppear: () -> Void
     
     var body: some View {
         WithPerceptionTracking {
@@ -20,10 +23,12 @@ struct SwapSelectorsView: View {
                 tokenBalance: model.tokenBalance,
                 maxAmount: model.maxAmount,
                 staleAmountSide: model.staleAmountSide,
+                hasAmountError: hasAmountError,
+                hasInsufficientFunds: hasInsufficientFunds,
                 sellingFocused: $model.sellingFocused,
                 buyingFocused: $model.buyingFocused,
                 buyingAmountInputDisabled: model.buyingAmountInputDisabled,
-                onAppear: model.focusInitialInput,
+                onAppear: onAppear,
                 onUseAll: model.userTappedUseAll,
                 onReverse: model.userTappedReverse,
                 onSellingTokenPicker: { model.userTappedTokenPicker(side: .selling) },
@@ -47,6 +52,8 @@ fileprivate struct _SwapSelectorsView: View {
     var tokenBalance: BigInt?
     var maxAmount: BigInt?
     var staleAmountSide: SwapSide?
+    var hasAmountError: Bool
+    var hasInsufficientFunds: Bool
     
     @Binding var sellingFocused: Bool
     @Binding var buyingFocused: Bool
@@ -66,24 +73,17 @@ fileprivate struct _SwapSelectorsView: View {
         maxAmount ?? tokenBalance
     }
 
-    private var insufficientFunds: Bool {
-        if let sellingAmount, let availableSellingAmount {
-            return sellingAmount > availableSellingAmount
-        }
-        return false
-    }
-    
     var body: some View {
         InsetSection(addDividers: false) {
             sellingRow
                 .padding(.top, IOS_26_MODE_ENABLED ? 16 : 14)
-                .padding(.bottom, IOS_26_MODE_ENABLED ? 17 : 11)
+                .padding(.bottom, IOS_26_MODE_ENABLED ? 25 : 11)
                 .padding(.horizontal, 16)
             divider
                 .frame(height: IOS_26_MODE_ENABLED ? 0 : nil, alignment: .bottom)
             
             buyingRow
-                .padding(.top, IOS_26_MODE_ENABLED ? 16 : 14)
+                .padding(.top, IOS_26_MODE_ENABLED ? 24 : 14)
                 .padding(.bottom, IOS_26_MODE_ENABLED ? 17 : 11)
                 .padding(.horizontal, 16)
             
@@ -107,6 +107,7 @@ fileprivate struct _SwapSelectorsView: View {
                         amount: DecimalAmount(buttonAmount, sellingToken),
                         textStyle: IOS_26_MODE_ENABLED ? .supporting : .footnote,
                         textScaling: .dynamic,
+                        isError: hasInsufficientFunds,
                         onTap: onUseAll
                     )
                 }
@@ -117,7 +118,7 @@ fileprivate struct _SwapSelectorsView: View {
                 amount: $sellingAmount,
                 token: sellingToken,
                 inBaseCurrency: false,
-                insufficientFunds: insufficientFunds,
+                insufficientFunds: hasAmountError,
                 isValueStale: staleAmountSide == .selling,
                 style: IOS_26_MODE_ENABLED ? .large : .regular,
                 triggerFocused: $sellingFocused,

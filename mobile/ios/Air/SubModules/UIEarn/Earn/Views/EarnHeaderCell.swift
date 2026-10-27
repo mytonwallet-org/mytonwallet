@@ -21,6 +21,11 @@ class EarnHeaderCell: UICollectionViewCell {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        amountContainer.resetReveal()
+    }
     
     private let amountLabel = {
         let lbl = UILabel()
@@ -30,7 +35,7 @@ class EarnHeaderCell: UICollectionViewCell {
         return lbl
     }()
     
-    private var amountContainer: WSensitiveData<UIStackView> = .init(cols: 13, rows: 3, cellSize: 14, cornerRadius: 10, theme: .adaptive, alignment: .center)
+    private var amountContainer: WSensitiveData<UIStackView> = .init(cols: 13, rows: 3, cellSize: 14, cornerRadius: 10, theme: .adaptive, alignment: .center, usesHeroParticles: true)
     
     private lazy var amountView: UIStackView = {
         let v = UIStackView()

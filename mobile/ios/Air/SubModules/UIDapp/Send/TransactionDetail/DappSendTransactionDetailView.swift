@@ -25,6 +25,14 @@ struct DappSendTransactionDetailView: View {
                     .padding(.bottom, 2)
             }
 
+            if message.isDangerous {
+                SendDappWarningView()
+                    .padding(.horizontal, 16)
+            } else if message.stateInit?.nilIfEmpty != nil {
+                WarningView(text: lang("$signature_warning"), kind: .warning)
+                    .padding(.horizontal, 16)
+            }
+
             if let nftTransferPayload {
                 InsetSection {
                     DappSendNftPreviewRow(payload: nftTransferPayload)
@@ -80,11 +88,13 @@ struct DappSendTransactionDetailView: View {
                 } header: {
                     Text(payloadLabel)
                 }
+            }
 
-                if message.isDangerous {
-                    SendDappWarningView()
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+            if let stateInit = message.stateInit?.nilIfEmpty {
+                InsetSection {
+                    InsetExpandableCell(content: stateInit)
+                } header: {
+                    Text(lang("Contract Initialization Data"))
                 }
             }
         }
@@ -157,6 +167,8 @@ private extension ApiDappTransfer {
             return lang("Comment")
         case .unknown:
             return lang("Payload")
+        case .dedustNativeSwap:
+            return lang("Swap")
         case .nftTransfer, .tokensTransfer, .tokensTransferNonStandard, nil:
             return nil
         default:
@@ -168,6 +180,10 @@ private extension ApiDappTransfer {
         switch payload {
         case .comment(let payload):
             return payload.comment
+        case .dedustNativeSwap(let payload):
+            let input = TokenAmount(payload.amount, TokenStore.getNativeToken(chain: .ton)).formatted(.defaultAdaptive)
+            let output = payload.minimumReceived.formatted(.defaultAdaptive, roundHalfUp: false)
+            return "\(input) → \(lang("Minimum Received")): \(output)"
         case .tokensBurn(let payload):
             return L10n.dappTransferTokensBurn(amount: formattedAmount(
                 payload.amount,
@@ -202,6 +218,24 @@ private extension ApiDappTransfer {
             ))
         case .vestingAddWhitelist(let payload):
             return L10n.dappVestingAddWhitelistPayload(address: payload.address)
+        case .teleitemStartAuction(let payload):
+            return L10n.dappTeleitemStartAuctionPayload(
+                name: payload.nftName?.nilIfEmpty ?? payload.nftAddress,
+                amount: formattedTonAmount(payload.initialMinBid)
+            )
+        case .teleitemCancelAuction(let payload):
+            return L10n.dappTeleitemCancelAuctionPayload(
+                name: payload.nftName?.nilIfEmpty ?? payload.nftAddress
+            )
+        case .teleitemDeploy(let payload):
+            return L10n.dappTeleitemDeployPayload(
+                name: payload.tokenName,
+                amount: formattedTonAmount(payload.initialMinBid)
+            )
+        case .teleitemBidInfo(let payload):
+            return L10n.dappTeleitemBidInfoPayload(amount: formattedTonAmount(payload.amount))
+        case .teleitemReturnBid:
+            return lang("$dapp_teleitem_return_bid_payload")
         case .unknown:
             return rawPayload
         case .nftTransfer, .tokensTransfer, .tokensTransferNonStandard, nil:
@@ -213,5 +247,9 @@ private extension ApiDappTransfer {
 
     private func formattedAmount(_ amount: BigInt, token: ApiToken, maxDecimals: Int) -> String {
         TokenAmount(amount, token).formatted(.defaultAdaptive, maxDecimals: maxDecimals)
+    }
+
+    private func formattedTonAmount(_ amount: BigInt) -> String {
+        formattedAmount(amount, token: TokenStore.getNativeToken(chain: .ton), maxDecimals: 2)
     }
 }

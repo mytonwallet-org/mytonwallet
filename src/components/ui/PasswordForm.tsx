@@ -1,6 +1,6 @@
 import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
-import { getActions, getGlobal, withGlobal } from '../../global';
+import { getActions, getGlobal, getPromiseActions, withGlobal } from '../../global';
 
 import type { MigrationErrorPresentation } from '../../global/types';
 
@@ -33,6 +33,7 @@ import useFocusAfterAnimation from '../../hooks/useFocusAfterAnimation';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
 import { useMatchCount } from '../../hooks/useMatchCount';
+import useSyncEffect from '../../hooks/useSyncEffect';
 import useTimeout from '../../hooks/useTimeout';
 import useToggleClass from '../../hooks/useToggleClass';
 
@@ -70,7 +71,6 @@ interface OwnProps {
   children?: TeactNode;
   noAnimatedIcon?: boolean;
   inputWrapperClassName?: string;
-  forceBiometricsInMain?: boolean;
   noBiometrics?: boolean;
   errorClassName?: string;
   noAutoConfirm?: boolean;
@@ -157,7 +157,6 @@ function PasswordForm({
   isFullWidthButton,
   noAnimatedIcon,
   inputWrapperClassName,
-  forceBiometricsInMain,
   noBiometrics,
   errorClassName,
   isAutoConfirmEnabled,
@@ -179,10 +178,10 @@ function PasswordForm({
 }: OwnProps & StateProps) {
   const {
     setEnclaveSession,
-    enableBiometrics,
     migrateLegacyAuth,
     migrateLegacyBiometricAuth,
     upgradeMultichainAccounts,
+    releaseEnclaveSession,
   } = getActions();
 
   const lang = useLang();
@@ -211,6 +210,9 @@ function PasswordForm({
   const shouldSuggestLogout = useMatchCount(!!error || !!localError, WRONG_ATTEMPTS_BEFORE_LOG_OUT_SUGGESTION);
   const showMigrationFailureDialog = useMigrationFailureDialog(operationType);
   const isAuthorizingRef = useRef(false);
+  // Set while the password or biometrics is being checked. The Back and close buttons wait for the check to end:
+  // if the user could leave earlier, the late result might confirm whatever the screen shows by then.
+  const [isVerifying, markVerifying, unmarkVerifying] = useFlag(false);
 
   /**
    * Both migration entry points report through here, so a diagnosis that needs the dialog cannot end
@@ -257,12 +259,44 @@ function PasswordForm({
     onAuthorize(enclaveToken);
   });
 
+  // Grows each time the form is shown, hidden or removed. A check remembers the value when it starts. If the value has
+  // changed by the time the check ends, the user has left the form, and the result is ignored.
+  //
+  // A form that is never shown or hidden during a check, such as the lock screen after a manual lock, works as usual.
+  const visibilityChangeCountRef = useRef(0);
+
+  useSyncEffect(() => {
+    visibilityChangeCountRef.current++;
+  }, [isActive]);
+
+  useEffectOnce(() => () => {
+    visibilityChangeCountRef.current++;
+  });
+
+  // Starts a password or biometric check. Call the returned function when the check ends. It returns `false` if
+  // the user has left the form in the meantime.
+  //
+  // Such a late result is ignored completely, even an error. It must not touch the state of a newer check that may
+  // be running by then.
+  const startCheck = useLastCallback(() => {
+    const visibilityChangeCount = visibilityChangeCountRef.current;
+    markVerifying();
+
+    return () => {
+      const isCurrent = visibilityChangeCount === visibilityChangeCountRef.current;
+      if (isCurrent) unmarkVerifying();
+
+      return isCurrent;
+    };
+  });
+
   useEffect(() => {
     if (isActive) {
       setLocalError('');
       setInputValue('');
       clearMigrationFailure();
       isAuthorizingRef.current = false;
+      unmarkVerifying();
     }
   }, [isActive]);
 
@@ -280,6 +314,7 @@ function PasswordForm({
 
     // Migration from legacy auth to Enclave
     if (shouldMigrate) {
+      const endCheck = startCheck();
       migrateLegacyAuth({
         password,
         isLongSession,
@@ -288,30 +323,58 @@ function PasswordForm({
         // available for good, since a counted session has no expiry. Turning biometrics back on does
         // read the key, and that read comes out of this same session.
         usageCount: operationUsageCount + (hasLegacyBiometrics ? 1 : 0),
-        onSuccess: (token) => {
-          if (hasLegacyBiometrics) {
-            enableBiometrics({});
+        onSuccess: async (token) => {
+          // The migration has already replaced the legacy auth, so biometrics are turned back on even if the user
+          // has left the form
+          const biometricsSetup = hasLegacyBiometrics ? getPromiseActions().enableBiometrics({}) : undefined;
+
+          if (endCheck()) {
+            onAuthorize(token);
+            return;
           }
-          onAuthorize(token);
+
+          // The biometrics setup reads the key through this session, so the session is released after the setup ends
+          await biometricsSetup;
+          releaseEnclaveSession({ enclaveToken: token });
         },
-        onError: handleMigrationError,
+        onError: (presentation) => {
+          if (!endCheck()) return;
+
+          handleMigrationError(presentation);
+        },
       });
       return;
     }
 
     // Normal authorization
-    const enclaveSession = await enclave.authorize('passcode', isLongSession, password, usageCount);
+    const endCheck = startCheck();
 
-    if (!enclaveSession) {
+    try {
+      const enclaveSession = await enclave.authorize('passcode', isLongSession, password, usageCount);
+
+      if (!endCheck()) {
+        if (enclaveSession) releaseEnclaveSession({ enclaveToken: enclaveSession.token });
+        return;
+      }
+
+      if (!enclaveSession) {
+        isAuthorizingRef.current = false;
+        const errorMessage = 'Wrong password, please try again.';
+        setLocalError(errorMessage);
+        onError?.(errorMessage);
+        return;
+      }
+
+      setEnclaveSession(enclaveSession);
+      handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
+    } catch (err: any) {
+      if (!endCheck()) return;
+
       isAuthorizingRef.current = false;
-      const errorMessage = 'Wrong password, please try again.';
+      const errorMessage = err.message || lang('Something went wrong.');
       setLocalError(errorMessage);
       onError?.(errorMessage);
-      return;
     }
-
-    setEnclaveSession(enclaveSession);
-    handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
   });
 
   const handleBiometrics = useLastCallback(async () => {
@@ -319,10 +382,18 @@ function PasswordForm({
     if (isAuthorizingRef.current || isLoading) return;
     isAuthorizingRef.current = true;
 
+    const endCheck = startCheck();
+
     try {
       setLocalError('');
 
       const enclaveSession = await enclave.authorize('biometric', isLongSession, undefined, usageCount);
+
+      if (!endCheck()) {
+        if (enclaveSession) releaseEnclaveSession({ enclaveToken: enclaveSession.token });
+        return;
+      }
+
       if (!enclaveSession) {
         isAuthorizingRef.current = false;
         const errorMessage = 'Biometric confirmation failed';
@@ -334,6 +405,8 @@ function PasswordForm({
       setEnclaveSession(enclaveSession);
       handleAuthorized(enclaveSession.token, multichainUpgradeAccountIds);
     } catch (err: any) {
+      if (!endCheck()) return;
+
       isAuthorizingRef.current = false;
       const errorMessage = err.message || lang('Something went wrong.');
       setLocalError(errorMessage);
@@ -353,50 +426,60 @@ function PasswordForm({
 
     setLocalError('');
     clearMigrationFailure();
+    const endCheck = startCheck();
 
     migrateLegacyBiometricAuth({
       legacyAuthConfig,
       isLongSession,
       // The upgrade is left out for the same reason as in the passcode migration above
       usageCount: operationUsageCount,
-      onSuccess: onAuthorize,
-      onError: handleMigrationError,
+      onSuccess: (token) => {
+        if (!endCheck()) {
+          releaseEnclaveSession({ enclaveToken: token });
+          return;
+        }
+
+        onAuthorize(token);
+      },
+      onError: (presentation) => {
+        if (!endCheck()) return;
+
+        handleMigrationError(presentation);
+      },
     });
   });
 
+  // Legacy biometrics while the migration is pending, Enclave biometrics after it
+  const handleBiometricsRequest = useLastCallback(() => {
+    if (shouldMigrate && hasLegacyBiometrics) {
+      handleLegacyBiometricsMigration();
+    } else if (!shouldMigrate) {
+      void handleBiometrics();
+    }
+  });
+
   useEffect(() => {
-    if (
-      !isActive
-      || !isBiometricAuthEnabled
-      || withAutoConfirm
-    ) {
-      return;
+    if (!isActive || !isBiometricAuthEnabled || withAutoConfirm) {
+      return undefined;
     }
 
-    // If migration is needed, use legacy biometrics instead
-    if (shouldMigrate && hasLegacyBiometrics && legacyAuthConfig) {
-      void pause(APPEAR_ANIMATION_DURATION_MS).then(handleLegacyBiometricsMigration);
-      return;
-    }
+    // The form may be hidden again before the appear animation ends, and a prompt on a hidden form
+    // would authorize whatever that form was asked for
+    let isCancelled = false;
+    void pause(APPEAR_ANIMATION_DURATION_MS).then(() => {
+      if (!isCancelled) handleBiometricsRequest();
+    });
 
-    // Only use new biometric system if migration is not needed
-    if (!shouldMigrate) {
-      void pause(APPEAR_ANIMATION_DURATION_MS).then(handleBiometrics);
-    }
-  }, [
-    forceBiometricsInMain, handleBiometrics, handleLegacyBiometricsMigration, isActive,
-    isBiometricAuthEnabled, withAutoConfirm, shouldMigrate, hasLegacyBiometrics, legacyAuthConfig,
-  ]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [isActive, isBiometricAuthEnabled, withAutoConfirm, shouldMigrate, hasLegacyBiometrics, legacyAuthConfig]);
 
   useEffectOnce(() => {
-    // When signal is triggered, use legacy or new biometrics based on migration state
-    return getHandleBiometricsSignal.subscribe(() => {
-      if (shouldMigrate && hasLegacyBiometrics && legacyAuthConfig) {
-        void handleLegacyBiometricsMigration();
-      } else if (!shouldMigrate) {
-        void handleBiometrics();
-      }
-    });
+    // The lock screen fires this signal into every mounted form, and only the unlock form may answer it
+    if (operationType !== 'unlock') return undefined;
+
+    return getHandleBiometricsSignal.subscribe(handleBiometricsRequest);
   });
 
   useFocusAfterAnimation(inputRef, !isActive || isBiometricAuthEnabled);
@@ -477,7 +560,7 @@ function PasswordForm({
         {onCancel && (
           <Button
             isLoading={isLoading && !hasSubmitButton}
-            isDisabled={isLoading && hasSubmitButton}
+            isDisabled={(isLoading && hasSubmitButton) || isVerifying}
             className={modalStyles.buttonHalfWidth}
             onClick={onCancel}
           >
@@ -490,9 +573,7 @@ function PasswordForm({
             isLoading={isLoading}
             isDisabled={isLoading}
             className={buildClassName(modalStyles.buttonHalfWidth, styles.retryButton)}
-            onClick={!isLoading
-              ? (shouldMigrate && hasLegacyBiometrics ? handleLegacyBiometricsMigration : handleBiometrics)
-              : undefined}
+            onClick={!isLoading ? handleBiometricsRequest : undefined}
             shouldStopPropagation
           >
             {lang('Try Again')}
@@ -532,6 +613,7 @@ function PasswordForm({
         {withCloseButton && (
           <Button
             isRound
+            isDisabled={isVerifying}
             className={buildClassName(modalStyles.closeButton, styles.closeButton)}
             ariaLabel={lang('Close')}
             onClick={onClose || onCancel}
@@ -566,9 +648,7 @@ function PasswordForm({
             resetStateDelayMs={resetStateDelayMs}
             value={inputValue}
             className={pinPadClassName}
-            onBiometricsClick={isBiometricAuthEnabled
-              ? (shouldMigrate && hasLegacyBiometrics ? handleLegacyBiometricsMigration : handleBiometrics)
-              : undefined}
+            onBiometricsClick={isBiometricAuthEnabled ? handleBiometricsRequest : undefined}
             onLogOutClick={operationType === 'unlock' ? openLogOutModal : undefined}
             onChange={setInputValue}
             onClearError={handleClearError}
@@ -673,8 +753,6 @@ function PasswordForm({
 }
 
 function useCanAutoConfirm(enclaveSessionValidUntil?: number, isDisabled?: boolean) {
-  if (isDisabled) return false;
-
   const autoConfirmTtl = enclaveSessionValidUntil ? enclaveSessionValidUntil - Date.now() : undefined;
   const [canAutoConfirm, setCanAutoConfirm] = useState(
     autoConfirmTtl !== undefined && autoConfirmTtl > 0,
@@ -690,7 +768,7 @@ function useCanAutoConfirm(enclaveSessionValidUntil?: number, isDisabled?: boole
     setCanAutoConfirm(false);
   }, autoConfirmTtl && autoConfirmTtl > 0 ? autoConfirmTtl : undefined);
 
-  return canAutoConfirm;
+  return !isDisabled && canAutoConfirm;
 }
 
 export default memo(withGlobal<OwnProps>((global): StateProps => {

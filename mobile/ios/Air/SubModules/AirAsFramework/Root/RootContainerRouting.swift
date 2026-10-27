@@ -12,7 +12,7 @@ import UICreateWallet
 protocol RootContainerRouting {
     func isHomeRootSelected() -> Bool
     func pushOnHome(_ viewController: UIViewController) -> Bool
-    func showAddWallet(network: ApiNetwork)
+    func showAddWallet(network: ApiNetwork, sourceView: UIView?)
     func showAgent()
     func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
     func showExplore()
@@ -70,8 +70,8 @@ struct TopTabsRootContainerRouter: RootContainerRouting {
         return true
     }
 
-    func showAddWallet(network: ApiNetwork) {
-        presentAddWalletModally(network: network)
+    func showAddWallet(network: ApiNetwork, sourceView: UIView?) {
+        presentAddWalletModally(network: network, sourceView: sourceView)
     }
 
     func showAgent() {
@@ -144,11 +144,8 @@ struct SplitRootContainerRouter: RootContainerRouting {
         splitVC?.pushOnHome(viewController) == true
     }
 
-    func showAddWallet(network: ApiNetwork) {
-        let vc = AccountTypePickerVC(network: network)
-        let navigationController = WNavigationController(rootViewController: vc)
-        navigationController.modalPresentationStyle = .formSheet
-        topViewController()?.present(navigationController, animated: true)
+    func showAddWallet(network: ApiNetwork, sourceView: UIView?) {
+        presentAddWalletModally(network: network, sourceView: sourceView)
     }
 
     func showAgent() {
@@ -210,10 +207,24 @@ private func findActiveViewController<T: UIViewController>(of type: T.Type = T.s
 }
 
 @MainActor
-private func presentAddWalletModally(network: ApiNetwork) {
+private func presentAddWalletModally(network: ApiNetwork, sourceView: UIView?) {
+    guard let presenter = topViewController() else { return }
     let vc = AccountTypePickerVC(network: network)
     let navigationController = WNavigationController(rootViewController: vc)
-    topViewController()?.present(navigationController, animated: true)
+    if presenter.isPresentedInRegularWidthWindow {
+        navigationController.modalPresentationStyle = .popover
+        if let popover = navigationController.popoverPresentationController {
+            if let sourceView, sourceView.window != nil {
+                popover.sourceView = sourceView
+                popover.sourceRect = sourceView.bounds
+            } else {
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+        }
+    }
+    presenter.present(navigationController, animated: true)
 }
 
 @MainActor

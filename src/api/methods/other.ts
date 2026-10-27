@@ -9,6 +9,7 @@ import {
 } from '../../config';
 import { setIsAppFocused } from '../../util/focusAwareDelay';
 import { getLogs, logDebugError } from '../../util/logs';
+import { getOnRampAddressByChain } from '../../util/rampCurrencies';
 import { pause } from '../../util/schedulers';
 import chains from '../chains';
 import { BACKEND_AUTH_SIGN_MESSAGE, buildBackendAuthToken } from '../chains/ton/backendAuth';
@@ -53,7 +54,7 @@ export function isBackendAuthTokenValid(authToken: string, publicKey: string) {
 export async function getBackendAuthToken(accountId: string, enclaveToken: string) {
   const accountWallet = await fetchStoredWallet(accountId, 'ton');
   let { authToken } = accountWallet;
-  const { publicKey, isInitialized } = accountWallet;
+  const { publicKey } = accountWallet;
 
   if (!authToken) {
     const privateKey = await chains.ton.fetchPrivateKeyString(accountId, enclaveToken);
@@ -68,7 +69,9 @@ export async function getBackendAuthToken(accountId: string, enclaveToken: strin
     });
   }
 
-  if (!isInitialized) {
+  // The backend reads the key from the chain and falls back to this one for an account it does not
+  // see as active, a state the stored flag latches on and never returns from.
+  if (publicKey) {
     authToken += `:${publicKey}`;
   }
 
@@ -76,10 +79,10 @@ export async function getBackendAuthToken(accountId: string, enclaveToken: strin
 }
 
 export async function getStoredBackendAuthToken(accountId: string) {
-  const { authToken, publicKey, isInitialized } = await fetchStoredWallet(accountId, 'ton');
+  const { authToken, publicKey } = await fetchStoredWallet(accountId, 'ton');
   if (!authToken) return undefined;
 
-  if (!isInitialized && publicKey) {
+  if (publicKey) {
     return `${authToken}:${publicKey}`;
   }
 
@@ -137,7 +140,7 @@ export async function getMoonpayOnrampUrl({
   try {
     return await callBackendGet<{ url: string }>('/onramp-url', {
       chain,
-      addressByChain: addressByChain && JSON.stringify(addressByChain),
+      addressByChain: addressByChain && JSON.stringify(getOnRampAddressByChain(addressByChain)),
       theme,
       currency: currency.toLowerCase(),
     });

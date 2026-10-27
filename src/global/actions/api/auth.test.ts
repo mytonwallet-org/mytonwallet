@@ -48,6 +48,7 @@ function getHandler(name: string): ActionHandler {
 
 const ACCOUNT_ID = '0-ton-mainnet';
 const PASSWORD = '123456';
+const PIN = '1234';
 const MNEMONIC = 'plastic burst injury easily panther auto snack call volume humor ritual thrive'.split(' ');
 
 function makeGlobal(overrides: Partial<GlobalState>): GlobalState {
@@ -198,6 +199,12 @@ describe('auth setup over existing storage', () => {
     return store;
   }
 
+  async function confirmPin(actions: AnyLiteral = { skipBiometrics: jest.fn() }) {
+    store = makeGlobal({ auth: { pin: PIN } as GlobalState['auth'] });
+    await getHandler('confirmPin')(store, actions, { isImporting: true });
+    return store;
+  }
+
   it('sets the auth up when the storage holds none', async () => {
     (enclave.setupAuth as jest.Mock).mockResolvedValue({ token: 'passcode:new' });
 
@@ -290,6 +297,44 @@ describe('auth setup over existing storage', () => {
 
     expect(result.auth.error).toBe('Biometric confirmation failed.');
     expect(result.auth.isLoading).toBe(false);
+  });
+
+  // An interrupted import leaves its code with no wallet behind it, and the next import replaces that code
+  it('clears a code that guards no secrets and sets the new one up', async () => {
+    stubStorage({ authType: 'passcode', hasSecrets: false });
+    (enclave.setupAuth as jest.Mock).mockResolvedValue({ token: 'passcode:fresh' });
+    const actions = { skipBiometrics: jest.fn() };
+
+    const result = await confirmPin(actions);
+
+    expect(enclave.reset).toHaveBeenCalled();
+    expect(enclave.setupAuth).toHaveBeenCalledWith('passcode', PIN);
+    expect(result.enclaveSession).toEqual({ token: 'passcode:fresh' });
+    expect(actions.skipBiometrics).toHaveBeenCalled();
+  });
+
+  it('authorizes the code against an auth that still guards secrets', async () => {
+    stubStorage({ authType: 'passcode', hasSecrets: true });
+    (enclave.authorize as jest.Mock).mockResolvedValue({ token: 'passcode:resumed' });
+
+    const result = await confirmPin();
+
+    expect(enclave.reset).not.toHaveBeenCalled();
+    expect(enclave.setupAuth).not.toHaveBeenCalled();
+    expect(enclave.authorize).toHaveBeenCalledWith('passcode', false, PIN);
+    expect(result.enclaveSession).toEqual({ token: 'passcode:resumed' });
+  });
+
+  // The confirmation has spent the code, so a failure sends the user back to enter it again
+  it('returns to the code entry with an error when the code does not open the existing auth', async () => {
+    stubStorage({ authType: 'passcode', hasSecrets: true });
+    (enclave.authorize as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await confirmPin();
+
+    expect(result.auth.error).toBe('Wrong code, please try again');
+    expect(result.auth.state).toBe(AuthState.importWalletCreatePin);
+    expect(result.enclaveSession).toBeUndefined();
   });
 });
 

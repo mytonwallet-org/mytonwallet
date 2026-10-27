@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import UIAgent
 
 @MainActor
@@ -20,6 +21,53 @@ final class AgentDateHeaderTests: XCTestCase {
             )
             XCTAssertEqual(time, "13:47", identifier)
         }
+    }
+
+    func testFirstQuestionWithDateKeepsNaturalOffset() {
+        let topInset: CGFloat = 123
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: CGRect(x: 0, y: 30, width: 402, height: 110),
+            dateHeaderFrame: CGRect(x: 0, y: 16, width: 402, height: 14),
+            adjustedContentInsetTop: topInset
+        )
+
+        XCTAssertEqual(offset, -topInset)
+    }
+
+    func testTallQuestionWithDatePinsDateAtTopContentInset() {
+        let topInset: CGFloat = 123
+        let dateHeaderFrame = CGRect(x: 0, y: 1_600, width: 402, height: 14)
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: CGRect(x: 0, y: dateHeaderFrame.maxY, width: 402, height: 1_200),
+            dateHeaderFrame: dateHeaderFrame,
+            adjustedContentInsetTop: topInset
+        )
+
+        XCTAssertEqual(dateHeaderFrame.minY - offset, topInset + 16)
+    }
+
+    func testShortQuestionWithoutDateKeepsTailOffset() {
+        let topInset: CGFloat = 123
+        let userMessageFrame = CGRect(x: 0, y: 560, width: 402, height: 64)
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: userMessageFrame,
+            dateHeaderFrame: nil,
+            adjustedContentInsetTop: topInset
+        )
+
+        XCTAssertEqual(offset, userMessageFrame.maxY - topInset - 100)
+    }
+
+    func testTallQuestionWithoutDatePinsTopAtContentInset() {
+        let topInset: CGFloat = 123
+        let userMessageFrame = CGRect(x: 0, y: 560, width: 402, height: 140)
+        let offset = AgentVC.pinnedOffsetY(
+            userMessageFrame: userMessageFrame,
+            dateHeaderFrame: nil,
+            adjustedContentInsetTop: topInset
+        )
+
+        XCTAssertEqual(offset, userMessageFrame.minY - topInset - 16)
     }
 
     private func today(hour: Int, minute: Int) -> Date {

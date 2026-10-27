@@ -23,14 +23,15 @@
 .panel {
   @include mixins.respond-above(xs) {
     // Mirrors `standaloneWrapper` of `LandscapeLayout`, which the market leaves at the full column width
-    width: calc(100% - var(--scrollbar-width) - 1rem);
-    max-width: calc(#{v.$landscapeMainContentMaxWidth} - 1rem);
+    width: calc(100% - 1rem);
+    max-width: v.$landscapeBlockMaxWidth;
     border-radius: var(--border-radius-default);
     background-color: var(--background-color);
   }
 }
 
 .slide {
+  scrollbar-gutter: stable;
   overflow-y: auto;
   height: 100%;
   padding-bottom: 1.75rem;

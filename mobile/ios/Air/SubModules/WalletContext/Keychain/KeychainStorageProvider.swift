@@ -31,7 +31,12 @@ public protocol IKeychainStorageProvider: Sendable {
     func removeOrThrow(key: String) throws
 }
 
-public let KeychainStorageProvider: IKeychainStorageProvider = CapacitorKeychainStorageProvider()
+public let KeychainStorageProvider: IKeychainStorageProvider = {
+    if E2EFileKeychain.isEnabled {
+        return FileBackedKeychainStorageProvider()
+    }
+    return CapacitorKeychainStorageProvider()
+}()
 
 public final class CapacitorKeychainStorageProvider: IKeychainStorageProvider, Sendable {
     

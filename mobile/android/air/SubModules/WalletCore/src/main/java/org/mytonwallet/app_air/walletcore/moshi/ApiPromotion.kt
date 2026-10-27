@@ -8,8 +8,10 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 data class ApiPromotion(
     val id: String,
     val kind: String,
-    val cardOverlay: CardOverlay,
-    val modal: Modal? = null
+    val cardOverlay: CardOverlay? = null,
+    val modal: Modal? = null,
+    val infoBanner: InfoBanner? = null,
+    val linkedBannerId: String? = null
 ) {
 
     companion object {
@@ -19,6 +21,22 @@ data class ApiPromotion(
         } catch (_: Exception) {
             null
         }
+    }
+
+    @JsonClass(generateAdapter = true)
+    data class InfoBanner(
+        val title: String,
+        val description: String,
+        val actionButton: ActionButton,
+        val textValues: Map<String, String> = emptyMap()
+    ) {
+        @JsonClass(generateAdapter = true)
+        data class ActionButton(
+            val title: String,
+            val onClickAction: String,
+            val chain: String? = null,
+            val providerName: String? = null
+        )
     }
 
     @JsonClass(generateAdapter = true)

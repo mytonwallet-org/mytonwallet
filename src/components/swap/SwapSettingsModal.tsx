@@ -2,15 +2,16 @@ import type { TeactNode } from '../../lib/teact/teact';
 import React, { memo, useMemo, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
-import type { ApiSwapAsset } from '../../api/types';
+import type { ApiSwapAsset, ApiSwapRouteType } from '../../api/types';
 import type { DieselStatus } from '../../global/types';
-import { SwapType } from '../../global/types';
+import type { SwapType } from '../../global/types';
 
 import { MAX_PRICE_IMPACT_VALUE } from '../../config';
 import {
   selectCurrentAccountTokenBalance,
   selectCurrentSwapTokenIn,
   selectCurrentSwapTokenOut,
+  selectSwapRoute,
   selectSwapType,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
@@ -47,6 +48,7 @@ interface StateProps {
   networkFee?: string;
   realNetworkFee?: string;
   swapType: SwapType;
+  swapRoute: ApiSwapRouteType;
   slippage: number;
   priceImpact?: number;
   amountOutMin?: string;
@@ -62,6 +64,7 @@ function SwapSettingsContent({
   amountIn,
   amountOut,
   swapType,
+  swapRoute,
   tokenIn,
   tokenOut,
   slippage,
@@ -77,7 +80,7 @@ function SwapSettingsContent({
 }: Omit<OwnProps, 'isOpen'> & StateProps) {
   const { setSlippage } = getActions();
   const lang = useLang();
-  const canEditSlippage = swapType === SwapType.OnChain;
+  const canEditSlippage = swapRoute === 'dex';
 
   // In order to reset this state when the modal is closed, we rely on the fact that Modal unmounts the content when
   // it's closed.
@@ -103,6 +106,7 @@ function SwapSettingsContent({
   const explainedFee = useMemo(
     () => explainSwapFee({
       swapType,
+      route: swapRoute,
       tokenInSlug: tokenIn?.slug,
       networkFee,
       realNetworkFee,
@@ -110,7 +114,7 @@ function SwapSettingsContent({
       dieselFee,
       nativeTokenInBalance,
     }),
-    [swapType, tokenIn, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
+    [swapType, swapRoute, tokenIn, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
   );
 
   function renderSlippageValues() {
@@ -237,7 +241,7 @@ function SwapSettingsContent({
         {renderRate()}
         {renderNetworkFee()}
 
-        {swapType === SwapType.OnChain && (
+        {swapRoute === 'dex' && (
           <>
             <div className={styles.advancedRow}>
               <span className={buildClassName(styles.advancedDescription, priceImpactError && styles.advancedError)}>
@@ -314,6 +318,7 @@ const SwapSettings = memo(
       networkFee,
       realNetworkFee,
       swapType: selectSwapType(global),
+      swapRoute: selectSwapRoute(global),
       tokenIn: selectCurrentSwapTokenIn(global),
       tokenOut: selectCurrentSwapTokenOut(global),
       slippage,

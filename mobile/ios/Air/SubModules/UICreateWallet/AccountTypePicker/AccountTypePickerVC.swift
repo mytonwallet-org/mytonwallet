@@ -21,6 +21,7 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     private let navHeight: CGFloat = 60
     private let navHeader = NavigationHeader2()
     private var vcSwitchingInProgress = false
+    private var hasReplacedContent = false
     
     public init(network: ApiNetwork) {
         self.network = network
@@ -147,7 +148,9 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     }
     
     private func onHeightChange(_ height: CGFloat) {
-        let size = CGSize(width: maxContentWidth ?? 560, height: height)
+        guard !hasReplacedContent else { return }
+        let isPopover = navigationController?.modalPresentationStyle == .popover
+        let size = CGSize(width: isPopover ? 400 : 560, height: height)
         preferredContentSize = size
         navigationController?.preferredContentSize = size
         if let sheet = sheetPresentationController {
@@ -156,8 +159,35 @@ public final class AccountTypePickerVC: CreateWalletBaseVC {
     }
 
     private func replaceContent(with vc: UIViewController, newTitle: String?, completion: (() -> Void)? = nil) {
+        guard let navigationController else {
+            resetTransitionState()
+            return
+        }
+        let preferredSize = CGSize(width: 640, height: 900)
+        if navigationController.modalPresentationStyle == .popover {
+            guard let presenter = navigationController.presentingViewController else {
+                resetTransitionState()
+                return
+            }
+            let flow = WNavigationController(rootViewController: vc)
+            flow.modalPresentationStyle = .formSheet
+            flow.preferredContentSize = preferredSize
+            flow.sheetPresentationController?.detents = [.large()]
+            vc.navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak flow] _ in
+                flow?.dismiss(animated: true)
+            })
+            navigationController.dismiss(animated: true) {
+                presenter.present(flow, animated: true, completion: completion)
+            }
+            return
+        }
+
+        hasReplacedContent = true
+        preferredContentSize = preferredSize
+        navigationController.preferredContentSize = preferredSize
         let coordinator = ContentReplaceAnimationCoordinator()
         guard coordinator.replaceContentInPresentedSheet(self, with: vc, completion: completion) else {
+            hasReplacedContent = false
             resetTransitionState()
             return 
         }

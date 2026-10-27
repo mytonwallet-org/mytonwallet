@@ -20,6 +20,7 @@ import styles from './Transfer.module.scss';
 interface OwnProps {
   nfts: ApiNft[];
   sentNftsCount?: number;
+  isPartial?: boolean;
   toAddress?: string;
   onClose: NoneToVoidFunction;
 }
@@ -27,16 +28,17 @@ interface OwnProps {
 function TransferMultiNftProcess({
   nfts,
   sentNftsCount = 0,
+  isPartial,
   toAddress,
   onClose,
 }: OwnProps) {
   const lang = useLang();
 
-  const isInProgress = sentNftsCount < nfts.length;
+  const isInProgress = !isPartial && sentNftsCount < nfts.length;
   const isBurning = toAddress === BURN_ADDRESS;
   const isNotcoinBurning = toAddress === NOTCOIN_EXCHANGERS[0];
 
-  const title = isInProgress ? lang(
+  const title = isPartial ? lang('Action Partially Completed') : isInProgress ? lang(
     `${(isBurning || isNotcoinBurning) ? 'Burning' : 'Sending'}: %n% of %m% NFTs...`,
     { n: sentNftsCount, m: nfts.length },
   ) : lang('Sent');
@@ -47,6 +49,11 @@ function TransferMultiNftProcess({
       <ModalHeader title={title} />
 
       <div className={modalStyles.transitionContent}>
+        {isPartial && (
+          <div className={styles.infoBox}>
+            {lang('$action_partially_completed_description', { completed: sentNftsCount, total: nfts.length })}
+          </div>
+        )}
         {isInProgress && (
           <>
             <Spinner className={styles.spinner} />

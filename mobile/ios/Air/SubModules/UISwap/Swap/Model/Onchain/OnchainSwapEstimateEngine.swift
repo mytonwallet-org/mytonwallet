@@ -56,6 +56,7 @@ private let log = Log("OnchainSwapEstimateEngine")
                 fromAmount: requestFromAmount,
                 toAmount: changedFrom == .buying ? MDouble.forBigInt(buying.amount, decimals: buying.token.decimals) : nil,
                 fromAddress: fromAddress,
+                toAddress: account.getAddress(chain: buying.token.chain),
                 shouldTryDiesel: shouldTryDiesel,
                 swapVersion: nil,
                 toncoinBalance: toncoinBalance,
@@ -63,11 +64,76 @@ private let log = Log("OnchainSwapEstimateEngine")
                 isFromAmountMax: isFromAmountMax
             )
 
-            let response = try await fetchEstimate(account.id, request)
+            let response = try await SwapQuoteDiagnostics.step("quote") {
+                try await fetchEstimate(account.id, request)
+            }
+            SwapQuoteDiagnostics.received(response)
             try Task.checkCancellation()
             if case .error(let error) = response {
                 if isSwapEstimateRateLimited(error) { throw error }
                 return SwapEstimateResult(changedFrom: input.inputSource, response: response)
+            }
+            if case .cex(let swapEstimate) = response {
+                let crosschainEngine = CrosschainSwapEstimateEngine()
+                let enriched = try await crosschainEngine.enrich(
+                    estimate: swapEstimate,
+                    selling: selling,
+                    swapType: .crosschainInsideWallet,
+                    isMaxAmount: changedFrom == .selling && input.isMaxAmount,
+                    account: account,
+                    networkFee: swapEstimate.networkFee,
+                    realNetworkFee: swapEstimate.realNetworkFee
+                )
+                if changedFrom == .selling, input.isMaxAmount, selling.token.isNative,
+                   let adjusted = crosschainAdjustedNativeMaxAmount(
+                    sellingToken: selling.token,
+                    swapType: .crosschainInsideWallet,
+                    isMaxAmount: true,
+                    account: account,
+                    networkFee: enriched.networkFee
+                   ),
+                   let fromAmount = MDouble.forBigInt(adjusted, decimals: selling.token.decimals),
+                   fromAmount != swapEstimate.fromAmount {
+                    let adjustedRequest = ApiSwapEstimateRequest(
+                        from: request.from,
+                        to: request.to,
+                        slippage: nil,
+                        fromAmount: fromAmount,
+                        toAmount: nil,
+                        fromAddress: request.fromAddress,
+                        toAddress: request.toAddress,
+                        cexLabel: swapEstimate.cexLabel,
+                        shouldTryDiesel: nil,
+                        swapVersion: nil,
+                        toncoinBalance: nil,
+                        walletVersion: nil,
+                        isFromAmountMax: true
+                    )
+                    let adjustedResponse = try await fetchEstimate(account.id, adjustedRequest)
+                    try Task.checkCancellation()
+                    if case .error(let error) = adjustedResponse {
+                        if isSwapEstimateRateLimited(error) { throw error }
+                        return SwapEstimateResult(changedFrom: input.inputSource, response: adjustedResponse)
+                    }
+                    guard case .cex(let adjustedEstimate) = adjustedResponse else {
+                        throw SdkError.unexpected(message: "Expected CEX swap estimate", context: adjustedResponse)
+                    }
+                    let adjustedQuote = try await crosschainEngine.enrich(
+                        estimate: adjustedEstimate,
+                        selling: selling,
+                        swapType: .crosschainInsideWallet,
+                        isMaxAmount: true,
+                        account: account,
+                        networkFee: adjustedEstimate.networkFee ?? enriched.networkFee,
+                        realNetworkFee: adjustedEstimate.realNetworkFee ?? enriched.realNetworkFee
+                    )
+                    return SwapEstimateResult(changedFrom: changedFrom, response: .cex(adjustedQuote), estimateIssue: nil)
+                }
+                return SwapEstimateResult(
+                    changedFrom: changedFrom,
+                    response: .cex(enriched),
+                    estimateIssue: nil
+                )
             }
             guard case .dex(let swapEstimate) = response else {
                 throw SdkError.unexpected(message: "Expected DEX swap estimate", context: response)

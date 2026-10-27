@@ -47,6 +47,64 @@ struct CardSurfaceMotionTests {
         #expect(!observer.delaysTouchesEnded)
     }
 
+    @Test @MainActor func activationBlendsMaterialDepthAtEveryFrameRateAndClearsOnReuse() {
+        var results: [CardSurfaceLight] = []
+        for fps in [30, 60, 120] {
+            let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
+            var light = CardSurfaceLight()
+            let driver = CardSurfaceMotionDriver(cardView: surface) { light = $0 }
+            driver.externallyDriven = true
+            driver.input = .sweep
+            driver.borderShineEnabled = true
+            driver.shineStyle = .radial
+            driver.gramReflectionMode = .telegramV2
+            let resting = light
+            driver.setActive(true, animated: true)
+            #expect(light == resting)
+            for _ in 0..<(fps / 10) { driver.advanceFrame(by: 1 / Double(fps)) }
+            #expect(light.borderTilt != .zero)
+            #expect(light.gramReflection != nil)
+            results.append(light)
+            driver.setActive(false)
+            #expect(light == resting)
+            driver.advanceFrame(by: 1)
+            #expect(light == resting, "A queued activation must not restart after reuse")
+        }
+        #expect(abs(results[0].borderTilt!.x - results[2].borderTilt!.x) < 0.03)
+        #expect(abs(results[0].gramReflection!.rotation - results[2].gramReflection!.rotation) < 0.01)
+    }
+
+    @Test func subpixelNoiseDoesNotHideAccumulatedSlowMovementOrOptionalTransitions() {
+        var previous = CardSurfaceLight(borderTilt: .zero)
+        previous.gramReflection = .init()
+        var tiny = previous; tiny.borderTilt = CGPoint(x: 0.00001,y: -0.00001)
+        tiny.gramReflection?.rotation = 0.00001
+        #expect(tiny.visuallyMatches(previous))
+        var publications = 0
+        for index in 1...100 {
+            var next = CardSurfaceLight(borderTilt: CGPoint(x: Double(index)*0.00001,y: 0))
+            next.gramReflection = .init(rotation: Double(index)*0.00001)
+            if !next.visuallyMatches(previous) { previous = next; publications += 1 }
+        }
+        #expect(publications > 0 && publications < 10)
+        #expect(previous.borderTilt!.x > 0.0008)
+        var touch = previous; touch.touchSpot = .init(position: .zero,opacity: 0)
+        #expect(!touch.visuallyMatches(previous), "A appearing/disappearing input must always be published")
+    }
+
+    @Test func gramResumeUsesShortArcAcrossAngleSeam() {
+        var start = CardSurfaceLight(), target = CardSurfaceLight()
+        start.gramReflection = .init(rotation: 179 * .pi / 180)
+        target.gramReflection = .init(rotation: -179 * .pi / 180)
+        let middle = target.interpolated(from: start, progress: 0.5)
+        #expect(abs(middle.gramReflection!.rotation - .pi) < 1e-10)
+        #expect(target.interpolated(from: start, progress: 0) == start)
+        #expect(target.interpolated(from: start, progress: 1) == target)
+        #expect(CardSurfaceLight.resumeProgress(elapsed: 0) == 0)
+        #expect(CardSurfaceLight.resumeProgress(elapsed: 0.14) == 0.5)
+        #expect(CardSurfaceLight.resumeProgress(elapsed: 0.28) == 1)
+    }
+
     @Test @MainActor func deactivationClearsPoseAndLight() async throws {
         let surface = UIView(frame: CGRect(x: 0, y: 0, width: 370, height: 215))
         var light = CardSurfaceLight()

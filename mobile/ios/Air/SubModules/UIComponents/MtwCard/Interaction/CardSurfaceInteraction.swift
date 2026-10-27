@@ -3,13 +3,21 @@ import UIKit
 
 /// Coordinates touch and device motion without taking over the card's buttons or scrolling.
 @MainActor
-public final class CardSurfaceInteraction {
+public final class CardSurfaceInteraction: NSObject, UIGestureRecognizerDelegate {
     private weak var container: UIView?
     private let driver: CardSurfaceMotionDriver
     private let touch = CardTouchObserver()
+    private let hold = UILongPressGestureRecognizer()
+    private let playFeedback = UIImpactFeedbackGenerator(style: .light)
+    private let scrollLock = CardScrollLock()
+    private var preset: CardMotionPreset?
     private var requested = false
+    private var animatesActivation = false
     private var observation: AnyCancellable?
     private var suspensionObservation: AnyCancellable?
+    /// Points are in the stationary container; nil releases the particle field.
+    public var onPlayTouch: ((CGPoint?) -> Void)?
+    private var lastTouchPoint: CGPoint?
 
     public var input: CardSurfaceMotionDriver.Input {
         get { driver.input }
@@ -68,24 +76,100 @@ public final class CardSurfaceInteraction {
     public init(container: UIView, surface: UIView, onLight: @escaping (CardSurfaceLight) -> Void) {
         self.container = container
         driver = CardSurfaceMotionDriver(cardView: surface, onLight: onLight)
+        super.init()
         driver.pressDepth = 0.525 // 4.2 degrees at the edge, less at a corner.
         driver.framesPerSecond = 60
         driver.shineStyle = CardSurfaceConfiguration.current.shine
         driver.linearTouchMode = CardSurfaceConfiguration.current.shine == .linear ? .directional : .sweep
         container.addGestureRecognizer(touch)
-        touch.onPress = { [weak self] point, began in self?.driver.press(at: point, began: began) }
-        touch.onRelease = { [weak self] cancelled in self?.driver.releasePress(cancelled: cancelled) }
+        hold.name = "cardPlayHold"
+        hold.allowableMovement = 12
+        hold.cancelsTouchesInView = true
+        hold.delegate = self
+        hold.addTarget(self, action: #selector(holdChanged))
+        container.addGestureRecognizer(hold)
+        touch.onPress = { [weak self] point, began in
+            guard let self, let container = self.container else { return }
+            if began, preset?.holdToPlay == true { playFeedback.prepare() }
+            driver.press(at: point, began: began)
+            lastTouchPoint = CGPoint(x: (point.x + 1) * container.bounds.width / 2,
+                                     y: (point.y + 1) * container.bounds.height / 2)
+            if scrollLock.isLocked { onPlayTouch?(lastTouchPoint) }
+        }
+        touch.onRelease = { [weak self] cancelled in
+            self?.driver.releasePress(cancelled: cancelled)
+            self?.finishPlaying()
+        }
         observation = CardBackgroundAnimationEnvironment.shared.objectWillChange
             .receive(on: RunLoop.main).sink { [weak self] in self?.updateVisibility() }
         suspensionObservation = CardBackgroundAnimationEnvironment.shared.willSuspend.sink { [weak self] in
+            self?.finishPlaying()
+            self?.hold.isEnabled = false
             self?.driver.setSuspended(true)
             self?.touch.isEnabled = false
         }
         updateVisibility()
     }
 
-    public func setActive(_ active: Bool) {
+    public func configure(surface: CardSurfaceConfiguration) {
+        guard preset != surface.motion else { return }
+        finishPlaying()
+        preset = surface.motion
+        if let preset { preset.configure(driver, surface: surface) }
+        hold.minimumPressDuration = preset?.holdDelay ?? 0.15
+        driver.recenter()
+        updateVisibility()
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard requested, preset?.holdToPlay == true, let container else { return false }
+        var ancestor = container.superview
+        while let view = ancestor {
+            if let scroll = view as? UIScrollView, scroll.isDragging || scroll.isDecelerating { return false }
+            ancestor = view.superview
+        }
+        return true
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // Preserve existing buttons and the balance's long-press currency menu.
+        var view = touch.view
+        while let current = view, current !== container {
+            if current is UIControl || current.gestureRecognizers?.contains(where: { $0 is UILongPressGestureRecognizer && $0.isEnabled }) == true { return false }
+            view = current.superview
+        }
+        return true
+    }
+
+    @objc private func holdChanged(_ gesture: UILongPressGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            guard let container else { return }
+            lastTouchPoint = gesture.location(in: container)
+            scrollLock.lock(above: container)
+            driver.setPlayMode(true)
+            onPlayTouch?(lastTouchPoint)
+            playFeedback.impactOccurred(intensity: 1)
+        case .changed:
+            guard scrollLock.isLocked, let container else { return }
+            lastTouchPoint = gesture.location(in: container)
+            onPlayTouch?(lastTouchPoint)
+        case .ended, .cancelled, .failed: finishPlaying()
+        default: break
+        }
+    }
+
+    private func finishPlaying() {
+        lastTouchPoint = nil
+        onPlayTouch?(nil)
+        guard scrollLock.isLocked else { return }
+        scrollLock.unlock()
+        driver.setPlayMode(false)
+    }
+
+    public func setActive(_ active: Bool, animated: Bool = false) {
         requested = active
+        animatesActivation = animated
         updateVisibility()
     }
 
@@ -97,9 +181,13 @@ public final class CardSurfaceInteraction {
             visible: container?.window != nil).canAnimate
         // Suspension preserves the visible pose and fade. Reuse/visibility/settings
         // still deactivate fully, so another card cannot inherit the interaction.
+        if !allowed || !environment.applicationActive { finishPlaying() }
+        hold.isEnabled = allowed && environment.applicationActive && preset?.holdToPlay == true
         driver.setSuspended(!environment.applicationActive)
         touch.isEnabled = allowed && environment.applicationActive
-        driver.setActive(allowed)
+        driver.setActive(allowed, animated: animatesActivation && environment.applicationActive
+            && environment.animationsEnabled && environment.cardEffectsEnabled
+            && !environment.lowPowerMode && !environment.reduceMotion && container?.window != nil)
     }
 }
 

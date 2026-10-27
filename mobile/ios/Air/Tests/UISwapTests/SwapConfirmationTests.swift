@@ -12,6 +12,29 @@ import WalletResources
 struct SwapConfirmationTests {
     init() { _ = WalletResourcesBundle.bundle.load() }
 
+    @Test
+    func `cross chain DEX quote selects onchain confirmation and execution`() async throws {
+        let harness = Harness(crosschain: true)
+        let model = harness.model
+        try await waitUntil { harness.probe.hasPendingLoad }
+        let dex = try quote(crosschain: false, amount: 1)
+        guard case .dex(var estimate) = dex.stateUpdate?.response else {
+            Issue.record("Missing DEX fixture")
+            return
+        }
+        estimate.to = ETH_SLUG
+        estimate.dexRouterLabel = "lifi"
+        try harness.probe.finish(.success(SwapEstimateUpdate(
+            changedFrom: .selling, estimatedAmounts: dex.estimatedAmounts, backendMaxAmount: nil,
+            stateUpdate: SwapEstimateResult(changedFrom: .selling, response: .dex(estimate))
+        )))
+        try await waitUntil { model.estimate.current?.draft.hasQuote == true }
+        model.estimate.refreshInterval = nil
+        #expect(model.swapType == .crosschainInsideWallet)
+        #expect(model.quotedRoute == .dex)
+        #expect(model.makeConfirmationSnapshot()?.swapType == .onChain)
+    }
+
     @Test(arguments: [false, true])
     func `first fraction selection starts with primary loading appearance`(crosschain: Bool) async throws {
         let harness = Harness(crosschain: crosschain, defaultSellingAmount: nil)
@@ -86,14 +109,16 @@ struct SwapConfirmationTests {
         var amount = TokenTradeAmountInput()
         amount.set(1_000_000_000, decimals: 9)
         trade.userEditedInput(amount)
-        try await harness.publishQuote()
-        let oldFee = try #require(trade.feeText)
+        try await harness.publishQuote(networkFee: "0.5", realNetworkFee: "0.01")
+        let oldFee = try #require(trade.fee)
+        #expect(oldFee.nativeSumOrTerms == 10_000_000)
+        #expect(oldFee.precision == .approximate)
         let oldAmount = try #require(trade.methodAmountText)
         let oldRate = trade.rateText
 
         amount.set(2_000_000_000, decimals: 9)
         trade.userEditedInput(amount)
-        #expect(trade.feeText == oldFee)
+        #expect(trade.fee == oldFee)
         #expect(trade.methodAmountText == oldAmount)
         #expect(trade.rateText == oldRate)
         #expect(trade.isMethodAmountStale)
@@ -101,12 +126,13 @@ struct SwapConfirmationTests {
         expectCannotConfirm(model)
 
         model.estimate.synchronize()
-        try await harness.publishQuote(amount: 2)
+        try await harness.publishQuote(amount: 2, networkFee: "0.49", realNetworkFee: "0.02")
+        #expect(trade.fee?.nativeSumOrTerms == 20_000_000)
         #expect(trade.methodAmountText != oldAmount)
         #expect(!trade.isMethodAmountStale)
 
         trade.userEditedInput(TokenTradeAmountInput())
-        #expect(trade.feeText == nil)
+        #expect(trade.fee == nil)
         #expect(trade.methodAmountText == nil)
         #expect(!trade.canContinue)
     }
@@ -153,6 +179,42 @@ struct SwapConfirmationTests {
         presenter.apply(model.currentButtonConfiguration)
         #expect(!button.isEnabled)
         #expect(!button.showLoading)
+        expectCannotConfirm(model)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func `unexpected estimate errors keep the current balance shortage`(crosschain: Bool, isRefresh: Bool) async throws {
+        let harness = Harness(crosschain: crosschain, defaultSellingAmount: 200)
+        let model = harness.model
+        if isRefresh {
+            try await harness.publishQuote(amount: 200)
+            model.estimate.refresh()
+        }
+        #expect(model.currentButtonState == .blocked(.insufficientBalance))
+
+        try await harness.publishEstimateIssue(.unexpectedEstimateError)
+        #expect(model.currentButtonState == .blocked(.insufficientBalance))
+        expectCannotConfirm(model)
+
+        harness.balances.replaceAll(byChain: [.ton: [TONCOIN_SLUG: 300_000_000_000]])
+        #expect(model.currentButtonState == .blocked(.unexpectedEstimateError))
+        expectCannotConfirm(model)
+
+        harness.balances.replaceAll(byChain: [.ton: [TONCOIN_SLUG: 100_000_000_000]])
+        #expect(model.currentButtonState == .blocked(.insufficientBalance))
+        expectCannotConfirm(model)
+    }
+
+    @Test(arguments: [false, true], [
+        SwapIssue.invalidPair, .insufficientLiquidity, .tooSmallAmount, .quoteUnavailable, .serviceUnavailable,
+    ])
+    func `specific estimate errors retain priority over insufficient balance`(crosschain: Bool, issue: SwapIssue) async throws {
+        let harness = Harness(crosschain: crosschain, defaultSellingAmount: 200)
+        let model = harness.model
+        #expect(model.currentButtonState == .blocked(.insufficientBalance))
+
+        try await harness.publishEstimateIssue(issue)
+        #expect(model.currentButtonState == (issue == .invalidPair ? .invalidPair : .blocked(issue)))
         expectCannotConfirm(model)
     }
 
@@ -292,11 +354,23 @@ private let rateLimitError = SdkError.apiReturnedError(error: "Requests limit ex
         model.estimate.refreshInterval = nil
     }
 
-    func publishQuote(amount: Double = 1) async throws {
+    func publishQuote(amount: Double = 1, networkFee: String = "0.01", realNetworkFee: String = "0.01") async throws {
         try await waitUntil { self.probe.hasPendingLoad }
-        try probe.finish(.success(quote(crosschain: crosschain, amount: amount)))
+        try probe.finish(.success(quote(crosschain: crosschain, amount: amount, networkFee: networkFee, realNetworkFee: realNetworkFee)))
         try await waitUntil { self.model.estimate.current?.draft.hasQuote == true }
         // The model adjusts the production backoff interval after publishing.
+        model.estimate.refreshInterval = nil
+    }
+
+    func publishEstimateIssue(_ issue: SwapIssue) async throws {
+        try await waitUntil { self.probe.hasPendingLoad }
+        try probe.finish(.success(SwapEstimateUpdate(
+            changedFrom: .selling,
+            estimatedAmounts: nil,
+            backendMaxAmount: nil,
+            stateUpdate: SwapEstimateResult(changedFrom: .selling, response: nil, estimateIssue: issue)
+        )))
+        try await waitUntil { self.model.estimate.current?.draft.stateUpdate?.estimateIssue == issue }
         model.estimate.refreshInterval = nil
     }
 }
@@ -320,12 +394,12 @@ private let rateLimitError = SdkError.apiReturnedError(error: "Requests limit ex
     }
 }
 
-private func quote(crosschain: Bool, amount: Double) throws -> SwapEstimateUpdate {
+private func quote(crosschain: Bool, amount: Double, networkFee: String = "0.01", realNetworkFee: String = "0.01") throws -> SwapEstimateUpdate {
     var payload: [String: Any] = [
         "route": crosschain ? "cex" : "dex", "from": TONCOIN_SLUG,
         "to": crosschain ? ETH_SLUG : TON_USDT_SLUG,
         "fromAmount": String(amount), "toAmount": String(amount * 5), "swapFee": "0",
-        "networkFee": "0.01", "realNetworkFee": "0.01", "dieselStatus": DieselStatus.notAvailable.rawValue
+        "networkFee": networkFee, "realNetworkFee": realNetworkFee, "dieselStatus": DieselStatus.notAvailable.rawValue
     ]
     if crosschain {
         payload.merge(["cexLabel": "changelly", "fromMin": "0.1", "fromMax": "1000"]) { _, new in new }

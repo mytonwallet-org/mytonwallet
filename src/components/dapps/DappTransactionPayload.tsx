@@ -3,7 +3,6 @@ import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
 import type { ApiDappTransfer, ApiToken } from '../../api/types';
 
 import { TONCOIN } from '../../config';
-import renderText from '../../global/helpers/renderText';
 import { BIGINT_PREFIX } from '../../util/bigint';
 import buildClassName from '../../util/buildClassName';
 import { toDecimal } from '../../util/decimals';
@@ -114,6 +113,36 @@ function DappTransactionPayload({ transaction, tokensBySlug }: OwnProps) {
         });
       }
 
+      case 'teleitem:start-auction': {
+        return lang('$dapp_teleitem_start_auction_payload', {
+          name: payload.nftName || payload.nftAddress,
+          amount: formatCurrency(toDecimal(payload.initialMinBid, TONCOIN.decimals), TONCOIN.symbol, FRACTION_DIGITS),
+        });
+      }
+
+      case 'teleitem:cancel-auction': {
+        return lang('$dapp_teleitem_cancel_auction_payload', {
+          name: payload.nftName || payload.nftAddress,
+        });
+      }
+
+      case 'teleitem:deploy': {
+        return lang('$dapp_teleitem_deploy_payload', {
+          name: payload.tokenName,
+          amount: formatCurrency(toDecimal(payload.initialMinBid, TONCOIN.decimals), TONCOIN.symbol, FRACTION_DIGITS),
+        });
+      }
+
+      case 'teleitem:bid-info': {
+        return lang('$dapp_teleitem_bid_info_payload', {
+          amount: formatCurrency(toDecimal(payload.amount, TONCOIN.decimals), TONCOIN.symbol, FRACTION_DIGITS),
+        });
+      }
+
+      case 'teleitem:return-bid': {
+        return lang('$dapp_teleitem_return_bid_payload');
+      }
+
       case 'unknown': {
         return rawPayload;
       }
@@ -155,9 +184,6 @@ function DappTransactionPayload({ transaction, tokensBySlug }: OwnProps) {
           </div>
         )}
       </div>
-      {transaction.isDangerous && (
-        <div className={styles.warning}>{renderText(lang('$hardware_payload_warning'))}</div>
-      )}
     </>
   );
 }

@@ -1,0 +1,14 @@
+Initial artwork revision: fc251ae9f0543b7af8640b078d9b905c4461b674
+Artwork recipes: UIComponents/Resources/CardBackgrounds/CardBackgroundRecipes.json
+Generator revision recorded by that file: c6ca97b3610a2de99d7151cf47cedc207e890aa9
+Its attribute options are copied to src/util/card/surfaceAttributes.json.
+Fixtures: UIComponents/AirUILab HomeCards #1, #37, #170, #629, #1634, #1667.
+Default My artwork: UIComponents/Resources/DefaultCards.xcassets/MyWalletCardBase.imageset/HomeCard.pdf
+Default Gram artwork, brush and stars: CardDefaultBackground.swift, CardBrushTexture.swift, CardStarField.swift.
+The brush is drawn at runtime by src/util/card/brushTexture.ts.
+Material and Telegram light field: CardBackgroundMotion.metal, ported to src/util/card/surface.frag.
+Telegram field attribution retained from native source:
+Telegram-iOS WalletCardBackground.metal, f1dd7a2dbd02cbbf513e75d5695d8d36d1cf5838.
+Keep CardBackgroundGenerator-LICENSE.txt with the derived vector artwork.
+
+Animation follow-ups ported through 2647d768826e09054ab40f5aa3aa439203d3a59e.

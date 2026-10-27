@@ -17,6 +17,11 @@ class PieChartComponentController: GeneralChartComponentController {
     let pieChartRenderer: PieChartRenderer
     let previewBarChartRenderer: BarChartRenderer
     var barWidth: CGFloat = 1
+    private(set) var selectedPointIndex: Int?
+
+    var selectedDate: Date? {
+        selectedPointIndex.map { chartsCollection.axisValues[$0] }
+    }
     
     var chartBars: BarChartRenderer.BarsData = .blank
     
@@ -45,30 +50,34 @@ class PieChartComponentController: GeneralChartComponentController {
         previewBarChartRenderer.setup(verticalRange: initialVerticalRange, animated: false)
         previewBarChartRenderer.setup(horizontalRange: initialHorizontalRange, animated: false)
         
-        pieChartRenderer.updatePercentageData(pieDataWithCurrentPreviewRange, animated: false)
+        pieChartRenderer.updatePercentageData(pieDataAtSelectedPoint, animated: false)
         pieChartRenderer.selectSegmentAt(at: nil, animated: false)
     }
-    
-    private var pieDataWithCurrentPreviewRange: [PieChartRenderer.PieComponent] {
-        let range = currentHorizontalMainChartRange
-        var pieComponents = chartsCollection.chartValues.map { PieChartRenderer.PieComponent(color: $0.color,
-                                                                                             value: 0) }
-        guard var valueIndex = chartsCollection.axisValues.firstIndex(where: { CGFloat($0.timeIntervalSince1970) > (range.lowerBound + 1)}) else {
-            return pieComponents
+
+    override func setupInitialChartRange(initialDate: Date) {
+        updateSelectedPoint(for: initialDate)
+        initialVerticalRange = totalVerticalRange
+    }
+
+    private func updateSelectedPoint(for date: Date) {
+        guard let (selectedDate, index) = findClosestDateTo(dateToFind: date) else {
+            selectedPointIndex = nil
+            return
         }
-        var count = 0
-        while valueIndex < chartsCollection.axisValues.count, CGFloat(chartsCollection.axisValues[valueIndex].timeIntervalSince1970) <= range.upperBound {
-            count += 1
-            for pieIndex in pieComponents.indices {
-                pieComponents[pieIndex].value += CGFloat(chartsCollection.chartValues[pieIndex].values[valueIndex])
-            }
-            valueIndex += 1
+        selectedPointIndex = index
+        let upperBound = CGFloat(selectedDate.timeIntervalSince1970)
+        let lowerBound = index > 0 ? CGFloat(chartsCollection.axisValues[index - 1].timeIntervalSince1970) : upperBound - barWidth
+        initialHorizontalRange = lowerBound...upperBound
+    }
+
+    private var pieDataAtSelectedPoint: [PieChartRenderer.PieComponent] {
+        chartsCollection.chartValues.map { chart in
+            PieChartRenderer.PieComponent(color: chart.color, value: selectedPointIndex.map { CGFloat(chart.values[$0]) } ?? 0)
         }
-        return pieComponents
     }
     
-    var visiblePieDataWithCurrentPreviewRange: [PieChartRenderer.PieComponent] {
-        let currentData = pieDataWithCurrentPreviewRange
+    var visiblePieDataAtSelectedPoint: [PieChartRenderer.PieComponent] {
+        let currentData = pieDataAtSelectedPoint
         return chartVisibility.enumerated().compactMap { $0.element ? currentData[$0.offset] : nil }
     }
     
@@ -81,7 +90,7 @@ class PieChartComponentController: GeneralChartComponentController {
         previewBarChartRenderer.setVisible(true, animated: animated)
         
         updatePreviewRangeClosure?(currentChartHorizontalRangeFraction, animated)
-        pieChartRenderer.updatePercentageData(pieDataWithCurrentPreviewRange, animated: false)
+        pieChartRenderer.updatePercentageData(pieDataAtSelectedPoint, animated: false)
         
         super.willAppear(animated: animated)
     }
@@ -93,18 +102,15 @@ class PieChartComponentController: GeneralChartComponentController {
     }
     
     override func chartRangeDidUpdated(_ updatedRange: ClosedRange<CGFloat>) {
-        if isChartInteractionBegun {
-            chartInteractionDidBegin(point: lastChartInteractionPoint)
-        }
-        initialHorizontalRange = updatedRange
-        
-        setupMainChart(horizontalRange: updatedRange, animated: true)
-        updateSelectedDataLabelIfNeeded()
+        selectDate(Date(timeIntervalSince1970: TimeInterval(updatedRange.upperBound)), animated: true)
     }
-    
-    func setupMainChart(horizontalRange: ClosedRange<CGFloat>, animated: Bool) {
-        pieChartRenderer.setup(horizontalRange: horizontalRange, animated: animated)
-        pieChartRenderer.updatePercentageData(pieDataWithCurrentPreviewRange, animated: animated)
+
+    func selectDate(_ date: Date, animated: Bool) {
+        updateSelectedPoint(for: date)
+        pieChartRenderer.setup(horizontalRange: initialHorizontalRange, animated: animated)
+        pieChartRenderer.updatePercentageData(pieDataAtSelectedPoint, animated: animated)
+        updateChartRangeTitle(animated: animated)
+        updateSelectedDataLabelIfNeeded()
     }
     
     public override func updateChartsVisibility(visibility: [Bool], animated: Bool) {
@@ -144,7 +150,7 @@ class PieChartComponentController: GeneralChartComponentController {
     }
     
     func chartDetailsViewModel(segmentInde: Int) -> ChartDetailsViewModel {
-        let pieItem = pieDataWithCurrentPreviewRange[segmentInde]
+        let pieItem = pieDataAtSelectedPoint[segmentInde]
         let title = chartsCollection.chartValues[segmentInde].name
         let item = ChartDetailsItemContext(
             id: "series-\(segmentInde)",
@@ -192,9 +198,8 @@ class PieChartComponentController: GeneralChartComponentController {
     }
     
     override func updateChartRangeTitle(animated: Bool) {
-        let fromDate = Date(timeIntervalSince1970: TimeInterval(currentHorizontalMainChartRange.lowerBound) + 1)
-        let toDate = Date(timeIntervalSince1970: TimeInterval(currentHorizontalMainChartRange.upperBound))
-        let string = formattedRangeTitle(from: fromDate, to: toDate)
+        guard let selectedDate else { return }
+        let string = strings.formattedSingleDateTitle(selectedDate, includesTime: barWidth < CGFloat(TimeInterval.day))
         self.setChartTitleClosure?(string, animated)
     }
 }

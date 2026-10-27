@@ -117,6 +117,7 @@ $logout_selected_wallets_warning: Bu, seçili cüzdanları uygulamadan kaldırac
 $logout_all_wallets_warning: Bu, uygulamadaki tüm cüzdanları kaldıracaktır.
 $secret_words_backup_reminder: "**Gizli kelimelerinizi** yedeklediğinizden emin olun."
 $all_secret_words_backup_reminder: Tüm **gizli kelimelerinizin** yedeğini aldığınızdan emin olun.
+$secret_word_input_aria_label: "Gizli kelime %number%"
 Create Deposit Link: Para Yatırma Bağlantısı Oluşturun
 $receive_invoice_description: |
   Göndericiye zaman kazandırmak adına ödeme
@@ -246,6 +247,11 @@ Dark: Koyu
 System: Sistem
 $stake_asset: "%symbol% stake et"
 Add Stake: Stake ekle
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% başka bir staking işleminde kilitli"
+"Unstake them to restake with **higher returns**.": "Onları **daha yüksek getiriyle** yeniden stake etmek için unstake edin."
+"💎 More profitable staking available": "💎 Daha yüksek getirili staking mevcut"
+"Tap to restake your %symbol% with higher returns.": "%symbol% varlıklarınızı daha yüksek getiriyle yeniden stake etmek için dokunun."
+"Restake Now": "Şimdi yeniden stake et"
 Earn from your tokens while holding them: "%symbol% tutarak pasif gelir elde edin"
 Est. %annual_yield%: Tahmini %annual_yield%
 Current APY: Mevcut APY
@@ -286,8 +292,8 @@ The network fee has slightly changed, try sending again.: Ağ ücreti bir miktar
 Transfer was unsuccessful. Try again later.: Transfer başarısız oldu. Daha sonra tekrar deneyin.
 Action Partially Completed: İşlem Kısmen Tamamlandı
 $action_partially_completed_description: "%completed% / %total% işlem tamamlandı. Kalan işlemler tamamlanmadı. Tekrar denemeden önce etkinliklerinizi kontrol edin."
-Action Status Unknown: İşlem Durumu Bilinmiyor
-$action_status_unknown_description: "Tamamlanma durumu doğrulanamadı. Yeniden denemeden önce etkinliklerinizi ve bakiyenizi kontrol edin; şimdi yeniden denemek işlemin iki kez gönderilmesine neden olabilir."
+Check Your Activity: İşlem Geçmişinizi Kontrol Edin
+$action_status_unknown_description: "İsteğiniz zaten işlenmiş olabilir. İki kez göndermemek için yeniden denemeden önce işlem geçmişinizi ve bakiyenizi kontrol edin."
 $action_will_continue_in_background: İşlem arka planda devam edecek.
 Invalid amount: Geçersiz tutar
 Invalid address: Geçersiz adres
@@ -419,6 +425,7 @@ $swap_minimum_received_tooltip1: Mevcut piyasa koşulları, kayma toleransı ve 
 $swap_minimum_received_tooltip2: Bu beklenen minimum tutardır, ancak takasınız işleme konurken koşullar çok değişirse, nihai tutar daha az olabilir.
 $swap_price_impact_tooltip1: Bu, işleminizin token fiyatını ne kadar değiştirebileceğini gösterir.
 $swap_price_impact_tooltip2: Yüksek hacimli alım satımlar fiyatın daha fazla yükselmesine veya düşmesine neden olabilir. Daha düşük tutarlar genellikle daha iyidir.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: Kayma, işlem sırasında fiyatın değişmesi nedeniyle beklenen işlem fiyatı ile gerçekleşen fiyat arasında oluşan farktır.
 $swap_slippage_tooltip1: Bu, takas talebinizin işleme alınmadan önce fiyatın ne kadar değişmesine izin verileceğini belirler.
 $swap_slippage_tooltip2: Takas işleminiz sırasında fiyat bu değerden daha fazla değişirse, emriniz iptal edilecektir.
 Slippage not specified: Kayma toleransı belirtilmemiş
@@ -447,6 +454,8 @@ Swap Again: Yeniden takas edin
 Terms of Use: Kullanım Şartları
 Privacy Policy: Gizlilik Politikası
 Insufficient liquidity: Yetersiz likidite
+$swap_quote_unavailable: Teklif yok
+$swap_service_unavailable: Takas kullanılamıyor
 This address is new and never received transfers before.: Bu adres yenidir ve daha önce hiç transfer almamıştır.
 Create Backup: Yedek oluştur
 Sending: Gönderiliyor
@@ -661,6 +670,11 @@ $dapp_liquid_staking_vote_payload: "%votingAddress% teklifi için \"%vote%\" oyu
 $dapp_single_nominator_change_validator_payload: SingleNominator staking sözleşmesi doğrulayıcısının adresi %address% olarak değiştiriliyor
 $dapp_single_nominator_withdraw_payload: "%amount%'un SingleNominator staking sözleşmesinden çekilmesi"
 $dapp_vesting_add_whitelist_payload: Vesting cüzdanı beyaz listesine %address% ekleniyor
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: Time synchronization issue. Zaman senkronizasyonu sorunu. Lütfen cihazınızın saat ayarlarının doğru olduğundan emin olun.
 Data Copied: Veri kopyalandı
 URL Copied: URL Copied
@@ -852,7 +866,7 @@ Blockchain Fee Details: Blockchain Ücret Detayları
 Final Fee: Nihai Ücret
 Excess: Fazlalık
 $fee_details: |
-  Ücreti ödemek için cüzdanınızdan %full_fee% hemen çekilmelidir. Bunun bir kısmı birkaç dakika içinde fazlalık olarak size %excess_symbol%** cinsinden** geri iade edilecektir.
+  Ücreti ödemek için cüzdanınızdan %full_fee% hemen çekilmelidir. Bunun bir kısmı birkaç dakika içinde fazlalık olarak size %excess_symbol% **cinsinden** geri iade edilecektir.
 
   %chain_name% Blockchain’in çalışma prensibi şöyledir.
 Got It: Anladım
@@ -922,6 +936,12 @@ Bounced: Geri döndü
 Bouncing: Geri dönüyor
 $bounce_action: Geri dönüş
 NFT Auction Bid: NFT müzayede teklifi
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: NFT müzayedesinde teklif verme
 Buying NFT: NFT satın alınıyor
 Bought NFT: NFT satın alındı
@@ -2066,3 +2086,9 @@ Hold to enlarge. Drag to rotate.: Büyütmek için basılı tutun. Döndürmek i
 "Max": "Maks."
 Explorer mode: Kaşif modu
 Open a link to a wallet, transfer, token or collectible to see its details here.: Detaylarını burada görmek için bir cüzdan, transfer, token veya koleksiyon öğesi bağlantısını açın.
+Receiver %blockchain% Address: Alıcı %blockchain% Adresi
+
+Save to Photos: Fotoğraflar’a Kaydet
+Image Saved: Görsel Kaydedildi
+Allow access to Photos in Settings to save NFT images.: NFT görsellerini kaydetmek için Ayarlar’dan Fotoğraflar erişimine izin verin.
+Could not save the image. Please try again.: Görsel kaydedilemedi. Lütfen tekrar deneyin.

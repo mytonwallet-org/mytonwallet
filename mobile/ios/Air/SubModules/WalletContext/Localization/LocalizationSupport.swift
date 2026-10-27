@@ -38,6 +38,17 @@ public final class LocalizationSupport: Sendable {
     public var locale: Locale {
         Locale(identifier: langCode == Language.ar.langCode ? "ar@numbers=arab" : langCode)
     }
+
+    public var calendar: Calendar {
+        Self.calendar(for: langCode)
+    }
+
+    static func calendar(for languageCode: String, systemCalendar: Calendar = .current) -> Calendar {
+        guard languageCode == Language.fa.langCode else { return systemCalendar }
+        var calendar = Calendar(identifier: .persian)
+        calendar.timeZone = systemCalendar.timeZone
+        return calendar
+    }
 }
 
 private extension LocalizationSupport {
@@ -117,6 +128,13 @@ extension Language {
 
 extension Locale {
     public static let forNumberFormatters: Locale = makeEn()
+}
+
+extension FormatStyle where Self == Date.FormatStyle {
+    public static var localizedDateTime: Self {
+        let localization = LocalizationSupport.shared
+        return Self(locale: localization.locale, calendar: localization.calendar)
+    }
 }
 
 private func makeEn() -> Locale {

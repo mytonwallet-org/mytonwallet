@@ -1,159 +1,52 @@
-
-import Foundation
 import SwiftUI
 import WalletContext
 
-
+/// Tip content. WAlertController owns the glass surface and modal presentation.
 public struct TipView<Content: View>: View {
-    
     public enum Kind {
         case info
         case warning
         case danger
     }
-    
-    var title: String
-    var kind: Kind
-    var wide: Bool
-    var content: () -> Content
-    
-    @State private var show = false
-    @State private var dismissing = false
-    @State private var dy: CGFloat = 0
-    
-    public init(title: String, kind: Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+
+    private let title: String
+    private let kind: Kind
+    private let content: () -> Content
+
+    public init(title: String, kind: Kind = .info, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.kind = kind
-        self.wide = wide
         self.content = content
     }
-    
-    public var body: some View {
-        ZStack(alignment: .center) {
-            Color.clear.ignoresSafeArea()
-            if show {
-                Color.black.opacity(dismissing ? 0 : 0.4).ignoresSafeArea()
-                    .transition(.opacity)
-                    .contentShape(.rect)
-                    .onTapGesture {
-                        if dy == 0 {
-                            dismiss()
-                        }
-                    }
-                    .gesture(dragGesture)
-                contents
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 1.15).combined(with: .opacity),
-                        removal: .identity
-                    ))
-                    .opacity(dismissing ? 0 : 1)
-                    .gesture(dragGesture)
-            }
-        }
-        .onAppear {
-            withAnimation(.spring(duration: 0.3)) {
-                show = true
-            }
-        }
-    }
-    
-    var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 2)
-            .onChanged({ drag in
-                self.dy = drag.translation.height
-            })
-            .onEnded({ drag in
-                if drag.predictedEndTranslation.height > 90 {
-                    dismiss()
-                } else {
-                    withAnimation(.spring) {
-                        dy = 0
-                    }
-                }
-        })
-    }
-    
-    var contents: some View {
-        VStack(spacing: 0) {
-            
-            VStack(spacing: 8) {
-                icon
-                
-                Text(title)
-                    .textStyle(.bodyStrong, scaling: .dynamic)
-                    .lineSpacing(1)
-                    .frame(minHeight: 22)
-                    .frame(maxWidth: .infinity)
 
-                content()
-                    .font13()
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 18)
-            .background(Color.air.modularBackground)
-            
-            Rectangle()
-                .fill(Color.air.separator)
-                .frame(height: 0.333)
-            
-            Button(action: dismiss) {
-                Text(lang("OK"))
-                    .textStyle(.bodyStrong, scaling: .dynamic)
-                    .lineSpacing(1)
-                    .frame(minHeight: 22)
-                    .foregroundStyle(.tint)
-                    .tint(.accentColor)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
-                    .background(Color.air.modularBackground)
-            }
+    public var body: some View {
+        VStack(spacing: 10) {
+            icon
+                .padding(4)
+                .accessibilityHidden(true)
+            Text(title)
+                .textStyle(.bodyStrong, scaling: .dynamic)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .accessibilityAddTraits(.isHeader)
+            content()
+                .textStyle(.body, scaling: .dynamic)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity)
         }
-        .clipShape(.rect(cornerRadius: 14))
-        .frame(maxWidth: maxDialogWidth)
-        .padding(.horizontal, wide ? 32 : 60)
-        .offset(y: dy / 6)
-        .buttonStyle(.plain)
     }
-    
-    var maxDialogWidth: CGFloat {
-        wide ? 560 : 420
-    }
-    
+
     @ViewBuilder
-    var icon: some View {
+    private var icon: some View {
         switch kind {
         case .info:
             Image.airBundle("TipIcon")
                 .foregroundStyle(.tint)
-                .padding(4)
-
-        case .warning:
+        case .warning, .danger:
             Image(systemName: "exclamationmark.circle.fill")
                 .resizable()
                 .frame(width: 36, height: 36)
-                .foregroundStyle(.orange)
-                .padding(4)
-
-        case .danger:
-            Image(systemName: "exclamationmark.circle.fill")
-                .resizable()
-                .frame(width: 36, height: 36)
-                .foregroundStyle(Color.air.error)
-                .padding(4)
-        }
-    }
-    
-    func dismiss() {
-        let duration = 0.25
-        withAnimation(.easeIn(duration: duration)) {
-            dismissing = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.02) {
-            topViewController()?.presentingViewController?.dismiss(animated: false)
+                .foregroundStyle(kind == .danger ? Color.air.error : .orange)
         }
     }
 }

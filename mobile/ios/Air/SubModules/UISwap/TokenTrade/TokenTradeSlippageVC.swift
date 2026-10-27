@@ -1,17 +1,39 @@
-import SwiftUI
 import UIKit
 import UIComponents
 import WalletContext
 import WalletCore
 
 final class TokenTradeSlippageVC: WViewController {
-    private let initialSlippage: BigInt
+    private var draft: BigInt?
     private let onCommit: (BigInt) -> Void
+    private let scrollView = UIScrollView()
+    private let content = UIView()
+    private let amountContainer = UIView()
+    private let percentLabel = UILabel()
+    private let descriptionLabel = UILabel()
+    private let slider = TokenTradeSlippageSlider()
+    private let doneButton = WButton(style: .primary)
+    private var amountWidth: NSLayoutConstraint!
+    private var containerWidth: NSLayoutConstraint!
+    private var viewBottom: NSLayoutConstraint!
+    private var keyboardBottom: NSLayoutConstraint!
+    private var contentBottom: NSLayoutConstraint!
+    private var sheetHeight: CGFloat = 364
+    private let amountFont = UIFont.compactRounded(ofSize: 40, weight: .bold)
+    private lazy var amountInput = WAmountInput(maximumFractionDigits: SLIPPAGE_DECIMALS, onChange: { [weak self] value in
+        guard let self else { return }
+        draft = value
+        updateControls()
+    })
+
+    private var isValid: Bool { draft.map { $0 > 0 && $0 <= MAX_SLIPPAGE_VALUE } ?? false }
+    private var animates: Bool { AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled }
 
     init(slippage: BigInt, onCommit: @escaping (BigInt) -> Void) {
-        self.initialSlippage = slippage
+        draft = slippage
         self.onCommit = onCommit
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 420, height: 364)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -24,204 +46,208 @@ final class TokenTradeSlippageVC: WViewController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
             self?.dismiss(animated: true)
         })
-        _ = addHostingController(TokenTradeSlippageView(slippage: initialSlippage) { [weak self] value in
-            self?.onCommit(value)
-            self?.dismiss(animated: true)
-        }, constraints: .fill)
+        configureContent()
+        updateControls(replacingText: true)
         let sheet = navigationController?.sheetPresentationController
-        sheet?.detents = [.custom(identifier: .init("slippage")) { min(350, $0.maximumDetentValue) }]
+        sheet?.detents = [.custom(identifier: .init("slippage")) { [weak self] in
+            min(self?.sheetHeight ?? 364, $0.maximumDetentValue)
+        }]
         sheet?.prefersGrabberVisible = false
     }
-}
 
-enum TokenTradeSlippageScale {
-    static let stops = ([BigInt(1)] + SWAP_SLIPPAGE_PRESETS + [MAX_SLIPPAGE_VALUE]).map {
-        $0.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS)
-    }
-
-    static func position(for value: Double) -> Double {
-        log(min(50, max(0.1, value)) / 0.1) / log(500)
-    }
-
-    static func value(at position: Double) -> Double {
-        (0.1 * pow(500, min(1, max(0, position))) * 10).rounded() / 10
-    }
-
-    static func snappedValue(at position: Double, trackWidth: Double) -> Double {
-        let position = min(1, max(0, position))
-        if let stop = stops.min(by: { abs(Self.position(for: $0) - position) < abs(Self.position(for: $1) - position) }),
-           abs(Self.position(for: stop) - position) * max(1, trackWidth) <= 8 {
-            return stop
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard content.bounds.width > 0 else { return }
+        contentBottom.constant = -(IOS_26_MODE_ENABLED ? 28 : max(28, view.safeAreaInsets.bottom))
+        let height = content.systemLayoutSizeFitting(
+            CGSize(width: content.bounds.width, height: 0),
+            withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel
+        ).height
+        // UINavigationController adds its bar to the child's preferred size in a popover.
+        if abs(preferredContentSize.height - height) > 1 {
+            preferredContentSize.height = height
         }
-        return value(at: position)
-    }
-}
-
-private struct TokenTradeSlippageView: View {
-    @State private var draft: BigInt?
-    @State private var focused = false
-    @State private var countsDown = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.layoutDirection) private var layoutDirection
-    let onCommit: (BigInt) -> Void
-
-    init(slippage: BigInt, onCommit: @escaping (BigInt) -> Void) {
-        _draft = State(initialValue: slippage)
-        self.onCommit = onCommit
+        // Sheet detents add the bottom safe area themselves; the content already includes its padding.
+        let detentHeight = height + (navigationController?.navigationBar.frame.maxY ?? view.safeAreaInsets.top)
+            - view.safeAreaInsets.bottom
+        if abs(sheetHeight - detentHeight) > 1 {
+            sheetHeight = detentHeight
+            navigationController?.sheetPresentationController?.invalidateDetents()
+        }
     }
 
-    private var isValid: Bool { draft.map { $0 > 0 && $0 <= MAX_SLIPPAGE_VALUE } ?? false }
-    private var amountFont: UIFont { .compactRounded(ofSize: 40, weight: .bold) }
-    private var amountText: String { formatBigIntText(draft ?? 0, tokenDecimals: SLIPPAGE_DECIMALS) }
-    private var amountValue: Double { draft?.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS) ?? 0 }
-    private var fieldWidth: CGFloat {
-        let width = (amountText as NSString).size(withAttributes: [.font: amountFont]).width
-        return ceil(width)
-    }
-    private func sliderValue(trackWidth: CGFloat) -> Binding<Double> {
-        Binding(get: { TokenTradeSlippageScale.position(for: draft?.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS) ?? 5) },
-                set: { select(BigInt(Int((TokenTradeSlippageScale.snappedValue(at: $0, trackWidth: trackWidth) * 10).rounded()))) })
+    private func configureContent() {
+        scrollView.bounces = false
+        scrollView.delaysContentTouches = false
+        scrollView.keyboardDismissMode = .interactive
+        scrollView.contentInsetAdjustmentBehavior = .never
+        view.addSubview(scrollView)
+        scrollView.addSubview(content)
+        let row = UIView()
+        let minButton = rangeButton("Min", value: 1)
+        let maxButton = rangeButton("Max", value: MAX_SLIPPAGE_VALUE)
+        [row, slider, descriptionLabel, doneButton].forEach { content.addSubview($0) }
+        [minButton, amountContainer, maxButton].forEach { row.addSubview($0) }
+
+        amountContainer.backgroundColor = .air.background
+        amountContainer.layer.cornerRadius = 22
+        amountContainer.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(focusAmount)))
+        amountInput.font = amountFont
+        amountInput.integerFont = amountFont
+        amountInput.fractionFont = amountFont
+        amountInput.textAlignment = .right
+        amountInput.placeholder = "0"
+        amountInput.accessibilityLabel = lang("Slippage") + ", %"
+        amountInput.accessibilityIdentifier = "tokenTrade.slippage.input"
+        amountInput.addTarget(self, action: #selector(amountEditingChanged), for: [.editingDidBegin, .editingDidEnd])
+        percentLabel.text = "%"
+        percentLabel.font = .roundedNative(ofSize: 32, weight: .heavy)
+        percentLabel.textColor = .air.secondaryLabel
+        percentLabel.isAccessibilityElement = false
+        let amountGroup = UIStackView(arrangedSubviews: [amountInput, percentLabel])
+        amountGroup.alignment = .firstBaseline
+        amountGroup.semanticContentAttribute = .forceLeftToRight
+        amountContainer.addSubview(amountGroup)
+
+        slider.addTarget(self, action: #selector(sliderChanged), for: .valueChanged)
+        slider.addTarget(self, action: #selector(sliderStarted), for: .editingDidBegin)
+        descriptionLabel.text = lang("Slippage is the difference between the expected and actual trade price caused by price changes during execution.")
+        descriptionLabel.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13))
+        descriptionLabel.adjustsFontForContentSizeCategory = true
+        descriptionLabel.numberOfLines = 0
+        descriptionLabel.textColor = .air.secondaryLabel
+
+        doneButton.setTitle(lang("Done"), for: .normal)
+        doneButton.customTitleFont = WButton.capsuleFont
+        doneButton.customTintColor = slider.tintColor
+        doneButton.layer.cornerRadius = 26
+        doneButton.accessibilityIdentifier = "tokenTrade.slippage.done"
+        doneButton.addTarget(self, action: #selector(commit), for: .touchUpInside)
+
+        [scrollView, content, row, minButton, maxButton, amountContainer, amountGroup,
+         amountInput, percentLabel, slider, descriptionLabel, doneButton].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+        }
+        amountWidth = amountInput.widthAnchor.constraint(equalToConstant: 28)
+        containerWidth = amountContainer.widthAnchor.constraint(equalToConstant: 92)
+        viewBottom = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        keyboardBottom = scrollView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
+        contentBottom = doneButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28)
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            viewBottom,
+            content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            content.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            content.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+            row.topAnchor.constraint(equalTo: content.topAnchor, constant: 12),
+            row.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 32),
+            row.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -32),
+            row.heightAnchor.constraint(equalToConstant: 60),
+            minButton.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            minButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            maxButton.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            maxButton.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            amountContainer.centerXAnchor.constraint(equalTo: row.centerXAnchor),
+            amountContainer.topAnchor.constraint(equalTo: row.topAnchor),
+            amountContainer.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            containerWidth,
+            amountGroup.centerXAnchor.constraint(equalTo: amountContainer.centerXAnchor),
+            amountGroup.centerYAnchor.constraint(equalTo: amountContainer.centerYAnchor),
+            amountWidth,
+            amountInput.heightAnchor.constraint(equalToConstant: amountFont.lineHeight),
+            slider.topAnchor.constraint(equalTo: row.bottomAnchor, constant: 16),
+            slider.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            slider.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            slider.heightAnchor.constraint(equalToConstant: 52),
+            descriptionLabel.topAnchor.constraint(equalTo: slider.bottomAnchor, constant: 32),
+            descriptionLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor),
+            descriptionLabel.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            doneButton.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 18),
+            doneButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 30),
+            doneButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -30),
+            doneButton.heightAnchor.constraint(equalToConstant: 52),
+            contentBottom,
+        ])
     }
 
-    var body: some View {
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: 16) {
-                    HStack {
-                        rangeButton("Min", value: 1)
-                        Spacer()
-                        amountField
-                        .padding(10)
-                        .background(Color.air.background, in: .rect(cornerRadius: 22))
-                        .contentShape(.rect)
-                        .onTapGesture { focused = true }
-                        .accessibilityElement(children: focused ? .contain : .ignore)
-                        .accessibilityLabel(lang("Slippage"))
-                        .accessibilityValue(amountText + "%")
-                        .accessibilityAddTraits(focused ? [] : .isButton)
-                        .accessibilityAction { focused = true }
-                        Spacer()
-                        rangeButton("Max", value: MAX_SLIPPAGE_VALUE)
-                    }
-                    VStack(spacing: 0) {
-                        Slider(value: sliderValue(trackWidth: geometry.size.width - 60 - 28), in: 0...1)
-                            .frame(height: 44)
-                            .tint(Color(uiColor: UIColor(hex: "#0088FF")))
-                            .accessibilityLabel(lang("Slippage"))
-                            .accessibilityValue(formatBigIntText(draft ?? DEFAULT_SLIPPAGE, tokenDecimals: SLIPPAGE_DECIMALS) + "%")
-                            .accessibilityIdentifier("tokenTrade.slippage.slider")
-                            .accessibilityAdjustableAction { direction in
-                                let value = draft ?? DEFAULT_SLIPPAGE
-                                switch direction {
-                                case .increment: select(min(MAX_SLIPPAGE_VALUE, value + 1))
-                                case .decrement: select(max(1, value - 1))
-                                @unknown default: break
-                                }
-                            }
-                        presetStops
-                    }
-                    Spacer(minLength: 0)
-                    TokenTradeContinueButton(configuration: .init(title: .text(lang("Done")), isEnabled: isValid, showLoading: false),
-                                             tintColor: UIColor(hex: "#0088FF")) {
-                        guard isValid, let draft else { return }
-                        onCommit(draft)
-                    }
-                    .disabled(!isValid)
-                    .frame(height: 52)
-                }
-                .padding(.horizontal, 30)
-                .padding(.top, 12)
-                .padding(.bottom, max(0, 28 - geometry.safeAreaInsets.bottom))
-                .frame(minHeight: geometry.size.height)
+    private func rangeButton(_ title: String, value: BigInt) -> UIButton {
+        let button = UIButton(type: .system)
+        var configuration = UIButton.Configuration.filled()
+        configuration.title = lang(title)
+        configuration.baseBackgroundColor = .air.secondaryLabel.withAlphaComponent(0.12)
+        configuration.baseForegroundColor = .label
+        configuration.background.cornerRadius = 13
+        configuration.background.backgroundInsets = NSDirectionalEdgeInsets(top: 9, leading: 0, bottom: 9, trailing: 0)
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+            var attributes = attributes
+            attributes.font = .systemFont(ofSize: 14, weight: .medium)
+            return attributes
+        }
+        button.configuration = configuration
+        button.accessibilityValue = formatBigIntText(value, tokenDecimals: SLIPPAGE_DECIMALS) + "%"
+        button.accessibilityIdentifier = "tokenTrade.slippage." + title.lowercased()
+        button.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        button.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            view.endEditing(true)
+            draft = value
+            Haptics.play(.selection)
+            updateControls(replacingText: true, animated: animates)
+        }, for: .touchUpInside)
+        return button
+    }
+
+    private func updateControls(replacingText: Bool = false, animated: Bool = false, updateSlider: Bool = true) {
+        if replacingText {
+            amountInput.text = draft.map { formatBigIntText($0, tokenDecimals: SLIPPAGE_DECIMALS) }
+        }
+        amountInput.error = !isValid
+        let selection = amountInput.selectedTextRange
+        amountInput.reapplyFormatting()
+        if amountInput.isFirstResponder { amountInput.selectedTextRange = selection }
+        doneButton.isEnabled = isValid
+        let width = ceil(((amountInput.text?.nilIfEmpty ?? "0") as NSString).size(withAttributes: [.font: amountFont]).width)
+        amountWidth.constant = min(100, max(24, width + 2))
+        containerWidth.constant = max(92, amountWidth.constant + percentLabel.intrinsicContentSize.width + 20)
+        if updateSlider, isValid, let draft {
+            slider.setValue(draft.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS), animated: animated)
+        }
+        if animated {
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.amountContainer.superview?.layoutIfNeeded()
             }
-            .backportScrollBounceBehaviorBasedOnSize()
+        } else {
+            UIView.performWithoutAnimation { amountContainer.superview?.layoutIfNeeded() }
         }
     }
 
-    private var presetStops: some View {
-        GeometryReader { track in
-            let stops = layoutDirection == .rightToLeft ? Array(TokenTradeSlippageScale.stops.reversed()) : TokenTradeSlippageScale.stops
-            let centers = stops.map { value in
-                let position = TokenTradeSlippageScale.position(for: value)
-                return 14 + (track.size.width - 28) * (layoutDirection == .rightToLeft ? 1 - position : position)
-            }
-            ForEach(stops.indices, id: \.self) { index in
-                let lower = index == 0 ? 0 : (centers[index - 1] + centers[index]) / 2
-                let upper = index == stops.count - 1 ? track.size.width : (centers[index] + centers[index + 1]) / 2
-                Button { select(BigInt(Int((stops[index] * 10).rounded()))) } label: {
-                    Circle()
-                        .fill(amountValue == stops[index] ? Color.air.tint : Color.air.secondaryLabel.opacity(0.35))
-                        .frame(width: 4, height: 4)
-                        .position(x: centers[index] - lower, y: 10)
-                        .frame(width: upper - lower, height: 44)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(lang("Slippage"))
-                .accessibilityValue(formatBigIntText(BigInt(Int((stops[index] * 10).rounded())), tokenDecimals: SLIPPAGE_DECIMALS) + "%")
-                .accessibilityIdentifier("tokenTrade.slippage.preset.\(index)")
-                .position(x: (lower + upper) / 2, y: 22)
-            }
-        }
-        .frame(height: 44)
+    @objc private func focusAmount() { amountInput.becomeFirstResponder() }
+
+    @objc private func amountEditingChanged() {
+        // A keyboard belonging to the presenting trade screen must not shrink this sheet.
+        NSLayoutConstraint.deactivate([viewBottom, keyboardBottom])
+        (amountInput.isFirstResponder ? keyboardBottom : viewBottom).isActive = true
     }
 
-    private var amountField: some View {
-        animatedAmount
-            .fixedSize()
-            .accessibilityHidden(true)
-            .overlay(alignment: .leading) {
-                WUIAmountInput(amount: $draft, maximumFractionDigits: SLIPPAGE_DECIMALS,
-                               font: amountFont, fractionFont: amountFont,
-                               alignment: .right, isFocused: $focused, error: !isValid)
-                    .frame(width: fieldWidth, height: amountFont.lineHeight)
-                    .opacity(focused ? 1 : 0)
-                    .allowsHitTesting(focused)
-                    .accessibilityHidden(!focused)
-                    .accessibilityLabel(lang("Slippage"))
-                    .accessibilityIdentifier("tokenTrade.slippage.input")
-            }
-            .animation(focused || reduceMotion || !AppStorageHelper.animations ? nil : .easeInOut(duration: 0.2), value: draft)
+    @objc private func sliderStarted() {
+        view.endEditing(true)
+        if !isValid { sliderChanged() }
     }
 
-    private var animatedAmount: some View {
-        ZStack {
-            amountLabel
-                .id(amountText)
-                .transition(.asymmetric(
-                    insertion: .move(edge: countsDown ? .top : .bottom).combined(with: .opacity),
-                    removal: .opacity
-                ))
-        }
-        .clipped()
+    @objc private func sliderChanged() {
+        if amountInput.isFirstResponder { amountInput.resignFirstResponder() }
+        draft = BigInt(Int((slider.selectedValue * 10).rounded()))
+        updateControls(replacingText: true, updateSlider: false)
     }
 
-    private var amountLabel: Text {
-        let amount = Text(amountText)
-            .font(Font(amountFont))
-            .foregroundColor(focused ? .clear : isValid ? Color.air.primaryLabel : Color.air.error)
-        let percent = Text("%")
-            .font(.system(size: 32, weight: .heavy, design: .rounded))
-            .foregroundColor(Color.air.secondaryLabel)
-        return Text("\(amount)\(percent)")
-    }
-
-    private func select(_ value: BigInt) {
-        countsDown = value < (draft ?? 0)
-        focused = false
-        draft = value
-    }
-
-    private func rangeButton(_ title: String, value: BigInt) -> some View {
-        Button { select(value) } label: {
-            Text(lang(title))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.air.primaryLabel)
-                .frame(minWidth: 64, minHeight: 26)
-                .background(Color.air.secondaryLabel.opacity(0.12), in: .capsule)
-                .frame(height: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
+    @objc private func commit() {
+        guard isValid, let draft else { return }
+        onCommit(draft)
+        dismiss(animated: true)
     }
 }

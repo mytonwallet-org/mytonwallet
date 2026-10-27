@@ -83,6 +83,14 @@ declare module '*.png';
 declare module '*.jpg';
 declare module '*.avif';
 declare module '*.svg';
+declare module '*.svg?raw' {
+  const source: string;
+  export default source;
+}
+declare module '*.frag?raw' {
+  const source: string;
+  export default source;
+}
 declare module '*.tgs';
 declare module '*.mp3';
 declare module '*.mp4';

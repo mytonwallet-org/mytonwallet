@@ -4,11 +4,11 @@
 
 .modalDialog {
   overflow: hidden;
-  height: 42rem;
+  height: 43.1875rem;
   padding-top: 0 !important;
 
   @supports (height: env(safe-area-inset-bottom)) {
-    height: calc(42rem + env(safe-area-inset-bottom));
+    height: calc(43.1875rem + env(safe-area-inset-bottom));
   }
 }
 
@@ -24,6 +24,8 @@
 }
 
 .content {
+  scrollbar-gutter: stable;
+
   overflow: hidden;
   overflow-y: auto;
   display: flex;
@@ -33,6 +35,8 @@
   padding: 1rem;
 
   background-color: var(--color-background-window);
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
 
   @supports (padding-bottom: var(--safe-area-bottom)) {
     padding-bottom: max(var(--safe-area-bottom), 1rem);
@@ -73,6 +77,13 @@
 
 .headerWithSwitcher {
   position: relative;
+}
+
+// Each screen scrolls on its own, so the outer `Transition` never shows a scrollbar or reserves space for one
+.accountSelector {
+  overflow-y: auto;
+  flex-grow: 1;
+  min-height: 0;
 }
 
 .accountPill {
@@ -174,7 +185,17 @@
 }
 
 .addressWrapper {
-  margin: 1rem 0;
+  margin: 1rem 0 0.5rem;
+}
+
+.sendOnlyWarning {
+  margin-bottom: 1rem;
+  padding: 0 0.3125rem;
+
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-gray-2);
+  text-align: center;
 }
 
 .invoiceComment {

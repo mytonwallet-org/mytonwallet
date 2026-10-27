@@ -19,16 +19,15 @@ final class NftDetailsPagerView: UIView {
         let topSafeAreaInset: CGFloat
         let collapsedAreaHeight: CGFloat
         let pageWidth: CGFloat
+        let expandedImageFrame: CGRect
 
         func toPageGeometry() -> NftDetailsPageView.LayoutGeometry {
             .init(
-                expandedHeight: pageWidth,
+                expandedImageFrame: expandedImageFrame,
                 collapsedHeight: collapsedAreaHeight + topSafeAreaInset,
                 width: pageWidth
             )
         }
-        
-        func expandedFrame() -> CGRect { .square(pageWidth) }
     }
     
     var layoutGeometry: LayoutGeometry {
@@ -44,6 +43,10 @@ final class NftDetailsPagerView: UIView {
     private var needsInitialScroll = true
     private var ignoreDidScroll = false
     private var isAnimating: Bool = false
+    private var animationGeneration = 0
+    private var contentReturnLink: CADisplayLink?
+    private var pendingContentHeight: CGFloat?
+    private var contentReturn: (start: CFTimeInterval, from: CGFloat, to: CGFloat)?
 
     private struct PageViewCacheItem {
         let view: NftDetailsPageView
@@ -223,7 +226,18 @@ final class NftDetailsPagerView: UIView {
         updateHeight()
     }
 
+    private func updateCachedPageGeometry() {
+        for cached in pageViewCache.values {
+            cached.view.updateWith(layoutGeometry: layoutGeometry.toPageGeometry(), isExpanded: isExpanded)
+        }
+    }
+
+    func atmosphereHeight(for model: ItemModel) -> CGFloat {
+        pageViewCache[model.id]?.view.atmosphereHeight ?? 200
+    }
+
     private func onLayoutGeometryChanged() {
+        updateCachedPageGeometry()
         updateHeight()
     }
     
@@ -237,8 +251,8 @@ final class NftDetailsPagerView: UIView {
         
         currentIndex = newIndex
         scrollToIndex(currentIndex, animated: animated)
-        updateHeight()
         delegate?.pagerDidSelectModel(self, model: models[currentIndex])
+        updateHeight()
     }
 
     /// Scrolls to `index` exactly like a user swipe: `scrollProgress` drives the background on every frame and `pagerDidSelectModel`
@@ -265,8 +279,60 @@ final class NftDetailsPagerView: UIView {
 
     private func updateHeight() {
         let height = getOrCreatePageView(for: currentIndex).getFullHeight()
+        stopContentReturn()
+        guard let scrollView = parentScrollView, scrollView.bounds.height > 0 else {
+            applyContentHeight(height)
+            return
+        }
+        let top = -scrollView.adjustedContentInset.top
+        let maximumOffset = max(top, height - scrollView.bounds.height + scrollView.adjustedContentInset.bottom)
+        guard scrollView.contentOffset.y > maximumOffset + 0.5 else {
+            applyContentHeight(height)
+            return
+        }
+        // Keep the old scrollable height until the current offset fits the new
+        // page. Shrinking it first lets UIScrollView clamp its bounds instantly.
+        if scrollView.isDecelerating {
+            scrollView.setContentOffset(scrollView.contentOffset, animated: false)
+        }
+        pendingContentHeight = height
+        if scrollView.isDragging { return }
+        contentReturn = (CACurrentMediaTime(), scrollView.contentOffset.y, maximumOffset)
+        let link = CADisplayLink(target: NftContentReturnTarget(owner: self), selector: #selector(NftContentReturnTarget.tick))
+        link.add(to: .main, forMode: .common)
+        contentReturnLink = link
+    }
+
+    private func applyContentHeight(_ height: CGFloat) {
         heightConstraint.constant = height
         flowLayout.itemSize = CGSize(width: layoutGeometry.pageWidth, height: height)
+        parentScrollView?.layoutIfNeeded()
+    }
+
+    private func stopContentReturn() {
+        contentReturnLink?.invalidate()
+        contentReturnLink = nil
+        contentReturn = nil
+        pendingContentHeight = nil
+    }
+
+    fileprivate func advanceContentReturn() {
+        guard let scrollView = parentScrollView, let state = contentReturn,
+              let height = pendingContentHeight else { stopContentReturn(); return }
+        if scrollView.isDragging {
+            contentReturnLink?.invalidate()
+            contentReturnLink = nil
+            contentReturn = nil
+            return
+        }
+        let progress = min(1, (CACurrentMediaTime() - state.start) / (UIAccessibility.isReduceMotionEnabled ? 0.01 : 0.24))
+        let eased = 1 - pow(1 - progress, 3)
+        scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x,
+            y: state.from + (state.to - state.from) * eased), animated: false)
+        if progress >= 1 {
+            stopContentReturn()
+            applyContentHeight(height)
+        }
     }
 
     /// Set the pager's scroll position to match cover flow progress.
@@ -322,47 +388,61 @@ final class NftDetailsPagerView: UIView {
         return usesRightToLeftPageLayout ? maxPageProgress - physicalProgress : physicalProgress
     }
 
-    private let animationDuration: TimeInterval = 0.35
+    private var animationDuration: TimeInterval {
+        isExpanded ? NftDetailsMediaMotion.duration : NftDetailsMediaMotion.collapseDuration
+    }
 
     private func collapse(scrollView: UIScrollView) {
-        guard !isAnimating else { return }
+        guard isExpanded else { return }
+        scrollView.layoutIfNeeded()
         isAnimating = true
+        animationGeneration += 1
+        let generation = animationGeneration
         isExpanded = false
+        stopContentReturn()
 
-        let centralPage = getOrCreatePageView(for: currentIndex)
-        centralPage.collapse()
+        let centralPage = getOrCreatePageView(for: currentIndex, layout: false)
+        updateCachedPageGeometry()
         let newHeight = centralPage.getFullHeight()
 
         heightConstraint.constant = newHeight
         flowLayout.itemSize = CGSize(width: layoutGeometry.pageWidth, height: newHeight)
 
         Haptics.play(.transition)
-        UIView.animate(withDuration: animationDuration, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.3) {
+        UIView.animate(withDuration: animationDuration, delay: 0, usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction]) {
             scrollView.contentOffset = .zero
             scrollView.layoutIfNeeded()
         } completion: { [weak self] _ in
-            self?.isAnimating = false
+            guard let self, self.animationGeneration == generation else { return }
+            self.isAnimating = false
         }
     }
 
     private func expand(extraScrollDownHeight: CGFloat, scrollView: UIScrollView) {
-        guard !isAnimating else { return }
+        guard !isExpanded else { return }
+        scrollView.layoutIfNeeded()
         isAnimating = true
+        animationGeneration += 1
+        let generation = animationGeneration
         isExpanded = true
+        stopContentReturn()
 
         let centralPage = getOrCreatePageView(for: currentIndex, layout: false)
-        centralPage.expand(extraScrollDownHeight: extraScrollDownHeight)
+        updateCachedPageGeometry()
         let newHeight = centralPage.getFullHeight()
 
         heightConstraint.constant = newHeight
         flowLayout.itemSize = CGSize(width: layoutGeometry.pageWidth, height: newHeight)
 
         Haptics.play(.transition)
-        UIView.animate(withDuration: animationDuration, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0.3) {
+        UIView.animate(withDuration: animationDuration, delay: 0, usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction]) {
             scrollView.contentOffset = .zero
             scrollView.layoutIfNeeded()
         } completion: { [weak self] _ in
-            self?.isAnimating = false
+            guard let self, self.animationGeneration == generation else { return }
+            self.isAnimating = false
         }
     }
 
@@ -385,23 +465,27 @@ final class NftDetailsPagerView: UIView {
 
     func handleEndDecelerating() {
         canBeDraggedToFullScreen = true
+        if pendingContentHeight != nil { updateHeight() }
     }
     
     func handleEndDragging(willDecelerate decelerate: Bool) {
         if !decelerate {
             canBeDraggedToFullScreen = true
+            if pendingContentHeight != nil { updateHeight() }
         }
     }
         
     func handleVerticalScroll(_ parentScrollView: UIScrollView) {
+        if contentReturn != nil && !parentScrollView.isDragging { return }
         let offsetY = parentScrollView.contentOffset.y
         if isExpanded {
             _ = getOrCreatePageView(for: currentIndex)
-            if !isAnimating {
+            let reversing = parentScrollView.isDragging && parentScrollView.panGestureRecognizer.velocity(in: self).y < 0
+            if !isAnimating || reversing {
                 if offsetY > scrollCollapseThreshold {
                     collapse(scrollView: parentScrollView)
                 } else {
-                    if offsetY < scrollExpandToFullScreenThreshold, canBeDraggedToFullScreen {
+                    if !isAnimating, offsetY < scrollExpandToFullScreenThreshold, canBeDraggedToFullScreen {
                         parentScrollView.panGestureRecognizer.isEnabled = false
                         parentScrollView.panGestureRecognizer.isEnabled = true
                         delegate?.pagerDidRequestFullScreenPreview()
@@ -411,7 +495,8 @@ final class NftDetailsPagerView: UIView {
             }
         } else {
             let shouldExpand = pendingProgrammaticExpand || (parentScrollView.isDragging && !parentScrollView.isDecelerating)
-            if !isAnimating, offsetY < scrollExpandThreshold, shouldExpand {
+            let reversing = parentScrollView.isDragging && parentScrollView.panGestureRecognizer.velocity(in: self).y > 0
+            if (!isAnimating || reversing), offsetY < scrollExpandThreshold, shouldExpand {
                 expand(extraScrollDownHeight: -offsetY, scrollView: parentScrollView)
                 if pendingProgrammaticExpand {
                     pendingProgrammaticExpand = false
@@ -520,21 +605,9 @@ extension NftDetailsPagerView: UICollectionViewDelegate {
         let pageIndex = normalizeIndex(Int(round(logicalProgress(forContentOffsetX: scrollView.contentOffset.x))))
         guard pageIndex != currentIndex else { return }
 
-        let newPageView = getOrCreatePageView(for: pageIndex)
-
-        if let parentSV = parentScrollView, parentSV.contentOffset.y + parentSV.adjustedContentInset.top > 0 {
-            let newHeight = newPageView.getFullHeight()
-            heightConstraint.constant = newHeight
-            flowLayout.itemSize = CGSize(width: layoutGeometry.pageWidth, height: newHeight)
-
-            UIView.animate(withDuration: 0.25, animations: {
-                parentSV.layoutIfNeeded()
-            }, completion: { [weak self] _ in
-                self?.setCurrentIndex(pageIndex, animated: false)
-            })
-        } else {
-            setCurrentIndex(pageIndex, animated: false)
-        }
+        // Commit selection immediately. A delayed height-animation completion
+        // can otherwise select an old page after the next gesture has begun.
+        setCurrentIndex(pageIndex, animated: false)
     }
 }
 
@@ -736,5 +809,15 @@ extension NftDetailsPagerView {
             
             return false
         }
+    }
+}
+
+@MainActor
+private final class NftContentReturnTarget: NSObject {
+    weak var owner: NftDetailsPagerView?
+    init(owner: NftDetailsPagerView) { self.owner = owner }
+    @objc func tick(_ link: CADisplayLink) {
+        guard let owner else { link.invalidate(); return }
+        owner.advanceContentReturn()
     }
 }

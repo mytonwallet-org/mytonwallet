@@ -8,6 +8,7 @@ import { toDecimal } from '../../../util/decimals';
 import { fetchJson, isNegativeCacheableStatus } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
+import { normalizeNftAddress } from '../../../util/nft';
 import { fetchEvmWallet } from './util/account';
 import { isUnlimitedEvmAllowance } from './util/allowance';
 import { collectZerionApprovals } from './util/approvals';
@@ -426,6 +427,8 @@ function transformEvmNftTransfer(
   tx: ZerionTransaction,
   address: string,
 ): ApiActivity {
+  const { nft_info: nftInfo } = transfer;
+
   return updateActivityMetadata({
     id: tx.attributes.hash,
     kind: 'transaction',
@@ -442,16 +445,21 @@ function transformEvmNftTransfer(
     nft: {
       chain,
       index: 0,
-      address: normalizeAddress(transfer.nft_info.contract_address),
-      image: transfer.nft_info.content?.preview?.url || '',
-      thumbnail: transfer.nft_info.content?.preview?.url || '',
-      name: transfer.nft_info.name,
+      address: normalizeNftAddress(`${nftInfo.contract_address}/${nftInfo.token_id}`),
+      image: nftInfo.content?.preview?.url || '',
+      thumbnail: nftInfo.content?.preview?.url || '',
+      name: nftInfo.name,
       description: '',
       isOnSale: false,
+      isHidden: nftInfo.flags?.is_spam === true,
+      spamInfo: {
+        provider: 'zerion',
+        isSpam: nftInfo.flags?.is_spam ?? undefined,
+      },
       metadata: {
         attributes: [],
       },
-      interface: 'default',
+      interface: nftInfo.interface,
     },
     isScam: tx.attributes.flags.is_trash,
   });

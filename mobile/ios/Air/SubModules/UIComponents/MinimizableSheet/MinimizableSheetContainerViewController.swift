@@ -296,6 +296,9 @@ public final class MinimizableSheetObservation {
  - `MinimizableSheetInteractiveTransition`
  */
 open class MinimizableSheetContainerViewController: UIViewController {
+    open override var childForStatusBarStyle: UIViewController? {
+        sheetState == .expanded ? sheetViewController : mainViewController
+    }
 
     private struct LayoutValues {
         let sheetHeight: CGFloat
@@ -546,6 +549,7 @@ open class MinimizableSheetContainerViewController: UIViewController {
             self.sheetState = newState
             self.dimmingView.isUserInteractionEnabled = (newState == .expanded)
             if oldState != newState {
+                self.setNeedsStatusBarAppearanceUpdate()
                 self.notify(.stateDidChange(stateChange))
             }
         }

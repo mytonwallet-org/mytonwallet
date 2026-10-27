@@ -1,9 +1,9 @@
 # This file is for tma.mywallet.io hosted on Netlify
 /
-  Content-Security-Policy: {{CSP}}
   X-Content-Type-Options: nosniff
-  X-Frame-Options: ALLOW-FROM https://web.telegram.org
   X-XSS-Protection: 1; mode=block
-  X-Robots-Tag: noindex, nofollow
-/*.*.*
-  Cache-Control: public, max-age=31536000, immutable
+# Every path serves the app through the rewrite in `_redirects`, so framing is restricted on all of them. The rest of
+# the policy reaches the page through its `<meta>` tag, because as a header it would also bind the workers.
+/*
+  Content-Security-Policy: {{FRAME_ANCESTORS}}
+  X-Robots-Tag: noindex

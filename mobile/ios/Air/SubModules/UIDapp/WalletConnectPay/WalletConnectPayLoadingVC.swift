@@ -35,6 +35,7 @@ final class WalletConnectPayLoadingVC: WViewController {
     init(onCancel: @escaping () -> Void) {
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 580, height: 460)
     }
 
     required init?(coder: NSCoder) {

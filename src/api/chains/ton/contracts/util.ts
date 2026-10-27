@@ -1,6 +1,7 @@
 import { Address } from '@ton/core';
 import { Cell, type TupleReader } from '@ton/core';
 
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { ApiNetwork } from '../../../types/misc';
 
 import { MFA_EXTENSION_CODE_HASH, MFA_MASTER_ADDRESS } from '../../../../config';
@@ -54,8 +55,9 @@ export async function getMfaExtensionSeqno(
   network: ApiNetwork,
   extensionAddress: string,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ) {
-  const client = getTonClient(network);
+  const client = getTonClient(network, demand);
   const { stack, exit_code } = await raceWithAbortSignal(
     () => client.runMethodWithError(Address.parse(extensionAddress), 'get_seqno'),
     signal,

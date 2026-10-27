@@ -1,0 +1,21 @@
+{
+  "traits": {
+    "Card Type": "🍀 Standard",
+    "Background": "Marshmallow",
+    "Shine": "Down",
+    "Text": "Dark",
+    "Texture Type": "Arched",
+    "Texture Color": "Purple",
+    "Texture Rotation": "90°",
+    "Texture Size": "600",
+    "Texture Position X": "100%",
+    "Texture Position Y": "25%",
+    "First Spot Color": "Fuchsia",
+    "First Spot Position": "III quarter",
+    "Second Spot Color": "Emerald",
+    "Second Spot Position": "I quarter",
+    "Third Spot Color": "Golden",
+    "Third Spot Position": "I quarter"
+  },
+  "seed": 0.3720703125
+}

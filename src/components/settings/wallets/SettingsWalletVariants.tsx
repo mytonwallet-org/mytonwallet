@@ -49,7 +49,6 @@ export interface Wallet {
 
 interface OwnProps {
   isActive?: boolean;
-  isInsideModal?: boolean;
   accountChains?: Account['byChain'];
   onBackClick: NoneToVoidFunction;
 }
@@ -80,7 +79,6 @@ const enum SLIDES {
 
 function SettingsWalletVariants({
   isActive,
-  isInsideModal,
   accountChains,
   onBackClick,
   accountId,
@@ -583,7 +581,6 @@ function SettingsWalletVariants({
               isActive={isSlideActive && !!isActive}
               containerClassName={styles.passwordFormWithHeaderOffset}
               placeholder={lang('Enter your current password')}
-              forceBiometricsInMain={!isInsideModal}
               submitLabel={lang('Continue')}
               noAutoConfirm
               // Listing the variants reads the secret, and creating the one that was picked reads

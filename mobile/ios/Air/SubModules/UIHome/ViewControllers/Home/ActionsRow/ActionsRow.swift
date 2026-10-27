@@ -16,7 +16,7 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     var actionsView: ActionsView { actionsContainerView.actionsView }
     
     @AccountContext var account: MAccount
-    private var opacityAnimator: UIViewPropertyAnimator?
+    private lazy var opacityAnimator = DisplayLinkAlphaAnimator(view: view)
     private var targetAlpha: CGFloat?
     
     init(accountSource: AccountSource) {
@@ -87,19 +87,12 @@ final class ActionsVC: WViewController, WalletCoreData.EventsObserver {
     private func setActionButtonsAlpha(_ targetAlpha: CGFloat, animated: Bool) {
         guard self.targetAlpha != targetAlpha else { return }
         self.targetAlpha = targetAlpha
-        let currentAlpha = view.layer.presentation().map { CGFloat($0.opacity) } ?? view.alpha
-        opacityAnimator?.stopAnimation(true)
-        opacityAnimator = nil
-        guard animated, view.window != nil, AppStorageHelper.animations, !UIAccessibility.isReduceMotionEnabled else {
-            view.alpha = targetAlpha
-            return
-        }
-        view.alpha = currentAlpha
-        let animator = UIViewPropertyAnimator(duration: actionsRowFadeDuration, curve: .easeInOut) { [weak self] in
-            self?.view.alpha = targetAlpha
-        }
-        opacityAnimator = animator
-        animator.startAnimation()
+        // UIKit opacity animations can leave the glass backgrounds hidden when interrupted.
+        opacityAnimator.setAlpha(
+            targetAlpha,
+            animated: animated && view.window != nil && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled,
+            duration: actionsRowFadeDuration
+        )
     }
     
     var calculatedHeight: CGFloat {
@@ -185,6 +178,7 @@ final class ActionsView: ButtonsToolbar {
         )
         let sendMenuInteraction = ContextMenuInteraction(
             triggers: [.longPress],
+            presentationMode: .zoomPopover,
             longPressDuration: 0.25,
             sourcePortal: ContextMenuSourcePortal(
                 mask: .roundedAttachmentRect(
@@ -276,6 +270,7 @@ final class ActionsView: ButtonsToolbar {
         return ContextMenuConfiguration(
             rootPage: ContextMenuPage(items: items),
             backdrop: .defaultBlurred(),
+            popoverVerticalAlignment: .sourceTop,
             style: ContextMenuStyle(minWidth: 180.0, maxWidth: 280.0)
         )
     }

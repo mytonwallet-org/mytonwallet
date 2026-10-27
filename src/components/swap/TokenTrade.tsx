@@ -93,6 +93,7 @@ function TokenTrade({
     currentCexPrivacyPolicyUrl,
     currentCexAmlKycPolicyUrl,
     swapHint,
+    estimateDebugSummary,
   },
   tokens,
   swapType,
@@ -547,6 +548,11 @@ function TokenTrade({
           {shouldShowPercents && renderPercentButtons()}
           {renderCounterRow()}
           <div className={styles.footer}>
+            {estimateDebugSummary && (
+              <div className={styles.estimateDebugSummary}>
+                {estimateDebugSummary}
+              </div>
+            )}
             <SwapSubmitButton
               tokenIn={tokenIn}
               tokenOut={tokenOut}
@@ -583,7 +589,7 @@ function TokenTrade({
         <div className={modalStyles.buttons}>
           <Button className={modalStyles.button} onClick={closePriceImpactModal}>{lang('Cancel')}</Button>
           <Button isDestructive className={modalStyles.button} onClick={handlePriceImpactConfirm}>
-            {lang('Swap')}
+            {lang('Trade')}
           </Button>
         </div>
       </Modal>

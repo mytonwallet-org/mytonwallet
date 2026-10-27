@@ -11,16 +11,20 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import java.lang.ref.WeakReference
 import java.math.BigInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import org.mytonwallet.app_air.ledger.screens.ledgerConnect.LedgerConnectVC
 import org.mytonwallet.app_air.uicomponents.R as UIComponentsR
 import org.mytonwallet.app_air.uicomponents.base.WNavigationBar
 import org.mytonwallet.app_air.uicomponents.base.WViewControllerWithModelStore
 import org.mytonwallet.app_air.uicomponents.base.showAlert
 import org.mytonwallet.app_air.uicomponents.commonViews.AccountSelectorView
+import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
 import org.mytonwallet.app_air.uicomponents.commonViews.ReversedCornerViewUpsideDown
 import org.mytonwallet.app_air.uicomponents.extensions.collectFlow
 import org.mytonwallet.app_air.uicomponents.extensions.dp
@@ -54,13 +58,18 @@ import org.mytonwallet.app_air.walletbasecontext.utils.smartDecimalsCount
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletcontext.utils.CoinUtils
 import org.mytonwallet.app_air.walletcontext.utils.PriceConversionUtils
+import org.mytonwallet.app_air.walletcore.JSWebViewBridge
 import org.mytonwallet.app_air.walletcore.TONCOIN_SLUG
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
+import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiForeignUnstakeDraft
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.StakingStore
 import org.mytonwallet.app_air.walletcore.stores.TokenStore
@@ -114,7 +123,167 @@ class StakingVC(
         StakeDetailView(context, onWhySafeClick = { showWhySafeAlert() })
     }
     private val unstakingDetailView by lazy { UnstakeDetailView(context) }
+    private val foreignStakingBannerView by lazy {
+        InfoBannerStackView(context).apply {
+            bottomSpacing = ViewConstants.GAP.dp
+            onAction = ::confirmForeignUnstake
+            onDismiss = { promotion ->
+                stakingViewModel.dismissForeignStakingBanner(promotion.id)
+                configure(stakingViewModel.foreignStakingBanners)
+            }
+            configure(stakingViewModel.foreignStakingBanners, animated = false)
+        }
+    }
+
+    private var isForeignUnstakeRequested = false
+
+    private fun confirmForeignUnstake(promotion: ApiPromotion) {
+        if (isForeignUnstakeRequested) return
+        val action = promotion.infoBanner?.actionButton ?: return
+        if (action.onClickAction != "unstakeForeign") return
+        val chain = action.chain ?: return
+        val providerName = action.providerName ?: return
+        val accountId = AccountStore.activeAccountId ?: return
+        isForeignUnstakeRequested = true
+        foreignStakingBannerView.setActionLoading(promotion.id, true)
+        lifecycleScope.launch {
+            try {
+                val draft = WalletCore.call(
+                    ApiMethod.Staking.CheckForeignUnstakeDraft(accountId, chain, providerName)
+                )
+                if (AccountStore.activeAccountId != accountId || isDestroyed) return@launch
+                showForeignUnstakeConfirm(accountId, chain, providerName, draft)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: JSWebViewBridge.ApiError) {
+                showError(e.parsed)
+            } catch (_: Throwable) {
+                showError(null)
+            } finally {
+                isForeignUnstakeRequested = false
+                foreignStakingBannerView.setActionLoading(promotion.id, false)
+            }
+        }
+    }
+
+    private fun showForeignUnstakeConfirm(
+        accountId: String,
+        chain: String,
+        providerName: String,
+        draft: ApiForeignUnstakeDraft
+    ) {
+        if (AccountStore.activeAccountId != accountId) return
+        val account = AccountStore.activeAccount ?: return
+        val token =
+            MBlockchain.valueOfOrNull(chain)?.nativeSlug?.let(TokenStore::getToken) ?: return
+        view.hideKeyboard()
+        val header = ConfirmStakingHeaderView(context).apply {
+            config(token, draft.amountNative, true, LocaleController.getString("Confirm Unstaking"))
+        }
+        if (account.isHardware) {
+            val address = account.tonAddress ?: return
+            push(
+                LedgerConnectVC(
+                    context,
+                    mode = LedgerConnectVC.Mode.ConnectToSubmitTransfer(
+                        address,
+                        LedgerConnectVC.SignData.ForeignUnstake(
+                            accountId,
+                            chain,
+                            providerName,
+                            draft
+                        ),
+                        onDone = { finishForeignUnstake(draft) }
+                    ),
+                    headerView = header
+                )
+            )
+            return
+        }
+        push(
+            PasscodeConfirmVC(
+                context,
+                passcodeViewState = PasscodeViewState.CustomHeader(
+                    header,
+                    LocaleController.getString("Confirm")
+                ),
+                task = { submitForeignUnstake(accountId, chain, providerName, draft, it) },
+                allowsAutoConfirm = true
+            )
+        )
+    }
+
+    private fun submitForeignUnstake(
+        accountId: String,
+        chain: String,
+        providerName: String,
+        draft: ApiForeignUnstakeDraft,
+        enclaveToken: String
+    ) {
+        if (isForeignUnstakeRequested || AccountStore.activeAccountId != accountId) return
+        isForeignUnstakeRequested = true
+        view.lockView()
+        lifecycleScope.launch {
+            try {
+                val result = WalletCore.call(
+                    ApiMethod.Staking.SubmitForeignUnstake(
+                        accountId,
+                        chain,
+                        providerName,
+                        draft,
+                        enclaveToken
+                    )
+                )
+                result.error?.let {
+                    throw JSWebViewBridge.ApiError(
+                        "submitForeignUnstake",
+                        it,
+                        MBridgeError.fromErrorName(it) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                    )
+                }
+                val mfaRequestHash = result.mfaRequestHash
+                if (mfaRequestHash != null) {
+                    presentMfaConfirm(
+                        StakingViewModel.VmToVcEvents.MfaRequested(
+                            mfaRequestHash,
+                            isStake = false
+                        ),
+                        onFinishOverride = {
+                            AccountStore.dismissForeignStakingBanner(accountId, chain, providerName)
+                            finishForeignUnstake(draft)
+                        }
+                    )
+                } else {
+                    check(!result.activityIds.isNullOrEmpty()) { "Missing unstake activity" }
+                    AccountStore.dismissForeignStakingBanner(accountId, chain, providerName)
+                    val topVC = navigationController?.viewControllers?.lastOrNull()
+                    if (!draft.isInstant) {
+                        dismissStaking()
+                    } else if (topVC is PasscodeConfirmVC) {
+                        pop()
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: JSWebViewBridge.ApiError) {
+                if (navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC) {
+                    pop()
+                }
+                showError(e.parsed)
+            } catch (_: Throwable) {
+                if (navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC) {
+                    pop()
+                }
+                showError(null)
+            } finally {
+                view.unlockView()
+                isForeignUnstakeRequested = false
+            }
+        }
+    }
+
     private val linearLayout = WLinearLayout(context).apply {
+        addView(foreignStakingBannerView, ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         addView(stakeInputView)
 
         addView(spacerView, ViewGroup.LayoutParams(MATCH_PARENT, ViewConstants.GAP.dp))
@@ -521,10 +690,14 @@ class StakingVC(
         }
     }
 
-    private fun presentMfaConfirm(event: StakingViewModel.VmToVcEvents.MfaRequested) {
+    private fun presentMfaConfirm(
+        event: StakingViewModel.VmToVcEvents.MfaRequested,
+        onFinishOverride: ((String?) -> Unit)? = null
+    ) {
         val mfaVC = org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC(
             context,
-            requestHash = event.requestHash
+            requestHash = event.requestHash,
+            onFinishOverride = onFinishOverride
         )
         val hasPasscodeScreen =
             navigationController?.viewControllers?.lastOrNull() is PasscodeConfirmVC
@@ -581,6 +754,7 @@ class StakingVC(
 
     override fun updateTheme() {
         super.updateTheme()
+        foreignStakingBannerView.updateTheme()
         view.setBackgroundColor(WColor.SecondaryBackground.color)
         spacerView.setBackgroundColor(WColor.SecondaryBackground.color)
         detailHeader.setBackgroundColor(
@@ -700,13 +874,19 @@ class StakingVC(
 
         stakedActivityId = null
         WalletCore.unregisterObserver(this)
+        dismissStaking()
+    }
+
+    private fun dismissStaking() {
         if (window?.topNavigationController != navigationController) {
             window?.dismissNav(navigationController)
             return
         }
-        window?.dismissLastNav {
-            // WalletCore.notifyEvent(WalletEvent.OpenActivity(receivedActivity))
-        }
+        window?.dismissLastNav()
+    }
+
+    private fun finishForeignUnstake(draft: ApiForeignUnstakeDraft) {
+        if (draft.isInstant) pop() else dismissStaking()
     }
 
     private fun onDone(stakedActivityId: String) {
@@ -760,6 +940,11 @@ class StakingVC(
 
     override fun onWalletEvent(walletEvent: WalletEvent) {
         when (walletEvent) {
+            WalletEvent.AccountConfigReceived,
+            is WalletEvent.AccountChanged -> {
+                foreignStakingBannerView.configure(stakingViewModel.foreignStakingBanners)
+            }
+
             is WalletEvent.NewLocalActivities -> {
                 walletEvent.localActivities?.forEach { receivedActivity ->
                     checkReceivedActivity(receivedActivity)

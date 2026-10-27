@@ -348,6 +348,21 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         // Load per-slug IDs (we'll load them lazily when needed)
     }
 
+    private fun listedActivityIds(
+        accountId: String,
+        accountState: AccountActivityState
+    ): Set<String> {
+        val ids = HashSet(accountState.idsMain)
+        for (slug in accountState.idsBySlug.keys + WGlobalStorage.getActivityIdsSlugs(accountId)) {
+            ids.addAll(
+                accountState.idsBySlug[slug]
+                    ?: WGlobalStorage.getActivityIds(accountId, slug)?.asList()
+                    ?: emptyList()
+            )
+        }
+        return ids
+    }
+
     override fun wipeData() {
         clearCache()
     }
@@ -677,13 +692,6 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             dict.put(activity.id, cachedActivity.toDictionary())
         }
 
-        // Merge with existing dictionary
-        // Merge into a copy: the stored dictionary may be serialized by a persist at the same time.
-        val mergedDict = JSONObject()
-        WGlobalStorage.getActivitiesDict(accountId)?.let { mergedDict.add(it) }
-        mergedDict.add(dict)
-        WGlobalStorage.setActivitiesDict(accountId, mergedDict)
-
         // Update in-memory ID list
         val accountState = getOrCreateAccountState(accountId)
         val idsList = ids.toList()
@@ -692,6 +700,16 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         } else {
             accountState.idsBySlug[slug] = idsList
         }
+
+        // Merge with existing dictionary
+        // Merge into a copy: the stored dictionary may be serialized by a persist at the same time.
+        val mergedDict = JSONObject()
+        WGlobalStorage.getActivitiesDict(accountId)?.let { mergedDict.add(it) }
+        mergedDict.add(dict)
+        val listedIds = listedActivityIds(accountId, accountState)
+        mergedDict.keys().asSequence().filter { it !in listedIds }.toList()
+            .forEach(mergedDict::remove)
+        WGlobalStorage.setActivitiesDict(accountId, mergedDict)
 
         // Persist ID list to storage
         WGlobalStorage.setActivityIds(accountId, slug, ids)
@@ -721,10 +739,16 @@ object ActivityStore : IStore, WalletCore.EventObserver {
             val allActivities = mainActivities + bySlug.values.flatten()
 
             val accountState = getOrCreateAccountState(accountId)
+            var changed = false
 
             // Add all activities to cache
             for (activity in allActivities) {
+                val previous = accountState.cachedTransactions[activity.id]
                 updateCachedTransaction(accountId, activity)
+                val current = accountState.cachedTransactions[activity.id]
+                if (current != previous || current?.isEmulation != previous?.isEmulation) {
+                    changed = true
+                }
             }
             applyMintedCards(
                 accountId,
@@ -733,11 +757,13 @@ object ActivityStore : IStore, WalletCore.EventObserver {
 
             // Merge idsMain with cutoff (activities older than cutoff are filtered out)
             val newMainIds = mainActivities.map { it.id }
+            val previousMainIds = accountState.idsMain
             accountState.idsMain = ActivityHelpers.mergeActivityIdsToMaxTime(
                 newIds = newMainIds,
                 existingIds = accountState.idsMain,
                 cachedActivities = accountState.cachedTransactions
             )
+            if (accountState.idsMain != previousMainIds) changed = true
             if (accountState.idsMain.isEmpty()) {
                 WGlobalStorage.setIsHistoryEndReached(accountId, null, true)
             } else if (newMainIds.isNotEmpty()) {
@@ -752,6 +778,7 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                     getActivityIds(accountId, slug),
                     accountState.cachedTransactions
                 )
+                if (accountState.idsBySlug[slug] != slugIds) changed = true
                 accountState.idsBySlug[slug] = slugIds
                 slugIds.firstNotNullOfOrNull { id ->
                     accountState.cachedTransactions[id]?.takeIf(::isSuitableToGetTimestamp)
@@ -760,12 +787,19 @@ object ActivityStore : IStore, WalletCore.EventObserver {
                 }
             }
 
-            // Persist to storage
-            persistIdsToStorage(accountId)
+            // Persist to storage; a failed save clears stored activities while memory keeps them
+            if (changed || WGlobalStorage.getActivityIds(accountId, null) == null) {
+                persistIdsToStorage(accountId)
+            }
 
             // Update newest activities by slug
-            updateNewestActivitiesBySlug(accountId, newestActivitiesBySlug)
-            setNewestActivitiesBySlug(accountId)
+            val newestChanged = newestActivitiesBySlug.any { (slug, activity) ->
+                accountState.newestActivitiesBySlug[slug]?.toString() != activity.toString()
+            } || WGlobalStorage.getNewestActivitiesBySlug(accountId).isNullOrEmpty()
+            if (newestChanged) {
+                updateNewestActivitiesBySlug(accountId, newestActivitiesBySlug)
+                setNewestActivitiesBySlug(accountId)
+            }
 
             // Notify observers
             val walletEvent = WalletEvent.ReceivedNewActivities(
@@ -785,9 +819,10 @@ object ActivityStore : IStore, WalletCore.EventObserver {
         val accountState = accountStates[accountId] ?: return
 
         // Build activities dictionary for storage
+        val listedIds = listedActivityIds(accountId, accountState)
         val dict = JSONObject()
         for ((id, activity) in accountState.cachedTransactions) {
-            dict.put(id, activity.toDictionary())
+            if (id in listedIds) dict.put(id, activity.toDictionary())
         }
         WGlobalStorage.setActivitiesDict(accountId, dict)
 

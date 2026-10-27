@@ -9,9 +9,9 @@ class AgentModel: BaseAgentModel {
         if now.isInSameDay(as: timestamp) {
             dateText = lang("Today")
         } else if now.isInSameYear(as: timestamp) {
-            dateText = timestamp.formatted(.dateTime.month(.wide).day().locale(locale))
+            dateText = timestamp.formatted(.localizedDateTime.month(.wide).day())
         } else {
-            dateText = timestamp.formatted(.dateTime.year(.defaultDigits).month(.wide).day().locale(locale))
+            dateText = timestamp.formatted(.localizedDateTime.year(.defaultDigits).month(.wide).day())
         }
         return (dateText, Self.formattedTime(timestamp, locale: locale))
     }

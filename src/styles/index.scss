@@ -59,6 +59,8 @@ html, body {
 body {
   user-select: none;
 
+  min-width: 22.5rem;
+
   font-family: v.$fontFamily;
   font-size: 16px;
   font-weight: 400;

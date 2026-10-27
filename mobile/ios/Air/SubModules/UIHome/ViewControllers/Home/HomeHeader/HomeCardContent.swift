@@ -376,7 +376,7 @@ private struct _WalletTitleLine: View {
     var body: some View {
         WithPerceptionTracking {
             let account = snapshot?.account ?? accountContext.account
-            let addressLine = snapshot?.addressLine ?? accountContext.addressLine
+            let addressLine = snapshot?.addressLine ?? accountContext.topAddressLine
             let nft = snapshot == nil ? accountContext.nft : snapshot?.nft
             let isTemporary = account.isTemporary == true
             let increasedBadgeOpacity = nft?.metadata?.mtwCardType?.isPremium == true
@@ -470,7 +470,7 @@ private struct _AddressLine: View {
             _AddressLineContent(
                 accountId: account.id,
                 isTemporary: account.isTemporary == true,
-                addressLine: accountContext.addressLine,
+                addressLine: accountContext.topAddressLine,
                 accountContext: accountContext,
                 nft: accountContext.nft
             )

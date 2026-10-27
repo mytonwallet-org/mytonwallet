@@ -23,7 +23,6 @@ jest.mock('../storages/extension', () => ({
 }));
 
 jest.mock('./window', () => ({
-  clearCache: jest.fn(),
   openPopupWindow: jest.fn(),
 }));
 

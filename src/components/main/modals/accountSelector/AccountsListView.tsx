@@ -63,10 +63,14 @@ function AccountsListView({
   onDragEnd,
 }: OwnProps) {
   const ref = useRef<HTMLDivElement>();
+  const scrollRef = useRef<HTMLDivElement>();
 
   useEffect(() => {
-    if (isActive && ref.current?.parentElement) {
-      onScrollInitialize(ref.current.parentElement as HTMLDivElement);
+    const scrollContainer = ref.current?.parentElement as HTMLDivElement | undefined;
+    scrollRef.current = scrollContainer;
+
+    if (isActive && scrollContainer) {
+      onScrollInitialize(scrollContainer);
     }
   }, [isActive, activeTab, onScrollInitialize]);
 
@@ -147,7 +151,7 @@ function AccountsListView({
                 onDragEnd={onDragEnd}
                 draggableStyle={draggableStyle}
                 parentRef={ref}
-                scrollRef={ref}
+                scrollRef={scrollRef}
               />
             );
           })}

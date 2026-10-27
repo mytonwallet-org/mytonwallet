@@ -337,6 +337,13 @@ object TokenStore : IStore {
     private val pendingTokensCache = AtomicReference<List<MToken>?>()
     private val pendingSwapCache = AtomicReference<List<MToken>?>()
 
+    // Hashes of the last written snapshots; only cacheScope uses them.
+    private var writtenTokensHash: Long? = null
+    private var writtenSwapHash: Long? = null
+
+    private fun cacheHash(items: List<MToken>): Long =
+        items.fold(items.size.toLong()) { hash, token -> hash * 31 + token.cacheHash() }
+
     fun updateSwapCache() {
         if (pendingSwapCache.getAndSet(ArrayList(swapAssetTokensBySlug?.values ?: emptyList())) !=
             null
@@ -347,15 +354,19 @@ object TokenStore : IStore {
             delay(CACHE_WRITE_DELAY_MS.milliseconds)
             val snapshot = pendingSwapCache.getAndSet(null) ?: return@launch
             try {
+                val hash = cacheHash(snapshot)
+                if (hash == writtenSwapHash && WCacheStorage.getSwapAssets() != null) return@launch
                 val json = tokensToJsonString(snapshot)
                 ensureActive()
                 WCacheStorage.setSwapAssets(json)
+                writtenSwapHash = hash
             } catch (t: OutOfMemoryError) {
                 Logger.e(
                     Logger.LogTag.MEMORY,
                     "TokenStore: OOM serializing swap cache: ${t.message}"
                 )
                 WCacheStorage.setSwapAssets(null)
+                writtenSwapHash = null
             }
         }
     }
@@ -366,15 +377,19 @@ object TokenStore : IStore {
             delay(CACHE_WRITE_DELAY_MS.milliseconds)
             val snapshot = pendingTokensCache.getAndSet(null) ?: return@launch
             try {
+                val hash = cacheHash(snapshot)
+                if (hash == writtenTokensHash && WCacheStorage.getTokens() != null) return@launch
                 val json = tokensToJsonString(snapshot)
                 ensureActive()
                 WCacheStorage.setTokens(json)
+                writtenTokensHash = hash
             } catch (t: OutOfMemoryError) {
                 Logger.e(
                     Logger.LogTag.MEMORY,
                     "TokenStore: OOM serializing tokens cache: ${t.message}"
                 )
                 WCacheStorage.setTokens(null)
+                writtenTokensHash = null
             }
         }
     }

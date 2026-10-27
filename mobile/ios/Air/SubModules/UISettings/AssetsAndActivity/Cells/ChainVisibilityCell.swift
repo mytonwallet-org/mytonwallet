@@ -4,6 +4,8 @@ import WalletContext
 import WalletCore
 
 final class ChainVisibilityCell: UICollectionViewListCell {
+    var isDisplaying = false
+
     private let reorderImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(systemName: "line.3.horizontal"))
         imageView.contentMode = .scaleAspectFit
@@ -109,7 +111,7 @@ final class ChainVisibilityCell: UICollectionViewListCell {
         visibilitySwitch.accessibilityLabel = chain.title
         setShowsReorderControl(
             showsReorderControl,
-            animated: hasConfigured && self.showsReorderControl != showsReorderControl && window != nil
+            animated: isDisplaying && hasConfigured && self.showsReorderControl != showsReorderControl && window != nil
         )
         self.onVisibilityChange = onVisibilityChange
         self.onReorderGesture = onReorderGesture
@@ -123,12 +125,15 @@ final class ChainVisibilityCell: UICollectionViewListCell {
         onVisibilityChange = nil
         onReorderGesture = nil
         hasConfigured = false
+        isDisplaying = false
     }
 
     private func setShowsReorderControl(_ showsReorderControl: Bool, animated: Bool) {
         self.showsReorderControl = showsReorderControl
         reorderGestureRecognizer.isEnabled = showsReorderControl
-        contentView.layoutIfNeeded()
+        UIView.performWithoutAnimation {
+            contentView.layoutIfNeeded()
+        }
         reorderImageView.layer.removeAllAnimations()
 
         if showsReorderControl {
@@ -160,8 +165,10 @@ final class ChainVisibilityCell: UICollectionViewListCell {
                 completion: completion
             )
         } else {
-            changes()
-            completion(true)
+            UIView.performWithoutAnimation {
+                changes()
+                completion(true)
+            }
         }
     }
 

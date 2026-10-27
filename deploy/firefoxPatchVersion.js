@@ -14,15 +14,16 @@ if (!WEB_EXT_API_KEY || !WEB_EXT_API_SECRET || !FIREFOX_EXTENSION_ID) {
 const extId = FIREFOX_EXTENSION_ID;
 const baseUrl = 'https://addons.mozilla.org';
 const sourceFile = 'MyWallet-firefox-sources.tgz';
+const notesFile = 'MyWallet-firefox-notes.txt';
 
 const token = getAuthToken(WEB_EXT_API_KEY, WEB_EXT_API_SECRET);
 const headers = { Authorization: `JWT ${token}` };
 
 async function main() {
-  const { lastId, approvalNotes } = await getLastVersionsInfo();
+  const lastId = await getLastVersionId();
+  const approvalNotes = await fs.promises.readFile(notesFile, 'utf8');
 
   console.log('Version ID:', lastId);
-  console.log('Approval notes:', approvalNotes);
 
   await uploadSource(lastId);
   await uploadApprovalNotes(lastId, approvalNotes);
@@ -42,7 +43,7 @@ function getAuthToken(key, secret) {
   });
 }
 
-async function getLastVersionsInfo() {
+async function getLastVersionId() {
   const res = await fetch(`${baseUrl}/api/v5/addons/addon/${extId}/versions/?filter=all_with_unlisted`, {
     method: 'GET',
     headers,
@@ -50,16 +51,7 @@ async function getLastVersionsInfo() {
   handleFetchErrors(res);
   const { results } = await res.json();
 
-  const lastId = results[0].id;
-  let approvalNotes = '';
-  for (const version of results) {
-    if (version.approval_notes) {
-      approvalNotes = version.approval_notes;
-      break;
-    }
-  }
-
-  return { lastId, approvalNotes }
+  return results[0].id;
 }
 
 async function uploadSource(versionId) {

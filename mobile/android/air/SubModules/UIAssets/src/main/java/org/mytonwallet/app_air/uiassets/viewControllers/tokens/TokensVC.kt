@@ -958,7 +958,7 @@ class TokensVC(
         actions.add(
             WMenuPopup.Item(
                 R.drawable.ic_transferable,
-                LocaleController.getString("Swap")
+                LocaleController.getString("Trade")
             ) { openSwap(token) }
         )
         if (token.isEarnAvailable) {

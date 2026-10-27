@@ -116,6 +116,7 @@ $logout_selected_wallets_warning: این کار کیف پول‌های انتخ�
 $logout_all_wallets_warning: این کار همه کیف پول‌ها را از اپلیکیشن حذف می‌کند.
 $secret_words_backup_reminder: مطمئن شوید که از **کلمات محرمانه** خود پشتیبان گرفته‌اید.
 $all_secret_words_backup_reminder: مطمئن شوید که از همه **کلمات محرمانه** خود پشتیبان گرفته‌اید.
+$secret_word_input_aria_label: "کلمه محرمانه %number%"
 Create Deposit Link: ساخت لینک واریز
 $receive_invoice_description: |
   می‌توانید مبلغ و هدف پرداخت را مشخص کنید
@@ -242,6 +243,11 @@ Dark: تیره
 System: سیستم
 $stake_asset: استیک %symbol%
 Add Stake: افزودن استیک
+"🔒 %amount% %symbol% locked in another staking": "\u200F🔒 \u200E%amount% %symbol%\u200F در استیکینگ دیگری قفل شده است"
+"Unstake them to restake with **higher returns**.": "آن‌ها را برداشت کنید تا با **بازده بالاتر** دوباره استیک کنید."
+"💎 More profitable staking available": "💎 استیک با بازده بالاتر در دسترس است"
+"Tap to restake your %symbol% with higher returns.": "بزنید تا %symbol% خود را با بازده بالاتر دوباره استیک کنید."
+"Restake Now": "استیک مجدد"
 Earn from your tokens while holding them: از نگهداری %symbol% درآمد کسب کنید
 Current APY: بازده سالانه فعلی
 Est. Yearly Earnings: درآمد سالانه تخمینی
@@ -283,8 +289,8 @@ The network fee has slightly changed, try sending again.: کارمزد شبکه 
 Transfer was unsuccessful. Try again later.: انتقال ناموفق بود. بعداً دوباره تلاش کنید.
 Action Partially Completed: عملیات تا حدی تکمیل شد
 $action_partially_completed_description: "%completed% از %total% عملیات تکمیل شد. عملیات باقی‌مانده تکمیل نشد. پیش از تلاش دوباره، فعالیت‌های خود را بررسی کنید."
-Action Status Unknown: وضعیت عملیات نامشخص است
-$action_status_unknown_description: "وضعیت تکمیل قابل تأیید نبود. پیش از تلاش دوباره، فعالیت‌ها و موجودی خود را بررسی کنید؛ تلاش دوباره در حال حاضر ممکن است باعث شود عملیات دو بار ارسال شود."
+Check Your Activity: سابقه فعالیت خود را بررسی کنید
+$action_status_unknown_description: "ممکن است درخواست شما قبلاً انجام شده باشد. پیش از تلاش دوباره، سابقه فعالیت و موجودی خود را بررسی کنید تا درخواست دو بار ارسال نشود."
 $action_will_continue_in_background: عملیات در پس‌زمینه ادامه خواهد یافت.
 Invalid amount: مبلغ نامعتبر
 Invalid address: آدرس نامعتبر
@@ -413,6 +419,7 @@ $swap_minimum_received_tooltip1: این کمترین مقدار توکن جدی�
 $swap_minimum_received_tooltip2: این یک حداقل مورد انتظار است، اما اگر شرایط در حین پردازش مبادله شما به‌شدت تغییر کند، مبلغ نهایی ممکن است کمتر باشد.
 $swap_price_impact_tooltip1: این نشان می‌دهد که معامله شما چقدر ممکن است قیمت توکن را تغییر دهد.
 $swap_price_impact_tooltip2: معاملات بزرگ می‌توانند قیمت را بیشتر بالا یا پایین ببرند. معمولاً کمتر بهتر است.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: لغزش قیمت تفاوت بین قیمت مورد انتظار و قیمت واقعی معامله است که بر اثر تغییرات قیمت هنگام اجرای معامله ایجاد می‌شود.
 $swap_slippage_tooltip1: این تعیین می‌کند که قیمت قبل از پردازش مبادله شما چقدر مجاز به تغییر است.
 $swap_slippage_tooltip2: اگر در حین پردازش مبادله شما قیمت بیش از این مقدار تغییر کند، سفارش شما لغو خواهد شد.
 Slippage not specified: لغزش قیمت مشخص نشده است
@@ -441,6 +448,8 @@ Swap Again: مبادله دوباره
 Terms of Use: شرایط استفاده
 Privacy Policy: سیاست حفظ حریم خصوصی
 Insufficient liquidity: نقدینگی ناکافی
+$swap_quote_unavailable: نرخی موجود نیست
+$swap_service_unavailable: مبادله در دسترس نیست
 This address is new and never received transfers before.: این آدرس جدید است و قبلاً هرگز انتقالی دریافت نکرده است.
 Create Backup: ساخت پشتیبان
 Sending: در حال ارسال
@@ -655,6 +664,11 @@ $dapp_liquid_staking_vote_payload: رأی "%vote%" برای پیشنهاد %voti
 $dapp_single_nominator_change_validator_payload: تغییر آدرس اعتبارسنج قرارداد استیکینگ SingleNominator به %address%
 $dapp_single_nominator_withdraw_payload: برداشت %amount% از قرارداد استیکینگ SingleNominator
 $dapp_vesting_add_whitelist_payload: افزودن %address% به فهرست سفید کیف پول وستینگ
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: مشکل همگام‌سازی زمان. لطفاً مطمئن شوید که تنظیمات زمان دستگاه شما صحیح است.
 Data Copied: داده کپی شد
 URL Copied: آدرس کپی شد
@@ -928,6 +942,12 @@ Bounced: برگشت‌خورده
 Bouncing: در حال برگشت
 $bounce_action: برگشت
 NFT Auction Bid: پیشنهاد حراج NFT
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: در حال پیشنهاد در حراج NFT
 Buying NFT: در حال خرید NFT
 Bought NFT: "\u200FNFT خریداری‌شده"
@@ -2058,3 +2078,9 @@ Hold to enlarge. Drag to rotate.: برای بزرگ‌نمایی نگه داری
 "Max": "حداکثر"
 Explorer mode: حالت اکسپلورر
 Open a link to a wallet, transfer, token or collectible to see its details here.: یک لینک به کیف پول، انتقال، توکن یا کالکتیبل را باز کنید تا جزئیات آن را اینجا ببینید.
+Receiver %blockchain% Address: آدرس %blockchain% گیرنده
+
+Save to Photos: ذخیره در عکس‌ها
+Image Saved: تصویر ذخیره شد
+Allow access to Photos in Settings to save NFT images.: برای ذخیرهٔ تصاویر NFT، در تنظیمات اجازهٔ دسترسی به عکس‌ها را بدهید.
+Could not save the image. Please try again.: ذخیرهٔ تصویر ممکن نشد. لطفاً دوباره تلاش کنید.

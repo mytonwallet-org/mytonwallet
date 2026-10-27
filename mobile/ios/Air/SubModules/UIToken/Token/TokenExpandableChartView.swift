@@ -534,6 +534,8 @@ final class TokenExpandableChartView: UIView {
             dateFormat = "MMM d, HH:mm"
             break
         }
+        chartAxisDateFormatter.locale = LocalizationSupport.shared.locale
+        chartAxisDateFormatter.calendar = LocalizationSupport.shared.calendar
         chartAxisDateFormatter.dateFormat = dateFormat
 
         graph.setData(

@@ -56,7 +56,7 @@ export interface ApiTokenVolume {
   change?: number;
 }
 
-export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter' | 'uniswap';
+export type ApiSwapDexRouterLabel = 'dedust-router-v2' | 'omniston' | 'jupiter' | 'uniswap' | 'lifi';
 
 export type ApiSwapDexLabel = 'dedust' | 'ston';
 export type ApiSwapCexLabel = 'changelly' | 'near-intents';
@@ -86,7 +86,7 @@ export type ApiSwapProtocol = ([
   'dedust',
   'stonfi_v1',
   'stonfi_v2',
-  'tonco',
+  // 'tonco',
   'memeslab',
   'tonfun',
 ])[number];
@@ -224,6 +224,33 @@ export type ApiSwapTransfer = {
   payload: string;
 };
 
+export type ApiForeignStakingUnstakeTransferResponse = {
+  toAddress: string;
+  amount: string;
+  payload?: string;
+};
+
+export type ApiForeignStakingProviderResponse = {
+  name: string;
+  provider: 'ts' | (string & {});
+  amount: string;
+  amountNative: string;
+  apy: number;
+  unstake: {
+    builder: 'ts' | (string & {});
+    tokenAddress?: string;
+    ownerAddress: string;
+    instantAvailable?: string;
+  };
+};
+
+export type ApiForeignStakingByChainResponse = {
+  chain: ApiChain;
+  providers: ApiForeignStakingProviderResponse[];
+};
+
+export type ApiForeignStakingResponse = ApiForeignStakingByChainResponse[];
+
 export type ApiEvmSwapCall = {
   to: string;
   value?: string;
@@ -239,6 +266,20 @@ export type ApiSwapBuildTransferResponse = {
   transaction?: string;
   /** EVM EIP-7702 batch calls (approve + swap) */
   evmCalls?: ApiEvmSwapCall[];
+  // LI.FI EVM specific
+  transactionRequest?: ApiEvmSwapTransactionRequest;
+};
+
+export type ApiEvmSwapTransactionRequest = {
+  from: string;
+  to: string;
+  chainId: number;
+  data: string;
+  value?: string;
+  gasPrice?: string;
+  gasLimit?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
 };
 
 export type ApiSwapBuildTransactionResponse =
@@ -315,6 +356,19 @@ export type ApiSwapHistoryItem = BaseApiSwapHistoryItem & {
   transactionIds: ApiSwapTransactionIds;
   isCanceled?: boolean;
   cexLabel?: ApiSwapCexLabel;
+  /** Provider settlement is separate from the requested token and quoted amount. */
+  lifi?: {
+    outcome?: 'completed' | 'partial' | 'refunded';
+    quotedTo: string;
+    quotedToAmount: string;
+    received?: {
+      chain: ApiChain;
+      tokenAddress: string;
+      symbol: string;
+      decimals: number;
+      amount: string;
+    };
+  };
   cex?: {
     /** The address to send the "from" token to */
     payinAddress: string;
@@ -483,6 +537,7 @@ export type ApiCardsInfo = Record<ApiMtwCardType, ApiCardInfo>;
 export type ApiAccountConfig = {
   cardsInfo?: ApiCardsInfo;
   activePromotion?: ApiPromotion;
+  infoBanners?: ApiInfoBannerPromotion[];
   isMfaEnabled?: boolean;
 };
 
@@ -490,17 +545,39 @@ export type ApiSwapVersion = 2 | 3;
 
 export type ApiPromotion = ApiCardOverlayPromotion | ApiInfoBannerPromotion;
 
+export type ApiForeignStakingPromotion = {
+  id: string;
+  kind: 'foreignStaking';
+  foreignStaking: {
+    chain: ApiChain;
+    providerName: string;
+    amount: string;
+    symbol: string;
+    apy: number;
+    stakingApy: number;
+  };
+  infoBanner: ApiInfoBannerPromotion['infoBanner'];
+  linkedBannerId: string;
+  cardOverlay?: never;
+  modal?: never;
+};
+
 export type ApiInfoBannerPromotion = {
   id: string;
   kind: 'infoBanner';
   infoBanner: {
+    /** Text fields are localization keys, or already localized backend text. */
     title: string;
+    textValues?: Record<string, string>;
     /** Inline Markdown, including emphasis. */
     description: string;
     actionButton: {
       title: string;
-      onClickAction: 'openEarn';
-    };
+    } & ({ onClickAction: 'openEarn' } | {
+      onClickAction: 'unstakeForeign';
+      chain: ApiChain;
+      providerName: string;
+    });
   };
   cardOverlay?: never;
   modal?: never;

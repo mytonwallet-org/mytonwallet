@@ -87,6 +87,8 @@ final class ExploreCategoryVC: WViewController {
         collectionView.showsVerticalScrollIndicator = false
         
         collectionView.contentInsetAdjustmentBehavior = .automatic
+        // The iOS 26 navigation bar adds 10 pt below its controls.
+        collectionView.contentInset.top = IOS_26_MODE_ENABLED ? -10 : 0
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(closeScreen))
         tapGesture.delegate = self
@@ -125,7 +127,7 @@ final class ExploreCategoryVC: WViewController {
                         .background {
                             backgroundColorSUI
                                 .overlay(alignment: .bottom) {
-                                    Rectangle().fill(Color.air.separator)
+                                    Rectangle().fill(Color(UIColor(light: "#C8C7CB", dark: "#3A3A3D")))
                                         .frame(height: 1 / max(collectionView.traitCollection.displayScale, 1))
                                         .padding(.leading, 102)
                                 }

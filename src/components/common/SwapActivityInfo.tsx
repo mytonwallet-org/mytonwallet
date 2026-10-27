@@ -4,6 +4,7 @@ import type { ApiChain, ApiSwapActivity, ApiSwapAsset } from '../../api/types';
 
 import { resolveSwapAsset } from '../../global/helpers';
 import { getIsActivityPendingForUser } from '../../util/activities';
+import { getLifiReceivedToken } from '../../util/swap/lifiHistory';
 import { getSwapTransactionIdRows } from '../../util/swap/transactionIds';
 import { getExplorerTransactionUrl } from '../../util/url';
 
@@ -50,8 +51,8 @@ function SwapActivityInfo({
 
   const toToken = useMemo(() => {
     if (!to || !tokensBySlug) return undefined;
-    return resolveSwapAsset(tokensBySlug, to);
-  }, [to, tokensBySlug]);
+    return getLifiReceivedToken(activity, resolveSwapAsset(tokensBySlug, to));
+  }, [activity, to, tokensBySlug]);
 
   const isPending = getIsActivityPendingForUser(activity);
   const isError = ONCHAIN_ERROR_STATUSES.has(status) || (cex && status === 'failed');

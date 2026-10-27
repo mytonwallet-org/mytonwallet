@@ -2,6 +2,7 @@ import type {
   DefaultActivitiesUpdate,
   DefaultNftUpdateArgument,
   DefaultWatchedWallet,
+  InMessageCallback,
   NewActivitiesCallback,
   WalletWatcherInternal,
 } from '../../../common/websocket/abstractWsClient';
@@ -21,7 +22,6 @@ import type {
 
 import { TONCENTER_ACTIONS_VERSION } from '../../../../config';
 import { logDebug } from '../../../../util/logs';
-import { type InMessageCallback } from '../../../../util/reconnectingWebsocket';
 import safeExec from '../../../../util/safeExec';
 import { forbidConcurrency, setCancellableTimeout } from '../../../../util/schedulers';
 import withCache from '../../../../util/withCache';
@@ -85,7 +85,7 @@ class ToncenterSocket extends AbstractWebsocketClient<
         this.#notifyTraceInvalidation(message.trace_external_hash_norm);
 
         // Create an empty actions message to clear the activities for this trace
-        void this.#handleNewActions({
+        return this.#handleNewActions({
           type: 'actions',
           finality: 'finalized',
           trace_external_hash_norm: message.trace_external_hash_norm,
@@ -93,10 +93,8 @@ class ToncenterSocket extends AbstractWebsocketClient<
           address_book: {},
           metadata: {},
         } satisfies ActionsSocketMessage);
-        break;
       case 'actions':
-        void this.#handleNewActions(message);
-        break;
+        return this.#handleNewActions(message);
       case 'account_state_change':
         this.#handleAccountStateChange(message);
         break;

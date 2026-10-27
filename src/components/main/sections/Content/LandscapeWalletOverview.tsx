@@ -126,6 +126,7 @@ function LandscapeWalletOverview({
   const handleShowCollection = useLastCallback((collection: ApiNftCollection) => {
     openNftCollection({ address: collection.address, chain: collection.chain });
   });
+
   const {
     menuItems: assetsMenuItems,
     handleMenuItemSelect: handleAssetsMenuSelect,

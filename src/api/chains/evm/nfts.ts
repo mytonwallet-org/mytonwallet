@@ -15,6 +15,7 @@ import { explainApiTransferFee } from '../../../util/fee/transferFee';
 import { fetchJson } from '../../../util/fetch';
 import { compact, omitUndefined } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
+import { normalizeNftAddress } from '../../../util/nft';
 import { fetchEvmWallet } from './util/account';
 import { getEvmProvider } from './util/client';
 import { fetchStoredChainAccount } from '../../common/accounts';
@@ -187,12 +188,17 @@ function parseAlchemyNft(rawNft: AlchemyOwnedNft, chain: EVMChain, ownerAddress:
     index: 1,
     name,
     ownerAddress,
-    address: `${contract.address}/${tokenId}`,
+    address: normalizeNftAddress(`${contract.address}/${tokenId}`),
     image: imageUrl,
     thumbnail: thumbnailUrl,
     isOnSale: false,
-    isHidden: isScam,
+    isHidden: isScam || contract.isSpam === true,
     isScam,
+    spamInfo: {
+      provider: 'alchemy',
+      isSpam: contract.isSpam ?? undefined,
+      classifications: contract.spamClassifications ?? undefined,
+    },
     description,
     collectionAddress: contract.address,
     collectionName: contract.name,
@@ -310,8 +316,7 @@ export async function submitNftTransfers(
     const response = await signer.sendTransaction(transaction);
 
     return {
-      msgHashNormalized: response.hash,
-      transfers: [{ toAddress }],
+      transfers: [{ toAddress, msgHashNormalized: response.hash }],
     };
   } catch (err) {
     logDebugError(`evm:${chain}:submitNftTransfers`, err);

@@ -10,6 +10,7 @@ private let problemReportCommentMaxLength = 1000
 
 private enum AgentVCLayout {
     static let maxContentWidth = AgentContentLayout.maxContentWidth
+    static let sectionTopInset: CGFloat = 16
     static let bottomMessageSpacing: CGFloat = 16
     static let hintsSpacingToMessages: CGFloat = 17
     static let hintsSpacingToComposer: CGFloat = 26
@@ -25,8 +26,6 @@ private enum AgentVCLayout {
     static let arrivalUserMessageTailInset: CGFloat = 100
     static let scrollToBottomButtonSize: CGFloat = 44
     static let scrollToBottomButtonSpacing: CGFloat = 16
-    static let bottomEdgeFadeHeight: CGFloat = 40
-    static let navigationBarFadeHeight: CGFloat = 28
     static let minimumTypingStatusDuration: TimeInterval = 1.2
     static let sentUserMessageRevealDuration: TimeInterval = 0.25
     static let sentUserMessageFlyUpDuration: TimeInterval = 0.3
@@ -79,6 +78,13 @@ public final class AgentVC: WViewController {
         let offsetY: CGFloat
     }
 
+    private struct VisibleRowAnchor {
+        let itemID: AgentItemID
+        let isDateHeader: Bool
+        let minY: CGFloat
+        let offsetY: CGFloat
+    }
+
     private enum Section: Hashable {
         case main
     }
@@ -98,7 +104,7 @@ public final class AgentVC: WViewController {
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: itemSize, subitems: [item])
         let section = NSCollectionLayoutSection(group: group)
         section.interGroupSpacing = 6
-        section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 0, bottom: 0, trailing: 0)
+        section.contentInsets = NSDirectionalEdgeInsets(top: AgentVCLayout.sectionTopInset, leading: 0, bottom: 0, trailing: 0)
         let layout = UICollectionViewCompositionalLayout(section: section)
 
         return AgentCollectionView(frame: .zero, collectionViewLayout: layout)
@@ -111,7 +117,7 @@ public final class AgentVC: WViewController {
     private let hintsSectionView = AgentHintsSectionView()
     private let composerView = AgentComposerView()
     private let scrollToBottomButton = AgentScrollToBottomButton()
-    private let bottomEdgeEffectView = EdgeEffectView()
+    private let navigationBarBackgroundView = UIView()
     private lazy var contentLayoutGuideWidthConstraint: NSLayoutConstraint = {
         let constraint = contentLayoutGuide.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor)
         constraint.priority = .defaultHigh
@@ -144,7 +150,7 @@ public final class AgentVC: WViewController {
     private var lastLayoutViewSize: CGSize = .zero
     private var lastLayoutAdjustedContentInset: UIEdgeInsets = .zero
     // Invalidated layout attributes may already contain estimates; retain the last settled geometry.
-    private var lastVisibleRowAnchor: (itemID: AgentItemID, minY: CGFloat, offsetY: CGFloat)?
+    private var lastVisibleRowAnchor: VisibleRowAnchor?
     private var isPreservingVisibleRow = false
     private var pendingEntryPointRequest: AgentEntryPoint.Request?
     private var paginationTask: Task<Void, Never>?
@@ -277,12 +283,7 @@ public final class AgentVC: WViewController {
 
     private func updateTheme() {
         view.backgroundColor = .air.background
-        bottomEdgeEffectView.update(
-            content: .air.background,
-            alpha: 1,
-            edge: .bottom,
-            edgeSize: AgentVCLayout.bottomEdgeFadeHeight
-        )
+        navigationBarBackgroundView.backgroundColor = .air.background
         composerView.applyTheme()
         scrollToBottomButton.applyTheme()
         updateSendButtonState()
@@ -325,6 +326,7 @@ public final class AgentVC: WViewController {
         }
         if #available(iOS 26.0, *) {
             collectionView.topEdgeEffect.isHidden = true
+            collectionView.bottomEdgeEffect.isHidden = true
         }
 
         let dismissKeyboardTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCollectionViewTap))
@@ -354,7 +356,8 @@ public final class AgentVC: WViewController {
             self?.view.setNeedsLayout()
         }
 
-        bottomEdgeEffectView.translatesAutoresizingMaskIntoConstraints = false
+        navigationBarBackgroundView.translatesAutoresizingMaskIntoConstraints = false
+        navigationBarBackgroundView.isUserInteractionEnabled = false
 
         scrollToBottomButton.translatesAutoresizingMaskIntoConstraints = false
         scrollToBottomButton.addTarget(self, action: #selector(scrollToBottomButtonPressed), for: .touchUpInside)
@@ -371,10 +374,10 @@ public final class AgentVC: WViewController {
         hintsSectionView.isUserInteractionEnabled = false
 
         view.addSubview(collectionView)
-        view.addSubview(bottomEdgeEffectView)
         view.addSubview(hintsContainerView)
         view.addSubview(composerView)
         view.addSubview(scrollToBottomButton)
+        view.addSubview(navigationBarBackgroundView)
         hintsContainerView.addSubview(hintsSectionView)
 
         let keyboardConstraint = composerView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor)
@@ -396,13 +399,10 @@ public final class AgentVC: WViewController {
             collectionView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            bottomEdgeEffectView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomEdgeEffectView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomEdgeEffectView.topAnchor.constraint(
-                equalTo: composerView.inputTopAnchor,
-                constant: -AgentVCLayout.bottomMessageSpacing
-            ),
-            bottomEdgeEffectView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            navigationBarBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            navigationBarBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            navigationBarBackgroundView.topAnchor.constraint(equalTo: view.topAnchor, constant: -20),
+            navigationBarBackgroundView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
 
             scrollToBottomButton.trailingAnchor.constraint(equalTo: contentLayoutGuide.trailingAnchor, constant: -16),
             scrollToBottomButtonBottomToComposerConstraint,
@@ -426,7 +426,7 @@ public final class AgentVC: WViewController {
         ])
 
         view.backgroundColor = .air.background
-        addCustomNavigationBarBackground(color: .air.background, maxEdgeSize: AgentVCLayout.navigationBarFadeHeight)
+        configureNavigationItemWithTransparentBackground()
         setupNavigationItem()
 
         updateTheme()
@@ -653,9 +653,35 @@ public final class AgentVC: WViewController {
     private func pinnedOffsetY(for userMessageID: AgentItemID) -> CGFloat? {
         guard let indexPath = messageIndexPath(for: userMessageID),
               let attributes = collectionView.layoutAttributesForItem(at: indexPath) else { return nil }
-        return attributes.frame.maxY
-            - collectionView.adjustedContentInset.top
-            - AgentVCLayout.arrivalUserMessageTailInset
+        let dateHeaderFrame = dateHeaderID(for: userMessageID)
+            .flatMap(messageIndexPath(for:))
+            .flatMap { collectionView.layoutAttributesForItem(at: $0)?.frame }
+        return Self.pinnedOffsetY(
+            userMessageFrame: attributes.frame,
+            dateHeaderFrame: dateHeaderFrame,
+            adjustedContentInsetTop: collectionView.adjustedContentInset.top
+        )
+    }
+
+    static func pinnedOffsetY(
+        userMessageFrame: CGRect,
+        dateHeaderFrame: CGRect?,
+        adjustedContentInsetTop: CGFloat
+    ) -> CGFloat {
+        if let dateHeaderFrame {
+            return dateHeaderFrame.minY - adjustedContentInsetTop - AgentVCLayout.sectionTopInset
+        }
+        let tail = userMessageFrame.maxY - adjustedContentInsetTop - AgentVCLayout.arrivalUserMessageTailInset
+        let topAligned = userMessageFrame.minY - adjustedContentInsetTop - AgentVCLayout.sectionTopInset
+        return min(tail, topAligned)
+    }
+
+    private func dateHeaderID(for userMessageID: AgentItemID) -> AgentItemID? {
+        let itemIDs = model.itemIDs
+        guard let index = itemIDs.firstIndex(of: userMessageID), index > 0,
+              case .message(let message)? = model.item(for: itemIDs[index - 1]),
+              message.isDateTimeSystemMessage else { return nil }
+        return message.id
     }
 
     private func reserveSpacerHeightNeeded(toReachOffsetY offsetY: CGFloat, bottomInset: CGFloat? = nil) -> CGFloat {
@@ -747,7 +773,7 @@ public final class AgentVC: WViewController {
     }
 
     private func preservingTopVisibleRow(
-        anchor cachedAnchor: (itemID: AgentItemID, minY: CGFloat, offsetY: CGFloat)? = nil,
+        anchor cachedAnchor: VisibleRowAnchor? = nil,
         fittingReserveSpacer: Bool = false,
         _ body: () -> Void
     ) {
@@ -764,7 +790,8 @@ public final class AgentVC: WViewController {
         let maxOffsetYBefore = maxContentOffsetY
         body()
         guard let anchor,
-              let indexPath = messageIndexPath(for: anchor.itemID),
+              let anchorItemID = anchor.isDateHeader ? dateHeaderID(for: anchor.itemID) : anchor.itemID,
+              let indexPath = messageIndexPath(for: anchorItemID),
               let frameAfter = collectionView.layoutAttributesForItem(at: indexPath)?.frame else {
             return
         }
@@ -781,14 +808,21 @@ public final class AgentVC: WViewController {
         }
     }
 
-    private func topVisibleRowAnchor() -> (itemID: AgentItemID, minY: CGFloat, offsetY: CGFloat)? {
+    private func topVisibleRowAnchor() -> VisibleRowAnchor? {
         let offsetY = collectionView.contentOffset.y
         // Older visible answers can change height during hydration; keep the sent question in place when it is visible.
         if let pinnedUserMessageID,
            let indexPath = messageIndexPath(for: pinnedUserMessageID),
            let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame,
            frame.intersects(visibleContentRect()) {
-            return (pinnedUserMessageID, frame.minY, offsetY)
+            if let dateHeaderID = dateHeaderID(for: pinnedUserMessageID),
+               let dateIndexPath = messageIndexPath(for: dateHeaderID),
+               let dateFrame = collectionView.layoutAttributesForItem(at: dateIndexPath)?.frame,
+               dateFrame.intersects(visibleContentRect()) {
+                // Date IDs change on timeline reloads; retain the question ID to resolve its header again.
+                return VisibleRowAnchor(itemID: pinnedUserMessageID, isDateHeader: true, minY: dateFrame.minY, offsetY: offsetY)
+            }
+            return VisibleRowAnchor(itemID: pinnedUserMessageID, isDateHeader: false, minY: frame.minY, offsetY: offsetY)
         }
         guard let anchor = collectionView.indexPathsForVisibleItems
             .compactMap({ indexPath -> (itemID: AgentItemID, frame: CGRect)? in
@@ -802,7 +836,7 @@ public final class AgentVC: WViewController {
             .min(by: { $0.frame.minY < $1.frame.minY }) else {
             return nil
         }
-        return (anchor.itemID, anchor.frame.minY, offsetY)
+        return VisibleRowAnchor(itemID: anchor.itemID, isDateHeader: false, minY: anchor.frame.minY, offsetY: offsetY)
     }
 
     private func paginationAnchor() -> PaginationAnchor? {
@@ -1007,11 +1041,15 @@ public final class AgentVC: WViewController {
     }
 
     private func revealLastItemSettlingRowHeights() {
-        for _ in 0..<3 {
+        guard let indexPath = lastItemIndexPath else { return }
+        // Each pass can expose another estimated row; allow a final pass to settle its bottom
+        for _ in 0...collectionView.numberOfItems(inSection: indexPath.section) {
             let offsetY = collectionView.contentOffset.y
+            let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame
             revealLastItemIfNeeded(animated: false)
             collectionView.layoutIfNeeded()
-            guard abs(collectionView.contentOffset.y - offsetY) > 0.5 else { return }
+            guard abs(collectionView.contentOffset.y - offsetY) > 0.5
+                || collectionView.layoutAttributesForItem(at: indexPath)?.frame != frame else { return }
         }
     }
 
@@ -1560,6 +1598,7 @@ public final class AgentVC: WViewController {
 
 extension AgentVC: AgentModelDelegate {
     func agentModelDidReloadTimeline(animated: Bool, reconfigureItemIDs: [AgentItemID]) {
+        let previousDateAnchor = lastVisibleRowAnchor?.isDateHeader == true ? lastVisibleRowAnchor : nil
         streamingItemIDs.removeAll(keepingCapacity: true)
         updateStreamingState(for: model.itemIDs)
         deferredStreamingItemIDs.formIntersection(model.itemIDs)
@@ -1631,7 +1670,10 @@ extension AgentVC: AgentModelDelegate {
             )
         }
         if pinnedUserMessageID != nil {
-            preservingTopVisibleRow(fittingReserveSpacer: true, applyTimeline)
+            let dateAnchor = previousDateAnchor.flatMap {
+                $0.itemID == pinnedUserMessageID && dateHeaderID(for: $0.itemID) != nil ? $0 : nil
+            }
+            preservingTopVisibleRow(anchor: dateAnchor, fittingReserveSpacer: true, applyTimeline)
         } else {
             applyTimeline()
         }
@@ -1639,12 +1681,14 @@ extension AgentVC: AgentModelDelegate {
 
     private func appendedUserMessageID() -> AgentItemID? {
         let itemIDs = model.itemIDs
-        guard let lastSnapshotIndexPath = lastItemIndexPath,
-              itemIDs.count > lastSnapshotIndexPath.item + 1,
-              messageItemID(at: lastSnapshotIndexPath) == itemIDs[lastSnapshotIndexPath.item],
-              let lastItemID = itemIDs.last,
+        guard let lastItemID = itemIDs.last,
               case .message(let message)? = model.item(for: lastItemID),
               message.role == .user else { return nil }
+        guard let lastSnapshotIndexPath = lastItemIndexPath else {
+            return model.pendingRevealUserMessageID == lastItemID ? lastItemID : nil
+        }
+        guard itemIDs.count > lastSnapshotIndexPath.item + 1,
+              messageItemID(at: lastSnapshotIndexPath) == itemIDs[lastSnapshotIndexPath.item] else { return nil }
         return lastItemID
     }
 
@@ -1729,7 +1773,8 @@ extension AgentVC: AgentModelDelegate {
             completion()
         }
 
-        if revealsSentMessageFromBottom {
+        let isFirstQuestion = dateHeaderID(for: userMessageID).map { $0 == model.itemIDs.first } ?? false
+        if revealsSentMessageFromBottom && !isFirstQuestion {
             revealLastItemSettlingRowHeights()
         } else {
             collectionView.layoutIfNeeded()

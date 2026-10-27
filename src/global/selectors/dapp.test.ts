@@ -1,8 +1,9 @@
-import type { ApiBaseCurrency, ApiCurrencyRates, ApiTokenWithPrice } from '../../api/types';
+import type { ApiBaseCurrency, ApiCurrencyRates, ApiDappTransfer, ApiTokenWithPrice } from '../../api/types';
+import type { GlobalState } from '../types';
 
 import { STON_PTON_SLUG, TONCOIN } from '../../config';
 import { INITIAL_STATE } from '../initialState';
-import { selectDappTransferTotalInBaseCurrency } from './dapp';
+import { selectCurrentDappTransferTotals, selectDappTransferTotalInBaseCurrency } from './dapp';
 
 const USDT_SLUG = 'ton-eqcxe6mutq';
 const ONE_TON = 1_000_000_000n; // 1 TON, 9 decimals
@@ -86,5 +87,39 @@ describe('selectDappTransferTotalInBaseCurrency', () => {
     const total = selectDappTransferTotalInBaseCurrency({ 'ton-nft': 1n }, TOKENS_BY_SLUG, USD, CURRENCY_RATES);
 
     expect(total).toBeUndefined();
+  });
+});
+
+describe('selectCurrentDappTransferTotals', () => {
+  function makeTransfer(overrides: Partial<ApiDappTransfer> = {}): ApiDappTransfer {
+    return {
+      chain: 'ton',
+      toAddress: 'EQ-recipient',
+      normalizedAddress: 'EQ-recipient',
+      displayedToAddress: 'EQ-recipient',
+      amount: ONE_TON,
+      networkFee: 0n,
+      isDangerous: false,
+      ...overrides,
+    };
+  }
+
+  function selectTotals(transactions: ApiDappTransfer[]) {
+    const global = { ...INITIAL_STATE, currentDappTransfer: { transactions } } as unknown as GlobalState;
+    return selectCurrentDappTransferTotals(global);
+  }
+
+  it('flags a request where any message carries a state init', () => {
+    const { hasStateInit, isDangerous } = selectTotals([
+      makeTransfer(),
+      makeTransfer({ stateInit: 'te6cckEBAQEAAgAAAEysuc0=' }),
+    ]);
+
+    expect(hasStateInit).toBe(true);
+    expect(isDangerous).toBe(false);
+  });
+
+  it('does not flag a request without a state init', () => {
+    expect(selectTotals([makeTransfer(), makeTransfer()]).hasStateInit).toBe(false);
   });
 });

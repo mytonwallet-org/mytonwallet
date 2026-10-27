@@ -17,7 +17,7 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     private var tradeMenuInteraction: ContextMenuInteraction?
     
     private var hostingController: UIHostingController<SwapView>?
-    private var tradeHostingController: UIHostingController<TokenTradeView>?
+    private var tradeView: TokenTradeView?
 
     private let bottomButtonContainer = WTouchPassView()
     private var presentationDisplayLink: CADisplayLink?
@@ -95,11 +95,11 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
 
     public override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        if let tradeHostingController, #available(iOS 27.1, *) {
+        if let tradeView, #available(iOS 27.1, *) {
             let hasTopNavigationBar = traitCollection.verticalBarEdge == .unspecified
             accountSwitcher.isCompact = !hasTopNavigationBar
-            if tradeHostingController.rootView.hasTopNavigationBar != hasTopNavigationBar {
-                tradeHostingController.rootView.hasTopNavigationBar = hasTopNavigationBar
+            if tradeView.hasTopNavigationBar != hasTopNavigationBar {
+                tradeView.hasTopNavigationBar = hasTopNavigationBar
             }
         }
     }
@@ -303,8 +303,26 @@ public final class SwapVC: WViewController, WSensitiveDataProtocol {
     func makeView() -> SwapView {
         SwapView(
             swapModel: swapModel,
-            isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden
+            isSensitiveDataHidden: AppStorageHelper.isSensitiveDataHidden,
+            onSelectorsAppear: { [weak self] in self?.focusInitialInput() }
         )
+    }
+
+    private func focusInitialInput() {
+        if let navigationController,
+           navigationController.viewControllers.first !== self,
+           let coordinator = transitionCoordinator,
+           coordinator.isAnimated,
+           coordinator.viewController(forKey: .to) === self {
+            // Receive pushes Swap into its sheet; wait until that transition finishes.
+            let registered = coordinator.animate(alongsideTransition: nil) { [weak self] context in
+                guard !context.isCancelled, let self,
+                      self.navigationController?.topViewController === self else { return }
+                self.swapModel.input.focusInitialInput()
+            }
+            if registered { return }
+        }
+        swapModel.input.focusInitialInput()
     }
     
     public func updateSensitiveData() {
@@ -551,7 +569,7 @@ extension SwapVC: TokenSelectionVCDelegate {
 
 private extension SwapVC {
     func setupTradeViews(_ model: TokenTradeModel) {
-        view.backgroundColor = .air.sheetBackground
+        view.backgroundColor = .air.headerBackground
         navigationItem.title = nil
         if #available(iOS 27.1, *) {
             accountSwitcher.barButtonItem.axisBehavior = .verticalPreferred
@@ -559,15 +577,21 @@ private extension SwapVC {
         configureNavigationItemWithTransparentBackground()
         addCloseNavigationItemIfNeeded()
         let settingsButton = UIButton(type: .system)
-        settingsButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-        settingsButton.widthAnchor.constraint(equalToConstant: 44).isActive = true
-        settingsButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
         if #available(iOS 26, *), IOS_26_MODE_ENABLED {
-            settingsButton.configuration = .glass()
+            var configuration = UIButton.Configuration.glass()
+            configuration.cornerStyle = .capsule
+            configuration.contentInsets = .zero
+            configuration.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .medium)
+            settingsButton.configuration = configuration
         }
         settingsButton.tintColor = .label
         settingsButton.accessibilityIdentifier = "tokenTrade.settings"
-        let settings = UIBarButtonItem(customView: settingsButton)
+        // Keep navigation-bar sizing independent of the icon's intrinsic size.
+        let settingsContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        settingsButton.frame = settingsContainer.bounds
+        settingsButton.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        settingsContainer.addSubview(settingsButton)
+        let settings = UIBarButtonItem(customView: settingsContainer)
         if #available(iOS 26, *) { settings.hidesSharedBackground = true }
         if #available(iOS 27.1, *) { settings.axisBehavior = .verticalPreferred }
         let closeItems = navigationItem.rightBarButtonItems ?? []
@@ -575,7 +599,7 @@ private extension SwapVC {
         let interaction = ContextMenuInteraction(triggers: [.tap, .longPress], presentationMode: .zoomPopover) { [weak self] _ in
             guard let self else { return nil }
             return TokenTradeMenu.configuration(model: model,
-                showSlippage: { [weak self] in self?.showTradeSlippage() },
+                showSlippage: { [weak self, weak settingsButton] in self?.showTradeSlippage(sourceView: settingsButton) },
                 showProvider: { [weak self] in self?.showTradeProvider() })
         }
         interaction.attach(to: settingsButton)
@@ -587,11 +611,13 @@ private extension SwapVC {
                 : UIImage(named: "TokenTradeSettings", in: AirBundle, compatibleWith: nil), for: .normal)
             settingsButton.accessibilityLabel = lang(isCard ? "Info" : "Settings")
         }
-        tradeHostingController = addHostingController(TokenTradeView(model: model, selectMethod: { [weak self] in
+        let tradeView = TokenTradeView(model: model, selectMethod: { [weak self] in
             self?.showTradeMethods()
         }, continueAction: { [weak self] in
             self?.continuePressed()
-        }), constraints: .fill)
+        })
+        tradeView.install(in: view)
+        self.tradeView = tradeView
     }
 
     func showTradeMethods() {
@@ -599,11 +625,18 @@ private extension SwapVC {
         presentTokenSelector(side: model.isBuying ? .selling : .buying)
     }
 
-    func showTradeSlippage() {
+    func showTradeSlippage(sourceView: UIView?) {
         let vc = TokenTradeSlippageVC(slippage: swapModel.slippage) { [weak self] value in
             self?.swapModel.commitSlippage(value)
         }
-        present(WNavigationController(rootViewController: vc), animated: true)
+        let navigationController = WNavigationController(rootViewController: vc)
+        if isPresentedInRegularWidthWindow, let sourceView {
+            navigationController.modalPresentationStyle = .popover
+            navigationController.popoverPresentationController?.sourceView = sourceView
+            navigationController.popoverPresentationController?.sourceRect = sourceView.bounds
+            navigationController.popoverPresentationController?.delegate = self
+        }
+        present(navigationController, animated: true)
     }
 
     func showTradeProvider() {
@@ -624,23 +657,30 @@ private extension SwapVC {
             message = langJoin([terms, policy, aml].compactMap { $0 }, .and)
         }
 
-        let alert = UIAlertController(
-            title: L10n.crossChainExchangeProvidedByProvider(provider: provider),
-            message: message.nilIfEmpty,
-            preferredStyle: .alert
-        )
+        var actions: [WAlertAction] = []
         for (title, url) in [
             (lang("Terms of Use"), termsUrl),
             (lang("Privacy Policy"), privacyUrl),
             (lang("AML/KYC Policy"), amlUrl),
         ] {
             guard let url else { continue }
-            alert.addAction(UIAlertAction(title: title, style: .default) { _ in
+            actions.append(WAlertAction(title: title) {
                 AppActions.openInBrowser(url, title: nil, injectDappConnect: false)
             })
         }
-        alert.addAction(UIAlertAction(title: lang("OK"), style: .cancel))
+        actions.append(WAlertAction(title: lang("OK")))
+        let alert = WAlertController(
+            title: L10n.crossChainExchangeProvidedByProvider(provider: provider),
+            message: message.nilIfEmpty,
+            actions: actions
+        )
         view.endEditing(true)
         present(alert, animated: true)
+    }
+}
+
+extension SwapVC: UIPopoverPresentationControllerDelegate {
+    public func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle {
+        isPresentedInRegularWidthWindow ? .none : .automatic
     }
 }

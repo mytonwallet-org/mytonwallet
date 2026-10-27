@@ -77,6 +77,7 @@ import {
   TONCONNECT_UNIVERSAL_URL,
 } from '../../../../util/deeplink/constants';
 import { fetchJsonWithProxy, handleFetchErrors } from '../../../../util/fetch';
+import { createUrgentFetchDemand, type FetchDemand } from '../../../../util/fetchDemand';
 import { getDappConnectionUniqueId } from '../../../../util/getDappConnectionUniqueId';
 import { extractKey, pick } from '../../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../../util/logs';
@@ -89,7 +90,12 @@ import { fetchExternalMessageBocByHashNormalized } from '../../../chains/ton/ton
 import { checkMultiTransactionDraft, sendSignedTransactions } from '../../../chains/ton/transfer';
 import { parsePayloadBase64, preloadPayloadNfts } from '../../../chains/ton/util/metadata';
 import {
-  getIsRawAddress, getWalletPublicKey, parseAddress, toBase64Address, toRawAddress,
+  areAddressesEqual,
+  getIsRawAddress,
+  getWalletPublicKey,
+  parseAddress,
+  toBase64Address,
+  toRawAddress,
 } from '../../../chains/ton/util/tonCore';
 import { getContractInfo, getWalletStateInit } from '../../../chains/ton/wallet';
 import {
@@ -141,7 +147,6 @@ import {
 } from './errors';
 import { SseDeliveryTracker } from './sseDelivery';
 import {
-  isTransferPayloadDangerous,
   isValidString,
   isValidUrl,
   transformTonConnectMessageToUnified,
@@ -217,6 +222,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
   private initPromise: Promise<unknown>;
 
   private initialized = false;
+  private supportsDedustSwap = false;
 
   private sseEventSource?: EventSource;
 
@@ -260,6 +266,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
   async init(config: DappProtocolConfig) {
     this.onUpdate = config.onUpdate;
+    this.supportsDedustSwap = IS_AIR_APP && config.env.isIosApp === true;
 
     if (this.initialized) {
       return;
@@ -355,13 +362,13 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       promiseId = dappPromise.promiseId;
       const { promise } = dappPromise;
 
-      let account = await fetchStoredChainAccount(accountId, 'ton');
+      // The current account may not have TON; resolve the address after the user selects a wallet.
       let dapp = buildDappConnection(
         this.protocolType,
         dappMetadata,
         url,
         accountId,
-        account.byChain.ton.address,
+        '',
         request,
       );
 
@@ -392,23 +399,17 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       const promiseResult: Parameters<typeof confirmDappRequestConnect>[1] = await promise;
 
-      if (promiseResult.accountId !== accountId) {
-        accountId = promiseResult.accountId;
-        request.accountId = accountId;
-        account = await fetchStoredChainAccount(accountId, 'ton');
-        dapp = buildDappConnection(
-          this.protocolType,
-          dappMetadata,
-          url,
-          accountId,
-          account.byChain.ton.address,
-          request,
-        );
-      } else {
-        request.accountId = accountId;
-      }
-
-      await addDapp(accountId, dapp, uniqueId);
+      accountId = promiseResult.accountId;
+      request.accountId = accountId;
+      const account = await fetchStoredChainAccount(accountId, 'ton');
+      dapp = buildDappConnection(
+        this.protocolType,
+        dappMetadata,
+        url,
+        accountId,
+        account.byChain.ton.address,
+        request,
+      );
 
       const deviceInfo = tonConnectGetDeviceInfo(account);
       const items: ConnectItemReply[] = [
@@ -416,8 +417,13 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       ];
 
       if (proof) {
-        items.push(buildTonProofReplyItem(proof, promiseResult.proofSignatures![0]));
+        if (promiseResult.proofSignatures?.length !== 1) {
+          throw new UnknownError('Missing TON proof signature', ApiCommonError.Unexpected);
+        }
+        items.push(buildTonProofReplyItem(proof, promiseResult.proofSignatures[0]));
       }
+
+      await addDapp(accountId, dapp, uniqueId);
 
       this.onUpdate({ type: 'updateDapps' });
       this.onUpdate({ type: 'dappConnectComplete' });
@@ -557,6 +563,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       await this.assertDappConnected(request);
       const { url, accountId } = await ensureRequestParams(request);
       const { network } = parseAccountId(accountId);
+      // The dapp and the user wait for every provider request below, so they go ahead of the background ones
+      const demand = createUrgentFetchDemand();
 
       const traceId = generateUuidV7();
       const sse = 'sseOptions' in request ? request.sseOptions : undefined;
@@ -618,7 +626,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
 
       if (txPayload.from && toBase64Address(txPayload.from) !== toBase64Address(address)) {
         const publicKey = hexToBytes(publicKeyHex!);
-        if (isLedger && await checkIsHisVestingWallet(network, publicKey, txPayload.from)) {
+        if (isLedger && await checkIsHisVestingWallet(network, publicKey, txPayload.from, demand)) {
           vestingAddress = txPayload.from;
         } else {
           throw new BadRequestError(undefined, ApiTransactionError.WrongAddress);
@@ -638,7 +646,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         isSse: Boolean('sseOptions' in request && request.sseOptions),
       });
 
-      const checkResult = await checkTransactionMessages(accountId, messages, network);
+      const checkResult = await checkTransactionMessages(accountId, messages, network, demand);
 
       if ('error' in checkResult) {
         throw new BadRequestError(checkResult.error, checkResult.error);
@@ -650,6 +658,8 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
         checkResult.emulation,
         vestingAddress ?? address,
         checkResult.parsedPayloads,
+        this.supportsDedustSwap,
+        demand,
       );
 
       const dappPromise = createDappPromise();
@@ -695,7 +705,7 @@ class TonConnectAdapter implements DappProtocolAdapter<DappProtocolType.TonConne
       }
 
       const sentTransactions = Array.isArray(signedTransactions)
-        ? await sendSignedTransactions(accountId, signedTransactions)
+        ? await sendSignedTransactions(accountId, signedTransactions, demand)
         : await waitForMfaAndGetSentTransactions({
           accountId,
           network,
@@ -1483,7 +1493,15 @@ function buildTonAddressReplyItem(
   };
 }
 
-function buildTonProofReplyItem(proof: TonConnectProof, signature: string): TonProofItemReplySuccess {
+function buildTonProofReplyItem(proof: TonConnectProof, signature: unknown): TonProofItemReplySuccess {
+  if (typeof signature !== 'string' || signature.length !== 88) {
+    throw new UnknownError('Invalid TON proof signature', ApiCommonError.Unexpected);
+  }
+  const signatureBytes = Buffer.from(signature, 'base64');
+  if (signatureBytes.length !== nacl.sign.signatureLength || signatureBytes.toString('base64') !== signature) {
+    throw new UnknownError('Invalid TON proof signature', ApiCommonError.Unexpected);
+  }
+
   const { timestamp, domain, payload } = proof;
   const domainBuffer = Buffer.from(domain);
 
@@ -1501,10 +1519,15 @@ function buildTonProofReplyItem(proof: TonConnectProof, signature: string): TonP
   };
 }
 
-async function checkIsHisVestingWallet(network: ApiNetwork, ownerPublicKey: Uint8Array, address: string) {
+async function checkIsHisVestingWallet(
+  network: ApiNetwork,
+  ownerPublicKey: Uint8Array,
+  address: string,
+  demand?: FetchDemand,
+) {
   const [info, publicKey] = await Promise.all([
-    getContractInfo(network, address),
-    getWalletPublicKey(network, address),
+    getContractInfo(network, address, undefined, demand),
+    getWalletPublicKey(network, address, demand),
   ]);
 
   return info.contractInfo?.name === 'vesting' && areDeepEqual(ownerPublicKey, publicKey);
@@ -1561,6 +1584,7 @@ async function checkTransactionMessages(
   accountId: string,
   messages: TonConnectTransactionMessage[],
   network: ApiNetwork,
+  demand?: FetchDemand,
 ) {
   const preparedMessages: TonTransferParams[] = messages.map((msg) => {
     const {
@@ -1580,7 +1604,9 @@ async function checkTransactionMessages(
     };
   });
 
-  const checkResult = await checkMultiTransactionDraft(accountId, preparedMessages);
+  const checkResult = await checkMultiTransactionDraft(
+    accountId, preparedMessages, undefined, undefined, undefined, demand,
+  );
 
   // Handle insufficient balance error specifically for TON Connect by converting to fallback emulation
   if ('error' in checkResult
@@ -1600,14 +1626,35 @@ async function checkTransactionMessages(
   return checkResult;
 }
 
+export function isTransferPayloadDangerous(
+  payload: ApiParsedPayload | undefined,
+  signerAddress?: string,
+) {
+  if (payload?.type === 'unknown') {
+    return true;
+  }
+
+  if (payload?.type === 'teleitem:start-auction') {
+    try {
+      return !signerAddress || !areAddressesEqual(payload.beneficiaryAddress, signerAddress);
+    } catch {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function prepareTransactionForRequest(
   network: ApiNetwork,
   messages: TonConnectTransactionMessage[],
   emulation: ApiEmulationWithFallbackResult,
   expectedOwnerAddress: string,
   parsedPayloads?: (ApiParsedPayload | undefined)[],
+  supportsDedustSwap = false,
+  demand?: FetchDemand,
 ) {
-  const nftsByRawAddress = await preloadPayloadNfts(network, messages);
+  const nftsByRawAddress = await preloadPayloadNfts(network, messages, demand);
 
   return Promise.all(messages.map(
     async ({
@@ -1620,9 +1667,15 @@ async function prepareTransactionForRequest(
       const toAddress = getIsRawAddress(address) ? toBase64Address(address, true, network) : address;
       // Fix address format for `waitTxComplete` to work properly
       const normalizedAddress = toBase64Address(address, undefined, network);
-      const payload = rawPayload
-        ? await parsePayloadBase64(network, toAddress, rawPayload, { expectedOwnerAddress, nftsByRawAddress })
+      let payload = rawPayload
+        ? await parsePayloadBase64(network, toAddress, rawPayload, {
+          expectedOwnerAddress, nftsByRawAddress, messageAmount: amount, stateInit, supportsDedustSwap, demand,
+        })
         : parsedPayloads?.[index];
+      // Keep unsupported clients on their existing unknown-operation warning path.
+      if (payload?.type === 'dedust:native-swap' && !supportsDedustSwap) {
+        payload = { type: 'unknown', base64: rawPayload ?? '' };
+      }
       const { isScam } = getKnownAddressInfo(normalizedAddress) || {};
 
       return {
@@ -1634,7 +1687,7 @@ async function prepareTransactionForRequest(
         stateInit,
         normalizedAddress,
         isScam,
-        isDangerous: isTransferPayloadDangerous(payload),
+        isDangerous: isTransferPayloadDangerous(payload, expectedOwnerAddress),
         displayedToAddress: toAddress,
         networkFee: emulation.isFallback
           ? bigintDivideToNumber(emulation.networkFee, messages.length)

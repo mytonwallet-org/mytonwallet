@@ -8,7 +8,7 @@ import WalletContext
 private let log = Log("DappInfoProvider")
 
 struct DappInfo {
-    var iconUrl: String
+    var iconUrl: String?
     var shortTitle: String
 }
 

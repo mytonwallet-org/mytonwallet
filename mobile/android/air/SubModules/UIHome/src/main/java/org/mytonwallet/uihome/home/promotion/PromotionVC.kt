@@ -9,9 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.PaintDrawable
 import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -37,6 +34,7 @@ import org.mytonwallet.app_air.walletbasecontext.theme.ViewConstants
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
+import org.mytonwallet.app_air.walletbasecontext.utils.toProcessedSpannableStringBuilder
 import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
@@ -161,7 +159,7 @@ class PromotionVC(context: Context, private val promotion: ApiPromotion) :
 
         val descLabel = WLabel(context).apply {
             setStyle(adaptiveFontSize(), WFont.Medium)
-            text = parseSimpleMarkdownBold(m.description)
+            text = m.description.toProcessedSpannableStringBuilder()
             gravity = Gravity.CENTER
             setTextColor(parseCssColorInt(m.descriptionColor) ?: Color.argb(191, 255, 255, 255))
             setLineSpacing(4f.dp, 1f)
@@ -363,30 +361,6 @@ class PromotionVC(context: Context, private val promotion: ApiPromotion) :
             }
             if (current.isNotEmpty()) result.add(current.toString().trim())
             return result
-        }
-
-        private fun parseSimpleMarkdownBold(text: String): CharSequence {
-            val regex = Regex("""\*\*(.+?)\*\*""")
-            val matches = regex.findAll(text).toList()
-            if (matches.isEmpty()) return text
-
-            val sb = SpannableStringBuilder()
-            var lastEnd = 0
-            for (match in matches) {
-                sb.append(text, lastEnd, match.range.first)
-                val boldText = match.groupValues[1]
-                val start = sb.length
-                sb.append(boldText)
-                sb.setSpan(
-                    StyleSpan(android.graphics.Typeface.BOLD),
-                    start,
-                    sb.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                lastEnd = match.range.last + 1
-            }
-            sb.append(text, lastEnd, text.length)
-            return sb
         }
     }
 }

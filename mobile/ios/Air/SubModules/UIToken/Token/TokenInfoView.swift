@@ -349,7 +349,7 @@ struct TokenInfoView: View {
                 }
                 detailRow(
                     title: lang("Created"),
-                    value: createdAt.formatted(.dateTime.month(.abbreviated).day().year())
+                    value: createdAt.formatted(.localizedDateTime.month(.abbreviated).day().year())
                 )
             }
 
@@ -639,7 +639,6 @@ struct TokenInfoView: View {
                 }
             }
             .lineLimit(1)
-            .minimumScaleFactor(0.8)
 
             Spacer(minLength: 4)
 
@@ -647,7 +646,6 @@ struct TokenInfoView: View {
                 .textStyle(.body, content: .technical)
                 .foregroundStyle(Color.air.primaryLabel)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
         }
         .padding(.horizontal, 16)
         .frame(height: 48)

@@ -389,7 +389,7 @@ function TransactionInfoModal({
     <Modal
       isOpen={isOpen}
       hasCloseButton
-      dialogClassName={styles.modalDialog}
+      dialogClassName={buildClassName(styles.modalDialog, IS_EXPLORER && styles.explorerDialog)}
       onClose={handleClose}
       onCloseAnimationEnd={closePasswordSlide}
     >

@@ -25,6 +25,7 @@ export type ApiMfa = {
 export type ApiTonWallet = ApiBaseWallet & {
   /** Missing when the address holds a contract this app cannot name, which is possible for a view wallet */
   version?: ApiTonWalletVersion;
+  /** True once the chain reported the account active, and it stays true even if the account stops being active */
   isInitialized?: boolean;
   authToken?: string;
   mfa?: ApiMfa;

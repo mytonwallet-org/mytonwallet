@@ -26,13 +26,12 @@ object BnbConfig : MBlockchainConfig {
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS
 
     override val isOnchainSwapSupported = true
+    override val canSwapByBuyAmount = true
 
     override val isCommentSupported = false
     override val isEncryptedCommentSupported = false
 
     override val burnAddress = null
-    override val isOnRampSupported = false
-    override val isOffRampSupported = false
     override val multiWalletSupport = MultiWalletSupport.PATH
 
     override val chainStandard = "ethereum"

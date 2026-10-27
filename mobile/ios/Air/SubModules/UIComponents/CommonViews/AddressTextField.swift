@@ -8,6 +8,7 @@ public struct AddressTextField: UIViewRepresentable {
     @Binding var value: String
     @Binding var isFocused: Bool
     var maximumNumberOfLines: Int
+    var isError: Bool
     var onNext: () -> ()
     var onPaste: (() -> Void)?
     
@@ -21,12 +22,14 @@ public struct AddressTextField: UIViewRepresentable {
         value: Binding<String>,
         isFocused: Binding<Bool>,
         maximumNumberOfLines: Int = 1,
+        isError: Bool = false,
         onNext: @escaping () -> Void,
         onPaste: (() -> Void)? = nil
     ) {
         self._value = value
         self._isFocused = isFocused
         self.maximumNumberOfLines = maximumNumberOfLines
+        self.isError = isError
         self.onNext = onNext
         self.onPaste = onPaste
     }
@@ -208,6 +211,11 @@ public struct AddressTextField: UIViewRepresentable {
     }
     
     public func updateUIView(_ view: UITextView, context: Context) {
+        let textColor = isError ? UIColor.air.error : UIColor.label
+        if view.textColor != textColor {
+            view.textColor = textColor
+        }
+        view.typingAttributes[.foregroundColor] = textColor
         if value != view.text {
             view.text = value
             (view as? PasteAwareTextView)?

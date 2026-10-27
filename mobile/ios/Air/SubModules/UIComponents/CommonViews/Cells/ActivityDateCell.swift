@@ -19,7 +19,7 @@ public enum ActivityDateFormatting {
     public static func shouldShowDate(
         for date: Date,
         relativeTo now: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = LocalizationSupport.shared.calendar
     ) -> Bool {
         !calendar.isDate(date, inSameDayAs: now)
             && now.timeIntervalSince(date) > dateThreshold
@@ -28,33 +28,35 @@ public enum ActivityDateFormatting {
     public static func dateText(
         for date: Date,
         relativeTo now: Date,
-        calendar: Calendar = .current,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
         locale: Locale = LocalizationSupport.shared.locale
     ) -> String {
-        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            date.formatted(.dateTime.month(.wide).day().locale(locale))
+        let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        return if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            date.formatted(format.month(.wide).day())
         } else {
-            date.formatted(.dateTime.year(.defaultDigits).month(.wide).day().locale(locale))
+            date.formatted(format.year(.defaultDigits).month(.wide).day())
         }
     }
 
     public static func shortDateText(
         for date: Date,
         relativeTo now: Date,
-        calendar: Calendar = .current,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
         locale: Locale = LocalizationSupport.shared.locale
     ) -> String {
-        if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            date.formatted(.dateTime.month(.abbreviated).day().locale(locale))
+        let format = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+        return if calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            date.formatted(format.month(.abbreviated).day())
         } else {
-            date.formatted(.dateTime.year(.defaultDigits).month(.abbreviated).day().locale(locale))
+            date.formatted(format.year(.defaultDigits).month(.abbreviated).day())
         }
     }
 
     public static func headerText(
         for date: Date,
         relativeTo now: Date = .now,
-        calendar: Calendar = .current,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
         locale: Locale = LocalizationSupport.shared.locale
     ) -> String {
         if calendar.isDate(date, inSameDayAs: now) {
@@ -68,7 +70,7 @@ public enum ActivityDateFormatting {
         for date: Date,
         mode: ActivityTimestampDisplayMode,
         relativeTo now: Date = .now,
-        calendar: Calendar = .current,
+        calendar: Calendar = LocalizationSupport.shared.calendar,
         locale: Locale = LocalizationSupport.shared.locale
     ) -> String {
         if mode == .dateWhenOlderThanTwelveHours,

@@ -335,14 +335,21 @@ private func formatShortenedDouble(_ v: Double,  kThreshold: Double, mThreshold:
 }
 
 /// Expects value 0...1 (0.42 -> 42%)
-public func formatPercent(_ value: Double, decimals: Int = 2, showPlus: Bool = true, showMinus: Bool = true) -> String {
+public func formatPercent(
+    _ value: Double,
+    decimals: Int = 2,
+    showPlus: Bool = true,
+    showMinus: Bool = true,
+    locale: Locale = LocalizationSupport.shared.locale
+) -> String {
     let value = (value * 100).rounded(decimals: decimals)
     let absoluteValue = abs(value)
-    let text = if decimals == 0, absoluteValue.isFinite {
+    let number = if decimals == 0, absoluteValue.isFinite {
         "\(Int(absoluteValue))"
     } else {
         "\(absoluteValue)"
     }
+    let text = localizedIntegerDigits(in: number, locale: locale)
     return if showPlus && value > 0 {
         "+\(signSpace)\(text)%"
     } else if showMinus && value < 0 {

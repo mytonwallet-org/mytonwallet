@@ -16,6 +16,7 @@ struct LedgerSignView<HeaderView: View>: View {
             AdaptiveLedgerSignLayout {
                 headerView
                     .padding(44)
+                    .frame(maxWidth: .infinity)
 
                 compactHeaderView
                     .padding(.horizontal, 16)
@@ -24,7 +25,11 @@ struct LedgerSignView<HeaderView: View>: View {
 
                 ledgerPanel
             }
+            .background(Color.air.sheetBackground)
             .clipped()
+            .background {
+                Color.air.background.ignoresSafeArea(edges: .bottom)
+            }
         }
     }
 

@@ -18,7 +18,7 @@ struct RecipientAddressSection: View {
         WithPerceptionTracking {
             InsetSection {
                 InsetCell {
-                    Cell(model: model, onPasteAction: onPasteAction, addressIdentifier: addressIdentifier)
+                    Cell(model: model, isError: validationState != nil, onPasteAction: onPasteAction, addressIdentifier: addressIdentifier)
                 }
                 .contentShape(.rect)
                 .onTapGesture {
@@ -61,6 +61,7 @@ struct RecipientAddressSection: View {
 private struct Cell: View {
     
     var model: SendRecipientModel
+    var isError: Bool
     var onPasteAction: (() -> Bool)?
     var addressIdentifier: String?
     
@@ -71,6 +72,7 @@ private struct Cell: View {
                 AddressTextField(
                     value: $model.textFieldInput,
                     isFocused: $model.isFocused,
+                    isError: isError,
                     onNext: onSubmit,
                     onPaste: onFieldPaste
                 )
@@ -85,7 +87,7 @@ private struct Cell: View {
                 .opacity(!model.isEmpty && !model.isFocused ? 0 : 1)
                 .overlay(alignment: .leading) {
                     if !model.isEmpty && !model.isFocused {
-                        ResolvedAddressView(model: model)
+                        ResolvedAddressView(model: model, isError: isError)
                     }
                 }
                 
@@ -149,6 +151,7 @@ private struct Cell: View {
 struct ResolvedAddressView: View {
     
     var model: SendRecipientModel
+    var isError: Bool = false
     
     var body: some View {
         WithPerceptionTracking {
@@ -159,21 +162,21 @@ struct ResolvedAddressView: View {
                 
                 HStack(spacing: 4) { 
                     if let primary = display.primary, display.secondary == nil {
-                        MiddleTruncatedText(primary, textColor: .air.primaryLabel, separatorColor: .air.secondaryLabel)
+                        MiddleTruncatedText(primary, textColor: isError ? .air.error : .air.primaryLabel, separatorColor: isError ? .air.error : .air.secondaryLabel)
                     } else {
                         if let primary = display.primary {
                             Text(primary)
                                 .textStyle(.body, content: .technical)
-                                .foregroundStyle(Color.air.primaryLabel)
+                                .foregroundStyle(isError ? Color.air.error : Color.air.primaryLabel)
                                 .truncationMode(.middle)
                         }
                         if let secondary = display.secondary {
                             Text("·")
                                 .textStyle(.body, content: .technical)
-                                .foregroundStyle(Color.air.secondaryLabel)
+                                .foregroundStyle(isError ? Color.air.error : Color.air.secondaryLabel)
                             Text(secondary)
                                 .textStyle(.body, content: .technical)
-                                .foregroundStyle(Color.air.secondaryLabel)
+                                .foregroundStyle(isError ? Color.air.error : Color.air.secondaryLabel)
                         }
                     }
                 }

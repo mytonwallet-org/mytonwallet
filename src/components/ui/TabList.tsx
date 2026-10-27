@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef } from '../../lib/teact/teact';
+import React, { type ElementRef, memo, useEffect, useRef } from '../../lib/teact/teact';
 
 import type { DropdownItem } from './Dropdown';
 
@@ -7,6 +7,7 @@ import animateHorizontalScroll from '../../util/animateHorizontalScroll';
 import buildClassName from '../../util/buildClassName';
 import { IS_ANDROID, IS_IOS } from '../../util/windowEnvironment';
 
+import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useHorizontalScroll from '../../hooks/useHorizontalScroll';
 import useLang from '../../hooks/useLang';
 import useWindowSize from '../../hooks/useWindowSize';
@@ -59,7 +60,7 @@ function TabList({
     shouldPreventDefault: true,
   });
 
-  useActiveTabCentering(activeTab, containerRef.current);
+  useActiveTabCentering(containerRef, activeTab, isActive);
 
   useEffect(() => {
     const container = containerRef.current?.querySelector(`.${CLIP_PATH_CONTAINER_CLASS_NAME}`) as HTMLElement | null;
@@ -136,8 +137,9 @@ function calculateClipPath(activeElement: HTMLElement, container: HTMLElement) {
 }
 
 // Scroll container to place active tab in the center
-function useActiveTabCentering(activeTab: number, container?: HTMLDivElement) {
-  useEffect(() => {
+function useActiveTabCentering(containerRef: ElementRef<HTMLDivElement>, activeTab: number, isActive?: boolean) {
+  useEffectWithPrevDeps(([prevActiveTab, prevIsActive]) => {
+    const container = containerRef.current;
     if (!container) return;
 
     const { scrollWidth, offsetWidth, scrollLeft } = container;
@@ -161,6 +163,10 @@ function useActiveTabCentering(activeTab: number, container?: HTMLDivElement) {
       return;
     }
 
-    void animateHorizontalScroll(container, scrollLeft + offsetFromCenter, SCROLL_DURATION);
-  }, [activeTab, container]);
+    // A list that appears on screen is already centered on the active tab. Only switching tabs in a visible list
+    // animates the scroll.
+    const isFirstShow = prevActiveTab === undefined || (isActive && !prevIsActive);
+
+    void animateHorizontalScroll(container, scrollLeft + offsetFromCenter, isFirstShow ? 0 : SCROLL_DURATION);
+  }, [activeTab, isActive, containerRef]);
 }

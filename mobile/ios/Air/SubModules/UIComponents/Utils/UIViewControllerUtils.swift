@@ -114,14 +114,10 @@ public extension UIViewController {
     }
 
     @MainActor private func showAlert(apiError: ApiAnyDisplayError, onOK: (() -> Void)? = nil) {
-        if apiError == .serverError {
-            showNetworkAlert(onOK: onOK)
-        } else {
-            showAlert(title: lang("Error"),
-                      text: apiError.toLocalized,
-                      button: lang("OK")) {
-                onOK?()
-            }
+        showAlert(title: lang("Error"),
+                  text: apiError.toLocalized,
+                  button: lang("OK")) {
+            onOK?()
         }
     }
     
@@ -237,16 +233,12 @@ public extension UIViewController {
         return nil
     }
 
-    private var sheetPresentationHostViewController: UIViewController? {
-        var hostViewController: UIViewController?
-        var candidate: UIViewController? = self
-        while let viewController = candidate {
-            if viewController.sheetPresentationController != nil {
-                hostViewController = viewController
-            }
-            candidate = viewController.parent
+    private var presentationHostViewController: UIViewController {
+        var host = self
+        while let parent = host.parent {
+            host = parent
         }
-        return hostViewController
+        return host
     }
 
     var windowHorizontalSizeClass: UIUserInterfaceSizeClass {
@@ -254,7 +246,7 @@ public extension UIViewController {
            sizeClass != .unspecified {
             return sizeClass
         }
-        if let sizeClass = sheetPresentationHostViewController?.presentingViewController?.viewIfLoaded?.window?.traitCollection.horizontalSizeClass,
+        if let sizeClass = presentationHostViewController.presentingViewController?.viewIfLoaded?.window?.traitCollection.horizontalSizeClass,
            sizeClass != .unspecified {
             return sizeClass
         }
@@ -266,7 +258,31 @@ public extension UIViewController {
     }
 
     var isSheetPresentationAttachedToBottom: Bool {
-        sheetPresentationHostViewController != nil && !isPresentedInRegularWidthWindow
+        sheetPresentationMode == .bottomAttached
+    }
+
+    var sheetPresentationMode: SheetPresentationMode? {
+        let host = presentationHostViewController
+        guard let presenter = host.presentingViewController else { return nil }
+        return host.sheetPresentationMode(presentingFrom: presenter)
+    }
+
+    /// Resolve before presentation using the window, since a floating sheet can itself have compact traits.
+    func sheetPresentationMode(presentingFrom presenter: UIViewController) -> SheetPresentationMode? {
+        let host = presentationHostViewController
+        switch host.modalPresentationStyle {
+        case .fullScreen, .overFullScreen:
+            return .fullScreen
+        case .automatic, .pageSheet, .formSheet:
+            guard let sheet = host.sheetPresentationController else { return nil }
+            let traits = presenter.viewIfLoaded?.window?.traitCollection ?? presenter.traitCollection
+            return SheetPresentationMode(
+                traits: traits,
+                prefersEdgeAttachedInCompactHeight: sheet.prefersEdgeAttachedInCompactHeight
+            )
+        default:
+            return nil
+        }
     }
     
     func descendantViewController(where predicate: (UIViewController) -> Bool) -> UIViewController? {

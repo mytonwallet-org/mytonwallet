@@ -89,12 +89,14 @@ function ReceiveModal({
         );
       case AccountSwitcherScreen.Selector:
         return (
-          <AccountSwitcherSlide
-            isActive={isActive}
-            onAccountSelect={handleSelectAccount}
-            onBack={closeSelector}
-            onClose={closeReceiveModal}
-          />
+          <div className={buildClassName(styles.accountSelector, modalStyles.transition_stableScroll, 'custom-scroll')}>
+            <AccountSwitcherSlide
+              isActive={isActive}
+              onAccountSelect={handleSelectAccount}
+              onBack={closeSelector}
+              onClose={closeReceiveModal}
+            />
+          </div>
         );
     }
   }
@@ -108,7 +110,7 @@ function ReceiveModal({
     >
       <Transition
         name={resolveSlideTransitionName()}
-        className={buildClassName(modalStyles.transition, modalStyles.transition_stableScroll, 'custom-scroll')}
+        className={buildClassName(modalStyles.transition, 'custom-scroll')}
         slideClassName={modalStyles.transitionSlide}
         activeKey={renderingKey}
         nextKey={nextKey}

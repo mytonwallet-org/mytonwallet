@@ -19,6 +19,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
     private var initialExternalSelectionPoint: CGPoint?
     private var didMoveFromInitialExternalSelectionPoint = false
     private var isReplacingContent = false
+    private var defaultPopoverLayoutMargins: UIEdgeInsets = .zero
 
     private lazy var customRowContext = ContextMenuCustomRowContext(dismissHandler: { [weak self] in
         self?.dismissMenu()
@@ -64,6 +65,7 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
         if modalPresentationStyle == .popover, let popoverPresentationController {
             popoverPresentationController.delegate = self
             popoverPresentationController.sourceItem = self.popoverSourceItem
+            self.defaultPopoverLayoutMargins = popoverPresentationController.popoverLayoutMargins
         }
 
         self.updatePreferredContentSize()
@@ -83,6 +85,11 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
             self?.updatePreferredContentSize()
         }
         self.view.addSubview(self.navigationView)
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        self.updatePopoverLayoutMargins()
     }
 
     override func viewDidLayoutSubviews() {
@@ -196,9 +203,29 @@ class ContextMenuPopoverViewController: UIViewController, ContextMenuNavigationV
             return
         }
         self.preferredContentSize = preferredSize
+        self.updatePopoverLayoutMargins()
         self.navigationController?.preferredContentSize = preferredSize
         self.sheetPresentationController?.invalidateDetents()
         self.viewIfLoaded?.setNeedsLayout()
+    }
+
+    private func updatePopoverLayoutMargins() {
+        guard self.configuration.popoverVerticalAlignment == .sourceTop,
+              let popoverPresentationController,
+              let sourceView,
+              let window = sourceView.window else {
+            return
+        }
+        let sourceTop = sourceView.convert(sourceView.bounds, to: window).minY
+        var margins = self.defaultPopoverLayoutMargins
+        let availableBottom = window.bounds.maxY - window.safeAreaInsets.bottom - margins.bottom
+        if sourceTop + self.preferredContentSize.height <= availableBottom {
+            // UIKit applies popover margins inside the window's safe area.
+            margins.top = max(margins.top, sourceTop - window.bounds.minY - window.safeAreaInsets.top)
+        }
+        if popoverPresentationController.popoverLayoutMargins != margins {
+            popoverPresentationController.popoverLayoutMargins = margins
+        }
     }
 
     var navigationContentFrame: CGRect {

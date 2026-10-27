@@ -1,5 +1,6 @@
 import { Address, Cell } from '@ton/core';
 
+import type { FetchDemand } from '../../../util/fetchDemand';
 import type { JettonMasterMetadata, MetadataMap } from './toncenter/types';
 import type { JettonMetadata, TonTransferParams } from './types';
 import {
@@ -11,6 +12,7 @@ import {
 
 import { UNKNOWN_TOKEN } from '../../../config';
 import { raceWithAbortSignal, throwIfAborted } from '../../../util/abortSignal';
+import { HOUR } from '../../../util/dateFormat';
 import { getToncoinAmountForTransfer } from '../../../util/fee/getTonOperationFees';
 import { fetchJsonWithProxy } from '../../../util/fetch';
 import { compact } from '../../../util/iteratees';
@@ -54,6 +56,8 @@ type JettonWalletsResponse = {
   jetton_wallets: ToncenterJettonWallet[];
   metadata?: MetadataMap;
 };
+
+const jettonMetadataCache = new Map<string, { metadata?: JettonMetadata; fetchedAt: number }>();
 
 async function getTokenBalances(network: ApiNetwork, address: string, signal?: AbortSignal) {
   const { jettonWallets, metadata } = await fetchJettonWallets(network, address, undefined, signal);
@@ -114,14 +118,31 @@ async function parseTokenBalance(
 ): Promise<TokenBalanceParsed | undefined> {
   try {
     const tokenAddress = toBase64Address(wallet.jetton, true, network);
+    const cacheKey = `${network}:${tokenAddress}`;
     const tokenMetadata = getJettonMetadataFromMap(wallet.jetton, metadata);
-    const jettonMetadata = (tokenMetadata && toJettonMetadata(tokenMetadata))
-      ?? await fetchJettonMetadata(network, tokenAddress, signal).catch((error) => {
+    let jettonMetadata = tokenMetadata && toJettonMetadata(tokenMetadata);
+    if (jettonMetadata) {
+      jettonMetadataCache.set(cacheKey, { metadata: jettonMetadata, fetchedAt: Date.now() });
+    } else {
+      const cached = jettonMetadataCache.get(cacheKey);
+      if (cached && Date.now() - cached.fetchedAt < HOUR) {
+        jettonMetadata = cached.metadata;
+      } else {
+        const fetchedMetadata = await fetchJettonMetadata(network, tokenAddress, signal).catch((error) => {
+          throwIfAborted(signal);
+          logDebugError('fetchJettonMetadata', error);
+          return undefined;
+        });
         throwIfAborted(signal);
-        logDebugError('fetchJettonMetadata', error);
-        return undefined;
-      });
-    if (!jettonMetadata || ('error' in jettonMetadata)) return undefined;
+        if (!fetchedMetadata) return undefined;
+
+        jettonMetadata = 'error' in fetchedMetadata ? undefined : fetchedMetadata;
+        if (jettonMetadata || jettonMetadataCache.get(cacheKey) === cached) {
+          jettonMetadataCache.set(cacheKey, { metadata: jettonMetadata, fetchedAt: Date.now() });
+        }
+      }
+    }
+    if (!jettonMetadata) return undefined;
 
     const token = buildTokenByMetadata(tokenAddress, jettonMetadata, getProxiedImage(tokenMetadata));
 
@@ -288,18 +309,25 @@ export async function buildTokenTransfer(options: {
   };
 }
 
-export async function getTokenBalanceWithMintless(network: ApiNetwork, accountAddress: string, tokenAddress: string) {
-  const tokenWalletAddress = await resolveTokenWalletAddress(network, accountAddress, tokenAddress);
+export async function getTokenBalanceWithMintless(
+  network: ApiNetwork,
+  accountAddress: string,
+  tokenAddress: string,
+  demand?: FetchDemand,
+) {
+  const tokenWalletAddress = await resolveTokenWalletAddress(network, accountAddress, tokenAddress, demand);
   const token = getTokenByAddress(tokenAddress)!;
 
   const {
-    isTokenWalletDeployed = !!(await isAddressInitialized(network, tokenWalletAddress)),
+    isTokenWalletDeployed = !!(await isAddressInitialized(network, tokenWalletAddress, demand)),
     mintlessTokenBalance,
   } = await getMintlessParams({
-    network, fromAddress: accountAddress, token, tokenWalletAddress,
+    network, fromAddress: accountAddress, token, tokenWalletAddress, demand,
   });
 
-  return calculateTokenBalanceWithMintless(network, tokenWalletAddress, isTokenWalletDeployed, mintlessTokenBalance);
+  return calculateTokenBalanceWithMintless(
+    network, tokenWalletAddress, isTokenWalletDeployed, mintlessTokenBalance, undefined, demand,
+  );
 }
 
 export async function calculateTokenBalanceWithMintless(
@@ -308,10 +336,11 @@ export async function calculateTokenBalanceWithMintless(
   isTokenWalletDeployed?: boolean,
   mintlessTokenBalance = 0n,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ) {
   let balance = 0n;
   if (isTokenWalletDeployed) {
-    balance += await raceWithAbortSignal(() => getTokenBalance(network, tokenWalletAddress), signal);
+    balance += await raceWithAbortSignal(() => getTokenBalance(network, tokenWalletAddress, demand), signal);
   }
   if (mintlessTokenBalance) {
     balance += mintlessTokenBalance;
@@ -326,9 +355,10 @@ async function getMintlessParams(options: {
   tokenWalletAddress: string;
   shouldSkipMintless?: boolean;
   signal?: AbortSignal;
+  demand?: FetchDemand;
 }) {
   const {
-    network, fromAddress, token, tokenWalletAddress, shouldSkipMintless, signal,
+    network, fromAddress, token, tokenWalletAddress, shouldSkipMintless, signal, demand,
   } = options;
 
   const isMintlessToken = !!token.customPayloadApiUrl;
@@ -341,8 +371,8 @@ async function getMintlessParams(options: {
 
   if (isMintlessToken && !shouldSkipMintless) {
     isTokenWalletDeployed = !!(await (signal
-      ? fetchIsAddressInitialized(network, tokenWalletAddress, signal)
-      : isAddressInitialized(network, tokenWalletAddress)));
+      ? fetchIsAddressInitialized(network, tokenWalletAddress, signal, demand)
+      : isAddressInitialized(network, tokenWalletAddress, demand)));
     isMintlessClaimed = isTokenWalletDeployed
       && await checkMintlessTokenWalletIsClaimed(network, tokenWalletAddress, signal);
 
@@ -424,6 +454,7 @@ export async function fetchToken(network: ApiNetwork, address: string) {
     toRawAddress(address), toncenterMetadata, 'jetton_masters',
   );
 
+  jettonMetadataCache.set(`${network}:${toBase64Address(address, true, network)}`, { metadata, fetchedAt: Date.now() });
   return buildTokenByMetadata(address, metadata, getProxiedImage(tokenMetadata));
 }
 

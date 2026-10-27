@@ -172,7 +172,9 @@ class NftDetailsItemCoverFlowTile: UIView {
                     guard let self, self.model === model else { return }
                     DispatchQueue.main.async {
                         switch result {
-                        case .success:
+                        case .success(let value):
+                            self.colorResolver?.rememberThumbnail(value.image, for: model)
+                            if !model.processedImageState.isLoaded { model.notify(.processedImageUpdated) }
                             self.imageLoadSucceeded = true
                             self.spinner.stopAnimating()
                             self.imageView.backgroundColor = nil
@@ -295,6 +297,25 @@ class NftDetailsItemCoverFlowTile: UIView {
         imageView.alpha = 1
     }
 
+    func takeLottieViewer() -> NftDetailsLottieViewer? {
+        let viewer = lottieViewer
+        lottieViewer = nil
+        viewer?.removeFromSuperview()
+        imageView.alpha = 1
+        return viewer
+    }
+
+    func adoptLottieViewer(_ viewer: NftDetailsLottieViewer) {
+        removeLottieViewer()
+        viewer.removeFromSuperview()
+        viewer.playbackTransitionDelegate = self
+        viewer.setCornerRadius(layer.cornerRadius)
+        viewer.embedAbove(imageView)
+        lottieViewer = viewer
+        imageView.alpha = viewer.isHidden ? 1 : 0
+        bringSubviewToFront(forSaleTagView)
+    }
+
     func refreshLottiePlayback() {
         guard let model else {
             removeLottieViewer()
@@ -312,7 +333,7 @@ class NftDetailsItemCoverFlowTile: UIView {
                 viewer.embedAbove(imageView)
                 lottieViewer = viewer
             }
-            lottieViewer?.setUrl(url, playAlways: true)
+            lottieViewer?.setUrl(url)
         } else {
             removeLottieViewer()
         }

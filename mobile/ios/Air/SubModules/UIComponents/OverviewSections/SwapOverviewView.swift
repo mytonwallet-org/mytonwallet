@@ -8,11 +8,13 @@ public struct SwapOverviewView: View {
     
     var fromAmount: TokenAmount
     var toAmount: TokenAmount
+    var toAmountIsEstimated: Bool
     var onTokenTapped: ((ApiToken) -> Void)?
     
-    public init(fromAmount: TokenAmount, toAmount: TokenAmount, onTokenTapped: ((ApiToken) -> Void)? = nil) {
+    public init(fromAmount: TokenAmount, toAmount: TokenAmount, toAmountIsEstimated: Bool = false, onTokenTapped: ((ApiToken) -> Void)? = nil) {
         self.fromAmount = fromAmount
         self.toAmount = toAmount
+        self.toAmountIsEstimated = toAmountIsEstimated
         self.onTokenTapped = onTokenTapped
     }
     
@@ -78,7 +80,7 @@ public struct SwapOverviewView: View {
                 fractionColor: .air.secondaryLabel,
                 symbolColor: .air.secondaryLabel
             )
-            .sensitiveData(alignment: .center, cols: 10, rows: 2, cellSize: 9, theme: .adaptive, cornerRadius: 5)
+            .heroSensitiveData(maskSize: CGSize(width: 90, height: 18))
         }
         .buttonStyle(.plain)
     }
@@ -92,7 +94,7 @@ public struct SwapOverviewView: View {
             let amount = DecimalAmount(toAmount.amount, toToken)
             AmountText(
                 amount: amount,
-                format: .init(preset: .defaultAdaptive, showPlus: true, roundHalfUp: false),
+                format: .init(preset: .defaultAdaptive, showPlus: !toAmountIsEstimated, roundHalfUp: false, precision: toAmountIsEstimated ? .approximate : nil),
                 integerFont: .compactRounded(ofSize: 34, weight: .bold),
                 fractionFont: .compactRounded(ofSize: 28, weight: .bold),
                 symbolFont: .compactRounded(ofSize: 28, weight: .bold),
@@ -100,7 +102,7 @@ public struct SwapOverviewView: View {
                 fractionColor: .air.secondaryLabel,
                 symbolColor: .air.secondaryLabel
             )
-            .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
+            .heroSensitiveData()
         }
         .buttonStyle(.plain)
     }

@@ -10,6 +10,8 @@ private let homeWalletTokenContextMenuCornerRadius: CGFloat = 26
 
 @MainActor
 public final class HomeWalletTokensSectionDataProvider: ActivityListViewController.CustomSectionDataProvider, WalletCoreData.EventsObserver {
+    public var topSpacing: CGFloat?
+
     private enum ItemIdentifier {
         static let tokenPrefix = "token:"
         static let placeholderPrefix = "placeholder:"
@@ -276,6 +278,7 @@ public final class HomeWalletTokensSectionDataProvider: ActivityListViewControll
             return separatorConfiguration
         }
         let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
+        if let topSpacing { section.contentInsets.top = topSpacing }
         return section
     }
 

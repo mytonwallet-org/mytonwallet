@@ -1,3 +1,5 @@
+import { IS_GRAM_WALLET, IS_PRODUCTION, IS_STAGING, PRODUCTION_URL } from '../config';
+
 export interface WebFunnelContext {
   visitId: string | null;
   hasExistingState: boolean;
@@ -12,8 +14,10 @@ export function getWebFunnelVisitId(search: string): string | null {
   return values.length === 1 && UUID_V4.test(values[0]) ? values[0] : null;
 }
 
-export function isWebFunnelOrigin(origin: string, isGram: boolean, env: string) {
-  if (env === 'production') return origin === (isGram ? 'https://wallet.ton.org' : 'https://web.mywallet.io');
-  if (env === 'staging') return !isGram && origin === 'https://web-beta.mywallet.io';
-  return false;
+// Build constants pick the origin so production bundles carry no staging host, which the Gram release rejects
+const WEB_FUNNEL_ORIGIN = IS_PRODUCTION ? PRODUCTION_URL
+  : IS_STAGING && !IS_GRAM_WALLET ? 'https://web-beta.mywallet.io' : undefined;
+
+export function isWebFunnelOrigin(origin: string) {
+  return origin === WEB_FUNNEL_ORIGIN;
 }

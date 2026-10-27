@@ -109,10 +109,25 @@ public final class UniversalSearchFieldView: UIView {
 
     public var text: String { fieldView.text }
     public var isEditing: Bool { fieldView.isEditing }
+    public var searchButtonPresentationSourceView: UIView { fieldView }
     public var trailingButtonView: UIView { closeButton.interactionView }
     public var trailingButtonPresentationSourceView: UIView { closeButton.presentationSourceView }
     public private(set) var compactActions: [SharedBottomToolbarAction] = []
     public private(set) var presentation: UniversalSearchFieldPresentation = .search
+    public private(set) var searchOverlayAppearance: ContentOverlayAppearance = .standard
+    public private(set) var actionsOverlayAppearance: ContentOverlayAppearance = .standard
+
+    public func setOverlayAppearance(search: ContentOverlayAppearance, actions: ContentOverlayAppearance, animated: Bool) {
+        let animated = animated && window != nil && !UIAccessibility.isReduceMotionEnabled
+        if search != searchOverlayAppearance {
+            searchOverlayAppearance = search
+            fieldView.setOverlayAppearance(search, animated: animated)
+        }
+        if actions != actionsOverlayAppearance {
+            actionsOverlayAppearance = actions
+            closeButton.setOverlayAppearance(actions, animated: animated)
+        }
+    }
 
     private var storedConfiguration: UniversalSearchFieldConfiguration
     private let fieldView = UniversalSearchFieldCapsuleView()
@@ -781,6 +796,18 @@ private final class UniversalSearchFieldCapsuleView: UIView, UITextFieldDelegate
     var onEditingChange: ((Bool) -> Void)?
     var onReturn: ((String) -> Void)?
     var onMicrophoneTap: (() -> Void)?
+
+    func setOverlayAppearance(_ appearance: ContentOverlayAppearance, animated: Bool) {
+        let updates = {
+            self.overrideUserInterfaceStyle = appearance.userInterfaceStyle
+            self.glassView.setUsesClearGlass(appearance.usesClearGlass)
+            self.magnifyingGlass.tintColor = appearance.foregroundColor ?? .label
+        }
+        if animated {
+            UIView.transition(with: magnifyingGlass, duration: 0.25,
+                              options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent], animations: updates)
+        } else { updates() }
+    }
 
     var microphoneAccessibilityLabel: String = lang("$universal_search_dictate") {
         didSet {
@@ -1745,6 +1772,14 @@ private final class UniversalSearchInteractiveGlassView: UIView {
 
     private let effectView: UIVisualEffectView
     private var materialEffect: UIVisualEffect
+    private var usesClearGlass = false
+    private var glassTintColor: UIColor?
+
+    func setUsesClearGlass(_ usesClearGlass: Bool) {
+        guard usesClearGlass != self.usesClearGlass else { return }
+        self.usesClearGlass = usesClearGlass
+        setGlassTintColor(glassTintColor, animator: nil, inheritsAnimation: true)
+    }
 
     override init(frame: CGRect) {
         let materialEffect: UIVisualEffect
@@ -1796,10 +1831,12 @@ private final class UniversalSearchInteractiveGlassView: UIView {
 
     func setGlassTintColor(
         _ tintColor: UIColor?,
-        animator: UIViewPropertyAnimator?
+        animator: UIViewPropertyAnimator?,
+        inheritsAnimation: Bool = false
     ) {
+        glassTintColor = tintColor
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            let effect = UIGlassEffect(style: .regular)
+            let effect = UIGlassEffect(style: usesClearGlass ? .clear : .regular)
             effect.isInteractive = true
             effect.tintColor = tintColor
             materialEffect = effect
@@ -1810,6 +1847,8 @@ private final class UniversalSearchInteractiveGlassView: UIView {
             }
             if let animator {
                 animator.addAnimations(updates)
+            } else if inheritsAnimation {
+                updates()
             } else {
                 UIView.performWithoutAnimation(updates)
             }
@@ -1863,7 +1902,23 @@ private final class UniversalSearchCloseButton: UIView {
     private let button = UIButton(type: .system)
     private let actionContentView = WBlurredContentView()
     private let closeContentView = WBlurredContentView()
+    private var foregroundImageViews: [UIImageView] = []
     private var presentation: UniversalSearchFieldPresentation = .search
+
+    func setOverlayAppearance(_ appearance: ContentOverlayAppearance, animated: Bool) {
+        let updates = {
+            self.overrideUserInterfaceStyle = appearance.userInterfaceStyle
+            // Glass may adapt its content's traits independently. The menu uses
+            // the interaction button as its appearance source.
+            self.button.overrideUserInterfaceStyle = appearance.userInterfaceStyle
+            self.glassView.setUsesClearGlass(appearance.usesClearGlass)
+            self.foregroundImageViews.forEach { $0.tintColor = appearance.foregroundColor ?? .label }
+        }
+        if animated {
+            UIView.transition(with: actionContentView, duration: 0.25,
+                              options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent], animations: updates)
+        } else { updates() }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1987,6 +2042,7 @@ private final class UniversalSearchCloseButton: UIView {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.tintColor = .label
         imageView.contentMode = .center
+        foregroundImageViews.append(imageView)
         contentView.addSubview(imageView)
         NSLayoutConstraint.activate([
             imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),

@@ -249,10 +249,6 @@ async function createWindow(isRetryingWithoutLastState = false): Promise<void> {
   }
 }
 
-export async function clearCache() {
-  await extension.webRequest.handlerBehaviorChanged();
-}
-
 export async function updateWindowSize(size: { width: number; height: number }) {
   await updatePopupWindow(size);
 }

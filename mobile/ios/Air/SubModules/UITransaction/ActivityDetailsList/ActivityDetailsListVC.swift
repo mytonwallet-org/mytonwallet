@@ -10,6 +10,7 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     let activityIds: [String]
     let activitiesById: [String: ApiActivity]
     let context: ActivityDetailsContext
+    private var presentationMode: SheetPresentationMode?
     
     @AccountContext var account: MAccount
     
@@ -38,6 +39,41 @@ public class ActivityDetailsListVC: WViewController, ActivityCell.Delegate {
     public override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+    }
+
+    public func prepareForPresentation(from presenter: UIViewController) {
+        updatePresentationSize(mode: sheetPresentationMode(presentingFrom: presenter))
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updatePresentationSize(mode: sheetPresentationMode)
+    }
+
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Wait for the pop to finish so a cancelled interactive transition preserves the detail sheet.
+        if let sheet = (navigationController ?? self).sheetPresentationController {
+            sheet.delegate = nil
+            sheet.prefersGrabberVisible = false
+            sheet.animateChanges {
+                sheet.detents = [.large()]
+                sheet.selectedDetentIdentifier = .large
+            }
+        }
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updatePresentationSize(mode: sheetPresentationMode)
+    }
+
+    private func updatePresentationSize(mode: SheetPresentationMode?) {
+        guard let mode, mode != presentationMode else { return }
+        presentationMode = mode
+        let size = mode == .floating ? ActivityDetailsVC.floatingSheetSize : .zero
+        let host = navigationController ?? self
+        host.preferredContentSize = size
     }
     
     private func setupViews() {

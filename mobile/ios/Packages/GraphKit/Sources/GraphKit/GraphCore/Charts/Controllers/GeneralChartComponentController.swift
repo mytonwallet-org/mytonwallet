@@ -141,6 +141,9 @@ class GeneralChartComponentController: ChartThemeContainer {
     }
     
     var currentChartHorizontalRangeFraction: ClosedRange<CGFloat> {
+        guard totalHorizontalRange.distance > 0 else {
+            return 0...1
+        }
         let lowerPercent = (currentHorizontalMainChartRange.lowerBound - totalHorizontalRange.lowerBound) / totalHorizontalRange.distance
         let upperPercent = (currentHorizontalMainChartRange.upperBound - totalHorizontalRange.lowerBound) / totalHorizontalRange.distance
         return lowerPercent...upperPercent

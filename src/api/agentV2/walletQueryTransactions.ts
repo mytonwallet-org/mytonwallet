@@ -152,9 +152,7 @@ function projectTransaction(
   activity: ApiActivity,
 ): AgentWalletDataTransactionRowV3 {
   const accountRef = requireAccountRef(snapshot, account);
-  const transactionType = activity.kind === 'swap'
-    ? 'swap'
-    : activity.type === 'approval' ? 'callContract' : activity.type ?? 'transfer';
+  const transactionType = toAgentTransactionType(activity);
   const direction = activity.kind === 'transaction'
     ? activity.fromAddress === activity.toAddress ? 'self' : activity.isIncoming ? 'incoming' : 'outgoing'
     : 'self';
@@ -381,6 +379,13 @@ function nftAction(activity: Extract<ApiActivity, { kind: 'transaction' }>) {
   if (activity.type === 'burn') return 'burn' as const;
   if (activity.type === 'nftTrade') return activity.isIncoming ? 'purchase' as const : 'sale' as const;
   return 'transfer' as const;
+}
+
+function toAgentTransactionType(activity: ApiActivity): AgentWalletDataTransactionRowV3['transactionType'] {
+  if (activity.kind === 'swap') return 'swap';
+  if (activity.type === 'approval') return 'callContract';
+  if (activity.type === 'nftAuctionStart' || activity.type === 'nftAuctionCancel') return 'auctionBid';
+  return activity.type ?? 'transfer';
 }
 
 function isContractTransaction(type: Extract<ApiActivity, { kind: 'transaction' }>['type']) {

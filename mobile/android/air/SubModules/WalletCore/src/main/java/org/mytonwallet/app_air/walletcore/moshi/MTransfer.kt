@@ -354,3 +354,15 @@ enum class MApiAnyDisplayError {
             )
         }
 }
+
+@JsonClass(generateAdapter = true)
+data class ApiForeignUnstakeDraft(
+    val amountNative: BigInteger,
+    val transfers: List<Transfer>,
+    val fee: BigInteger,
+    val realFee: BigInteger,
+    val isInstant: Boolean = false
+) {
+    @JsonClass(generateAdapter = true)
+    data class Transfer(val toAddress: String, val amount: BigInteger, val payload: String? = null)
+}

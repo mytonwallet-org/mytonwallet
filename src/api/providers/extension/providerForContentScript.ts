@@ -25,7 +25,6 @@ function buildDappAdapterErrorResult() {
 }
 
 const ALLOWED_METHODS = new Set([
-  'flushMemoryCache',
   'prepareTransaction',
   'processDeeplink',
   'recordTonConnectEvent',

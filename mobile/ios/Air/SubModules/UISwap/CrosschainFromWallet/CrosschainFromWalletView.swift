@@ -62,6 +62,7 @@ private struct AddressInputCell: View {
                         value: $model.addressWithTrimming,
                         isFocused: $model.isAddressFocused,
                         maximumNumberOfLines: 0,
+                        isError: model.hasAddressError,
                         onNext: { model.isAddressFocused = false }
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -170,7 +171,7 @@ private struct CrosschainSuggestions: View {
             if !matchingAccountIds.isEmpty {
                 InsetSection {
                     ForEach(matchingAccountIds, id: \.self) { accountId in
-                        AccountButton(accountId: accountId, onTap: onAccountTap)
+                        AccountButton(accountId: accountId, targetChain: targetChain, onTap: onAccountTap)
                     }
                 } header: {
                     Text(lang("My"))
@@ -217,19 +218,21 @@ private struct SavedAddressButton: View {
 
 private struct AccountButton: View {
     let accountId: String
+    let targetChain: ApiChain
     let onTap: (MAccount) -> Void
 
     @State private var account = AccountContext(accountId: "")
 
-    init(accountId: String, onTap: @escaping (MAccount) -> Void) {
+    init(accountId: String, targetChain: ApiChain, onTap: @escaping (MAccount) -> Void) {
         self.accountId = accountId
+        self.targetChain = targetChain
         self.onTap = onTap
         self._account = State(initialValue: AccountContext(accountId: accountId))
     }
 
     var body: some View {
         InsetButtonCell(horizontalPadding: 12, verticalPadding: 10, action: { onTap(account.wrappedValue) }) {
-            AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false)
+            AccountListCell(accountContext: account, isReordering: false, showCurrentAccountHighlight: false, addressChain: targetChain)
         }
     }
 }

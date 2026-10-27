@@ -64,27 +64,41 @@ struct NftSendFlow: Sendable {
     func submit(
         _ submission: NftSendSubmission,
         enclaveToken: EnclaveToken?
-    ) async throws -> SendSubmissionResult {
-        let result = try await api.submit(.init(
-            chain: submission.chain,
-            accountId: submission.accountId,
-            enclaveToken: enclaveToken,
-            nfts: submission.nfts,
-            toAddress: submission.resolvedAddress,
-            comment: submission.comment,
-            totalRealFee: submission.totalRealFee ?? 0,
-            isNftBurn: submission.mode == .burn
-        ))
-        if let error = result.error {
-            throw SdkError.apiReturnedError(
-                error: error,
-                context: nil
+    ) async -> SoftwareSubmission<SendSubmissionResult> {
+        do {
+            let result = try await api.submit(.init(
+                chain: submission.chain,
+                accountId: submission.accountId,
+                enclaveToken: enclaveToken,
+                nfts: submission.nfts,
+                toAddress: submission.resolvedAddress,
+                comment: submission.comment,
+                totalRealFee: submission.totalRealFee ?? 0,
+                isNftBurn: submission.mode == .burn
+            ))
+            if let error = result.error {
+                let activityIds = result.activityIds ?? []
+                return .resolved(partialOrNotCommitted(
+                    error: SdkError.apiReturnedError(error: error, context: result),
+                    completedUnitCount: activityIds.count,
+                    totalUnitCount: submission.nfts.count,
+                    activityIds: activityIds
+                ))
+            }
+            let payload = SendSubmissionResult(
+                activityIds: result.activityIds ?? [],
+                mfaRequestHash: result.mfaRequestHash
             )
+            if payload.mfaRequestHash != nil {
+                return .requiresMfa(payload)
+            }
+            return .resolved(.committed(ActionSubmissionReceipt(
+                payload: payload,
+                activityIds: payload.activityIds
+            )))
+        } catch {
+            return .resolved(actionSubmissionFailure(for: error))
         }
-        return SendSubmissionResult(
-            activityIds: result.activityIds ?? [],
-            mfaRequestHash: result.mfaRequestHash
-        )
     }
 
     @MainActor
@@ -188,6 +202,12 @@ private func partialOrNotCommitted<Result: Sendable>(
 ) -> ActionSubmissionResult<Result> {
     guard completedUnitCount > 0 else {
         return .notCommitted(error)
+    }
+    guard completedUnitCount < totalUnitCount else {
+        return .indeterminate(
+            error: error,
+            receipt: ActionSubmissionReceipt(activityIds: activityIds)
+        )
     }
     return .partiallyCommitted(
         receipt: ActionSubmissionReceipt(

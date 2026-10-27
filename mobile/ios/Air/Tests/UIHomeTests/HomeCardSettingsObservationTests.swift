@@ -50,7 +50,9 @@ struct HomeCardSettingsObservationTests {
                     #expect(abs(clip.layer.cornerRadius - 26) < 0.01)
                 } else {
                     #expect(clip.bounds.width < 50)
-                    #expect(clip.layer.animation(forKey: "cornerRadius") != nil)
+                    // Assert the resulting geometry: first-use shader work can
+                    // outlast the short animation before this async check resumes.
+                    #expect(abs(clip.layer.cornerRadius - 26 * clip.bounds.width / layout.itemWidth) < 0.01)
                 }
             }
         }

@@ -495,7 +495,7 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
                 .contains(nft.address),
             isWhitelisted = WGlobalStorage.getWhitelistedNftAddresses(accountId)
                 .contains(nft.address),
-            isHidden = nft.isHidden == true,
+            isHidden = nft.isHidden == true || activityNft.isHidden == true,
             isUnverified = nft.isUnverified == true,
             areUnverifiedNftsHidden = WGlobalStorage.getAreUnverifiedNftsHidden(),
             isIncoming = transaction.isIncoming,
@@ -587,6 +587,10 @@ sealed class MApiTransaction : WEquatable<MApiTransaction> {
     val swapType: SwapType
         get() {
             if (this is Swap) {
+                // A deposit quote is not an on-chain swap when the account holds both tokens.
+                if (cex != null && fromToken?.isOnChain != false && toToken?.isOnChain != false) {
+                    return SwapType.CROSS_CHAIN_FROM_WALLET
+                }
                 return when {
                     fromToken?.isOnChain == false -> SwapType.CROSS_CHAIN_TO_WALLET
                     toToken?.isOnChain == false -> SwapType.CROSS_CHAIN_FROM_WALLET
@@ -786,6 +790,12 @@ enum class ApiTransactionType {
     @Json(name = "auctionBid")
     AUCTION_BID,
 
+    @Json(name = "nftAuctionStart")
+    NFT_AUCTION_START,
+
+    @Json(name = "nftAuctionCancel")
+    NFT_AUCTION_CANCEL,
+
     @Json(name = "nftTrade")
     NFT_TRADE,
 
@@ -826,6 +836,8 @@ enum class ApiTransactionType {
             MINT to R.drawable.ic_act_mint,
             BURN to R.drawable.ic_act_burn,
             AUCTION_BID to R.drawable.ic_act_auction,
+            NFT_AUCTION_START to R.drawable.ic_act_auction,
+            NFT_AUCTION_CANCEL to R.drawable.ic_act_auction,
             NFT_TRADE to R.drawable.ic_act_nft_purchase,
             DNS_CHANGE_ADDRESS to R.drawable.ic_act_ton_dns,
             DNS_CHANGE_SITE to R.drawable.ic_act_ton_dns,
@@ -899,6 +911,16 @@ enum class ApiTransactionType {
                 "NFT Auction Bid",
                 "Bidding at NFT Auction",
                 "NFT Auction Bid"
+            ),
+            NFT_AUCTION_START to Triple(
+                "Started Auction",
+                "Starting Auction",
+                "\$start_nft_auction_action"
+            ),
+            NFT_AUCTION_CANCEL to Triple(
+                "Cancelled Auction",
+                "Cancelling Auction",
+                "\$cancel_nft_auction_action"
             ),
             DNS_CHANGE_ADDRESS to Triple(
                 "Updated Address",

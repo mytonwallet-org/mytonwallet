@@ -108,6 +108,7 @@ final class MarketScreenModel: ObservableObject {
 }
 
 struct MarketScreen: View {
+    @Environment(\.horizontalContentMargins) private var contentMargins
     @ObservedObject var model: MarketScreenModel
     let onScrollOffsetChange: (CGFloat) -> Void
     let onSeeAll: (MarketSection) -> Void
@@ -116,29 +117,35 @@ struct MarketScreen: View {
     @Namespace private var scrollCoordinateSpace
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 24) {
-                    ForEach(model.sections) { section in
-                        MarketSectionView(
-                            section: section,
-                            onSeeAll: { onSeeAll(section) },
-                            onSelectToken: onSelectToken
-                        )
-                        .id(section.id)
+        GeometryReader { geometry in
+            let columnCount = MarketGridLayout.columnCount(
+                availableWidth: geometry.size.width - contentMargins.leading - contentMargins.trailing
+            )
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: 24) {
+                        ForEach(model.sections) { section in
+                            MarketSectionView(
+                                section: section,
+                                columnCount: columnCount,
+                                onSeeAll: { onSeeAll(section) },
+                                onSelectToken: onSelectToken
+                            )
+                            .id(section.id)
+                        }
                     }
+                    .padding(.top, 14)
+                    .padding(.bottom, 32)
+                    .scrollPosition(ns: scrollCoordinateSpace, callback: onScrollOffsetChange)
                 }
-                .padding(.top, 14)
-                .padding(.bottom, 32)
-                .scrollPosition(ns: scrollCoordinateSpace, callback: onScrollOffsetChange)
-            }
-            .backportScrollClipDisabled()
-            .coordinateSpace(name: scrollCoordinateSpace)
-            .background(Color.air.groupedBackground)
-            .onChange(of: model.scrollToTopRequest) { _ in
-                guard let firstSection = model.sections.first else { return }
-                withAnimation {
-                    proxy.scrollTo(firstSection.id, anchor: .top)
+                .backportScrollClipDisabled()
+                .coordinateSpace(name: scrollCoordinateSpace)
+                .background(Color.air.groupedBackground)
+                .onChange(of: model.scrollToTopRequest) { _ in
+                    guard let firstSection = model.sections.first else { return }
+                    withAnimation {
+                        proxy.scrollTo(firstSection.id, anchor: .top)
+                    }
                 }
             }
         }
@@ -149,27 +156,29 @@ struct MarketScreen: View {
 private struct MarketSectionView: View {
     @Environment(\.horizontalContentMargins) private var contentMargins
     let section: MarketSection
+    let columnCount: Int
     let onSeeAll: () -> Void
     let onSelectToken: (MarketToken) -> Void
 
     var body: some View {
+        let visibleTokens = section.visibleTokens(columnCount: columnCount)
         VStack(alignment: .leading, spacing: 0) {
             MarketSectionHeader(
                 title: section.title,
-                showsSeeAll: section.showsSeeAll,
+                showsSeeAll: section.showsSeeAll(columnCount: columnCount),
                 onSeeAll: onSeeAll
             )
 
             switch section.layout {
             case .largeHorizontal:
-                MarketMoverCarousel(tokens: section.visibleTokens, onSelectToken: onSelectToken)
+                MarketMoverCarousel(tokens: visibleTokens, onSelectToken: onSelectToken)
 
             case .grid:
-                MarketGrid(tokens: section.visibleTokens, onSelectToken: onSelectToken)
+                MarketGrid(tokens: visibleTokens, columnCount: columnCount, onSelectToken: onSelectToken)
                     .padding(contentMargins)
 
             case .rows:
-                MarketRows(tokens: section.visibleTokens, onSelectToken: onSelectToken)
+                MarketRows(tokens: visibleTokens, onSelectToken: onSelectToken)
                     .padding(contentMargins)
             }
         }
@@ -285,7 +294,6 @@ private struct MarketMoverCard: View {
                     .textStyle(.calloutStrong, scaling: .dynamic)
                     .foregroundStyle(Color.air.primaryLabel)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
                     .frame(maxWidth: 144)
                     .padding(.top, 8)
 
@@ -295,6 +303,7 @@ private struct MarketMoverCard: View {
                             .foregroundStyle(Color.air.secondaryLabel)
                     }
                     Text(token.changeText)
+                        .textStyle(.supporting, scaling: .dynamic)
                         .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
                 }
                 .textStyle(.supporting, content: .technical, scaling: .dynamic)
@@ -380,12 +389,15 @@ private struct MarketSparklineShape: Shape {
 
 private struct MarketGrid: View {
     let tokens: [MarketToken]
+    let columnCount: Int
     let onSelectToken: (MarketToken) -> Void
 
-    private let columns = Array(
-        repeating: GridItem(.flexible(minimum: 64), spacing: 0, alignment: .top),
-        count: 4
-    )
+    private var columns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(minimum: 64), spacing: 0, alignment: .top),
+            count: columnCount
+        )
+    }
 
     var body: some View {
         LazyVGrid(columns: columns, alignment: .center, spacing: 16) {
@@ -419,12 +431,11 @@ private struct MarketGridItem: View {
                 .textStyle(.supportingEmphasized, scaling: .dynamic)
                 .foregroundStyle(Color.air.primaryLabel)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
                 .frame(maxWidth: 88)
                 .padding(.top, 6)
 
             Text(token.changeText)
-                .textStyle(.supporting, content: .technical, scaling: .dynamic)
+                .textStyle(.supporting, scaling: .dynamic)
                 .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
                 .lineLimit(1)
         }
@@ -508,6 +519,7 @@ struct MarketTokenRow: View {
                             .foregroundStyle(Color.air.secondaryLabel)
                     }
                     Text(token.changeText)
+                        .textStyle(.supporting, scaling: .dynamic)
                         .foregroundStyle(token.isPositive ? Color.air.positiveAmount : Color.air.negativeAmount)
                 }
                 .textStyle(.supporting, content: .technical, scaling: .dynamic)

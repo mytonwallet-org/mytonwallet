@@ -387,6 +387,14 @@ final class ChainDisplaySettingsVC: SettingsBaseVC {
 }
 
 extension ChainDisplaySettingsVC: UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        (cell as? ChainVisibilityCell)?.isDisplaying = true
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        (cell as? ChainVisibilityCell)?.isDisplaying = false
+    }
+
     func collectionView(
         _ collectionView: UICollectionView,
         targetIndexPathForMoveFromItemAt originalIndexPath: IndexPath,

@@ -36,7 +36,7 @@ class BaseAgentModel {
     private var itemsByID: [AgentItemID: AgentTimelineItem] = [:]
     private var availableHints: [AgentHint] = []
     private var deferredTypingIndicator: AgentTimelineItem?
-    private var pendingRevealUserMessageID: AgentItemID?
+    private(set) var pendingRevealUserMessageID: AgentItemID?
     private var isAwaitingTypingIndicatorReveal = false
     private let backend: AgentBackend
     private lazy var backendContext = AgentBackendContext(
@@ -171,8 +171,8 @@ class BaseAgentModel {
             text: text,
             isStreaming: false
         )
-        appendMessage(message, animated: true)
         beginTypingIndicatorReveal(for: message.id)
+        appendMessage(message, animated: true)
         backend.didSendUserMessage(
             text,
             userMessageID: message.id,
@@ -462,7 +462,7 @@ class BaseAgentModel {
     }
 
     func formattedDate(for timestamp: Date) -> (date: String, time: String) {
-        let dateText = timestamp.formatted(.dateTime.year(.defaultDigits).month(.wide).day())
+        let dateText = timestamp.formatted(.localizedDateTime.year(.defaultDigits).month(.wide).day())
         return (dateText, Self.formattedTime(timestamp))
     }
 

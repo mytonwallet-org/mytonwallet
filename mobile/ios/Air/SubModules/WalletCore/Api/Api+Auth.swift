@@ -20,8 +20,8 @@ extension Api {
     }
     
     /// - Important: Do not call this method directly, use **AccountStore** instead
-    internal static func importMnemonic(networks: [ApiNetwork], mnemonic: [String]) async throws -> [ApiAddWalletResult] {
-        return try await bridge.callApi("importMnemonic", networks, mnemonic, decoding: [ApiAddWalletResult].self)
+    internal static func importMnemonic(networks: [ApiNetwork], mnemonic: [String], shouldSkipDiscovery: Bool) async throws -> [ApiAddWalletResult] {
+        return try await bridge.callApi("importMnemonic", networks, mnemonic, shouldSkipDiscovery, decoding: [ApiAddWalletResult].self)
     }
     
     internal static func importPrivateKey(chain: ApiChain, networks: [ApiNetwork], privateKey: String) async throws -> [ApiAddWalletResult] {

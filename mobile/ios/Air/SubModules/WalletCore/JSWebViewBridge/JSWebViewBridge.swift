@@ -748,7 +748,16 @@ extension JSWebViewBridge: WKScriptMessageHandler { // todo: move to a separate 
                         log.fault("failed to decode updateAccountConfig \(error, .public)")
                     }
                     break
-                    
+
+                case "updateAccountBanners":
+                    do {
+                        let update = try JSONSerialization.decode(ApiUpdate.UpdateAccountBanners.self, from: data)
+                        WalletCoreData.notify(event: .updateAccountBanners(update))
+                    } catch {
+                        log.fault("failed to decode updateAccountBanners \(error, .public)")
+                    }
+                    break
+
                 case "initialActivities":
                     do {
                         let update = try JSONSerialization.decode(ApiUpdate.InitialActivities.self, from: data)

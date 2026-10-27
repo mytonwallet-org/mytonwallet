@@ -1,12 +1,14 @@
 import type { ApiAccountAny, ApiBackendConfig } from '../../types';
-import type { ZerionTransaction } from './types';
+import type { ZerionNftTransfer, ZerionTransaction } from './types';
 
+import { getIsHiddenNftActivity, isScamTransaction } from '../../../util/activities';
 import { fetchJson } from '../../../util/fetch';
 import { untrackableRegistry } from './util/untrackable';
 import { fetchStoredAccount } from '../../common/accounts';
 import { setBackendConfigCache } from '../../common/cache';
 import { ApiServerError } from '../../errors';
 import { fetchActivitySlice, fetchEvmTxs, transformEvmTxToUnified } from './activities';
+import { fetchNftByAddress } from './nfts';
 
 // Mock only the network call; keep isNegativeCacheableStatus real so the adapter's classification
 // is exercised end to end.
@@ -27,6 +29,93 @@ function setNegVerdictCacheFlag(enabled: boolean) {
 }
 
 const BASE = { chain: 'ethereum', network: 'mainnet', limit: 50 } as const;
+
+describe('NFT spam metadata and activity identity', () => {
+  const OWNER = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+  const CONTRACT = '0x000000000000888741B254d37e1b27128AfEAaBC';
+  const TOKEN_ID = '5261405894391250505533265397778618870761357154713600';
+
+  function makeTransaction(flags?: ZerionNftTransfer['nft_info']['flags'], isTrash = false): ZerionTransaction {
+    return {
+      type: 'transactions',
+      id: 'nft-tx',
+      attributes: {
+        address: OWNER,
+        operation_type: 'receive',
+        hash: '0xnft',
+        mined_at_block: 1,
+        mined_at: '2026-10-26T00:00:00Z',
+        sent_from: CONTRACT,
+        sent_to: OWNER,
+        status: 'confirmed',
+        nonce: 1,
+        fee: { quantity: { int: '0', decimals: 18, float: 0, numeric: '0' }, price: 0, value: 0 },
+        transfers: [{
+          direction: 'in',
+          sender: CONTRACT,
+          recipient: OWNER,
+          act_id: '0',
+          quantity: { int: '1', decimals: 0, float: 1, numeric: '1' },
+          price: 0,
+          value: 0,
+          nft_info: {
+            contract_address: CONTRACT.toLowerCase(), token_id: TOKEN_ID, name: 'SLOW', interface: 'ERC721', flags,
+          },
+        }],
+        approvals: [],
+        flags: { is_trash: isTrash },
+        acts: [],
+      },
+      relationships: { chain: { links: { related: '' }, data: { type: 'chains', id: 'base' } } },
+    };
+  }
+
+  it.each([CONTRACT, CONTRACT.toLowerCase()])('matches gallery hide/show for Alchemy casing %s', async (contract) => {
+    fetchJsonMock.mockResolvedValueOnce({
+      contract: { address: contract, tokenType: 'ERC721' }, tokenId: TOKEN_ID, image: {}, raw: {},
+    });
+    const galleryNft = await fetchNftByAddress('base', 'mainnet', CONTRACT, TOKEN_ID, OWNER);
+    const activity = transformEvmTxToUnified('base', makeTransaction({ is_spam: true }), OWNER);
+    if (activity.kind !== 'transaction') throw new Error('Expected NFT transaction');
+
+    expect(activity.nft).toMatchObject({
+      address: galleryNft.address,
+      interface: 'ERC721',
+      isHidden: true,
+      spamInfo: { provider: 'zerion', isSpam: true },
+    });
+    expect(isScamTransaction(activity)).toBeFalsy();
+    expect(getIsHiddenNftActivity(activity)).toBe(true);
+    expect(getIsHiddenNftActivity(activity, [], [galleryNft.address])).toBe(false);
+    expect(getIsHiddenNftActivity(activity, [galleryNft.address], [galleryNft.address])).toBe(true);
+  });
+
+  it('preserves the ERC1155 transfer interface even before the NFT gallery loads', () => {
+    const tx = makeTransaction();
+    (tx.attributes.transfers[0] as ZerionNftTransfer).nft_info.interface = 'ERC1155';
+    const activity = transformEvmTxToUnified('base', tx, OWNER);
+    if (activity.kind !== 'transaction') throw new Error('Expected NFT transaction');
+
+    expect(activity.nft?.interface).toBe('ERC1155');
+  });
+
+  // eslint-disable-next-line no-null/no-null
+  it.each([false, null, undefined])('does not hide an NFT for the %s provider verdict', (isSpam) => {
+    const activity = transformEvmTxToUnified('base', makeTransaction({ is_spam: isSpam }), OWNER);
+    if (activity.kind !== 'transaction') throw new Error('Expected NFT transaction');
+
+    expect(activity.nft?.spamInfo).toEqual({ provider: 'zerion', isSpam: isSpam ?? undefined });
+    expect(getIsHiddenNftActivity(activity)).toBe(false);
+  });
+
+  it('still honors transaction-level trash when NFT flags are missing', () => {
+    const activity = transformEvmTxToUnified('base', makeTransaction(undefined, true), OWNER);
+    if (activity.kind !== 'transaction') throw new Error('Expected NFT transaction');
+
+    expect(activity.nft?.spamInfo?.isSpam).toBeUndefined();
+    expect(isScamTransaction(activity)).toBe(true);
+  });
+});
 
 describe('fetchEvmTxs untrackable handling', () => {
   beforeEach(() => {

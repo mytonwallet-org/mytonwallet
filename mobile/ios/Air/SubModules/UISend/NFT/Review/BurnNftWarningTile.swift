@@ -1,3 +1,4 @@
+import SwiftUI
 import UIComponents
 import UIKit
 
@@ -15,15 +16,11 @@ final class BurnNftWarningTile: UIView {
     }
 
     private func setup(text: String) {
-        backgroundColor = .air.error.withAlphaComponent(0.12)
-        layer.cornerCurve = .continuous
-        layer.cornerRadius = 10
-        layer.masksToBounds = true
-
-        let band = UIView()
-        band.backgroundColor = .air.error
-        band.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(band)
+        let background = HostingView {
+            WarningBackground(color: .air.error)
+        }
+        background.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(background)
 
         textLabel.text = text
         textLabel.textColor = .air.error
@@ -35,25 +32,25 @@ final class BurnNftWarningTile: UIView {
         widthConstraint = widthAnchor.constraint(equalToConstant: 100)
 
         NSLayoutConstraint.activate([
-            band.leadingAnchor.constraint(equalTo: leadingAnchor),
-            band.topAnchor.constraint(equalTo: topAnchor),
-            band.bottomAnchor.constraint(equalTo: bottomAnchor),
-            band.widthAnchor.constraint(equalToConstant: 4),
+            background.leadingAnchor.constraint(equalTo: leadingAnchor),
+            background.trailingAnchor.constraint(equalTo: trailingAnchor),
+            background.topAnchor.constraint(equalTo: topAnchor),
+            background.bottomAnchor.constraint(equalTo: bottomAnchor),
             textLabel.leadingAnchor.constraint(
-                equalTo: band.trailingAnchor,
-                constant: 12
+                equalTo: leadingAnchor,
+                constant: 18
             ),
             textLabel.topAnchor.constraint(
                 equalTo: topAnchor,
-                constant: 8
+                constant: 12
             ),
             textLabel.bottomAnchor.constraint(
                 equalTo: bottomAnchor,
-                constant: -8
+                constant: -12
             ),
             textLabel.trailingAnchor.constraint(
                 equalTo: trailingAnchor,
-                constant: -16
+                constant: -18
             ),
             widthConstraint,
         ])
@@ -65,6 +62,6 @@ final class BurnNftWarningTile: UIView {
             width: CGFloat.greatestFiniteMagnitude,
             height: CGFloat.greatestFiniteMagnitude
         ))
-        widthConstraint.constant = min(300, textSize.width + 32)
+        widthConstraint.constant = min(300, textSize.width + 36)
     }
 }

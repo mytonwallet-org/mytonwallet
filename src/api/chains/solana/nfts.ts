@@ -392,8 +392,7 @@ export async function submitNftTransfers(options: {
   const result = await sendSignedTransaction(tx as Base58EncodedBytes, network);
 
   return {
-    msgHashNormalized: result,
-    transfers: nfts.map(() => ({ toAddress })),
+    transfers: nfts.map(() => ({ toAddress, msgHashNormalized: result })),
   };
 }
 

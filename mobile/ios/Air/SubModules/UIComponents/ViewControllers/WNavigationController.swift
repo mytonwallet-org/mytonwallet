@@ -22,6 +22,7 @@ class SlowedPanGestureRecognizer: UIPanGestureRecognizer {
 }
 
 open class WNavigationController: UINavigationController {
+    open override var childForStatusBarStyle: UIViewController? { topViewController }
     
     private let log = Log("WNavigationController")
     private let sheetDimmingController = SheetDimmingController()
@@ -188,6 +189,7 @@ extension WNavigationController: UINavigationControllerDelegate {
     public func navigationController(_ navigationController: UINavigationController,
                                      didShow viewController: UIViewController, animated: Bool) {
         onDidShowViewController?(viewController)
+        setNeedsStatusBarAppearanceUpdate()
     }
 }
 

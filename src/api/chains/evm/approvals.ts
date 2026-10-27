@@ -6,6 +6,7 @@ import type { ZerionFungibleInfo, ZerionTransaction, ZerionTransactionsResponse 
 import { ApiCommonError, ApiTransactionError } from '../../types';
 
 import { parseAccountId } from '../../../util/account';
+import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { fetchJson } from '../../../util/fetch';
 import { logDebugError } from '../../../util/logs';
 import { isUnlimitedEvmAllowance } from './util/allowance';
@@ -20,6 +21,7 @@ import { normalizeAddress } from './address';
 import { fetchPrivateKeyString, getSignerFromPrivateKey } from './auth';
 import {
   EVM_DALEGATOR_ADDRESSES,
+  EVM_MAX_TRANSFER_FEE_MULTIPLIER,
   getEvmApiUrl,
   getZerionChainByApiChain,
   UNISWAP_PERMIT2_ADDRESS,
@@ -652,15 +654,10 @@ async function revokeEvmDelegation(
       authorizationList: [authorization],
     };
 
-    const [nativeBalance, fee, feeData] = await Promise.all([
+    const [nativeBalance, feeData] = await Promise.all([
       getWalletBalance(chain, network, address),
-      estimateEvmFee(provider, transaction),
       provider.getFeeData(),
     ]);
-
-    if (nativeBalance < fee) {
-      return { error: ApiTransactionError.InsufficientBalance };
-    }
 
     // Set-code transactions encode EIP-1559 fees; some chains (e.g. BSC) expose only gasPrice.
     const maxFeePerGas = feeData.maxFeePerGas || feeData.gasPrice;
@@ -670,10 +667,23 @@ async function revokeEvmDelegation(
       return { error: ApiTransactionError.UnsuccesfulTransfer };
     }
 
+    const estimatedGasLimit = await provider.estimateGas({
+      ...transaction,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    });
+    const gasLimit = bigintMultiplyToNumber(estimatedGasLimit, EVM_MAX_TRANSFER_FEE_MULTIPLIER);
+    const fee = gasLimit * maxFeePerGas;
+
+    if (nativeBalance < fee) {
+      return { error: ApiTransactionError.InsufficientBalance };
+    }
+
     const response = await signer.sendTransaction({
       ...transaction,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      gasLimit,
     });
 
     return { txId: response.hash };

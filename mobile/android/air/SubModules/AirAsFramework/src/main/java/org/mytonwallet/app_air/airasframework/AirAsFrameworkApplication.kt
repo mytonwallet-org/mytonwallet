@@ -1,9 +1,13 @@
 package org.mytonwallet.app_air.airasframework
 
 import android.animation.ValueAnimator
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Build
+import android.os.PowerManager
 import android.view.ViewGroup
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.core.ImagePipelineConfig
@@ -28,6 +32,7 @@ import org.mytonwallet.app_air.walletcontext.sdkStorage.WSdkStorage
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
 import org.mytonwallet.app_air.walletcontext.sqlStorage.WSQLStorage
 import org.mytonwallet.app_air.walletcore.WalletCore
+import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.ActivityStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -37,6 +42,8 @@ import org.mytonwallet.app_air.walletcore.stores.TokenStore
 class AirAsFrameworkApplication {
 
     companion object {
+        private var powerSaveModeReceiver: BroadcastReceiver? = null
+
         fun onCreate(
             applicationContext: Context,
             globalStorageProvider: IGlobalStorageProvider,
@@ -194,6 +201,8 @@ class AirAsFrameworkApplication {
                 "onCreate: Total initialization time=${end - start}ms"
             )
 
+            registerPowerSaveModeReceiver(applicationContext)
+
             Logger.i(Logger.LogTag.AIR_APPLICATION, "onCreate: Setting up bridge")
             WalletCore.setupBridge(
                 applicationContext,
@@ -205,6 +214,20 @@ class AirAsFrameworkApplication {
                     "onCreate: Bridge setup completed isReady=$isReady"
                 )
             }
+        }
+
+        private fun registerPowerSaveModeReceiver(applicationContext: Context) {
+            if (powerSaveModeReceiver != null) return
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    WalletCore.notifyEvent(WalletEvent.CardEffectsChanged)
+                }
+            }
+            applicationContext.registerReceiver(
+                receiver,
+                IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+            )
+            powerSaveModeReceiver = receiver
         }
 
         fun initTheme(applicationContext: Context) {

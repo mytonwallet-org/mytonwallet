@@ -170,16 +170,31 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
         draftEngine.canRetry
     }
     
+    var fees: TonOperationFees {
+        getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake)
+    }
+
+    var insufficientFee: Bool {
+        nativeBalance < (fees.gas ?? 0)
+    }
+
     var fee: MFee? {
-        let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).real
-        return MFee(precision: .exact, terms: .init(token: nil, native: stakeOperationFee, stars: nil), nativeSum: stakeOperationFee)
+        // A shortage must show the amount required upfront, before excess gas is returned.
+        let stakeOperationFee = insufficientFee ? fees.gas : fees.real
+        return MFee(
+            precision: insufficientFee ? .exact : .approximate,
+            terms: .init(token: nil, native: stakeOperationFee, stars: nil),
+            nativeSum: stakeOperationFee
+        )
     }
     
     var tokenChain: ApiChain? { baseToken.chain }
     
     // Validation
 
-    var insufficientFunds: Bool = false
+    var insufficientFunds: Bool {
+        (amount ?? 0) > maxAmount
+    }
 
     var shouldRenderBalanceWithSmallFee = false
     
@@ -191,7 +206,7 @@ final class UnstakeModel: WalletCoreData.EventsObserver {
     var withdrawalType: WithdrawalType = .instant
     
     var canContinue: Bool {
-        !insufficientFunds && (amount ?? 0 > 0)
+        !insufficientFunds && !insufficientFee && (amount ?? 0 > 0)
     }
     
     // MARK: - View callbacks

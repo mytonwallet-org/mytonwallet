@@ -11,6 +11,7 @@ struct SupportDiagnosticsReport: Encodable {
     let installation: InstallationInfo
     let accounts: AccountsInfo
     let security: SecurityInfo
+    let walletRecovery: WalletRecoveryDiagnostics?
 
     @MainActor
     static func collect() async -> SupportDiagnosticsReport {
@@ -96,6 +97,11 @@ struct SupportDiagnosticsReport: Encodable {
                 enclaveSecretAccountIds: enclaveSecretAccountIds?.sorted(),
                 missingEnclaveSecretAccountIds: missingEnclaveSecretAccountIds?.sorted(),
                 inspectionErrors: inspectionErrors
+            ),
+            walletRecovery: await WalletRecoveryDiagnostics.collect(
+                accounts: Array(accountsById.values),
+                isLegacyMigrationAllowed: storageInspection.isLegacyMigrationAllowed,
+                enclaveSecretAccountIds: enclaveSecretAccountIds
             )
         )
     }

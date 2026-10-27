@@ -9,7 +9,11 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 
 enum class SwapDetailsVisibility { VISIBLE, CEX, GONE }
 
-data class SwapUiInputState(val wallet: SwapWalletState, private val input: SwapInputState) {
+data class SwapUiInputState(
+    val wallet: SwapWalletState,
+    private val input: SwapInputState,
+    private val quotedCex: Boolean? = null
+) {
     val tokenToSend: IApiToken? = input.tokenToSend
     val tokenToSendMaxAmount: String
         get() {
@@ -23,11 +27,13 @@ data class SwapUiInputState(val wallet: SwapWalletState, private val input: Swap
     val tokenToReceiveIsSupported = wallet.isSupportedChain(tokenToReceive?.mBlockchain)
 
     val slippage = input.slippage
-    val isCex = input.isCex
-    val canSwapByBuyAmount = input.canSwapByBuyAmount
+    val isCex = quotedCex ?: input.isCex
+
+    val showsCexQuote = isCex
+    val canSwapByBuyAmount = input.isSameChainSwap && input.canSwapByBuyAmount
     val reverse = input.reverse && !isCex
     val swapDetailsVisibility = if (wallet.isSupportedChain(tokenToSend?.mBlockchain)) {
-        if (isCex) SwapDetailsVisibility.CEX else SwapDetailsVisibility.VISIBLE
+        if (showsCexQuote) SwapDetailsVisibility.CEX else SwapDetailsVisibility.VISIBLE
     } else {
         SwapDetailsVisibility.GONE
     }

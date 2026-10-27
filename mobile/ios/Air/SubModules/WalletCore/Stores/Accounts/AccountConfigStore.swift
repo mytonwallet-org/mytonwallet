@@ -35,6 +35,8 @@ public actor AccountConfigStore: WalletCoreData.EventsObserver {
         switch event {
         case .updateAccountConfig(let update):
             `for`(accountId: update.accountId).replace(config: update.accountConfig)
+        case .updateAccountBanners(let update):
+            `for`(accountId: update.accountId).banners.replace(home: update.homeBanners, staking: update.stakingBanners)
         case .accountDeleted(let accountId):
             byAccountId.remove(accountId: accountId)
         case .accountsReset:
@@ -82,6 +84,7 @@ public final class AccountConfig: Sendable {
     /// preset instead; see `FundableCardsInfo` for why the two are different types.
     public private(set) var fundableCardsInfo = FundableCardsInfo(nil)
     public private(set) var activePromotion: ApiPromotion?
+    public let banners: AccountBanners
     public private(set) var isMfaEnabled: Bool = false
 
     @PerceptionIgnored
@@ -91,6 +94,7 @@ public final class AccountConfig: Sendable {
 
     nonisolated init(accountId: String) {
         self.accountId = accountId
+        self.banners = AccountBanners(accountId: accountId)
     }
 
     fileprivate func replace(config: ApiAccountConfig?) {

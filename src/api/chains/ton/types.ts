@@ -85,13 +85,15 @@ export type ContractName = ApiTonWalletVersion
   | 'v4R1' | 'highloadV2' | 'multisig' | 'multisigV2' | 'multisigNew'
   | 'nominatorPool' | 'vesting'
   | 'dedustPool' | 'dedustV2Cpmm' | 'dedustV2CpmmPoolV2' | 'dedustVaultNative' | 'dedustVaultJetton'
-  | 'dedustUranusMemeV2' | 'dedustUranusMemeV3'
+  | 'dedustUranusMemeV2' | 'dedustUranusMemeV3' | 'dedustUranusMemeV3_1' | 'dedustUranusMemeV3_2'
   | 'stonPtonWallet' | 'stonRouter' | 'stonRouterV2_1' | 'stonPoolV2_1'
   | 'stonRouterV2_2' | 'stonRouterV2_2_alt' | 'stonPoolV2_2' | 'stonPtonWalletV2'
   | 'toncoRouter' | 'wrappedToncoTonWallet' | 'wrappedToncoGramWallet' | 'dedustVaultNativeV2' | 'omnistonEscrowMinter'
   | 'stonRouterV2_2_cpi1' | 'stonRouterV2_2_cpi2' | 'stonRouterV2_2_cpi3' | 'stonRouterV2_2_cpi4'
   | 'stonRouterV2_2_cpi5' | 'stonRouterV2_2_cpi6' | 'stonRouterV2_2_wcpi' | 'stonRouterV2_2_wstable'
   | 'swapCoffeeVaultNative' | 'swapCoffeeVaultJetton';
+
+export type NativeSwapPayload = 'dedustUranusMemepadBuy';
 
 export type ContractInfo = {
   name: ContractName;
@@ -102,6 +104,7 @@ export type ContractInfo = {
   /** Hash of the code cell. Belongs to the code itself rather than to any encoding of it, so it survives such a change */
   hash?: string;
   isSwapAllowed?: boolean;
+  nativeSwapPayload?: NativeSwapPayload;
 };
 
 export type GetAddressInfoResponse = {

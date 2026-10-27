@@ -1,0 +1,325 @@
+{
+  "trace": {
+    "tx_hash": "Ah23/WjeCczbQOUc9BDRXd7M+MvuVXRpLf3O/h0PXSI=",
+    "in_msg_hash": "7bfu55rrAa1wqpIZPYd5QkiS9YVgOnW1zqo1YM5Smdg=",
+    "children": [
+      {
+        "tx_hash": "mPv9VBTyPphI/K/S05hskTIufc+DBl9VGiPersnlKtw=",
+        "in_msg_hash": "skd6G/bpei8sQOxBBteYgI26AwV5BwC8Q6IxLJwm6nw=",
+        "children": [
+          {
+            "tx_hash": "CFTpTnSkqV7cOtTpEUzzaeFh8SS9e/xlrclZFbFe49I=",
+            "in_msg_hash": "nqUzwVRf4Th6Yaz4EwiD3esz8HV20+Sh08JmCwtgy8w=",
+            "children": [
+              {
+                "tx_hash": "vKi5tWKbVpT6S22IssWhSuM8yxrBIQqYSfC1i/uSiR8=",
+                "in_msg_hash": "AnHTCVJKdgozX6U/fpE3dgSYeVmJJ+5p5JTOYnHBnBg=",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "transactions": {
+    "Ah23/WjeCczbQOUc9BDRXd7M+MvuVXRpLf3O/h0PXSI=": {
+      "account": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+      "in_msg": {
+        "hash": "7bfu55rrAa1wqpIZPYd5QkiS9YVgOnW1zqo1YM5Smdg=",
+        "source": null,
+        "destination": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+        "opcode": "0x4b85112a",
+        "bounced": null,
+        "message_content": {
+          "hash": "7Bv9Wzid+Ej5BgZ0LiM9HQIRj3OzIvvtQWjAhAej4FA=",
+          "body": "te6cckEBAgEAwQABnEuFESpLbo22AtvLOzYpfF1loSXaHRXwzQgqSDfXKIYPNcSt3pnQCasO1Nz0BRWrRNEEIswVk0mS8z3ODb9h0QEpqaMXatNCtwAACGwAAQEA22IAHTozxRDg6iqEEJQ0wz2r4j+T7DTGRYXPvB8jB3NxDYkn3enFgAAAAAAAAAAAAAAAAACUgmVXOuwtlO2cVl1PjCSDBxRQQkGMT2yAFjClVhZc7SgP10wS/le37yUX0j0cD3xoIbcwwuspBKUETeaPIA==",
+          "decoded": {
+            "@type": "wallet_signed_v4",
+            "signature": "4B85112A4B6E8DB602DBCB3B36297C5D65A125DA1D15F0CD082A4837D728860F35C4ADDE99D009AB0ED4DCF40515AB44D10422CC15934992F33DCE0DBF61D101",
+            "subwallet_id": "698983191",
+            "valid_until": "1792230071",
+            "msg_seqno": "2156",
+            "op": {
+              "@type": "simple_send",
+              "msgs": {
+                "@type": "msgs_1",
+                "msg_1": {
+                  "mode": "1",
+                  "msg": {
+                    "@type": "message",
+                    "info": {
+                      "@type": "int_msg_info",
+                      "ihr_disabled": true,
+                      "bounce": true,
+                      "bounced": false,
+                      "src": {
+                        "@type": "addr_none"
+                      },
+                      "dest": {
+                        "@type": "addr_std",
+                        "anycast": {
+                          "@type": "nothing_from_maybe"
+                        },
+                        "workchain_id": "0",
+                        "address": "3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12"
+                      },
+                      "value": {
+                        "@type": "currencies",
+                        "grams": {
+                          "@type": "nanograms",
+                          "amount": {
+                            "@type": "var_uint",
+                            "len": "4",
+                            "value": "4223482032"
+                          }
+                        },
+                        "other": {
+                          "@type": "extra_currencies",
+                          "dict": {
+                            "@type": "hashmap_empty"
+                          }
+                        }
+                      },
+                      "ihr_fee": {
+                        "@type": "nanograms",
+                        "amount": {
+                          "@type": "var_uint",
+                          "len": "0",
+                          "value": "0"
+                        }
+                      },
+                      "fwd_fee": {
+                        "@type": "nanograms",
+                        "amount": {
+                          "@type": "var_uint",
+                          "len": "0",
+                          "value": "0"
+                        }
+                      },
+                      "created_lt": "0",
+                      "created_at": "0"
+                    },
+                    "init": {
+                      "@type": "nothing_from_maybe"
+                    },
+                    "body": {
+                      "@type": "first_from_either",
+                      "value": "te6ccgEBAQEAPAAAc5SCZVc67C2U7ZxWXU+MJIMHFFBCQYxPbIAWMKVWFlztKA/XTBL+V7fvJRfSPRwPfGghtzDC6ykEpQQ="
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "out_msgs": [
+        {
+          "hash": "skd6G/bpei8sQOxBBteYgI26AwV5BwC8Q6IxLJwm6nw=",
+          "source": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+          "destination": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+          "opcode": "0x94826557",
+          "bounced": false,
+          "message_content": {
+            "hash": "Kkc96adt96fU0XcL30RPqUcM690Ncww2ieQwuek0er4=",
+            "body": "te6cckEBAQEAPAAAc5SCZVc67C2U7ZxWXU+MJIMHFFBCQYxPbIAWMKVWFlztKA/XTBL+V7fvJRfSPRwPfGghtzDC6ykEpQTO15E6",
+            "decoded": null
+          }
+        }
+      ],
+      "description": {
+        "type": "ord",
+        "aborted": false,
+        "compute_ph": {
+          "success": true
+        },
+        "action": {
+          "success": true
+        }
+      }
+    },
+    "CFTpTnSkqV7cOtTpEUzzaeFh8SS9e/xlrclZFbFe49I=": {
+      "account": "0:B1A0C9306A0E017567031376A9F50EB97D76BF27432B4B6FBC16DAC5E8E49836",
+      "in_msg": {
+        "hash": "nqUzwVRf4Th6Yaz4EwiD3esz8HV20+Sh08JmCwtgy8w=",
+        "source": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+        "destination": "0:B1A0C9306A0E017567031376A9F50EB97D76BF27432B4B6FBC16DAC5E8E49836",
+        "opcode": "0x178d4519",
+        "bounced": false,
+        "message_content": {
+          "hash": "LLSXw1ksqFy5nvkdSMdYMMfrc5tU7nYWS9ERKLDJ95c=",
+          "body": "te6cckEBAQEAOAAAaxeNRRk67C2U7ZxWXXFITJY9OLsyAFjClVhZc7SgP10wS/le37yUX0j0cD3xoIbcwwuspBKUAgEdDmk=",
+          "decoded": {
+            "@type": "jetton_internal_transfer",
+            "query_id": "4245818666368390749",
+            "amount": {
+              "@type": "var_uint",
+              "len": "7",
+              "value": "5775500032314291"
+            },
+            "from": {
+              "@type": "addr_none"
+            },
+            "response_address": {
+              "@type": "addr_std",
+              "anycast": {
+                "@type": "nothing_from_maybe"
+              },
+              "workchain_id": "0",
+              "address": "B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528"
+            },
+            "forward_ton_amount": {
+              "@type": "var_uint",
+              "len": "0",
+              "value": "0"
+            },
+            "forward_payload": {
+              "@type": "first_from_either",
+              "value": {
+                "@type": "empty_cell"
+              }
+            }
+          }
+        }
+      },
+      "out_msgs": [
+        {
+          "hash": "AnHTCVJKdgozX6U/fpE3dgSYeVmJJ+5p5JTOYnHBnBg=",
+          "source": "0:B1A0C9306A0E017567031376A9F50EB97D76BF27432B4B6FBC16DAC5E8E49836",
+          "destination": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+          "opcode": "0xd53276db",
+          "bounced": false,
+          "message_content": {
+            "hash": "ul93n5oiX75Y9oDfS+2vqHE42hkz9nAhd5SQ4MZOBHw=",
+            "body": "te6cckEBAQEADgAAGNUydts67C2U7ZxWXWOjCgE=",
+            "decoded": {
+              "@type": "excess",
+              "query_id": "4245818666368390749"
+            }
+          }
+        }
+      ],
+      "description": {
+        "type": "ord",
+        "aborted": false,
+        "compute_ph": {
+          "success": true
+        },
+        "action": {
+          "success": true
+        }
+      }
+    },
+    "mPv9VBTyPphI/K/S05hskTIufc+DBl9VGiPersnlKtw=": {
+      "account": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+      "in_msg": {
+        "hash": "skd6G/bpei8sQOxBBteYgI26AwV5BwC8Q6IxLJwm6nw=",
+        "source": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+        "destination": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+        "opcode": "0x94826557",
+        "bounced": false,
+        "message_content": {
+          "hash": "Kkc96adt96fU0XcL30RPqUcM690Ncww2ieQwuek0er4=",
+          "body": "te6cckEBAQEAPAAAc5SCZVc67C2U7ZxWXU+MJIMHFFBCQYxPbIAWMKVWFlztKA/XTBL+V7fvJRfSPRwPfGghtzDC6ykEpQTO15E6",
+          "decoded": null
+        }
+      },
+      "out_msgs": [
+        {
+          "hash": "EoJR0cQGLI06OqsKiLjEQQAyWVqS+cgLyp+zXAMaqyA=",
+          "source": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+          "destination": null,
+          "opcode": "0xa0aa6bc2",
+          "bounced": null,
+          "message_content": {
+            "hash": "w7SXBLChx/ZAFECUXiwzDCcjtsHrtnWwkqtHHNeouGY=",
+            "body": "te6cckEBAQEASAAAi6Cqa8KAFjClVhZc7SgP10wS/le37yUX0j0cD3xoIbcwwuspBKUJ7JeHVuKQmSx6cXZnek+Eb8NQIA4pCZLHpxdmnsl4dghY7Ts5",
+            "decoded": null
+          }
+        },
+        {
+          "hash": "nqUzwVRf4Th6Yaz4EwiD3esz8HV20+Sh08JmCwtgy8w=",
+          "source": "0:3A74678A21C1D45508212869867B57C47F27D8698C8B0B9F783E460EE6E21B12",
+          "destination": "0:B1A0C9306A0E017567031376A9F50EB97D76BF27432B4B6FBC16DAC5E8E49836",
+          "opcode": "0x178d4519",
+          "bounced": false,
+          "message_content": {
+            "hash": "LLSXw1ksqFy5nvkdSMdYMMfrc5tU7nYWS9ERKLDJ95c=",
+            "body": "te6cckEBAQEAOAAAaxeNRRk67C2U7ZxWXXFITJY9OLsyAFjClVhZc7SgP10wS/le37yUX0j0cD3xoIbcwwuspBKUAgEdDmk=",
+            "decoded": {
+              "@type": "jetton_internal_transfer",
+              "query_id": "4245818666368390749",
+              "amount": {
+                "@type": "var_uint",
+                "len": "7",
+                "value": "5775500032314291"
+              },
+              "from": {
+                "@type": "addr_none"
+              },
+              "response_address": {
+                "@type": "addr_std",
+                "anycast": {
+                  "@type": "nothing_from_maybe"
+                },
+                "workchain_id": "0",
+                "address": "B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528"
+              },
+              "forward_ton_amount": {
+                "@type": "var_uint",
+                "len": "0",
+                "value": "0"
+              },
+              "forward_payload": {
+                "@type": "first_from_either",
+                "value": {
+                  "@type": "empty_cell"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "description": {
+        "type": "ord",
+        "aborted": false,
+        "compute_ph": {
+          "success": true
+        },
+        "action": {
+          "success": true
+        }
+      }
+    },
+    "vKi5tWKbVpT6S22IssWhSuM8yxrBIQqYSfC1i/uSiR8=": {
+      "account": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+      "in_msg": {
+        "hash": "AnHTCVJKdgozX6U/fpE3dgSYeVmJJ+5p5JTOYnHBnBg=",
+        "source": "0:B1A0C9306A0E017567031376A9F50EB97D76BF27432B4B6FBC16DAC5E8E49836",
+        "destination": "0:B1852AB0B2E769407EBA6097F2BDBF7928BE91E8E07BE3410DB9861759482528",
+        "opcode": "0xd53276db",
+        "bounced": false,
+        "message_content": {
+          "hash": "ul93n5oiX75Y9oDfS+2vqHE42hkz9nAhd5SQ4MZOBHw=",
+          "body": "te6cckEBAQEADgAAGNUydts67C2U7ZxWXWOjCgE=",
+          "decoded": {
+            "@type": "excess",
+            "query_id": "4245818666368390749"
+          }
+        }
+      },
+      "out_msgs": [],
+      "description": {
+        "type": "ord",
+        "aborted": false,
+        "compute_ph": {
+          "success": true
+        },
+        "action": {
+          "success": true
+        }
+      }
+    }
+  }
+}

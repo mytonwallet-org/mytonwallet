@@ -5,6 +5,7 @@ import {
   beginCell, Cell, comment, external, openContract, storeMessage, toNano, TupleReader,
 } from '@ton/core';
 
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { GetAddressInfoResponse } from '../types';
 
 import { fetchWithRetry } from '../../../../util/fetch';
@@ -37,8 +38,16 @@ type ContractStateResult = {
 export class TonClient {
   readonly parameters: TonClientParameters;
 
-  constructor(parameters: TonClientParameters) {
+  private readonly demand?: FetchDemand;
+
+  constructor(parameters: TonClientParameters, demand?: FetchDemand) {
     this.parameters = parameters;
+    this.demand = demand;
+  }
+
+  /** A client whose requests, including the ones of the contracts it opens, are made on behalf of `demand` */
+  withDemand(demand?: FetchDemand) {
+    return demand && demand !== this.demand ? new TonClient(this.parameters, demand) : this;
   }
 
   getAddressInfo(address: string): Promise<GetAddressInfoResponse> {
@@ -74,6 +83,7 @@ export class TonClient {
       headers,
     }, {
       shouldSkipRetryFn: (message, statusCode) => isNotTemporaryError(method, message, statusCode),
+      demand: this.demand,
     });
 
     const data = await response.json();

@@ -34,6 +34,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
         collectionView.alwaysBounceVertical = false
         collectionView.delaysContentTouches = false
         collectionView.clipsToBounds = false
+        collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.dragDelegate = self
         collectionView.dropDelegate = self
         collectionView.dragInteractionEnabled = false
@@ -87,6 +88,10 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func setHorizontalInsets(_ insets: UIEdgeInsets) {
+        collectionView.setSplitHomeHorizontalInsets(insets)
     }
 
     func configure(accountSource: AccountSource, parentViewController: UIViewController) {
@@ -165,6 +170,7 @@ final class SplitHomeAssetsRowView: UIView, UICollectionViewDelegate, UICollecti
         layout.minimumInteritemSpacing = Self.itemSpacing
         layout.minimumLineSpacing = Self.itemSpacing
         layout.sectionInset = .zero
+        layout.sectionInsetReference = .fromContentInset
         return layout
     }
 

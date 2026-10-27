@@ -29,7 +29,7 @@ struct ExploreSearchResultItem: Equatable, Identifiable {
         }
     }
 
-    var iconURL: String {
+    var iconURL: String? {
         switch source {
         case .site(let s): s.icon
         case .connectedDapp(let d): d.iconUrl

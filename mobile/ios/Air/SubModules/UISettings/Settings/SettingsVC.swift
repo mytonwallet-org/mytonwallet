@@ -242,7 +242,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView?.setContentOffset(CGPoint(x: 0, y: -collectionView.adjustedContentInset.top), animated: animated)
     }
     
-    private func selected(item: SettingsItem.Identifier) {
+    private func selected(item: SettingsItem.Identifier, sourceView: UIView?) {
         switch item {
         case .editWalletName:
             AppActions.showRenameAccount(accountId: AccountStore.accountId!)
@@ -252,7 +252,20 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
             Task {
                 do {
                     _ = try await AccountStore.activateAccount(accountId: accountId)
-                    AppActions.showHome(popToRoot: true)
+                    // Split layouts replace the tab's navigation controller when showing Home.
+                    if let transitionView = splitViewController?.view ?? navigationController?.view,
+                       transitionView.window != nil,
+                       AppStorageHelper.animations, !UIAccessibility.isReduceMotionEnabled {
+                        UIView.transition(with: transitionView, duration: 0.25,
+                                          options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]) {
+                            UIView.performWithoutAnimation {
+                                AppActions.showHome(popToRoot: true)
+                                transitionView.layoutIfNeeded()
+                            }
+                        }
+                    } else {
+                        AppActions.showHome(popToRoot: true)
+                    }
                 } catch {
                     log.error("failed to activate account: \(accountId, .public) \(error, .public)")
                     AppActions.showError(error: error)
@@ -261,7 +274,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         case .walletSettings:
             AppActions.showWalletSettings()
         case .addAccount:
-            AppActions.showAddWallet(network: .mainnet)
+            AppActions.showAddWallet(network: .mainnet, sourceView: sourceView)
         case .notifications:
             navigationController?.pushViewController(NotificationsSettingsVC(), animated: true)
         case .appearance:
@@ -457,7 +470,7 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         if let id = dataSource.itemIdentifier(for: indexPath) {
             log.info("didSelectItemAt \(indexPath, .public) -> \(id, .public)")
-            selected(item: id)
+            selected(item: id, sourceView: collectionView.cellForItem(at: indexPath))
         }
         collectionView.deselectItem(at: indexPath, animated: true)
     }

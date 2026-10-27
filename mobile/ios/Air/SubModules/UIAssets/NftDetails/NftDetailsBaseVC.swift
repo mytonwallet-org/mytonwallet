@@ -1,14 +1,144 @@
 import UIKit
 import UIComponents
+import WalletContext
 
-public class NftDetailsBaseVC: WViewController {
+final class NftDetailsNavigationButton: UIButton {
+    override var intrinsicContentSize: CGSize { CGSize(width: 44, height: 44) }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize { intrinsicContentSize }
+
+    static let backTransitionIdentifier = "nft.collection.back"
+
+    func makeNavigationItem(alignsToSystemBackButton: Bool = true, usesClearGlass: Bool = true) -> UIBarButtonItem {
+        if #unavailable(iOS 26), alignsToSystemBackButton, var config = configuration {
+            // A plain custom item is centered in a 44pt slot; the legacy system
+            // chevron is 16pt farther left. Keep the hit area, align the symbol.
+            config.contentInsets.leading -= 32
+            configuration = config
+        }
+        translatesAutoresizingMaskIntoConstraints = false
+        let container: UIView
+        let contentView: UIView
+        if #available(iOS 26, *) {
+            let effect = UIGlassEffect(style: usesClearGlass ? .clear : .regular)
+            effect.isInteractive = true
+            let glassContainer = UIVisualEffectView(effect: effect)
+            glassContainer.cornerConfiguration = .capsule()
+            container = glassContainer
+            contentView = glassContainer.contentView
+        } else {
+            container = UIView()
+            contentView = container
+        }
+        container.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        container.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(self)
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: 44),
+            container.heightAnchor.constraint(equalToConstant: 44),
+            leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            topAnchor.constraint(equalTo: contentView.topAnchor),
+            bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
+        // Resolve the glass at its final size before the navigation bar animates
+        // the item in. Otherwise its first layout animates the material separately.
+        UIView.performWithoutAnimation {
+            updateConfiguration()
+            container.layoutIfNeeded()
+        }
+        let customView: UIView
+        if #available(iOS 26, *) {
+            customView = NftNavigationButtonSlot(material: container)
+        } else { customView = container }
+        let item = UIBarButtonItem(customView: customView)
+        if #available(iOS 26, *) {
+            item.hidesSharedBackground = true
+            item.identifier = Self.backTransitionIdentifier
+        }
+        return item
+    }
+}
+
+// UIKit can composite custom glass behind the incoming screen during a push.
+// Keep the bar item in place for layout and matching, and lift only its live content.
+final class NftNavigationButtonSlot: UIView {
+    let material: UIView
+    private weak var overlayParent: UIView?
+    override var intrinsicContentSize: CGSize { CGSize(width: 44, height: 44) }
+
+    init(material: UIView) {
+        self.material = material
+        super.init(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 44),
+            heightAnchor.constraint(equalToConstant: 44),
+        ])
+        material.translatesAutoresizingMaskIntoConstraints = true
+        material.frame = bounds
+        material.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(material)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if let overlayParent, window != nil {
+            material.frame = overlayFrame(in: overlayParent)
+        }
+    }
+
+    private func overlayFrame(in parent: UIView) -> CGRect {
+        let center = convert(CGPoint(x: bounds.midX, y: bounds.midY), to: parent)
+        return CGRect(x: center.x - 22, y: center.y - 22, width: 44, height: 44)
+    }
+
+    func lift(in parent: UIView, fadeIn: Bool = false) {
+        guard overlayParent == nil else { return }
+        parent.layoutIfNeeded()
+        UIView.performWithoutAnimation {
+            overlayParent = parent
+            material.autoresizingMask = []
+            material.frame = overlayFrame(in: parent)
+            material.isUserInteractionEnabled = false
+            material.alpha = fadeIn ? 0 : 1
+            parent.addSubview(material)
+        }
+        material.alpha = 1
+    }
+    func restore() {
+        guard overlayParent != nil else { return }
+        UIView.performWithoutAnimation {
+            overlayParent = nil
+            material.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            material.frame = bounds
+            addSubview(material)
+            material.isUserInteractionEnabled = true
+            layoutIfNeeded()
+        }
+    }
+}
+
+public class NftDetailsBaseVC: WViewController, ContentOverlayAppearanceProviding {
     let manager: NftDetailsManager
+    public var onContentOverlayAppearanceChange: ((_ animated: Bool) -> Void)?
+    private var contentStatusBarStyle: UIStatusBarStyle = .default
+
+    public override var preferredStatusBarStyle: UIStatusBarStyle { contentStatusBarStyle }
     
     private var selectedModel: ItemModel
     private var selectedModelSubscription: ItemModel.Subscription?
+    private var liveAtmosphereSubscription: ItemModel.Subscription?
 
     private let backgroundView: Background.View
     private let contentContainer = UIView()
+    private lazy var inlinePinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(handleInlinePinch(_:)))
+    private let pinchTouchGuard = NftDetailsPinchTouchGuard()
+    private var gesturesSuspendedForPinch: [UIGestureRecognizer] = []
+    private var isPinchInteractionActive: Bool {
+        pinchTouchGuard.isClaimed || headerView?.isInlineZoomActive == true
+    }
     private let mainScrollView = NftDetailMainScrollView()
     private let mainScrollContentView = UIView()
     private var headerView: NftDetailsMainHeaderView?
@@ -21,6 +151,13 @@ public class NftDetailsBaseVC: WViewController {
     private nonisolated(unsafe) var memoryWarningObserver: NSObjectProtocol?
     private var previousVCBackBarButtonItem: UIBarButtonItem? = nil
     private weak var previousBackItemOwner: UIViewController?
+    private var clearNavigationButton: UIButton?
+    private var navigationButtonIsModalRoot: Bool?
+    private var navigationContrastLink: CADisplayLink?
+    private lazy var navigationContrastTarget = NftNavigationContrastTarget(owner: self)
+    private weak var previousPopGestureDelegate: UIGestureRecognizerDelegate?
+    private weak var previousContentPopGestureDelegate: UIGestureRecognizerDelegate?
+    private var hasCustomBackGestureDelegates = false
     
     private struct State: Equatable, CustomStringConvertible {
         var isExpanded: Bool
@@ -78,27 +215,141 @@ public class NftDetailsBaseVC: WViewController {
     }
 
     private func configureNavigationItems() {
-        if isModalRoot {
-            navigationItem.hidesBackButton = true
-            if navigationItem.rightBarButtonItem == nil {
-                navigationItem.rightBarButtonItem = UIBarButtonItem(
-                    systemItem: .close,
-                    primaryAction: UIAction { [weak self] _ in
-                        guard let self else { return }
-                        if let headerView, headerView.dismissFullScreen() { return }
-                        dismiss(animated: true)
-                    }
-                )
+        configureClearNavigationButton()
+    }
+
+    private func configureClearNavigationButton() {
+        if let navigationButtonIsModalRoot, navigationButtonIsModalRoot != isModalRoot {
+            // A preloaded controller may acquire its modal parent after viewDidLoad.
+            if navigationButtonIsModalRoot {
+                navigationItem.rightBarButtonItem = nil
+            } else {
+                navigationItem.leftBarButtonItem = nil
             }
+            clearNavigationButton = nil
+        }
+        guard clearNavigationButton == nil else {
+            updateClearNavigationButtonColor()
+            return
+        }
+        let action = UIAction { [weak self] _ in
+            guard let self else { return }
+            if let headerView, headerView.dismissFullScreen() { return }
+            dismissSelf()
+        }
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: isModalRoot ? "xmark" : "chevron.backward")
+        config.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .medium)
+        config.cornerStyle = .fixed
+        config.background.cornerRadius = 22
+        config.contentInsets = .init(top: 11, leading: 11, bottom: 11, trailing: 11)
+        let button = NftDetailsNavigationButton(configuration: config, primaryAction: action)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.accessibilityLabel = lang(isModalRoot ? "Close" : "Back")
+        clearNavigationButton = button
+        navigationButtonIsModalRoot = isModalRoot
+        updateClearNavigationButtonColor()
+        let item = button.makeNavigationItem(alignsToSystemBackButton: !isModalRoot)
+        navigationItem.hidesBackButton = true
+        if isModalRoot {
+            navigationItem.rightBarButtonItem = item
         } else {
-            navigationItem.backAction = UIAction { [weak self] _ in
-                guard let self else { return }
-                if let headerView, headerView.dismissFullScreen() { 
-                    return 
-                }
-                self.navigationController?.popViewController(animated: true)
+            navigationItem.leftBarButtonItem = item
+        }
+    }
+
+    public func contentOverlayAppearance(in rectInWindow: CGRect) -> ContentOverlayAppearance {
+        func background(for model: ItemModel) -> UIColor {
+            let fallback = manager.colorResolver.effectiveBaseColor(for: model)
+            return headerView?.navigationBackgroundColor(for: model, in: rectInWindow, fallback: fallback) ?? fallback
+        }
+        let backgroundColor: UIColor
+        let color: UIColor
+        switch state.pageTransition {
+        case .staticPage(let model):
+            backgroundColor = background(for: model)
+            color = backgroundColor.isLightColor ? .black : .white
+        case let .transition(left, right, progress):
+            let leftColor = background(for: left)
+            let rightColor = background(for: right)
+            backgroundColor = leftColor.nftBlended(with: rightColor, fraction: progress)
+            color = (leftColor.isLightColor ? UIColor.black : .white).nftBlended(
+                with: rightColor.isLightColor ? .black : .white, fraction: progress)
+        }
+        return ContentOverlayAppearance(usesClearGlass: true, foregroundColor: color,
+                                        userInterfaceStyle: backgroundColor.isLightColor ? .light : .dark)
+    }
+
+    private func updateContentStatusBarStyle(animated: Bool) {
+        var rect = CGRect.zero
+        if let window = viewIfLoaded?.window, let scene = window.windowScene,
+           let manager = scene.statusBarManager {
+            rect = window.convert(manager.statusBarFrame, from: scene.screen.coordinateSpace)
+        }
+        let style: UIStatusBarStyle = contentOverlayAppearance(in: rect).userInterfaceStyle == .dark ? .lightContent : .darkContent
+        guard style != contentStatusBarStyle else { return }
+        contentStatusBarStyle = style
+        let update = {
+            var controller: UIViewController = self
+            while let parent = controller.parent { controller = parent }
+            controller.setNeedsStatusBarAppearanceUpdate()
+        }
+        if animated {
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction], animations: update)
+        } else {
+            update()
+        }
+    }
+
+    fileprivate func updateClearNavigationButtonColor() {
+        let animated = !state.pageTransition.isTransitioning && viewIfLoaded?.window != nil && !UIAccessibility.isReduceMotionEnabled
+        updateContentStatusBarStyle(animated: animated)
+        onContentOverlayAppearanceChange?(animated)
+        guard let button = clearNavigationButton else { return }
+        let rect = button.convert(button.bounds.insetBy(dx: 10, dy: 10), to: nil)
+        let color = contentOverlayAppearance(in: rect).foregroundColor ?? .label
+        guard button.tintColor != color else { return }
+        let update = {
+            button.tintColor = color
+            if var config = button.configuration {
+                let symbol = UIImage(systemName: self.isModalRoot ? "xmark" : "chevron.backward",
+                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium))
+                config.image = symbol?.withTintColor(color, renderingMode: .alwaysOriginal)
+                config.baseForegroundColor = color
+                button.configuration = config
             }
         }
+        if state.pageTransition.isTransitioning || button.window == nil || UIAccessibility.isReduceMotionEnabled {
+            update()
+        } else {
+            UIView.transition(with: button.imageView ?? button, duration: 0.25,
+                              options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent],
+                              animations: update)
+        }
+    }
+
+    private func installCustomBackGestureDelegates() {
+        guard !isModalRoot, !hasCustomBackGestureDelegates,
+              let navigationController = navigationController as? WNavigationController else { return }
+        // UIKit's default delegates require a system back item; use the navigation controller's back-swipe policy for the custom glass button
+        previousPopGestureDelegate = navigationController.interactivePopGestureRecognizer?.delegate
+        if #available(iOS 26, *) {
+            previousContentPopGestureDelegate = navigationController.interactiveContentPopGestureRecognizer?.delegate
+        }
+        navigationController.interactivePopGestureRecognizer?.delegate = navigationController
+        if #available(iOS 26, *) { navigationController.interactiveContentPopGestureRecognizer?.delegate = navigationController }
+        hasCustomBackGestureDelegates = true
+    }
+
+    private func restoreBackGestureDelegates() {
+        guard hasCustomBackGestureDelegates else { return }
+        navigationController?.interactivePopGestureRecognizer?.delegate = previousPopGestureDelegate
+        if #available(iOS 26, *) {
+            navigationController?.interactiveContentPopGestureRecognizer?.delegate = previousContentPopGestureDelegate
+        }
+        previousPopGestureDelegate = nil
+        previousContentPopGestureDelegate = nil
+        hasCustomBackGestureDelegates = false
     }
 
     public override func viewDidLoad() {
@@ -108,6 +359,15 @@ public class NftDetailsBaseVC: WViewController {
 
         navigationItem.backButtonDisplayMode = .minimal
 
+        inlinePinchGesture.delegate = self
+        contentContainer.addGestureRecognizer(inlinePinchGesture)
+        pinchTouchGuard.canClaim = { [weak self] in
+            guard let self else { return false }
+            return self.canBeginInlinePinch(at: self.pinchTouchGuard.location(in: self.contentContainer))
+                || self.headerView?.isInlineZoomActive == true
+        }
+        pinchTouchGuard.onClaimChanged = { [weak self] _ in self?.updatePinchGestureOwnership() }
+        contentContainer.addGestureRecognizer(pinchTouchGuard)
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(contentContainer)
 
@@ -118,6 +378,7 @@ public class NftDetailsBaseVC: WViewController {
         mainScrollView.showsVerticalScrollIndicator = false
         mainScrollView.showsHorizontalScrollIndicator = false
         mainScrollView.alwaysBounceVertical = true
+        mainScrollView.panGestureRecognizer.maximumNumberOfTouches = 1
         mainScrollView.contentInsetAdjustmentBehavior = .never
         mainScrollView.contentInset = .zero
         mainScrollView.delegate = self
@@ -155,6 +416,7 @@ public class NftDetailsBaseVC: WViewController {
         ])
         
         selectModel(selectedModel, animated: false, forced: true, initiator: .none)
+        configureNavigationItems()
 
         memoryWarningObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
@@ -204,6 +466,8 @@ public class NftDetailsBaseVC: WViewController {
             sheet.configureAllowsInteractiveDismiss(false)
         }
         configureNavigationItems()
+        prepareGlassForNavigationPush()
+        installCustomBackGestureDelegates()
 
         if #unavailable(iOS 26) {
             // iOS 17: backButtonDisplayMode alone doesn't suppress the title from the previous VC.
@@ -216,13 +480,34 @@ public class NftDetailsBaseVC: WViewController {
         }
     }
 
+    private func prepareGlassForNavigationPush() {
+        guard #available(iOS 26, *), isMovingToParent,
+              let navigationController,
+              let coordinator = transitionCoordinator, coordinator.isAnimated,
+              let slot = navigationItem.leftBarButtonItem?.customView as? NftNavigationButtonSlot,
+              coordinator.viewController(forKey: .from)?.navigationItem.leftBarButtonItem?.identifier
+                != NftDetailsNavigationButton.backTransitionIdentifier else { return }
+        coordinator.animate(alongsideTransition: { _ in
+            slot.lift(in: navigationController.view, fadeIn: true)
+        }, completion: { _ in slot.restore() })
+    }
+
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         setLottiePlaybackEnabled(true)
+        if clearNavigationButton != nil, navigationContrastLink == nil {
+            let link = CADisplayLink(target: navigationContrastTarget, selector: #selector(NftNavigationContrastTarget.tick))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+            link.add(to: .main, forMode: .common)
+            navigationContrastLink = link
+        }
     }
 
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        navigationContrastLink?.invalidate()
+        navigationContrastLink = nil
+        restoreBackGestureDelegates()
         setLottiePlaybackEnabled(false)
         manager.colorCache.saveIfNeeded()
 
@@ -262,24 +547,30 @@ public class NftDetailsBaseVC: WViewController {
 
         contentContainer.layoutIfNeeded()
         let pageWidth = contentContainer.bounds.width
-        guard pageWidth > 0 else { return }
+        guard pageWidth > 0, contentContainer.bounds.height > 0 else { return }
+        let heroFrame = NftDetailsHeroLayout.frame(in: contentContainer.bounds.size, safeAreaInsets: view.safeAreaInsets,
+            userInterfaceIdiom: traitCollection.userInterfaceIdiom,
+            navigationBarHeight: navigationController?.navigationBar.bounds.height ?? 0)
+        let didChangeGeometry = headerView?.layoutGeometry.expandedImageFrame != heroFrame
+            || pager?.layoutGeometry.pageWidth != pageWidth
 
-        if manager.targetWidth != pageWidth {
-            _ = headerView?.dismissFullScreen()
-        }
-        
         manager.targetWidth = pageWidth
         
         let collapsedHeight = 165.0
-        installOrUpdateHeader(pageWidth: pageWidth, collapsedHeight: collapsedHeight)
-        installOrUpdatePager(pageWidth: pageWidth, collapsedHeight: collapsedHeight)
+        installOrUpdateHeader(pageWidth: pageWidth, collapsedHeight: collapsedHeight, heroFrame: heroFrame)
+        installOrUpdatePager(pageWidth: pageWidth, collapsedHeight: collapsedHeight, heroFrame: heroFrame)
+
+        if didChangeGeometry {
+            _ = headerView?.dismissFullScreen()
+        }
 
         if let pager, state.isExpanded, !pager.isExpanded {
             pager.simulateUserScrollToExpand(mainScrollView)
         }
+        if didChangeGeometry { updateBackground() }
     }
     
-    private func installOrUpdateHeader(pageWidth: CGFloat, collapsedHeight: CGFloat) {
+    private func installOrUpdateHeader(pageWidth: CGFloat, collapsedHeight: CGFloat, heroFrame: CGRect) {
         assert(pageWidth > 0 && isViewLoaded && collapsedHeight > 0)
 
         let layoutGeometry = NftDetailsMainHeaderView.LayoutGeometry(
@@ -287,7 +578,8 @@ public class NftDetailsBaseVC: WViewController {
             leadingSafeAreaInset: view.safeAreaInsets.left,
             trailingSafeAreaInset: view.safeAreaInsets.right,
             collapsedAreaHeight: collapsedHeight,
-            pageWidth: pageWidth
+            pageWidth: pageWidth,
+            expandedImageFrame: heroFrame
         )
 
         guard headerView?.layoutGeometry != layoutGeometry else { return }
@@ -320,13 +612,14 @@ public class NftDetailsBaseVC: WViewController {
         }
     }
 
-    private func installOrUpdatePager(pageWidth: CGFloat, collapsedHeight: CGFloat) {
+    private func installOrUpdatePager(pageWidth: CGFloat, collapsedHeight: CGFloat, heroFrame: CGRect) {
         assert(pageWidth > 0 && isViewLoaded && collapsedHeight > 0)
         
         let layoutGeometry = NftDetailsPagerView.LayoutGeometry(
             topSafeAreaInset: view.safeAreaInsets.top,
             collapsedAreaHeight: collapsedHeight,
-            pageWidth: pageWidth
+            pageWidth: pageWidth,
+            expandedImageFrame: heroFrame
         )
         
         guard pager?.layoutGeometry != layoutGeometry else { return }
@@ -362,20 +655,34 @@ public class NftDetailsBaseVC: WViewController {
     }
         
     private func updateBackground() {
+        if liveAtmosphereSubscription?.model !== selectedModel {
+            liveAtmosphereSubscription = .init(model: selectedModel, event: .liveAtmosphereUpdated, tag: "BG/Animation") { [weak self] in
+                self?.updateBackground()
+            }
+        }
         
         func getPageModel(forModel model: ItemModel) -> Background.PageModel {
             let image: CIImage? = {
                 guard case .loaded(let processed) = model.processedImageState else { return nil }
-                return processed.previewCIImage
+                return processed.artworkCIImage
+            }()
+            let atmosphere: CIImage? = {
+                if let live = model.liveAtmosphereImage { return CIImage(image: live) }
+                guard case .loaded(let processed) = model.processedImageState else { return nil }
+                return processed.atmosphere(height: pager?.atmosphereHeight(for: model) ?? 200,
+                                            pageWidth: headerView?.layoutGeometry.expandedImageFrame.width ?? backgroundView.bounds.width)?.ciImage
             }()
             return .init(
                 backgroundColor: manager.colorResolver.effectiveBaseColor(for: model),
                 image: image,
-                tag: model.shortDescription
+                tag: model.shortDescription,
+                atmosphereImage: atmosphere,
+                atmosphereHeight: pager?.atmosphereHeight(for: model) ?? 200,
+                hasLiveAtmosphere: model.liveAtmosphereImage != nil
             )
         }
         
-        let pageState: Background.PageState
+        var pageState: Background.PageState
         switch state.pageTransition {
         case let .staticPage(page):
             pageState = .staticPage(getPageModel(forModel: page))
@@ -387,14 +694,37 @@ public class NftDetailsBaseVC: WViewController {
                 )
         }
 
+        headerView?.setAtmosphereHeight(pager?.atmosphereHeight(for: selectedModel) ?? 200)
+        if let other = headerView?.updateNativePageTransition(state.pageTransition,
+            color: manager.colorResolver.effectiveBaseColor(for: selectedModel)) {
+            // The header supplies the live selected page and its complete base
+            // color, masked over this opaque other page. No video pixels cross
+            // from Core Animation to Metal during the gesture.
+            pageState = .staticPage(getPageModel(forModel: other))
+        }
+
         let model = Background.Model(
             pageState: pageState,
             isExpanded: state.isExpanded,
-            shouldShowPreview: state.isPreviewHidden && state.isExpanded
+            shouldShowPreview: state.isPreviewHidden && state.isExpanded,
+            heroFrame: headerView?.layoutGeometry.expandedImageFrame ?? .zero,
+            shouldShowAtmosphere: (state.isPreviewHidden || headerView?.needsBackgroundAtmosphere == true) && state.isExpanded,
+            contentOffsetY: mainScrollView.contentOffset.y,
+            isViewportMoving: mainScrollView.isTracking || mainScrollView.isDragging || mainScrollView.isDecelerating
         )
                 
         backgroundView.setModel(model)
-        view.backgroundColor = pageState.edgeColor(fallback: manager.colorResolver.fallbackColor)
+        let edgeColor = pageState.edgeColor(fallback: manager.colorResolver.fallbackColor)
+        if view.backgroundColor != edgeColor {
+            if state.pageTransition.isTransitioning || view.window == nil || UIAccessibility.isReduceMotionEnabled {
+                view.backgroundColor = edgeColor
+            } else {
+                UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                    self.view.backgroundColor = edgeColor
+                }
+            }
+        }
+        updateClearNavigationButtonColor()
     }
         
     private enum SelectModelInitiator {
@@ -446,7 +776,42 @@ public class NftDetailsBaseVC: WViewController {
         updateBackground()
     }
     
+    @objc private func handleInlinePinch(_ gesture: UIPinchGestureRecognizer) {
+        headerView?.handleInlinePinch(gesture) { [weak self] in
+            self?.updatePinchGestureOwnership()
+        }
+        updatePinchGestureOwnership()
+    }
+
+    private func canBeginInlinePinch(at point: CGPoint) -> Bool {
+        guard !state.pageTransition.isTransitioning, let headerView, headerView.canBeginInlineZoom else { return false }
+        return NftDetailsHeroLayout.scrolledFrame(headerView.layoutGeometry.expandedImageFrame,
+            offsetY: mainScrollView.contentOffset.y).contains(point)
+    }
+
+    private func updatePinchGestureOwnership() {
+        if isPinchInteractionActive {
+            guard gesturesSuspendedForPinch.isEmpty else { return }
+            func suspend(in view: UIView) {
+                for gesture in view.gestureRecognizers ?? [] where gesture.isEnabled {
+                    if gesture is UIPanGestureRecognizer || gesture is UITapGestureRecognizer {
+                        gesturesSuspendedForPinch.append(gesture)
+                        gesture.isEnabled = false
+                    }
+                }
+                view.subviews.forEach { suspend(in: $0) }
+            }
+            suspend(in: contentContainer)
+        } else {
+            let suspended = gesturesSuspendedForPinch
+            gesturesSuspendedForPinch.removeAll()
+            suspended.forEach { $0.isEnabled = true }
+            if !suspended.isEmpty { scrollViewDidScroll(mainScrollView) }
+        }
+    }
+
     private func openFullScreenPreview() {
+        guard !isPinchInteractionActive else { return }
         headerView?.openFullScreenPreview()
     }
 
@@ -657,7 +1022,10 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
 
         // permit/deny header to show preview. After operation update the state.
         let canShowPreview = state.pageTransition.isStatic
-        headerView?.setCanShowPreview(canShowPreview)
+        let staticModel: ItemModel?
+        if case .staticPage(let model) = state.pageTransition { staticModel = model }
+        else { staticModel = nil }
+        headerView?.setCanShowPreview(canShowPreview, staticModel: staticModel)
         state.isPreviewHidden = headerView?.isPreviewHidden ?? true
 
         // Mirror the pager drag to the cover flow so both track each other in real time.
@@ -665,8 +1033,9 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
             headerView?.syncCoverFlowWithPager(progress: progress, currentModel: fromModel)
         }
                 
-        // To reduce frame dropping cancels animations on any transitions.
-        if state.pageTransition.isTransitioning {
+        // Stop offscreen carousel players only in the collapsed presentation.
+        // The expanded player supplies live frames throughout a page gesture.
+        if state.pageTransition.isTransitioning && !state.isExpanded {
             NotificationCenter.default.post(name: .nftDetailsStopLottieAnimations, object: nil)
         }
         
@@ -681,6 +1050,7 @@ extension NftDetailsBaseVC: NftDetailsPagerDelegate {
 extension NftDetailsBaseVC: NftDetailsMainHeaderViewDelegate {
     
     func headerCoverFlowDidTapSelectedModel() {
+        guard !isPinchInteractionActive else { return }
         pager?.simulateUserScrollToExpand(mainScrollView)
     }
 
@@ -701,7 +1071,7 @@ extension NftDetailsBaseVC: NftDetailsMainHeaderViewDelegate {
 extension NftDetailsBaseVC: UIScrollViewDelegate {
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
         assert(scrollView == mainScrollView)
-        guard let pager, let headerView else { return }
+        guard !isPinchInteractionActive, let pager, let headerView else { return }
                 
         // Pager. This may change expanded state here so we handle it first, update the state
         pager.handleVerticalScroll(scrollView)
@@ -722,4 +1092,26 @@ extension NftDetailsBaseVC: UIScrollViewDelegate {
     public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         pager?.handleEndDecelerating()
     }
+}
+
+
+extension NftDetailsBaseVC: UIGestureRecognizerDelegate {
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === inlinePinchGesture else { return true }
+        return canBeginInlinePinch(at: gestureRecognizer.location(in: contentContainer))
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                                  shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // A pan may recognize while the first finger is down. Keep the pinch
+        // eligible; the touch guard cancels that pan as soon as the second lands.
+        gestureRecognizer === inlinePinchGesture && otherGestureRecognizer is UIPanGestureRecognizer
+    }
+}
+
+@MainActor
+private final class NftNavigationContrastTarget: NSObject {
+    weak var owner: NftDetailsBaseVC?
+    init(owner: NftDetailsBaseVC) { self.owner = owner }
+    @objc func tick() { owner?.updateClearNavigationButtonColor() }
 }

@@ -3,22 +3,12 @@ Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 
 $landscapeAuthContentMaxWidth: 31.4375rem;
 $landscapeMainContentMaxWidth: 53.5rem;
+// Width cap of a landscape block that keeps its 1rem trailing gap outside, e.g. as a margin
+$landscapeBlockMaxWidth: calc(#{$landscapeMainContentMaxWidth} - 1rem);
 $portraitContentMaxWidth: 27rem;
 $portraitHeaderHeight: 3rem;
 $defaultCardGradient: #27B1FA 0, #0874F8 100%;
 $gramCardGradient: #9C86E1 0, #6D92D9 100%;
-$tegroCardGradient: #6C87F0 0, #4844D5 100%;
-$redCardGradient: #D26868 0, #B03E4F 100%;
-$orangeCardGradient: #E2AE55 0, #D28B2A 100%;
-$greenCardGradient: #82C24B 0, #36902F 100%;
-$seaCardGradient: #3ABDBE 0, #1E879B 100%;
-$purpleCardGradient: #8E6EE5 0, #682FB4 100%;
-$pinkCardGradient: #B055AD 0, #B4569C 100%;
-
-// The Gram card surface, as a complete gradient rather than a stop list, because its angle is part
-// of the design. `DefaultCardBackground` paints it for a card that has no NFT artwork, and the card
-// itself paints it underneath while an NFT artwork is still loading.
-$gramCardSurface: linear-gradient(145deg, #5CC8FF 0%, #0088FF 46%, #0057C2 100%);
 $silverCardGradient: #C4C3C5 0, #C4C3C5 100%;
 $goldCardGradient: #C4842B 0, #FFDE5E 100%;
 $platinumCardGradient: #393A3F 0, #393A3F 100%;

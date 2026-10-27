@@ -11,6 +11,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MAccount
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
 import org.mytonwallet.app_air.walletcore.stores.DappsStore
@@ -36,6 +37,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
         fun reloadTabs()
         fun accountRenamed(accountId: String, accountName: String)
         fun accountConfigChanged()
+        fun infoBannersUpdated(accountId: String, promotions: List<ApiPromotion>)
         fun seasonalThemeChanged()
         fun walletCardTopLineChanged()
         fun actionButtonsRowChanged()
@@ -49,6 +51,16 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
 
     // PUBLIC VARIABLES ////////////////////////////////////////////////////////////////////////////
     internal var calledReady = false
+
+    fun loadInfoBanners(accountId: String) {
+        val dismissedIds = WGlobalStorage.getDismissedHomeBannerIds(accountId)
+        val promotions = AccountStore.getHomeBanners(accountId).filter { it.id !in dismissedIds }
+        delegate.get()?.infoBannersUpdated(accountId, promotions)
+    }
+
+    fun dismissInfoBanner(accountId: String, id: String) {
+        WGlobalStorage.dismissHomeBanner(accountId, id)
+    }
 
     val showingAccount: MAccount?
         get() {
@@ -296,6 +308,7 @@ class HomeVM(private val mode: MScreenMode, delegate: Delegate) : WalletCore.Eve
             }
 
             WalletEvent.AccountConfigReceived -> {
+                loadedAccountId?.let(::loadInfoBanners)
                 delegate.get()?.accountConfigChanged()
             }
 

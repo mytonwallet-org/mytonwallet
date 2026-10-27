@@ -27,6 +27,15 @@ public final class BlurReplaceView: UIView {
         contentView?.intrinsicContentSize ?? super.intrinsicContentSize
     }
 
+    public override func layoutSubviews() {
+        // Replacement motion belongs to the wrappers' opacity and blur. Incoming
+        // content must not inherit a parent's geometry animation from a zero frame.
+        UIView.performWithoutAnimation {
+            super.layoutSubviews()
+            for wrapper in wrappers { wrapper.layoutIfNeeded() }
+        }
+    }
+
     public func replaceContent(
         with contentView: UIView,
         animated: Bool = true,
@@ -48,6 +57,7 @@ public final class BlurReplaceView: UIView {
         let incomingWrapper = makeWrapper(for: contentView)
         addSubview(incomingWrapper)
         pinToBounds(incomingWrapper)
+        UIView.performWithoutAnimation { layoutIfNeeded() }
 
         guard animated, !previousWrappers.isEmpty else {
             previousWrappers.forEach { $0.removeFromSuperview() }
@@ -70,7 +80,6 @@ public final class BlurReplaceView: UIView {
         self.currentWrapper = incomingWrapper
         pendingCompletion = completion
 
-        layoutIfNeeded()
         UIView.animate(
             withDuration: animationDuration,
             delay: 0,

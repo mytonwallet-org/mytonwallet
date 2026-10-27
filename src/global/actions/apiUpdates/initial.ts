@@ -27,6 +27,7 @@ import {
   createAccount,
   removeNft,
   updateAccount,
+  updateAccountBanners,
   updateAccountChain,
   updateAccountOwnedMwCards,
   updateAccountSettings,
@@ -328,10 +329,15 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     }
 
     case 'nftPutUpForSale': {
-      const { accountId, nftAddress } = update;
-      global = updateNft(global, accountId, nftAddress, {
-        isOnSale: true,
-      });
+      const { accountId, nftAddress, nft } = update;
+      if (selectAccountNftByAddress(global, accountId, nftAddress)) {
+        global = updateNft(global, accountId, nftAddress, {
+          isOnSale: true,
+        });
+      } else if (nft) {
+        // The outgoing activity of the listing transfer removes the NFT when it arrives before this update
+        global = applyIncomingNftFromActivity(global, accountId, nft);
+      }
       setGlobal(global);
       break;
     }
@@ -595,6 +601,13 @@ addActionHandler('apiUpdate', (global, actions, update) => {
     case 'updateAccountConfig': {
       const { accountConfig, accountId } = update;
       global = updateAccountState(global, accountId, { config: accountConfig });
+      setGlobal(global);
+      break;
+    }
+
+    case 'updateAccountBanners': {
+      const { accountId, homeBanners, stakingBanners } = update;
+      global = updateAccountBanners(global, accountId, homeBanners, stakingBanners);
       setGlobal(global);
       break;
     }

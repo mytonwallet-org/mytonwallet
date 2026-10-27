@@ -19,7 +19,7 @@ public struct ApiDapp: Equatable, Hashable, Sendable {
     public let protocolType: ApiDappProtocolType?
     public let url: String
     public let name: String
-    public let iconUrl: String
+    public let iconUrl: String?
     public let manifestUrl: String?
     
     public let connectedAt: Int?
@@ -33,7 +33,7 @@ public struct ApiDapp: Equatable, Hashable, Sendable {
         protocolType: ApiDappProtocolType? = nil,
         url: String,
         name: String,
-        iconUrl: String,
+        iconUrl: String? = nil,
         manifestUrl: String? = nil,
         connectedAt: Int?,
         urlTrustStatus: ApiDappUrlTrustStatus?,
@@ -77,7 +77,7 @@ extension ApiDapp: Codable {
         protocolType = try c.decodeIfPresent(ApiDappProtocolType.self, forKey: .protocolType)
         url = try c.decode(String.self, forKey: .url)
         name = try c.decode(String.self, forKey: .name)
-        iconUrl = try c.decode(String.self, forKey: .iconUrl)
+        iconUrl = try c.decodeIfPresent(String.self, forKey: .iconUrl)
         manifestUrl = try c.decodeIfPresent(String.self, forKey: .manifestUrl)
         connectedAt = try c.decodeIfPresent(Int.self, forKey: .connectedAt)
         sse = try c.decodeIfPresent(ApiSseOptions.self, forKey: .sse)
@@ -98,7 +98,7 @@ extension ApiDapp: Codable {
         try c.encodeIfPresent(protocolType, forKey: .protocolType)
         try c.encode(url, forKey: .url)
         try c.encode(name, forKey: .name)
-        try c.encode(iconUrl, forKey: .iconUrl)
+        try c.encodeIfPresent(iconUrl, forKey: .iconUrl)
         try c.encodeIfPresent(manifestUrl, forKey: .manifestUrl)
         try c.encodeIfPresent(connectedAt, forKey: .connectedAt)
         try c.encodeIfPresent(urlTrustStatus, forKey: .urlTrustStatus)

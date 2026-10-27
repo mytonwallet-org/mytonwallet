@@ -33,6 +33,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         self.request = request
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 650)
     }
     
     init(placeholderAccountId: String?, isWaitingForRequest: Bool = false, returnUrl: String? = nil) {
@@ -40,6 +41,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         self.isWaitingForRequest = isWaitingForRequest
         self.returnUrl = returnUrl
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 650)
     }
 
     isolated deinit {
@@ -184,6 +186,7 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
     }
 
     private func setupObservers() {
+        WalletCoreData.addImmediately(eventObserver: self)
         sendButtonObserver = observe { [weak self] in
             guard let self else { return }
             _ = account.id
@@ -224,6 +227,14 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
         SendDappViewOrPlaceholder(
             accountContext: _account,
             request: request,
+            heroAmount: request.flatMap {
+                dappTransferHeroAmount(
+                    $0.combinedInfo,
+                    tokensBySlug: TokenStore.tokens,
+                    baseCurrency: TokenStore.baseCurrency,
+                    currencyRate: TokenStore.baseCurrencyRate
+                )
+            },
             onShowDetail: showDetail(_:),
         )
     }
@@ -292,6 +303,17 @@ public class SendDappVC: WViewController, UISheetPresentationControllerDelegate 
 
     public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         _onCancel()
+    }
+}
+
+extension SendDappVC: WalletCoreData.EventsObserver {
+    public func walletCore(event: WalletCoreData.Event) {
+        switch event {
+        case .tokensChanged, .baseCurrencyChanged:
+            hostingController?.rootView = makeView()
+        default:
+            break
+        }
     }
 }
 

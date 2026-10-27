@@ -43,9 +43,12 @@ import type {
   ApiDerivation,
   ApiEmulationResult,
   ApiFetchEstimateDieselResult,
+  ApiForeignStakingPromotion,
+  ApiForeignUnstakeDraft,
   ApiGroupedWalletVariant,
   ApiHistoryList,
   ApiImportAddressByChain,
+  ApiInfoBannerPromotion,
   ApiLedgerDriver,
   ApiLedgerWalletInfo,
   ApiMarketAssetsResponseWithSlug,
@@ -397,6 +400,8 @@ export enum SwapErrorType {
   ChangellyMaxSwap,
   NotEnoughForFee,
   TooSmallAmount,
+  QuoteUnavailable,
+  ServiceUnavailable,
 }
 
 export enum DappConnectState {
@@ -442,6 +447,11 @@ export enum StakingState {
   StakeSelectAccount,
   UnstakeSelectAccount,
   ClaimSelectAccount,
+
+  ForeignUnstakePassword,
+  ForeignUnstakeConnectHardware,
+  ForeignUnstakeConfirmHardware,
+  ForeignUnstakeConfirmMfa,
 }
 
 export enum VestingUnfreezeState {
@@ -681,6 +691,7 @@ export interface AccountState {
   selectedNftToReport?: {
     chain: ApiChain;
     address: ApiNft['address'];
+    shouldReport?: true;
   };
   currentNftForAttributes?: ApiNft;
   shouldShowOwnerInNftAttributes?: true;
@@ -729,6 +740,13 @@ export interface AccountState {
   currentSiteCategoryId?: number;
 
   config?: ApiAccountConfig;
+  banners?: {
+    home: ApiInfoBannerPromotion[];
+    staking: ApiForeignStakingPromotion[];
+  };
+  // The backend keeps reporting a foreign staking position for up to 15 minutes after the unstake is sent.
+  // Its banner stays hidden until the SDK stops sending it, so the user can't send a second unstake.
+  submittedForeignStakingIds?: string[];
   isAppReady?: boolean;
 }
 
@@ -771,9 +789,18 @@ export interface AccountSettings {
   areAssetsHidden?: boolean;
   areCollectiblesHidden?: boolean;
   overviewCellSize?: OverviewCellSize;
+  dismissedHomeBannerIds?: string[];
 }
 
 export type OverviewCellSize = 'small' | 'medium' | 'big';
+
+export interface ForeignUnstake {
+  accountId: string;
+  bannerId: string;
+  chain: ApiChain;
+  providerName: string;
+  draft?: ApiForeignUnstakeDraft;
+}
 
 export interface SavedAddress {
   name: string;
@@ -1119,6 +1146,9 @@ export type GlobalState = {
     fee?: bigint;
     error?: string;
     mfaRequestHash?: string;
+    foreignUnstake?: ForeignUnstake;
+    // Lives until the staking modal closes, so dismissed banners come back the next time it opens
+    dismissedBannerIds?: string[];
   };
 
   stakingDefault: ApiStakingState;
@@ -1532,6 +1562,7 @@ export interface ActionPayloads {
   openReportNftModal: {
     chain: ApiChain;
     address: ApiNft['address'];
+    shouldReport?: true;
   };
   closeReportNftModal: undefined;
   hideNft: { shouldReport?: true } | undefined;
@@ -1614,6 +1645,11 @@ export interface ActionPayloads {
   openStakingInfoOrStart: undefined;
   updateStakingMfaRequestStatus: undefined;
   switchStakingAccount: { accountId: string; mode: 'stake' | 'unstake' | 'claim' };
+  startForeignUnstake: { id: string };
+  cancelForeignUnstake: undefined;
+  submitForeignUnstake: { enclaveToken?: string } | undefined;
+  dismissHomeBanner: { accountId: string; id: string };
+  dismissStakingBanner: { id: string };
 
   // Settings
   openSettings: undefined;

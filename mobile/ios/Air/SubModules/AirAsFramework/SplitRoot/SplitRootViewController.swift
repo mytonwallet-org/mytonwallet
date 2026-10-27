@@ -37,6 +37,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
 
     private var selectedTab: AppTabId { viewModel.selectedTab }
     var currentTabId: AppTabId { selectedTab }
+    override var childForStatusBarStyle: UIViewController? { currentNavigationController }
 
     func takeNavigationStack(for id: AppTabId, keepingRoot: Bool) -> [UIViewController]? {
         guard let navigationController = navControllersByTabId[id] else { return nil }
@@ -311,6 +312,7 @@ final class SplitRootViewController: UISplitViewController, VisibleContentProvid
         }
         searchController.attach(to: self)
         updateNavigationPlacement()
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     @discardableResult

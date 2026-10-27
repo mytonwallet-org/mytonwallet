@@ -11,14 +11,17 @@ import {
   selectAccountState,
   selectCurrentAccountId,
   selectCurrentAccountTokens,
+  selectIs3dCardDisabled,
 } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
 import { openUrl } from '../../util/openUrl';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
+import useAppTheme from '../../hooks/useAppTheme';
 import useEffectWithPrevDeps from '../../hooks/useEffectWithPrevDeps';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import useScrolledState from '../../hooks/useScrolledState';
 
 import AccentColorSelector from '../common/AccentColorSelector';
@@ -54,6 +57,7 @@ interface StateProps {
   returnTo?: 'settings' | 'accountSelector';
   areCardsLoading?: boolean;
   isAnimationDisabled: boolean;
+  is3dCardDisabled: boolean;
 }
 
 function CustomizeWalletModal({
@@ -73,6 +77,7 @@ function CustomizeWalletModal({
   returnTo,
   areCardsLoading,
   isAnimationDisabled,
+  is3dCardDisabled,
 }: OwnProps & StateProps) {
   const {
     openCustomizeWalletModal,
@@ -85,6 +90,8 @@ function CustomizeWalletModal({
   } = getActions();
 
   const lang = useLang();
+  const appTheme = useAppTheme(theme);
+  const hasReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)') ?? false;
   const [selectedCardAddress, setSelectedCardAddress] = useState<string>(DEFAULT_CARD_ADDRESS);
 
   const {
@@ -276,7 +283,6 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
-            isAnimationDisabled={isAnimationDisabled}
             variant="left"
           />
 
@@ -286,7 +292,9 @@ function CustomizeWalletModal({
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
             previewCardNft={previewCard}
-            isAnimationDisabled={isAnimationDisabled}
+            isDark={appTheme === 'dark'}
+            isAnimationDisabled={isAnimationDisabled || hasReducedMotion}
+            isTiltDisabled={is3dCardDisabled || hasReducedMotion}
             variant="middle"
           />
 
@@ -295,7 +303,6 @@ function CustomizeWalletModal({
             tokens={tokens}
             baseCurrency={baseCurrency}
             currencyRates={currencyRates}
-            isAnimationDisabled={isAnimationDisabled}
             variant="right"
           />
         </div>
@@ -322,6 +329,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
       theme: global.settings.theme,
       isNftBuyingDisabled: global.restrictions.isNftBuyingDisabled,
       isAnimationDisabled: global.settings.animationLevel === ANIMATION_LEVEL_MIN,
+      is3dCardDisabled: selectIs3dCardDisabled(global),
     };
   }
 
@@ -350,5 +358,6 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     returnTo: global.customizeWalletReturnTo,
     areCardsLoading,
     isAnimationDisabled: global.settings.animationLevel === ANIMATION_LEVEL_MIN,
+    is3dCardDisabled: selectIs3dCardDisabled(global),
   };
 })(CustomizeWalletModal));

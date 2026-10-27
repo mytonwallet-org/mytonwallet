@@ -42,6 +42,17 @@ import WalletContext
         swapType: SwapType,
         account: SwapAccountSnapshot
     ) async throws -> SwapEstimateUpdate {
+        if swapType == .crosschainInsideWallet {
+            return try await OnchainSwapFlow(
+                validator: OnchainSwapValidator(),
+                estimateEngine: OnchainSwapEstimateEngine(fetchEstimate: estimateEngine.fetchEstimate)
+            ).estimate(
+                input,
+                changedFrom: changedFrom,
+                swapType: swapType,
+                account: account
+            )
+        }
         let result = try await estimateEngine.estimate(
             input,
             changedFrom: changedFrom,

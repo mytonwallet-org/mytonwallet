@@ -1,5 +1,5 @@
 import React, {
-  memo, useLayoutEffect, useMemo, useRef, useState,
+  memo, useLayoutEffect, useMemo, useRef,
 } from '../../lib/teact/teact';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
@@ -11,15 +11,18 @@ import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
 import { IS_IOS, IS_SAFARI } from '../../util/windowEnvironment';
 
+import useCardArtwork from '../../hooks/useCardArtwork';
+import useCardController from '../../hooks/useCardController';
+import useCardCustomization from '../../hooks/useCardCustomization';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
-import useLastCallback from '../../hooks/useLastCallback';
 import useWindowSize from '../../hooks/useWindowSize';
 import useFontScalePreview from './hooks/useFontScalePreview';
 
 import CardAddress from '../main/sections/Card/CardAddress';
-import CustomCardManager from '../main/sections/Card/CustomCardManager';
+import CardSurface from '../main/sections/Card/CardSurface';
 import AnimatedCounter from '../ui/AnimatedCounter';
-import DefaultCardBackground from '../ui/DefaultCardBackground';
+import CardTilt from '../ui/CardTilt';
+import CardArtwork from './CardArtwork';
 
 import styles from './WalletCardPreview.module.scss';
 
@@ -29,7 +32,9 @@ interface OwnProps {
   baseCurrency?: ApiBaseCurrency;
   currencyRates?: ApiCurrencyRates;
   previewCardNft?: ApiNft;
+  isDark?: boolean;
   isAnimationDisabled?: boolean;
+  isTiltDisabled?: boolean;
   variant: 'left' | 'right' | 'middle';
 }
 
@@ -39,13 +44,16 @@ function WalletCardPreview({
   baseCurrency = 'USD',
   currencyRates,
   previewCardNft,
+  isDark,
   isAnimationDisabled,
+  isTiltDisabled,
   variant,
 }: OwnProps) {
   const amountRef = useRef<HTMLDivElement>();
+  const { cardRef, controller, handleMotionFrame } = useCardController();
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
-  const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
-  const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
+  const { nft: shownCardNft, imageUrl: cardImageUrl } = useCardArtwork(previewCardNft, IS_GRAM_WALLET);
+  const { classNames: customCardClassName, withTextGradient } = useCardCustomization(shownCardNft);
 
   const { isPortrait } = useDeviceScreen();
   const { width: screenWidth } = useWindowSize();
@@ -58,11 +66,6 @@ function WalletCardPreview({
   }, [tokens, currencyRates, baseCurrency]);
 
   const accountTitle = account?.title || 'My Wallet';
-
-  const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
-    setCustomCardClassName(className);
-    setWithTextGradient(hasGradient);
-  });
 
   const { primaryValue, primaryWholePart, primaryFractionPart } = values || {};
 
@@ -97,17 +100,23 @@ function WalletCardPreview({
     );
   }
 
-  return (
-    <div className={buildClassName(styles.container, customCardClassName, styles[variant])}>
-      {!previewCardNft && (
-        <DefaultCardBackground isGram={IS_GRAM_WALLET} isAnimationDisabled={isAnimationDisabled} />
+  const isMiddle = variant === 'middle';
+  const card = (
+    <div ref={cardRef} className={buildClassName(styles.container, customCardClassName, styles[variant])}>
+      {isMiddle ? (
+        <CardSurface
+          nft={shownCardNft}
+          imageUrl={cardImageUrl}
+          isGram={IS_GRAM_WALLET}
+          isDark={Boolean(isDark)}
+          isDisabled={Boolean(isTiltDisabled)}
+          noSwitchAnimation={isAnimationDisabled}
+          noDepth
+          controller={controller}
+        />
+      ) : (
+        <CardArtwork />
       )}
-      <CustomCardManager
-        withMotion={!isAnimationDisabled}
-        nft={previewCardNft}
-        onCardChange={handleCardChange}
-        className={styles.customCardManager}
-      />
 
       <div className={buildClassName(styles.containerInner, customCardClassName)}>
         {values ? renderBalance() : (
@@ -115,6 +124,14 @@ function WalletCardPreview({
         )}
       </div>
     </div>
+  );
+
+  if (!isMiddle) return card;
+
+  return (
+    <CardTilt isDisabled={isTiltDisabled} className={styles.tilt} onMotionFrame={handleMotionFrame}>
+      {card}
+    </CardTilt>
   );
 }
 

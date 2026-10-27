@@ -10,6 +10,8 @@ import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useHistoryBack from '../../hooks/useHistoryBack';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import usePrevious2 from '../../hooks/usePrevious2';
+import useShowTransition from '../../hooks/useShowTransition';
 
 import Button from '../ui/Button';
 import ImageWithParticles, {
@@ -27,15 +29,19 @@ import faceIdSvg from '../../assets/settings/settings_face-id.svg';
 interface OwnProps {
   isActive?: boolean;
   isLoading?: boolean;
+  error?: string;
 }
 
-const AuthCreateBiometrics = ({ isActive, isLoading }: OwnProps) => {
+const AuthCreateBiometrics = ({ isActive, isLoading, error }: OwnProps) => {
   const { enableBiometrics, skipBiometrics, resetAuth } = getActions();
 
   const lang = useLang();
   const canvasRef = useRef<HTMLCanvasElement>();
   const headerRef = useRef<HTMLDivElement>();
   const { isLandscape } = useDeviceScreen();
+  const previousError = usePrevious2(error);
+  const renderedError = error || previousError;
+  const { ref: errorRef } = useShowTransition({ isOpen: Boolean(error), className: false });
 
   const isFaceId = getIsFaceIdAvailable();
   const isTouchId = getIsTouchIdAvailable();
@@ -92,6 +98,14 @@ const AuthCreateBiometrics = ({ isActive, isLoading }: OwnProps) => {
         <p className={styles.info}>{renderText(lang('$auth_biometric_info'))}</p>
 
         <div className={styles.buttons}>
+          <div
+            ref={errorRef}
+            className={buildClassName(styles.error, styles.biometricsSetupError)}
+            role="alert"
+            aria-hidden={!error}
+          >
+            {renderedError && lang(renderedError)}
+          </div>
           <Button
             isPrimary
             className={styles.btn}

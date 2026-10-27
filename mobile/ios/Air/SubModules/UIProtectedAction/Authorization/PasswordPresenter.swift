@@ -92,12 +92,10 @@ enum PasswordPresenter {
         return await awaitSession(session, authorizationUI: authorizationUI) {
             var value: SoftwareSubmission<Result>?
             var isResolving = false
-            let headerController = UIHostingController(rootView: confirmation.headerView)
-            headerController.view.backgroundColor = .clear
-            let compactHeaderController = UIHostingController(
+            let headerController = makeHeaderController(rootView: confirmation.headerView)
+            let compactHeaderController = makeHeaderController(
                 rootView: CompactConfirmationHeader(content: confirmation.headerView)
             )
-            compactHeaderController.view.backgroundColor = .clear
             let unlockVC = UnlockVC(
                 title: confirmation.title,
                 replacedTitle: nil,
@@ -194,12 +192,10 @@ enum PasswordPresenter {
         return await awaitSession(session, authorizationUI: authorizationUI) {
             var value: SoftwareSubmission<Result>?
             var isResolving = false
-            let headerController = UIHostingController(rootView: confirmation.headerView)
-            headerController.view.backgroundColor = .clear
-            let compactHeaderController = UIHostingController(
+            let headerController = makeHeaderController(rootView: confirmation.headerView)
+            let compactHeaderController = makeHeaderController(
                 rootView: CompactConfirmationHeader(content: confirmation.headerView)
             )
-            compactHeaderController.view.backgroundColor = .clear
             unlockController = UnlockVC.pushAuth(
                 on: presenter,
                 title: confirmation.title,
@@ -322,6 +318,17 @@ enum PasswordPresenter {
                 }
             }
         }
+    }
+
+    static func makeHeaderController<Content: View>(rootView: Content) -> UIHostingController<Content> {
+        let controller = UIHostingController(rootView: rootView)
+        // UnlockVC already places the header below its navigation safe area.
+        // Including it again in SwiftUI inflates the header's fitting height.
+        if #available(iOS 16.4, *) {
+            controller.safeAreaRegions = []
+        }
+        controller.view.backgroundColor = .clear
+        return controller
     }
 
     static func tokenBeforePresentation(

@@ -10,13 +10,19 @@ struct SwapView: View {
     var swapModel: SwapModel
     var isSensitiveDataHidden: Bool
     var showsSelectors = true
+    var onSelectorsAppear: (() -> Void)?
     
     var body: some View {
         WithPerceptionTracking {
             ScrollView {
                 VStack(spacing: 16) {
                     if showsSelectors {
-                        SwapSelectorsView(model: swapModel.input)
+                        SwapSelectorsView(
+                            model: swapModel.input,
+                            hasAmountError: swapModel.hasAmountError,
+                            hasInsufficientFunds: swapModel.hasInsufficientFunds,
+                            onAppear: onSelectorsAppear ?? swapModel.input.focusInitialInput
+                        )
                             .padding(.top, 8)
                     }
                     
@@ -27,6 +33,7 @@ struct SwapView: View {
                         SwapDetailsView(
                             model: swapModel.detailsVM,
                             slippage: swapModel.slippage,
+                            isFeeError: swapModel.hasInsufficientFee,
                             onSlippageCommit: { swapModel.commitSlippage($0) }
                         )
                         .transition(.opacity)
@@ -44,7 +51,8 @@ struct SwapView: View {
                         SwapCexDetailsView(
                             inputModel: swapModel.input,
                             swapEstimate: swapModel.estimateState.cexEstimate,
-                            swapType: swapType
+                            swapType: swapType,
+                            isFeeError: swapModel.hasInsufficientFee
                         )
                     }
                     if let hint = swapModel.hint {
@@ -67,6 +75,8 @@ struct SwapView: View {
                 }
                 .padding(.horizontal, 16)
                 .animation(.snappy, value: swapModel.estimateState.dexEstimate)
+                .animation(.snappy, value: swapModel.estimateState.cexEstimate)
+                .animation(.snappy, value: swapModel.detailsSection)
             }
             .backportScrollEdgeEffectHidden(for: .top)
             .safeAreaInset(edge: .bottom, spacing: 0) {

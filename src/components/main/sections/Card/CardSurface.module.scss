@@ -1,0 +1,74 @@
+@use "../../../../styles/mixins";
+
+.artwork {
+  pointer-events: none;
+
+  position: absolute;
+  inset: 0;
+
+  display: block;
+
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+
+  object-fit: cover;
+
+  mask-image: var(--card-face-mask);
+  mask-size: 100% 100%;
+}
+
+// The image under the canvas is hidden once the canvas fades in. Two layers with the same
+// soft-edged mask on top of each other would make the edge look hard again.
+.fallbackCovered {
+  visibility: hidden;
+
+  @include mixins.transition(visibility 0s 300ms);
+}
+
+// The switch snapshot holds the outgoing card's last frame and is made visible only by its animation
+.surface,
+.switchSnapshot {
+  opacity: 0;
+}
+
+.surface {
+  @include mixins.transition(opacity 300ms ease-in-out);
+}
+
+.ready {
+  opacity: 1;
+}
+
+.noMotion {
+  transition: none;
+}
+
+.border {
+  pointer-events: none;
+
+  position: absolute;
+  z-index: 2;
+  // The border mask reaches 1px past the card edge, so its soft edge is not cut off
+  inset: -1px;
+
+  mask-image: var(--card-rim-mask);
+  mask-size: 100% 100%;
+}
+
+.borderBase,
+.borderLight {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+}
+
+// The ellipse touches the sides of the box, so the light fades out fully at the edges
+.borderLight {
+  background: radial-gradient(ellipse 50% 50% at center, #FFF 5%, #FFFFFF00 100%);
+}
+
+.borderLightBlack {
+  background: radial-gradient(ellipse 50% 50% at center, #FFF 10%, #FFFFFF00 100%);
+}

@@ -46,7 +46,7 @@ class UtxoSocket extends AbstractWebsocketClient<
       return;
     }
 
-    void this.#handleAddressEvent(message);
+    return this.#handleAddressEvent(message);
   };
 
   protected handleSocketConnect = () => {

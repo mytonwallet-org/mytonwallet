@@ -27,10 +27,11 @@ public struct AccountListCell: View {
     var addressLineSuffix: String?
     var isDimmed: Bool
     var showsAddress: Bool
+    var addressChain: ApiChain?
     
     @State private var _isReordering = false
     
-    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true, addressLineSuffix: String? = nil, isDimmed: Bool = false, showsAddress: Bool = true) {
+    public init(accountContext: AccountContext, isReordering: Bool, showCurrentAccountHighlight: Bool, showBalance: Bool = true, addressLineSuffix: String? = nil, isDimmed: Bool = false, showsAddress: Bool = true, addressChain: ApiChain? = nil) {
         self.accountContext = accountContext
         self.isReordering = isReordering
         self.showCurrentAccountHighlight = showCurrentAccountHighlight
@@ -38,6 +39,7 @@ public struct AccountListCell: View {
         self.addressLineSuffix = addressLineSuffix
         self.isDimmed = isDimmed
         self.showsAddress = showsAddress
+        self.addressChain = addressChain
     }
     
     static let topRowHeight: CGFloat = 22
@@ -68,7 +70,7 @@ public struct AccountListCell: View {
                         }
                         .frame(height: Self.topRowHeight)
                         if showsAddress {
-                            ListAddressLine(addressLine: accountContext.addressLine, suffix: addressLineSuffix)
+                            ListAddressLine(addressLine: addressChain.map { accountContext.addressLine(for: $0) } ?? accountContext.topAddressLine, suffix: addressLineSuffix)
                                 .lineLimit(1)
                                 .foregroundStyle(Color.air.secondaryLabel)
                                 .frame(height: Self.bottomRowHeight)

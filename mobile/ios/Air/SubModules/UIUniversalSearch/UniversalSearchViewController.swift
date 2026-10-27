@@ -337,6 +337,7 @@ public final class UniversalSearchViewController: UIViewController, UICollection
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .air.background
         collectionView.alwaysBounceVertical = true
+        collectionView.showsVerticalScrollIndicator = false
         collectionView.delaysContentTouches = false
         collectionView.keyboardDismissMode = .none
         collectionView.delegate = self

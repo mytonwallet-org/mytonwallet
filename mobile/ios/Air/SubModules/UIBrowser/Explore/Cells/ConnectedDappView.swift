@@ -29,7 +29,7 @@ import WalletCore
 
 struct ConnectedDappButton: View {
     let dappName: String
-    let iconURL: String
+    let iconURL: String?
     let layoutVariant: LayoutSizeVariant
     let onTap: @MainActor () -> Void
 
@@ -62,9 +62,16 @@ struct ConnectedDappsSettingsButton: View {
                                  image: {
                                      Image.airBundle("Settings60")
                                          .resizable()
-                                         .background { connectedDappBackgroundGradient }
+                                         .background {
+                                             if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                                                 Color.clear
+                                             } else {
+                                                 connectedDappBackgroundGradient
+                                             }
+                                         }
                                  },
                                  onTap: onTap)
+        .accessibilityLabel(lang("Settings"))
     }
 }
 
@@ -91,24 +98,46 @@ private struct ConnectedDappGenericView<ImageView: View>: View {
                 if let title { // settings button has no title in compact layout
                     Text(title).textStyle(.subheadlineEmphasized)
                         .kerning(-0.28)
-                        .frame(maxWidth: 140)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 140, alignment: .leading)
                         .frame(height: 15) // should be lineHeight
                         .padding(.trailing, 12)
                 }
             }
-            .background { connectedDappBackgroundGradient }
-            .onTapWithHighlightInScroll(action: onTap)
-            .innerStrokeOverlay(Color.air.groupedItem, cornerRadius: 13, lineWidth: 1, clipToStroke: true)
-            .shadow(style: .light)
+            .applyModifierConditionally {
+                if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                    $0
+                        .clipShape(.rect(cornerRadius: 13))
+                        .glassEffect(.regular.interactive(true), in: .rect(cornerRadius: 13))
+                        .onTapWithHighlightInScroll(action: onTap)
+                } else {
+                    $0
+                        .background { connectedDappBackgroundGradient }
+                        .onTapWithHighlightInScroll(action: onTap)
+                        .innerStrokeOverlay(Color.air.groupedItem, cornerRadius: 13, lineWidth: 1, clipToStroke: true)
+                        .shadow(style: .light)
+                }
+            }
 
         case .regular:
             VStack(alignment: .center, spacing: 8) {
                 image().frame(width: imageSideLength, height: imageSideLength)
-                    .onTapWithHighlightInScroll(action: onTap)
-                    .innerStrokeOverlay(regularSizeWithStroke ? .air.groupedItem : Color.clear,
-                                        cornerRadius: 16,
-                                        lineWidth: 1,
-                                        clipToStroke: true)
+                    .applyModifierConditionally {
+                        if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                            $0
+                                .clipShape(.rect(cornerRadius: 16))
+                                .glassEffect(.regular.interactive(true), in: .rect(cornerRadius: 16))
+                                .onTapWithHighlightInScroll(action: onTap)
+                        } else {
+                            $0
+                                .onTapWithHighlightInScroll(action: onTap)
+                                .innerStrokeOverlay(regularSizeWithStroke ? .air.groupedItem : Color.clear,
+                                                    cornerRadius: 16,
+                                                    lineWidth: 1,
+                                                    clipToStroke: true)
+                        }
+                    }
 
                 // For regular size, title is always expected, use " " as a fallback
                 Text(title ?? " ").textStyle(.captionEmphasized)

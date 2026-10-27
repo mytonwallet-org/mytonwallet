@@ -27,7 +27,7 @@ private struct HiddenNftKey: Hashable, Sendable {
 
     init(chain: ApiChain, address: String) {
         self.chain = chain
-        self.address = address
+        self.address = chain.isEvm ? address.lowercased() : address
     }
 }
 
@@ -266,6 +266,13 @@ public final class _NftStore: Sendable {
             if let snapshot = try? decoder.decode(CacheSnapshot.self, from: data) {
                 cachedNfts = snapshot.nfts
                 unhiddenNftIdsByAccount = snapshot.unhiddenNftIdsByAccount.filter { accountIds.contains($0.key) }
+                    .mapValues { ids in
+                        Set(ids.map { id in
+                            let parts = id.split(separator: ":", maxSplits: 1)
+                            guard parts.count == 2, let chain = ApiChain(rawValue: String(parts[0])) else { return id }
+                            return ApiNft.id(chain: chain, address: String(parts[1]))
+                        })
+                    }
             } else {
                 cachedNfts = try decoder.decode([String: OrderedDictionary<String, DisplayNft>].self, from: data)
             }
@@ -299,15 +306,21 @@ public final class _NftStore: Sendable {
 
         var storedRows: [MAccountHiddenNft] = []
         do {
-            storedRows = try await db.read { db in
-                try MAccountHiddenNft.fetchAll(db)
-            }
-            if !legacyRows.isEmpty {
-                try await db.write { db in
-                    for row in legacyRows {
-                        try row.upsert(db)
-                    }
+            storedRows = try await db.write { db in
+                let rows = try MAccountHiddenNft.fetchAll(db).map { row in
+                    guard let chain = ApiChain(rawValue: row.chain), chain.isEvm,
+                          row.nftAddress != row.nftAddress.lowercased() else { return row }
+                    let normalized = MAccountHiddenNft(
+                        accountId: row.accountId, chain: row.chain, nftAddress: row.nftAddress.lowercased()
+                    )
+                    try row.delete(db)
+                    try normalized.upsert(db)
+                    return normalized
                 }
+                for row in legacyRows {
+                    try row.upsert(db)
+                }
+                return rows
             }
         } catch {
             log.error("failed to load or migrate hidden NFTs: \(error, .public)")
@@ -448,7 +461,7 @@ public final class _NftStore: Sendable {
             for nft in nfts {
                 if newValue {
                     $0[accountId]?.remove(nft.id)
-                } else if nft.isHidden == true || nft.isScam == true || nft.isUnverified == true {
+                } else {
                     $0[accountId, default: []].insert(nft.id)
                 }
             }
@@ -470,12 +483,7 @@ public final class _NftStore: Sendable {
                         displayNft.isHiddenByUser = true
                     } else { // newValue == false
                         displayNft.isHiddenByUser = false
-                        if displayNft.nft.isHidden == true
-                            || displayNft.nft.isScam == true
-                            || displayNft.nft.isUnverified == true
-                        {
-                            displayNft.isUnhiddenByUser = true
-                        }
+                        displayNft.isUnhiddenByUser = true
                     }
                     
                     if displayNft.shouldHide != oldShouldHide {

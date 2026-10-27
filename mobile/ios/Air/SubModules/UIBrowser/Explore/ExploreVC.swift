@@ -116,7 +116,7 @@ public final class ExploreVC: WViewController {
             },
 
             viewOutput.connectedDappSettingsDidTap.sink {
-                AppActions.showConnectedDapps(push: false)
+                AppActions.showConnectedDapps(push: true)
             },
 
             viewOutput.trendingDappDidTap

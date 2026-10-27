@@ -11,7 +11,7 @@ enum TokenTradeMenu {
                               showProvider: @escaping () -> Void) -> ContextMenuConfiguration {
         var items: [ContextMenuItem] = [row(title: lang("Exchange Rate"), value: { model.rateText })]
         if model.cardCurrency == nil {
-            if model.swap.swapType.route == .dex {
+            if model.swap.quotedRoute == .dex {
                 items += [
                     row(title: lang("Price Impact"), value: {
                         model.swap.detailsVM.displayEstimate.map { formatPercent($0.impact / 100, decimals: 1, showPlus: false) } ?? "—"
@@ -31,6 +31,24 @@ enum TokenTradeMenu {
                     model.swap.estimateState.cexEstimate?.providerName ?? "—"
                 }, action: showProvider, showsChevron: false, showsInfo: true))
             }
+        }
+        if model.estimateDebugSummary != nil {
+            items += [
+                .separator,
+                .custom(.swiftUI(preferredWidth: 242, sizing: .automatic(minHeight: 0)) { _ in
+                    WithPerceptionTracking {
+                        if let estimateDebugSummary = model.estimateDebugSummary {
+                            Text(estimateDebugSummary)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Color.air.secondaryLabel)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                        }
+                    }
+                }),
+            ]
         }
         return ContextMenuConfiguration(rootPage: ContextMenuPage(items: items), backdrop: .none,
             style: ContextMenuStyle(minWidth: 242, maxWidth: 300, glassTint: .strong,

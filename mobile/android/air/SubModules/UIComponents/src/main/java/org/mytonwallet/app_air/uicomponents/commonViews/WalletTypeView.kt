@@ -65,6 +65,10 @@ open class WalletTypeView(context: Context, blurredBackground: Boolean = false) 
         walletTypeBlurView?.setupWith(viewGroup)
     }
 
+    fun setCardSurfaceLight(x: Float?, y: Float?) {
+        walletTypeBlurView?.setCardSurfaceLight(x, y)
+    }
+
     fun updateGlassTheme() {
         walletTypeBlurView?.updateTheme()
     }

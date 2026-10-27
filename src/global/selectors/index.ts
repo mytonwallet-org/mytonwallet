@@ -11,3 +11,4 @@ export * from './domains';
 export * from './enclave';
 export * from './settings';
 export * from './portfolio';
+export * from './banners';

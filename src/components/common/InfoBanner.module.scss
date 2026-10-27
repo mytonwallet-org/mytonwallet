@@ -1,0 +1,134 @@
+@use "../../styles/mixins";
+
+.root {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  min-height: 5.625rem;
+  padding-block: 1rem 0.875rem;
+  padding-inline: 1rem 0.875rem;
+  border-radius: 1.5rem;
+
+  background-color: var(--color-background-first);
+
+  @include mixins.transition(background-color 150ms);
+}
+
+.rootActive {
+  cursor: var(--custom-cursor, pointer);
+
+  @media (hover: hover) {
+    // Browsers without `:has()` leave the card without the highlight
+    &:hover:not(:has(.button:hover, .close:hover)) {
+      background-color: var(--color-interactive-item-hover);
+    }
+  }
+}
+
+.title {
+  margin: 0;
+  padding-inline-end: 1.625rem;
+
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: var(--color-black);
+
+  @include mixins.respond-above(xs) {
+    font-size: 0.9375rem;
+  }
+}
+
+// In portrait the text and the button stand side by side. Landscape columns are narrow, so there the button floats
+// at the end of the text: the text takes the full width and its last line flows around the button. When the last line
+// leaves no room, the button moves below it and stays in the bottom corner.
+// The floating text is inline, so its line height comes from this block and the text styles are set here.
+.body {
+  display: flex;
+  flex-grow: 1;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.625rem;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--color-gray-2);
+
+  @include mixins.respond-above(xs) {
+    display: flow-root;
+    font-size: 0.75rem;
+  }
+}
+
+.description {
+  flex: 1 1 8.75rem;
+  min-width: 0;
+  margin: 0;
+  padding-bottom: 0.25rem;
+
+  @include mixins.respond-above(xs) {
+    display: inline;
+  }
+}
+
+.button {
+  --color-dot: var(--color-accent);
+
+  flex-shrink: 0;
+  align-self: flex-end;
+
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  border-radius: 0.875rem;
+
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 0.875rem;
+  color: var(--color-accent);
+
+  background-color: var(--color-activity-blue-background);
+
+  @include mixins.respond-above(xs) {
+    float: inline-end;
+    margin-top: 0.25rem;
+    margin-inline-start: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  @supports (background-color: color-mix(in srgb, var(--color-accent) 10%, transparent)) {
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+
+    &:active {
+      background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+    }
+
+    @media (hover: hover) {
+      &:hover,
+      &:focus-visible {
+        background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+      }
+    }
+  }
+}
+
+.close {
+  position: absolute;
+  top: 0.5rem;
+  inset-inline-end: 0.5rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+
+  font-size: 1.5rem;
+  color: var(--color-gray-4);
+}

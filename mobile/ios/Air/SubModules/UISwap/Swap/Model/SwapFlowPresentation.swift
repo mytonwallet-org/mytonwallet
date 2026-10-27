@@ -55,14 +55,14 @@ struct SwapPresentationContext {
     }
 
     private func blockingIssue(context: SwapPresentationContext, state: SwapEstimateModel) -> SwapIssue? {
-        if let estimateIssue = state.estimateIssue {
+        if let estimateIssue = state.estimateIssue, estimateIssue != .unexpectedEstimateError {
             return estimateIssue
         }
         return validator.validationIssue(
             input: context.validationInput,
             swapEstimate: state.dexEstimate,
             account: context.account
-        )
+        ) ?? state.estimateIssue
     }
 }
 
@@ -120,14 +120,14 @@ struct SwapPresentationContext {
     }
 
     private func blockingIssue(context: SwapPresentationContext, state: SwapEstimateModel) -> SwapIssue? {
-        if let estimateIssue = state.estimateIssue {
+        if let estimateIssue = state.estimateIssue, estimateIssue != .unexpectedEstimateError {
             return estimateIssue
         }
         return validator.validationIssue(
             input: context.validationInput,
             swapEstimate: state.cexEstimate,
             account: context.account
-        )
+        ) ?? state.estimateIssue
     }
 
     private func shouldShowContinue(context: SwapPresentationContext) -> Bool {

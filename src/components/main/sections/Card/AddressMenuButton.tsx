@@ -113,7 +113,12 @@ function AddressMenuButton({
   return (
     <button
       type="button"
-      className={buildClassName(styles.address, withTextGradient && 'gradientText')}
+      className={buildClassName(
+        styles.address,
+        isMinimized && styles.addressStatic,
+        withTextGradient && 'gradientText',
+      )}
+      tabIndex={isMinimized ? -1 : undefined}
       {...longPressHandlers}
       onMouseEnter={onMouseEnter}
       onMouseLeave={handleMouseLeave}

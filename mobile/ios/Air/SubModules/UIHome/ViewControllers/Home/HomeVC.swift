@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 import UIActivityList
 import UIComponents
 import WalletCore
@@ -94,6 +95,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var walletAssetsVC: WalletAssetsVC?
     private let tokensSectionDataProvider: HomeWalletTokensSectionDataProvider
     private let activitySectionDataProvider = HomeActivitySectionDataProvider()
+    private let bannersSection = HomeBannersSection(topSpacing: 16, bottomSpacing: 0)
     private var activityPreviewViewModel: ActivityPreviewViewModel?
     private var isPreparingActivityHistory = false
 
@@ -109,6 +111,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private var headerContainerHeightConstraint: NSLayoutConstraint?
     private var headerGradientLeading = EdgeGradientView()
     private var headerGradientTrailing = EdgeGradientView()
+    private let headerGradientAnimator = HomeCardEdgeGradientAnimator()
+    private var headerGradientSettingsObservation: AnyCancellable?
     private var accountSelector: HomeAccountSelector?
     private var headerGradientLeadingWidthConstraint: NSLayoutConstraint?
     private var headerGradientTrailingWidthConstraint: NSLayoutConstraint?
@@ -426,6 +430,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             headerGradientTrailing.bottomAnchor.constraint(equalTo: accountSelector.bottomAnchor),
         ])
         updateHeaderCardLayout()
+        observe { [weak self] in
+            guard let self else { return }
+            updateCardEdgeGradients(animated: true)
+        }
+
+        headerGradientSettingsObservation = CardBackgroundAnimationEnvironment.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateCardEdgeGradients(animated: false) }
 
         let initialTopInset: CGFloat = headerViewModel.state == .expanded ? expansionInset : 0
         collectionView.contentInset.top = initialTopInset
@@ -444,6 +456,14 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         updateNavigationItem()
         observeCurrentAccount()
         observeActionsRowHeight()
+        observe { [weak self] in
+            guard let self else { return }
+            let context = AccountContext(accountId: displayedActivitiesAccountId)
+            if bannersSection.update(accountContext: context) {
+                tokensSectionDataProvider.topSpacing = bannersSection.isVisible ? 8 : nil
+                applySnapshot(makeSnapshot(reconfiguringCustomSections: [bannersSection.id]), animatingDifferences: true)
+            }
+        }
     }
 
     private func appearedForFirstTime() {
@@ -604,7 +624,26 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         if let headerBlurView {
             collectionView.bringSubviewToFront(headerBlurView)
         }
-        collectionView.bringSubviewToFront(headerContainer)
+        if rootNavigationStyle.usesNavigationBarTopTabs, !homeVM.isTrackingActiveAccount, let headerBlurView {
+            // Account previews own their navigation bar blur, including after being saved.
+            collectionView.insertSubview(headerContainer, belowSubview: headerBlurView)
+        } else {
+            collectionView.bringSubviewToFront(headerContainer)
+        }
+    }
+
+    private func updateCardEdgeGradients(animated: Bool) {
+        let environment = CardBackgroundAnimationEnvironment.shared
+        let motionEnabled = environment.animationsEnabled && environment.cardEffectsEnabled
+            && !environment.reduceMotion && !environment.lowPowerMode
+        let slidesAway = headerViewModel.isAccountScrolling && !headerViewModel.isCollapsed
+        let isRTL = headerContainer.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let direction: CGFloat = isRTL ? -1 : 1
+        let leading = slidesAway ? -direction * (headerGradientLeadingWidthConstraint?.constant ?? 0) : 0
+        let trailing = slidesAway ? direction * (headerGradientTrailingWidthConstraint?.constant ?? 0) : 0
+        headerGradientAnimator.update(leading: headerGradientLeading, trailing: headerGradientTrailing,
+                                      leadingOffset: leading, trailingOffset: trailing,
+                                      animated: animated && view.window != nil, motionEnabled: motionEnabled)
     }
 
     private func updateHeaderCardLayout() {
@@ -633,6 +672,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
         if headerGradientTrailingWidthConstraint?.constant != metrics.trailingInset {
             headerGradientTrailingWidthConstraint?.constant = metrics.trailingInset
         }
+        // A layout pass can see a scroll-state change before the observation does.
+        updateCardEdgeGradients(animated: true)
         if metricsChanged || topSpacingChanged, view.window != nil {
             contentOffsetChanged()
             updateTableViewHeaderFrame(animated: false)
@@ -707,6 +748,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             multisigWalletWarningCustomSectionDescriptor,
         ].compactMap { $0 }
         dataProviders.append(tokensSectionDataProvider)
+        dataProviders.insert(bannersSection.descriptor, at: 0)
         if let assetsCustomSectionDescriptor {
             dataProviders.append(assetsCustomSectionDescriptor)
         }
@@ -730,6 +772,7 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
     private func customSectionIDs(for accountId: String) -> [String] {
         let account = AccountStore.get(accountId: accountId)
         var ids: [String] = []
+        if bannersSection.isVisible { ids.append(bannersSection.id) }
         if account.byChain.values.contains(where: { $0.isMultisig == true }) {
             ids.append(multisigWalletWarningCustomSectionID)
         }
@@ -1126,6 +1169,8 @@ public class HomeVC: ActivityListViewController, WSensitiveDataProtocol, HomeVMD
             }
             activityPreviewViewModel?.delegate = nil
             activityPreviewViewModel = presentation.activities
+            _ = bannersSection.update(accountContext: AccountContext(accountId: accountId))
+            tokensSectionDataProvider.topSpacing = bannersSection.isVisible ? 8 : nil
             activitySectionDataProvider.update(viewModel: presentation.activities)
             tokensSectionDataProvider.switchAccountTo(accountId)
             walletAssetsVC?.switchAccountTo(accountId, preparedTabs: presentation.assetTabs)

@@ -20,12 +20,13 @@ struct MarketSectionBuilderTests {
 
         #expect(section.title == "Популярные токены")
         #expect(section.tokens.count == 3)
-        #expect(section.visibleTokens.count == 2)
-        #expect(section.showsSeeAll)
+        #expect(section.visibleTokens(columnCount: 4).count == 2)
+        #expect(section.visibleTokens(columnCount: 6).count == 2)
+        #expect(section.showsSeeAll(columnCount: 4))
     }
 
     @Test
-    func `prefers mobileLimit over desktopLimit for the showcase`() throws {
+    func `adapts the preview to its width without discarding the full list`() throws {
         let response = try makeResponse(
             title: "Popular Tokens",
             limit: nil,
@@ -39,9 +40,65 @@ struct MarketSectionBuilderTests {
             MarketSectionBuilder.build(from: response, storeTokens: [:]).first
         )
 
-        #expect(section.tokens.count == 12)
-        #expect(section.visibleTokens.count == 8)
-        #expect(section.showsSeeAll)
+        for (width, expectedColumns) in [(390.0, 4), (479, 4), (480, 5), (567, 5), (568, 6), (900, 6), (390, 4)] {
+            let columns = MarketGridLayout.columnCount(availableWidth: width)
+            #expect(columns == expectedColumns)
+            #expect(section.visibleTokens(columnCount: columns).map(\.id) == (0..<(expectedColumns * 2)).map { "asset-\($0)" })
+            #expect(section.showsSeeAll(columnCount: columns) == (expectedColumns < 6))
+            #expect(section.tokens.count == 12)
+        }
+    }
+
+    @Test
+    func `caps grids without backend limits to two rows`() throws {
+        let response = try makeResponse(title: "Tokens", limit: nil, hasMore: false, assetCount: 30)
+        let section = try #require(MarketSectionBuilder.build(from: response, storeTokens: [:]).first)
+
+        for columns in 4...6 {
+            #expect(section.visibleTokens(columnCount: columns).count == columns * 2)
+            #expect(section.showsSeeAll(columnCount: columns))
+        }
+        #expect(section.tokens.count == 30)
+    }
+
+    @Test
+    func `respects smaller backend limits and falls back to the available limit`() throws {
+        for (mobile, desktop, narrowCount, wideCount) in [
+            (Optional(6), Optional(9), 6, 9),
+            (6, nil, 6, 6),
+            (nil, 9, 8, 9),
+        ] {
+            let response = try makeResponse(
+                title: "Tokens", limit: nil, mobileLimit: mobile, desktopLimit: desktop,
+                hasMore: false, assetCount: 14
+            )
+            let section = try #require(MarketSectionBuilder.build(from: response, storeTokens: [:]).first)
+            #expect(section.visibleTokens(columnCount: 4).count == narrowCount)
+            #expect(section.visibleTokens(columnCount: 6).count == wideCount)
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `keeps short sections intact and honors backend hasMore`(hasMore: Bool) throws {
+        let response = try makeResponse(
+            title: "Tokens", limit: nil, mobileLimit: 8, desktopLimit: 12,
+            hasMore: hasMore, assetCount: 7
+        )
+        let section = try #require(MarketSectionBuilder.build(from: response, storeTokens: [:]).first)
+        for columns in 4...6 {
+            #expect(section.visibleTokens(columnCount: columns).count == 7)
+            #expect(section.showsSeeAll(columnCount: columns) == hasMore)
+        }
+    }
+
+    @Test(arguments: ["largeHorizontal", "rows"])
+    func `does not apply grid capacity to other layouts`(layout: String) throws {
+        let response = try makeResponse(title: "Tokens", limit: nil, hasMore: false, assetCount: 14, layout: layout)
+        let section = try #require(MarketSectionBuilder.build(from: response, storeTokens: [:]).first)
+        for columns in 4...6 {
+            #expect(section.visibleTokens(columnCount: columns).count == 14)
+            #expect(!section.showsSeeAll(columnCount: columns))
+        }
     }
 
     @Test
@@ -103,7 +160,8 @@ struct MarketSectionBuilderTests {
         assetCount: Int,
         sparkline: [Double]? = nil,
         tintColor: String? = nil,
-        assetName: String = "Asset"
+        assetName: String = "Asset",
+        layout: String = "grid"
     ) throws -> ApiMarketAssetsResponse {
         let assets: [[String: Any]] = (0..<assetCount).map { index in
             var asset: [String: Any] = [
@@ -123,7 +181,7 @@ struct MarketSectionBuilderTests {
         var section: [String: Any] = [
             "id": "section",
             "title": title,
-            "layout": "grid",
+            "layout": layout,
             "hasMore": hasMore,
             "assets": assets,
         ]

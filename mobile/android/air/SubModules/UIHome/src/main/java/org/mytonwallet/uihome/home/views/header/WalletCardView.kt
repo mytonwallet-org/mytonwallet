@@ -2,11 +2,11 @@
 
 package org.mytonwallet.uihome.home.views.header
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -14,20 +14,23 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.TouchDelegate
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-import androidx.core.animation.doOnEnd
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.withSave
@@ -48,6 +51,9 @@ import org.mytonwallet.app_air.uicomponents.base.WWindow
 import org.mytonwallet.app_air.uicomponents.commonViews.CardBackgroundArtworkView
 import org.mytonwallet.app_air.uicomponents.commonViews.UpdateStatusView
 import org.mytonwallet.app_air.uicomponents.commonViews.WalletTypeView
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardCarouselTransform
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPressInteraction
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPressSurfaceView
 import org.mytonwallet.app_air.uicomponents.drawable.WRippleDrawable
 import org.mytonwallet.app_air.uicomponents.extensions.dp
 import org.mytonwallet.app_air.uicomponents.extensions.exactly
@@ -97,13 +103,13 @@ import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletbasecontext.utils.getDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.requireDrawableCompat
 import org.mytonwallet.app_air.walletbasecontext.utils.signSpace
+import org.mytonwallet.app_air.walletbasecontext.utils.toBigInteger
 import org.mytonwallet.app_air.walletbasecontext.utils.toString
 import org.mytonwallet.app_air.walletbasecontext.utils.trimAddress
 import org.mytonwallet.app_air.walletbasecontext.utils.withLocalizedNumbers
 import org.mytonwallet.app_air.walletbasecontext.utils.x
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
 import org.mytonwallet.app_air.walletcontext.helpers.ShareHelpers
-import org.mytonwallet.app_air.walletcontext.helpers.WInterpolator
 import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.utils.AnimUtils.Companion.lerp
 import org.mytonwallet.app_air.walletcontext.utils.colorWithAlpha
@@ -163,6 +169,12 @@ class WalletCardView(
 
     data class BalanceChange(val text: String?, val isPositive: Boolean)
 
+    data class BalanceSnapshot(
+        val amount: Double,
+        val amount24h: Double?,
+        val currency: MBaseCurrency
+    )
+
     var isInGoneState = false
         set(value) {
             if (field == value) return
@@ -202,6 +214,11 @@ class WalletCardView(
     fun setReparenting(reparenting: Boolean) {
         isReparenting = reparenting
         artworkView.preserveFadeOnReparent = reparenting
+        if (reparenting && isAccountScrolling) {
+            pressInteraction.pauseForReparent()
+        } else if (!reparenting) {
+            pressInteraction.resumeAfterReparent()
+        }
     }
 
     // PRIVATE VARIABLES ///////////////////////////////////////////////////////////////////////////
@@ -214,6 +231,13 @@ class WalletCardView(
 
     var statusViewState: UpdateStatusView.State = UpdateStatusView.State.Updated("")
         private set
+
+    var isBalanceRefreshing = false
+        set(value) {
+            if (field == value) return
+            field = value
+            updateBalanceLoadingState()
+        }
 
     private val cardFullWidth: Int
         get() {
@@ -316,7 +340,9 @@ class WalletCardView(
             }
         }
         linearLayout.setOnLongClickListener {
-            if (mode == HomeHeaderView.Mode.Collapsed || !topTabsMode) {
+            if (mode == HomeHeaderView.Mode.Collapsed || !topTabsMode ||
+                WGlobalStorage.getIsSensitiveDataProtectionOn()
+            ) {
                 return@setOnLongClickListener false
             }
             balanceViewContainerTapped(WMenuPopup.BackdropStyle.BlurDimmed)
@@ -335,11 +361,19 @@ class WalletCardView(
                 Gravity.CENTER,
                 skin = SensitiveDataMaskView.Skin.DARK_THEME,
                 cellSize = 14.dp,
-                protectContentLayoutSize = false
+                protectContentLayoutSize = false,
+                hero = WSensitiveDataContainer.HeroConfig(
+                    224f,
+                    40f,
+                    globalReveal = true,
+                    softwareSnapshot = true
+                )
             )
         ).apply {
             clipChildren = false
             clipToPadding = false
+            linearLayout.isLongClickable = !WGlobalStorage.getIsSensitiveDataProtectionOn()
+            onProtectionChanged = { hidden -> linearLayout.isLongClickable = !hidden }
             maskView.centerDrawable = hiddenBalanceDrawable
             maskView.centerDrawableSize = 21.dp
         }
@@ -400,7 +434,8 @@ class WalletCardView(
                 16.dp,
                 cellSize = 10.dp,
                 skin = SensitiveDataMaskView.Skin.DARK_THEME,
-                protectContentLayoutSize = false
+                protectContentLayoutSize = false,
+                hero = WSensitiveDataContainer.HeroConfig(130f, 26f)
             )
         )
     }
@@ -502,11 +537,28 @@ class WalletCardView(
     }
     private val artworkView = CardBackgroundArtworkView(context).apply {
         shineEnabled = true
+        onSurfaceFrame = { x, y ->
+            val enabled = !WGlobalStorage.getIs3dCardDisabled()
+            balanceChangeBlurView.setCardSurfaceLight(
+                if (enabled) x else null,
+                if (enabled) y else null
+            )
+            walletTypeView.setCardSurfaceLight(if (enabled) x else null, if (enabled) y else null)
+            if (surfaceLightX != x || surfaceLightY != y) {
+                surfaceLightX = x
+                surfaceLightY = y
+                applySurfaceDepth()
+                updateParticleTouch()
+            }
+        }
         onEffectsChanged = { active ->
             if (active) {
                 startSensorListening()
             } else {
-                removeSensorAndPress(immediate = !shouldFadeOnScroll())
+                removeSensorAndPress(
+                    immediate =
+                        !shouldAnimatePressReturn()
+                )
             }
         }
     }
@@ -536,6 +588,32 @@ class WalletCardView(
                 }
             }
         }
+    }
+
+    private var surfaceLightX = 0f
+    private var surfaceLightY = 0f
+    private val balanceDepthMatrix = Matrix()
+    private val footerDepthMatrix = Matrix()
+    private val decorationDepthMatrix = Matrix()
+
+    private fun applySurfaceDepth() {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val enabled = mode == HomeHeaderView.Mode.Expanded
+        fun plane(matrix: Matrix, factor: Float, vararg views: View) {
+            matrix.setTranslate(
+                surfaceLightX * (3.5f * factor).dp,
+                surfaceLightY * (3.5f * factor).dp
+            )
+            views.forEach { it.setAnimationMatrix(if (enabled) matrix else null) }
+        }
+        plane(
+            balanceDepthMatrix,
+            1.1f,
+            balanceViewContainer,
+            balanceChangeLabel
+        )
+        plane(footerDepthMatrix, .8f, bottomViewContainer, mintIcon)
+        plane(decorationDepthMatrix, .4f, seasonalOverlayView)
     }
 
     private val clippedContainer = object : WView(context) {
@@ -568,8 +646,8 @@ class WalletCardView(
         clipToPadding = true
     }
 
-    private val contentView: WView by lazy {
-        val v = WView(context).apply {
+    private val contentView: CardPressSurfaceView by lazy {
+        val v = CardPressSurfaceView(context).apply {
             clipChildren = false
             clipToPadding = false
             setPadding(1, 1, 1, 1)
@@ -716,8 +794,31 @@ class WalletCardView(
     }
 
     override fun onDetachedFromWindow() {
-        if (!isReparenting || !isAccountScrolling) stopSensorListening()
+        if (!isReparenting || !isAccountScrolling) {
+            pressInteraction.reset()
+            stopSensorListening()
+        }
         super.onDetachedFromWindow()
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (!hasWindowFocus && (!isReparenting || !isAccountScrolling)) pressInteraction.reset()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        pressInteraction.onLayout()
+        if (changed) {
+            val correction = carouselTransform.update(
+                carouselPosition.toDouble(),
+                width.toDouble(),
+                height.toDouble(),
+                carouselEnabled
+            ).toFloat()
+            translationX += correction - carouselEdgeCorrection
+            carouselEdgeCorrection = correction
+        }
     }
 
     override fun updateTheme() {
@@ -745,12 +846,17 @@ class WalletCardView(
     }
 
     fun onDestroy() {
+        pressInteraction.reset()
         stopSensorListening()
+        artworkView.onSurfaceFrame = null
+        balanceViewContainer.setHeroActive(false)
+        balanceChangeLabel.setHeroActive(false)
         balanceView.onTotalWidthChanged = null
         if (this::balanceViewMaskWrapper.isInitialized) balanceViewMaskWrapper.onDestroy()
     }
 
     private fun startSensorListening() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && cardNft?.isMtwCard != false) return
         if (isSensorListening ||
             !isAttachedToWindow ||
             headerMode != HomeHeaderView.Mode.Expanded ||
@@ -770,18 +876,35 @@ class WalletCardView(
             TiltSensorManager.removeObserver(this)
             isSensorListening = false
         }
-        releasePress(immediate = immediate, cancelled = true)
+        balanceViewContainer.setHeroTouch(null, null)
+        balanceChangeLabel.setHeroTouch(null, null)
+        pressInteraction.deactivate(animated = !immediate)
     }
+
+    private fun shouldAnimatePressReturn(): Boolean =
+        isAttachedToWindow && isShown && hasWindowFocus() && isHomeVisible &&
+            !areEffectsSuspended && isAccountScrolling && !isInGoneState &&
+            WGlobalStorage.getAreAnimationsActive() && !WGlobalStorage.getIs3dCardDisabled() &&
+            android.animation.ValueAnimator.areAnimatorsEnabled() &&
+            context.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode != true
 
     private fun shouldFadeOnScroll(): Boolean = isAccountScrolling && isHomeVisible && !isOffScreen
 
     private fun stopSensorListening(fadeOut: Boolean = false) {
         val wasActive = artworkView.effectsActive
-        artworkView.setEffectsActive(false, fadeOut = fadeOut)
-        if (!wasActive && !isReparenting) removeSensorAndPress(immediate = !fadeOut)
+        val retain = isAttachedToWindow && !areEffectsSuspended &&
+            account != null && !isInGoneState
+        artworkView.setEffectsActive(false, fadeOut = fadeOut, retainPausedSurface = retain)
+        if (!wasActive && !isReparenting) {
+            removeSensorAndPress(immediate = !shouldAnimatePressReturn())
+        }
     }
 
     private fun updateCardEffects() {
+        val privacyActive = isAttachedToWindow && isHomeVisible && !isInGoneState && !isOffScreen &&
+            !isAccountScrolling && !areEffectsSuspended && account != null
+        balanceViewContainer.setHeroActive(privacyActive)
+        balanceChangeLabel.setHeroActive(privacyActive)
         if (isAttachedToWindow && !isInGoneState && !isOffScreen && !isBalanceCollapsed &&
             !isAccountScrolling && isHomeVisible && !areEffectsSuspended &&
             account != null && headerMode == HomeHeaderView.Mode.Expanded &&
@@ -795,6 +918,7 @@ class WalletCardView(
 
     // PUBLIC METHODS //////////////////////////////////////////////////////////////////////////////
     fun setupLayout(parentWidth: Int) {
+        artworkView.motionReferenceWidth = (parentWidth - 26.dp).coerceAtLeast(0).toFloat()
         balanceView.containerWidth = parentWidth - 34.dp
         balanceViewContainer.contentView.maxAllowedWidth = balanceView.containerWidth
         balanceViewContainer.contentView.updateScale()
@@ -861,7 +985,8 @@ class WalletCardView(
     fun updateBalanceChange(
         balance: Double?,
         balance24h: Double?,
-        animated: Boolean
+        animated: Boolean,
+        currency: MBaseCurrency = WalletCore.baseCurrency
     ): BalanceChange {
         isBalanceChangePositive =
             balance != null && balance24h != null &&
@@ -873,9 +998,9 @@ class WalletCardView(
                     val changeValue = balance - balance24h
                     if (changeValue.isFinite()) {
                         val balanceChangeValueString = (changeValue.absoluteValue).toString(
-                            WalletCore.baseCurrency.decimalsCount,
-                            WalletCore.baseCurrency.sign,
-                            WalletCore.baseCurrency.decimalsCount,
+                            currency.decimalsCount,
+                            currency.sign,
+                            currency.decimalsCount,
                             true
                         )
                         val balanceChangeSign =
@@ -923,10 +1048,8 @@ class WalletCardView(
             return
         }
         appliedBalanceChangePositive = isBalanceChangePositive
-        if (balanceChangeTextLabel.text.isEmpty() && animated) {
-            balanceChangeLabel.alpha = 0f
-            balanceChangeLabel.fadeIn()
-        }
+        balanceChangeLabel.animate().cancel()
+        balanceChangeLabel.alpha = 1f
         balanceChangeTextLabel.text = balanceChangeString
         balanceChangeLabel.visibility =
             if (balanceChangeTextLabel.text.isNullOrEmpty()) INVISIBLE else VISIBLE
@@ -935,15 +1058,35 @@ class WalletCardView(
 
     fun animateBalance(animateConfig: WBalanceView.AnimateConfig) {
         if (balanceAmount == null && animateConfig.amount != null) {
-            fadeInBalanceContainer()
+            if (animateConfig.animated) {
+                fadeInBalanceContainer()
+            } else {
+                balanceViewContainer.animate().cancel()
+                balanceViewContainer.alpha = 1f
+            }
             showBalanceArrow(animateConfig.animated)
-            hideSkeletons()
+            hideSkeletons(animateConfig.animated)
         } else if (animateConfig.amount == null) {
             showSkeletons()
         }
         balanceAmount = animateConfig.amount
         balanceView.animateText(animateConfig)
         if (!showWalletNameInFooter) updateAddressLabel()
+    }
+
+    fun applyBalance(snapshot: BalanceSnapshot?, animated: Boolean): BalanceChange {
+        val currency = snapshot?.currency ?: WalletCore.baseCurrency
+        animateBalance(
+            WBalanceView.AnimateConfig(
+                amount = snapshot?.amount?.toBigInteger(currency.decimalsCount),
+                decimals = currency.decimalsCount,
+                currency = currency.sign,
+                animated = animated,
+                setInstantly = !animated,
+                forceCurrencyToRight = currency == MBaseCurrency.RUB
+            )
+        )
+        return updateBalanceChange(snapshot?.amount, snapshot?.amount24h, animated, currency)
     }
 
     fun showSkeletons() {
@@ -959,7 +1102,16 @@ class WalletCardView(
         updateSkeletonViewColors()
     }
 
-    fun hideSkeletons() {
+    fun hideSkeletons(animated: Boolean = true) {
+        if (!animated) {
+            isShowingSkeletons = false
+            balanceViewContainer.visibility = VISIBLE
+            balanceSkeletonView.animate().cancel()
+            balanceChangeSkeletonView.animate().cancel()
+            balanceSkeletonView.visibility = GONE
+            balanceChangeSkeletonView.visibility = GONE
+            return
+        }
         if (!isShowingSkeletons) return
         isShowingSkeletons = false
         balanceViewContainer.visibility = VISIBLE
@@ -981,11 +1133,15 @@ class WalletCardView(
         if (statusViewState == value) return
         statusViewState = value
         updateContentAlpha(animated)
+        updateBalanceLoadingState()
+    }
+
+    private fun updateBalanceLoadingState() {
         if (::balanceViewMaskWrapper.isInitialized) {
             updateGlareState()
             balanceViewMaskWrapper.isLoading =
-                value == UpdateStatusView.State.Updating ||
-                value == UpdateStatusView.State.WaitingForNetwork
+                isBalanceRefreshing || statusViewState == UpdateStatusView.State.Updating ||
+                statusViewState == UpdateStatusView.State.WaitingForNetwork
         }
     }
 
@@ -993,11 +1149,12 @@ class WalletCardView(
     private var shownAccountId: String? = null
     private var shownIsTemporary: Boolean? = null
 
-    fun updateAccountData(account: MAccount?) {
+    fun updateAccountData(account: MAccount?, initialBalance: BalanceSnapshot?) {
         if (showWalletNameInFooter) {
             walletNameLabel.text = account?.name.orEmpty()
         }
         if (account == null) {
+            artworkView.setMotionOwner(null)
             shownAccountId = null
             shownIsTemporary = null
             this.account = null
@@ -1011,6 +1168,9 @@ class WalletCardView(
             return
         }
         releasePress(immediate = true)
+        balanceViewContainer.settleHero()
+        balanceChangeLabel.settleHero()
+        artworkView.setMotionOwner(account.accountId)
         shownAccountId = account.accountId
         shownIsTemporary = account.isTemporary
         this.account = account
@@ -1024,17 +1184,7 @@ class WalletCardView(
         updateMintIconVisibility()
         walletTypeView.configure(account)
         balanceAmount = null
-        animateBalance(
-            WBalanceView.AnimateConfig(
-                null,
-                0,
-                "",
-                animated = false,
-                setInstantly = mode == HomeHeaderView.Mode.Collapsed,
-                forceCurrencyToRight = false
-            )
-        )
-        updateBalanceChange(null, false)
+        applyBalance(initialBalance, animated = false)
     }
 
     fun updateCardImage() {
@@ -1068,7 +1218,14 @@ class WalletCardView(
             return
         }
         img.isVisible = true
-        shiningView.visibility = VISIBLE
+        shiningView.visibility =
+            if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                cardNft?.isMtwCard == true
+            ) {
+                GONE
+            } else {
+                VISIBLE
+            }
         img.hierarchy.setPlaceholderImage(cardPlaceholder())
         img.set(Content.ofUrl(cardNft?.metadata?.cardImageUrl(false) ?: ""))
     }
@@ -1091,108 +1248,208 @@ class WalletCardView(
             updateCardEffects()
         }
     var mode = HomeHeaderView.DEFAULT_MODE
+        set(value) {
+            if (field == value) return
+            field = value
+            applySurfaceDepth()
+        }
 
-    private var pressAnimator: ValueAnimator? = null
-    private val cardLayerPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var pressTiltX = 0f
     private var pressTiltY = 0f
     private var pressStrength = 0f
-    private var pressTargetX = 0f
-    private var pressTargetY = 0f
+    private var particleTouchX = 0f
+    private var particleTouchY = 0f
+    private val playHitMatrix = Matrix()
+    private val playHitPoint = FloatArray(2)
+    var canBeginCardPlay: () -> Boolean = { true }
+    val isCardPlaying: Boolean get() = pressInteraction.isPlaying
 
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        when (ev.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                if (artworkView.effectsActive && width > 0 && height > 0) {
-                    val x = (2f * ev.x / width - 1f).coerceIn(-1f, 1f)
-                    val y = (2f * ev.y / height - 1f).coerceIn(-1f, 1f)
-                    val positionChanged = pressTargetX != x || pressTargetY != y
-                    pressTargetX = x
-                    pressTargetY = y
-                    if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
-                        artworkView.pressShine(x, y)
-                        animatePress(x, y, 1f)
-                    } else if (positionChanged && pressAnimator?.isRunning != true) {
-                        animatePress(x, y, 1f)
-                    }
+    private val pressInteraction by lazy {
+        CardPressInteraction(
+            host = this,
+            surface = contentView,
+            isAllowed = { artworkView.effectsActive && isShown && hasWindowFocus() },
+            canBeginPlay = { x, y ->
+                canBeginCardPlay() && !isAccountScrolling &&
+                    !isPlayControlAt(this, x, y)
+            },
+            cancelChildTouch = {
+                val now = SystemClock.uptimeMillis()
+                val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+                try {
+                    super.dispatchTouchEvent(cancel)
+                } finally {
+                    cancel.recycle()
                 }
+            },
+            onPlayTouch = { x, y ->
+                particleTouchX = x
+                particleTouchY = y
+                updateParticleTouch()
+            },
+            onPlayBegan = {
+                Haptics.playCardHold(this)
+                updateParticleTouch()
+            },
+            onPose = { x, y, strength ->
+                pressTiltX = x
+                pressTiltY = y
+                pressStrength = strength
+                artworkView.setLightTilt(currentTiltX + x, currentTiltY + y, strength)
+                val angle = Math.PI / 15
+                val rx = kotlin.math.asin((x * kotlin.math.sin(angle)).coerceIn(-1.0, 1.0))
+                updateParticleTouch()
+                artworkView.updateShinePressStrength(
+                    strength,
+                    (rx / angle).toFloat(),
+                    (
+                        kotlin.math.asin(
+                            (y * kotlin.math.sin(angle) / kotlin.math.cos(rx)).coerceIn(-1.0, 1.0)
+                        ) /
+                            angle
+                        ).toFloat()
+                )
             }
-
-            MotionEvent.ACTION_UP -> releasePress()
-
-            MotionEvent.ACTION_CANCEL -> releasePress(cancelled = true)
-        }
-        return super.dispatchTouchEvent(ev)
+        )
     }
 
-    private fun animatePress(x: Float, y: Float, depth: Float, immediate: Boolean = false) {
-        pressAnimator?.cancel()
-        pressAnimator = null
-        pressTargetX = x
-        pressTargetY = y
-        val startX = contentView.rotationX
-        val startY = contentView.rotationY
-        val startScale = contentView.scaleX
-        val startLightX = pressTiltX
-        val startLightY = pressTiltY
-        val startPress = pressStrength
-        val targetScale = 1f - depth * 0.005f
-        val gramDefaultCard = ApplicationContextHolder.isGramApp && cardNft == null
-        fun apply(progress: Float) {
-            val targetX = -pressTargetY * depth * 4f
-            val targetY = pressTargetX * depth * 4f
-            val targetLightX = if (gramDefaultCard) pressTargetX * depth else targetY / 12f
-            val targetLightY = if (gramDefaultCard) pressTargetY * depth else -targetX / 12f
-            contentView.rotationX = startX + (targetX - startX) * progress
-            contentView.rotationY = startY + (targetY - startY) * progress
-            contentView.scaleX = startScale + (targetScale - startScale) * progress
-            contentView.scaleY = contentView.scaleX
-            pressTiltX = startLightX + (targetLightX - startLightX) * progress
-            pressTiltY = startLightY + (targetLightY - startLightY) * progress
-            pressStrength = startPress + (depth - startPress) * progress
-            artworkView.setLightTilt(
-                currentTiltX + pressTiltX,
-                currentTiltY + pressTiltY,
-                pressStrength
-            )
-            artworkView.updateShinePressStrength(pressStrength)
+    private val carouselTransform = CardCarouselTransform()
+    private var carouselPosition = 0f
+    private var carouselEnabled = false
+    private var carouselEdgeCorrection = 0f
+    private var carouselWidth = -1
+    private var carouselHeight = -1
+    fun setCarouselPosition(position: Float, enabled: Boolean): Float {
+        val targetWidth = layoutParams?.width?.takeIf { it > 0 } ?: width
+        val targetHeight = layoutParams?.height?.takeIf { it > 0 } ?: height
+        if (carouselPosition == position && carouselEnabled == enabled &&
+            carouselWidth == targetWidth && carouselHeight == targetHeight
+        ) {
+            return carouselEdgeCorrection
         }
-        if (immediate) {
-            apply(1f)
-            if (depth == 0f) contentView.setLayerType(LAYER_TYPE_NONE, null)
-        } else {
-            contentView.setLayerType(LAYER_TYPE_HARDWARE, cardLayerPaint)
-            pressAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = if (depth > 0f) {
-                    AnimationConstants.SLOW_ANIMATION
-                } else {
-                    AnimationConstants.QUICK_ANIMATION
-                }
-                interpolator = WInterpolator.spring(0.9f, 6f)
-                addUpdateListener { apply(it.animatedValue as Float) }
-                doOnEnd {
-                    if (pressAnimator === it) {
-                        pressAnimator = null
-                        if (depth == 0f) contentView.setLayerType(LAYER_TYPE_NONE, null)
-                    }
-                }
-                start()
+        carouselWidth = targetWidth
+        carouselHeight = targetHeight
+        carouselPosition = position
+        carouselEnabled = enabled
+        val correction = carouselTransform.update(
+            position.toDouble(),
+            targetWidth.toDouble(),
+            targetHeight.toDouble(),
+            enabled
+        )
+        carouselEdgeCorrection = correction.toFloat()
+        invalidate()
+        return correction.toFloat()
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        val save = canvas.save()
+        canvas.concat(carouselTransform.projection)
+        super.dispatchDraw(canvas)
+        canvas.restoreToCount(save)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (carouselTransform.projection.isIdentity) return dispatchCardTouch(ev)
+        val mapped = MotionEvent.obtain(ev)
+        return try {
+            mapped.transform(carouselTransform.inverse)
+            dispatchCardTouch(mapped)
+        } finally {
+            mapped.recycle()
+        }
+    }
+
+    private fun dispatchCardTouch(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN ||
+            ev.actionMasked == MotionEvent.ACTION_MOVE
+        ) {
+            particleTouchX = ev.x
+            particleTouchY = ev.y
+        }
+        val wasPlaying = pressInteraction.isPlaying
+        val observed = pressInteraction.observe(ev)
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                artworkView.observeSurfaceTouch(
+                    2f * ev.x / width - 1f,
+                    2f * ev.y / height - 1f,
+                    ev.actionMasked == MotionEvent.ACTION_DOWN
+                )
+                updateParticleTouch()
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> {
+                balanceViewContainer.setHeroTouch(null, null)
+                balanceChangeLabel.setHeroTouch(null, null)
             }
         }
+        if (ev.actionMasked == MotionEvent.ACTION_UP ||
+            ev.actionMasked == MotionEvent.ACTION_CANCEL
+        ) {
+            artworkView.releaseShine(ev.actionMasked == MotionEvent.ACTION_CANCEL)
+        }
+        if (wasPlaying || pressInteraction.isPlaying) return true
+        val handled = super.dispatchTouchEvent(ev)
+        return handled || observed
+    }
+
+    private fun updateParticleTouch() {
+        if (!pressInteraction.isPlaying) {
+            balanceViewContainer.setHeroTouch(null, null)
+            balanceChangeLabel.setHeroTouch(null, null)
+            return
+        }
+        contentView.mapHostPoint(
+            particleTouchX - contentView.x,
+            particleTouchY - contentView.y,
+            playHitPoint
+        )
+        val dx = surfaceLightX * (3.5f * 1.1f).dp
+        val dy = surfaceLightY * (3.5f * 1.1f).dp
+        balanceViewContainer.setHeroTouch(
+            playHitPoint[0] - clippedContainer.x - balanceViewContainer.x - dx,
+            playHitPoint[1] - clippedContainer.y - balanceViewContainer.y - dy
+        )
+        balanceChangeLabel.setHeroTouch(
+            playHitPoint[0] - clippedContainer.x - balanceChangeLabel.x - dx,
+            playHitPoint[1] - clippedContainer.y - balanceChangeLabel.y - dy
+        )
+    }
+
+    private fun isPlayControlAt(view: View, x: Float, y: Float): Boolean {
+        if (view.isLongClickable || view is Button || view is ImageButton ||
+            (view is WMultichainAddressLabel && view.onLongPressChain != null) ||
+            view === mintIcon || view === promoOverlayView
+        ) {
+            return true
+        }
+        if (view !is ViewGroup) return false
+        for (index in view.childCount - 1 downTo 0) {
+            val child = view.getChildAt(index)
+            if (child.visibility != VISIBLE || child.alpha <= 0f) continue
+            playHitPoint[0] = x + view.scrollX - child.left
+            playHitPoint[1] = y + view.scrollY - child.top
+            if (child === contentView) {
+                contentView.mapHostPoint(playHitPoint[0], playHitPoint[1], playHitPoint)
+            }
+            if (!child.matrix.isIdentity && child.matrix.invert(playHitMatrix)) {
+                playHitMatrix.mapPoints(playHitPoint)
+            }
+            val childX = playHitPoint[0]
+            val childY = playHitPoint[1]
+            if (childX >= 0f && childX < child.width && childY >= 0f && childY < child.height) {
+                return isPlayControlAt(child, childX, childY)
+            }
+        }
+        return false
     }
 
     internal fun releasePress(immediate: Boolean = false, cancelled: Boolean = false) {
+        balanceViewContainer.setHeroTouch(null, null)
+        balanceChangeLabel.setHeroTouch(null, null)
         artworkView.releaseShine(cancelled || immediate)
-        if (contentView.rotationX == 0f && contentView.rotationY == 0f &&
-            contentView.scaleX == 1f && contentView.scaleY == 1f && pressStrength == 0f
-        ) {
-            pressAnimator?.cancel()
-            pressAnimator = null
-            contentView.setLayerType(LAYER_TYPE_NONE, null)
-            artworkView.updateShinePressStrength(0f)
-            return
-        }
-        animatePress(0f, 0f, 0f, immediate)
+        if (immediate) pressInteraction.reset() else pressInteraction.release(cancelled)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean =
@@ -1241,6 +1498,7 @@ class WalletCardView(
 
     var currentRadius = -1f
     fun setRoundingParam(radius: Float) {
+        artworkView.surfaceRadius = radius
         if (this.currentRadius == radius) return
         this.currentRadius = radius
         clippedContainer.setBackgroundColor(Color.TRANSPARENT, radius, true)
@@ -1294,7 +1552,6 @@ class WalletCardView(
         footerLabel.alpha = actionsAlpha
         mintIcon.alpha = actionsAlpha
         walletTypeView.alpha = actionsAlpha
-        balanceChangeLabel.alpha = actionsAlpha
     }
 
     private var isBalanceChangePositive = false
@@ -1325,6 +1582,10 @@ class WalletCardView(
             applyMaskColors(primaryColor)
         }
         balanceViewContainer.maskView.foregroundColor = primaryColor
+        balanceViewContainer.setHeroColors(
+            primaryColor,
+            if (drawGradient) secondaryColor else primaryColor
+        )
         balanceChangeLabel.maskView.foregroundColor =
             cardNft?.metadata?.overlayLabelBackground ?: secondaryColor
         hiddenBalanceDrawable?.apply {
@@ -1381,6 +1642,7 @@ class WalletCardView(
             balanceChangeTextLabel.setTextColor(positiveColor)
             balanceChangeChevron?.setTint(positiveColor)
         }
+        balanceChangeLabel.setHeroColors(balanceChangeTextLabel.currentTextColor)
     }
 
     private fun updateSkeletonViewColors() {

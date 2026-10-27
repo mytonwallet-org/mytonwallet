@@ -153,58 +153,31 @@ func crosschainAdjustedNativeMaxAmount(
                 walletVersion: nil,
                 isFromAmountMax: input.isMaxAmount ? true : nil
             )
-            let response = try await fetchEstimate(account.id, request)
+            let response = try await SwapQuoteDiagnostics.step("quote") {
+                try await fetchEstimate(account.id, request)
+            }
+            SwapQuoteDiagnostics.received(response)
             try Task.checkCancellation()
             if case .error(let error) = response {
                 if isSwapEstimateRateLimited(error) { throw error }
                 return SwapEstimateResult(changedFrom: input.inputSource, response: response)
             }
-            guard case .cex(var swapEstimate) = response else {
+            guard case .cex(let swapEstimate) = response else {
                 throw SdkError.unexpected(message: "Expected CEX swap estimate", context: response)
             }
 
-            if swapType.cexTopology != .toWallet {
-                if networkFee == nil, realNetworkFee == nil {
-                    if let feeData = try? await fetchNetworkFee(
-                        sellingToken: selling.token,
-                        account: account,
-                        amount: crosschainNetworkFeeDraftAmount(
-                            sellingToken: selling.token,
-                            isMaxAmount: input.isMaxAmount,
-                            account: account,
-                            amount: selling.amount
-                        )
-                    ) {
-                        networkFee = feeData.networkFee
-                        realNetworkFee = feeData.realNetworkFee
-                    }
-                    try Task.checkCancellation()
-                }
-                swapEstimate.networkFee = networkFee
-                swapEstimate.realNetworkFee = realNetworkFee
-            }
-
-            let resolvedSelling = TokenAmount(
-                swapEstimate.fromAmount.bigintAmount(decimals: selling.token.decimals),
-                selling.token
-            )
-            let nativeFee = swapEstimate.networkFee.flatMap {
-                FeeEstimationHelpers.networkFeeBigInt(
-                    sellToken: selling.token,
-                    swapType: swapType,
-                    networkFee: $0.value
-                )?.fee
-            }
-            swapEstimate.isEnoughNative = isEnoughNativeForCrosschain(
-                selling: resolvedSelling,
+            let enriched = try await enrich(
+                estimate: swapEstimate,
+                selling: selling,
                 swapType: swapType,
-                fee: nativeFee,
-                account: account
+                isMaxAmount: input.isMaxAmount,
+                account: account,
+                networkFee: networkFee,
+                realNetworkFee: realNetworkFee
             )
-            swapEstimate.dieselStatus = .notAvailable
             return SwapEstimateResult(
                 changedFrom: changedFrom,
-                response: .cex(swapEstimate),
+                response: .cex(enriched),
                 estimateIssue: nil
             )
         } catch {
@@ -224,6 +197,61 @@ func crosschainAdjustedNativeMaxAmount(
         }
     }
 
+    func enrich(
+        estimate: ApiSwapCexEstimateResponse,
+        selling: TokenAmount,
+        swapType: SwapType,
+        isMaxAmount: Bool,
+        account: SwapAccountSnapshot,
+        networkFee knownNetworkFee: MDouble?,
+        realNetworkFee knownRealNetworkFee: MDouble?
+    ) async throws -> ApiSwapCexEstimateResponse {
+        var swapEstimate = estimate
+        var networkFee = knownNetworkFee
+        var realNetworkFee = knownRealNetworkFee
+
+        if swapType.cexTopology != .toWallet {
+            if networkFee == nil, realNetworkFee == nil {
+                if let feeData = try? await fetchNetworkFee(
+                    sellingToken: selling.token,
+                    account: account,
+                    amount: crosschainNetworkFeeDraftAmount(
+                        sellingToken: selling.token,
+                        isMaxAmount: isMaxAmount,
+                        account: account,
+                        amount: selling.amount
+                    )
+                ) {
+                    networkFee = feeData.networkFee
+                    realNetworkFee = feeData.realNetworkFee
+                }
+                try Task.checkCancellation()
+            }
+            swapEstimate.networkFee = networkFee
+            swapEstimate.realNetworkFee = realNetworkFee
+        }
+
+        let resolvedSelling = TokenAmount(
+            swapEstimate.fromAmount.bigintAmount(decimals: selling.token.decimals),
+            selling.token
+        )
+        let nativeFee = swapEstimate.networkFee.flatMap {
+            FeeEstimationHelpers.networkFeeBigInt(
+                sellToken: selling.token,
+                swapType: swapType,
+                networkFee: $0.value
+            )?.fee
+        }
+        swapEstimate.isEnoughNative = isEnoughNativeForCrosschain(
+            selling: resolvedSelling,
+            swapType: swapType,
+            fee: nativeFee,
+            account: account
+        )
+        swapEstimate.dieselStatus = .notAvailable
+        return swapEstimate
+    }
+
     private func fetchNetworkFee(
         sellingToken: ApiToken,
         account: SwapAccountSnapshot,
@@ -239,7 +267,9 @@ func crosschainAdjustedNativeMaxAmount(
             tokenAddress: sellingToken.tokenAddress,
             allowGasless: false
         )
-        let draft = try await Api.checkTransactionDraft(chain: chain, options: options)
+        let draft = try await SwapQuoteDiagnostics.step("networkFee") {
+            try await Api.checkTransactionDraft(chain: chain, options: options)
+        }
         let decimals = chain.nativeToken.decimals
         let networkFee = draft.fullNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }
         let realNetworkFee = draft.realNativeFee.flatMap { MDouble.forBigInt($0, decimals: decimals) }

@@ -71,9 +71,11 @@ export const APP_INSTALL_URL = IS_GRAM_WALLET ? 'https://get.gramwallet.io/' : '
 export const APP_REPO_URL = 'https://github.com/mytonwallet-org/mytonwallet';
 export const SELF_UNIVERSAL_HOST_URL = 'https://my.tt';
 export const APP_WEBSITE_URL = IS_GRAM_WALLET ? 'https://gramwallet.io' : 'https://mywallet.io';
+// The static asset host, not the website: site rebuilds do not preserve paths the app links to. The TON Connect
+// wallets-list points at the same files.
 export const APP_ICON_URL = IS_GRAM_WALLET
-  ? 'https://gramwallet.io/icon-512x512.png'
-  : 'https://mywallet.io/icon-512x512.png';
+  ? 'https://static.gramwallet.io/gramwallet/icon-288.png'
+  : 'https://static.mywallet.io/mywallet/icon-288.png';
 
 // GitHub workflow uses an empty string as the default value if it's not in repository variables, so we cannot define a default value here
 export const BASE_URL = process.env.BASE_URL || PRODUCTION_URL;
@@ -119,6 +121,8 @@ export const DEFAULT_LANDSCAPE_WINDOW_SIZE = { width: 980, height: 788 };
 export const TRANSACTION_ADDRESS_SHIFT = 4;
 
 export const WHOLE_PART_DELIMITER = ' '; // https://www.compart.com/en/unicode/U+202F
+// Stands in for an amount inside a text while the user hides the balances
+export const SENSITIVE_DATA_MASK = '***';
 
 export const DEFAULT_SLIPPAGE_VALUE = 5;
 // The DEX price impact, in percent, from which a swap is flagged as unfavourable
@@ -266,7 +270,7 @@ export const TINY_TRANSFER_MAX_COST = 0.01;
 
 export const IMAGE_CACHE_NAME = IS_EXPLORER ? 'explorer-image' : 'mtw-image';
 
-export const LANG_CACHE_NAME = 'mtw-lang-373';
+export const LANG_CACHE_NAME = 'mtw-lang-374';
 
 export const LANG_LIST: LangItem[] = [{
   langCode: 'en',
@@ -390,6 +394,7 @@ export const STAKING_POOLS = [
 ].filter(Boolean);
 export const LIQUID_POOL = process.env.LIQUID_POOL || 'EQD2_4d91M4TVbEBVyBF8J1UwpMJc361LKVCz6bBlffMW05o';
 export const LIQUID_JETTON = process.env.LIQUID_JETTON || 'EQCqC6EhRJ_tpWngKxL6dV0k6DSnRUrs9GSVkLbfdCqsj6TE';
+export const TONSTAKERS_JETTON = 'EQC98_qAmNEptUtPc7W6xdHh_ZHrBUFpw5Ft_IzNU20QAJav';
 export const STAKING_MIN_AMOUNT = ONE_TON;
 export const NOMINATORS_STAKING_MIN_AMOUNT = 10_000n * ONE_TON;
 export const MIN_ACTIVE_STAKING_REWARDS = 100_000_000n; // 0.1 MY

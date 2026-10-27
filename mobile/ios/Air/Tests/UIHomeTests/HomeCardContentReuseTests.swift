@@ -76,6 +76,52 @@ struct HomeCardContentReuseTests {
         }
     }
 
+    @Test
+    func hiddenBalanceReleasesCurrencyHoldButKeepsRevealTap() throws {
+        try withDependencies { $0.context = .live } operation: {
+            let view = HomeCardContentView(mode: .expanded)
+            let content = try #require(view.subviews.first as? MtwCardContentView)
+            for hidden in [false, true, true, false, false, true] {
+                view.updateBalanceMenu(isHidden: hidden)
+                let gestures = content.balance.gestureRecognizers ?? []
+                #expect(gestures.filter { $0 is UILongPressGestureRecognizer && $0.isEnabled }.count == (hidden ? 0 : 1))
+                #expect(gestures.contains { $0 is UITapGestureRecognizer && $0.isEnabled })
+            }
+        }
+    }
+
+    @Test
+    func scrollingCollapsedHeaderOnlyUpdatesGeometry() async throws {
+        try await withDependencies { $0.context = .live } operation: {
+            let account = makeAccount("90104-mainnet")
+            let model = HomeHeaderViewModel(accountSource: .constant(account))
+            model.state = .collapsed
+            let view = HomeCardContentView(mode: .collapsed)
+            view.configure(headerViewModel: model, accountContext: AccountContext(source: .constant(account)))
+            let window = show(view, size: CGSize(width: 378, height: 238))
+            defer { window.isHidden = true; view.prepareForReuse() }
+            let content = try #require(view.subviews.first as? MtwCardContentView)
+            try await Task.sleep(for: .milliseconds(30))
+            window.layoutIfNeeded()
+            let initialFrame = content.balance.frame
+            let configurations = view.contentConfigurationCount
+            for step in 1...10 {
+                model.scrollOffsetChanged(to: model.collapsedHeight * CGFloat(step) / 10)
+                view.updateCollapseProgress(model.collapseProgress)
+                try await Task.sleep(for: .milliseconds(10))
+                window.layoutIfNeeded()
+            }
+            #expect(view.contentConfigurationCount == configurations,
+                    "Scrolling must not rebuild balance content or restart its privacy animation")
+            #expect(content.balance.frame != initialFrame)
+            model.scrollOffsetChanged(to: 0)
+            view.updateCollapseProgress(model.collapseProgress)
+            try await Task.sleep(for: .milliseconds(30))
+            window.layoutIfNeeded()
+            #expect(content.balance.frame == initialFrame)
+        }
+    }
+
     private func makeAccount(_ id: String) -> MAccount {
         MAccount(id: id, title: "Layout fixture", type: .mnemonic,
                  byChain: [.ton: AccountChain(address: "UQDQ7EXuEywyezyEWzfNkHZTSbe8qbPKETFYHr_KTZnnJ-xL")])

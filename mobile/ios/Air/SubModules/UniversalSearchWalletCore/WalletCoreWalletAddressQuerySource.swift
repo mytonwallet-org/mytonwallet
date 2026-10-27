@@ -6,16 +6,16 @@ import WalletCoreTypes
 public struct WalletCoreWalletAddressSearchInput: Sendable {
     public let network: ApiNetwork
     public let supportedChains: [ApiChain]
-    public let knownWalletIdentifiers: Set<String>
+    public let knownAccounts: [MAccount]
 
     public init(
         network: ApiNetwork,
         supportedChains: [ApiChain] = ApiChain.allCases,
-        knownWalletIdentifiers: Set<String> = []
+        knownAccounts: [MAccount] = []
     ) {
         self.network = network
         self.supportedChains = supportedChains
-        self.knownWalletIdentifiers = knownWalletIdentifiers
+        self.knownAccounts = knownAccounts.filter { $0.network == network }
     }
 }
 
@@ -101,7 +101,11 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
                     for: input,
                     chains: searchInput.supportedChains
                 )
-                guard !searchInput.knownWalletIdentifiers.contains(Self.normalized(input)),
+                let knownIdentifiers = searchInput.knownAccounts
+                    .flatMap(\.orderedChains)
+                    .flatMap { _, info in [info.address, info.domain].compactMap { $0 } }
+                    .map(Self.normalized)
+                guard !knownIdentifiers.contains(Self.normalized(input)),
                       !chains.isEmpty else {
                     continuation.finish()
                     return
@@ -164,7 +168,8 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
                                     addressName: Self.nonEmpty(resolution.addressName),
                                     domain: isDomain ? input : nil,
                                     chain: chain,
-                                    network: searchInput.network
+                                    network: searchInput.network,
+                                    knownAccounts: searchInput.knownAccounts
                                 )
                             } else {
                                 documentsByChain.removeValue(forKey: chain)
@@ -209,9 +214,35 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
         domain: String?,
         chain: ApiChain,
         network: ApiNetwork,
+        knownAccounts: [MAccount] = [],
         isResolvingDomain: Bool = false
     ) -> SearchDocument {
-        SearchDocument(
+        if let address,
+           let account = knownAccounts.first(where: { account in
+               guard !account.isTemporaryView,
+                     let info = account.getChainInfo(chain: chain) else { return false }
+               let matchesDomain = domain.map { Self.normalized(info.domain ?? "") == Self.normalized($0) } ?? false
+               let knownAddress = chain.normalizeAddress(info.address)
+               let resolvedAddress = chain.normalizeAddress(address)
+               let matchesAddress = chain.isEvm
+                   ? knownAddress.caseInsensitiveCompare(resolvedAddress) == .orderedSame
+                   : knownAddress == resolvedAddress
+               return matchesDomain || matchesAddress
+           }),
+           let document = WalletCoreWalletSearchSource.documents(accounts: [account]).first {
+            return SearchDocument(
+                id: document.id,
+                kind: document.kind,
+                fields: document.fields + makeSearchFields([
+                    (input, domain == nil ? .address : .domain, .exact),
+                ]),
+                matchRequirement: document.matchRequirement,
+                attributes: document.attributes,
+                signals: document.signals
+            )
+        }
+
+        return SearchDocument(
             id: SearchEntityID(
                 "wallet:external:\(network.rawValue):\(chain.rawValue):\(Self.normalized(input))"
             ),
@@ -244,7 +275,8 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
     ) -> UniversalSearchSourceSnapshot {
         UniversalSearchSourceSnapshot(
             sourceID: sourceID,
-            authority: 90,
+            // Keep the resolved domain alias when merging with the local wallet document.
+            authority: WalletCoreSearchSourceAuthority.local + 1,
             revision: "\(network.rawValue):\(chains.map(\.rawValue).joined(separator: ",")):\(Self.normalized(input))",
             generatedAt: clock(),
             documents: documents
@@ -278,16 +310,13 @@ public struct WalletCoreWalletAddressQuerySource: UniversalSearchQuerySource {
               let account = AccountStore.accountsById[accountID] else { return nil }
         let network = context.network.flatMap(ApiNetwork.init(rawValue:)) ?? account.network
 
-        let identifiers = AccountStore.orderedAccountIdsWithTemporary
+        let accounts = AccountStore.orderedAccountIdsWithTemporary
             .compactMap { AccountStore.accountsById[$0] }
             .filter { $0.network == network }
-            .flatMap(\.orderedChains)
-            .flatMap { _, chain in [chain.address, chain.domain].compactMap { $0 } }
-            .map(Self.normalized)
         return WalletCoreWalletAddressSearchInput(
             network: network,
             supportedChains: ApiChain.allCases.filter { account.supports(chain: $0) },
-            knownWalletIdentifiers: Set(identifiers)
+            knownAccounts: accounts
         )
     }
 }

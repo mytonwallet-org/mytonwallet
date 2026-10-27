@@ -28,7 +28,7 @@ export interface StoredDappConnection {
   /** dApp display name */
   name: string;
   /** dApp icon URL */
-  iconUrl: string;
+  iconUrl?: string;
   /** Manifest URL (TON Connect) */
   manifestUrl?: string;
 

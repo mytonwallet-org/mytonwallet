@@ -69,6 +69,7 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     private var sizeAnimStart = 0.0
 
     private var pendingSnippetAdoption = false
+    private var isRenderingEnabled = true
     private var frameScheduled = false
     private val interpolator = AccelerateDecelerateInterpolator()
     private val maskPath = Path()
@@ -82,6 +83,16 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
 
     var onRevealFinished: (() -> Unit)? = null
     var onSizeTransitionFrame: (() -> Unit)? = null
+
+    fun setRenderingActive(active: Boolean) {
+        isRenderingEnabled = active
+        if (active) {
+            if (isRevealActive) scheduleFrame()
+        } else if (frameScheduled) {
+            frameScheduled = false
+            Choreographer.getInstance().removeFrameCallback(frameCallback)
+        }
+    }
 
     fun setTextWithReveal(newText: CharSequence?, isStreaming: Boolean, key: String) {
         if (key != revealKey) {
@@ -179,14 +190,14 @@ class StreamingRevealLabel(context: Context) : WLabel(context) {
     private fun nowSeconds(): Double = SystemClock.uptimeMillis() / 1000.0
 
     private fun scheduleFrame() {
-        if (frameScheduled || !isAttachedToWindow) return
+        if (frameScheduled || !isRenderingEnabled || !isAttachedToWindow) return
         frameScheduled = true
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
 
     private val frameCallback = Choreographer.FrameCallback {
         frameScheduled = false
-        onFrame(nowSeconds())
+        if (isRenderingEnabled) onFrame(nowSeconds())
     }
 
     private fun onFrame(now: Double) {

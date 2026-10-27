@@ -51,6 +51,8 @@ public enum ApiTransactionType: String, Codable, Sendable {
     case mint
     case burn
     case auctionBid
+    case nftAuctionStart
+    case nftAuctionCancel
     case nftTrade
     case dnsChangeAddress
     case dnsChangeSite

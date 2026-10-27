@@ -49,6 +49,7 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
 
     let input: SwapInputModel
     let buttonModel = SwapButtonModel()
+    let quoteDiagnostics = SwapQuoteDiagnostics()
     private let contextModel = SwapContextModel()
     private let flows: SwapFlowRouter
     @PerceptionIgnored
@@ -126,9 +127,16 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
                     && $0.sellingSlug == $1.sellingSlug
                     && $0.buyingSlug == $1.buyingSlug
             },
-            load: estimateLoader ?? { [weak self] request, previous in
+            load: { [weak self] request, previous in
                 guard let self else { throw CancellationError() }
-                return try await loadEstimate(request, previous: previous)
+                return try await quoteDiagnostics.load(request, operation: {
+                    if let estimateLoader {
+                        return try await estimateLoader(request, previous)
+                    }
+                    return try await self.loadEstimate(request, previous: previous)
+                }, isCurrent: {
+                    request == self.currentEstimateRequest
+                })
             }
         )
         self.updateSwapType()
@@ -143,6 +151,7 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         estimate.onFailure = { [weak self] request, _ in
             guard let self else { return }
             recordEstimateOutcome(hasQuote: false)
+            quoteDiagnostics.state(currentEstimateRequest, event: "failure", state: currentButtonState, loading: estimate.isLoading)
             // A refresh failure (a rate limit, a transient error) keeps
             // the current estimate displayable — its derived amount stays.
             // Only a blocking failure clears the opposite side.
@@ -152,6 +161,7 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         estimate.start { [weak self] in
             self?.currentEstimateRequest
         }
+        quoteDiagnostics.input(currentEstimateRequest, source: "initial")
     }
 
     /// Keeps the previous quote visible while edited inputs are estimated.
@@ -190,6 +200,8 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
         } else {
             estimate.pause()
         }
+        quoteDiagnostics.state(currentEstimateRequest, event: stage.allowsEstimation ? "resumed" : "paused",
+                               state: currentButtonState, loading: estimate.isLoading)
     }
 
     func refreshBalances() {
@@ -224,11 +236,28 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
     }
 
     var displayImpactWarning: Double? {
-        flow(for: swapType).priceImpactWarning(state: estimateState)
+        let presented = quotedSwapType(for: estimateState)
+        return flow(for: presented).priceImpactWarning(state: estimateState)
     }
 
     var detailsSection: SwapDetailsSection {
-        flow(for: swapType).detailsSection(swapType: swapType)
+        let presented = quotedSwapType(for: estimateState)
+        return flow(for: presented).detailsSection(swapType: presented)
+    }
+
+    /// The returned venue determines execution independently of the pair's chain topology.
+    var quotedRoute: SwapRouteKind {
+        quotedSwapType(for: estimateState).route
+    }
+
+    func quotedSwapType(for state: SwapEstimateModel) -> SwapType {
+        if state.dexEstimate != nil {
+            return .onChain
+        }
+        if swapType == .onChain, state.cexEstimate != nil {
+            return .crosschainInsideWallet
+        }
+        return swapType
     }
 
     var detailsVM: SwapDetailsVM {
@@ -237,8 +266,10 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
 
     var currentButtonState: SwapButtonState {
         guard !isSubmitting else { return .submitting }
-        return currentPresentationContext().map {
-            flow(for: swapType).buttonState(context: $0, state: currentEstimateState)
+        let state = currentEstimateState
+        let presented = quotedSwapType(for: state)
+        return currentPresentationContext(for: state).map {
+            flow(for: presented).buttonState(context: $0, state: state)
         } ?? .emptyAmount
     }
 
@@ -248,6 +279,29 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
             sellingToken: input.sellingToken,
             buyingToken: input.buyingToken
         )
+    }
+
+    var hasInsufficientFee: Bool {
+        if case .blocked(.insufficientFee) = currentButtonState { return true }
+        return false
+    }
+
+    var hasInsufficientFunds: Bool {
+        guard !hasInsufficientFee, input.staleAmountSide != .selling,
+              let amount = input.sellingAmount,
+              let available = input.maxAmount ?? input.tokenBalance else { return false }
+        return amount > available
+    }
+
+    var hasAmountError: Bool {
+        if hasInsufficientFunds { return true }
+        switch currentButtonState {
+        case .blocked(.insufficientBalance), .blocked(.tooSmallAmount),
+             .blocked(.minimumAmount), .blocked(.maximumAmount):
+            return true
+        default:
+            return false
+        }
     }
 
     func confirmationAmounts() -> SwapConfirmationAmounts? {
@@ -268,12 +322,13 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
     func continueRoute() -> SwapRoute? {
         guard stage == .editing else { return nil }
         let state = currentEstimateState
-        guard let context = currentPresentationContext(),
-              let route = flow(for: swapType).route(context: context, state: state) else {
+        let presented = quotedSwapType(for: state)
+        guard let context = currentPresentationContext(for: state),
+              let route = flow(for: presented).route(context: context, state: state) else {
             return nil
         }
         guard route.allowsPriceImpactWarning,
-              let impact = flow(for: swapType).priceImpactWarning(state: state) else {
+              let impact = flow(for: presented).priceImpactWarning(state: state) else {
             return route
         }
         return .priceImpactWarning(impact: impact, next: route)
@@ -281,16 +336,17 @@ func estimateTicksToWait(failedAttempts: Int) -> Int {
 
     func makeConfirmationSnapshot(payoutAddress: String? = nil) -> SwapConfirmationSnapshot? {
         let state = currentEstimateState
-        guard let context = currentPresentationContext(),
+        let presented = quotedSwapType(for: state)
+        guard let context = currentPresentationContext(for: state),
               let confirmation = context.confirmationAmounts else { return nil }
-        switch flow(for: swapType).buttonState(context: context, state: state) {
+        switch flow(for: presented).buttonState(context: context, state: state) {
         case .readyToSwap, .readyToContinue:
             break
         default:
             return nil
         }
         return SwapConfirmationSnapshot(
-            swapType: swapType,
+            swapType: presented,
             confirmation: confirmation,
             maxAmount: input.maxAmount,
             slippage: slippage.doubleAbsRepresentation(decimals: SLIPPAGE_DECIMALS),
@@ -332,6 +388,8 @@ extension SwapModel: SwapInputModelDelegate {
         if input.sellingToken != nil, input.buyingToken != nil, (amount ?? 0) <= 0 {
             input.clearEstimatedAmount(changedFrom: swapSide)
         }
+        quoteDiagnostics.input(currentEstimateRequest, source: source == .user ? "user" : "maxRecalculation")
+        quoteDiagnostics.state(currentEstimateRequest, event: "input", state: currentButtonState, loading: estimate.isLoading)
     }
 
     func swapCommandRequested(_ command: SwapCommand) {
@@ -368,11 +426,13 @@ private extension SwapModel {
             estimate.refreshInterval = estimateRefreshInterval
         }
         let account = currentAccountSnapshot()
-        let context = try await contextModel.updateContext(
-            selling: estimateInput.selling.token,
-            buying: estimateInput.buying.token,
-            accountChains: account.supportedChains
-        )
+        let context = try await SwapQuoteDiagnostics.step("pairs") {
+            try await contextModel.updateContext(
+                selling: estimateInput.selling.token,
+                buying: estimateInput.buying.token,
+                accountChains: account.supportedChains
+            )
+        }
         guard request == currentEstimateRequest else { throw CancellationError() }
         swapType = context.swapType
         isValidPair = isSwapPairInAccountScope(
@@ -411,7 +471,7 @@ private extension SwapModel {
             maxAmount: input.maxAmount ?? input.tokenBalance,
             slippage: request.slippage,
             previousNetworkFee: previousResult?.dexEstimate?.networkFee,
-            cexLabel: swapType.route == .dex ? nil : previousResult?.cexEstimate?.cexLabel
+            cexLabel: swapType == .onChain || swapType == .crosschainInsideWallet ? nil : previousResult?.cexEstimate?.cexLabel
         )
     }
 
@@ -432,16 +492,18 @@ private extension SwapModel {
         // another estimate; the periodic tick owns refreshes.
         update.apply(to: input)
         refreshInputMaxAmountContext(notifyAmountChange: false)
+        quoteDiagnostics.state(currentEstimateRequest, event: "applied", state: currentButtonState, loading: estimate.isLoading)
     }
 
     func currentAccountSnapshot() -> SwapAccountSnapshot {
         SwapAccountSnapshot(account: account, balances: $account.balances)
     }
 
-    func currentPresentationContext() -> SwapPresentationContext? {
+    func currentPresentationContext(for state: SwapEstimateModel) -> SwapPresentationContext? {
         guard let sellingToken = input.sellingToken, let buyingToken = input.buyingToken else { return nil }
+        let presented = quotedSwapType(for: state)
         return SwapPresentationContext(
-            swapType: swapType,
+            swapType: presented,
             isValidPair: isValidPair,
             hasEnteredAmount: input.sellingAmount != nil || input.buyingAmount != nil,
             isEstimating: estimate.isLoading,
@@ -450,7 +512,7 @@ private extension SwapModel {
                 buyingToken: buyingToken,
                 sellingAmount: input.sellingAmount,
                 maxAmount: input.maxAmount,
-                swapType: swapType
+                swapType: presented
             ),
             confirmationAmounts: confirmationAmounts(),
             account: currentAccountSnapshot()
@@ -473,8 +535,9 @@ private extension SwapModel {
         }
 
         let nativeTokenInBalance = $account.balances[nativeToken.slug]
-        let context = flow(for: swapType).maxAmountContext(
-            swapType: swapType,
+        let presented = quotedSwapType(for: estimateState)
+        let context = flow(for: presented).maxAmountContext(
+            swapType: presented,
             sellingToken: sellingToken,
             nativeTokenInBalance: nativeTokenInBalance,
             state: estimateState

@@ -2,14 +2,21 @@ package org.mytonwallet.app_air.uicomponents.base
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.Region
+import android.os.Build
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.TouchDelegate
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.annotation.RequiresApi
 import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -121,7 +128,105 @@ class WNavigationBar(
         }
     }
 
-    private val contentView = WView(context).apply {
+    private val contentView = object : WView(context) {
+        private var buttonTouchBounds = emptyList<Pair<WImageButton, Rect>>()
+        private var pendingButtonTouchBounds = emptyList<Pair<WImageButton, Rect>>()
+        private var isTouchActive = false
+        private var hoveredDelegate: TouchDelegate? = null
+
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            super.onLayout(changed, l, t, r, b)
+            pendingButtonTouchBounds = listOf(backButton, closeButton)
+                .filter { it.parent === this }
+                .map { button ->
+                    val bounds = Rect()
+                    button.getHitRect(bounds)
+                    bounds.inset(
+                        -((48.dp - bounds.width() + 1) / 2).coerceAtLeast(0),
+                        -((48.dp - bounds.height() + 1) / 2).coerceAtLeast(0)
+                    )
+                    button to bounds
+                }
+            updateButtonTouchDelegate()
+        }
+
+        private fun updateButtonTouchDelegate() {
+            if (isTouchActive || buttonTouchBounds == pendingButtonTouchBounds) return
+            buttonTouchBounds = pendingButtonTouchBounds
+            val delegates = buttonTouchBounds.map { (button, bounds) ->
+                Triple(button, bounds, TouchDelegate(bounds, button))
+            }
+            touchDelegate = object : TouchDelegate(Rect(), backButton) {
+                override fun onTouchEvent(event: MotionEvent): Boolean {
+                    val action = event.actionMasked
+                    if (action == MotionEvent.ACTION_DOWN) isTouchActive = true
+                    val handled = delegates.any { (button, _, delegate) ->
+                        button.parent != null && button.isVisible && button.isEnabled &&
+                            delegate.onTouchEvent(event)
+                    }
+                    if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
+                        (action == MotionEvent.ACTION_DOWN && !handled)
+                    ) {
+                        isTouchActive = false
+                        updateButtonTouchDelegate()
+                    }
+                    return handled
+                }
+
+                @RequiresApi(Build.VERSION_CODES.Q)
+                override fun onTouchExplorationHoverEvent(event: MotionEvent): Boolean {
+                    val target = when (event.actionMasked) {
+                        MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE ->
+                            delegates.firstOrNull { (button, bounds, _) ->
+                                button.parent != null && button.isVisible && button.isEnabled &&
+                                    bounds.contains(event.x.toInt(), event.y.toInt())
+                            }?.third
+
+                        MotionEvent.ACTION_HOVER_EXIT -> null
+
+                        else -> return false
+                    }
+                    var handled = false
+                    if (hoveredDelegate !== target) {
+                        hoveredDelegate?.let {
+                            handled = dispatchHoverEvent(it, event, MotionEvent.ACTION_HOVER_EXIT)
+                        }
+                        hoveredDelegate = target
+                        if (target != null && event.actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                            handled = dispatchHoverEvent(
+                                target,
+                                event,
+                                MotionEvent.ACTION_HOVER_ENTER
+                            ) || handled
+                        }
+                    }
+                    return target?.let { dispatchHoverEvent(it, event, event.action) || handled }
+                        ?: handled
+                }
+
+                @RequiresApi(Build.VERSION_CODES.Q)
+                private fun dispatchHoverEvent(
+                    delegate: TouchDelegate,
+                    event: MotionEvent,
+                    action: Int
+                ): Boolean {
+                    val delegateEvent = MotionEvent.obtain(event)
+                    delegateEvent.action = action
+                    return try {
+                        delegate.onTouchExplorationHoverEvent(delegateEvent)
+                    } finally {
+                        delegateEvent.recycle()
+                    }
+                }
+
+                @RequiresApi(Build.VERSION_CODES.Q)
+                override fun getTouchDelegateInfo(): AccessibilityNodeInfo.TouchDelegateInfo =
+                    AccessibilityNodeInfo.TouchDelegateInfo(
+                        delegates.associate { (button, bounds, _) -> Region(bounds) to button }
+                    )
+            }
+        }
+    }.apply {
         minHeight = calculatedMinHeight
         addView(backButton, ViewGroup.LayoutParams(40.dp, 40.dp))
         addView(titleLinearLayout, LayoutParams(0, WRAP_CONTENT))

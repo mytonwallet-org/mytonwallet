@@ -117,6 +117,28 @@ struct MtwCardBalanceLabelTests {
     }
 
     @Test
+    func fittedTextGeometryMatchesTheRenderedHostAndHiddenAmountsKeepTheirSize() throws {
+        let view = MtwCardBalanceLabelView()
+        for style in [MtwCardBalanceView.Style.homeCard, .homeCollaped, .homeNavigationBarCollapsed] {
+            for amount in [12.34, 1234.56, 123456789012.34] {
+                configure(view, amount: amount, style: style)
+                for width in [196.0, 210, 305] {
+                    view.bounds = CGRect(x: 0, y: 0, width: width, height: style.integerFont.lineHeight)
+                    view.layoutIfNeeded()
+                    let label = try #require(descendants(of: view).first { $0 is HostingView })
+                    let expected = view.alignmentFrame(for: .fromDouble(amount, .USD), style: style, isHidden: false)
+                    let actual = label.convert(label.bounds, to: view)
+                    #expect(abs(actual.midX - expected.midX) < 0.01)
+                    #expect(abs(actual.midY - expected.midY) < 0.01)
+                    #expect(abs(actual.height - expected.height) < 0.01)
+                    #expect(actual.width <= width + 0.01)
+                    #expect(view.alignmentFrame(for: .fromDouble(amount, .USD), style: style, isHidden: true) == view.bounds)
+                }
+            }
+        }
+    }
+
+    @Test
     func privacyMasksStayCenteredThroughInsertionResizeAndReuse() throws {
         let host = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         let balance = MtwCardBalanceLabelView()
@@ -127,9 +149,9 @@ struct MtwCardBalanceLabelTests {
         for style in [MtwCardBalanceView.Style.homeNavigationBarCollapsed, .homeCard, .homeCollaped] {
             for hidden in [false, true] {
                 balance.configure(balance: .fromDouble(3100, .USD), style: style, nft: nil,
-                                  usesCardGradient: false, isHidden: hidden, isScrolling: false, animates: false)
+                                  usesCardGradient: false, isHidden: hidden, isScrolling: false, animates: false, concealment: .mask)
                 change.configure(balance: .fromDouble(3100, .USD), previous: .fromDouble(3000, .USD),
-                                 percent: 3, nft: nil, isHidden: hidden)
+                                 percent: 3, nft: nil, isHidden: hidden, concealment: .mask)
                 for width in [210.0, 305.0] {
                     balance.frame = CGRect(x: 30, y: 170, width: width, height: balance.lineHeight)
                     change.frame = CGRect(x: 16, y: 240, width: width + 65, height: 26)
@@ -174,9 +196,9 @@ struct MtwCardBalanceLabelTests {
         host.view.addSubview(change)
         func configure(hidden: Bool) {
             balance.configure(balance: .fromDouble(3100, .USD), style: .homeCard, nft: nil,
-                              usesCardGradient: true, isHidden: hidden, isScrolling: false, animates: true)
+                              usesCardGradient: true, isHidden: hidden, isScrolling: false, animates: true, concealment: .mask)
             change.configure(balance: .fromDouble(3100, .USD), previous: .fromDouble(3000, .USD),
-                             percent: 3, nft: nil, isHidden: hidden)
+                             percent: 3, nft: nil, isHidden: hidden, concealment: .mask)
         }
         configure(hidden: false)
         host.view.layoutIfNeeded()

@@ -7,6 +7,7 @@ final class RootHostVC: UIViewController, VisibleContentProviding {
     private(set) var contentViewController: UIViewController?
     private(set) var baseRootState: AppRootState?
     private(set) var currentRootState: AppRootState?
+    override var childForStatusBarStyle: UIViewController? { contentViewController }
     
     var visibleContentProviderViewController: UIViewController {
         contentViewController ?? self
@@ -57,6 +58,7 @@ final class RootHostVC: UIViewController, VisibleContentProviding {
         }
         
         contentViewController = newContentViewController
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     func setUnlockPresented(_ isPresented: Bool) {

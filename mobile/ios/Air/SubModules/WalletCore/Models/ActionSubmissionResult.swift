@@ -186,10 +186,30 @@ public enum ActionSubmissionErrorDisposition: Sendable, Equatable {
     case indeterminate
 }
 
+/// Wraps an error raised while an action was still being prepared, with nothing signed and nothing
+/// sent. The indeterminate disposition is for an action whose fate on chain cannot be read, so a
+/// preparation failure carries this instead and reaches the user as a plain refusal.
+public struct NotSubmittedError: Error {
+    public let underlying: any Error
+
+    public init(_ underlying: any Error) {
+        self.underlying = underlying
+    }
+}
+
+/// Runs preparation work whose failures are known to leave the chain untouched.
+public func withNotSubmitted<T>(_ work: () async throws -> T) async throws -> T {
+    do {
+        return try await work()
+    } catch {
+        throw error as? NotSubmittedError ?? NotSubmittedError(error)
+    }
+}
+
 public func actionSubmissionErrorDisposition(
     for error: any Error
 ) -> ActionSubmissionErrorDisposition {
-    if error is DisplayError {
+    if error is DisplayError || error is NotSubmittedError {
         return .notCommitted
     }
     guard let sdkError = error as? SdkError else {
@@ -209,7 +229,8 @@ public func actionSubmissionFailure<Payload: Sendable>(
 ) -> ActionSubmissionResult<Payload> {
     switch actionSubmissionErrorDisposition(for: error) {
     case .notCommitted:
-        .notCommitted(error)
+        // The refusal shown to the user is the failure itself, so the preparation marker is peeled off.
+        .notCommitted((error as? NotSubmittedError)?.underlying ?? error)
     case .indeterminate:
         .indeterminate(error: error, receipt: indeterminateReceipt)
     }

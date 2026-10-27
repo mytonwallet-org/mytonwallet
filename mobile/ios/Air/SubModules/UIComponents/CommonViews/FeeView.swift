@@ -16,7 +16,7 @@ public struct FeeView: View {
     private let nativeToken: ApiToken
     private let fee: MFee?
     private let explainedTransferFee: ExplainedTransferFee?
-    private let includeLabel: Bool
+    private let label: String?
     private let showDetailsButton: Bool
     private let isLoading: Bool
     private let isError: Bool
@@ -36,6 +36,7 @@ public struct FeeView: View {
         fee: MFee?,
         explainedTransferFee: ExplainedTransferFee?,
         includeLabel: Bool,
+        customLabel: String? = nil,
         showDetailsButton: Bool = true,
         isLoading: Bool = false,
         isError: Bool = false,
@@ -46,7 +47,7 @@ public struct FeeView: View {
         self.nativeToken = nativeToken
         self.fee = fee
         self.explainedTransferFee = explainedTransferFee
-        self.includeLabel = includeLabel
+        self.label = includeLabel ? customLabel ?? L10n.feeValueWithColon(fee: "") : nil
         self.showDetailsButton = showDetailsButton
         self.isLoading = isLoading
         self.isError = isError
@@ -69,8 +70,8 @@ public struct FeeView: View {
 
     private var loadingContent: some View {
         HStack(alignment: .center, spacing: 4) {
-            if includeLabel {
-                Text(L10n.feeValueWithColon(fee: ""))
+            if let label {
+                Text(label)
             }
             WUIActivityIndicator(size: 14)
                 .foregroundStyle(Color.air.secondaryLabel)
@@ -92,6 +93,8 @@ public struct FeeView: View {
                         .foregroundStyle(Color(.air.secondaryLabel.withAlphaComponent(0.3)))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(lang("Blockchain Fee Details"))
+                .accessibilityHint(lang("Shows more information"))
             }
         }
         .textStyle(textStyle, scaling: textScaling)
@@ -147,8 +150,8 @@ public struct FeeView: View {
                     scaling: textScaling
                 )
         }
-        if includeLabel {
-            let label = Text(L10n.feeValueWithColon(fee: ""))
+        if let label {
+            let label = Text(label)
                 .textStyle(textStyle, scaling: textScaling)
             return Text("\(label)\(value)")
         } else {
@@ -173,12 +176,7 @@ public struct FeeView: View {
 
     private func showFeeDetails() {
         if shouldShowDetails, let explainedTransferFee {
-            if let vc = topWViewController() {
-                vc.view.endEditing(true)
-                vc.showTip(title: lang("Blockchain Fee Details"), wide: true) {
-                    FeeDetailsView(nativeToken: nativeToken, fee: explainedTransferFee)
-                }
-            }
+            topWViewController()?.showFeeDetails(nativeToken: nativeToken, fee: explainedTransferFee)
         }
     }
 }  

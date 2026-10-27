@@ -23,7 +23,8 @@ final class HomeCardBackground: UIView {
         opacityObservation?.cancel()
         appearanceObservation = observe { [weak self] in
             let effects = headerViewModel.allowsCardEffects(for: accountContext.account.id)
-            self?.backgroundView.configure(nft: accountContext.nft, isAnimationEnabled: effects, isShineEnabled: effects, surface: .current)
+            self?.backgroundView.configure(nft: accountContext.nft, isAnimationEnabled: effects, isShineEnabled: effects,
+                surface: .home(nft: accountContext.nft), retainPausedRenderer: headerViewModel.isVisible)
         }
         opacityObservation = observe { [weak self] in
             self?.alpha = headerViewModel.cardOpacity

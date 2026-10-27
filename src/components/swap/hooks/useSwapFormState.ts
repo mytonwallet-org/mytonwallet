@@ -59,9 +59,12 @@ export default function useSwapFormState(
   const amountOutBigint = amountOut && tokenOut ? fromDecimal(amountOut, tokenOut.decimals) : undefined;
   const balanceIn = tokenIn?.amount ?? 0n;
 
+  const route = currentSwap.route ?? (swapType === SwapType.OnChain ? 'dex' : 'cex');
+
   const explainedFee = useMemo(
     () => explainSwapFee({
       swapType,
+      route,
       tokenInSlug,
       networkFee,
       realNetworkFee,
@@ -69,7 +72,7 @@ export default function useSwapFormState(
       dieselFee,
       nativeTokenInBalance,
     }),
-    [swapType, tokenInSlug, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
+    [swapType, route, tokenInSlug, networkFee, realNetworkFee, dieselStatus, dieselFee, nativeTokenInBalance],
   );
 
   const maxAmountFromBackendBigint = maxAmountFromBackend && tokenIn
@@ -78,6 +81,7 @@ export default function useSwapFormState(
 
   const maxAmount = getMaxSwapAmount({
     swapType,
+    route,
     tokenInBalance: balanceIn,
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
@@ -87,6 +91,7 @@ export default function useSwapFormState(
   // Note: this constant has 3 distinct meaningful values
   const isEnoughBalance = isBalanceSufficientForSwap({
     swapType,
+    route,
     tokenInBalance: balanceIn,
     tokenIn,
     fullNetworkFee: explainedFee.fullFee?.networkTerms,
@@ -120,7 +125,7 @@ export default function useSwapFormState(
     && dieselStatus !== 'not-authorized' && dieselStatus !== 'pending-previous';
 
   const isPriceImpactError = priceImpact >= MAX_PRICE_IMPACT_VALUE;
-  const isCrosschain = swapType !== SwapType.OnChain;
+  const isCrosschain = route === 'cex';
 
   return {
     currentTokenInSlug,

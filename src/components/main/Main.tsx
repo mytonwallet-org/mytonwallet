@@ -19,10 +19,12 @@ import {
 } from '../../global/selectors';
 import { useAccentColor } from '../../util/accentColor';
 import buildClassName from '../../util/buildClassName';
+import { animateContentShift } from '../../util/layoutChangeAnimation';
 import { getStakingStateStatus } from '../../util/staking';
 import { REM } from '../../util/windowEnvironment';
 import { calcSafeAreaTop } from './helpers/calcSafeAreaTop';
 import { getIsMainActive } from './helpers/getIsMainActive';
+import { getScrollContainerClosestSelector } from './helpers/scrollableContainer';
 
 import useAppTheme from '../../hooks/useAppTheme';
 import useBackgroundMode, { isBackgroundModeActive } from '../../hooks/useBackgroundMode';
@@ -59,6 +61,7 @@ import PromoteWallet from './sections/Actions/PromoteWallet';
 import Card from './sections/Card';
 import PortraitContent from './sections/Content/PortraitContent';
 import Header, { HEADER_HEIGHT_REM } from './sections/Header/Header';
+import HomeBanners from './sections/HomeBanners';
 import LandscapeLayout from './sections/LandscapeLayout';
 import Warnings from './sections/Warnings';
 
@@ -118,7 +121,9 @@ function Main({
   const lang = useLang();
   const cardRef = useRef<HTMLDivElement>();
   const portraitContainerRef = useRef<HTMLDivElement>();
+  const portraitContentRef = useRef<HTMLDivElement>();
   const landscapeContainerRef = useRef<HTMLDivElement>();
+  const navBarAndWalletListRef = useRef<HTMLDivElement>();
 
   const safeAreaTop = calcSafeAreaTop();
   const [isFocused, markIsFocused, unmarkIsFocused] = useFlag(!isBackgroundModeActive());
@@ -164,6 +169,14 @@ function Main({
     openStakingInfoOrStart();
   });
 
+  const handleBannersHeightChange = useLastCallback((prevHeight: number, nextHeight: number) => {
+    animateContentShift(
+      isPortrait ? portraitContentRef.current! : navBarAndWalletListRef.current!,
+      getScrollContainerClosestSelector(true, isPortrait)!,
+      prevHeight - nextHeight,
+    );
+  });
+
   function renderPortraitLayout() {
     return (
       <div ref={portraitContainerRef} className={styles.portraitContainer}>
@@ -190,9 +203,12 @@ function Main({
               onEarnClick={handleEarnClick}
             />
           )}
+
+          <HomeBanners onHeightChange={handleBannersHeightChange} />
         </div>
 
         <PortraitContent
+          ref={portraitContentRef}
           isActive={isActive}
           onStakedTokenClick={handleEarnClick}
           onTabsStuck={setAreTabsStuck}
@@ -211,8 +227,12 @@ function Main({
 
           <Card onYieldClick={handleEarnClick} />
 
-          <LandscapeNavBar />
-          <LandscapeWalletList />
+          <HomeBanners onHeightChange={handleBannersHeightChange} />
+
+          <div ref={navBarAndWalletListRef}>
+            <LandscapeNavBar />
+            <LandscapeWalletList />
+          </div>
           {IS_EXPLORER && <PromoteWallet />}
         </div>
         <div className={styles.main}>

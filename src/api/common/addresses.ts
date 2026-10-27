@@ -13,21 +13,34 @@ let trustedCollections = new Set<string>();
 let tonNftSuperCollectionsByCollectionAddress: Record<string, ApiNftSuperCollection> = {};
 const nftSuperCollectionsDeferred = new Deferred();
 
-export async function tryUpdateKnownAddresses() {
+export async function tryUpdateKnownAddresses(
+  lastResponse?: { text?: string; isStopped?: boolean; isLoading?: boolean },
+  shouldSkipUnchanged = false,
+) {
+  if (lastResponse?.isLoading) return;
+  if (lastResponse) lastResponse.isLoading = true;
   try {
-    const data = await callBackendGet<{
+    const text = lastResponse
+      ? await callBackendGet('/known-addresses', undefined, undefined, undefined, { shouldReturnText: true })
+      : undefined;
+    if (lastResponse?.isStopped) {
+      nftSuperCollectionsDeferred.resolve();
+      return;
+    }
+    if (shouldSkipUnchanged && lastResponse && text === lastResponse.text) return;
+
+    const data: {
       knownAddresses: Record<string, ApiKnownAddresses>;
       scamMarkers: string[];
       trustedSites: string[];
       trustedCollections: string[];
       tonNftSuperCollections: (ApiNftSuperCollection & { collections: string[] })[];
-    }>('/known-addresses');
+    } = text === undefined ? await callBackendGet('/known-addresses') : JSON.parse(text);
 
-    knownAddresses = data.knownAddresses;
-    scamMarkers = data.scamMarkers.map((x) => new RegExp(x, 'i'));
-    trustedSites = new Set(data.trustedSites);
-    trustedCollections = new Set(data.trustedCollections);
-    tonNftSuperCollectionsByCollectionAddress = data.tonNftSuperCollections.reduce((acc, superCollection) => {
+    const newScamMarkers = data.scamMarkers.map((x) => new RegExp(x, 'i'));
+    const newTrustedSites = new Set(data.trustedSites);
+    const newTrustedCollections = new Set(data.trustedCollections);
+    const newTonNftSuperCollectionsByCollectionAddress = data.tonNftSuperCollections.reduce((acc, superCollection) => {
       const { collections, ...rest } = superCollection;
 
       collections.forEach((address) => {
@@ -36,10 +49,19 @@ export async function tryUpdateKnownAddresses() {
 
       return acc;
     }, {} as Record<string, ApiNftSuperCollection>);
+
+    knownAddresses = data.knownAddresses;
+    scamMarkers = newScamMarkers;
+    trustedSites = newTrustedSites;
+    trustedCollections = newTrustedCollections;
+    tonNftSuperCollectionsByCollectionAddress = newTonNftSuperCollectionsByCollectionAddress;
     nftSuperCollectionsDeferred.resolve();
+    if (lastResponse) lastResponse.text = text;
   } catch (err) {
     logDebugError('tryUpdateKnownAddresses', err);
     nftSuperCollectionsDeferred.resolve();
+  } finally {
+    if (lastResponse) lastResponse.isLoading = false;
   }
 }
 

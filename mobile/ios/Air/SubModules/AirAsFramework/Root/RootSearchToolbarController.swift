@@ -31,11 +31,21 @@ protocol RootSearchToolbarHost: AnyObject {
     var searchRootContentControllers: [UIViewController] { get }
     var searchEditingNavigator: NftsEditingNavigator? { get }
     var showsRootSearchToolbar: Bool { get }
+    var searchToolbarVerticalEdge: UIRectEdge? { get }
     func searchToolbarWillDetach()
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?)
 }
 
 extension RootSearchToolbarHost {
+    var searchToolbarVerticalEdge: UIRectEdge? {
+        guard #available(iOS 27.1, *), let view = searchNavigationController?.view else { return nil }
+        let isLTR = view.effectiveUserInterfaceLayoutDirection == .leftToRight
+        switch view.traitCollection.verticalBarEdge {
+        case .leading: return isLTR ? .left : .right
+        case .trailing: return isLTR ? .right : .left
+        default: return nil
+        }
+    }
     func searchToolbarWillDetach() {}
     func setSearchVisible(_ isVisible: Bool, coordinator: (any UIViewControllerTransitionCoordinator)?) {}
 }
@@ -53,6 +63,8 @@ final class RootSearchToolbarController: NSObject {
     private var searchToolbarHeightConstraint: NSLayoutConstraint?
     private var searchToolbarSideWidthConstraint: NSLayoutConstraint?
     private var isMigrating = false
+    private weak var overlayAppearanceController: UIViewController?
+    private var overlayAppearanceTransitionID: UUID?
     private var traitCollection: UITraitCollection { searchToolbarHostView.traitCollection }
 
     override init() {
@@ -70,6 +82,7 @@ final class RootSearchToolbarController: NSObject {
             guard let self else { return }
             self.updateToolbarPlacement()
             self.updateSearchToolbarGeometry(for: self.searchToolbar.presentation)
+            self.refreshContentOverlayAppearance(animated: false)
         }
     }
 
@@ -108,6 +121,10 @@ final class RootSearchToolbarController: NSObject {
     }
 
     private func detach() {
+        (overlayAppearanceController as? any ContentOverlayAppearanceProviding)?.onContentOverlayAppearanceChange = nil
+        overlayAppearanceController = nil
+        overlayAppearanceTransitionID = nil
+        searchToolbar.setOverlayAppearance(search: .standard, actions: .standard, animated: false)
         host?.setSearchVisible(false, coordinator: nil)
         host?.searchToolbarWillDetach()
         searchToolbar.setPresentation(searchToolbar.presentation, animated: false)
@@ -211,6 +228,7 @@ final class RootSearchToolbarController: NSObject {
         sharedMainNavigationController?.onDidShowViewController = { [weak self] viewController in
             guard let self else { return }
             searchNavigationDidShow(viewController)
+            updateContentOverlayAppearance(for: viewController, presentation: searchToolbar.presentation)
             if !isMigrating {
                 host?.setSearchVisible(isSearchVisible, coordinator: nil)
             }
@@ -243,6 +261,61 @@ final class RootSearchToolbarController: NSObject {
             in: navigationController,
             coordinator: navigationController.transitionCoordinator
         )
+        updateContentOverlayAppearance(for: viewController, presentation: targetPresentation,
+                                       coordinator: navigationController.transitionCoordinator)
+    }
+
+    private func bindContentOverlayAppearance(to controller: UIViewController?) {
+        guard overlayAppearanceController !== controller else { return }
+        (overlayAppearanceController as? any ContentOverlayAppearanceProviding)?.onContentOverlayAppearanceChange = nil
+        overlayAppearanceController = controller
+        (controller as? any ContentOverlayAppearanceProviding)?.onContentOverlayAppearanceChange = { [weak self] animated in
+            self?.refreshContentOverlayAppearance(animated: animated)
+        }
+    }
+
+    private func refreshContentOverlayAppearance(animated: Bool) {
+        guard overlayAppearanceTransitionID == nil else { return }
+        applyContentOverlayAppearance(animated: animated)
+    }
+
+    private func applyContentOverlayAppearance(animated: Bool) {
+        let provider = overlayAppearanceController as? any ContentOverlayAppearanceProviding
+        func appearance(over source: UIView) -> ContentOverlayAppearance {
+            let rect = source.convert(source.bounds.insetBy(dx: 10, dy: 10), to: nil)
+            return provider?.contentOverlayAppearance(in: rect) ?? .standard
+        }
+        searchToolbar.setOverlayAppearance(
+            search: appearance(over: searchToolbar.searchButtonPresentationSourceView),
+            actions: appearance(over: searchToolbar.trailingButtonPresentationSourceView),
+            animated: animated
+        )
+    }
+
+    private func updateContentOverlayAppearance(
+        for controller: UIViewController,
+        presentation: UniversalSearchFieldPresentation,
+        coordinator: (any UIViewControllerTransitionCoordinator)? = nil
+    ) {
+        let source = presentation == .sideToolbar ? controller : nil
+        if overlayAppearanceTransitionID != nil, overlayAppearanceController === source { return }
+        bindContentOverlayAppearance(to: source)
+        let transitionID = UUID()
+        overlayAppearanceTransitionID = transitionID
+        if let coordinator, coordinator.isAnimated,
+           coordinator.animateAlongsideTransition(in: searchToolbar, animation: { [weak self] _ in
+               self?.applyContentOverlayAppearance(animated: true)
+           }, completion: { [weak self] _ in
+               guard let self, overlayAppearanceTransitionID == transitionID else { return }
+               overlayAppearanceTransitionID = nil
+               guard let top = sharedMainNavigationController?.topViewController else { return }
+               bindContentOverlayAppearance(to: searchToolbar.presentation == .sideToolbar ? top : nil)
+               refreshContentOverlayAppearance(animated: false)
+           }) {
+            return
+        }
+        overlayAppearanceTransitionID = nil
+        refreshContentOverlayAppearance(animated: false)
     }
 
     func updatePresentation() {
@@ -383,18 +456,7 @@ final class RootSearchToolbarController: NSObject {
     }
 
     private func updateToolbarPlacement() {
-        let hostView = searchToolbarHostView
-        let edge: UIRectEdge?
-        if #available(iOS 27.1, *) {
-            let isLTR = hostView.effectiveUserInterfaceLayoutDirection == .leftToRight
-            switch hostView.traitCollection.verticalBarEdge {
-            case .leading: edge = isLTR ? .left : .right
-            case .trailing: edge = isLTR ? .right : .left
-            default: edge = nil
-            }
-        } else {
-            edge = nil
-        }
+        let edge = host?.searchToolbarVerticalEdge
         guard edge != sideBarEdge else { return }
         sideBarEdge = edge
         updateViewportConstraints()

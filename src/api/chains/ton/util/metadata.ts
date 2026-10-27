@@ -7,6 +7,7 @@ import { Cell } from '@ton/core/dist/boc/Cell';
 import { Slice } from '@ton/core/dist/boc/Slice';
 import { Dictionary } from '@ton/core/dist/dict/Dictionary';
 
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { JettonMetadata } from '../types';
 import {
   type ApiActivity,
@@ -36,6 +37,7 @@ import {
   TELEGRAM_GIFTS_SUPER_COLLECTION,
   TON_DNS_ZONES,
 } from '../../../../config';
+import { getDnsDomainZone } from '../../../../util/dns';
 import { fetchJsonWithProxy, getProxiedLottieUrl } from '../../../../util/fetch';
 import isEmptyObject from '../../../../util/isEmptyObject';
 import { omitUndefined, pick, range } from '../../../../util/iteratees';
@@ -49,6 +51,7 @@ import { buildTokenSlug } from '../../../common/tokens';
 import { base64ToString, sha256 } from '../../../common/utils';
 import { DnsCategory, JettonStakingOpCode } from '../constants';
 import {
+  DedustOpCode,
   DNS_CATEGORY_HASH_MAP,
   DnsOpCode,
   JettonOpCode,
@@ -57,10 +60,12 @@ import {
   OpCode,
   OtherOpCode,
   SingleNominatorOpCode,
+  TeleitemOpCode,
   VestingV1OpCode,
 } from '../constants';
 import { fetchNftByAddress, fetchNftsByAddresses } from '../toncenter/nfts';
 import { fixAddressFormat } from '../toncenter/other';
+import { parseDedustNativeSwapPayload } from './dedustSwap';
 import {
   areAddressesEqual,
   getDnsItemDomain,
@@ -71,9 +76,14 @@ import {
 } from './tonCore';
 
 type OpCodes = OpCode | JettonOpCode | NftOpCode | LiquidStakingOpCode | VestingV1OpCode | SingleNominatorOpCode
-  | DnsOpCode | OtherOpCode | JettonStakingOpCode;
+  | DnsOpCode | OtherOpCode | JettonStakingOpCode | TeleitemOpCode | DedustOpCode;
 
-const NFT_PAYLOAD_OP_CODES = new Set<number>([NftOpCode.TransferOwnership, NftOpCode.OwnershipAssigned]);
+const NFT_PAYLOAD_OP_CODES = new Set<number>([
+  NftOpCode.TransferOwnership,
+  NftOpCode.OwnershipAssigned,
+  TeleitemOpCode.StartAuction,
+  TeleitemOpCode.CancelAuction,
+]);
 
 const OFFCHAIN_CONTENT_PREFIX = 0x01;
 const SNAKE_PREFIX = 0x00;
@@ -196,6 +206,10 @@ export async function parsePayloadBase64(
   options?: {
     expectedOwnerAddress?: string;
     nftsByRawAddress?: Record<string, ApiNft>;
+    messageAmount?: bigint;
+    stateInit?: string;
+    supportsDedustSwap?: boolean;
+    demand?: FetchDemand;
   },
 ): Promise<ApiParsedPayload> {
   const slice = dataToSlice(base64);
@@ -213,7 +227,11 @@ export async function parsePayloadBase64(
  * Loads the NFTs of the messages with NFT payloads, so that `parsePayloadBase64` doesn't load them one by one.
  * Returns `undefined` when the NFTs can't be loaded, leaving the loading to `parsePayloadBase64`.
  */
-export async function preloadPayloadNfts(network: ApiNetwork, messages: { address: string; payload?: string }[]) {
+export async function preloadPayloadNfts(
+  network: ApiNetwork,
+  messages: { address: string; payload?: string }[],
+  demand?: FetchDemand,
+) {
   const nftAddresses = messages
     .filter(({ payload }) => payload && isNftPayload(payload))
     .map(({ address }) => address);
@@ -221,7 +239,7 @@ export async function preloadPayloadNfts(network: ApiNetwork, messages: { addres
   if (!nftAddresses.length) return undefined;
 
   try {
-    return await fetchNftsByAddresses(network, nftAddresses);
+    return await fetchNftsByAddresses(network, nftAddresses, demand);
   } catch (err) {
     logDebugError('preloadPayloadNfts', err);
     return undefined;
@@ -254,12 +272,16 @@ export async function parsePayloadSlice(
     shouldLoadItems?: boolean;
     transactionDebug?: ApiActivity;
     expectedOwnerAddress?: string;
+    messageAmount?: bigint;
+    stateInit?: string;
+    supportsDedustSwap?: boolean;
     /** NFTs loaded in advance. When set, an NFT missing from it is treated as not found */
     nftsByRawAddress?: Record<string, ApiNft>;
+    demand?: FetchDemand;
   },
 ): Promise<ApiParsedPayload | undefined> {
   const {
-    shouldLoadItems, transactionDebug, expectedOwnerAddress, nftsByRawAddress,
+    shouldLoadItems, transactionDebug, expectedOwnerAddress, nftsByRawAddress, demand,
   } = options ?? {};
   let opCode: OpCodes | undefined;
   try {
@@ -273,6 +295,10 @@ export async function parsePayloadSlice(
       const buffer = readSnakeBytes(slice);
       const encryptedComment = buffer.toString('base64');
       return { type: 'encrypted-comment', encryptedComment };
+    } else if (opCode === TeleitemOpCode.BidInfo) {
+      return parseTeleitemBidInfoPayload(slice);
+    } else if (opCode === TeleitemOpCode.Deploy || opCode === TeleitemOpCode.DeployV2) {
+      return parseTeleitemDeployPayload(network, slice);
     } else if (slice.remainingBits < 64) {
       return undefined;
     }
@@ -280,8 +306,12 @@ export async function parsePayloadSlice(
     const queryId = slice.loadUintBig(64);
 
     switch (opCode) {
+      case DedustOpCode.NativeSwap:
+        return options?.supportsDedustSwap
+          ? await parseDedustNativeSwapPayload(network, address, slice, queryId, options)
+          : undefined;
       case JettonOpCode.Transfer: {
-        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address);
+        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address, demand);
         const payload = parseTokenTransferPayloadBody(network, slice, queryId, tokenAddress);
 
         if (
@@ -302,7 +332,7 @@ export async function parsePayloadSlice(
         const forwardPayload = readForwardPayloadCell(slice);
         const comment = forwardPayload ? readComment(forwardPayload.asSlice()) : undefined;
 
-        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress) : undefined;
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress, demand) : undefined;
 
         if (shouldLoadItems && (!nft || (expectedOwnerAddress
           && (!nft.ownerAddress || !areAddressesEqual(nft.ownerAddress, expectedOwnerAddress))))) {
@@ -326,21 +356,24 @@ export async function parsePayloadSlice(
       case NftOpCode.OwnershipAssigned: {
         const prevOwner = slice.loadAddress();
         const forwardPayload = readForwardPayloadCell(slice);
-        const comment = forwardPayload ? readComment(forwardPayload.asSlice()) : undefined;
+        const bidInfo = forwardPayload ? readTeleitemBidInfo(forwardPayload.asSlice()) : undefined;
+        const comment = !bidInfo && forwardPayload ? readComment(forwardPayload.asSlice()) : undefined;
 
-        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress) : undefined;
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress, demand) : undefined;
 
         return {
           type: 'nft:ownership-assigned',
           queryId,
           prevOwner: toBase64Address(prevOwner, undefined, network),
           comment,
+          bidAmount: bidInfo?.amount,
+          bidTs: bidInfo?.bidTs,
           nftAddress: address,
           nft,
         };
       }
       case JettonOpCode.Burn: {
-        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address);
+        const { tokenAddress, ownerAddress } = await resolveTokenWallet(network, address, demand);
         if (expectedOwnerAddress && !areAddressesEqual(ownerAddress, expectedOwnerAddress)) {
           return undefined;
         }
@@ -388,7 +421,7 @@ export async function parsePayloadSlice(
       case VestingV1OpCode.AddWhitelist: {
         const toAddress = slice.loadAddress();
         const addressString = shouldLoadItems
-          ? await fixAddressFormat(network, toAddress.toRawString())
+          ? await fixAddressFormat(network, toAddress.toRawString(), demand)
           : '';
 
         return {
@@ -408,7 +441,7 @@ export async function parsePayloadSlice(
       case SingleNominatorOpCode.ChangeValidator: {
         const toAddress = slice.loadAddress();
         const addressString = shouldLoadItems
-          ? await fixAddressFormat(network, toAddress.toRawString())
+          ? await fixAddressFormat(network, toAddress.toRawString(), demand)
           : '';
 
         return {
@@ -450,7 +483,7 @@ export async function parsePayloadSlice(
             const flags = dataSlice.loadUint(8);
 
             const addressString = shouldLoadItems
-              ? await fixAddressFormat(network, dataAddress.toRawString())
+              ? await fixAddressFormat(network, dataAddress.toRawString(), demand)
               : '';
 
             return {
@@ -521,6 +554,46 @@ export async function parsePayloadSlice(
           isForce,
         };
       }
+      case TeleitemOpCode.StartAuction: {
+        const auctionConfig = parseTeleitemAuctionConfig(network, slice.loadRef().beginParse());
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress, demand) : undefined;
+
+        if (shouldLoadItems && (!nft || (expectedOwnerAddress
+          && (!nft.ownerAddress || !areAddressesEqual(nft.ownerAddress, expectedOwnerAddress))))) {
+          return undefined;
+        }
+
+        return {
+          type: 'teleitem:start-auction',
+          queryId,
+          nftAddress: address,
+          nftName: nft?.name,
+          nft,
+          ...auctionConfig,
+        };
+      }
+      case TeleitemOpCode.CancelAuction: {
+        const nft = shouldLoadItems ? await loadPayloadNft(network, address, nftsByRawAddress, demand) : undefined;
+
+        if (shouldLoadItems && (!nft || (expectedOwnerAddress
+          && (!nft.ownerAddress || !areAddressesEqual(nft.ownerAddress, expectedOwnerAddress))))) {
+          return undefined;
+        }
+
+        return {
+          type: 'teleitem:cancel-auction',
+          queryId,
+          nftAddress: address,
+          nftName: nft?.name,
+          nft,
+        };
+      }
+      case TeleitemOpCode.ReturnBid: {
+        return {
+          type: 'teleitem:return-bid',
+          queryId,
+        };
+      }
     }
   } catch (err) {
     if (DEBUG) {
@@ -543,8 +616,13 @@ function isNftPayload(base64: string) {
   }
 }
 
-async function loadPayloadNft(network: ApiNetwork, address: string, nftsByRawAddress?: Record<string, ApiNft>) {
-  return nftsByRawAddress ? nftsByRawAddress[toRawAddress(address)] : fetchNftByAddress(network, address);
+async function loadPayloadNft(
+  network: ApiNetwork,
+  address: string,
+  nftsByRawAddress?: Record<string, ApiNft>,
+  demand?: FetchDemand,
+) {
+  return nftsByRawAddress ? nftsByRawAddress[toRawAddress(address)] : fetchNftByAddress(network, address, demand);
 }
 
 /**
@@ -658,6 +736,70 @@ export function readComment(slice: Slice) {
   return buffer.toString('utf-8');
 }
 
+function parseTeleitemBidInfoPayload(slice: Slice) {
+  const amount = slice.loadCoins();
+  const bidTs = slice.loadUint(32);
+
+  return {
+    type: 'teleitem:bid-info' as const,
+    amount,
+    bidTs,
+  };
+}
+
+function readTeleitemBidInfo(slice: Slice) {
+  if (slice.remainingBits < 32) {
+    return undefined;
+  }
+
+  const opCode = slice.loadUint(32) as TeleitemOpCode;
+  if (opCode !== TeleitemOpCode.BidInfo) {
+    return undefined;
+  }
+
+  return parseTeleitemBidInfoPayload(slice);
+}
+
+function parseTeleitemDeployPayload(network: ApiNetwork, slice: Slice) {
+  slice.loadBuffer(64);
+  slice.loadUint(32);
+  slice.loadUint(32);
+  slice.loadUint(32);
+
+  const tokenName = readTelemintText(slice);
+  slice.loadRef();
+  const auctionConfig = parseTeleitemAuctionConfig(network, slice.loadRef().beginParse());
+
+  return {
+    type: 'teleitem:deploy' as const,
+    tokenName,
+    ...auctionConfig,
+  };
+}
+
+function parseTeleitemAuctionConfig(network: ApiNetwork, slice: Slice) {
+  const beneficiary = slice.loadAddress();
+  const initialMinBid = slice.loadCoins();
+  const maxBid = slice.loadCoins();
+  const minBidStep = slice.loadUint(8);
+  const minExtendTime = slice.loadUint(32);
+  const duration = slice.loadUint(32);
+
+  return {
+    beneficiaryAddress: toBase64Address(beneficiary, undefined, network),
+    initialMinBid,
+    maxBid,
+    minBidStep,
+    minExtendTime,
+    duration,
+  };
+}
+
+function readTelemintText(slice: Slice) {
+  const length = slice.loadUint(8);
+  return length ? slice.loadBuffer(length).toString('utf-8') : '';
+}
+
 function readForwardPayloadCell(slice: Slice) {
   let forwardPayload = slice.loadBit() && slice.remainingRefs ? slice.loadRef() : undefined;
 
@@ -766,12 +908,22 @@ export function parseTonapiioNft(
         value: any;
       }[];
       lottie?: string;
+      domain?: string;
     };
 
-    const collectionAddress = collection && toBase64Address(collection.address, true, network);
+    const rawCollectionAddress = collection?.address;
+    const collectionAddress = rawCollectionAddress
+      ? toBase64Address(rawCollectionAddress, true, network)
+      : undefined;
+    const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
+    const isOnFragment = getIsOnFragment({
+      nftSuperCollectionsByCollectionAddress,
+      collectionAddress,
+      rawCollectionAddress,
+    });
     let hasScamLink = false;
 
-    if (!collectionAddress || !checkIsTrustedCollection(collectionAddress)) {
+    if (!isOnFragment && (!collectionAddress || !checkIsTrustedCollection(collectionAddress))) {
       for (const text of [name, description].filter(Boolean)) {
         if (checkHasScamLink(text)) {
           hasScamLink = true;
@@ -784,8 +936,6 @@ export function parseTonapiioNft(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     const isScam = hasScamLink || description === 'SCAM' || trust === 'blacklist';
     const isHidden = renderType === 'hidden' || isScam;
-    const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
-    const isOnFragment = isFragmentGift || (!!collection && NFT_FRAGMENT_COLLECTIONS.includes(collection.address));
 
     const metadata = {
       ...(Array.isArray(attributes) && {
@@ -811,9 +961,9 @@ export function parseTonapiioNft(
       isScam,
       isUnverified: getIsNftUnverified({ collectionAddress, isOnFragment }),
       description,
-      ...(collection && {
+      ...(collectionAddress && {
         collectionAddress,
-        collectionName: collection.name,
+        collectionName: collection?.name,
         isOnFragment,
         isTelegramGift: isFragmentGift,
       }),
@@ -832,6 +982,46 @@ export function getIsFragmentGift(
   return collectionAddress
     ? nftSuperCollectionsByCollectionAddress[collectionAddress]?.id === TELEGRAM_GIFTS_SUPER_COLLECTION
     : false;
+}
+
+export function getIsOnFragment(options: {
+  nftSuperCollectionsByCollectionAddress?: Record<string, ApiNftSuperCollection>;
+  collectionAddress?: string;
+  rawCollectionAddress?: string;
+}) {
+  const {
+    nftSuperCollectionsByCollectionAddress = {},
+    collectionAddress,
+    rawCollectionAddress,
+  } = options;
+
+  if (getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress)) {
+    return true;
+  }
+
+  return isTelegramFragmentCollection(rawCollectionAddress)
+    || isTelegramFragmentCollection(collectionAddress);
+}
+
+/** Telegram usernames (`t.me`) resolve to the Fragment collection already listed in `NFT_FRAGMENT_COLLECTIONS`. */
+export function getTelemintCollectionAddress(domain?: string) {
+  if (!domain) return undefined;
+
+  const match = getDnsDomainZone(domain);
+  if (!match?.zone.isTelemint) return undefined;
+
+  return toRawAddress(match.zone.resolver);
+}
+
+function isTelegramFragmentCollection(address?: string) {
+  if (!address) return false;
+
+  try {
+    const rawAddress = toRawAddress(address).toLowerCase();
+    return NFT_FRAGMENT_COLLECTIONS.some((item) => item.toLowerCase() === rawAddress);
+  } catch {
+    return NFT_FRAGMENT_COLLECTIONS.some((item) => item.toLowerCase() === address.toLowerCase());
+  }
 }
 
 /**

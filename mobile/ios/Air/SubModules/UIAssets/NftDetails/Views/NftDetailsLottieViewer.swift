@@ -10,25 +10,21 @@ final class NftDetailsLottieViewer: UIView {
 
     weak var playbackTransitionDelegate: NftDetailsLottieViewerDelegate?
 
-    func setUrl(_ url: URL?, playAlways: Bool = false) {
+    func setUrl(_ url: URL?) {
         if url != self.url {
             self.url = url
             applyUrl()
-            return
-        }
-
-        if self.url != nil, playAlways {
-            restartPreparedPlaybackIfPossible()
         }
     }
     
     private(set) var url: URL?
+    private static let canvasSide: CGFloat = 512
     private let animationView: LottieAnimationView
     private var loadTask: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
 
     init(cornerRadius: CGFloat, frame: CGRect) {
-        animationView = LottieAnimationView(frame: .fromSize(frame.size))
+        animationView = LottieAnimationView(frame: CGRect(x: 0, y: 0, width: Self.canvasSide, height: Self.canvasSide))
         
         super.init(frame: frame)
         isUserInteractionEnabled = false
@@ -39,30 +35,58 @@ final class NftDetailsLottieViewer: UIView {
             colorSpace: CGColorSpaceCreateDeviceRGB()
         )
         animationView.configuration = configuration
+        animationView.isOpaque = false
         animationView.contentMode = .scaleAspectFit
         animationView.clipsToBounds = true
         animationView.isUserInteractionEnabled = false
-        animationView.loopMode = .playOnce
+        animationView.loopMode = .loop
+        // The same renderer moves between the carousel, expanded artwork and
+        // media viewer. Briefly leaving the window must not interrupt its clock.
+        animationView.backgroundBehavior = .continuePlaying
         animationView.currentProgress = 0
-        animationView.layer.cornerRadius = cornerRadius
         animationView.layer.masksToBounds = true
 
-        animationView.translatesAutoresizingMaskIntoConstraints = false
-        animationView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        animationView.setContentHuggingPriority(.defaultLow, for: .vertical)
-        animationView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        animationView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        // Keep Lottie's composition at one size. Animating its Auto Layout
+        // bounds makes Core Animation rebuild the composition mid-transition,
+        // briefly showing a full-size frame through a thumbnail-sized clip.
         addSubview(animationView)
-
-        NSLayoutConstraint.activate([
-            animationView.topAnchor.constraint(equalTo: topAnchor),
-            animationView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            animationView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            animationView.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        layoutAnimationCanvas()
 
         isHidden = true
         alpha = 1
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutAnimationCanvas()
+    }
+
+    private func layoutAnimationCanvas() {
+        animationView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let scale = min(bounds.width, bounds.height) / Self.canvasSide
+        animationView.transform = CGAffineTransform(scaleX: scale, y: scale)
+    }
+
+    /// Rasterize only the small lower band, at a bounded resolution. The
+    /// presentation layer contains the currently displayed animation pose.
+    func lowerBandSnapshot(height: CGFloat, background: UIColor) -> UIImage? {
+        guard bounds.width > 0, bounds.height > 0, !isHidden,
+              let displayedLayer = layer.presentation(),
+              abs(displayedLayer.bounds.width - bounds.width) < 0.5,
+              abs(displayedLayer.bounds.height - bounds.height) < 0.5 else { return nil }
+        let height = min(height, bounds.height)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = min(1, 256 / bounds.width)
+        format.opaque = true
+        // Fill complete raster rows. A fractional last row in an opaque renderer
+        // otherwise becomes a dark seam when this band is reflected and stretched.
+        let rasterHeight = ceil(height * format.scale) / format.scale
+        return UIGraphicsImageRenderer(size: CGSize(width: bounds.width, height: rasterHeight), format: format).image { ctx in
+            background.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: bounds.width, height: rasterHeight))
+            ctx.cgContext.translateBy(x: 0, y: rasterHeight - bounds.height)
+            displayedLayer.render(in: ctx.cgContext)
+        }
     }
 
     /// Lottie can report intrinsic sizes; this overlay must only size from Auto Layout, not from animation content.
@@ -91,6 +115,10 @@ final class NftDetailsLottieViewer: UIView {
             trailingAnchor.constraint(equalTo: otherView.trailingAnchor),
             bottomAnchor.constraint(equalTo: otherView.bottomAnchor),
         ])
+    }
+
+    func setCornerRadius(_ radius: CGFloat) {
+        layer.cornerRadius = radius
     }
 
     /// Stops loading/playback and resets visibility for host teardown (cell reuse, deselection).
@@ -142,15 +170,6 @@ final class NftDetailsLottieViewer: UIView {
         }
     }
 
-    private func restartPreparedPlaybackIfPossible() {
-        guard let currentUrl = url, animationView.animation != nil else { return }
-        guard !animationView.isAnimationPlaying else { return }
-        
-        animationView.stop()
-        animationView.currentProgress = 0
-        beginPlaybackAfterPreparation(expectedUrl: currentUrl, playbackEpoch: loadGeneration)
-    }
-
     private func beginPlaybackAfterPreparation(expectedUrl: URL?, playbackEpoch: UInt64) {
         guard playbackEpoch == loadGeneration else { return }
         guard animationView.animation != nil else { return }
@@ -165,11 +184,9 @@ final class NftDetailsLottieViewer: UIView {
                 if let expectedUrl, self.url != expectedUrl { return }
 
                 self.isHidden = false
-                self.animationView.play { [weak self] _ in
+                self.animationView.play { [weak self] completed in
                     guard let self else { return }
-                    guard playbackEpoch == self.loadGeneration else { return }
-                    self.animationView.stop()
-                    self.animationView.currentProgress = 0
+                    guard completed, playbackEpoch == self.loadGeneration else { return }
                     if let delegate = self.playbackTransitionDelegate {
                         delegate.nftDetailsLottieViewer(self, requestFadeInUnderlay: {})
                     } else {
@@ -180,11 +197,9 @@ final class NftDetailsLottieViewer: UIView {
         } else {
             guard playbackEpoch == loadGeneration else { return }
             isHidden = false
-            animationView.play { [weak self] _ in
+            animationView.play { [weak self] completed in
                 guard let self else { return }
-                guard playbackEpoch == self.loadGeneration else { return }
-                self.animationView.stop()
-                self.animationView.currentProgress = 0
+                guard completed, playbackEpoch == self.loadGeneration else { return }
                 self.isHidden = true
             }
         }

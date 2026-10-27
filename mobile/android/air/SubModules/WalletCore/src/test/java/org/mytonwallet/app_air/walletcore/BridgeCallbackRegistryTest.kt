@@ -69,6 +69,44 @@ class BridgeCallbackRegistryTest {
     }
 
     @Test
+    fun parsesThrownApiBaseErrorWithInsufficientBalance() {
+        val registry = BridgeCallbackRegistry()
+        var callbackError: MBridgeError? = null
+        registry.register(1) { _, error -> callbackError = error }
+
+        registry.complete(
+            1,
+            success = false,
+            result = "{\"displayError\":\"InsufficientBalance\",\"name\":\"ApiBaseError\"}"
+        )
+
+        assertSame(MBridgeError.Type.INSUFFICIENT_BALANCE, callbackError)
+        assertEquals(0, registry.pendingCount)
+    }
+
+    @Test
+    fun preservesExistingErrorPayloadsWhenRootDisplayErrorIsPresent() {
+        val payloads = listOf(
+            """{"error":{"name":"InvalidAmount"},"displayError":"InsufficientBalance"}""" to
+                MBridgeError.Type.INVALID_AMOUNT,
+            """{"err":{"name":"InvalidPassword"},"displayError":"InsufficientBalance"}""" to
+                MBridgeError.Type.INVALID_PASSWORD,
+            """{"name":"DomainNotResolved","displayError":"InsufficientBalance"}""" to
+                MBridgeError.Type.DOMAIN_NOT_RESOLVED
+        )
+
+        for ((payload, expectedError) in payloads) {
+            val registry = BridgeCallbackRegistry()
+            var callbackError: MBridgeError? = null
+            registry.register(1) { _, error -> callbackError = error }
+
+            registry.complete(1, success = false, result = payload)
+
+            assertSame(expectedError, callbackError)
+        }
+    }
+
+    @Test
     fun mapsUnknownErrorWithoutMutatingSharedValue() {
         val registry = BridgeCallbackRegistry()
         var callbackError: MBridgeError? = null
@@ -79,7 +117,7 @@ class BridgeCallbackRegistryTest {
             success = false,
             result =
                 """
-                {"error":{"name":"UnrecognizedBridgeErrorForTest","displayError":"Request-specific message"}}
+                {"error":{"name":"UnrecognizedBridgeErrorForTest","displayError":"Request-specific message"},"displayError":"InsufficientBalance"}
                 """.trimIndent()
         )
 

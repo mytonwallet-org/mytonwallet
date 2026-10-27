@@ -43,10 +43,11 @@ fun WalletCore.importWallet(
     val quotedNetwork = JSONArray().apply {
         put(network.value)
     }.toString()
+    val shouldSkipDiscovery = isNew
 
     bridge?.callApi(
         "importMnemonic",
-        "[$quotedNetwork, ${words.toJSONString}]"
+        "[$quotedNetwork, ${words.toJSONString}, $shouldSkipDiscovery]"
     ) { result, error ->
         if (error != null || result == null) {
             // A missing result with no error reaches the caller as "nothing happened", and the import

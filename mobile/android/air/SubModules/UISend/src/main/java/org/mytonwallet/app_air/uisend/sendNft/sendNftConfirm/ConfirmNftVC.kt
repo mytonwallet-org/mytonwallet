@@ -551,6 +551,28 @@ class ConfirmNftVC(
         sentNftAddresses = null
     }
 
+    override fun showPartialFailure(completedCount: Int, totalCount: Int) {
+        sentNftAddresses = null
+        WalletCore.unregisterObserver(this)
+        val currentWindow = window ?: return
+        val showFeedback: () -> Unit = {
+            currentWindow.topNavigationController?.viewControllers?.lastOrNull()?.showAlert(
+                LocaleController.getString("Action Partially Completed"),
+                LocaleController.getString("\$action_partially_completed_description")
+                    .replace("%completed%", completedCount.toString())
+                    .replace("%total%", totalCount.toString())
+            )
+        }
+        if (currentWindow.topNavigationController != navigationController) {
+            currentWindow.dismissNav(navigationController, animated = false)
+            showFeedback()
+        } else if (currentWindow.navigationControllers.size > 1) {
+            currentWindow.dismissLastNav(onCompletion = showFeedback)
+        } else {
+            navigationController?.popToRoot(onCompletion = showFeedback)
+        }
+    }
+
     override fun feeUpdated(fee: BigInteger?, err: MBridgeError?) {
         if (showsRecipient) {
             val address = resolvedAddress()

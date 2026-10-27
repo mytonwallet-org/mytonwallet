@@ -152,8 +152,27 @@ struct PercentageChartRendererTests {
         }
     }
 
-    private func renderTransition(_ controller: PercentPieChartController, fromDataToPie: Bool, progress: Double) throws -> Bitmap {
+    @Test(arguments: [true, false])
+    func donutTransitionEndsWithAnEmptyCenter(fromDataToPie: Bool) throws {
+        for values in [[[10.0, 10, 10, 10, 10, 10]], [[0.0, 0, 10, 10, 10, 10]]] {
+            let controller = makeController(values: values, visibility: [true])
+            let bitmap = try renderTransition(controller, fromDataToPie: fromDataToPie, progress: fromDataToPie ? 1 : 0, drawsDonut: true)
+            let expected = try Bitmap(size: Surface.main.size)
+            let renderer = PieChartRenderer()
+            renderer.drawsDonut = true
+            renderer.drawValues = false
+            renderer.updatePercentageData([.init(color: .red, value: 1)], animated: false)
+            renderer.render(context: expected.context, bounds: expected.bounds, chartFrame: expected.chartFrame)
+            #expect(bitmap.pixel(x: 0.5, y: 0.5) == .white)
+            for x in [0.1, 0.5, 0.67, 0.75] {
+                #expect(bitmap.color(x: x, y: 0.5) == expected.color(x: x, y: 0.5))
+            }
+        }
+    }
+
+    private func renderTransition(_ controller: PercentPieChartController, fromDataToPie: Bool, progress: Double, drawsDonut: Bool = false) throws -> Bitmap {
         let renderer = PercentPieAnimationRenderer()
+        renderer.drawsDonut = drawsDonut
         renderer.setup(horizontalRange: CGFloat(start)...CGFloat(start + 5 * .day), animated: false)
         renderer.visiblePercentageData = controller.percentController.currentlyVisiblePercentageData
         renderer.visiblePieComponents = renderer.visiblePercentageData.components.map {
@@ -224,12 +243,17 @@ struct PercentageChartRendererTests {
             context.clip(to: chartFrame)
         }
 
-        func pixel(x: Double, y: Double) -> Pixel {
+        func color(x: Double, y: Double) -> [UInt8] {
             let column = Int(chartFrame.minX + x * chartFrame.width)
             let row = Int(y * chartFrame.height)
             let offset = row * context.bytesPerRow + column * 4
             let data = context.data!.assumingMemoryBound(to: UInt8.self)
-            switch (data[offset], data[offset + 1], data[offset + 2]) {
+            return Array(UnsafeBufferPointer(start: data + offset, count: 4))
+        }
+
+        func pixel(x: Double, y: Double) -> Pixel {
+            let color = color(x: x, y: y)
+            switch (color[0], color[1], color[2]) {
             case (255, 255, 255): return .white
             case (255, 0, 0): return .red
             case (0, 0, 255): return .blue

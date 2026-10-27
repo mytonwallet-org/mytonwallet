@@ -32,7 +32,8 @@ class ChartView: UIControl {
         setupView()
     }
     
-    var chartInsets: UIEdgeInsets = UIEdgeInsets(top: 40, left: 16, bottom: 35, right: 16) {
+    static let defaultChartInsets = UIEdgeInsets(top: 40, left: 16, bottom: 35, right: 16)
+    var chartInsets: UIEdgeInsets = ChartView.defaultChartInsets {
         didSet {
             setNeedsDisplay()
         }

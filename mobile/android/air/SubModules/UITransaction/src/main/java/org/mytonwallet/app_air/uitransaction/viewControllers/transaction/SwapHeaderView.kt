@@ -58,7 +58,13 @@ class SwapHeaderView(
 
     private val tokenToSendTextView = WSensitiveDataContainer(
         WLabel(context),
-        WSensitiveDataContainer.MaskConfig(12, 4, Gravity.CENTER, protectContentLayoutSize = false)
+        WSensitiveDataContainer.MaskConfig(
+            12,
+            4,
+            Gravity.CENTER,
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(90f, 18f, softwareSnapshot = true)
+        )
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         contentView.apply {
@@ -71,7 +77,13 @@ class SwapHeaderView(
 
     private val tokenToReceiveTextView = WSensitiveDataContainer(
         WLabel(context),
-        WSensitiveDataContainer.MaskConfig(16, 4, Gravity.CENTER, protectContentLayoutSize = false)
+        WSensitiveDataContainer.MaskConfig(
+            16,
+            4,
+            Gravity.CENTER,
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(132f, 33f, softwareSnapshot = true)
+        )
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         contentView.apply {

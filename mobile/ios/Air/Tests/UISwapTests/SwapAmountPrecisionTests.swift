@@ -81,5 +81,12 @@ struct SwapAmountPrecisionTests {
         #expect(validator.validationIssue(
             input: validationInput(amount: balance + 1), swapEstimate: estimate, account: snapshot
         ) == .insufficientBalance)
+        let withoutGas = SwapAccountSnapshot(account: account, balances: [selling.slug: balance])
+        #expect(validator.validationIssue(
+            input: validationInput(amount: balance), swapEstimate: estimate, account: withoutGas
+        ) == .insufficientFee)
+        #expect(validator.validationIssue(
+            input: validationInput(amount: balance + 1), swapEstimate: estimate, account: withoutGas
+        ) == .insufficientBalance)
     }
 }

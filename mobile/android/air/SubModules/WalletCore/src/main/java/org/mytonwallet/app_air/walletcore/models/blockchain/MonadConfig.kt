@@ -26,6 +26,7 @@ object MonadConfig : MBlockchainConfig {
     override val feeCheckAddress = EVM_FEE_CHECK_ADDRESS
 
     override val isOnchainSwapSupported = false
+    override val canSwapByBuyAmount = false
 
     override val isCommentSupported = false
     override val isEncryptedCommentSupported = false

@@ -1,7 +1,8 @@
+import type { ApiUpdateNftPutUpForSale } from '../../types';
 import type { MetadataMap, NftItemsResponse, NftItemState, NftTransferState } from './toncenter/types';
 
 import { fetchNftItems, fetchNftTransfers } from './toncenter/nfts';
-import { calculateNftTransferFee, checkNftOwnership, getAccountNfts, getNftUpdates } from './nfts';
+import { checkNftOwnership, getAccountNfts, getNftUpdates } from './nfts';
 import { isActiveNonWalletContract } from './wallet';
 
 jest.mock('./toncenter/nfts', () => ({
@@ -211,13 +212,35 @@ describe('getNftUpdates', () => {
     expect(updates[0]).toMatchObject({ type: 'nftSent', chain: 'ton' });
   });
 
-  it('reports an NFT sent to a smart contract as put up for sale', async () => {
+  it('reports an NFT sent to a smart contract as put up for sale, with its current state', async () => {
     mockedIsActiveSmartContract.mockResolvedValue(true);
     mockTransfers([makeTransfer({ old_owner: RAW_WALLET_ADDRESS, new_owner: RAW_STRANGER_ADDRESS })]);
+    mockedFetchNftItems.mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS, {
+      on_sale: true,
+      owner_address: RAW_STRANGER_ADDRESS, // The sale contract holds the NFT
+      real_owner: RAW_WALLET_ADDRESS,
+    })]));
+
+    const [, updates] = await getNftUpdates(ACCOUNT_ID, 0);
+
+    expect(updates[0]).toMatchObject({
+      type: 'nftPutUpForSale',
+      nft: { isOnSale: true, ownerAddress: WALLET_ADDRESS },
+    });
+  });
+
+  it('leaves out the NFT of a repeated listing once the NFT has been sold', async () => {
+    mockedIsActiveSmartContract.mockResolvedValue(true);
+    mockTransfers([makeTransfer({ old_owner: RAW_WALLET_ADDRESS, new_owner: RAW_STRANGER_ADDRESS })]);
+    mockedFetchNftItems.mockResolvedValueOnce(makeResponse([makeItem(RAW_NFT_ADDRESS, {
+      owner_address: RAW_STRANGER_ADDRESS, // The buyer
+      real_owner: RAW_STRANGER_ADDRESS,
+    })]));
 
     const [, updates] = await getNftUpdates(ACCOUNT_ID, 0);
 
     expect(updates[0]).toMatchObject({ type: 'nftPutUpForSale' });
+    expect((updates[0] as ApiUpdateNftPutUpForSale).nft).toBeUndefined();
   });
 
   it('returns the newest timestamp and processes transfers oldest first', async () => {
@@ -250,23 +273,5 @@ describe('getNftUpdates', () => {
       ownerAddress: WALLET_ADDRESS,
       startUtime: 555,
     }));
-  });
-});
-
-describe('calculateNftTransferFee', () => {
-  it('calculates for 1 NFT', () => {
-    expect(calculateNftTransferFee(1, 1, 2939195n, 10000000n)).toBe(12939195n);
-  });
-
-  it('calculates for batch', () => {
-    expect(calculateNftTransferFee(3, 3, 6001837n, 100000000n)).toBe(306001837n);
-  });
-
-  it('calculates for multiple complete and 1 incomplete batch', () => {
-    expect(calculateNftTransferFee(9, 4, 7533158n, 1000000000n)).toBe(9018832895n);
-  });
-
-  it('calculates for multiple complete batchs', () => {
-    expect(calculateNftTransferFee(12, 4, 7533158n, 10000000000n)).toBe(120022599474n);
   });
 });

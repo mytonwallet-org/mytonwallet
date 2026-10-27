@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .root {
   --surface-color: var(--color-background-window);
   --term-color: var(--color-black);
@@ -103,23 +105,7 @@
   margin-top: auto;
   padding-bottom: max(1rem, calc(var(--safe-area-bottom) + 0.5rem));
 
-  &::before {
-    pointer-events: none;
-    content: "";
-
-    position: absolute;
-    z-index: -1;
-    inset: -1rem -1rem 0;
-
-    background-color: var(--surface-color);
-
-    mask-image: linear-gradient(180deg, transparent, #000 1rem);
-
-    @supports (backdrop-filter: blur(1px)) and (background-color: color-mix(in srgb, red, transparent)) {
-      background-color: color-mix(in srgb, var(--surface-color) 80%, transparent);
-      backdrop-filter: blur(var(--blur-glass-capsule));
-    }
-  }
+  @include mixins.footerGlass(var(--surface-color), -1rem);
 }
 
 .discountNotice {

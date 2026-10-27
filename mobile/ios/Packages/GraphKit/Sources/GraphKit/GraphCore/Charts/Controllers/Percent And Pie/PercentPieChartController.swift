@@ -27,6 +27,12 @@ public class PercentPieChartController: BaseChartController {
     let transitionRenderer: PercentPieAnimationRenderer
     private var rememberedPercentHorizontalRange: ClosedRange<CGFloat>?
     public var keepsFullRangePreviewWhenZoomed = false
+    public var drawsDonut = false {
+        didSet {
+            pieController.pieChartRenderer.drawsDonut = drawsDonut
+            transitionRenderer.drawsDonut = drawsDonut
+        }
+    }
 
     public override var detailsValueTextProvider: ChartDetailsValueTextProvider? {
         didSet {
@@ -91,7 +97,12 @@ public class PercentPieChartController: BaseChartController {
                 self.chartRangeUpdatedClosure?(fraction, animated)
             }
             controller.chartRangePagingClosure = { [unowned self] (isEnabled, pageSize) in
-                self.setChartRangePagingEnabled(isEnabled: isEnabled, minimumSelectionSize: pageSize)
+                if self.isZoomed && self.keepsFullRangePreviewWhenZoomed {
+                    // Snap to actual sample dates in updateChartRange, including the first point at fraction zero.
+                    self.setChartRangePagingEnabled(isEnabled: false, minimumSelectionSize: 0)
+                } else {
+                    self.setChartRangePagingEnabled(isEnabled: isEnabled, minimumSelectionSize: pageSize)
+                }
             }
         }
         transitionRenderer.isEnabled = false
@@ -133,14 +144,12 @@ public class PercentPieChartController: BaseChartController {
         guard let (foundDate, _) = percentController.findClosestDateTo(dateToFind: date) else {
             return nil
         }
-        let selectedRange = CGFloat(foundDate.timeIntervalSince1970 - .day)...CGFloat(foundDate.timeIntervalSince1970)
         pieController.initialize(
             chartsCollection: currentCollection,
-            initialDate: date,
+            initialDate: foundDate,
             totalHorizontalRange: 0...1,
             totalVerticalRange: 0...1
         )
-        pieController.initialHorizontalRange = selectedRange
         return currentCollection
     }
     
@@ -222,7 +231,7 @@ public class PercentPieChartController: BaseChartController {
     func setupTransitionRenderer() {
         transitionRenderer.setup(verticalRange: percentController.currentVerticalMainChartRange, animated: false)
         transitionRenderer.setup(horizontalRange: percentController.currentHorizontalMainChartRange, animated: false)
-        transitionRenderer.visiblePieComponents = pieController.visiblePieDataWithCurrentPreviewRange
+        transitionRenderer.visiblePieComponents = pieController.visiblePieDataAtSelectedPoint
         transitionRenderer.visiblePercentageData = percentController.currentlyVisiblePercentageData
     }
     
@@ -289,9 +298,8 @@ public class PercentPieChartController: BaseChartController {
             return currentChartHorizontalRangeFraction
         }
 
-        let selectedFraction = fullRangeFraction(for: pieController.currentHorizontalMainChartRange.upperBound)
-        let lowerBound = max(0.0, selectedFraction - minimumSelectedChartRange)
-        return lowerBound...selectedFraction
+        let selectedFraction = selectedRangePointFraction ?? 1
+        return selectedFraction...selectedFraction
     }
 
     public override var showsTodayButton: Bool {
@@ -369,7 +377,7 @@ public class PercentPieChartController: BaseChartController {
                 return
             }
             cancelChartInteraction()
-            updateChartRange(latestSelectionRangeFraction, animated: true)
+            updateChartRange(1...1, animated: true)
         } else {
             didTapZoomIn(date: lastDate, animated: true)
         }
@@ -377,7 +385,11 @@ public class PercentPieChartController: BaseChartController {
     
     public override func updateChartRange(_ rangeFraction: ClosedRange<CGFloat>, animated: Bool = true) {
         if isZoomed {
-            pieController.chartRangeFractionDidUpdated(rangeFraction)
+            let previewRange = keepsFullRangePreviewWhenZoomed
+                ? percentController.totalHorizontalRange
+                : pieController.totalHorizontalRange
+            let timestamp = previewRange.lowerBound + rangeFraction.upperBound * previewRange.distance
+            pieController.selectDate(Date(timeIntervalSince1970: TimeInterval(timestamp)), animated: animated)
             chartRangeUpdatedClosure?(navigationSelectionRangeFraction, animated)
             return
         } else {
@@ -392,11 +404,11 @@ public class PercentPieChartController: BaseChartController {
     }
 
     public override var selectedRangePointFraction: CGFloat? {
-        guard isZoomed else {
+        guard isZoomed, let selectedDate = pieController.selectedDate else {
             return nil
         }
         if keepsFullRangePreviewWhenZoomed {
-            return fullRangeFraction(for: pieController.currentHorizontalMainChartRange.upperBound)
+            return fullRangeFraction(for: CGFloat(selectedDate.timeIntervalSince1970))
         }
         return pieController.currentChartHorizontalRangeFraction.upperBound
     }
@@ -412,18 +424,7 @@ public class PercentPieChartController: BaseChartController {
 
 private extension PercentPieChartController {
     var isDisplayingLatestPoint: Bool {
-        navigationSelectionRangeFraction.upperBound >= 0.999_999
-    }
-
-    var latestSelectionRangeFraction: ClosedRange<CGFloat> {
-        let selectionLength: CGFloat
-        if isZoomed {
-            selectionLength = max(minimumSelectedChartRange, pieController.currentChartHorizontalRangeFraction.distance)
-        } else {
-            let itemCount = max(1, initialChartsCollection.axisValues.count)
-            selectionLength = max(minimumSelectedChartRange, 1.0 / CGFloat(itemCount))
-        }
-        return max(0.0, 1.0 - selectionLength)...1.0
+        pieController.selectedDate == initialChartsCollection.axisValues.last
     }
 
     func fullRangeFraction(for timestamp: CGFloat) -> CGFloat {

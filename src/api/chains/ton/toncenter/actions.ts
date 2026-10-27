@@ -29,9 +29,11 @@ import type {
   JettonMintAction,
   JettonTransferAction,
   MetadataMap,
+  NftCancelAuctionAction,
   NftCollectionMetadata,
   NftItemMetadata,
   NftMintAction,
+  NftPutOnAuctionAction,
   NftTransferAction,
   SocketFinality,
   StakeDepositAction,
@@ -48,7 +50,6 @@ import {
   LIQUID_POOL,
   MW_CARDS_COLLECTION,
   MYCOIN_STAKING_POOL,
-  NFT_FRAGMENT_COLLECTIONS,
   NFT_FRAGMENT_GIFT_IMAGE_TO_URL_REGEX,
   STON_PTON_ADDRESS,
   TON_TSUSDE,
@@ -64,7 +65,14 @@ import { fixIpfsUrl, getProxiedLottieUrl } from '../../../../util/fetch';
 import { omitUndefined } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import safeExec from '../../../../util/safeExec';
-import { buildMwCardsNftMetadata, getIsFragmentGift, getIsNftUnverified, readComment } from '../util/metadata';
+import {
+  buildMwCardsNftMetadata,
+  getIsFragmentGift,
+  getIsNftUnverified,
+  getIsOnFragment,
+  getTelemintCollectionAddress,
+  readComment,
+} from '../util/metadata';
 import { toBase64Address } from '../util/tonCore';
 import {
   checkHasScamLink,
@@ -238,7 +246,8 @@ function parseAction(action: AnyAction, options: ParseOptions): ParsedAction {
       result = parseContractDeploy(action, options);
       break;
     }
-    case 'nft_transfer': {
+    case 'nft_transfer':
+    case 'nft_purchase': {
       result = parseNftTransfer(action, options);
       break;
     }
@@ -284,6 +293,16 @@ function parseAction(action: AnyAction, options: ParseOptions): ParsedAction {
       result = parseAuctionBid(action, options);
       break;
     }
+    case 'nft_put_on_auction':
+    case 'teleitem_start_auction': {
+      result = parseNftPutOnAuction(action, options);
+      break;
+    }
+    case 'nft_cancel_auction':
+    case 'teleitem_cancel_auction': {
+      result = parseNftCancelAuction(action, options);
+      break;
+    }
     case 'dex_deposit_liquidity': {
       result = parseLiquidityDeposit(action, options);
       break;
@@ -298,7 +317,11 @@ function parseAction(action: AnyAction, options: ParseOptions): ParsedAction {
     const activity = result.activities[i];
     if (!activity) continue;
 
-    if ('nft' in activity && activity.nft?.isHidden) {
+    if (
+      'nft' in activity
+      && activity.nft?.isHidden
+      && !(activity.kind === 'transaction' && !activity.isIncoming)
+    ) {
       activity.shouldHide = true;
     }
 
@@ -332,12 +355,20 @@ function parseTonTransfer(action: TonTransferAction, options: ParseOptions): Par
 }
 
 function parseCallContract(action: CallContractAction, options: ParseOptions): ParsedAction {
-  const { walletAddress } = options;
+  const {
+    walletAddress, network, metadata, nftSuperCollectionsByCollectionAddress,
+  } = options;
   const { details, details: { source, destination, value } } = action;
 
   const common = parseCommonFields(action, options, source, destination, value);
   const opCode = Number(details.opcode);
   const shouldHide = !common.isIncoming && [OpCode.OurFee, TeleitemOpCode.Ok].includes(opCode);
+  const isTeleitemNftOp = [
+    TeleitemOpCode.StartAuction,
+    TeleitemOpCode.CancelAuction,
+    TeleitemOpCode.Deploy,
+    TeleitemOpCode.DeployV2,
+  ].includes(opCode);
 
   let type: ApiTransactionType | undefined;
   if (EXCESS_OP_CODES.includes(opCode)) {
@@ -347,14 +378,25 @@ function parseCallContract(action: CallContractAction, options: ParseOptions): P
     type = 'bounced';
   } else if ([JettonStakingOpCode.UnstakeRequest, JettonStakingOpCode.ClaimRewards].includes(opCode)) {
     type = 'unstakeRequest';
+  } else if ([TeleitemOpCode.StartAuction].includes(opCode)) {
+    type = 'nftAuctionStart';
+  } else if ([TeleitemOpCode.CancelAuction].includes(opCode)) {
+    type = 'nftAuctionCancel';
+  } else if ([TeleitemOpCode.Deploy, TeleitemOpCode.DeployV2].includes(opCode)) {
+    type = 'auctionBid';
   } else if (common.toAddress !== walletAddress) {
     type = 'callContract';
   }
+
+  const { nft } = isTeleitemNftOp
+    ? parseToncenterNft(network, metadata, destination, nftSuperCollectionsByCollectionAddress)
+    : {};
 
   const activity: ApiTransactionActivity = {
     ...common,
     slug: TONCOIN.slug,
     type,
+    nft,
     shouldHide,
     extra: omitUndefined({
       // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
@@ -574,7 +616,7 @@ function parseNftTransfer(action: NftTransferAction, options: ParseOptions): Par
 
   if (activity.toAddress === BURN_ADDRESS) {
     activity.type = 'burn';
-  } else if (isPurchase && price) {
+  } else if ((isPurchase || action.type === 'nft_purchase') && price) {
     const isBuying = addressBook[newOwner]?.user_friendly === walletAddress;
     activity.type = 'nftTrade';
     activity.isIncoming = !isBuying;
@@ -806,6 +848,57 @@ function parseDns(action: DnsAction, options: ParseOptions): ParsedAction {
     ...parseCommonFields(action, options, source, asset, 0), // TODO (actions) Replace to real fee
     slug: TONCOIN.slug,
     type,
+    nft,
+  };
+
+  return {
+    action,
+    activities: [activity],
+  };
+}
+
+function parseNftPutOnAuction(action: NftPutOnAuctionAction, options: ParseOptions): ParsedAction {
+  const { network, metadata, nftSuperCollectionsByCollectionAddress } = options;
+  const { details } = action;
+  const { nft } = parseToncenterNft(
+    network,
+    metadata,
+    details.nft_item,
+    nftSuperCollectionsByCollectionAddress,
+    {
+      rawCollectionAddress: details.nft_collection ?? undefined,
+      index: details.nft_item_index ?? undefined,
+    },
+  );
+
+  const activity: ApiTransactionActivity = {
+    ...parseCommonFields(action, options, details.owner, details.auction_address),
+    slug: TONCOIN.slug,
+    type: 'nftAuctionStart',
+    nft,
+  };
+
+  return {
+    action,
+    activities: [activity],
+  };
+}
+
+function parseNftCancelAuction(action: NftCancelAuctionAction, options: ParseOptions): ParsedAction {
+  const { network, metadata, nftSuperCollectionsByCollectionAddress } = options;
+  const { details } = action;
+  const { nft } = parseToncenterNft(
+    network,
+    metadata,
+    details.nft_item,
+    nftSuperCollectionsByCollectionAddress,
+    { rawCollectionAddress: details.nft_collection ?? undefined },
+  );
+
+  const activity: ApiTransactionActivity = {
+    ...parseCommonFields(action, options, details.owner, details.auction_address),
+    slug: TONCOIN.slug,
+    type: 'nftAuctionCancel',
     nft,
   };
 
@@ -1056,9 +1149,25 @@ export function parseToncenterNft(
       return { nft };
     }
 
+    const telemintCollectionAddress = rawCollectionAddress
+      ? undefined
+      : getTelemintCollectionAddress(extra?.domain);
+
+    const resolvedRawCollectionAddress = rawCollectionAddress ?? telemintCollectionAddress;
+    const resolvedCollectionAddress = collectionAddress
+      ?? (telemintCollectionAddress && toBase64Address(telemintCollectionAddress, true, network));
+    const isFragmentGift = getIsFragmentGift(
+      nftSuperCollectionsByCollectionAddress,
+      resolvedCollectionAddress,
+    );
+    const isOnFragment = getIsOnFragment({
+      nftSuperCollectionsByCollectionAddress,
+      collectionAddress: resolvedCollectionAddress,
+      rawCollectionAddress: resolvedRawCollectionAddress,
+    });
     let hasScamLink = false;
 
-    if (!collectionAddress || !checkIsTrustedCollection(collectionAddress)) {
+    if (!isOnFragment && (!resolvedCollectionAddress || !checkIsTrustedCollection(resolvedCollectionAddress))) {
       for (const text of [name, description].filter(Boolean)) {
         if (checkHasScamLink(text)) {
           hasScamLink = true;
@@ -1071,8 +1180,6 @@ export function parseToncenterNft(
     const isScam = (isScamByModeration ?? collectionMetadata?.is_scam) || hasScamLink;
     const isNsfw = isNsfwByModeration ?? collectionMetadata?.is_nsfw;
     const isHidden = extra?.render_type === 'hidden' || isScam;
-    const isFragmentGift = getIsFragmentGift(nftSuperCollectionsByCollectionAddress, collectionAddress);
-    const isOnFragment = isFragmentGift || NFT_FRAGMENT_COLLECTIONS.includes(rawCollectionAddress!);
     // A non-string `value` breaks the UI, and the MyTonWallet card traits are read as strings too
     const attributes = Array.isArray(extra?.attributes)
       ? extra.attributes.filter((attribute): attribute is ApiNftAttribute => typeof attribute?.value === 'string')
@@ -1100,7 +1207,7 @@ export function parseToncenterNft(
       isHidden,
       isScam,
       isNsfw,
-      isUnverified: getIsNftUnverified({ collectionAddress, isOnFragment }),
+      isUnverified: getIsNftUnverified({ collectionAddress: resolvedCollectionAddress, isOnFragment }),
       isMetadataMissing: nftMetadata ? undefined : true,
       metadata: {
         ...(attributes && { attributes }),
@@ -1113,8 +1220,8 @@ export function parseToncenterNft(
         // we need to manually adjust it here due to data source differences.
         ...(isMwCard && buildMwCardsNftMetadata({ id: nftIndex + 1, image, attributes })),
       },
-      ...(collectionAddress && {
-        collectionAddress,
+      ...(resolvedCollectionAddress && {
+        collectionAddress: resolvedCollectionAddress,
         collectionName: collectionMetadata?.name,
         isOnFragment,
         isTelegramGift: isFragmentGift,

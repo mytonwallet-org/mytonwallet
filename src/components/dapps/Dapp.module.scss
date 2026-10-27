@@ -46,6 +46,7 @@ $labelSidePadding: 0.5rem;
   display: flex;
   align-items: center;
   margin: 0.625rem -0.375rem 1.25rem;
+  margin-inline-end: max(-0.375rem, min(0px, calc(var(--scrollbar-width) - 1rem)));
 
   // Toggled directly on the element by `usePillIcons`
   &_noIcons .headerPillLeadingIcon,
@@ -387,7 +388,8 @@ $labelSidePadding: 0.5rem;
 
 .rowContainerSkeleton,
 .dataField,
-.transferWarning {
+.transferWarning,
+.signDataWarnings {
   margin-bottom: $fieldGap;
 }
 

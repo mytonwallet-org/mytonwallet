@@ -171,6 +171,10 @@ struct LinkDomainValidatedDraft: Sendable {
         return tonBalance < realFee
     }
 
+    var hasAddressError: Bool {
+        !isAddressFocused && nft != nil && !normalizedWalletAddress.isEmpty && !isAddressValid
+    }
+
     var linkButtonTitle: String {
         if isInsufficientBalance {
             return lang("Insufficient Balance")

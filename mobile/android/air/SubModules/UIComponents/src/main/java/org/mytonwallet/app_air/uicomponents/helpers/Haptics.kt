@@ -38,6 +38,43 @@ enum class HapticType {
  */
 object Haptics {
 
+    fun playCardHold(view: View) {
+        if (!view.isHapticFeedbackEnabled || android.provider.Settings.System.getInt(
+                view.context.contentResolver,
+                android.provider.Settings.System.HAPTIC_FEEDBACK_ENABLED,
+                1
+            ) == 0
+        ) {
+            return
+        }
+        if (Build.VERSION.SDK_INT < 33) {
+            play(view, HapticType.LIGHT_TAP)
+            return
+        }
+        val vibrator = getVibrator(view.context)
+        if (vibrator?.hasVibrator() != true) {
+            play(view, HapticType.LIGHT_TAP)
+            return
+        }
+        val effect = if (vibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_CLICK
+            )
+        ) {
+            VibrationEffect.startComposition().addPrimitive(
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+                .65f
+            ).compose()
+        } else {
+            VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+        }
+        vibrator.vibrate(
+            effect,
+            android.os.VibrationAttributes.createForUsage(
+                android.os.VibrationAttributes.USAGE_TOUCH
+            )
+        )
+    }
+
     /**
      * Play haptic feedback using a View (preferred - respects system settings)
      */

@@ -1,5 +1,5 @@
 import type { DNS_CATEGORY_HASH_MAP } from '../chains/ton/constants';
-import type { ApiNft } from './misc';
+import type { ApiNft, ApiToken } from './misc';
 
 export type ApiCommentPayload = {
   type: 'comment';
@@ -34,6 +34,49 @@ export type ApiNftOwnershipAssignedPayload = {
   nftAddress: string;
   nft?: ApiNft;
   comment?: string;
+  bidAmount?: bigint;
+  bidTs?: number;
+};
+
+export type ApiTeleitemAuctionConfig = {
+  beneficiaryAddress: string;
+  initialMinBid: bigint;
+  maxBid: bigint;
+  minBidStep: number;
+  minExtendTime: number;
+  duration: number;
+};
+
+export type ApiTeleitemStartAuctionPayload = {
+  type: 'teleitem:start-auction';
+  queryId: bigint;
+  nftAddress: string;
+  nftName?: string;
+  nft?: ApiNft;
+} & ApiTeleitemAuctionConfig;
+
+export type ApiTeleitemCancelAuctionPayload = {
+  type: 'teleitem:cancel-auction';
+  queryId: bigint;
+  nftAddress: string;
+  nftName?: string;
+  nft?: ApiNft;
+};
+
+export type ApiTeleitemDeployPayload = {
+  type: 'teleitem:deploy';
+  tokenName: string;
+} & ApiTeleitemAuctionConfig;
+
+export type ApiTeleitemBidInfoPayload = {
+  type: 'teleitem:bid-info';
+  amount: bigint;
+  bidTs: number;
+};
+
+export type ApiTeleitemReturnBidPayload = {
+  type: 'teleitem:return-bid';
+  queryId: bigint;
 };
 
 export type ApiTokensTransferPayload = {
@@ -63,6 +106,19 @@ export type ApiTokensTransferNonStandardPayload = {
 export type ApiUnknownPayload = {
   type: 'unknown';
   base64: string;
+};
+
+/** A validated, single-pool DeDust native swap returning its output to the signer. */
+export type ApiDedustNativeSwapPayload = {
+  type: 'dedust:native-swap';
+  queryId: bigint;
+  amount: bigint;
+  poolAddress: string;
+  toSlug: string;
+  toToken: ApiToken;
+  minimumAmountOut: bigint;
+  recipientAddress: string;
+  deadline: number;
 };
 
 export type ApiTokensBurnPayload = {
@@ -155,6 +211,7 @@ export type ApiParsedPayload = ApiCommentPayload
   | ApiTokensTransferPayload
   | ApiTokensTransferNonStandardPayload
   | ApiUnknownPayload
+  | ApiDedustNativeSwapPayload
   | ApiTokensBurnPayload
   | ApiLiquidStakingDepositPayload
   | ApiLiquidStakingWithdrawalPayload
@@ -165,4 +222,9 @@ export type ApiParsedPayload = ApiCommentPayload
   | ApiSingleNominatorWithdrawPayload
   | ApiSingleNominatorChangeValidatorPayload
   | ApiLiquidStakingVotePayload
-  | ApiJettonStakePayload;
+  | ApiJettonStakePayload
+  | ApiTeleitemStartAuctionPayload
+  | ApiTeleitemCancelAuctionPayload
+  | ApiTeleitemDeployPayload
+  | ApiTeleitemBidInfoPayload
+  | ApiTeleitemReturnBidPayload;

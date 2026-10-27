@@ -241,7 +241,7 @@ private struct TokenHeaderBalanceView: View {
                     }
                 }
             }
-            .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 12, theme: .adaptive, cornerRadius: 10)
+            .heroSensitiveData(maskSize: CGSize(width: 144, height: 36))
         } else {
             Color.clear
                 .frame(height: 40)
@@ -255,7 +255,7 @@ private struct TokenHeaderBalanceView: View {
                 .textStyle(.body, content: .technical)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
-                .sensitiveData(alignment: .center, cols: 14, rows: 2, cellSize: 13, theme: .adaptive, cornerRadius: 13)
+                .heroSensitiveData(color: .air.secondaryLabel, maskSize: CGSize(width: 182, height: 26))
         } else {
             Color.clear
                 .frame(height: 17)

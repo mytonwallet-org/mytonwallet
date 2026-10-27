@@ -7,6 +7,7 @@ import type {
   ApiSseDeliveryState,
   OnApiUpdate,
 } from '../types';
+import { ApiCommonError } from '../types';
 
 import { parseAccountId } from '../../util/account';
 import isEmptyObject from '../../util/isEmptyObject';
@@ -199,15 +200,23 @@ export async function signDappProof(
   enclaveToken?: string,
 ) {
   try {
+    if (!dappChains.length) {
+      return { error: ApiCommonError.Unexpected };
+    }
+
     const signatures: string[] = [];
     const publicKeys: string[] = [];
     for (const chain of dappChains) {
       const result = await chains[chain.chain].dapp?.signConnectionProof?.(accountId, proof, enclaveToken);
-      if (result && 'signature' in result) {
-        signatures.push(result.signature);
-        if (result.publicKey) {
-          publicKeys.push(result.publicKey);
-        }
+      if (result && 'error' in result) {
+        return result;
+      }
+      if (!result?.signature) {
+        return { error: ApiCommonError.Unexpected };
+      }
+      signatures.push(result.signature);
+      if (result.publicKey) {
+        publicKeys.push(result.publicKey);
       }
     }
     return { signatures, publicKeys: publicKeys.length ? publicKeys : undefined };

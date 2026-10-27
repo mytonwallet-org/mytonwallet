@@ -13,6 +13,12 @@
   @media (min-width: 416.01px) {
     max-width: $transactionModalMaxWidth;
   }
+
+  // The explorer fades between slides, so the dialog grows to fit details taller than the fixed height
+  &.explorerDialog {
+    height: auto;
+    min-height: min(#{$transactionModalHeight}, 100%);
+  }
 }
 
 .loadingContainer {

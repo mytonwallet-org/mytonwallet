@@ -114,6 +114,8 @@ $contentMaxWidth: 31.4375rem;
   bottom: 0;
   left: 0;
 
+  min-width: 22.5rem;
+
   background-color: var(--color-tint-lock);
   backdrop-filter: blur(var(--blur-app-locked));
 

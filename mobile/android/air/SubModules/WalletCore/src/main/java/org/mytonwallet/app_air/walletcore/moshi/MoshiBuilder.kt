@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcore.moshi.adapter.EnumJsonAdapterFactory
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONArrayAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.JSONObjectAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdateAdapter
+import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAddressAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.NftAttributeAdapter
 import org.mytonwallet.app_air.walletcore.moshi.adapter.ReturnStrategyAdapter
 import org.mytonwallet.app_air.walletcore.moshi.agentV2.AgentV2ActionPresentation
@@ -21,6 +22,7 @@ import org.mytonwallet.app_air.walletcore.moshi.api.ApiUpdate
 class MoshiBuilder {
     companion object {
         fun build(): Moshi = Moshi.Builder()
+            .add(NftAddressAdapter)
             .add(NftAttributeAdapter())
             .add(BigIntegerJsonAdapter())
             .add(BigDecimalJsonAdapter())
@@ -85,6 +87,10 @@ class MoshiBuilder {
                     .withSubtype(
                         ApiUpdate.ApiUpdateAccountConfig::class.java,
                         "updateAccountConfig"
+                    )
+                    .withSubtype(
+                        ApiUpdate.ApiUpdateAccountBanners::class.java,
+                        "updateAccountBanners"
                     )
                     .withSubtype(ApiUpdate.ApiUpdateStaking::class.java, "updateStaking")
                     .withSubtype(ApiUpdate.ApiUpdateConfig::class.java, "updateConfig")
@@ -244,6 +250,26 @@ class MoshiBuilder {
                     .withSubtype(
                         ApiParsedPayload.ApiLiquidStakingVotePayload::class.java,
                         "liquid-staking:vote"
+                    )
+                    .withSubtype(
+                        ApiParsedPayload.ApiTeleitemStartAuctionPayload::class.java,
+                        "teleitem:start-auction"
+                    )
+                    .withSubtype(
+                        ApiParsedPayload.ApiTeleitemCancelAuctionPayload::class.java,
+                        "teleitem:cancel-auction"
+                    )
+                    .withSubtype(
+                        ApiParsedPayload.ApiTeleitemDeployPayload::class.java,
+                        "teleitem:deploy"
+                    )
+                    .withSubtype(
+                        ApiParsedPayload.ApiTeleitemBidInfoPayload::class.java,
+                        "teleitem:bid-info"
+                    )
+                    .withSubtype(
+                        ApiParsedPayload.ApiTeleitemReturnBidPayload::class.java,
+                        "teleitem:return-bid"
                     )
                     .withDefaultValue(null)
             )

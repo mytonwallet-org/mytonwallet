@@ -23,6 +23,9 @@ jest.mock('../../../environment', () => ({
 jest.mock('./TonClient', () => ({
   TonClient: jest.fn().mockImplementation(() => ({
     open: (contract: unknown) => mockOpen(contract),
+    withDemand() {
+      return this;
+    },
   })),
 }));
 

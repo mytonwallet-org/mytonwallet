@@ -7,6 +7,7 @@ import WalletContext
 final class RootContainerVC: UIViewController, VisibleContentProviding {
     let contentViewController: UIViewController
     var visibleContentProviderViewController: UIViewController { contentViewController }
+    override var childForStatusBarStyle: UIViewController? { sheetContainerViewController }
 
     private let minimizableSheetContentViewController = MinimizableSheetContentViewController()
     private lazy var sheetContainerViewController: MinimizableSheetContainerViewController = {

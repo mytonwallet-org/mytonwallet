@@ -2,12 +2,17 @@ import type { SignedMfaRequest } from '../chains/ton/util/signer';
 import type { ApiSwapActivity } from './activities';
 import type {
   ApiEvmSwapCall,
+  ApiEvmSwapTransactionRequest,
   ApiSwapBuildTransactionRequest,
   ApiSwapExecuteTransactionResult,
   ApiSwapHistoryItem,
   ApiSwapTransfer,
 } from './backend';
 import type { ApiChain, ApiNetwork, ApiToken } from './misc';
+
+/** A validated Uranus buy needs one fresh quote before another build can be signed. */
+export const URANUS_PRICE_DRIFT_ERROR = 'uranus-price-drift';
+export const SWAP_ROUTERS_UNAVAILABLE_ERROR = 'Swap routers are unavailable';
 
 export type ApiSwapDefaultsRequest = {
   tokenIn?: ApiToken;
@@ -28,6 +33,7 @@ export type ApiBuildOnchainSwapTransferOptions = {
   request: ApiSwapBuildTransactionRequest;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
+  transactionRequest?: ApiEvmSwapTransactionRequest;
   swapId: string;
   authToken: string;
   enclaveToken: string;
@@ -37,6 +43,7 @@ export type ApiBuildOnchainSwapTransferResult = {
   id: string;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
+  transactionRequest?: ApiEvmSwapTransactionRequest;
   calls?: ApiEvmSwapCall[];
   chain: ApiChain;
   /**
@@ -51,6 +58,7 @@ export type ApiSubmitOnchainSwapTransferOptions = {
   enclaveToken: string;
   transfers?: ApiSwapTransfer[];
   transaction?: string;
+  transactionRequest?: ApiEvmSwapTransactionRequest;
   calls?: ApiEvmSwapCall[];
   /** EVM: from the estimate or the build. Same meaning as `ApiBuildOnchainSwapTransferResult.needsBatch`. */
   needsBatch?: boolean;

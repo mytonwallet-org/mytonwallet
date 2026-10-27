@@ -167,6 +167,44 @@ struct ActionSubmissionResultTests {
             )
         )
     }
+
+    // The indeterminate branch exists for an action whose fate on chain cannot be read. Work that
+    // failed while still being prepared never reached the chain, so it is a plain refusal.
+    @Test
+    func `preparation failure is not committed even when the cause reads as indeterminate`() {
+        let cause = SdkError.sdkNotReady(methodName: "swapBuildTransfer", reason: "worker is starting")
+
+        #expect(actionSubmissionErrorDisposition(for: cause) == .indeterminate)
+        #expect(actionSubmissionErrorDisposition(for: NotSubmittedError(cause)) == .notCommitted)
+    }
+
+    // The refusal is shown to the user as the error itself, so the marker must not reach the alert.
+    @Test
+    func `preparation failure surfaces the error it wraps`() {
+        let cause = SdkError.sdkNotReady(methodName: "swapBuildTransfer", reason: "worker is starting")
+
+        let result: ActionSubmissionResult<Int> = actionSubmissionFailure(for: NotSubmittedError(cause))
+
+        guard case .notCommitted(let surfaced) = result else {
+            Issue.record("Expected a not-committed result, got \(result)")
+            return
+        }
+        #expect(surfaced is SdkError)
+    }
+
+    @Test
+    func `nested preparation scopes keep a single marker`() async {
+        do {
+            try await withNotSubmitted {
+                try await withNotSubmitted { throw TestError.failed }
+            }
+            Issue.record("Expected the preparation failure to propagate")
+        } catch {
+            let marker = error as? NotSubmittedError
+            #expect(marker != nil)
+            #expect(marker?.underlying is TestError)
+        }
+    }
 }
 
 private enum TestError: Error {

@@ -162,6 +162,7 @@ public struct TokenAmountEntrySection: View {
                 if showMaxAmount {
                     UseAllButton(
                         amount: DecimalAmount(balance, token),
+                        isError: insufficientFunds && (amount ?? 0) > balance,
                         onTap: {
                             isFocused = false
                             onUseAll()

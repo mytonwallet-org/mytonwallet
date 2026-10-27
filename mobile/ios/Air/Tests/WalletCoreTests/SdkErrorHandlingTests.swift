@@ -1,9 +1,21 @@
 import Foundation
 import Testing
+import WalletContext
 import WalletCore
 
 @Suite("SDK Error Handling")
 struct SdkErrorHandlingTests {
+    @Test
+    func `provider address rejection is localized without losing the diagnostic cause`() {
+        let error = SdkError.javaScriptException(SdkJavaScriptException(
+            methodName: "swapCexCreateTransaction",
+            exceptionMessage: #"{"message":"Address is not valid","additionalData":{"statusCode":400}}"#
+        ))
+
+        #expect(error.errorDescription == lang("Invalid address"))
+        #expect(error.backendMessage == "Address is not valid")
+    }
+
     @Test
     func `unknown display error decoding preserves raw value`() throws {
         let data = Data(#""Provider exploded""#.utf8)

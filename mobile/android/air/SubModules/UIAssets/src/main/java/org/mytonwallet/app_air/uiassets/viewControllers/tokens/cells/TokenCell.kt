@@ -2,6 +2,7 @@
 
 package org.mytonwallet.app_air.uiassets.viewControllers.tokens.cells
 
+import android.animation.Animator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -227,6 +228,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
     private var isFirst = false
     private var isLast = false
     private var isPinned = false
+    private var pinAnimator: Animator? = null
     private var showChain = false
     private var changeThreshold: MTokenChangeThreshold? = null
 
@@ -289,9 +291,13 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
         this.showChain = showChain
         this.changeThreshold = changeThreshold
         updateTheme(forceUpdate = firstChanged || lastChanged)
-        if (pinnedChanged && !accountChanged) {
+        if (pinnedChanged && !accountChanged && !tokenChanged) {
             animatePin(isPinned)
         } else {
+            pinAnimator?.cancel()
+            pinIcon.alpha = 1f
+            pinIcon.scaleX = 1f
+            pinIcon.scaleY = 1f
             pinIcon.isGone = !isPinned
             val pinMargin = if (isPinned) 18 else 0
             setConstraints {
@@ -343,6 +349,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
     }
 
     private fun animatePin(isPinned: Boolean) {
+        pinAnimator?.cancel()
         val marginUpdate = { margin: Int ->
             setConstraints {
                 toStart(
@@ -396,7 +403,7 @@ class TokenCell(context: Context, val mode: TokensVC.Mode, private val compact: 
                 }
             }
             onEnd { onEnd() }
-        }.start()
+        }.also { pinAnimator = it }.start()
     }
 
     private fun updateBottomLeftLabel(tokenBalance: MTokenBalance, token: MToken?) {

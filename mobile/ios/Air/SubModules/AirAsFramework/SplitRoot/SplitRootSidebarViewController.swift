@@ -172,6 +172,8 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         collectionTopGradient.color = .air.sidebarBackground
         collectionView?.backgroundColor = .clear
         
+        accountSelector.setEdgeGradients(leading: accountSelectorGradientLeading,
+                                         trailing: accountSelectorGradientTrailing)
         accountSelector.onSelect = { [weak self] accountId in
             self?.selectAccount(accountId)
         }
@@ -399,7 +401,7 @@ final class SplitRootSidebarViewController: WViewController, WalletCoreData.Even
         case .walletSettings:
             AppActions.showWalletSettings()
         case .addAccount:
-            AppActions.showAddWallet(network: .mainnet)
+            AppActions.showAddWallet(network: .mainnet, sourceView: collectionView.cellForItem(at: indexPath))
         }
         return false
     }

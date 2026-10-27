@@ -72,7 +72,6 @@ function Nft({
   const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition>();
   const isSelected = useMemo(() => selectedNfts?.some((e) => e.address === nft.address), [selectedNfts, nft.address]);
 
-  const isMenuOpen = Boolean(menuAnchor);
   const dnsExpireInDays = tonDnsExpiration ? getCountDaysToDate(tonDnsExpiration) : undefined;
   const isDnsExpireSoon = dnsExpireInDays !== undefined ? dnsExpireInDays <= TON_DNS_RENEWAL_NFT_WARNING_DAYS : false;
   const isSelectionEnabled = !!selectedNfts && selectedNfts.length > 0;
@@ -111,7 +110,6 @@ function Nft({
     styles.item,
     isWidget && styles.itemCompact,
     !isSelectionEnabled && nft.isOnSale && styles.item_onSale,
-    isMenuOpen && styles.itemWithMenu,
     (isCrossChainBlocked || (isSelectionEnabled && nft.isOnSale)) && styles.nonInteractive,
   );
 

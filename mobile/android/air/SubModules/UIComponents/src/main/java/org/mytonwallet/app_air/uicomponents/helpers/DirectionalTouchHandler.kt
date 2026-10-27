@@ -21,6 +21,7 @@ class DirectionalTouchHandler(
     private var initialX = 0f
     private var initialY = 0f
     private var scrollDirectionLocked = false
+    val isScrolling: Boolean get() = scrollDirectionLocked
     private var isVerticalScroll = false
     private var lastDownEvent: MotionEvent? = null
     var onScrollDetected: ((isVertical: Boolean) -> Unit)? = null

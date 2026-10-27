@@ -14,9 +14,9 @@ extension DraftButtonConfiguration {
         )
     }
 
-    static func insufficientStakingFee(minAmount: BigInt) -> Self {
+    static func insufficientStakingFee() -> Self {
         .init(
-            title: .text(L10n.insufficientFee(fee: "\(minAmount.doubleAbsRepresentation(decimals: 9)) GRAM")),
+            title: .text(lang("Insufficient Fee")),
             isEnabled: false,
             showLoading: false
         )

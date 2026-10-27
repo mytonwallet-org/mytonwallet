@@ -39,7 +39,6 @@ jest.mock('webextension-polyfill', () => ({
   default: {
     action: { onClicked: { addListener: jest.fn() } },
     runtime: { getURL: jest.fn((path: string) => `chrome-extension://wallet/${path}`) },
-    webRequest: { handlerBehaviorChanged: jest.fn() },
     windows: mockWindows,
   },
 }));

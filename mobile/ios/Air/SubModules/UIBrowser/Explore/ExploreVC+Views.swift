@@ -276,7 +276,15 @@ extension ExploreVC {
                                         showTrending: Bool) -> [SectionItem] {
         let connectedDapps: [ApiDapp] = if showConnectedDapps {
             switch connectedDappsLayout {
-            case .compact: ApiDapp.sampleList.prefix(2).apply(Array.init)
+            case .compact:
+                ["@push", "Fragment", "OnChain with a long connected dapp name"].enumerated().map { index, name in
+                    ApiDapp(url: "https://example.com/\(index)",
+                            name: name,
+                            iconUrl: ApiDapp.sampleList[index].iconUrl,
+                            connectedAt: nil,
+                            urlTrustStatus: nil,
+                            sse: nil)
+                }
             case .regular: ApiDapp.sampleList
             }
         } else {
@@ -489,6 +497,17 @@ extension ExploreVC {
                     ConnectedDappsSettingsButton(layoutVariant: layoutVariant,
                                                  onTap: { viewOutput.connectedDappSettingsDidTap.send(()) })
                 } // end HStack
+                // Keep each pill's intrinsic width inside the nested scroll views.
+                .fixedSize(horizontal: true, vertical: false)
+                .applyModifierConditionally { content in
+                    if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
+                        GlassEffectContainer(spacing: isCompact ? 8 : 12) {
+                            content
+                        }
+                    } else {
+                        content
+                    }
+                }
             } // end ScrollView
             .backportScrollClipDisabled()
             .applyModifierConditionally {

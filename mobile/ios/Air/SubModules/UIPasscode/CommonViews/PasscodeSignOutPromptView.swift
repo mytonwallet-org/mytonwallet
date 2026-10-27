@@ -6,29 +6,29 @@ final class PasscodeSignOutPromptView: UIView {
     private let onButtonPressed: () -> Void
 
     init(
-        promptTextColor: UIColor,
-        actionTextColor: UIColor = .systemRed,
+        textColor: UIColor,
         onButtonPressed: @escaping () -> Void
     ) {
         self.onButtonPressed = onButtonPressed
         super.init(frame: .zero)
-        setupViews(promptTextColor: promptTextColor, actionTextColor: actionTextColor)
+        setupViews(textColor: textColor)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupViews(promptTextColor: UIColor, actionTextColor: UIColor) {
+    private func setupViews(textColor: UIColor) {
         let promptLabel = UILabel()
         promptLabel.applyTextStyle(.supporting)
         promptLabel.text = lang("Can't confirm?")
-        promptLabel.textColor = promptTextColor
+        promptLabel.textColor = textColor
+        promptLabel.alpha = 0.75
 
         let actionLabel = UILabel()
         actionLabel.applyTextStyle(.supportingStrong)
         actionLabel.text = lang("Exit all wallets")
-        actionLabel.textColor = actionTextColor
+        actionLabel.textColor = textColor
 
         let chevronImageView = UIImageView(
             image: UIImage(
@@ -38,7 +38,7 @@ final class PasscodeSignOutPromptView: UIView {
                 )
             )?.withRenderingMode(.alwaysTemplate)
         )
-        chevronImageView.tintColor = actionTextColor
+        chevronImageView.tintColor = textColor
         chevronImageView.contentMode = .scaleAspectFit
 
         let buttonContentStackView = UIStackView(arrangedSubviews: [actionLabel, chevronImageView])

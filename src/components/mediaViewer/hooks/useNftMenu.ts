@@ -23,7 +23,7 @@ import useLang from '../../../hooks/useLang';
 import useLastCallback from '../../../hooks/useLastCallback';
 
 export type NftMenuHandler = 'send' | 'tondns' | 'fragment' | 'marketplace' | 'explorer' | 'collection' | 'hide'
-  | 'unhide' | 'not_scam' | 'burn' | 'select' | 'installCard' | 'resetCard' | 'installAccentColor'
+  | 'hideAndReport' | 'unhide' | 'not_scam' | 'burn' | 'select' | 'installCard' | 'resetCard' | 'installAccentColor'
   | 'resetAccentColor' | 'renew' | 'linkDomain' | 'shareLink';
 
 const ON_SALE_ITEM: DropdownItem<NftMenuHandler> = {
@@ -64,6 +64,11 @@ const COLLECTION_ITEM: DropdownItem<NftMenuHandler> = {
 const HIDE_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Hide',
   value: 'hide',
+};
+const HIDE_AND_REPORT_ITEM: DropdownItem<NftMenuHandler> = {
+  name: 'Hide and Report',
+  value: 'hideAndReport',
+  isDangerous: true,
 };
 const RENEW_ITEM: DropdownItem<NftMenuHandler> = {
   name: 'Renew',
@@ -266,6 +271,12 @@ export default function useNftMenu({
         break;
       }
 
+      case 'hideAndReport': {
+        openReportNftModal({ chain: nft!.chain, address: nft!.address, shouldReport: true });
+
+        break;
+      }
+
       case 'not_scam': {
         openUnhideNftModal({ address: nft!.address, name: nft!.name });
 
@@ -318,6 +329,7 @@ export default function useNftMenu({
     const isRenewable = isRenewableDnsNft(nft);
     const isLinkable = isLinkableDnsNft(nft);
     const isCard = nft.collectionAddress === MW_CARDS_COLLECTION;
+    const canHide = (!isScam && !isNftBlacklisted) || isNftWhitelisted;
 
     return compact([
       ...(isCard ? [!isNftInstalled ? INSTALL_CARD : RESET_CARD] : []),
@@ -336,7 +348,8 @@ export default function useNftMenu({
       getExplorerItem(nft.chain, selectedExplorerId),
       SHARE_LINK_ITEM,
       collectionAddress && COLLECTION_ITEM,
-      ((!isScam && !isNftBlacklisted) || isNftWhitelisted) && HIDE_ITEM,
+      canHide && HIDE_ITEM,
+      canHide && HIDE_AND_REPORT_ITEM,
       isScam && !isNftWhitelisted && NOT_SCAM,
       !isScam && isNftBlacklisted && UNHIDE,
       ...(!isOnSale && !isViewMode ? [

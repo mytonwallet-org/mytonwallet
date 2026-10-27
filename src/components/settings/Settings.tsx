@@ -780,7 +780,6 @@ function Settings({
         return (
           <SettingsWalletVariants
             isActive={isActive && isSlideActive}
-            isInsideModal={isInsideModal}
             accountChains={accountChains}
             onBackClick={handleBackClick}
           />

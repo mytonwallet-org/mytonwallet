@@ -95,6 +95,7 @@ final class WalletConnectPayDataCollectionVC: WViewController, UISheetPresentati
         self.onCancel = onCancel
         self.onError = onError
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 800, height: 900)
     }
 
     required init?(coder: NSCoder) {

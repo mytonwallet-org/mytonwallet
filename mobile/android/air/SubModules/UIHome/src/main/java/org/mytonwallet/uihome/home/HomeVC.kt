@@ -73,9 +73,9 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.models.MScreenMode
 import org.mytonwallet.app_air.walletcore.models.SwapType
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
-import org.mytonwallet.app_air.walletcore.stores.EnvironmentStore
 import org.mytonwallet.app_air.walletcore.stores.NftStore
 import org.mytonwallet.uihome.home.views.ActivityListView
 import org.mytonwallet.uihome.home.views.header.HomeHeaderView
@@ -207,6 +207,67 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         }
     // override val shouldMonitorFrames = true
 
+    private data class InfoBanners(
+        val promotions: List<ApiPromotion>,
+        val onAction: (ApiPromotion) -> Unit,
+        val onDismiss: (ApiPromotion) -> Unit
+    )
+
+    private val infoBannersByAccount = mutableMapOf<String, InfoBanners>()
+    override fun infoBannersUpdated(accountId: String, promotions: List<ApiPromotion>) {
+        setInfoBanners(
+            accountId,
+            promotions,
+            onAction = { promotion ->
+                val action = promotion.infoBanner?.actionButton?.onClickAction
+                if (action == "openEarn" || action == "unstakeForeign") {
+                    onClick(HeaderActionsView.Identifier.EARN, showStaking = true)
+                }
+            },
+            onDismiss = { promotion -> homeVM.dismissInfoBanner(accountId, promotion.id) }
+        )
+    }
+
+    fun setInfoBanners(
+        accountId: String,
+        promotions: List<ApiPromotion>,
+        onAction: (ApiPromotion) -> Unit,
+        onDismiss: (ApiPromotion) -> Unit
+    ) {
+        val banners = promotions.filter {
+            it.infoBanner != null && (it.kind == "infoBanner" || it.kind == "foreignStaking")
+        }
+            .distinctBy { it.id }
+        if (banners.isEmpty()) {
+            infoBannersByAccount.remove(accountId)
+        } else {
+            infoBannersByAccount[accountId] = InfoBanners(banners, onAction, onDismiss)
+        }
+        allActivityListViews.filter { it.showingAccountId == accountId }
+            .forEach { it.infoBannersUpdated() }
+    }
+
+    override fun activityListInfoBanners(accountId: String): List<ApiPromotion> =
+        infoBannersByAccount[accountId]?.promotions.orEmpty()
+
+    override fun onInfoBannerAction(accountId: String, promotion: ApiPromotion) {
+        val banners = infoBannersByAccount[accountId] ?: return
+        if (banners.promotions.firstOrNull()?.id != promotion.id) return
+        banners.onAction(promotion)
+    }
+
+    override fun onInfoBannerDismiss(accountId: String, promotion: ApiPromotion) {
+        val banners = infoBannersByAccount[accountId] ?: return
+        if (banners.promotions.firstOrNull()?.id != promotion.id) return
+        setInfoBanners(
+            accountId,
+            banners.promotions.filter { it.id != promotion.id },
+            banners.onAction,
+            banners.onDismiss
+        )
+        banners.onDismiss(promotion)
+    }
+
     private val homeVM by lazy {
         HomeVM(mode, this)
     }
@@ -332,6 +393,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             horizontalScrollAngle = 70.0
         ).apply {
             onScrollDetected = { isVertical ->
+                phoneHeaderView.releaseCardPress(cancelled = true)
                 if (isVertical) {
                     moveHeaderViewToCell()
                 } else {
@@ -362,7 +424,8 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                         }
                     }
                 }
-                val handled = if (isPassingToDirectionalTouchHandler) {
+                val wasCardPlaying = phoneHeaderView.isCardPlaying
+                val handled = if (isPassingToDirectionalTouchHandler && !wasCardPlaying) {
                     touchHandler.dispatchTouch(view, ev) ?: super.dispatchTouchEvent(ev)
                 } else {
                     super.dispatchTouchEvent(ev)
@@ -370,7 +433,11 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                 if (ev.actionMasked == MotionEvent.ACTION_UP ||
                     ev.actionMasked == MotionEvent.ACTION_CANCEL
                 ) {
-                    phoneHeaderView.releaseCardPress()
+                    if (wasCardPlaying) touchHandler.dispatchTouch(view, ev)
+                    phoneHeaderView.releaseCardPress(
+                        cancelled =
+                            ev.actionMasked == MotionEvent.ACTION_CANCEL
+                    )
                     phoneHeaderView.endHorizontalScroll()
                 }
                 return handled
@@ -508,8 +575,13 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
             keepCollapsedCardVisibleForStatus = true,
             topInsetExtra = { TOP_TABS_CARD_OFFSET.dp }
         )
+        v.canBeginCardPlay = {
+            currentActivityListView.recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE &&
+                !touchHandler.isScrolling
+        }
         v.apply {
             background = null
+            onAccountScrollIdle = { moveHeaderViewToCell() }
             onLayoutRecalculated = {
                 currentActivityListView.updateHeaderHeights()
                 if (mode == HomeHeaderView.Mode.Collapsed) {
@@ -571,7 +643,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         onClick(identifier)
     }
 
-    private fun onClick(identifier: HeaderActionsView.Identifier) {
+    private fun onClick(identifier: HeaderActionsView.Identifier, showStaking: Boolean = false) {
         val window = window ?: return
         when (identifier) {
             HeaderActionsView.Identifier.BACK -> {
@@ -676,7 +748,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
                     window,
                     WNavigationController.PresentationConfig.PreferredFullScreen
                 )
-                if (activeStakingTokenSlug != null) {
+                if (activeStakingTokenSlug != null && !showStaking) {
                     navVC.setRoot(EarnRootVC(context, tokenSlug = activeStakingTokenSlug))
                 } else {
                     navVC.setRoot(StakingVC(context, TONCOIN_SLUG, StakingViewModel.Mode.STAKE))
@@ -857,6 +929,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         topOverlayHeightAnimator?.cancel()
         initialContentRenderCallback = null
         homeVM.destroy()
+        infoBannersByAccount.clear()
         if (mode is MScreenMode.SingleWallet &&
             WGlobalStorage.temporaryAddedAccountIds.contains(mode.accountId)
         ) {
@@ -1215,6 +1288,7 @@ class HomeVC(context: Context, private val mode: MScreenMode) :
         resetCurrentScroll: Boolean = shouldLoadNewWallets
     ) {
         val activeAccount = headerView.centerAccount ?: homeVM.showingAccount ?: return
+        homeVM.loadInfoBanners(activeAccount.accountId)
         NftStore.preloadCollections(activeAccount.accountId)
         homeVM.loadedAccountId = activeAccount.accountId
         val accountIds = WGlobalStorage.accountIds()

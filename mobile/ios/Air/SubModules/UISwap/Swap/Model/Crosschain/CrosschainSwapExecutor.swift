@@ -11,7 +11,7 @@ import WalletCore
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let swapEstimate else {
-            throw SdkError.unexpected(message: "Missing swap estimate")
+            throw NotSubmittedError(SdkError.unexpected(message: "Missing swap estimate"))
         }
         switch swapType.cexTopology {
         case .fromWallet:
@@ -32,7 +32,7 @@ import WalletCore
                 enclaveToken: enclaveToken
             )
         case nil:
-            throw SdkError.unexpected(message: "Invalid cross-chain swap type")
+            throw NotSubmittedError(SdkError.unexpected(message: "Invalid cross-chain swap type"))
         }
     }
 
@@ -44,7 +44,7 @@ import WalletCore
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let toAddress = account.getAddress(chain: buyingToken.chain) else {
-            throw SdkError.unexpected(message: "Missing payout address")
+            throw NotSubmittedError(SdkError.unexpected(message: "Missing payout address"))
         }
         return try await performCexSwap(
             swapEstimate: swapEstimate,
@@ -66,7 +66,7 @@ import WalletCore
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let payoutAddress, !payoutAddress.isEmpty else {
-            throw SdkError.unexpected(message: "Missing payout address")
+            throw NotSubmittedError(SdkError.unexpected(message: "Missing payout address"))
         }
         return try await performCexSwap(
             swapEstimate: swapEstimate,
@@ -89,13 +89,13 @@ import WalletCore
         enclaveToken: EnclaveToken
     ) async throws -> SwapExecutionResult {
         guard let historyAddress = account.crosschainIdentifyingFromAddress else {
-            throw SdkError.unexpected(message: "Missing account address")
+            throw NotSubmittedError(SdkError.unexpected(message: "Missing account address"))
         }
         let isNearIntents = swapEstimate.cexLabel == .nearIntents
         let fromAddress: String
         if isNearIntents {
             guard let sourceAddress = account.getAddress(chain: sellingToken.chain) else {
-                throw SdkError.unexpected(message: "Missing source address")
+                throw NotSubmittedError(SdkError.unexpected(message: "Missing source address"))
             }
             fromAddress = sourceAddress
         } else {
@@ -114,7 +114,7 @@ import WalletCore
             networkFee: networkFee,
             swapFee: swapEstimate.swapFee
         )
-        let result = try await SwapCexSupport.swapCexCreateTransaction(
+        let result = try await SwapCexSupport().swapCexCreateTransaction(
             accountId: account.id,
             sellingToken: sellingToken,
             request: request,

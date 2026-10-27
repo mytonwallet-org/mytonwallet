@@ -32,7 +32,7 @@ import {
   submitNftTransfers,
 } from './nfts';
 import { getIsLedgerAppOpen } from './other';
-import { setupActivePolling, setupInactivePolling } from './polling';
+import { pollStaking, setupActivePolling, setupInactivePolling } from './polling';
 import * as staking from './staking';
 import { buildOnchainSwapTransfer, submitOnchainSwapTransfer } from './swap';
 import { fetchToken, importToken } from './tokens';
@@ -124,6 +124,7 @@ if (process.env.NO_EXTRA_FEATURES !== '1') {
     submitTokenStakingClaim: staking.submitTokenStakingClaim,
     submitUnstakeEthenaLocked: staking.submitUnstakeEthenaLocked,
     getCommonData: staking.getStakingCommonData,
+    poll: pollStaking,
   };
 
   tonSdk.mfa = {

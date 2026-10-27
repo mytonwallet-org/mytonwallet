@@ -29,6 +29,11 @@ data class SwapEstimateRequest private constructor(
     val tokenToSendIsSupported = wallet.isSupportedChain(tokenToSend.mBlockchain)
     val tokenToReceiveIsSupported = wallet.isSupportedChain(tokenToReceive.mBlockchain)
     val isCex = SwapHelpers.isCex(tokenToSend, tokenToReceive)
+    val usesUnifiedQuote = !isCex || (
+        tokenToSendIsSupported && tokenToReceiveIsSupported &&
+            MBlockchain.isEvmChain(tokenToSendChain.name) &&
+            (tokenToReceive.mBlockchain?.name?.let { MBlockchain.isEvmChain(it) } == true)
+        )
 
     val shouldTryDiesel: Boolean
 
@@ -85,6 +90,7 @@ data class SwapEstimateRequest private constructor(
                 null
             },
             slippage = slippage,
+            toAddress = tokenToReceive.mBlockchain?.name?.let { wallet.addressByChain[it] },
             shouldTryDiesel = shouldTryDiesel,
             walletVersion = null,
             isFromAmountMax = isFromAmountMax,

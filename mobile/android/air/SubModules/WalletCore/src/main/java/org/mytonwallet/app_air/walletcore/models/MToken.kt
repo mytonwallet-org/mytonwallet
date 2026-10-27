@@ -3,6 +3,7 @@ package org.mytonwallet.app_air.walletcore.models
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
+import java.util.Objects
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletbasecontext.utils.doubleAbsRepresentation
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -127,6 +128,17 @@ class MToken internal constructor(json: TokenFields) :
             put("label", label)
         }
         return dict
+    }
+
+    // Hash of the values toDictionary writes; keep both in sync.
+    // Doubles add their raw bits so a change in one of them always changes the hash.
+    fun cacheHash(): Long {
+        val hash = Objects.hash(
+            decimals, slug, symbol, name, localizedName, image, tokenAddress, isPopular, chain,
+            isFromBackend, type, keywords, cmcSlug, color, isGaslessEnabled, isStarsEnabled,
+            isTiny, customPayloadApiUrl, codeHash, label
+        ).toLong()
+        return (hash * 31 + percentChange24hReal.toRawBits()) * 31 + priceUsd.toRawBits()
     }
 
     fun isHidden(

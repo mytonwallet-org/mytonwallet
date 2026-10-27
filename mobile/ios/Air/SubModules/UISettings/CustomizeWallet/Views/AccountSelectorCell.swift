@@ -51,6 +51,12 @@ private struct CardBackground: View {
     var body: some View {
         WithPerceptionTracking {
             MtwCardBackground(nft: accountContext.nft, isAnimationEnabled: isAnimationEnabled)
+                .transaction {
+                    // Focus changes swap the animated and static renderers during a swipe.
+                    // Crossfading them exposes the placeholder behind the artwork.
+                    $0.animation = nil
+                    $0.disablesAnimations = true
+                }
         }
     }
 }
@@ -92,7 +98,7 @@ private struct GridAddressLine: View {
     
     var body: some View {
         WithPerceptionTracking {
-            MtwCardAddressLine(addressLine: accountContext.addressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: accountContext.nft))
+            MtwCardAddressLine(addressLine: accountContext.topAddressLine, style: .customizeWalletCard, gradient: MtwCardCenteredGradient(nft: accountContext.nft))
         }
     }
 }

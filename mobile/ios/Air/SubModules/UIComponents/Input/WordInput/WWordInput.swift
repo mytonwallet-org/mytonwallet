@@ -18,28 +18,28 @@ public protocol WWordInputDelegate: AnyObject {
 public class WWordInput: UIView {
     private weak var suggestionsView: WSuggestionsView? = nil
     private weak var delegate: WWordInputDelegate? = nil
-    
+
     public let wordNumber: Int
     public var advancesOnSuggestionSelection = true
     public weak var previousInput: WWordInput?
     public weak var nextInput: WWordInput?
 
     private let numberLabel = UILabel()
-    
+
     public init(wordNumber: Int, suggestionsView: WSuggestionsView?, delegate: WWordInputDelegate?) {
         self.wordNumber = wordNumber
         self.suggestionsView = suggestionsView
         self.delegate = delegate
-        
+
         super.init(frame: CGRect.zero)
-        
+
         setup()
     }
-    
+
     required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public lazy var textField = WWordInputField(input: self)
 
     func setup() {
@@ -77,7 +77,7 @@ public class WWordInput: UIView {
         NSLayoutConstraint.activate([
             numberLabel.widthAnchor.constraint(equalToConstant: 36)
         ])
-        
+
         // add text field
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.autocorrectionType = .no
@@ -92,7 +92,7 @@ public class WWordInput: UIView {
         textField.inputAssistantItem.trailingBarButtonGroups = []
         textField.autocapitalizationType = .none
         textField.applyTextStyle(.bodyEmphasized)
-        textField.accessibilityLabel = localizedIntegerString(wordNumber)
+        textField.accessibilityLabel = L10n.secretWordInputAriaLabel(number: wordNumber)
         stackView.addArrangedSubview(textField)
 
         updateTheme()
@@ -102,7 +102,7 @@ public class WWordInput: UIView {
         backgroundColor = .air.groupedItem
         numberLabel.textColor = .air.secondaryLabel
     }
-    
+
     @objc private func focusTextField() {
         textField.becomeFirstResponder()
     }
@@ -127,16 +127,16 @@ public class WWordInput: UIView {
             delegate?.textChanged()
         }
         textFieldDidEndEditing(textField)
-        
+
         if goToNextInput {
             nextInput?.textField.becomeFirstResponder()
         }
     }
-        
+
     internal func paste(words: [String]) {
         delegate?.wordInput(self, wantsPasteWords: words)
     }
-    
+
     public var trimmedText: String? {
         textField.text?.trimmingCharacters(in: .whitespaces).lowercased().nilIfEmpty
     }
@@ -150,7 +150,7 @@ extension WWordInput: UITextFieldDelegate {
         }
         delegate?.wordInputDidBeginEditing(self)
     }
-    
+
     public func textFieldShouldClear(_ textField: UITextField) -> Bool {
         textField.text = nil
         showSuggestions(for: nil)
@@ -166,7 +166,7 @@ extension WWordInput: UITextFieldDelegate {
         }
         return false
     }
-    
+
     public func textFieldDidEndEditing(_ textField: UITextField) {
         let keyword = trimmedText ?? ""
         if isValidPrivateKeyHex(keyword) {
@@ -188,7 +188,7 @@ extension WWordInput: UITextFieldDelegate {
         }
         showSuggestions(for: nil)
     }
-    
+
     public func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         if string == "\t" {
             self.textField.focusNextWord()
@@ -201,13 +201,13 @@ extension WWordInput: UITextFieldDelegate {
             showSuggestions(for: newText)
             if textField.text != newText {
                 let cursorOffset = range.location + string.count
-                
+
                 textField.text = newText
-                
+
                 if let newPosition = textField.position(from: textField.beginningOfDocument, offset: min(cursorOffset, newText.count)) {
                     textField.selectedTextRange = textField.textRange(from: newPosition, to: newPosition)
                 }
-                
+
                 return false
             }
         }

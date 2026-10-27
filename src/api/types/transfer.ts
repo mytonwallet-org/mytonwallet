@@ -145,9 +145,15 @@ export interface ApiSubmitGaslessTransferResult extends ApiSubmitGasfullTransfer
   withW5Gasless?: boolean;
 }
 
-export type ApiSubmitNftTransferResult = {
-  transfers: { toAddress: string }[];
+export type ApiNftTransfer = {
+  toAddress: string;
   msgHashNormalized: string;
+};
+
+export type ApiSubmitNftTransferResult = {
+  transfers: ApiNftTransfer[];
+  /** A later batch failed after the transfers above were submitted */
+  error?: string;
 } | {
   mfaRequest: SignedMfaRequest;
 } | {

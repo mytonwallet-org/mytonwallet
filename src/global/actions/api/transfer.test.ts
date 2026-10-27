@@ -1,13 +1,13 @@
 import './transfer';
 
 import type { ApiCheckTransactionDraftResult, ApiNft } from '../../../api/types';
-import type { getActions } from '../../index';
 import type { ActionPayloads, GlobalState } from '../../types';
-import { ApiTransactionDraftError } from '../../../api/types';
+import { ApiTransactionDraftError, ApiTransactionError } from '../../../api/types';
+import { TransferState } from '../../types';
 
-import { SOLANA } from '../../../config';
+import { SOLANA, TONCOIN } from '../../../config';
 import { callApi } from '../../../api';
-import { addActionHandler, getGlobal, setGlobal } from '../../index';
+import { addActionHandler, getActions, getGlobal, setGlobal } from '../../index';
 import { INITIAL_STATE } from '../../initialState';
 
 jest.mock('../../../api', () => ({ callApi: jest.fn() }));
@@ -20,6 +20,7 @@ jest.mock('../../index', () => ({
 }));
 
 const ACCOUNT_ID = '0-mainnet';
+const TO_ADDRESS = '11111111111111111111111111111111';
 const NFT: ApiNft = {
   chain: 'solana',
   address: 'nft-address',
@@ -42,12 +43,16 @@ type FetchNftFeeHandler = (
 
 const fetchNftFee = jest.mocked(addActionHandler).mock.calls
   .find(([name]) => name === 'fetchNftFee')![1] as FetchNftFeeHandler;
+const submitTransfer = jest.mocked(addActionHandler).mock.calls
+  .find(([name]) => name === 'submitTransfer')![1] as (
+  global: GlobalState, actions: ReturnType<typeof getActions>, payload: { enclaveToken: string },
+) => Promise<void>;
 
-function buildGlobal(balance: bigint | undefined): GlobalState {
+function buildGlobal(balance: bigint | undefined, nfts = [NFT]): GlobalState {
   return {
     ...INITIAL_STATE,
     currentAccountId: ACCOUNT_ID,
-    currentTransfer: { ...INITIAL_STATE.currentTransfer, tokenSlug: SOLANA.slug, nfts: [NFT] },
+    currentTransfer: { ...INITIAL_STATE.currentTransfer, tokenSlug: SOLANA.slug, nfts },
     tokenInfo: { bySlug: { [SOLANA.slug]: { ...SOLANA, priceUsd: 0, percentChange24h: 0 } } },
     byAccountId: {
       [ACCOUNT_ID]: { balances: { bySlug: balance === undefined ? {} : { [SOLANA.slug]: balance } } },
@@ -56,6 +61,68 @@ function buildGlobal(balance: bigint | undefined): GlobalState {
 }
 
 describe('actions/api/transfer', () => {
+  describe('submitTransfer', () => {
+    let store: GlobalState;
+    const showError = jest.fn();
+
+    beforeEach(() => {
+      showError.mockClear();
+      jest.mocked(getActions).mockReturnValue({ showError } as unknown as ReturnType<typeof getActions>);
+      jest.mocked(getGlobal).mockImplementation(() => store);
+      jest.mocked(setGlobal).mockImplementation((next) => {
+        store = next;
+      });
+    });
+
+    it('hands a 255-NFT TON selection to the SDK in one call', async () => {
+      const nfts = Array.from({ length: 255 }, (_, index) => ({
+        ...NFT, chain: 'ton' as const, address: `nft-${index}`,
+      }));
+      store = buildGlobal(100_000_000_000n, nfts);
+      store.currentTransfer.tokenSlug = TONCOIN.slug;
+      store.currentTransfer.resolvedAddress = TO_ADDRESS;
+      store.currentTransfer.explainedFee = EXPLAINED_FEE;
+      const actions = {
+        releaseEnclaveSession: jest.fn(),
+        fetchTransferDieselState: jest.fn(),
+      } as unknown as ReturnType<typeof getActions>;
+      jest.mocked(callApi).mockResolvedValueOnce({ activityIds: nfts.map((nft) => nft.address) } as never);
+      const callOffset = jest.mocked(callApi).mock.calls.length;
+
+      await submitTransfer(store, actions, { enclaveToken: 'token' });
+
+      const calls = jest.mocked(callApi).mock.calls.slice(callOffset);
+      expect(calls).toHaveLength(1);
+      expect(calls[0][0]).toBe('submitNftTransfers');
+      expect(calls[0][4]).toEqual(nfts);
+      expect(store.currentTransfer.sentNftsCount).toBe(255);
+      expect(actions.releaseEnclaveSession).toHaveBeenCalledWith({ enclaveToken: 'token' });
+    });
+
+    it.each([0, 4])('finishes a failed NFT submission only when %i NFTs were accepted', async (acceptedCount) => {
+      const nfts = Array.from({ length: 5 }, (_, index) => ({ ...NFT, chain: 'ton' as const, address: `nft-${index}` }));
+      store = buildGlobal(100_000_000_000n, nfts);
+      store.currentTransfer.state = TransferState.Password;
+      store.currentTransfer.tokenSlug = TONCOIN.slug;
+      store.currentTransfer.resolvedAddress = TO_ADDRESS;
+      const actions = { releaseEnclaveSession: jest.fn() } as unknown as ReturnType<typeof getActions>;
+      const error = acceptedCount
+        ? ApiTransactionError.PartialTransactionFailure
+        : ApiTransactionError.InsufficientBalance;
+      jest.mocked(callApi).mockResolvedValueOnce({
+        activityIds: nfts.slice(0, acceptedCount).map((nft) => nft.address), error,
+      } as never);
+
+      await submitTransfer(store, actions, { enclaveToken: 'token' });
+
+      expect(showError).toHaveBeenCalledWith({ error });
+      expect(store.currentTransfer.state).toBe(acceptedCount ? TransferState.Complete : TransferState.Password);
+      expect(store.currentTransfer.sentNftsCount).toBe(acceptedCount);
+      expect(store.currentTransfer.isLoading).toBeUndefined();
+      expect(actions.releaseEnclaveSession).toHaveBeenCalledWith({ enclaveToken: 'token' });
+    });
+  });
+
   describe('fetchNftFee', () => {
     let store: GlobalState;
     const showError = jest.fn();

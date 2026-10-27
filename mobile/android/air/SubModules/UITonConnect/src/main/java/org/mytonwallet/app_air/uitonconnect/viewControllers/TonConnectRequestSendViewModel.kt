@@ -226,6 +226,34 @@ internal fun buildSignDataUiItems(update: ApiUpdate.ApiUpdateDappSignData): List
     return uiItems
 }
 
+private fun warningKey(isDangerous: Boolean, hasStateInit: Boolean): String? = when {
+    isDangerous -> "\$hardware_payload_warning"
+    hasStateInit -> "\$signature_warning"
+    else -> null
+}
+
+internal fun requestWarningKey(update: ApiUpdate.ApiUpdateDappSendTransactions): String? =
+    warningKey(update.isDangerous, update.hasStateInit)
+
+internal fun messageWarningKey(transaction: ApiDappTransfer): String? =
+    warningKey(transaction.isDangerous, !transaction.stateInit.isNullOrEmpty())
+
+private fun warningItem(key: String?): Item.Alert? = key?.let {
+    Item.Alert(LocaleController.getString(it).toProcessedSpannableStringBuilder())
+}
+
+internal fun stateInitUiItems(transaction: ApiDappTransfer): List<BaseListItem> {
+    val stateInit = transaction.stateInit?.takeIf { it.isNotEmpty() } ?: return emptyList()
+    return listOf(
+        Item.Gap(),
+        Item.ListTitle(
+            LocaleController.getString("Contract Initialization Data"),
+            topRounding = HeaderCell.TopRounding.NORMAL
+        ),
+        Item.ExpandableText(stateInit)
+    )
+}
+
 private fun formatParsedCellPreview(
     preview: ApiUpdate.ApiUpdateDappSignData.ParsedSignDataCellPreview
 ): String {
@@ -554,9 +582,11 @@ class TonConnectRequestSendViewModel private constructor(
                             Item.Gap()
                         )
                     )
-                } else if (update.isDangerous) {
-                    uiItems.add(dangerousWarningItem())
-                    uiItems.add(Item.Gap())
+                } else {
+                    warningItem(requestWarningKey(update))?.let { alert ->
+                        uiItems.add(alert)
+                        uiItems.add(Item.Gap())
+                    }
                 }
 
                 var previewFee: TonConnectItem.PreviewFee? = null
@@ -845,6 +875,61 @@ class TonConnectRequestSendViewModel private constructor(
             }
         }
 
+        private fun formatTonAmount(amount: BigInteger): String {
+            val token = TokenStore.getToken(TONCOIN_SLUG)
+            val decimals = token?.decimals ?: 9
+            val symbol = token?.symbol ?: "TON"
+            return amount.toString(
+                decimals = decimals,
+                currency = symbol,
+                currencyDecimals = 2,
+                showPositiveSign = false,
+                roundUp = false
+            )
+        }
+
+        private fun teleitemDisplayName(nftName: String?, nftAddress: String): String =
+            if (nftName.isNullOrEmpty()) nftAddress else nftName
+
+        private fun nestedTransactionText(payload: ApiParsedPayload?): String? = when (payload) {
+            is ApiParsedPayload.ApiTeleitemStartAuctionPayload ->
+                LocaleController.getStringWithKeyValues(
+                    "\$dapp_teleitem_start_auction_payload",
+                    listOf(
+                        "%name%" to teleitemDisplayName(payload.nftName, payload.nftAddress),
+                        "%amount%" to formatTonAmount(payload.initialMinBid)
+                    )
+                )
+
+            is ApiParsedPayload.ApiTeleitemCancelAuctionPayload ->
+                LocaleController.getStringWithKeyValues(
+                    "\$dapp_teleitem_cancel_auction_payload",
+                    listOf(
+                        "%name%" to teleitemDisplayName(payload.nftName, payload.nftAddress)
+                    )
+                )
+
+            is ApiParsedPayload.ApiTeleitemDeployPayload ->
+                LocaleController.getStringWithKeyValues(
+                    "\$dapp_teleitem_deploy_payload",
+                    listOf(
+                        "%name%" to payload.tokenName,
+                        "%amount%" to formatTonAmount(payload.initialMinBid)
+                    )
+                )
+
+            is ApiParsedPayload.ApiTeleitemBidInfoPayload ->
+                LocaleController.getStringWithKeyValues(
+                    "\$dapp_teleitem_bid_info_payload",
+                    listOf("%amount%" to formatTonAmount(payload.amount))
+                )
+
+            is ApiParsedPayload.ApiTeleitemReturnBidPayload ->
+                LocaleController.getString("\$dapp_teleitem_return_bid_payload")
+
+            else -> null
+        }
+
         private fun formatCurrencyAmount(
             amount: String,
             currencySign: String
@@ -897,11 +982,6 @@ class TonConnectRequestSendViewModel private constructor(
                 )
             }
         }
-
-        private fun dangerousWarningItem() = Item.Alert(
-            LocaleController.getString("\$hardware_payload_warning")
-                .toProcessedSpannableStringBuilder()
-        )
 
         private fun buildUiItemsListTransactions(
             update: ApiUpdate.ApiUpdateDappSendTransactions,
@@ -991,8 +1071,8 @@ class TonConnectRequestSendViewModel private constructor(
                 }
             }
 
-            if (update.isDangerous) {
-                summaryItems.add(dangerousWarningItem())
+            warningItem(requestWarningKey(update))?.let { alert ->
+                summaryItems.add(alert)
                 summaryItems.add(Item.Gap())
             }
 
@@ -1018,6 +1098,11 @@ class TonConnectRequestSendViewModel private constructor(
                 "Receiving Address"
             } else {
                 "Contract Address"
+            }
+
+            warningItem(messageWarningKey(transaction))?.let { alert ->
+                uiItems.add(alert)
+                uiItems.add(Item.Gap())
             }
 
             uiItems.addAll(
@@ -1153,7 +1238,19 @@ class TonConnectRequestSendViewModel private constructor(
                 )
             }
 
-            if (payload !is ApiParsedPayload.ApiCommentPayload) {
+            val nestedText = nestedTransactionText(payload)
+            if (nestedText != null) {
+                uiItems.addAll(
+                    listOf(
+                        Item.Gap(),
+                        Item.ListTitle(
+                            LocaleController.getString("Nested Transaction"),
+                            topRounding = HeaderCell.TopRounding.NORMAL
+                        ),
+                        Item.ExpandableText(nestedText)
+                    )
+                )
+            } else if (payload !is ApiParsedPayload.ApiCommentPayload) {
                 transaction.rawPayload?.let { base64 ->
                     uiItems.addAll(
                         listOf(
@@ -1168,17 +1265,7 @@ class TonConnectRequestSendViewModel private constructor(
                 }
             }
 
-            if (transaction.isDangerous) {
-                uiItems.addAll(
-                    listOf(
-                        Item.Gap(24.dp),
-                        Item.Alert(
-                            LocaleController.getString("\$hardware_payload_warning")
-                                .toProcessedSpannableStringBuilder()
-                        )
-                    )
-                )
-            }
+            uiItems.addAll(stateInitUiItems(transaction))
 
             return uiItems
         }

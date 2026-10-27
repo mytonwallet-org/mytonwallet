@@ -1,6 +1,6 @@
 {
   "name": "mytonwallet",
-  "version": "26.10.6",
+  "version": "26.10.7",
   "description": "The most feature-rich web wallet and browser extension for TON – with support of multi-accounts, tokens (jettons), NFT, TON DNS, TON Sites, TON Proxy, and TON Magic.",
   "main": "index.js",
   "scripts": {
@@ -70,6 +70,10 @@
     "test:web-funnel-storage": "node dev/testWebFunnelStorage.mjs",
     "test:agent:v2:e2e": "playwright test --config playwright.agent-v2.config.ts",
     "test:record": "playwright codegen localhost:1235",
+    "test:maestro:core:install": "python3 -m venv maestro/.venv && maestro/.venv/bin/python -m pip install -q --upgrade pip -r maestro/scripts/requirements.txt",
+    "test:maestro:core:start": "maestro/.venv/bin/python maestro/scripts/bot.py",
+    "test:maestro:panel:install": "npm install --prefix maestro/panel",
+    "test:maestro:panel:start": "npm start --prefix maestro/panel",
     "prepare": "husky",
     "postinstall": "patch-package --error-on-fail",
     "build:stats": "cross-env BUNDLE_STATS=1 vite build",

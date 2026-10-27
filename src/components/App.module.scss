@@ -60,10 +60,6 @@
       padding-inline-end: var(--scrollbar-width);
     }
   }
-
-  @include mixins.respond-above(xs) {
-    padding-inline-start: 1rem;
-  }
 }
 
 :global(html.is-electron) .transitionContainer {

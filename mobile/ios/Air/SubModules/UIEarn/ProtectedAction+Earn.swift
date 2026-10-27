@@ -3,6 +3,26 @@ import WalletContext
 import WalletCore
 
 extension ProtectedAction where HeaderView == StakingConfirmHeaderView, Result == ApiMfaProtectedResult {
+    static func foreignUnstake(account: MAccount, chain: ApiChain, providerName: String, draft: ApiForeignUnstakeDraft) -> Self {
+        Self(
+            account: account,
+            software: .single { enclaveToken in
+                try await Api.submitForeignUnstake(accountId: account.id, chain: chain, providerName: providerName, draft: draft, enclaveToken: enclaveToken)
+            },
+            hardware: .single {
+                let result = try await Api.submitForeignUnstake(accountId: account.id, chain: chain, providerName: providerName, draft: draft, enclaveToken: nil)
+                return ActionSubmissionReceipt(payload: result, activityIds: result.protectedActionActivityIds)
+            },
+            confirmation: .init(
+                title: lang("Confirm Unstaking"),
+                header: StakingConfirmHeaderView(
+                    mode: .unstake,
+                    tokenAmount: TokenAmount(draft.amountNative, TokenStore.getNativeToken(chain: chain))
+                )
+            )
+        )
+    }
+
     static func stake(model: AddStakeModel, account: MAccount) throws -> Self {
         guard let snapshot = model.currentDraftSnapshot,
               snapshot.draft.error == nil,

@@ -12,6 +12,7 @@ import { getIsActivityPendingForUser, getShouldSkipSwapWaitingStatus } from '../
 import buildClassName from '../../../../util/buildClassName';
 import { formatTime } from '../../../../util/dateFormat';
 import { formatCurrencyExtended } from '../../../../util/formatNumber';
+import { getLifiReceivedToken } from '../../../../util/swap/lifiHistory';
 
 import useLang from '../../../../hooks/useLang';
 
@@ -80,15 +81,15 @@ function Swap({
   }, [from, swapTokensBySlug, tokensBySlug]);
 
   const toToken = useMemo(() => {
-    if (!to || !swapTokensBySlug || !tokensBySlug) return undefined;
+    if (!to || !swapTokensBySlug || !tokensBySlug) return getLifiReceivedToken(activity);
 
     const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, to);
     if (!prioritySwapToken) {
-      return resolveSwapAsset(tokensBySlug, to);
+      return getLifiReceivedToken(activity, resolveSwapAsset(tokensBySlug, to));
     }
 
-    return prioritySwapToken;
-  }, [to, swapTokensBySlug, tokensBySlug]);
+    return getLifiReceivedToken(activity, prioritySwapToken);
+  }, [activity, to, swapTokensBySlug, tokensBySlug]);
 
   const fromAmount = Number(activity.fromAmount);
   const toAmount = Number(activity.toAmount);
@@ -134,7 +135,7 @@ function Swap({
         min={5}
         max={10}
         seed={`${timestamp}-from`}
-        rows={1}
+        rows={2}
         cellSize={8}
         align="right"
         className={styles.swapAmountFrom}
@@ -166,7 +167,7 @@ function Swap({
         min={5}
         max={13}
         seed={`${timestamp}-to`}
-        rows={1}
+        rows={2}
         cellSize={8}
         align="right"
         contentClassName={styles.amount}
@@ -198,7 +199,11 @@ function Swap({
     let state = '';
     const cexStatus = cex?.status;
 
-    if (cexStatus === 'expired' || cexStatus === 'overdue') {
+    if (activity.lifi?.outcome === 'refunded') {
+      state = lang('Refunded');
+    } else if (activity.lifi?.outcome === 'partial') {
+      state = lang('Action Partially Completed');
+    } else if (cexStatus === 'expired' || cexStatus === 'overdue') {
       state = lang('Expired');
     } else if (cexStatus === 'refunded') {
       state = lang('Refunded');
@@ -222,6 +227,7 @@ function Swap({
   }
 
   function renderTitle() {
+    if (activity.lifi?.outcome === 'partial') return lang('Action Partially Completed');
     if (isHold || isError || isFuture) {
       return lang('$swap_action');
     } else if (isPending) {

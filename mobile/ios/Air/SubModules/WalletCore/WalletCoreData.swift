@@ -111,6 +111,7 @@ public struct WalletCoreData {
         case initialActivities(ApiUpdate.InitialActivities)
         case updateAccount(ApiUpdate.UpdateAccount)
         case updateAccountConfig(ApiUpdate.UpdateAccountConfig)
+        case updateAccountBanners(ApiUpdate.UpdateAccountBanners)
         case updateAccountDomainData(ApiUpdate.UpdateAccountDomainData)
         case updateBalances(ApiUpdate.UpdateBalances)
         case updateCurrencyRates(ApiUpdate.UpdateCurrencyRates)

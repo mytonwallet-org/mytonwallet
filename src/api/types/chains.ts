@@ -5,6 +5,7 @@
 import type * as tonAuth from '../chains/ton/auth';
 import type * as tonDomains from '../chains/ton/domains';
 import type * as tonMfa from '../chains/ton/mfa';
+import type * as tonPolling from '../chains/ton/polling';
 import type * as tonStaking from '../chains/ton/staking';
 import type { ChainDappSupport } from '../dappProtocols/types';
 import type {
@@ -60,6 +61,7 @@ export interface ChainStakingSupport {
   submitTokenStakingClaim: typeof tonStaking.submitTokenStakingClaim;
   submitUnstakeEthenaLocked: typeof tonStaking.submitUnstakeEthenaLocked;
   getCommonData: typeof tonStaking.getStakingCommonData;
+  poll: typeof tonPolling.pollStaking;
 }
 
 /**

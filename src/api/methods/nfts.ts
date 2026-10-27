@@ -6,6 +6,7 @@ import type {
   ApiReportNftOptions,
   OnApiUpdate,
 } from '../types';
+import { ApiTransactionError } from '../types';
 
 import { bigintDivideToNumber } from '../../util/bigint';
 import { getChainConfig } from '../../util/chain';
@@ -54,7 +55,7 @@ export async function submitNftTransfers(
   comment?: string,
   totalRealFee = 0n,
   isNftBurn?: boolean,
-): Promise<{ activityIds: string[] } | { mfaRequestHash: string } | { error: string }> {
+): Promise<{ activityIds: string[]; error?: string } | { mfaRequestHash: string } | { error: string }> {
   const { address: fromAddress } = await fetchStoredWallet(accountId, chain);
 
   logDebug('submitNftTransfers', 'Request', {
@@ -71,7 +72,7 @@ export async function submitNftTransfers(
     accountId, enclaveToken, nfts, toAddress, comment, isNftBurn,
   });
 
-  if ('error' in result) {
+  if ('error' in result && !('transfers' in result)) {
     logDebugError('submitNftTransfers:result', result);
     return result;
   }
@@ -109,10 +110,10 @@ export async function submitNftTransfers(
     };
   }
 
-  const realFeePerNft = bigintDivideToNumber(totalRealFee, Object.keys(result.transfers).length);
+  const realFeePerNft = nfts.length ? bigintDivideToNumber(totalRealFee, nfts.length) : 0n;
 
   const localActivities = createLocalTransactions(accountId, chain, result.transfers.map((transfer, index) => ({
-    id: result.msgHashNormalized,
+    id: transfer.msgHashNormalized,
     amount: 0n, // Regular NFT transfers should have no amount in the activity list
     fromAddress,
     toAddress,
@@ -120,9 +121,18 @@ export async function submitNftTransfers(
     fee: realFeePerNft,
     normalizedAddress: transfer.toAddress,
     slug: getChainConfig(chain).nativeToken.slug,
-    externalMsgHashNorm: result.msgHashNormalized,
+    externalMsgHashNorm: transfer.msgHashNormalized,
     nft: nfts?.[index],
   })));
+
+  const activityIds = extractKey(localActivities, 'id');
+  if (result.error) {
+    logDebugError('submitNftTransfers:result', result);
+    return {
+      activityIds,
+      error: result.transfers.length ? ApiTransactionError.PartialTransactionFailure : result.error,
+    };
+  }
 
   if (process.env.NO_EXTRA_FEATURES !== '1' && chain === 'ton') {
     void requireMfaMethods().refreshMfaState(accountId, enclaveToken)
@@ -142,7 +152,7 @@ export async function submitNftTransfers(
   }
 
   return {
-    activityIds: extractKey(localActivities, 'id'),
+    activityIds,
   };
 }
 

@@ -4,6 +4,8 @@
   --pill-width: 5rem;
   --drag-offset-px: 0px;
 
+  min-width: 22.5rem;
+
   @include mixins.bottomBarFade();
 
   &.hidden {

@@ -48,6 +48,8 @@ public extension ApiActivity {
         case .mint: ["Minted", "Minting", "$mint_action"]
         case .burn: ["Burned", "Burning", "$burn_action"]
         case .auctionBid: ["NFT Auction Bid", "Bidding at NFT Auction", "NFT Auction Bid"]
+        case .nftAuctionStart: ["Started Auction", "Starting Auction", "$start_nft_auction_action"]
+        case .nftAuctionCancel: ["Cancelled Auction", "Cancelling Auction", "$cancel_nft_auction_action"]
         case .dnsChangeAddress: ["Updated Address", "Updating Address", "$update_address_action"]
         case .dnsChangeSite: ["Updated Site", "Updating Site", "$update_site_action"]
         case .dnsChangeSubdomains: ["Updated Subdomains", "Updating Subdomains", "$update_subdomains_action"]
@@ -204,7 +206,7 @@ public extension ApiActivity {
             "ActionMint"
         case .burn:
             "ActionBurn"
-        case .auctionBid:
+        case .auctionBid, .nftAuctionStart, .nftAuctionCancel:
             "ActionAuctionBid"
         case .nftTrade:
             "ActionNftBought"
@@ -254,7 +256,7 @@ public extension ApiActivity {
             green
         case .burn:
             red
-        case .auctionBid:
+        case .auctionBid, .nftAuctionStart, .nftAuctionCancel:
             blue
         case .nftTrade:
             blue

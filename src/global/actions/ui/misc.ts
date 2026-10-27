@@ -44,13 +44,16 @@ import {
   renameAccount,
   setIsPinAccepted,
   updateAccounts,
+  updateAccountSettings,
   updateAuth,
   updateCurrentAccountState,
+  updateCurrentStaking,
   updateCurrentTransactionInfo,
   updateDappConnectRequest,
   updateSettings,
 } from '../../reducers';
 import {
+  selectAccountSettings,
   selectCurrentAccount,
   selectCurrentAccountId,
   selectCurrentAccountState,
@@ -805,7 +808,10 @@ addActionHandler('closeFullscreen', (global) => {
 });
 
 addActionHandler('setIsSensitiveDataHidden', (global, actions, { isHidden }) => {
-  setGlobal(updateSettings(global, { isSensitiveDataHidden: isHidden ? true : undefined }));
+  // The toggle answers a tap, so it does not wait for heavy animations to end
+  setGlobal(updateSettings(global, { isSensitiveDataHidden: isHidden ? true : undefined }), {
+    forceOnHeavyAnimation: true,
+  });
 
   vibrate();
 });
@@ -916,6 +922,20 @@ addActionHandler('openPromotionModal', (global) => {
 
 addActionHandler('closePromotionModal', (global) => {
   return { ...global, isPromotionModalOpen: undefined };
+});
+
+addActionHandler('dismissHomeBanner', (global, actions, { accountId, id }) => {
+  const dismissedIds = selectAccountSettings(global, accountId)?.dismissedHomeBannerIds ?? [];
+  if (dismissedIds.includes(id)) return undefined;
+
+  return updateAccountSettings(global, accountId, { dismissedHomeBannerIds: [...dismissedIds, id] });
+});
+
+addActionHandler('dismissStakingBanner', (global, actions, { id }) => {
+  const { dismissedBannerIds = [] } = global.currentStaking;
+  if (dismissedBannerIds.includes(id)) return undefined;
+
+  return updateCurrentStaking(global, { dismissedBannerIds: [...dismissedBannerIds, id] });
 });
 
 addActionHandler('setAppLayout', (global, actions, { layout }) => {

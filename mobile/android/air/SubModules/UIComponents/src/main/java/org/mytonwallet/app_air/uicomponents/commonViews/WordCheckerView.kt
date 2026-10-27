@@ -81,7 +81,7 @@ class WordCheckerView(context: Context, val onSelect: () -> Unit) :
         indexLabel.setStyle(17f)
         indexLabel.text = "$index."
         indexLabel.setTextColor(WColor.SecondaryText)
-        setupWordViews(options)
+        setupWordViews(index, options)
     }
 
     fun config(index: Int, word: String, animated: Boolean) {
@@ -95,7 +95,7 @@ class WordCheckerView(context: Context, val onSelect: () -> Unit) :
         }
     }
 
-    private fun setupWordViews(words: List<String>) {
+    private fun setupWordViews(index: Int, words: List<String>) {
         wordViews.forEach { suggestionsContainerView.removeView(it) }
         wordViews.clear()
 
@@ -105,6 +105,9 @@ class WordCheckerView(context: Context, val onSelect: () -> Unit) :
             val wordButton = WLabel(context).apply {
                 id = generateViewId()
                 text = wordText
+                // The same word can be offered for more than one position, so
+                // name the option by the position it answers.
+                contentDescription = "$index. $wordText"
                 setTextColor(WColor.PrimaryText)
                 setStyle(adaptiveFontSize())
                 setPaddingDp(14)

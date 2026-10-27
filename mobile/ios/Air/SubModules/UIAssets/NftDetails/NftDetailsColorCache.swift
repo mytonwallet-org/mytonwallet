@@ -7,7 +7,7 @@ final class NftDetailsColorCache: @unchecked Sendable {
     private var storage: [String: UIColor] = [:]
     private var diskLoadState: DiskLoadState = .pending
 
-    private enum DiskLoadState { case pending, loading, done }
+    private enum DiskLoadState { case pending, done }
     private var dirty = false
 
     private let fileURL: URL
@@ -15,7 +15,7 @@ final class NftDetailsColorCache: @unchecked Sendable {
     private var pendingSaveWorkItem: DispatchWorkItem?
     private let debounceInterval: TimeInterval = 0.5
     
-    private static let baseCacheFileName = "nft_details_color_cache_v2.bin"
+    private static let baseCacheFileName = "nft_details_color_cache_v4.bin"
 
     private static let magic: [UInt8] = [0x4E, 0x44, 0x43, 0x43] // "(N)ft(D)etails(C)olor(C)ache"
     private static let fileVersion: UInt8 = 1
@@ -117,36 +117,12 @@ final class NftDetailsColorCache: @unchecked Sendable {
 
     private func ensureLoadedFromDisk() {
         lock.lock()
-        switch diskLoadState {
-        case .done:
-            lock.unlock()
-            return
-        case .loading:
-            // Another thread is already loading; wait for it to finish.
-            lock.unlock()
-            lock.lock()
-            lock.unlock()
-            return
-        case .pending:
-            diskLoadState = .loading
-            lock.unlock()
-        }
-
-        // Only one thread reaches here.
-        let path = fileURL.path
-        var loaded: [String: UIColor] = [:]
-        if FileManager.default.fileExists(atPath: path),
-           let data = try? Data(contentsOf: fileURL),
-           let decoded = Self.decode(data) {
-            loaded = decoded
-        }
-
-        lock.lock()
-        for (k, v) in loaded where storage[k] == nil {
-            storage[k] = v
+        defer { lock.unlock() }
+        guard diskLoadState == .pending else { return }
+        if let data = try? Data(contentsOf: fileURL), let loaded = Self.decode(data) {
+            for (key, color) in loaded where storage[key] == nil { storage[key] = color }
         }
         diskLoadState = .done
-        lock.unlock()
     }
 
     private func scheduleDebouncedSave() {

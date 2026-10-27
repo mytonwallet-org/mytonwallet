@@ -1113,13 +1113,9 @@ async function openSelfDeeplink(
           return 'handledWithoutOpening';
         }
 
-        // Get address from the first activity (toAddress for transactions, fromAddress for swaps)
-        const activity = activities[0];
-        const viewAddress = activity.kind === 'transaction'
-          ? activity.toAddress
-          : activity.kind === 'swap'
-            ? activity.fromAddress
-            : undefined;
+        // Without a wallet address, the activities are parsed as sent by their initiator, so the view account
+        // belongs to the sender of the first activity
+        const viewAddress = activities[0].fromAddress;
 
         if (!viewAddress) {
           actions.showError({ error: '$could_not_determine_address' });

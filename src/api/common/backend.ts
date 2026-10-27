@@ -13,9 +13,11 @@ export async function callBackendPost<T>(path: string, data: AnyLiteral, options
   shouldRetry?: boolean;
   signal?: AbortSignal;
   timeout?: number;
+  /** Reports headers separately from body consumption for request lifecycle diagnostics. */
+  onHeaders?: (status: number) => void;
 }): Promise<T> {
   const {
-    authToken, isAllowBadRequest, method, shouldRetry, signal, timeout,
+    authToken, isAllowBadRequest, method, shouldRetry, signal, timeout, onHeaders,
   } = options ?? {};
 
   const url = new URL(`${BRILLIANT_API_BASE_URL}${path}`);
@@ -40,28 +42,49 @@ export async function callBackendPost<T>(path: string, data: AnyLiteral, options
     })
     : await fetchWithTimeout(url.toString(), init, timeout);
 
+  onHeaders?.(response.status);
   await handleFetchErrors(response, isAllowBadRequest ? [BAD_REQUEST_CODE] : undefined);
 
   return response.json();
 }
 
+export function callBackendGet(
+  path: string,
+  data: AnyLiteral | undefined,
+  headers: HeadersInit | undefined,
+  signal: AbortSignal | undefined,
+  options: { shouldReturnText: true },
+): Promise<string>;
 export function callBackendGet<T extends AnyLiteral>(
   path: string,
   data?: AnyLiteral,
   headers?: HeadersInit,
   signal?: AbortSignal,
-) {
+): Promise<T>;
+export function callBackendGet<T extends AnyLiteral>(
+  path: string,
+  data?: AnyLiteral,
+  headers?: HeadersInit,
+  signal?: AbortSignal,
+  options?: { shouldReturnText: true },
+): Promise<T | string> {
   const url = new URL(`${BRILLIANT_API_BASE_URL}${path}`);
-
-  return fetchJson<T>(url, data, {
+  const init: RequestInit = {
     headers: {
       ...headers,
       ...getBackendHeaders(),
     },
     signal,
-  }, {
+  };
+  const fetchOptions = {
     bucketKey: bucketKey(url, { includePathPrefix: true }),
-  });
+  };
+
+  if (options?.shouldReturnText) {
+    return fetchJson(url, data, init, { ...fetchOptions, shouldReturnText: true });
+  }
+
+  return fetchJson<T>(url, data, init, fetchOptions);
 }
 
 export function getBackendHeaders() {

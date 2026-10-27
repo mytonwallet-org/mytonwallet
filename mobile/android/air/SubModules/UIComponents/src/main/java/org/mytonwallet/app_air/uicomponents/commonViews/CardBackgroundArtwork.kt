@@ -39,7 +39,12 @@ internal object CardBackgroundArtwork {
     // Android maps BlurMaskFilter radius to sigma as radius * 0.57735 + 0.5.
     private const val SPOT_BLUR_RADIUS = (40f * SPOT_SCALE - 0.5f) / 0.57735f
 
-    internal class Contrast(val overlay: Paint, val base: Paint?)
+    internal class Contrast(
+        val overlay: Paint,
+        val base: Paint?,
+        val color: Float = -1f,
+        val opacity: Float = 0f
+    )
 
     internal class Artwork(
         val base: Bitmap,
@@ -487,7 +492,7 @@ internal object CardBackgroundArtwork {
                 if (overlayBlend) blendMode = BlendMode.OVERLAY
             }
         }
-        return Contrast(paint(high, true), paint(0.16, false))
+        return Contrast(paint(high, true), paint(0.16, false), overlay.toFloat(), high.toFloat())
     }
 
     private fun radial(transform: JSONArray, stops: JSONArray): Shader {

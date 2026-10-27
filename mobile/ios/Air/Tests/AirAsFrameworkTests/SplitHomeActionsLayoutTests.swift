@@ -65,6 +65,7 @@ final class SplitHomeActionsLayoutTests: XCTestCase {
                             let fitting = button.titleLabel.sizeThatFits(CGSize(width: 10_000, height: 10_000))
                             let context = "\(language.langCode), \(item), \(height), \(category.rawValue), tile=\(button.bounds), title=\(button.titleLabel.frame), image=\(button.imageView.frame)"
                             XCTAssertGreaterThanOrEqual(button.titleLabel.bounds.width + 0.5, fitting.width, context)
+                            XCTAssertGreaterThanOrEqual(button.bounds.width - fitting.width, 28, context)
                             XCTAssertGreaterThanOrEqual(button.titleLabel.bounds.height + 0.5, fitting.height, context)
                             XCTAssertGreaterThanOrEqual(button.titleLabel.frame.minY - button.imageView.frame.maxY, 8, context)
                         }

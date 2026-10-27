@@ -131,7 +131,7 @@ class NftDetailsLabel: UILabel, NftDetailsContentColorConsumer {
 final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     static let cornerRadius: CGFloat = 26
 
-    private let backgroundView = ThinGlassView()
+    private let backgroundView = UIView()
     private let titleLabel = UILabel()
     private let bodyLabel = UILabel()
     
@@ -155,7 +155,8 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     }
     
     private func setup() {
-        backgroundView.cornerRadius = Self.cornerRadius
+        backgroundView.layer.cornerRadius = Self.cornerRadius
+        backgroundView.layer.cornerCurve = .continuous
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(backgroundView)
         
@@ -192,8 +193,7 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
     func applyContentColorPalette(_ palette: NftDetailsContentPalette) -> Bool {
         titleLabel.textColor = palette.secondaryTextColor
         bodyLabel.textColor = palette.baseColor
-        backgroundView.fillColor = palette.subtleBackgroundColor
-        backgroundView.edgeColor = palette.edgeColor
+        backgroundView.backgroundColor = palette.subtleBackgroundColor
         return false
     }
 }
@@ -201,7 +201,7 @@ final class NftDetailsDescriptionTile: UIView, NftDetailsContentColorConsumer {
 // MARK: - NftDetailsDomainTile
 
 final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
-    private let backgroundView = ThinGlassView()
+    private let backgroundView = UIView()
     private let stackView = UIStackView()
     private let textLabel = UILabel()
     private let renewButton = UIButton(type: .custom)
@@ -226,6 +226,8 @@ final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
     }
 
     private func setup() {
+        backgroundView.layer.cornerRadius = 26
+        backgroundView.layer.cornerCurve = .continuous
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(backgroundView)
 
@@ -267,8 +269,7 @@ final class NftDetailsDomainTile: UIView, NftDetailsContentColorConsumer {
         textLabel.textColor = palette.baseColor
         renewButton.setTitleColor(palette.baseColor, for: .normal)
         renewButton.setTitleColor(palette.baseColor.withAlphaComponent(0.5), for: .highlighted)
-        backgroundView.fillColor = palette.subtleBackgroundColor
-        backgroundView.edgeColor = palette.edgeColor
+        backgroundView.backgroundColor = palette.subtleBackgroundColor
         return false
     }
 
@@ -285,7 +286,7 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
     private let keyValueSpacing: CGFloat = 12
     private let fixedWidth: CGFloat
 
-    private let backgroundView = ThinGlassView()
+    private let backgroundView = UIView()
     private let keyColumnBackgroundView = UIView()
     private let keyColumnSeparatorView = UIView()
     private let rowsStack = UIStackView()
@@ -372,11 +373,14 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
     }
     
     private func setup() {
+        backgroundView.layer.cornerRadius = 26
+        backgroundView.layer.cornerCurve = .continuous
+        backgroundView.layer.borderWidth = 0.7
         backgroundView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(backgroundView)
 
         keyColumnBackgroundView.translatesAutoresizingMaskIntoConstraints = false
-        keyColumnBackgroundView.layer.cornerRadius = backgroundView.cornerRadius
+        keyColumnBackgroundView.layer.cornerRadius = backgroundView.layer.cornerRadius
         keyColumnBackgroundView.layer.maskedCorners = effectiveUserInterfaceLayoutDirection == .rightToLeft
             ? [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
             : [.layerMinXMinYCorner, .layerMinXMaxYCorner]
@@ -485,8 +489,8 @@ final class NftDetailsAttributesGrid: UIView, NftDetailsContentColorConsumer {
         
         keyColumnSeparatorView.backgroundColor = separatorColor
         keyColumnBackgroundView.backgroundColor = palette.subtleBackgroundColor
-        backgroundView.fillColor = palette.subtleBackgroundColor
-        backgroundView.edgeColor = palette.edgeColor
+        backgroundView.backgroundColor = palette.subtleBackgroundColor
+        backgroundView.layer.borderColor = separatorColor.cgColor
         return false
     }
 }
@@ -523,5 +527,57 @@ extension WScalableButton: NftDetailsContentColorConsumer {
         highlightedFillColor = palette.highlightColor
         edgeColor = palette.edgeColor
         return false
+    }
+}
+
+@available(iOS 26, *)
+extension WGlassActionButton: NftDetailsContentColorConsumer {
+    func applyContentColorPalette(_ palette: NftDetailsContentPalette) -> Bool {
+        overrideUserInterfaceStyle = palette.baseColor.isLightColor ? .dark : .light
+        tintColor = palette.baseColor
+        if var config = configuration {
+            config.baseForegroundColor = palette.baseColor
+            configuration = config
+        }
+        return false
+    }
+}
+
+/// Let UIButton present the legacy system menu while keeping the existing
+/// layout, palette and opacity-only press feedback of the NFT action button.
+final class NftDetailsLegacyMenuButton: UIButton, ButtonsToolbarItem, NftDetailsContentColorConsumer {
+    private let content: WScalableButton
+
+    init(content: WScalableButton) {
+        self.content = content
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        accessibilityLabel = content.accessibilityLabel
+        content.isUserInteractionEnabled = false
+        content.isAccessibilityElement = false
+        addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.topAnchor.constraint(equalTo: topAnchor),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var intrinsicContentSize: CGSize { content.intrinsicContentSize }
+    override var isHighlighted: Bool {
+        didSet { content.isHighlighted = isHighlighted }
+    }
+
+    func onToolbarLayout(layoutContext: ButtonsToolbarLayoutContext) {
+        content.onToolbarLayout(layoutContext: layoutContext)
+    }
+
+    func applyContentColorPalette(_ palette: NftDetailsContentPalette) -> Bool {
+        // Only the visible button follows the NFT's palette. Its menu inherits
+        // the app's theme, just like the system description menu.
+        content.applyContentColorPalette(palette)
     }
 }

@@ -338,10 +338,14 @@ class TokenTradeModel(
         get() = swapState?.slippage ?: 0f
 
     val isCrossChain: Boolean
-        get() = swapState?.isCex == true
+        get() = swapState?.isCex == true || matchingEstimate?.cex != null
 
     val cexEstimate: MApiSwapCexEstimateResponse?
         get() = matchingEstimate?.cex
+
+    /** Tester-only estimate fan-out summary; absent in card (on/off-ramp) mode. */
+    val estimateDebugSummary: String?
+        get() = if (cardCurrency == null) matchingEstimate?.debugSummary else null
 
     fun update(
         state: SwapUiInputState? = swapState,
