@@ -333,26 +333,32 @@ internal class AgentTimelineViewport(private val host: Host) {
     val pinnedTopOffset: Int
         get() = ViewConstants.TOOLBAR_RADIUS.dp.roundToInt()
 
-    private fun pinnedMessageOffset(messageHeight: Int): Int {
-        val regularOffset = -pinnedTopOffset
-        val messageBottom =
-            chatTopPadding() + regularOffset + messageHeight
-        val previewTop =
-            chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
-                MIN_MESSAGE_CELL_HEIGHT.dp
-        return regularOffset - (messageBottom - previewTop).coerceAtLeast(0)
-    }
+    private fun pinnedItemOffset(index: Int, itemHeight: Int): Int = agentPinnedItemOffset(
+        timelineItems[index],
+        itemHeight,
+        chatTopPadding(),
+        pinnedTopOffset,
+        chatRecyclerView.height - baseChatBottomPadding(appliedBottom) -
+            MIN_MESSAGE_CELL_HEIGHT.dp
+    )
 
     private fun pinnedMessageHeight(view: View): Int =
         (view as? AgentMessageCell)?.layoutTargetHeight ?: view.height
 
-    private fun pinnedMessageOffset(view: View): Int =
-        pinnedMessageOffset(pinnedMessageHeight(view))
+    private fun pinnedItemOffset(index: Int, view: View?): Int =
+        if (view == null && timelineItems[index] !is AgentTimelineItem.DateHeader) {
+            -pinnedTopOffset
+        } else {
+            pinnedItemOffset(index, view?.let(::pinnedMessageHeight) ?: 0)
+        }
+
+    private fun pinAnchorIndex(messageId: String): Int =
+        timelineItems.agentPinAnchorIndex(timelineIndexOf(messageId))
 
     private fun pinnedPaddingTarget(): Int? {
         val messageId = pinnedMessageId ?: return null
         val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return null
-        val idx = timelineIndexOf(messageId)
+        val idx = pinAnchorIndex(messageId)
         if (idx < 0) return null
         var contentBelow = 0
         var messageHeight = 0
@@ -372,7 +378,7 @@ internal class AgentTimelineViewport(private val host: Host) {
             }
         }
         val target = chatRecyclerView.height - chatTopPadding() - contentBelow -
-            pinnedMessageOffset(messageHeight)
+            pinnedItemOffset(idx, messageHeight)
         cachedPinnedTarget = target
         return target
     }
@@ -392,10 +398,12 @@ internal class AgentTimelineViewport(private val host: Host) {
         val messageIndex = timelineIndexOf(messageId)
         val pinnedIndex = timelineIndexOf(pinnedId)
         if (messageIndex < 0 || pinnedIndex < 0 || messageIndex == pinnedIndex) return
+        val anchorIndex = pinAnchorIndex(pinnedId)
         val pinnedTop = (chatRecyclerView.layoutManager as? LinearLayoutManager)
-            ?.findViewByPosition(pinnedIndex)
+            ?.findViewByPosition(anchorIndex)
             ?.let { pinnedView ->
-                val expectedTop = chatRecyclerView.paddingTop + pinnedMessageOffset(pinnedView)
+                val expectedTop = chatRecyclerView.paddingTop +
+                    pinnedItemOffset(anchorIndex, pinnedView)
                 expectedTop.takeIf { pinnedView.top == expectedTop }
             }
         doOnPreDraw {
@@ -439,7 +447,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         )
 
         val pinnedId = pinnedMessageId ?: return
-        val pinnedIndex = timelineIndexOf(pinnedId)
+        val pinnedIndex = pinAnchorIndex(pinnedId)
         val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
         val pinnedView = lm.findViewByPosition(pinnedIndex) ?: return
         val delta = pinnedView.top - pinnedTop
@@ -752,7 +760,9 @@ internal class AgentTimelineViewport(private val host: Host) {
             return
         }
         val messageView = lm.findViewByPosition(idx)
-        if (messageView == null) {
+        val anchorIndex = pinAnchorIndex(messageId)
+        val anchorView = lm.findViewByPosition(anchorIndex)
+        if (messageView == null || anchorView == null) {
             if (pinnedMessageId == messageId && !isRetry) return
             if (isRetry) {
                 pendingPinMessageId = null
@@ -764,11 +774,12 @@ internal class AgentTimelineViewport(private val host: Host) {
             chatRecyclerView.stopScroll()
             pinnedMessageId = messageId
             val messageHeight =
-                targetHeight?.takeIf { it != 0 } ?: MIN_MESSAGE_CELL_HEIGHT.dp
+                targetHeight?.takeIf { it != 0 } ?: messageView?.let(::pinnedMessageHeight)
+                    ?: MIN_MESSAGE_CELL_HEIGHT.dp
             cachedPinnedTarget = maxOf(
                 baseChatBottomPadding(appliedBottom),
                 chatRecyclerView.height - chatTopPadding() -
-                    messageHeight - pinnedMessageOffset(messageHeight)
+                    messageHeight - pinnedItemOffset(anchorIndex, messageHeight)
             )
             pinScrollExtraSpace = cachedPinnedTarget
             isOnBottom = false
@@ -798,9 +809,15 @@ internal class AgentTimelineViewport(private val host: Host) {
                             super.calculateSpeedPerPixel(displayMetrics)
                         }
 
-                    override fun calculateDyToMakeVisible(view: View, snapPreference: Int): Int =
-                        super.calculateDyToMakeVisible(view, snapPreference) +
-                            pinnedMessageOffset(view)
+                    override fun calculateDyToMakeVisible(view: View, snapPreference: Int): Int {
+                        val currentIndex = pinAnchorIndex(messageId)
+                        val offset = if (currentIndex >= 0) {
+                            pinnedItemOffset(currentIndex, view)
+                        } else {
+                            0
+                        }
+                        return super.calculateDyToMakeVisible(view, snapPreference) + offset
+                    }
 
                     override fun onStop() {
                         super.onStop()
@@ -811,11 +828,11 @@ internal class AgentTimelineViewport(private val host: Host) {
                         }
                     }
                 }
-                scroller.targetPosition = idx
+                scroller.targetPosition = anchorIndex
                 lm.startSmoothScroll(scroller)
             } else {
-                val offset = pinnedMessageOffset(messageHeight)
-                lm.scrollToPositionWithOffset(idx, offset)
+                val offset = pinnedItemOffset(anchorIndex, messageHeight)
+                lm.scrollToPositionWithOffset(anchorIndex, offset)
                 doOnNextLayout {
                     if (pendingPinMessageId == messageId) {
                         evaluatePinning(messageId, isRetry = true, animated = animated)
@@ -837,7 +854,7 @@ internal class AgentTimelineViewport(private val host: Host) {
         cachedPinnedTarget = 0
         isOnBottom = false
         if (animated && !wasOffscreenPin) {
-            pinScrollExtraSpace = messageView.top
+            pinScrollExtraSpace = anchorView.top
         } else {
             pinScrollExtraSpace = 0
         }
@@ -851,8 +868,8 @@ internal class AgentTimelineViewport(private val host: Host) {
             }
         }
         val paddingChanged = syncPinnedPadding()
-        if (wasOffscreenPin && !animated) {
-            lm.scrollToPositionWithOffset(idx, pinnedMessageOffset(messageView))
+        if (wasOffscreenPin && (!animated || anchorIndex != idx)) {
+            lm.scrollToPositionWithOffset(anchorIndex, pinnedItemOffset(anchorIndex, anchorView))
             host.syncTopBlurAfterLayout()
         } else if (paddingChanged) {
             if (!wasOffscreenPin) {
@@ -882,23 +899,23 @@ internal class AgentTimelineViewport(private val host: Host) {
         if (isDisposed) return
         if (pinnedMessageId != messageId) return
         val lm = chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
-        val idx = timelineIndexOf(messageId)
+        val idx = pinAnchorIndex(messageId)
         if (idx < 0) return
-        val messageView = lm.findViewByPosition(idx)
-        val targetOffset = messageView?.let(::pinnedMessageOffset)
-        val dy = messageView?.let {
-            it.top - (chatRecyclerView.paddingTop + (targetOffset ?: 0))
+        val anchorView = lm.findViewByPosition(idx)
+        val targetOffset = pinnedItemOffset(idx, anchorView)
+        val dy = anchorView?.let {
+            it.top - (chatRecyclerView.paddingTop + targetOffset)
         }
         if (dy == null || dy <= 0 || !animated) {
             pinScrollExtraSpace = 0
             if (dy == null || dy != 0) {
-                lm.scrollToPositionWithOffset(idx, targetOffset ?: -pinnedTopOffset)
+                lm.scrollToPositionWithOffset(idx, targetOffset)
             }
             finishInitialHintsDismissal(messageId)
             notifyMessagePinned(messageId)
             return
         }
-        val startTop = messageView.top
+        val startTop = anchorView.top
         pinScrollSpring?.cancel()
         pinScrollSpring = SpringAnimation(FloatValueHolder()).apply {
             spring = SpringForce(dy.toFloat()).apply {
@@ -913,7 +930,7 @@ internal class AgentTimelineViewport(private val host: Host) {
                 // Scroll toward the message's actual position instead of by blind
                 // increments, so concurrent content changes (hints collapsing above)
                 // can't make the spring overshoot.
-                val currentIndex = timelineIndexOf(messageId)
+                val currentIndex = pinAnchorIndex(messageId)
                 val view = lm.findViewByPosition(currentIndex) ?: return@addUpdateListener
                 val desiredTop = startTop - value.roundToInt()
                 val delta = view.top - desiredTop
@@ -924,10 +941,11 @@ internal class AgentTimelineViewport(private val host: Host) {
             addEndListener { _, canceled, _, _ ->
                 pinScrollExtraSpace = 0
                 if (!canceled && pinnedMessageId == messageId) {
-                    val currentIndex = timelineIndexOf(messageId)
+                    val currentIndex = pinAnchorIndex(messageId)
+                    if (currentIndex < 0) return@addEndListener
                     val view = lm.findViewByPosition(currentIndex)
-                    val offset = view?.let(::pinnedMessageOffset) ?: -pinnedTopOffset
-                    if (currentIndex >= 0 && view?.top != chatRecyclerView.paddingTop + offset) {
+                    val offset = pinnedItemOffset(currentIndex, view)
+                    if (view?.top != chatRecyclerView.paddingTop + offset) {
                         lm.scrollToPositionWithOffset(currentIndex, offset)
                     }
                     finishInitialHintsDismissal(messageId)
@@ -952,10 +970,10 @@ internal class AgentTimelineViewport(private val host: Host) {
             if (pinnedMessageId != messageId) return@doOnNextLayout
             val lm = chatRecyclerView.layoutManager as? LinearLayoutManager
                 ?: return@doOnNextLayout
-            val idx = timelineIndexOf(messageId)
+            val idx = pinAnchorIndex(messageId)
             if (idx >= 0) {
                 val view = lm.findViewByPosition(idx)
-                val offset = view?.let(::pinnedMessageOffset) ?: -pinnedTopOffset
+                val offset = pinnedItemOffset(idx, view)
                 lm.scrollToPositionWithOffset(idx, offset)
             }
         }
@@ -1024,4 +1042,24 @@ internal class AgentTimelineViewport(private val host: Host) {
     private companion object {
         private const val MIN_MESSAGE_CELL_HEIGHT = 48
     }
+}
+
+internal fun List<AgentTimelineItem>.agentPinAnchorIndex(messageIndex: Int): Int =
+    if (getOrNull(messageIndex - 1) is AgentTimelineItem.DateHeader) {
+        messageIndex - 1
+    } else {
+        messageIndex
+    }
+
+internal fun agentPinnedItemOffset(
+    item: AgentTimelineItem,
+    itemHeight: Int,
+    topPadding: Int,
+    pinnedTopOffset: Int,
+    previewTop: Int
+): Int {
+    if (item is AgentTimelineItem.DateHeader) return 0
+    val regularOffset = -pinnedTopOffset
+    val itemBottom = topPadding + regularOffset + itemHeight
+    return regularOffset - (itemBottom - previewTop).coerceAtLeast(0)
 }

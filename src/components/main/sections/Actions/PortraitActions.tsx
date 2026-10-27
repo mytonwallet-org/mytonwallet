@@ -116,7 +116,7 @@ function PortraitActions({
             onClick={handleStartSwap}
           >
             <i className={buildClassName(styles.buttonIcon, 'icon-action-swap')} aria-hidden />
-            {lang('Swap')}
+            {lang('Trade')}
           </Button>
         )}
         {!isStakingDisabled && (

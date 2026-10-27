@@ -7,6 +7,7 @@ import type {
   SolanaParsedTransaction,
   SolanaTokenOperation,
   SolanaTransaction,
+  SolanaTransactionEmulationResult,
 } from '../types';
 
 import { SOLANA } from '../../../../config';
@@ -105,6 +106,7 @@ export async function parseTokenOperation(
   tx: NonNullable<TransactionForAccounts<void>['meta']>,
   userAddress: string,
   staticAccountKeys: readonly Address[],
+  userPaidRentByAccountIndex: ReadonlyMap<number, bigint> = new Map(),
 ): Promise<SolanaTokenOperation | undefined> {
   const changes = new Map<string, bigint>();
   const assets: string[] = [];
@@ -115,7 +117,9 @@ export async function parseTokenOperation(
 
   let solDiff = 0n;
   if (userIndex !== -1) {
-    solDiff = BigInt(tx.postBalances[userIndex] - tx.preBalances[userIndex]) + BigInt(tx.fee);
+    // The fee is shown separately, so it is added back only for the fee payer, which is account 0
+    const feePaid = userIndex === 0 ? BigInt(tx.fee) : 0n;
+    solDiff = BigInt(tx.postBalances[userIndex] - tx.preBalances[userIndex]) + feePaid;
   }
 
   if (!tx.postTokenBalances?.length || !tx.preTokenBalances?.length) {
@@ -185,14 +189,6 @@ export async function parseTokenOperation(
     }
   }
 
-  if (isReceivedOnly) {
-    const solReceived = received.get(SOLANA.slug) || 0n;
-
-    // Fee paid by sender - should be subtracted from received sol
-    // `totalRentPaid` is not counting here because it affects sender's balance, not receiver's
-    received.set(SOLANA.slug, solReceived - BigInt(tx.fee));
-  }
-
   if (isSwap) {
     if (!solSwapDirection) {
       // Ignore sol balance diff, because it is always fee and not a part of swap
@@ -211,13 +207,24 @@ export async function parseTokenOperation(
   }
 
   if (isSentOnly || isReceivedOnly) {
-    const asset = isSentOnly ? [...sent][0][0] : [...received][0][0];
+    // Rent that the user's own ATA instruction pays for an account receiving a shown token goes to the fee,
+    // as in the wallet's own transfers, once per token; any other SOL the user spends stays a row
+    const sentSol = sent.get(SOLANA.slug) ?? 0n;
+    const rentedMints = new Set<string>();
+    const rent = tx.postTokenBalances
+      .filter((post) => sent.has(post.mint) && BigInt(post.uiTokenAmount.amount) > 0n)
+      .reduce((sum, post) => {
+        const accountRent = userPaidRentByAccountIndex.get(post.accountIndex);
+        if (!accountRent || rentedMints.has(post.mint)) return sum;
+        rentedMints.add(post.mint);
+        return sum + accountRent;
+      }, 0n);
+    const rentPaid = rent < sentSol ? rent : sentSol;
 
-    let slug = '';
-    if (asset === SOLANA.slug) {
-      slug = SOLANA.slug;
+    if (rentPaid === sentSol) {
+      sent.delete(SOLANA.slug);
     } else {
-      slug = buildTokenSlug(SOLANA.chain, asset);
+      sent.set(SOLANA.slug, sentSol - rentPaid);
     }
 
     // if no from/to address - consider to be mint or burn(?) - use transaction initiator as fallback
@@ -227,22 +234,24 @@ export async function parseTokenOperation(
     const toAddress = !isSentOnly
       ? userAddress
       : tx.postTokenBalances.find((e) => e.owner !== userAddress)?.owner || staticAccountKeys[0];
-    const amount = isSentOnly ? sent.get(asset) || 0n : received.get(asset) || 0n;
 
-    const isIncoming = toAddress === userAddress;
+    // The fallback above can resolve to the user, so the direction comes from the balance change
+    const isIncoming = !isSentOnly;
 
     return {
       assets,
       isSwap: false,
-      transfer: {
-        amount,
-        fromAddress,
-        toAddress,
-        slug,
-        isIncoming,
-        normalizedAddress: isIncoming ? fromAddress : toAddress,
-        fee: tx.fee,
-      },
+      networkFee: BigInt(tx.fee) + rentPaid,
+      transfers: [...(isSentOnly ? sent : received)]
+        .map(([asset, amount]) => ({
+          amount,
+          fromAddress,
+          toAddress,
+          slug: asset === SOLANA.slug ? SOLANA.slug : buildTokenSlug(SOLANA.chain, asset),
+          isIncoming,
+          normalizedAddress: isIncoming ? fromAddress : toAddress,
+          fee: tx.fee,
+        })),
     };
   }
 
@@ -275,6 +284,83 @@ export async function parseTokenOperation(
       swapFee: '0',
     },
   };
+}
+
+const ATA_CREATE = 0;
+const ATA_CREATE_IDEMPOTENT = 1;
+const TOKEN_CLOSE_ACCOUNT = 9;
+
+function getClosedTokenAccounts(
+  rawTx: SolanaCompiledTransaction,
+  innerInstructions: SolanaTransactionEmulationResult['innerInstructions'] | undefined,
+) {
+  const closedAccounts = new Set<string>();
+
+  rawTx.instructions.forEach((instruction) => {
+    const accountIndex = instruction.accountIndices?.[0];
+    if (
+      SOLANA_PROGRAM_IDS.token.includes(rawTx.staticAccounts[instruction.programAddressIndex])
+      && instruction.data?.[0] === TOKEN_CLOSE_ACCOUNT
+      && accountIndex !== undefined
+    ) {
+      closedAccounts.add(rawTx.staticAccounts[accountIndex]);
+    }
+  });
+
+  // A token instruction the RPC could not parse may be a close, so every account it touches counts as closed
+  innerInstructions?.forEach(({ instructions }) => instructions.forEach((inner) => {
+    if (!SOLANA_PROGRAM_IDS.token.includes(inner.programId)) return;
+    if (!('parsed' in inner)) {
+      inner.accounts.forEach((account) => closedAccounts.add(account));
+    } else if (inner.parsed.type === 'closeAccount') {
+      closedAccounts.add(inner.parsed.info.account);
+    }
+  }));
+
+  return closedAccounts;
+}
+
+export function parseUserPaidTokenAccountRent(
+  rawTx: SolanaCompiledTransaction,
+  innerInstructions: SolanaTransactionEmulationResult['innerInstructions'] | undefined,
+  userAddress: string,
+) {
+  const rentByAccountIndex = new Map<number, bigint>();
+  const closedAccounts = getClosedTokenAccounts(rawTx, innerInstructions);
+
+  rawTx.instructions.forEach((instruction, instructionIndex) => {
+    const programId = rawTx.staticAccounts[instruction.programAddressIndex];
+    const kind = instruction.data?.[0] ?? ATA_CREATE;
+    const accountIndex = instruction.accountIndices?.[1];
+    const account = accountIndex === undefined ? undefined : rawTx.staticAccounts[accountIndex];
+
+    // An account closed in the same transaction can be reopened at someone else's expense, so its first funding
+    // says nothing about the account that receives the token; one loaded from a lookup table cannot be checked
+    if (
+      !SOLANA_PROGRAM_IDS.ata.includes(programId)
+      || (kind !== ATA_CREATE && kind !== ATA_CREATE_IDEMPOTENT)
+      || accountIndex === undefined
+      || !account
+      || closedAccounts.has(account)
+    ) {
+      return;
+    }
+
+    // The ATA program funds the new account from its payer by System createAccount or transfer
+    const rent = (innerInstructions?.find(({ index }) => index === instructionIndex)?.instructions ?? [])
+      .reduce((sum, inner) => {
+        if (!('parsed' in inner) || !SOLANA_PROGRAM_IDS.system.includes(inner.programId)) return sum;
+        const { type, info } = inner.parsed;
+        const isFromUser = (type === 'createAccount' || type === 'transfer') && info.source === userAddress;
+        return isFromUser ? sum + BigInt(info.lamports ?? 0) : sum;
+      }, 0n);
+
+    if (rent > 0n) {
+      rentByAccountIndex.set(accountIndex, rent);
+    }
+  });
+
+  return rentByAccountIndex;
 }
 
 export function parsePriorityFee(rawTx: SolanaCompiledTransaction) {

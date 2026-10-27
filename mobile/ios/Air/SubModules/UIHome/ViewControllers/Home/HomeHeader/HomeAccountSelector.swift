@@ -4,6 +4,7 @@
 //  Created by nikstar on 19.11.2025.
 //
 
+import Combine
 import Foundation
 import UIKit
 import UIComponents
@@ -27,11 +28,23 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     private var currentLayoutMetrics: HomeCardLayoutMetrics = .screen
     private var pendingSelectionScroll = false
     private var pendingSelectionAnimated = false
+    private var pendingSelectionCrossfade = false
     private var pendingSelectionRetryTask: Task<Void, Never>?
     private var accountContexts: [String: AccountContext] = [:]
     private var isUpdatingLayoutMetrics = false
+    private var motionEnvironmentObservation: AnyCancellable?
+    private var backgroundPreparation: Task<Void, Never>?
+    private weak var edgeGradientLeading: UIView?
+    private weak var edgeGradientTrailing: UIView?
+    private let edgeGradientAnimator = HomeCardEdgeGradientAnimator()
     private lazy var scrollActivity = ScrollActivityMonitor { [weak self] isScrolling in
         self?.viewModel.isAccountScrolling = isScrolling
+        if isScrolling {
+            self?.backgroundPreparation?.cancel()
+            self?.backgroundPreparation = nil
+        } else {
+            self?.prepareNeighborBackgrounds()
+        }
         #if DEBUG || HOME_FRAME_PROBE
         if isScrolling { HomeFrameProbe.shared.begin() }
         #endif
@@ -77,6 +90,37 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
     public func setCardEffectsActive(_ active: Bool) {
         viewModel.isVisible = active
+        if active { prepareNeighborBackgrounds() }
+        else { backgroundPreparation?.cancel(); backgroundPreparation = nil }
+    }
+
+    /// The host owns the gradients and their layout; the selector owns their scroll timing.
+    public func setEdgeGradients(leading: UIView, trailing: UIView) {
+        edgeGradientLeading = leading
+        edgeGradientTrailing = trailing
+        updateEdgeGradients(animated: false)
+    }
+
+    private var carouselMotionEnabled: Bool {
+        let environment = CardBackgroundAnimationEnvironment.shared
+        return environment.cardEffectsEnabled && environment.animationsEnabled
+            && !environment.lowPowerMode && !environment.reduceMotion
+    }
+
+    var usesCoverFlow: Bool {
+        carouselMotionEnabled && !viewModel.isCollapsed && !viewModel.isCardHidden
+    }
+
+    private func updateEdgeGradients(animated: Bool) {
+        guard let leading = edgeGradientLeading, let trailing = edgeGradientTrailing else { return }
+        let away = viewModel.isAccountScrolling && !viewModel.isCollapsed
+        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .rightToLeft ? -1 : 1
+        edgeGradientAnimator.update(
+            leading: leading, trailing: trailing,
+            leadingOffset: away ? -direction * leading.bounds.width : 0,
+            trailingOffset: away ? direction * trailing.bounds.width : 0,
+            animated: animated && window != nil, motionEnabled: carouselMotionEnabled
+        )
     }
 
     init(viewModel: HomeHeaderViewModel, mode: Mode = .home) {
@@ -132,6 +176,24 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
     }
 
     private func setupObservers() {
+        motionEnvironmentObservation = CardBackgroundAnimationEnvironment.shared.objectWillChange
+            .receive(on: RunLoop.main).sink { [weak self] in
+                self?.collectionView.collectionViewLayout.invalidateLayout()
+                self?.updateEdgeGradients(animated: false)
+            }
+        observe { [weak self] in
+            guard let self else { return }
+            // Track these even before the host has attached its gradient views.
+            _ = viewModel.isAccountScrolling
+            _ = viewModel.isCollapsed
+            updateEdgeGradients(animated: true)
+        }
+        observe { [weak self] in
+            guard let self else { return }
+            _ = viewModel.isCollapsed
+            _ = viewModel.isCardHidden
+            collectionView.collectionViewLayout.invalidateLayout()
+        }
         observe { [weak self] in
             guard let self else { return }
 
@@ -207,10 +269,34 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
     private func updateSelection(to accountId: String, animated: Bool) {
         guard selectedAccountId != accountId || pendingSelectionScroll else { return }
+        if selectedAccountId != accountId {
+            // Swipes update selectedAccountId before activating the account, so only external
+            // selections crossfade. Keep this intent across deferred layout/scroll retries.
+            pendingSelectionCrossfade = mode == .home && selectedAccountId != nil && !animated
+        }
         selectedAccountId = accountId
         pendingSelectionScroll = true
         pendingSelectionAnimated = animated
         scrollToSelectedIfPossible()
+        if !isUserScrolling { prepareNeighborBackgrounds() }
+    }
+
+    private func prepareNeighborBackgrounds() {
+        backgroundPreparation?.cancel()
+        guard window != nil, viewModel.isVisible, !viewModel.isAccountScrolling,
+              let selectedAccountId else { return }
+        let ids = makeAccountIds()
+        guard let index = ids.firstIndex(of: selectedAccountId) else { return }
+        let neighbors = [index - 1, index + 1].filter { ids.indices.contains($0) }.map { ids[$0] }
+        backgroundPreparation = Task { [weak self] in
+            // Do not compete with the account commit or the first resumed frame.
+            try? await Task.sleep(for: .milliseconds(300))
+            for id in neighbors {
+                guard !Task.isCancelled, let self, window != nil, viewModel.isVisible,
+                      !viewModel.isAccountScrolling else { return }
+                await MtwCardBackgroundView.prepareBackground(nft: accountContext(for: id).nft)
+            }
+        }
     }
 
     private func accountContext(for accountId: String) -> AccountContext {
@@ -255,9 +341,17 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
             var minDistance: CGFloat = .infinity
             var minDistanceIndex = 0
 
+            let origin = -(collectionView.horizontalScrollView?.adjustedContentInset.left ?? 0)
+            let offset = collectionView.horizontalScrollView?.contentOffset.x ?? scrollOffset.x
+            let fractionalIndex = (offset - origin) / metrics.itemWidthWithSpacing
+            let usesCoverFlow = self.usesCoverFlow
             for item in items {
                 let idx = CGFloat(item.indexPath.row)
-                let position = idx - scrollOffset.x/metrics.itemWidthWithSpacing
+                let position = idx - fractionalIndex
+                let pose = HomeCardCarouselPose.make(position: position, width: metrics.itemWidth, enabled: usesCoverFlow)
+                item.transform3D = pose.transform
+                item.center.x = metrics.leadingInset + metrics.itemWidth / 2 + idx * metrics.itemWidthWithSpacing + pose.offset
+                item.zIndex = 10_000 - Int(min(100, abs(position)) * 100)
 
                 let absDistance = abs(position)
                 if absDistance < minDistance {
@@ -278,6 +372,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
             collectionView.frame = bounds
         }
         updateLayoutMetricsIfNeeded()
+        updateEdgeGradients(animated: true)
         if let horizontalScrollView = collectionView.horizontalScrollView {
             scrollActivity.attach(to: horizontalScrollView)
         }
@@ -288,7 +383,11 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window == nil { scrollActivity.detach() }
+        if window == nil {
+            scrollActivity.detach()
+            backgroundPreparation?.cancel()
+            backgroundPreparation = nil
+        }
         guard window != nil, selectedAccountId != nil else { return }
         pendingSelectionScroll = true
         scrollToSelectedIfPossible()
@@ -334,6 +433,7 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         guard case .account(let id) = dataSource.itemIdentifier(for: IndexPath(item: idx, section: 0)) else { return }
         guard selectedAccountId != id else { return }
         selectedAccountId = id
+        pendingSelectionCrossfade = false
         viewModel.onSelect(id)
     }
 
@@ -383,12 +483,24 @@ public final class HomeAccountSelector: UIView, UICollectionViewDelegate {
         pendingSelectionRetryTask = nil
         scrollActivity.attach(to: horizontalScrollView)
         if pendingSelectionAnimated { scrollActivity.beginScrolling() }
-        horizontalScrollView.setContentOffset(
-            CGPoint(x: clampedOffsetX(targetOffsetX, in: horizontalScrollView), y: horizontalScrollView.contentOffset.y),
-            animated: pendingSelectionAnimated
-        )
+        let targetOffset = CGPoint(x: clampedOffsetX(targetOffsetX, in: horizontalScrollView), y: horizontalScrollView.contentOffset.y)
+        let shouldCrossfade = pendingSelectionCrossfade && !pendingSelectionAnimated
+            && abs(horizontalScrollView.contentOffset.x - targetOffset.x) > 0.5
+            && AppStorageHelper.animations && !UIAccessibility.isReduceMotionEnabled
+        if shouldCrossfade {
+            UIView.transition(with: collectionView, duration: 0.25,
+                              options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]) {
+                UIView.performWithoutAnimation {
+                    horizontalScrollView.setContentOffset(targetOffset, animated: false)
+                    self.collectionView.layoutIfNeeded()
+                }
+            }
+        } else {
+            horizontalScrollView.setContentOffset(targetOffset, animated: pendingSelectionAnimated)
+        }
         pendingSelectionScroll = false
         pendingSelectionAnimated = false
+        pendingSelectionCrossfade = false
     }
 
     private func targetOffsetX(for indexPath: IndexPath) -> CGFloat {

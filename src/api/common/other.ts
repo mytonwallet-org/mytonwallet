@@ -2,7 +2,7 @@ import type { Storage } from '../storages/types';
 import type { ApiInitArgs } from '../types';
 import type { ApiFetchEstimateDieselResult } from '../types';
 
-import { APP_ENV, IS_AIR_APP, IS_EXPLORER, IS_EXTENSION, IS_GRAM_WALLET, IS_TELEGRAM_APP } from '../../config';
+import { IS_AIR_APP, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../../config';
 import { randomBytes } from '../../util/random';
 import { isWebFunnelOrigin } from '../../util/webFunnel';
 import { getCurrentStorage, storage } from '../storages';
@@ -57,5 +57,5 @@ export function getClientId() {
 export function isWebFunnelClient(args: ApiInitArgs, runtimeStorage: Storage) {
   return Boolean(args.webFunnel) && !args.isElectron && !args.isIosApp && !args.isAndroidApp
     && !IS_AIR_APP && !IS_EXPLORER && !IS_EXTENSION && !IS_TELEGRAM_APP
-    && isWebFunnelOrigin(self.location.origin, IS_GRAM_WALLET, APP_ENV) && runtimeStorage === idb;
+    && isWebFunnelOrigin(self.location.origin) && runtimeStorage === idb;
 }

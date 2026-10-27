@@ -393,8 +393,8 @@ public final class _AccountStore: @unchecked Sendable, WalletCoreData.EventsObse
 
     // MARK: - Account management
 
-    public func importMnemonic(network: ApiNetwork, words: [String], enclaveToken: EnclaveToken) async throws -> [MAccount] {
-        let results = try await Api.importMnemonic(networks: [network], mnemonic: words)
+    public func importMnemonic(network: ApiNetwork, words: [String], enclaveToken: EnclaveToken, shouldSkipDiscovery: Bool = false) async throws -> [MAccount] {
+        let results = try await Api.importMnemonic(networks: [network], mnemonic: words, shouldSkipDiscovery: shouldSkipDiscovery)
         let secret = words.joined(separator: " ")
         try await _importEnclaveSecret(
             secret,

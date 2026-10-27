@@ -214,7 +214,12 @@ public enum IntroAuthMode: Sendable {
     
     private func _createWallet(enclaveToken: EnclaveToken) async throws {
         let hadExistingAccounts = !AccountStore.accountsById.isEmpty
-        let accounts = try await AccountStore.importMnemonic(network: network, words: words.orThrow(), enclaveToken: enclaveToken)
+        let accounts = try await AccountStore.importMnemonic(
+            network: network,
+            words: words.orThrow(),
+            enclaveToken: enclaveToken,
+            shouldSkipDiscovery: true
+        )
         self.onDone(successKind: .created, hadExistingAccounts: hadExistingAccounts, accountIds: accounts.map { $0.id })
     }
     

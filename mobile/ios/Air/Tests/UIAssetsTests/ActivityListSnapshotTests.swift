@@ -4,6 +4,45 @@ import XCTest
 
 @MainActor
 final class ActivityListSnapshotTests: XCTestCase {
+    func testAccountScopedSectionReplacesHeaderAndKeepsProviderRouting() async throws {
+        let controller = try await makeController()
+        let activity = controller.providers[1]
+        activity.showsHeader = true
+        let window = UIWindow(frame: controller.view.frame)
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+
+        for accountId in ["a", "b", "a"] {
+            let previous = try controller.currentSnapshot()
+            activity.sectionAccountId = accountId
+            activity.itemIdentifiers = ["account-\(accountId)-activity", "show-all"]
+            let incoming = controller.makeSnapshot()
+            let section = ActivityListViewController.Section.custom("activities", accountId: accountId)
+            XCTAssertEqual(incoming.sectionIdentifiers, [.headerPlaceholder, .custom("tokens"), section, .custom("assets")])
+            XCTAssertNotEqual(previous.sectionIdentifiers[2], section)
+
+            let completed = expectation(description: "Account \(accountId) replacement")
+            controller.applyContentReplacementSnapshot(incoming, animatingDifferences: true, alongside: {
+                controller.reconfigureCustomSection(id: "activities")
+            }) { completed.fulfill() }
+            await fulfillment(of: [completed], timeout: 3)
+            controller.collectionView.layoutIfNeeded()
+
+            let header = try XCTUnwrap(controller.collectionView.supplementaryView(
+                forElementKind: UICollectionView.elementKindSectionHeader,
+                at: IndexPath(item: 0, section: 2)
+            ))
+            XCTAssertEqual(header.accessibilityIdentifier, "activities")
+            XCTAssertNotNil(controller.firstItemFrame(inCustomSection: "activities"))
+            XCTAssertEqual(try controller.currentSnapshot().sectionIdentifiers, incoming.sectionIdentifiers)
+
+            let refreshed = controller.makeSnapshot(reconfiguringCustomSections: ["activities"])
+            XCTAssertEqual(refreshed.sectionIdentifiers, incoming.sectionIdentifiers)
+            XCTAssertEqual(Set(refreshed.reconfiguredItemIdentifiers), Set(incoming.itemIdentifiers(inSection: section)))
+        }
+    }
+
     func testReentrantSectionUpdateDuringAccountReplacementCannotRestoreOutgoingRows() async throws {
         let controller = try await makeController()
         let window = UIWindow(frame: controller.view.frame)
@@ -305,6 +344,8 @@ private final class SnapshotTestController: ActivityListViewController {
 @MainActor
 private final class SnapshotSection: ActivityListViewController.CustomSectionDataProvider {
     let id: String
+    var sectionAccountId: String?
+    var showsHeader = false
     var itemIdentifiers: [String]
     var configurationCount = 0
     var layoutCount = 0
@@ -312,21 +353,41 @@ private final class SnapshotSection: ActivityListViewController.CustomSectionDat
         self?.configurationCount += 1
         cell.configure(height: 50)
     }
+    private lazy var headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
+        elementKind: UICollectionView.elementKindSectionHeader
+    ) { [weak self] header, _, _ in
+        header.accessibilityIdentifier = self?.id
+    }
 
     init(id: String) {
         self.id = id
         self.itemIdentifiers = ["account-a-\(id)"]
     }
 
-    func prepareForUse() { _ = registration }
+    func prepareForUse() {
+        _ = registration
+        _ = headerRegistration
+    }
 
     func makeLayoutSection(layoutEnvironment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
         layoutCount += 1
         let size = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .estimated(50))
-        return NSCollectionLayoutSection(group: .vertical(layoutSize: size, subitems: [NSCollectionLayoutItem(layoutSize: size)]))
+        let section = NSCollectionLayoutSection(group: .vertical(layoutSize: size, subitems: [NSCollectionLayoutItem(layoutSize: size)]))
+        if showsHeader {
+            section.boundarySupplementaryItems = [NSCollectionLayoutBoundarySupplementaryItem(
+                layoutSize: NSCollectionLayoutSize(widthDimension: .fractionalWidth(1), heightDimension: .absolute(36)),
+                elementKind: UICollectionView.elementKindSectionHeader,
+                alignment: .top
+            )]
+        }
+        return section
     }
 
     func dequeueCell(_ collectionView: UICollectionView, _ indexPath: IndexPath, itemIdentifier: String) -> UICollectionViewCell {
         collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: itemIdentifier)
+    }
+
+    func dequeueSupplementaryView(_ collectionView: UICollectionView, kind: String, indexPath: IndexPath) -> UICollectionReusableView? {
+        collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
     }
 }

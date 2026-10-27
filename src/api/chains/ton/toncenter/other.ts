@@ -1,3 +1,4 @@
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { ApiNetwork, ApiWalletInfo } from '../../../types';
 import type { ApiTonWalletVersion } from '../types';
 import type { AccountState, AddressBook, MetadataMap, WalletState, WalletVersion } from './types';
@@ -43,8 +44,10 @@ export async function fetchAddressBook(
   }, {} as AddressBook);
 }
 
-export async function fixAddressFormat(network: ApiNetwork, address: string): Promise<string> {
-  const result: { address_book: Record<string, string> } = await callToncenterV3(network, '/addressBook', { address });
+export async function fixAddressFormat(network: ApiNetwork, address: string, demand?: FetchDemand): Promise<string> {
+  const result: { address_book: Record<string, string> } = await callToncenterV3(
+    network, '/addressBook', { address }, undefined, demand,
+  );
   return result.address_book[address];
 }
 
@@ -56,11 +59,12 @@ export async function getWalletInfos(
   network: ApiNetwork,
   addresses: string[],
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ): Promise<Record<string, ApiWalletInfo>> {
   const { wallets: states, address_book: addressBook } = await callToncenterV3<{
     address_book: AddressBook;
     wallets: WalletState[];
-  }>(network, '/walletStates', { address: addresses.join(',') }, signal);
+  }>(network, '/walletStates', { address: addresses.join(',') }, signal, demand);
 
   const walletInfoByRawAddress = Object.fromEntries(states.map((state) => [
     state.address.toLowerCase(),
@@ -127,6 +131,7 @@ export function callToncenterV3<T = any>(
   path: string,
   data?: AnyLiteral,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ) {
   const url = `${NETWORK_CONFIG[network].toncenterUrl}/api/v3${path}`;
 
@@ -138,7 +143,7 @@ export function callToncenterV3<T = any>(
     headers: getToncenterHeaders(network),
     cache: 'no-store',
     signal,
-  }) as Promise<T>;
+  }, { demand }) as Promise<T>;
 }
 
 export function getToncenterHeaders(network: ApiNetwork) {

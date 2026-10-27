@@ -203,6 +203,7 @@ struct ClaimRewardsConfirmContent: View {
                     ),
                     explainedTransferFee: nil,
                     includeLabel: true,
+                    isError: !isEnoughNative,
                     textStyle: .footnote
                 )
             }

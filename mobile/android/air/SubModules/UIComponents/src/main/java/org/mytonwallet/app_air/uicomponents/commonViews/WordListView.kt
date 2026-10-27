@@ -34,9 +34,9 @@ class WordListView(context: Context) : WView(context) {
                 }
             }
             val leftWordItemView = WordListItemView(context)
-            leftWordItemView.setupViews(leftIndexes.substring(1), leftWords.substring(1))
+            leftWordItemView.setupViews(0, leftIndexes.substring(1), leftWords.substring(1))
             val rightWordItemView = WordListItemView(context)
-            rightWordItemView.setupViews(rightIndexes.substring(1), rightWords.substring(1))
+            rightWordItemView.setupViews(1, rightIndexes.substring(1), rightWords.substring(1))
 
             addView(leftWordItemView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             addView(rightWordItemView, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))

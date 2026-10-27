@@ -9,6 +9,10 @@ import { parseActionsToActivities } from './toncenter/actions';
 import { fillActivityDetails } from './activities';
 import { parseTrace } from './traces';
 
+// The Toncenter action schema spells an absent field as `null`
+// eslint-disable-next-line no-null/no-null
+const ABSENT = null;
+
 describe('parseActionsToActivities', () => {
   it('uses the address book domain as the called contract name', () => {
     const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
@@ -393,11 +397,392 @@ describe('parseActionsToActivities', () => {
     });
     expect(activity).not.toHaveProperty('metadata.name');
   });
-});
 
-// The Toncenter action schema spells an absent field as `null`
-// eslint-disable-next-line no-null/no-null
-const ABSENT = null;
+  it('parses teleitem_start_auction as nftAuctionStart', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const nftAddress = 'EQDP0uln71YFr1TkBz4SOWcvaxZFFNtQzYMGIFyNrPVjE_x2';
+    const action = {
+      type: 'teleitem_start_auction',
+      action_id: 'teleitem-start-auction-action-id',
+      trace_id: 'teleitem-start-auction-trace-id',
+      start_lt: '79110006000016',
+      end_lt: '79110006000016',
+      start_utime: 1779626382,
+      end_utime: 1779626382,
+      transactions: ['teleitem-start-auction-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000016',
+      trace_end_utime: 1779626382,
+      trace_mc_seqno_end: 47440948,
+      trace_external_hash: 'teleitem-start-auction-external-hash',
+      details: {
+        nft_collection: '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2',
+        nft_item: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        nft_item_index: '1',
+        owner: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        listing_address: ABSENT,
+        auction_address: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        marketplace_address: ABSENT,
+        marketplace_fee_factor: '0',
+        marketplace_fee_base: '0',
+        royalty_fee_base: '0',
+        max_bid: '0',
+        min_bid: '2000000000',
+        marketplace_fee_address: ABSENT,
+        royalty_address: ABSENT,
+        marketplace: 'fragment',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          is_indexed: true,
+          token_info: [{
+            type: 'nft_items',
+            name: '@enenf',
+            extra: { render_type: 'hidden' },
+          }],
+        },
+      },
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'nftAuctionStart',
+      toAddress: nftAddress,
+      nft: { name: '@enenf', isHidden: true },
+    });
+    expect(activity?.shouldHide).toBeFalsy();
+  });
+
+  it('parses teleitem_cancel_auction as nftAuctionCancel', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const nftAddress = 'EQDP0uln71YFr1TkBz4SOWcvaxZFFNtQzYMGIFyNrPVjE_x2';
+    const action = {
+      type: 'teleitem_cancel_auction',
+      action_id: 'teleitem-cancel-auction-action-id',
+      trace_id: 'teleitem-cancel-auction-trace-id',
+      start_lt: '79110006000017',
+      end_lt: '79110006000017',
+      start_utime: 1779626383,
+      end_utime: 1779626383,
+      transactions: ['teleitem-cancel-auction-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000017',
+      trace_end_utime: 1779626383,
+      trace_mc_seqno_end: 47440949,
+      trace_external_hash: 'teleitem-cancel-auction-external-hash',
+      details: {
+        owner: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        nft_item: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        nft_collection: '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2',
+        auction_address: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        marketplace_address: ABSENT,
+        marketplace: 'fragment',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {},
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'nftAuctionCancel',
+      toAddress: nftAddress,
+    });
+  });
+
+  it('keeps a hidden Fragment username visible on the call_contract start-auction fallback', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const nftAddress = 'EQDP0uln71YFr1TkBz4SOWcvaxZFFNtQzYMGIFyNrPVjE_x2';
+    const action = {
+      type: 'call_contract',
+      action_id: 'teleitem-start-auction-call-contract-id',
+      trace_id: 'teleitem-start-auction-call-contract-trace',
+      start_lt: '79110006000018',
+      end_lt: '79110006000018',
+      start_utime: 1779626384,
+      end_utime: 1779626384,
+      transactions: ['teleitem-start-auction-call-contract-hash'],
+      success: true,
+      trace_end_lt: '79110006000018',
+      trace_end_utime: 1779626384,
+      trace_mc_seqno_end: 47440950,
+      trace_external_hash: 'teleitem-start-auction-call-contract-external',
+      details: {
+        opcode: '0x487a8e81',
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        value: '100000000',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          is_indexed: true,
+          token_info: [{
+            type: 'nft_items',
+            name: '@enenf',
+            description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf',
+            extra: {
+              render_type: 'hidden',
+              domain: 'enenf.t.me',
+              uri: 'https://nft.fragment.com/username/enenf.json',
+            },
+          }],
+        },
+      },
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'nftAuctionStart',
+      nft: { name: '@enenf', isHidden: true, isScam: false },
+    });
+    expect(activity?.shouldHide).toBeFalsy();
+  });
+
+  it('parses a Fragment auction_bid with a hidden username', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const nftAddress = 'EQBOaZK3HETnmQIRy9f9RkYV3v-p23iRujy5clyFWMxWHNo-';
+    const action = {
+      type: 'auction_bid',
+      action_id: 'fragment-bid-action-id',
+      trace_id: 'fragment-bid-trace-id',
+      start_lt: '79110006000019',
+      end_lt: '79110006000019',
+      start_utime: 1779626385,
+      end_utime: 1779626385,
+      transactions: ['fragment-bid-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000019',
+      trace_end_utime: 1779626385,
+      trace_mc_seqno_end: 47440951,
+      trace_external_hash: 'fragment-bid-external-hash',
+      details: {
+        amount: '2000000000',
+        bidder: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        auction: '0:4E6992B71C44E7990211CBD7FD464615DEFFA9DB7891BA3CB9725C8558CC561C',
+        nft_item: '0:4E6992B71C44E7990211CBD7FD464615DEFFA9DB7891BA3CB9725C8558CC561C',
+        nft_collection: '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2',
+        nft_item_index: '1',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:4E6992B71C44E7990211CBD7FD464615DEFFA9DB7891BA3CB9725C8558CC561C': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {
+        '0:4E6992B71C44E7990211CBD7FD464615DEFFA9DB7891BA3CB9725C8558CC561C': {
+          is_indexed: true,
+          token_info: [{
+            type: 'nft_items',
+            name: '@aislinn',
+            description: 'The @aislinn username on Telegram. Aliases: aislinn.t.me, t.me/aislinn',
+            image: 'https://nft.fragment.com/username/aislinn.webp',
+            extra: {
+              render_type: 'hidden',
+              uri: 'https://nft.fragment.com/username/aislinn.json',
+            },
+          }],
+        },
+      },
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'auctionBid',
+      toAddress: nftAddress,
+      nft: { name: '@aislinn', isHidden: true, isScam: false },
+    });
+    expect(activity?.shouldHide).toBeFalsy();
+  });
+
+  it('parses nft_purchase as nftTrade', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const sellerAddress = 'EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ';
+    const nftAddress = 'EQDP0uln71YFr1TkBz4SOWcvaxZFFNtQzYMGIFyNrPVjE_x2';
+    const action = {
+      type: 'nft_purchase',
+      action_id: 'nft-purchase-action-id',
+      trace_id: 'nft-purchase-trace-id',
+      start_lt: '79110006000020',
+      end_lt: '79110006000020',
+      start_utime: 1779626386,
+      end_utime: 1779626386,
+      transactions: ['nft-purchase-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000020',
+      trace_end_utime: 1779626386,
+      trace_mc_seqno_end: 47440952,
+      trace_external_hash: 'nft-purchase-external-hash',
+      details: {
+        nft_collection: '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2',
+        nft_item: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        nft_item_index: '1',
+        new_owner: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        old_owner: '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708',
+        is_purchase: true,
+        query_id: '0',
+        response_destination: ABSENT,
+        custom_payload: ABSENT,
+        forward_payload: '',
+        forward_amount: ABSENT,
+        price: '7000000000',
+        marketplace: 'fragment',
+        payout_amount: '7000000000',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:0D11588CDC0290CE2E808F7B047B2A85BBCA57AA1CBD43DC46A0877FD2AA7708': {
+          user_friendly: sellerAddress,
+          domain: '',
+        },
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          is_indexed: true,
+          token_info: [{
+            type: 'nft_items',
+            name: '@koweo',
+            extra: { uri: 'https://nft.fragment.com/username/koweo.json' },
+          }],
+        },
+      },
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'nftTrade',
+      amount: -7000000000n,
+      extra: { marketplace: 'fragment' },
+    });
+  });
+
+  it('attaches the NFT to a teleitem first-bid deploy', () => {
+    const walletAddress = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
+    const nftAddress = 'EQDP0uln71YFr1TkBz4SOWcvaxZFFNtQzYMGIFyNrPVjE_x2';
+    const action = {
+      type: 'call_contract',
+      action_id: 'teleitem-deploy-action-id',
+      trace_id: 'teleitem-deploy-trace-id',
+      start_lt: '79110006000021',
+      end_lt: '79110006000021',
+      start_utime: 1779626387,
+      end_utime: 1779626387,
+      transactions: ['teleitem-deploy-transaction-hash'],
+      success: true,
+      trace_end_lt: '79110006000021',
+      trace_end_utime: 1779626387,
+      trace_mc_seqno_end: 47440953,
+      trace_external_hash: 'teleitem-deploy-external-hash',
+      details: {
+        opcode: '0x4637289a',
+        source: '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285',
+        destination: '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313',
+        value: '2000000000',
+      },
+    } satisfies AnyAction;
+
+    const [activity] = parseActionsToActivities([action], {
+      network: 'mainnet',
+      walletAddress,
+      addressBook: {
+        '0:7E6A76D3B598667FE2B3B57010556CAB954042D38021EB46A8FDAAFDAED86285': {
+          user_friendly: walletAddress,
+          domain: '',
+        },
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          user_friendly: nftAddress,
+          domain: '',
+        },
+      },
+      metadata: {
+        '0:CFD2E967EF5605AF54E4073E1239672F6B164514DB50CD8306205C8DACF56313': {
+          is_indexed: true,
+          token_info: [{
+            type: 'nft_items',
+            name: '@enenf',
+            extra: { uri: 'https://nft.fragment.com/username/enenf.json' },
+          }],
+        },
+      },
+      nftSuperCollectionsByCollectionAddress: {},
+    });
+
+    expect(activity).toMatchObject({
+      kind: 'transaction',
+      type: 'auctionBid',
+      nft: { name: '@enenf' },
+    });
+  });
+});
 
 describe('parseToncenterNft', () => {
   const WALLET_ADDRESS = 'UQB-anbTtZhmf-KztXAQVWyrlUBC04Ah60ao_ar9rthihczy';
@@ -554,6 +939,74 @@ describe('parseToncenterNft', () => {
       isScam: false,
       isNsfw: false,
       isHidden: false,
+    });
+  });
+
+  it('does not treat official Fragment username aliases as scam links when the collection is known', () => {
+    expect(parseNftFromTransfer({
+      name: '@enenf',
+      description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf',
+      extra: {
+        domain: 'enenf.t.me',
+        uri: 'https://nft.fragment.com/username/enenf.json',
+        _image_medium: PROXIED_MEDIUM,
+      },
+    }, '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2')).toMatchObject({
+      name: '@enenf',
+      isScam: false,
+      isOnFragment: true,
+    });
+  });
+
+  it('treats an on-chain Telegram username domain as the Fragment usernames collection', () => {
+    expect(parseNftFromTransfer({
+      name: '@enenf',
+      description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf',
+      extra: {
+        domain: 'enenf.t.me',
+        _image_medium: PROXIED_MEDIUM,
+      },
+    }, ABSENT)).toMatchObject({
+      name: '@enenf',
+      isScam: false,
+      isOnFragment: true,
+    });
+  });
+
+  it('keeps scam-link checks when a non-Fragment NFT copies a username and t.me aliases', () => {
+    expect(parseNftFromTransfer({
+      name: '@enenf',
+      description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf',
+      extra: { _image_medium: PROXIED_MEDIUM },
+    }, ABSENT)).toMatchObject({
+      name: '@enenf',
+      isScam: true,
+    });
+  });
+
+  it('does not trust a hotlinked Fragment URL as proof the NFT is on Fragment', () => {
+    const nft = parseNftFromTransfer({
+      name: '@enenf',
+      description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf Visit https://steal-seed.example',
+      extra: {
+        uri: 'https://nft.fragment.com/username/enenf.json',
+        _image_medium: PROXIED_MEDIUM,
+      },
+    }, ABSENT);
+
+    expect(nft?.isOnFragment).toBeUndefined();
+    expect(nft?.isScam).toBe(true);
+  });
+
+  it('keeps a Fragment username visible when the collection is known but untrusted', () => {
+    expect(parseNftFromTransfer({
+      name: '@enenf',
+      description: 'The @enenf username on Telegram. Aliases: enenf.t.me, t.me/enenf',
+      extra: { _image_medium: PROXIED_MEDIUM },
+    }, '0:80D78A35F955A14B679FAA887FF4CD5BFC0F43B4A4EEA2A7E6927F3701B273C2')).toMatchObject({
+      name: '@enenf',
+      isScam: false,
+      isOnFragment: true,
     });
   });
 

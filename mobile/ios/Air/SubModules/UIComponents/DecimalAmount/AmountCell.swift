@@ -9,11 +9,13 @@ public struct AmountCell: View {
     var amount: BigInt
     var token: ApiToken
     var format: DecimalAmountFormatStyle<ApiToken>
+    var isError: Bool
     
-    public init(amount: BigInt, token: ApiToken, format: DecimalAmountFormatStyle<ApiToken> = .init()) {
+    public init(amount: BigInt, token: ApiToken, format: DecimalAmountFormatStyle<ApiToken> = .init(), isError: Bool = false) {
         self.amount = amount
         self.token = token
         self.format = format
+        self.isError = isError
     }
     
     public var body: some View {
@@ -52,9 +54,9 @@ public struct AmountCell: View {
             integerFont: WTypography.uiFont(.amount, content: .technical),
             fractionFont: WTypography.uiFont(.amountSecondary, content: .technical),
             symbolFont: WTypography.uiFont(.amountSecondary, content: .technical),
-            integerColor: UIColor.label,
-            fractionColor: UIColor.label,
-            symbolColor: .air.secondaryLabel
+            integerColor: isError ? .air.error : UIColor.label,
+            fractionColor: isError ? .air.error : UIColor.label,
+            symbolColor: isError ? .air.error : .air.secondaryLabel
         )
     }
 }

@@ -16,6 +16,21 @@ import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from './tokens';
 
 type SwapHistoryAddressByChain = Partial<Record<ApiChain, string>>;
 
+const BACKEND_DEX_CHAINS = new Set<ApiChain>([
+  'ton',
+  'ethereum',
+  'base',
+  'bnb',
+  'polygon',
+  'arbitrum',
+  'avalanche',
+  'optimism',
+  'monad',
+  'hyperliquid',
+  'robinhood',
+  'arc',
+]);
+
 export function getSwapHistoryAddressByChain(account: Pick<ApiAccountAny, 'byChain'>) {
   return getOrderedAccountChains(account.byChain).reduce((result, chain) => {
     const address = account.byChain[chain]?.address;
@@ -152,9 +167,9 @@ export async function patchSwapItem(options: {
 
 /**
  * Merges the backend swap history into a sorted slice of chain activities: the backend rows of the slice's time
- * window and of the hashes it contains are fetched (cross-chain rows by every account address, TON DEX rows by the
- * TON address), then the slice is projected so that each swap is one row. The backend answers with rows matching
- * either the window or the hashes, so a row created moments before its first chain action is still reached.
+ * window and of the hashes it contains are fetched (cross-chain rows by every account address, backend DEX rows by
+ * the TON history address), then the slice is projected so that each swap is one row. The backend answers with rows
+ * matching either the window or the hashes, so a row created moments before its first chain action is still reached.
  */
 export async function swapReplaceActivities(
   accountId: string,
@@ -194,7 +209,7 @@ export async function swapReplaceActivities(
         ? swapGetHistory(tonAddress, {
           fromTimestamp: fromTime,
           toTimestamp: toTime,
-          asset: slug ? getTokenBySlug(slug)?.tokenAddress ?? TONCOIN.symbol : undefined,
+          asset: slug ? getBackendDexHistoryAssetFilter(slug) : undefined,
           hashes,
           isCex: false,
         }, signal)
@@ -213,20 +228,27 @@ export async function swapReplaceActivities(
   }
 }
 
-function canHaveBackendDexSwap(slug: string | undefined, activities: ApiActivity[]) {
-  if (slug) return isTonSlug(slug);
+export function canHaveBackendDexSwap(slug: string | undefined, activities: ApiActivity[]) {
+  if (slug) return isBackendDexSlug(slug);
 
   return activities.some((activity) => {
-    return getActivityTokenSlugs(activity).some(isTonSlug);
+    return getActivityTokenSlugs(activity).some(isBackendDexSlug);
   });
 }
 
-function isTonSlug(slug: string) {
+export function isBackendDexSlug(slug: string) {
   try {
-    return getChainBySlug(slug) === 'ton';
+    return BACKEND_DEX_CHAINS.has(getChainBySlug(slug));
   } catch {
     return false;
   }
+}
+
+export function getBackendDexHistoryAssetFilter(slug: string) {
+  const token = getTokenBySlug(slug);
+  if (token?.tokenAddress) return token.tokenAddress;
+
+  return token?.symbol ?? (slug === TONCOIN.slug ? TONCOIN.symbol : slug);
 }
 
 function canHaveCexSwap(slug: string | undefined, activities: ApiActivity[]): boolean {

@@ -1,10 +1,14 @@
 package org.mytonwallet.app_air.uiswap.screens.swap.models
 
 import java.math.BigInteger
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.moshi.IApiToken
+import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 
 class SwapEstimateRequestTest {
     private val wallet = SwapWalletState(
@@ -32,6 +36,78 @@ class SwapEstimateRequestTest {
         )
 
         assertNull(request)
+    }
+
+    @Test
+    fun supportedCrossChainPairUsesUnifiedQuoteWithDestinationAddress() {
+        val source = MApiSwapAsset(slug = "base", chain = "base", decimals = 18, symbol = "ETH")
+        val destination =
+            MApiSwapAsset(slug = "arbitrum", chain = "arbitrum", decimals = 18, symbol = "ETH")
+        val wallet = SwapWalletState(
+            accountId = "account",
+            addressByChain = mapOf("base" to "0xsender", "arbitrum" to "0xrecipient"),
+            balances = mapOf("base" to BigInteger("1000000000000000000")),
+            assets = listOf(source, destination)
+        )
+        val request = requireNotNull(
+            SwapEstimateRequest.create(
+                key = "base-to-arbitrum", wallet = wallet,
+                tokenToSend = source, tokenToReceive = destination,
+                nativeTokenToSend = source, nativeTokenToSendBalance = "1",
+                amount = BigInteger("1000000000000000000"), slippage = 1f,
+                reverse = false, isFromAmountMax = true, prevEst = null
+            )
+        )
+
+        assertTrue(request.usesUnifiedQuote)
+        assertEquals("0xrecipient", request.estimateRequestDex.toAddress)
+        assertEquals(true, request.estimateRequestDex.isFromAmountMax)
+    }
+
+    @Test
+    fun externalDestinationKeepsCexQuoteFlow() {
+        val source = MApiSwapAsset(slug = "base", chain = "base", decimals = 18)
+        val destination = MApiSwapAsset(slug = "toncoin", chain = "ton", decimals = 9)
+        val request = requireNotNull(
+            SwapEstimateRequest.create(
+                key = "external",
+                wallet = SwapWalletState(
+                    accountId = "account",
+                    addressByChain = mapOf("base" to "0xsender"),
+                    balances = emptyMap(),
+                    assets = listOf(source)
+                ),
+                tokenToSend = source, tokenToReceive = destination,
+                nativeTokenToSend = source, nativeTokenToSendBalance = "0",
+                amount = BigInteger.ONE, slippage = 1f,
+                reverse = false, isFromAmountMax = false, prevEst = null
+            )
+        )
+
+        assertFalse(request.usesUnifiedQuote)
+    }
+
+    @Test
+    fun supportedNonEvmCrossChainPairKeepsCexQuoteFlow() {
+        val source = MApiSwapAsset(slug = "toncoin", chain = "ton", decimals = 9)
+        val destination = MApiSwapAsset(slug = "base", chain = "base", decimals = 18)
+        val request = requireNotNull(
+            SwapEstimateRequest.create(
+                key = "ton-to-base",
+                wallet = SwapWalletState(
+                    accountId = "account",
+                    addressByChain = mapOf("ton" to "ton-sender", "base" to "0xrecipient"),
+                    balances = emptyMap(),
+                    assets = listOf(source, destination)
+                ),
+                tokenToSend = source, tokenToReceive = destination,
+                nativeTokenToSend = source, nativeTokenToSendBalance = "0",
+                amount = BigInteger.ONE, slippage = 1f,
+                reverse = false, isFromAmountMax = false, prevEst = null
+            )
+        )
+
+        assertFalse(request.usesUnifiedQuote)
     }
 
     private fun createRequest(tokenToSend: IApiToken, nativeTokenToSend: IApiToken?) =

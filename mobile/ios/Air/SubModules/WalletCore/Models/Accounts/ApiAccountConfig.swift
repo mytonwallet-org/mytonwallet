@@ -76,6 +76,7 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
     public enum Kind: String, Equatable, Hashable, Codable, Sendable, CaseIterable {
         case cardOverlay
         case infoBanner
+        case foreignStaking
     }
 
     public struct CardOverlay: Equatable, Hashable, Codable, Sendable {
@@ -118,14 +119,19 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
         public struct ActionButton: Equatable, Hashable, Codable, Sendable {
             public enum OnClickAction: String, Equatable, Hashable, Codable, Sendable {
                 case openEarn
+                case unstakeForeign
             }
 
             public var title: String
             public var onClickAction: OnClickAction
+            public var chain: ApiChain?
+            public var providerName: String?
 
-            public init(title: String, onClickAction: OnClickAction) {
+            public init(title: String, onClickAction: OnClickAction, chain: ApiChain? = nil, providerName: String? = nil) {
                 self.title = title
                 self.onClickAction = onClickAction
+                self.chain = chain
+                self.providerName = providerName
             }
         }
 
@@ -133,11 +139,13 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
         /// Inline Markdown, including emphasis.
         public var description: String
         public var actionButton: ActionButton
+        public var textValues: [String: String]?
 
-        public init(title: String, description: String, actionButton: ActionButton) {
+        public init(title: String, description: String, actionButton: ActionButton, textValues: [String: String]? = nil) {
             self.title = title
             self.description = description
             self.actionButton = actionButton
+            self.textValues = textValues
         }
     }
 
@@ -146,6 +154,7 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
     public let cardOverlay: CardOverlay?
     public let modal: Modal?
     public let infoBanner: InfoBanner?
+    public let linkedBannerId: String?
 
     public init(id: String, cardOverlay: CardOverlay, modal: Modal? = nil) {
         self.id = id
@@ -153,14 +162,16 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
         self.cardOverlay = cardOverlay
         self.modal = modal
         self.infoBanner = nil
+        self.linkedBannerId = nil
     }
 
-    public init(id: String, infoBanner: InfoBanner) {
+    public init(id: String, infoBanner: InfoBanner, linkedBannerId: String? = nil) {
         self.id = id
-        self.kind = .infoBanner
+        self.kind = linkedBannerId == nil ? .infoBanner : .foreignStaking
         self.cardOverlay = nil
         self.modal = nil
         self.infoBanner = infoBanner
+        self.linkedBannerId = linkedBannerId
     }
 
     public init(from decoder: Decoder) throws {
@@ -175,6 +186,12 @@ public struct ApiPromotion: Equatable, Hashable, Codable, Sendable {
             )
         case .infoBanner:
             self.init(id: id, infoBanner: try container.decode(InfoBanner.self, forKey: .infoBanner))
+        case .foreignStaking:
+            self.init(
+                id: id,
+                infoBanner: try container.decode(InfoBanner.self, forKey: .infoBanner),
+                linkedBannerId: try container.decode(String.self, forKey: .linkedBannerId)
+            )
         }
     }
 }

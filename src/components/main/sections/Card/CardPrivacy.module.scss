@@ -1,0 +1,40 @@
+.root {
+  user-select: none;
+
+  position: relative;
+
+  display: inline-block;
+
+  width: max-content;
+
+  vertical-align: top;
+}
+
+.balance {
+  min-height: 3.25rem;
+}
+
+// The text and its particles share one box sized to the text. Otherwise Safari places
+// the particles relative to a full-width transformed wrapper.
+.anchor {
+  position: relative;
+  display: block;
+  width: max-content;
+  margin-inline: auto;
+}
+
+.content {
+  position: relative;
+  display: block;
+}
+
+// Hides the text until the particle field takes over its visibility
+.concealed {
+  visibility: hidden;
+}
+
+.dust {
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+}

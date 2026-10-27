@@ -11,16 +11,14 @@ extension Int64 {
     public var dateTimeString: String {
         let date = Date(timeIntervalSince1970: Double(self) / 1000)
         return if date.isInSameYear(as: Date()) {
-            date.formatted(.dateTime
+            date.formatted(.localizedDateTime
                 .month(.wide).day(.defaultDigits)
                 .hour(.defaultDigits(amPM: .abbreviated)).minute()
-                .locale(LocalizationSupport.shared.locale)
             )
         } else {
-            date.formatted(.dateTime
+            date.formatted(.localizedDateTime
                 .year(.defaultDigits).month(.wide).day(.defaultDigits)
                 .hour(.defaultDigits(amPM: .abbreviated)).minute()
-                .locale(LocalizationSupport.shared.locale)
             )
         }
     }

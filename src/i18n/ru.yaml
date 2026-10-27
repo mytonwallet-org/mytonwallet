@@ -120,6 +120,7 @@ $logout_selected_wallets_warning: Выбранные кошельки будут
 $logout_all_wallets_warning: Все кошельки будут удалены только **на этом устройстве**.
 $secret_words_backup_reminder: Убедитесь, что у вас есть резервная копия ваших **секретных слов**.
 $all_secret_words_backup_reminder: Убедитесь, что у вас есть резервные копии всех ваших **секретных слов**.
+$secret_word_input_aria_label: "Секретное слово %number%"
 $logout_confirm: Выйти из **всех** кошельков
 Create Deposit Link: Ссылка на депозит
 $receive_invoice_description: |
@@ -249,6 +250,11 @@ Dark: Тёмная
 System: Системная
 $stake_asset: Застейкать %symbol%
 Add Stake: Добавить
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% заблокированы в другом стейкинге"
+"Unstake them to restake with **higher returns**.": "Выведите их и вложите в стейкинг с **более высокой доходностью**."
+"💎 More profitable staking available": "💎 Доступен более выгодный стейкинг"
+"Tap to restake your %symbol% with higher returns.": "Переложите стейк, чтобы получать больший доход от %symbol%."
+"Restake Now": "Повысить доход"
 Earn from your tokens while holding them: Получайте пассивный доход от хранения %symbol%
 Est. %annual_yield%: Доходность %annual_yield%
 Current APY: Текущий APY
@@ -289,8 +295,8 @@ The network fee has slightly changed, try sending again.: Комиссия за 
 Transfer was unsuccessful. Try again later.: С переводом что-то пошло не так. Попробуйте ещё раз.
 Action Partially Completed: Действие выполнено частично
 $action_partially_completed_description: "Выполнено операций: %completed% из %total%. Остальные операции не выполнены. Проверьте историю операций, прежде чем повторить попытку."
-Action Status Unknown: Статус действия неизвестен
-$action_status_unknown_description: "Не удалось проверить, выполнено ли действие. Проверьте историю операций и баланс перед повторной попыткой: если повторить действие сейчас, оно может быть отправлено дважды."
+Check Your Activity: Проверьте историю операций
+$action_status_unknown_description: "Запрос мог быть выполнен. Перед повторной попыткой проверьте историю операций и баланс, чтобы не отправить его повторно."
 $action_will_continue_in_background: Действие продолжится в фоновом режиме.
 Invalid amount: Некорректная сумма
 Invalid address: Некорректный адрес
@@ -425,6 +431,7 @@ $swap_minimum_received_tooltip1: Это наименьшее количеств�
 $swap_minimum_received_tooltip2: Это ожидаемое минимальное значение, но, если условия сильно изменятся во время обработки вашего обмена, итоговая сумма может быть меньше.
 $swap_price_impact_tooltip1: Это показывает, насколько ваша сделка может изменить цену токена.
 $swap_price_impact_tooltip2: Большие сделки могут сильнее повлиять на цену. В целом, меньшее значение лучше.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: Проскальзывание — это разница между ожидаемой и фактической ценой сделки из-за изменения цены во время её выполнения.
 $swap_slippage_tooltip1: Здесь устанавливается, насколько цена может измениться, прежде чем ваш обмен будет обработан.
 $swap_slippage_tooltip2: Если во время обработки вашего обмена цена изменится больше, чем на это значение, ваш заказ будет отменён.
 Slippage not specified: Проскальзывание не указано
@@ -453,6 +460,8 @@ Swap Again: Повторить обмен
 Terms of Use: Условия использования
 Privacy Policy: Политика конфиденциальности
 Insufficient liquidity: Недостаточно ликвидности
+$swap_quote_unavailable: Нет предложений
+$swap_service_unavailable: Обмен недоступен
 This address is new and never received transfers before.: Этот адрес новый и ранее не получал переводов.
 Create Backup: Создание резервной копии
 Sending: Отправка
@@ -664,6 +673,11 @@ $dapp_liquid_staking_vote_payload: Голосование "%vote%" за пред
 $dapp_single_nominator_change_validator_payload: Изменение адреса валидатора стейкинг-контракта SingleNominator на %address%
 $dapp_single_nominator_withdraw_payload: Вывод %amount% из стейкинг-контракта SingleNominator
 $dapp_vesting_add_whitelist_payload: Добавление адреса %address% в whitelist вестинг-кошелька
+$dapp_teleitem_start_auction_payload: Запуск аукциона %name% с минимальной ставкой %amount%
+$dapp_teleitem_cancel_auction_payload: Отмена аукциона %name%
+$dapp_teleitem_deploy_payload: Первая ставка за %name% с минимальной ставкой %amount%
+$dapp_teleitem_bid_info_payload: Ставка на аукционе %amount%
+$dapp_teleitem_return_bid_payload: Возврат ставки с аукциона
 Time synchronization issue. Please ensure your device's time settings are correct.: Проблема с синхронизацией времени. Пожалуйста, убедитесь, что настройки времени на вашем устройстве верны.
 Data Copied: Данные скопированы
 URL Copied: URL Copied
@@ -943,6 +957,12 @@ Bounced: Отскок
 Bouncing: Отскок
 $bounce_action: Отскок
 NFT Auction Bid: Ставка на аукционе NFT
+Started Auction: Аукцион запущен
+Starting Auction: Запуск аукциона
+$start_nft_auction_action: Запустить аукцион
+Cancelled Auction: Аукцион отменён
+Cancelling Auction: Отмена аукциона
+$cancel_nft_auction_action: Отменить аукцион
 Bidding at NFT Auction: Ставка на аукционе NFT
 Buying NFT: Покупка NFT
 Bought NFT: Куплен NFT
@@ -2109,3 +2129,9 @@ Hold to enlarge. Drag to rotate.: Удерживайте, чтобы увели�
 "Max": "Макс."
 Explorer mode: Режим обозревателя
 Open a link to a wallet, transfer, token or collectible to see its details here.: Откройте ссылку на кошелёк, перевод, токен или NFT, чтобы посмотреть здесь детали.
+Receiver %blockchain% Address: Адрес %blockchain% получателя
+
+Save to Photos: Сохранить в Фото
+Image Saved: Изображение сохранено
+Allow access to Photos in Settings to save NFT images.: Разрешите доступ к Фото в настройках, чтобы сохранять изображения NFT.
+Could not save the image. Please try again.: Не удалось сохранить изображение. Попробуйте ещё раз.

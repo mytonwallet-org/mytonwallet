@@ -78,8 +78,8 @@ function DappSignDataInitial({
       <div className={buildClassName(modalStyles.transitionContent, styles.skeletonBackground)}>
         <DappInfoWithAccount dapp={dapp} />
 
-        {renderSignDataByType()}
         {renderSignDataWarnings()}
+        {renderSignDataByType()}
         {renderFooter()}
       </div>
     );

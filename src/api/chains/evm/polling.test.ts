@@ -5,6 +5,7 @@ import { fetchEvmWallet } from './util/account';
 import { NftStream } from './util/nftStream';
 import { swapReplaceActivities } from '../../common/swap';
 import { BalanceStream } from '../../common/websocket/balanceStream';
+import { MINUTE } from '../../constants';
 import { getTokenActivitySlice } from './activities';
 import { setupActivePolling } from './polling';
 import { getIsWalletActive } from './wallet';
@@ -114,6 +115,25 @@ describe('EVM polling', () => {
     // The cases below all describe an address that has history to load, so the cheap
     // has-anything-happened-here probe answers yes; the case that answers no is its own test.
     mockedGetIsWalletActive.mockResolvedValue(true);
+  });
+
+  it('keeps active forced polling at 3 minutes focused and 10 minutes unfocused', async () => {
+    mockedGetTokenActivitySlice.mockResolvedValueOnce({ activities: [], hasMore: false });
+    const account = {
+      type: 'view',
+      byChain: { bnb: { address: ADDRESS, index: 0 } },
+    } as ApiAccountWithChain<'bnb'>;
+
+    const stop = setupActivePolling('bnb', '0-mainnet', account, jest.fn(), jest.fn(), {});
+
+    expect(MockedBalanceStream).toHaveBeenCalledWith(expect.objectContaining({
+      fallbackPollingOptions: expect.objectContaining({
+        forcedPollingPeriod: { focused: 3 * MINUTE, notFocused: 10 * MINUTE },
+      }),
+    }));
+
+    await flushPromises();
+    stop();
   });
 
   it('skips the initial history load for an address with nothing on this chain', async () => {

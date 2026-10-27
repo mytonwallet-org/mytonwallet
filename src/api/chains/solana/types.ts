@@ -318,6 +318,7 @@ export type SolanaInstructionParsed = {
       systemProgram: string;
       tokenProgram: string;
       wallet: string;
+      lamports?: number;
     };
     type: string;
   };
@@ -372,7 +373,8 @@ export type SolanaTokenOperation = {
 } | {
   isSwap: false;
   assets: string[];
-  transfer: BaseApiTransaction;
+  networkFee: bigint;
+  transfers: BaseApiTransaction[];
 };
 
 export type SolanaAssetProofRaw = {

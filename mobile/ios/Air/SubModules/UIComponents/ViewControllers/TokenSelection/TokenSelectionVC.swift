@@ -173,6 +173,9 @@ public class TokenSelectionVC: WViewController {
         self.showsAssetCategories = showsAssetCategories
         super.init(nibName: nil, bundle: nil)
         self.title = title
+        if isModal {
+            preferredContentSize = CGSize(width: 640, height: 750)
+        }
         updateWalletTokens()
     }
     
@@ -262,8 +265,11 @@ public class TokenSelectionVC: WViewController {
         sc.searchBar.placeholder = lang("Search")
         navigationItem.searchController = sc
         navigationItem.hidesSearchBarWhenScrolling = false
+        if isModal {
+            navigationItem.preferredSearchBarPlacement = .stacked
+        }
         if IOS_26_MODE_ENABLED, #available(iOS 26, iOSApplicationExtension 26, *) {
-            navigationItem.searchBarPlacementAllowsToolbarIntegration = true
+            navigationItem.searchBarPlacementAllowsToolbarIntegration = !isModal
             if !isModal {
                 navigationItem.preferredSearchBarPlacement = .integratedButton
             }

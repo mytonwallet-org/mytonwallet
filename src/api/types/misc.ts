@@ -117,7 +117,7 @@ export interface ApiNftSuperCollection {
 export type ApiActivityTimestamps = Record<string, number | undefined>;
 export type ApiTransactionType = 'stake' | 'unstake' | 'unstakeRequest'
   | 'callContract' | 'approval' | 'excess' | 'contractDeploy' | 'bounced'
-  | 'mint' | 'burn' | 'auctionBid' | 'nftTrade'
+  | 'mint' | 'burn' | 'auctionBid' | 'nftAuctionStart' | 'nftAuctionCancel' | 'nftTrade'
   | 'dnsChangeAddress' | 'dnsChangeSite' | 'dnsChangeSubdomains' | 'dnsChangeStorage' | 'dnsDelete' | 'dnsRenew'
   | 'liquidityDeposit' | 'liquidityWithdraw'
   | undefined;
@@ -191,6 +191,13 @@ export type SolanaNftInterface = 'compressed' | 'mplCore';
 
 export type ApiNftInterface = EvmNftInterface | SolanaNftInterface | 'default';
 
+export interface ApiNftSpamInfo {
+  provider: 'alchemy' | 'zerion';
+  /** Absent means the provider has no verdict, not that the NFT is safe. */
+  isSpam?: boolean;
+  classifications?: string[];
+}
+
 export interface ApiNft {
   chain: ApiChain;
   index: number;
@@ -211,6 +218,7 @@ export interface ApiNft {
   isOnFragment?: boolean;
   isTelegramGift?: boolean;
   isScam?: boolean;
+  spamInfo?: ApiNftSpamInfo;
   /** Set when the collection matched no trust signal. Absent means the NFT is verified or was never checked (other chains) */
   isUnverified?: true;
   // The indexer already serves blurred images for these, so this flag is informational
@@ -348,6 +356,43 @@ export type ApiStakingHistory = {
   timestamp: number;
   profit: string;
 }[];
+
+export type ApiForeignStakingUnstakeTransfer = {
+  toAddress: string;
+  amount: bigint;
+  payload?: string;
+};
+
+export type ApiForeignStakingProvider = {
+  name: string;
+  provider: 'ts' | (string & {});
+  amount: bigint;
+  amountNative: bigint;
+  apy: number;
+  unstake: {
+    builder: 'ts' | (string & {});
+    tokenAddress?: string;
+    ownerAddress: string;
+    /** Native amount the provider can pay out on unstake right away; a larger unstake waits for its round */
+    instantAvailable?: bigint;
+  };
+};
+
+export type ApiForeignStakingByChain = {
+  chain: ApiChain;
+  providers: ApiForeignStakingProvider[];
+};
+
+export type ApiForeignStaking = ApiForeignStakingByChain[];
+
+export type ApiForeignUnstakeDraft = {
+  amountNative: bigint;
+  transfers: ApiForeignStakingUnstakeTransfer[];
+  fee: bigint;
+  realFee: bigint;
+  /** Whether the provider is expected to pay the unstaked amount out right away rather than after its round */
+  isInstant: boolean;
+};
 
 export interface ApiDappPermissions {
   isAddressRequired?: boolean;

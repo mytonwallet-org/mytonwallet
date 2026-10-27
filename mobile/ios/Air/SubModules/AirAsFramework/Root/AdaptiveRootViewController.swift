@@ -39,6 +39,7 @@ enum RootContainerLayout: String {
 @MainActor
 final class AdaptiveRootViewController: UIViewController, VisibleContentProviding, WalletCoreData.EventsObserver {
     private var activeContentViewController: UIViewController?
+    override var childForStatusBarStyle: UIViewController? { activeContentViewController }
     let searchController = RootSearchToolbarController()
     private var activeLayout: RootContainerLayout?
     private var activeShowsActionButtonsRow = WalletActionButtonsSettings.showsActionButtonsRow
@@ -160,6 +161,7 @@ final class AdaptiveRootViewController: UIViewController, VisibleContentProvidin
         contentViewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(contentViewController.view)
         contentViewController.didMove(toParent: self)
+        setNeedsStatusBarAppearanceUpdate()
 
         searchController.finishLayoutChange()
 

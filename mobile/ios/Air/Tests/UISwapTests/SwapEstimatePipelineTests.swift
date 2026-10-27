@@ -164,7 +164,7 @@ struct SwapEstimatePipelineTests {
 
     @Test
     @MainActor
-    func `cross chain executor throws when estimate is missing`() async {
+    func `cross chain executor marks missing estimate as not submitted`() async throws {
         let executor = CrosschainSwapExecutor()
         let account = SwapAccountSnapshot(
             account: MAccount(
@@ -185,11 +185,13 @@ struct SwapEstimatePipelineTests {
                 account: account,
                 enclaveToken: "test-token"
             )
-            #expect(Bool(false), "Expected missing estimate to throw")
-        } catch is SdkError {
-            #expect(Bool(true))
+            Issue.record("Expected missing estimate to throw")
+        } catch let error as NotSubmittedError {
+            let underlying = try #require(error.underlying as? SdkError)
+            #expect(underlying.backendMessage == "Missing swap estimate")
+            #expect(actionSubmissionErrorDisposition(for: error) == .notCommitted)
         } catch {
-            #expect(Bool(false), "Expected SdkError")
+            Issue.record("Expected NotSubmittedError, got \(error)")
         }
     }
 
@@ -243,9 +245,28 @@ struct SwapEstimatePipelineTests {
         #expect(swapEstimateIssue(from: error) == .insufficientLiquidity)
     }
 
+    @Test(arguments: [
+        ("No swap quote available", SwapIssue.quoteUnavailable),
+        ("Swap routers are unavailable", SwapIssue.serviceUnavailable),
+        ("Insufficient liquidity", SwapIssue.insufficientLiquidity),
+        ("Something broke", SwapIssue.unexpectedEstimateError),
+    ])
+    func `quote failures have helpful messages in returned and thrown responses`(message: String, issue: SwapIssue) throws {
+        let thrown = SdkError.apiReturnedError(error: message, data: "")
+        #expect(swapEstimateIssue(from: thrown) == issue)
+
+        let data = try JSONSerialization.data(withJSONObject: ["error": message])
+        let response = try JSONDecoder().decode(ApiSwapEstimateResponse.self, from: data)
+        let result = SwapEstimateResult(changedFrom: .selling, response: response)
+        #expect(result.estimateIssue == issue)
+        #expect(result.dexEstimate == nil)
+        #expect(result.cexEstimate == nil)
+        #expect(!result.isRateLimited)
+    }
+
     @Test
     @MainActor
-    func `cross chain non native token fee issue names native token`() {
+    func `cross chain non native token fee shortage highlights the fee`() {
         let validator = CrosschainSwapValidator()
         var estimate = makeCexEstimate(fromAmount: 10, toAmount: 20)
         estimate.isEnoughNative = false
@@ -273,17 +294,12 @@ struct SwapEstimatePipelineTests {
             account: account
         )
 
-        guard case .notEnoughToken(let token) = issue else {
-            #expect(Bool(false), "Expected not enough native token issue")
-            return
-        }
-        #expect(token.slug == TRX_SLUG)
-        #expect(token.symbol == "TRX")
+        #expect(issue == .insufficientFee)
     }
 
-    @Test
+    @Test(arguments: [false, true])
     @MainActor
-    func `cross chain native token fee issue remains insufficient balance`() {
+    func `cross chain separates amount shortages from fee shortages`(hasInsufficientAmount: Bool) {
         let validator = CrosschainSwapValidator()
         var estimate = makeCexEstimate(fromAmount: 10, toAmount: 20)
         estimate.isEnoughNative = false
@@ -294,7 +310,7 @@ struct SwapEstimatePipelineTests {
                 type: .mnemonic,
                 byChain: [.tron: AccountChain(address: "tron-address")]
             ),
-            balances: [TRX_SLUG: 100]
+            balances: [TRX_SLUG: hasInsufficientAmount ? 5 : 100]
         )
         let issue = validator.validationIssue(
             input: SwapValidationInput(
@@ -308,7 +324,7 @@ struct SwapEstimatePipelineTests {
             account: account
         )
 
-        #expect(issue == .insufficientBalance)
+        #expect(issue == (hasInsufficientAmount ? .insufficientBalance : .insufficientFee))
     }
 
     @Test
@@ -431,6 +447,96 @@ struct SwapEstimatePipelineTests {
         )
 
         #expect(maxAmount == 104_140_099)
+    }
+
+    @Test
+    func `internal cross chain native max uses a fee reserved CEX quote`() async throws {
+        let trx = token(slug: TRX_SLUG, symbol: "TRX", chain: .tron, decimals: 6)
+        let ton = ApiChain.ton.nativeToken
+        let account = tronAccount(balances: [TRX_SLUG: 105_240_099])
+        let input = SwapEstimateInput(
+            accountId: account.id,
+            selling: TokenAmount(105_240_099, trx),
+            buying: TokenAmount(0, ton),
+            inputSource: .selling,
+            isMaxAmount: true,
+            maxAmount: nil,
+            slippage: 5
+        )
+        let flow = CrosschainSwapFlow(
+            validator: CrosschainSwapValidator(),
+            estimateEngine: CrosschainSwapEstimateEngine(fetchEstimate: { _, request in
+                let amount = request.fromAmount?.value
+                var quote: ApiSwapCexEstimateResponse
+                switch amount {
+                case 105.240099:
+                    quote = makeCexEstimate(fromAmount: 105.240099, toAmount: 200)
+                case 104.140099:
+                    quote = makeCexEstimate(fromAmount: 104.140099, toAmount: 198)
+                default:
+                    Issue.record("CEX was quoted for an unexpected amount: \(String(describing: amount))")
+                    quote = makeCexEstimate(fromAmount: 105.240099, toAmount: 200)
+                }
+                quote.networkFee = MDouble("1.1")
+                return .cex(quote)
+            })
+        )
+
+        let update = try await flow.estimate(input, changedFrom: .selling, swapType: .crosschainInsideWallet, account: account)
+        let quote = try #require(update.stateUpdate?.cexEstimate)
+        #expect(quote.fromAmount.value == 104.140099)
+        #expect(quote.toAmount.value == 198)
+        #expect(quote.isEnoughNative == true)
+        #expect(update.estimatedAmounts?.fromAmount.value == 104.140099)
+        #expect(CrosschainSwapValidator().validationIssue(
+            input: SwapValidationInput(
+                sellingToken: trx,
+                buyingToken: ton,
+                sellingAmount: 104_140_099,
+                maxAmount: nil,
+                swapType: .crosschainInsideWallet
+            ),
+            swapEstimate: quote,
+            account: account
+        ) == nil)
+    }
+
+    @Test
+    func `native max returning from CEX can receive a full balance DEX quote`() async throws {
+        let eth = ApiChain.ethereum.nativeToken
+        let baseEth = ApiChain.base.nativeToken
+        let account = SwapAccountSnapshot(
+            account: MAccount(id: "test-mainnet", title: nil, type: .mnemonic, byChain: [
+                .ethereum: AccountChain(address: "0xsender"), .base: AccountChain(address: "0xrecipient")
+            ]),
+            balances: [eth.slug: 1_000_000_000_000_000_000]
+        )
+        let input = SwapEstimateInput(
+            accountId: account.id,
+            selling: TokenAmount(990_000_000_000_000_000, eth),
+            buying: TokenAmount(0, baseEth),
+            inputSource: .selling, isMaxAmount: true, maxAmount: nil, slippage: 1
+        )
+        let quote = try JSONDecoder().decode(ApiSwapDexEstimateResponse.self, from: Data("""
+        {
+          "route":"dex", "from":"\(eth.swapIdentifier)", "to":"\(baseEth.swapIdentifier)",
+          "fromAmount":"0.98", "toAmount":"0.97", "toMinAmount":"0.96",
+          "impact":0.1, "dieselStatus":"not-available", "networkFee":"0.01",
+          "swapFee":"0", "swapFeePercent":0, "ourFee":"0", "ourFeePercent":0
+        }
+        """.utf8))
+        let flow = OnchainSwapFlow(
+            validator: OnchainSwapValidator(),
+            estimateEngine: OnchainSwapEstimateEngine(fetchEstimate: { _, request in
+                #expect(request.fromAmount?.value == 1)
+                #expect(request.isFromAmountMax == true)
+                return .dex(quote)
+            })
+        )
+
+        let update = try await flow.estimate(input, changedFrom: .selling, swapType: .crosschainInsideWallet, account: account)
+        #expect(update.backendMaxAmount == 980_000_000_000_000_000)
+        #expect(update.stateUpdate?.dexEstimate?.toAmount.value == 0.97)
     }
 
     @Test

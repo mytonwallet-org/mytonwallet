@@ -7,6 +7,108 @@ import WalletResources
 @MainActor
 @Suite("Universal Search toolbar transitions", .serialized)
 struct UniversalSearchToolbarTransitionTests {
+    @Test
+    func `compact action tint updates do not inherit surrounding animations`() async throws {
+        guard #available(iOS 26, *) else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setCompactActions([.init(id: "buy", title: "Buy", style: .accent)])
+        let button = try #require(actionButtons(in: toolbar).first)
+        let material = try #require(effectViews(in: button).first)
+        button.tintColor = .red
+        try await Task.sleep(for: .milliseconds(300))
+        let previousAnimations = animations(in: material.layer, excluding: material.contentView.layer)
+
+        UIView.animate(withDuration: 1) {
+            button.tintColor = .blue
+        }
+        let currentAnimations = animations(in: material.layer, excluding: material.contentView.layer)
+        #expect(currentAnimations == previousAnimations, "Regular action materials must keep their immediate tint updates")
+    }
+
+    @Test(arguments: [UniversalSearchFieldPresentation.homeToolbar, .compactToolbar, .sideToolbar, .search])
+    func `standard appearance refreshes leave regular controls untouched`(presentation: UniversalSearchFieldPresentation) async throws {
+        guard #available(iOS 26, *) else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(presentation, animated: false)
+        try await Task.sleep(for: .milliseconds(300))
+        let previousAnimations = animations(in: toolbar.layer)
+
+        for _ in 0..<3 {
+            toolbar.setOverlayAppearance(search: .standard, actions: .standard, animated: true)
+        }
+        let currentAnimations = animations(in: toolbar.layer)
+        #expect(currentAnimations == previousAnimations)
+        #expect(toolbar.searchButtonPresentationSourceView.overrideUserInterfaceStyle == .unspecified)
+        #expect(toolbar.trailingButtonView.overrideUserInterfaceStyle == .unspecified)
+    }
+
+    @Test
+    func `changing action contrast leaves unchanged search control untouched`() async throws {
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        toolbar.setPresentation(.sideToolbar, animated: false)
+        let dark = ContentOverlayAppearance(usesClearGlass: true, foregroundColor: .white, userInterfaceStyle: .dark)
+        toolbar.setOverlayAppearance(search: dark, actions: dark, animated: false)
+        try await Task.sleep(for: .milliseconds(300))
+        let light = ContentOverlayAppearance(usesClearGlass: true, foregroundColor: .black, userInterfaceStyle: .light)
+        let previousSearchAnimations = animations(in: toolbar.searchButtonPresentationSourceView.layer)
+
+        toolbar.setOverlayAppearance(search: dark, actions: light, animated: true)
+        let currentSearchAnimations = animations(in: toolbar.searchButtonPresentationSourceView.layer)
+        #expect(currentSearchAnimations == previousSearchAnimations)
+        #expect(!animations(in: toolbar.trailingButtonPresentationSourceView.layer).isEmpty)
+    }
+
+    private func animations(in layer: CALayer, excluding excludedLayer: CALayer? = nil) -> [ObjectIdentifier: [String]] {
+        guard layer !== excludedLayer else { return [:] }
+        var result: [ObjectIdentifier: [String]] = [:]
+        if let keys = layer.animationKeys(), !keys.isEmpty { result[ObjectIdentifier(layer)] = keys }
+        for child in layer.sublayers ?? [] {
+            result.merge(animations(in: child, excluding: excludedLayer)) { _, new in new }
+        }
+        return result
+    }
+
+    private func effectViews(in view: UIView) -> [UIVisualEffectView] {
+        (view as? UIVisualEffectView).map { [$0] } ?? view.subviews.flatMap { effectViews(in: $0) }
+    }
+
+    @Test
+    func `content appearance restores semantic colors and material after search opens`() async throws {
+        guard #available(iOS 26, *) else { return }
+        let (window, toolbar) = makeToolbar()
+        defer { window.isHidden = true }
+        window.overrideUserInterfaceStyle = .light
+        toolbar.setPresentation(.sideToolbar, animated: false)
+        let dark = ContentOverlayAppearance(usesClearGlass: true, foregroundColor: .white, userInterfaceStyle: .dark)
+        toolbar.setOverlayAppearance(search: dark, actions: dark, animated: true)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(toolbar.trailingButtonView.traitCollection.userInterfaceStyle == .dark)
+        #expect(toolbar.searchButtonPresentationSourceView.traitCollection.userInterfaceStyle == .dark)
+        let materials = glassEffects(in: toolbar)
+        #expect(materials.count == 2)
+        #expect(materials.allSatisfy { $0.isInteractive })
+
+        toolbar.setPresentation(.search, animated: true)
+        toolbar.setOverlayAppearance(search: .standard, actions: .standard, animated: true)
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(toolbar.trailingButtonView.traitCollection.userInterfaceStyle == .light)
+        #expect(toolbar.searchButtonPresentationSourceView.traitCollection.userInterfaceStyle == .light)
+        window.overrideUserInterfaceStyle = .dark
+        window.layoutIfNeeded()
+        #expect(toolbar.searchButtonPresentationSourceView.traitCollection.userInterfaceStyle == .dark,
+                "Reset must resume inheriting the app theme")
+        #expect(toolbar.trailingButtonView.overrideUserInterfaceStyle == .unspecified)
+    }
+
+    @available(iOS 26, *)
+    private func glassEffects(in view: UIView) -> [UIGlassEffect] {
+        let own = (view as? UIVisualEffectView)?.effect as? UIGlassEffect
+        return (own.map { [$0] } ?? []) + view.subviews.flatMap { glassEffects(in: $0) }
+    }
+
     private let tradeActions: [SharedBottomToolbarAction] = [
         .init(id: "buy", title: "Buy", style: .positive),
         .init(id: "sell", title: "Sell", style: .negative),

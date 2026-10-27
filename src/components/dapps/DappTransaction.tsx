@@ -3,6 +3,7 @@ import React, { memo, useMemo } from '../../lib/teact/teact';
 import type { ApiDappTransfer, ApiToken } from '../../api/types';
 
 import { TONCOIN } from '../../config';
+import renderText from '../../global/helpers/renderText';
 import buildClassName from '../../util/buildClassName';
 import { getChainTitle } from '../../util/chain';
 import isEmptyObject from '../../util/isEmptyObject';
@@ -87,6 +88,15 @@ function DappTransactionContent({
 
   return (
     <>
+      {transaction.isDangerous ? (
+        <div className={buildClassName(styles.transferWarning, styles.warning)}>
+          {renderText(lang('$hardware_payload_warning'))}
+        </div>
+      ) : transaction.stateInit && (
+        <div className={buildClassName(styles.transferWarning, styles.warning)}>
+          {renderText(lang('$signature_warning'))}
+        </div>
+      )}
       {isNftTransferPayload(transaction.payload) && <NftInfo nft={transaction.payload.nft} />}
       <p className={styles.label}>{lang(payloadRecipientAddress ? 'Contract Address' : 'Receiving Address')}</p>
       <InteractiveTextField
@@ -115,6 +125,16 @@ function DappTransactionContent({
       )}
       <DappAmountField label={lang('Fee')} amountsBySlug={feeBySlug} />
       <DappTransactionPayload transaction={transaction} tokensBySlug={tokensBySlug} />
+      {transaction.stateInit && (
+        <>
+          <p className={styles.label}>{lang('Contract Initialization Data')}</p>
+          <InteractiveTextField
+            text={transaction.stateInit}
+            copyNotification={lang('Contract Initialization Data Copied')}
+            className={styles.dataField}
+          />
+        </>
+      )}
     </>
   );
 }

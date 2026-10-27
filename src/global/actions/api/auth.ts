@@ -1,5 +1,5 @@
 import type { ApiChain, ApiNetwork } from '../../../api/types';
-import type { Account, AuthType, GlobalState, MigrationErrorPresentation } from '../../types';
+import type { Account, AuthType, EnclaveSession, GlobalState, MigrationErrorPresentation } from '../../types';
 import { ApiAuthError, ApiCommonError } from '../../../api/types';
 import { AppState, AuthState, BiometricsState } from '../../types';
 
@@ -81,6 +81,8 @@ import {
 } from '../../selectors';
 
 import { getIsPortrait } from '../../../hooks/useDeviceScreen';
+
+type AuthSessionResult = { isProvisioned: boolean; enclaveSession?: EnclaveSession };
 
 const CREATING_DURATION = 3300;
 const SWITHCHING_ACCOUNT_DURATION_MS = IS_IOS ? 450 : IS_ANDROID ? 350 : 300;
@@ -259,8 +261,10 @@ addActionHandler('confirmPin', async (global, actions, { isImporting }) => {
   setGlobal(global);
 
   try {
-    const enclaveSession = await enclave.setupAuth('passcode', pin);
-    if (!enclaveSession) throw new Error('Failed to setup auth');
+    const { enclaveSession, isProvisioned } = await authorizeOrSetupAuth('passcode', pin);
+    if (!enclaveSession) {
+      throw new Error(isProvisioned ? 'Wrong code, please try again' : 'Failed to setup auth');
+    }
 
     global = getGlobal();
     global = updateAuth(global, { isLoading: false });
@@ -279,8 +283,13 @@ addActionHandler('confirmPin', async (global, actions, { isImporting }) => {
   } catch (err: any) {
     const error = err?.message || 'Failed to setup auth';
 
+    // The PIN was already cleared, so return to PIN entry to allow another attempt.
     global = getGlobal();
-    global = updateAuth(global, { isLoading: false, error });
+    global = updateAuth(global, {
+      isLoading: false,
+      error,
+      state: isImporting ? AuthState.importWalletCreatePin : AuthState.createPin,
+    });
     setGlobal(global);
   }
 });
@@ -293,16 +302,34 @@ addActionHandler('cancelConfirmPin', (global, actions, { isImporting }) => {
 });
 
 /**
- * Storage outlives the global state and can hold an auth the app no longer remembers, after a setup
- * that was interrupted or a cache that was lost. `setupAuth` refuses over any auth at all, not only one
- * of the type being set up, because the master key it would mint is one per storage and would strand
- * every secret sealed under the old one. An auth that guards no secrets is a leftover of a setup that
- * never imported anything, and clearing it is the only way past that refusal that destroys nothing.
+ * Clear incomplete auth setup only when no secrets are stored, then reuse the requested auth if it exists.
+ * Preserve any other auth protecting stored secrets. `setupAuth` must fail in that case:
+ * replacing the master key would make those secrets inaccessible.
  */
-async function clearAuthGuardingNothing() {
+function authorizeOrSetupAuth(authType: 'passcode', passcode: string): Promise<AuthSessionResult>;
+function authorizeOrSetupAuth(authType: 'biometric'): Promise<AuthSessionResult>;
+async function authorizeOrSetupAuth(authType: AuthType, passcode?: string): Promise<AuthSessionResult> {
   if (await enclave.hasProvisionedAuth() && !await enclave.hasStoredSecrets()) {
     await enclave.reset();
   }
+
+  const isProvisioned = await enclave.isAuthProvisioned(authType);
+
+  if (authType === 'biometric') {
+    return {
+      isProvisioned,
+      enclaveSession: isProvisioned
+        ? await enclave.authorize('biometric', false)
+        : await enclave.setupAuth('biometric'),
+    };
+  }
+
+  return {
+    isProvisioned,
+    enclaveSession: isProvisioned
+      ? await enclave.authorize('passcode', false, passcode!)
+      : await enclave.setupAuth('passcode', passcode!),
+  };
 }
 
 addActionHandler('createPassword', async (global, actions, { password, isNumeric }) => {
@@ -310,12 +337,7 @@ addActionHandler('createPassword', async (global, actions, { password, isNumeric
   setGlobal(global);
 
   try {
-    await clearAuthGuardingNothing();
-
-    const isProvisioned = await enclave.isAuthProvisioned('passcode');
-    const enclaveSession = isProvisioned
-      ? await enclave.authorize('passcode', false, password)
-      : await enclave.setupAuth('passcode', password);
+    const { enclaveSession, isProvisioned } = await authorizeOrSetupAuth('passcode', password);
     if (!enclaveSession) {
       throw new Error(isProvisioned ? 'Wrong password, please try again.' : 'Failed to setup auth');
     }
@@ -337,19 +359,11 @@ addActionHandler('createPassword', async (global, actions, { password, isNumeric
 });
 
 addActionHandler('setupBiometricAuth', async (global, actions) => {
-  global = updateAuth(global, { isLoading: true });
+  global = updateAuth(global, { isLoading: true, error: undefined });
   setGlobal(global);
 
   try {
-    await clearAuthGuardingNothing();
-
-    // A biometric auth already in storage is authorized against rather than replaced. A passcode auth
-    // that is still guarding secrets survives this and makes the setup below refuse, which is correct:
-    // only the password that sealed the master key can hand it over to biometrics.
-    const isProvisioned = await enclave.isAuthProvisioned('biometric');
-    const enclaveSession = isProvisioned
-      ? await enclave.authorize('biometric', false)
-      : await enclave.setupAuth('biometric');
+    const { enclaveSession, isProvisioned } = await authorizeOrSetupAuth('biometric');
     if (!enclaveSession) {
       throw new Error(isProvisioned ? 'Biometric confirmation failed.' : 'Failed to setup biometric auth');
     }
@@ -803,7 +817,7 @@ addActionHandler('afterSelectHardwareWallets', (global, actions, { hardwareSelec
 
 addActionHandler('enableBiometrics', async (global, actions, { isLoginFlow } = {}) => {
   if (isLoginFlow) {
-    global = updateAuth(global, { isLoading: true });
+    global = updateAuth(global, { isLoading: true, error: undefined });
     setGlobal(global);
   }
 

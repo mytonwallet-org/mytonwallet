@@ -41,6 +41,20 @@ function isEthersTransportError(err: unknown): boolean {
     && ETHERS_RECOVERABLE_TRANSPORT_CODES.has((err as { code: string }).code);
 }
 
+// `@solana/kit` reports an RPC that answered non-2xx (a 429 from a rate-limited upstream, say) as a `SolanaError`
+// whose context carries `SOLANA_ERROR__RPC__TRANSPORT_HTTP_ERROR`; a request that never reached the RPC fails as the
+// fetch `TypeError` handled below. Its JSON-RPC errors stay out: those are the node's answer to the request.
+const SOLANA_RPC_TRANSPORT_HTTP_ERROR_CODE = 8100002;
+
+function isSolanaRpcTransportError(err: unknown): boolean {
+  // Duck-typed for the same reason as the ethers check: builds compiled without Solana (NO_SOLANA=1) must not pull
+  // `@solana/kit` in just to name its error class.
+  return err instanceof Error
+    && err.name === 'SolanaError'
+    && 'context' in err
+    && (err as { context?: { __code?: unknown } }).context?.__code === SOLANA_RPC_TRANSPORT_HTTP_ERROR_CODE;
+}
+
 /**
  * Whether wallet discovery may continue with the default derivation path instead of aborting the whole import.
  *
@@ -52,7 +66,8 @@ export function isWalletDiscoveryRecoverableTransportError(err: unknown): boolea
   // Check for the error text to catch specific offline-import case.
   return err instanceof ApiServerError
     || (err instanceof TypeError && WALLET_DISCOVERY_RECOVERABLE_FETCH_ERRORS.has(err.message))
-    || isEthersTransportError(err);
+    || isEthersTransportError(err)
+    || isSolanaRpcTransportError(err);
 }
 
 export class AbortOperationError extends ApiBaseError {

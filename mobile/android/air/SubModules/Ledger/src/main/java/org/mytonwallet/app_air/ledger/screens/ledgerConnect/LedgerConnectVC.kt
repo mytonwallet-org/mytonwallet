@@ -53,6 +53,7 @@ import org.mytonwallet.app_air.uicomponents.extensions.setPaddingDp
 import org.mytonwallet.app_air.uicomponents.extensions.setPaddingLocalized
 import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.helpers.adaptiveFontSize
+import org.mytonwallet.app_air.uicomponents.viewControllers.MfaActionConfirmVC
 import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WScrollView
@@ -76,6 +77,7 @@ import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.helpers.ActivityHelpers
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.ApiForeignUnstakeDraft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.LocalActivityParams
@@ -187,6 +189,13 @@ class LedgerConnectVC(
             val amount: BigInteger,
             val stakingState: StakingState,
             val realFee: BigInteger
+        ) : SignData()
+
+        data class ForeignUnstake(
+            override val accountId: String,
+            val chain: String,
+            val providerName: String,
+            val draft: ApiForeignUnstakeDraft
         ) : SignData()
 
         data class ClaimRewards(
@@ -933,6 +942,61 @@ class LedgerConnectVC(
                         }
                     } catch (e: Exception) {
                         handleSigningFailure("submit-staking", e)
+                    }
+                }
+
+                is SignData.ForeignUnstake -> {
+                    try {
+                        val result = WalletCore.call(
+                            ApiMethod.Staking.SubmitForeignUnstake(
+                                signData.accountId,
+                                signData.chain,
+                                signData.providerName,
+                                signData.draft,
+                                ""
+                            )
+                        )
+                        result.error?.let {
+                            throw JSWebViewBridge.ApiError(
+                                "submitForeignUnstake",
+                                it,
+                                MBridgeError.fromErrorName(it) ?: MBridgeError.Type.UNEXPECTED_ERROR
+                            )
+                        }
+                        val mfaRequestHash = result.mfaRequestHash
+                        check(mfaRequestHash != null || !result.activityIds.isNullOrEmpty()) {
+                            "Missing unstake activity"
+                        }
+                        Handler(Looper.getMainLooper()).post {
+                            if (mfaRequestHash != null) {
+                                push(
+                                    MfaActionConfirmVC(
+                                        context,
+                                        mfaRequestHash,
+                                        onFinishOverride = {
+                                            AccountStore.dismissForeignStakingBanner(
+                                                signData.accountId,
+                                                signData.chain,
+                                                signData.providerName
+                                            )
+                                            mode.onDone()
+                                        }
+                                    ),
+                                    onCompletion = {
+                                        navigationController?.removePrevViewControllerOnly()
+                                    }
+                                )
+                            } else {
+                                AccountStore.dismissForeignStakingBanner(
+                                    signData.accountId,
+                                    signData.chain,
+                                    signData.providerName
+                                )
+                                mode.onDone()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        handleSigningFailure("submit-foreign-unstaking", e)
                     }
                 }
 

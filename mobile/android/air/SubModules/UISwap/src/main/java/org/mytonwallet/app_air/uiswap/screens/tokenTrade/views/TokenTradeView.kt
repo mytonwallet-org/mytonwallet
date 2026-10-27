@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.core.animation.doOnEnd
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import kotlin.math.ceil
@@ -30,6 +31,7 @@ import org.mytonwallet.app_air.uicomponents.widgets.WButton
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.setBackgroundColor
+import org.mytonwallet.app_air.uiswap.screens.swap.views.SwapEstimateDebugSummaryView
 import org.mytonwallet.app_air.uiswap.screens.tokenTrade.TokenTradeModel
 import org.mytonwallet.app_air.walletbasecontext.localization.LocaleController
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
@@ -155,6 +157,9 @@ class TokenTradeView(
         )
         setOnClickListener { onSelectMethod() }
     }
+    private val estimateDebugSummaryView = SwapEstimateDebugSummaryView(context).apply {
+        isGone = true
+    }
 
     private val bottomPanel = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private val controlsContainer = FrameLayout(context)
@@ -225,6 +230,12 @@ class TokenTradeView(
             methodRow,
             LinearLayout.LayoutParams(MATCH_PARENT, METHOD_ROW_HEIGHT.dp).apply {
                 setMargins(10.dp, METHOD_ROW_GAP.dp, 10.dp, METHOD_ROW_GAP.dp)
+            }
+        )
+        content.addView(
+            estimateDebugSummaryView,
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                setMargins(10.dp, 0, 10.dp, METHOD_ROW_GAP.dp)
             }
         )
         scrollView.addView(content, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -307,6 +318,7 @@ class TokenTradeView(
                 rippleColor = WColor.BackgroundRipple.color
             }
         }
+        estimateDebugSummaryView.updateTheme()
         continueButton.customTint = (if (model.isBuying) WColor.Buy else WColor.Sell).color
         render()
     }
@@ -410,6 +422,14 @@ class TokenTradeView(
         }
         methodBadge.text = badge
         methodBadge.isVisible = badge != null
+
+        val debugSummary = model.estimateDebugSummary
+        if (!debugSummary.isNullOrEmpty()) {
+            estimateDebugSummaryView.configure(debugSummary)
+            estimateDebugSummaryView.isVisible = true
+        } else {
+            estimateDebugSummaryView.isGone = true
+        }
 
         val showsButton = model.hasAmount || (cardCurrency != null && model.isBuying)
         continueButton.isVisible = showsButton

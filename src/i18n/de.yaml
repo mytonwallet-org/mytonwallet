@@ -117,6 +117,7 @@ $logout_selected_wallets_warning: Dies wird die ausgewählten Wallets aus der Ap
 $logout_all_wallets_warning: Dies wird alle Wallets aus der App entfernen.
 $secret_words_backup_reminder: Stellen Sie sicher, dass Sie Ihre **Geheimwörter** gesichert haben.
 $all_secret_words_backup_reminder: Stellen Sie sicher, dass Sie all Ihre **Geheimwörter** gesichert haben.
+$secret_word_input_aria_label: "Geheimwort %number%"
 Create Deposit Link: Einzahlungslink erstellen
 $receive_invoice_description: |
   Sie können den Betrag und den Zweck der
@@ -247,6 +248,11 @@ Dark: Dunkel
 System: System
 $stake_asset: "%symbol% staken"
 Add Stake: Zum Staking hinzufügen
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% in einem anderen Staking gesperrt"
+"Unstake them to restake with **higher returns**.": "Unstake sie, um sie mit **höheren Erträgen** erneut zu staken."
+"💎 More profitable staking available": "💎 Profitableres Staking verfügbar"
+"Tap to restake your %symbol% with higher returns.": "Tippe, um deine %symbol% mit höheren Erträgen erneut zu staken."
+"Restake Now": "Jetzt erneut staken"
 Earn from your tokens while holding them: Verdienen Sie durch das Halten von %symbol%.
 Current APY: Aktueller APY
 Est. Yearly Earnings: Geschätzter Jahresertrag
@@ -287,8 +293,8 @@ The network fee has slightly changed, try sending again.: Die Netzwerkgebühr ha
 Transfer was unsuccessful. Try again later.: Die Überweisung war nicht erfolgreich. Versuchen Sie es später erneut.
 Action Partially Completed: Aktion teilweise abgeschlossen
 $action_partially_completed_description: "%completed% von %total% Vorgängen wurden abgeschlossen. Die verbleibenden Vorgänge wurden nicht abgeschlossen. Prüfen Sie Ihre Aktivitäten, bevor Sie es erneut versuchen."
-Action Status Unknown: Status der Aktion unbekannt
-$action_status_unknown_description: "Der Abschlussstatus konnte nicht verifiziert werden. Prüfen Sie Ihre Aktivitäten und Ihr Guthaben, bevor Sie es erneut versuchen; ein erneuter Versuch könnte die Aktion doppelt ausführen."
+Check Your Activity: Aktivitäten prüfen
+$action_status_unknown_description: "Ihre Anfrage wurde möglicherweise bereits ausgeführt. Prüfen Sie Ihre Aktivitäten und Ihren Kontostand, bevor Sie es erneut versuchen, um die Anfrage nicht zweimal zu senden."
 $action_will_continue_in_background: Die Aktion wird im Hintergrund fortgesetzt.
 Invalid amount: Ungültiger Betrag
 Invalid address: Ungültige Adresse
@@ -424,6 +430,7 @@ $swap_minimum_received_tooltip1: Dies ist die geringste Menge an neuen Token, di
 $swap_minimum_received_tooltip2: Es handelt sich um ein erwartetes Minimum, aber wenn sich die Bedingungen während der Verarbeitung Ihres Tausches stark ändern, könnte der endgültige Betrag geringer ausfallen.
 $swap_price_impact_tooltip1: Dies zeigt, wie sehr Ihr Handel den Preis des Tokens ändern könnte.
 $swap_price_impact_tooltip2: Große Trades können den Preis stärker nach oben oder unten bewegen. In der Regel ist ein niedrigerer Wert besser.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: Schlupf ist die Differenz zwischen dem erwarteten und dem tatsächlichen Handelspreis, die durch Preisänderungen während der Ausführung entsteht.
 $swap_slippage_tooltip1: Dies legt fest, wie viel sich der Preis ändern darf, bevor Ihr Tausch verarbeitet wird.
 $swap_slippage_tooltip2: Wenn sich während der Verarbeitung Ihres Tausches der Preis um mehr als diesen Wert ändert, wird Ihre Bestellung storniert.
 Slippage not specified: Schlupf nicht angegeben
@@ -452,6 +459,8 @@ Swap Again: Erneut tauschen
 Terms of Use: Nutzungsbedingungen
 Privacy Policy: Datenschutzrichtlinie
 Insufficient liquidity: Unzureichende Liquidität
+$swap_quote_unavailable: Kein Angebot verfügbar
+$swap_service_unavailable: Tausch nicht verfügbar
 This address is new and never received transfers before.: Diese Adresse ist neu und hat zuvor keine Überweisungen erhalten.
 Create Backup: Sicherung erstellen
 Sending: Senden
@@ -666,6 +675,11 @@ $dapp_liquid_staking_vote_payload: Abstimmung „%vote%“ für Vorschlag %votin
 $dapp_single_nominator_change_validator_payload: Adresse des SingleNominator-Staking-Vertragsvalidators in %address% ändern
 $dapp_single_nominator_withdraw_payload: Abhebung von %amount% vom SingleNominator-Staking-Vertrag
 $dapp_vesting_add_whitelist_payload: "%address% zur Vesting Wallet-Whitelist hinzufügen"
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: Problem mit der Zeitsynchronisierung. Bitte stellen Sie sicher, dass die Zeiteinstellungen Ihres Geräts korrekt sind.
 Data Copied: Daten wurden kopiert
 URL Copied: URL Copied
@@ -858,7 +872,7 @@ Blockchain Fee Details: Blockchain-Gebührenübersicht
 Final Fee: Endgebühr
 Excess: Überschuss
 $fee_details: |
-  "%full_fee% müssen sofort von Ihrer Wallet abgebucht werden, um die Gebühr zu bezahlen. Ein Teil davon wird Ihnen **in **%excess_symbol% als Überschuss innerhalb weniger Minuten zurückerstattet."
+  "%full_fee% müssen sofort von Ihrer Wallet abgebucht werden, um die Gebühr zu bezahlen. Ein Teil davon wird Ihnen **in** %excess_symbol% als Überschuss innerhalb weniger Minuten zurückerstattet."
 
   So funktioniert die %chain_name% Blockchain.
 Got It: Verstanden
@@ -928,6 +942,12 @@ Bounced: Zurückgesendet
 Bouncing: Zurückspringen
 $bounce_action: Zurücksenden
 NFT Auction Bid: NFT-Auktionsgebot
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: Bieten bei NFT-Auktion
 Buying NFT: NFT wird gekauft
 Bought NFT: NFT gekauft
@@ -2076,3 +2096,9 @@ Hold to enlarge. Drag to rotate.: Zum Vergrößern gedrückt halten. Zum Drehen 
 "Max": "Max."
 Explorer mode: Explorer-Modus
 Open a link to a wallet, transfer, token or collectible to see its details here.: Öffnen Sie einen Link zu einer Wallet, einem Transfer, einem Token oder einem Sammlerstück, um die Details hier anzuzeigen.
+Receiver %blockchain% Address: "%blockchain%-Adresse des Empfängers"
+
+Save to Photos: In Fotos sichern
+Image Saved: Bild gesichert
+Allow access to Photos in Settings to save NFT images.: Erlaube in den Einstellungen den Zugriff auf Fotos, um NFT-Bilder zu sichern.
+Could not save the image. Please try again.: Das Bild konnte nicht gesichert werden. Bitte versuche es erneut.

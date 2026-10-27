@@ -8,6 +8,7 @@ import org.mytonwallet.app_air.uicomponents.helpers.WFont
 import org.mytonwallet.app_air.uicomponents.widgets.WLabel
 import org.mytonwallet.app_air.uicomponents.widgets.WThemedView
 import org.mytonwallet.app_air.uicomponents.widgets.WView
+import org.mytonwallet.app_air.walletbasecontext.DEBUG_MODE
 import org.mytonwallet.app_air.walletbasecontext.theme.WColor
 import org.mytonwallet.app_air.walletbasecontext.theme.color
 import org.mytonwallet.app_air.walletbasecontext.utils.ceilToInt
@@ -31,7 +32,7 @@ class WordListItemView(context: Context) :
         lbl
     }
 
-    fun setupViews(index: String, word: String) {
+    fun setupViews(column: Int, index: String, word: String) {
         addView(
             indexLabel,
             LayoutParams(indexLabel.paint.measureText("88.").ceilToInt(), WRAP_CONTENT)
@@ -46,6 +47,7 @@ class WordListItemView(context: Context) :
         }
 
         indexLabel.text = index
+        if (DEBUG_MODE) wordLabel.contentDescription = "words#$column"
         wordLabel.text = word
 
         updateTheme()

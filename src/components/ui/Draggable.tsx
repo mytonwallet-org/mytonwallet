@@ -117,9 +117,9 @@ function Draggable({
     }
   };
 
-  const startContinuousScroll = (scrollContainer: HTMLElement, speed: number) => {
+  const startContinuousScroll = (scrollContainer: HTMLElement, stepPx: number) => {
     const animateScroll = () => {
-      scrollContainer.scrollBy(0, speed);
+      scrollContainer.scrollBy({ top: stepPx, behavior: 'instant' });
       updateDraggablePosition();
       scrollIntervalId.current = requestAnimationFrame(animateScroll);
     };

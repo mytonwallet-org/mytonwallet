@@ -10,8 +10,12 @@ struct CardLinearShineMotion {
     private var progress: Double = 0
     private var rate: Double = 1
     private var targetRate: Double = 1
-    private var pendingSweep: (direction: CGFloat, speed: Double, angle: CGFloat?)?
-    private var touch: (point: CGPoint, angle: CGFloat, elapsed: TimeInterval)?
+    private var pendingSweep: (direction: CGFloat, speed: Double, angle: CGFloat?, isTouch: Bool)?
+    private var isTouchSweep = false
+    private var vectorMovement = CGPoint.zero
+    private var lastTriggerVector: CGPoint?
+    private var lastRequestedVector: CGPoint?
+    private var touch: (point: CGPoint, angle: CGFloat, improved: Bool, aspectRatio: CGFloat, elapsed: TimeInterval)?
     private(set) var linearAngle: CGFloat?
     private var lastTriggerDirection: CGFloat?
     private var lastRequestedDirection: CGFloat?
@@ -32,6 +36,8 @@ struct CardLinearShineMotion {
 
     mutating func recenterInput() {
         movement = 0
+        vectorMovement = .zero
+        lastTriggerVector = nil
         lastTriggerDirection = nil
         idleTime = 0
     }
@@ -42,13 +48,14 @@ struct CardLinearShineMotion {
         start(direction: position >= 0 ? 1 : -1, speed: 0)
     }
 
-    mutating func beginDirectionalPress(at point: CGPoint, angle: CGFloat) {
+    mutating func beginDirectionalPress(at point: CGPoint, angle: CGFloat,
+                                        improved: Bool = false, aspectRatio: CGFloat = 358 / 208) {
         // A fresh touch takes priority over any active or queued tilt sweep.
         pendingSweep = nil
         recenterInput()
-        touch = (point, angle, 0)
-        let pose = Self.touchPose(at: point, angle: angle)
-        start(direction: pose.direction, speed: 0, angle: pose.angle)
+        touch = (point, angle, improved, aspectRatio, 0)
+        let pose = Self.touchPose(at: point, angle: angle, improved: improved, aspectRatio: aspectRatio)
+        start(direction: pose.direction, speed: 0, angle: pose.angle, isTouch: true)
     }
 
     mutating func moveDirectionalPress(to point: CGPoint) {
@@ -60,28 +67,35 @@ struct CardLinearShineMotion {
         self.touch = nil
         recenterInput()
         guard !cancelled, touch.elapsed >= 0.45 else { return }
-        let pose = Self.touchPose(at: touch.point, angle: touch.angle)
+        let pose = Self.touchPose(at: touch.point, angle: touch.angle, improved: touch.improved, aspectRatio: touch.aspectRatio)
         if isAnimating {
-            pendingSweep = (-pose.direction, 0, pose.angle)
+            pendingSweep = (-pose.direction, 0, pose.angle, true)
             lastRequestedDirection = -pose.direction
         } else {
-            start(direction: -pose.direction, speed: 0, angle: pose.angle)
+            start(direction: -pose.direction, speed: 0, angle: pose.angle, isTouch: true)
         }
     }
 
-    private static func touchPose(at point: CGPoint, angle: CGFloat) -> (direction: CGFloat, angle: CGFloat) {
-        // Mirror the band for the other diagonal, so all four corners can be the source.
-        (point.y >= 0 ? 1 : -1, point.x * point.y < 0 ? -angle : angle)
+    private static func touchPose(at point: CGPoint, angle: CGFloat, improved: Bool,
+                                  aspectRatio: CGFloat) -> (direction: CGFloat, angle: CGFloat) {
+        if improved {
+            // The shader normal is (sin(angle), cos(angle)). Convert the normalized
+            // touch back to card space: cardinal touches stay cardinal, corners
+            // interpolate continuously. An exact center touch uses a vertical pass.
+            let x = point.x * max(0.01, aspectRatio), y = point.y
+            return (1, hypot(x, y) < 0.001 ? 0 : atan2(x, y) * 180 / .pi)
+        }
+        return (point.y >= 0 ? 1 : -1, point.x * point.y < 0 ? -angle : angle)
     }
 
     mutating func advance(pitch: CGFloat, roll: CGFloat = 0,
                           pitchSensitivity: CGFloat = 0.89, rollSensitivity: CGFloat = 0.68,
                           triggerAngle: CGFloat = 25, returnAngle: CGFloat = 25,
                           angularSpeed: Double? = nil,
-                          suppressTilt: Bool = false,
+                          suppressTilt: Bool = false, improved: Bool = false,
                           by dt: TimeInterval) {
         guard dt > 0 else { return }
-        let ignoresTilt = suppressTilt || touch != nil || (isAnimating && linearAngle != nil)
+        let ignoresTilt = suppressTilt || touch != nil || (isAnimating && isTouchSweep)
         let pitchDelta = pitch - previousPitch
         let rollDelta = roll - previousRoll
         previousPitch = pitch
@@ -98,8 +112,13 @@ struct CardLinearShineMotion {
         }
         idleTime = hypot(pitchDelta, rollDelta) / dt < 0.035 ? idleTime + dt : 0
         if idleTime >= 0.5 {
-            movement = 0
-            lastTriggerDirection = nil
+            recenterInput()
+            return
+        }
+        if improved {
+            advanceDirectionalTilt(delta: CGPoint(x: -rollDelta * rollSensitivity,
+                                                  y: pitchDelta * pitchSensitivity),
+                                   speed: speed, triggerAngle: triggerAngle, returnAngle: returnAngle)
             return
         }
         movement += delta
@@ -114,7 +133,7 @@ struct CardLinearShineMotion {
         if isAnimating {
             // Keep at most one deliberate return. Never interrupt the visible pass.
             if pendingSweep == nil {
-                pendingSweep = (nextDirection, speed, nil)
+                pendingSweep = (nextDirection, speed, nil, false)
                 lastRequestedDirection = nextDirection
             }
         } else {
@@ -122,8 +141,41 @@ struct CardLinearShineMotion {
         }
     }
 
-    private mutating func start(direction: CGFloat, speed: Double, angle: CGFloat? = nil) {
+    private mutating func advanceDirectionalTilt(delta: CGPoint, speed: Double,
+                                                 triggerAngle: CGFloat, returnAngle: CGFloat) {
+        vectorMovement.x += delta.x
+        vectorMovement.y += delta.y
+        // Track the furthest pose along the last fired direction, while retaining
+        // perpendicular movement. Pitch and roll must never cancel one another.
+        if let last = lastTriggerVector {
+            let continuing = vectorMovement.x * last.x + vectorMovement.y * last.y
+            if continuing > 0 {
+                vectorMovement.x -= continuing * last.x
+                vectorMovement.y -= continuing * last.y
+            }
+        }
+        let distance = hypot(vectorMovement.x, vectorMovement.y)
+        let returning = lastRequestedVector.map { vectorMovement.x * $0.x + vectorMovement.y * $0.y < 0 } ?? false
+        let threshold = max(0.01, (returning ? returnAngle : triggerAngle) * .pi / 180)
+        guard distance + 1e-12 >= threshold else { return }
+        let normal = CGPoint(x: vectorMovement.x / distance, y: vectorMovement.y / distance)
+        let angle = atan2(normal.x, normal.y) * 180 / .pi
+        vectorMovement = .zero
+        lastTriggerVector = normal
+        if isAnimating {
+            if pendingSweep == nil {
+                pendingSweep = (1, speed, angle, false)
+                lastRequestedVector = normal
+            }
+        } else {
+            lastRequestedVector = normal
+            start(direction: 1, speed: speed, angle: angle)
+        }
+    }
+
+    private mutating func start(direction: CGFloat, speed: Double, angle: CGFloat? = nil, isTouch: Bool = false) {
         linearAngle = angle
+        isTouchSweep = isTouch
         self.direction = direction
         lastRequestedDirection = direction
         position = direction
@@ -140,7 +192,7 @@ struct CardLinearShineMotion {
 
     private mutating func advanceAnimation(by dt: TimeInterval, speed: Double) {
         guard isAnimating else { return }
-        let isDirectional = linearAngle != nil
+        let isDirectional = isTouchSweep
         if isDirectional {
             progress += dt * Self.directionalRate / Self.duration
         } else {
@@ -155,7 +207,7 @@ struct CardLinearShineMotion {
             isAnimating = false
             if let pendingSweep {
                 self.pendingSweep = nil
-                start(direction: pendingSweep.direction, speed: pendingSweep.speed, angle: pendingSweep.angle)
+                start(direction: pendingSweep.direction, speed: pendingSweep.speed, angle: pendingSweep.angle, isTouch: pendingSweep.isTouch)
             }
         } else {
             // Constant touch travel brings the off-card band into view promptly;

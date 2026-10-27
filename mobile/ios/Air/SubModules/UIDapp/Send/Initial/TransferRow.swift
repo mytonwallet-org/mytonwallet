@@ -18,6 +18,10 @@ struct TransferRow: View {
     @Dependency(\.nftStore) private var nftStore
 
     private var transferToken: ApiToken { transfer.getToken(chain: chain) }
+    private var minimumReceived: TokenAmount? {
+        guard case .dedustNativeSwap(let payload) = transfer.payload else { return nil }
+        return payload.minimumReceived
+    }
     private var nft: ApiNft? {
         guard let payload = transfer.nftTransferPayload else { return nil }
         if let nft = payload.nft {
@@ -49,6 +53,13 @@ struct TransferRow: View {
                 VStack(alignment: .leading, spacing: 0) {
                     text
                     addressLine
+                    if let minimumReceived {
+                        Text("\(lang("Minimum Received")): \(minimumReceived.formatted(.defaultAdaptive, roundHalfUp: false))")
+                            .textStyle(.supporting)
+                            .foregroundStyle(Color.air.secondaryLabel)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 1)
+                    }
                 }
                 Spacer()
                 Image.airBundle("RightArrowIcon")
@@ -56,6 +67,7 @@ struct TransferRow: View {
             }
             .foregroundStyle(Color.air.primaryLabel)
             .frame(minHeight: 60)
+            .padding(.vertical, minimumReceived != nil ? 12 : 0)
         }
     }
     

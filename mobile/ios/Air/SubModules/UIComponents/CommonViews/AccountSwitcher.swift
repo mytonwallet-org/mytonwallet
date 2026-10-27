@@ -98,6 +98,7 @@ public final class AccountSwitcher {
 
         let interaction = ContextMenuInteraction(
             triggers: [.tap, .longPress],
+            presentationMode: .zoomPopover,
             longPressDuration: 0.25,
             configurationProvider: { [weak self] _ in
                 self?.makeMenuConfiguration() ?? ContextMenuConfiguration(

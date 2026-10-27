@@ -1302,7 +1302,7 @@ describe('processSelfDeeplink Transaction command', () => {
     mockGlobal = createMockGlobalState();
     mockActivities = [{
       kind: 'transaction',
-      toAddress: 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S',
+      fromAddress: 'EQAIsixsrb93f9kDyplo_bK5OdgW5r0WCcIJZdGOUG1B282S',
       txId: 'mock-tx-id',
     }];
 
@@ -1448,6 +1448,41 @@ describe('processSelfDeeplink Transaction command', () => {
       expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
         txId,
         chain: 'ton',
+        activities: mockActivities,
+      });
+    });
+  });
+
+  describe('Explorer mode', () => {
+    let explorer: jest.ReplaceProperty<boolean>;
+
+    beforeEach(() => {
+      explorer = jest.replaceProperty(config, 'IS_EXPLORER', true);
+    });
+
+    afterEach(() => {
+      explorer.restore();
+    });
+
+    it('should open the wallet of the sender the activities are parsed for', async () => {
+      const txId = 'a73f1e0711d6b75ea547791dda39655de1264c8bd92bc57a2710fc49651a988c';
+      mockActivities = [{
+        kind: 'transaction',
+        fromAddress: TEST_TRON_ADDRESS,
+        toAddress: 'TUJms3bkyD87nFbRXWEidSoU5tc3Hvwkqb',
+        isIncoming: false,
+      }];
+
+      const result = await processSelfDeeplink(`https://my.tt/tx/tron/${txId}`);
+
+      expect(result).toBe(true);
+      expect(mockActions.openTemporaryViewAccount).toHaveBeenCalledWith({
+        addressByChain: { tron: TEST_TRON_ADDRESS },
+      });
+      expect(callApi).toHaveBeenCalledTimes(1);
+      expect(mockActions.openTransactionInfo).toHaveBeenCalledWith({
+        txId,
+        chain: 'tron',
         activities: mockActivities,
       });
     });

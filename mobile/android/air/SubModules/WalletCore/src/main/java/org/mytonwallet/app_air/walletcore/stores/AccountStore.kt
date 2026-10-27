@@ -25,6 +25,7 @@ import org.mytonwallet.app_air.walletcore.models.MAssetsAndActivityData
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
 import org.mytonwallet.app_air.walletcore.models.blockchain.MultiWalletSupport
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MUpdateStaking
 import org.mytonwallet.app_air.walletcore.moshi.adapter.AccountDomainUpdate
 import org.mytonwallet.app_air.walletcore.moshi.adapter.MfaUpdate
@@ -44,6 +45,50 @@ object AccountStore : IStore {
 
     // Account related data ////////////////////////////////////////////////////////////////////////
     var activeAccount: MAccount? = null
+    private val stakingBannersByAccount = mutableMapOf<String, List<ApiPromotion>>()
+    private val homeBannersByAccount = mutableMapOf<String, List<ApiPromotion>>()
+    private val dismissedStakingBannerIdsByAccount = mutableMapOf<String, MutableSet<String>>()
+
+    fun setBanners(
+        accountId: String,
+        homeBanners: List<ApiPromotion>,
+        stakingBanners: List<ApiPromotion>
+    ) {
+        homeBannersByAccount[accountId] = homeBanners
+        stakingBannersByAccount[accountId] = stakingBanners
+        dismissedStakingBannerIdsByAccount[accountId]?.retainAll(
+            stakingBanners.map {
+                it.id
+            }.toSet()
+        )
+    }
+
+    fun getStakingBanners(accountId: String): List<ApiPromotion> {
+        val dismissedIds = dismissedStakingBannerIdsByAccount[accountId].orEmpty()
+        return stakingBannersByAccount[accountId].orEmpty().filter { it.id !in dismissedIds }
+    }
+
+    fun dismissForeignStakingBanner(accountId: String, chain: String, providerName: String) {
+        dismissedStakingBannerIdsByAccount.getOrPut(accountId) { mutableSetOf() }
+            .add("foreign-staking:$chain:$providerName")
+        notifyEvent(WalletEvent.AccountConfigReceived)
+    }
+
+    fun clearBanners() {
+        stakingBannersByAccount.clear()
+        homeBannersByAccount.clear()
+        dismissedStakingBannerIdsByAccount.clear()
+    }
+
+    fun getHomeBanners(accountId: String): List<ApiPromotion> {
+        val stakingBanners = stakingBannersByAccount[accountId].orEmpty()
+        val visibleStakingBanners = getStakingBanners(accountId)
+        return homeBannersByAccount[accountId].orEmpty().filter { banner ->
+            stakingBanners.none { it.linkedBannerId == banner.id } ||
+                visibleStakingBanners.any { it.linkedBannerId == banner.id }
+        }
+    }
+
     private val updatingActivitiesAccountIds = mutableSetOf<String>()
     private val updatingBalanceAccountIds = mutableSetOf<String>()
     val updatingActivities: Boolean
@@ -282,6 +327,9 @@ object AccountStore : IStore {
                 isReorder = false
             )
             NftStore.removeAccount(removingAccountId)
+            homeBannersByAccount.remove(removingAccountId)
+            stakingBannersByAccount.remove(removingAccountId)
+            dismissedStakingBannerIdsByAccount.remove(removingAccountId)
             WGlobalStorage.removeAccount(removingAccountId)
             if (WCacheStorage.getInitialScreen() == WCacheStorage.InitialScreen.LOCK &&
                 WGlobalStorage.accountIds().isNotEmpty() &&
@@ -398,6 +446,7 @@ object AccountStore : IStore {
     }
 
     override fun clearCache() {
+        clearBanners()
         updateActiveAccount(null)
         updatingActivitiesAccountIds.clear()
         updatingBalanceAccountIds.clear()

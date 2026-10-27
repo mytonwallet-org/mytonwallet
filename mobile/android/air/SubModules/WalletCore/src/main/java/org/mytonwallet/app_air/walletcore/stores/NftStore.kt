@@ -151,14 +151,12 @@ object NftStore : IStore {
         val blacklistedNftAddresses = currentData?.blacklistedNftAddresses
             ?: WGlobalStorage.getBlacklistedNftAddresses(accountId)
 
-        if (nft.isHidden == true || nft.isUnverified == true) {
-            if (!whitelistedNftAddresses.contains(nft.address)) {
-                whitelistedNftAddresses.add(nft.address)
-                WGlobalStorage.setWhitelistedNftAddresses(
-                    accountId,
-                    whitelistedNftAddresses
-                )
-            }
+        if (!whitelistedNftAddresses.contains(nft.address)) {
+            whitelistedNftAddresses.add(nft.address)
+            WGlobalStorage.setWhitelistedNftAddresses(
+                accountId,
+                whitelistedNftAddresses
+            )
         }
         // To make sure it's not in blacklist (maybe nft was not hidden before and added to blacklist manually)
         if (blacklistedNftAddresses.remove(nft.address)) {
@@ -654,6 +652,7 @@ object NftStore : IStore {
         cacheExecutor.shutdownNow()
         cacheExecutor = Executors.newSingleThreadExecutor()
         pendingCacheWrites.clear()
+        writtenNftsHashes.clear()
         cacheReads.clear()
     }
 
@@ -665,6 +664,9 @@ object NftStore : IStore {
 
     // Written on cacheExecutor; read by fetchCachedNfts and cleared on reset from other threads.
     private val pendingCacheWrites = ConcurrentHashMap<String, PendingCacheWrite>()
+
+    // Hash of the NFT list last written per account; skips serializing an unchanged list.
+    private val writtenNftsHashes = ConcurrentHashMap<String, Int>()
 
     private const val CACHE_WRITE_DELAY_MS = 5000L
     private val cacheWriteHandler = Handler(Looper.getMainLooper())
@@ -714,6 +716,10 @@ object NftStore : IStore {
     private fun writePendingCache(accountId: String, pending: PendingCacheWrite) {
         if (WGlobalStorage.getAccount(accountId) == null) return
         pending.nftsToWrite?.let { nfts ->
+            val hash = nfts.hashCode()
+            if (writtenNftsHashes[accountId] == hash && WCacheStorage.getNfts(accountId) != null) {
+                return@let
+            }
             val adapter = WalletCore.moshi.adapter(ApiNft::class.java)
             val jsonString = try {
                 buildString {
@@ -730,9 +736,11 @@ object NftStore : IStore {
                     "NftStore: OOM serializing nfts cache: ${t.message}"
                 )
                 WCacheStorage.setNfts(accountId, null)
+                writtenNftsHashes.remove(accountId)
                 return
             }
             WCacheStorage.setNfts(accountId, jsonString)
+            writtenNftsHashes[accountId] = hash
         }
         writeCollectionsToCache(accountId, pending.collections)
         WCacheStorage.setHasHiddenNft(accountId, pending.hasHiddenNft)

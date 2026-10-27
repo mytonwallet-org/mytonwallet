@@ -150,12 +150,13 @@ const cspImageSrcHosts = [
 
 // Kept out of `CSP` because that string is also served via a `<meta>` tag and the extension manifest,
 // where `frame-ancestors` is invalid. It only works as an HTTP header, so it is appended in `_headers`.
-// `X-Frame-Options` stays in `_headers` as a fail-closed fallback should this directive ever be dropped.
-// Empty for the Telegram build, which is itself framed by web.telegram.org and whose framing policy
-// `_headers_telegram` owns; any directive here would override that file's `X-Frame-Options`.
-const cspFrameAncestors = IS_TELEGRAM_APP ? '' : `${[
+// `X-Frame-Options` stays in `src/_headers` as a fail-closed fallback should this directive ever be dropped.
+const cspFrameAncestors = `${[
   'frame-ancestors \'self\'',
-  'https://stand.ton-connect.io', // The TON Connect conformance stand embeds the wallet in an iframe.
+  ...(IS_TELEGRAM_APP
+    // Telegram Web frames the Mini App from several subdomains, and `X-Frame-Options` cannot allow any of them.
+    ? ['https://*.telegram.org']
+    : ['https://stand.ton-connect.io']), // The TON Connect conformance stand embeds the wallet in an iframe.
   ...(APP_ENV === 'production' ? [] : ['http://localhost:*', 'http://127.0.0.1:*']),
 ].join(' ')};`;
 
@@ -365,13 +366,14 @@ export default defineConfig(({ command, mode }) => {
 });
 
 function getEmittedFiles(csp: string, isProductionMode: boolean): EmittedFiles {
-  const headersFile = IS_TELEGRAM_APP ? '_headers_telegram' : '_headers';
+  const headersTemplate = IS_TELEGRAM_APP ? '_headers_telegram' : '_headers';
 
   return {
     ...getLangPackFiles(I18N_DIR, isProductionMode),
     ...(IS_EXTENSION && getExtensionLicenseFiles()),
     'manifest.json': () => buildExtensionManifest(csp),
-    [headersFile]: () => buildHeaders(fs.readFileSync(path.resolve(ROOT_DIR, 'src', headersFile), 'utf8'), csp),
+    // Netlify reads headers only from a file named `_headers`, whichever template it is built from.
+    _headers: () => buildHeaders(fs.readFileSync(path.resolve(ROOT_DIR, 'src', headersTemplate), 'utf8'), csp),
     [BUILD_INFO_FILENAME]: getBuildInfo,
     [APP_VERSION_FILENAME]: getAppVersion,
   };
@@ -432,7 +434,9 @@ function buildExtensionManifest(csp: string) {
 }
 
 function buildHeaders(template: string, csp: string) {
-  const headers = template.replace('{{CSP}}', `${csp} ${cspFrameAncestors}`.trim());
+  const headers = template
+    .replace('{{CSP}}', `${csp} ${cspFrameAncestors}`)
+    .replace('{{FRAME_ANCESTORS}}', cspFrameAncestors);
 
   // Consolidate the retiring mytonwallet.app brand host onto mywallet.io in search. The app
   // keeps serving on .app (installed PWAs and deeplinks pin it), so this is a canonical

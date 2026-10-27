@@ -49,6 +49,7 @@ final class ActionMenuNavigationController: WNavigationController {
         }
         isReplacingMenu = true
         let hidesBackButton = target.navigationItem.hidesBackButton
+        let destinationStyle = targetNavigation.overrideUserInterfaceStyle
 
         let coordinator = ContentReplaceAnimationCoordinator()
         coordinator.replaceNavigationTop(with: target, in: self, prepareLayout: { [weak self] in
@@ -64,7 +65,8 @@ final class ActionMenuNavigationController: WNavigationController {
             self?.isBeingDismissed == false
                 && self?.viewIfLoaded?.window != nil
                 && self?.topViewController === menu
-        }, animateAlongside: {
+        }, animateAlongside: { [weak self] in
+            self?.overrideUserInterfaceStyle = destinationStyle
             menu.animateContentReplacement()
         }) { [weak self] in
             self?.isReplacingMenu = false

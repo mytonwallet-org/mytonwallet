@@ -251,6 +251,8 @@ class IconView(context: Context, val viewSize: Int = 48.dp, val chainSize: Int =
         ApiTransactionType.UNSTAKE_REQUEST,
         ApiTransactionType.LIQUIDITY_DEPOSIT,
         ApiTransactionType.AUCTION_BID,
+        ApiTransactionType.NFT_AUCTION_START,
+        ApiTransactionType.NFT_AUCTION_CANCEL,
         ApiTransactionType.NFT_TRADE -> GradientDrawables.blueDrawable
 
         null -> if (isIncoming) {

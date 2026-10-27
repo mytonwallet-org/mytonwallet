@@ -7,6 +7,7 @@ import { CircuitOpenError } from './circuitBreaker';
 import {
   classifyFetchFailure,
   computeRetryBackoffMs,
+  fetchJson,
   fetchWithRetry,
   fetchWithTimeout,
   isNegativeCacheableStatus,
@@ -68,6 +69,79 @@ describe('computeRetryBackoffMs', () => {
         expect(backoff).toBeLessThanOrEqual(ceiling);
       }
     }
+  });
+});
+
+describe('fetchJson response formats', () => {
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    resetFetchStateForTests();
+    fetchMock = jest.fn();
+    (global as unknown as { fetch: jest.Mock }).fetch = fetchMock;
+    setNegVerdictCacheFlag(false);
+  });
+
+  it('returns the exact response text without parsing JSON and preserves query parameters', async () => {
+    const body = '{ "assets": [1] }\n';
+    const json = jest.fn();
+    const text = jest.fn().mockResolvedValue(body);
+    fetchMock.mockResolvedValue({ ...mockResponse(200), json, text });
+
+    await expect(fetchJson('https://example.com/catalog?existing=1', { chain: ['ton', 'tron'] }, undefined, {
+      retries: 1,
+      shouldReturnText: true,
+    })).resolves.toBe(body);
+
+    expect(json).not.toHaveBeenCalled();
+    expect(text).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0].toString()).toBe('https://example.com/catalog?existing=1&chain=ton&chain=tron');
+  });
+
+  it('keeps parsing JSON by default', async () => {
+    const body = { assets: [1] };
+    const json = jest.fn().mockResolvedValue(body);
+    const text = jest.fn();
+    fetchMock.mockResolvedValue({ ...mockResponse(200), json, text });
+
+    await expect(fetchJson('https://example.com/catalog')).resolves.toBe(body);
+
+    expect(json).toHaveBeenCalledTimes(1);
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it.each([199, 302, 304, 404, 503])('rejects HTTP %s in text mode and allows the next request', async (status) => {
+    const rejectedText = jest.fn().mockResolvedValue('not a successful catalog');
+    const text = jest.fn().mockResolvedValue('{"assets":[1]}');
+    fetchMock
+      .mockResolvedValueOnce({ ...mockResponse(status), text: rejectedText })
+      .mockResolvedValueOnce({ ...mockResponse(200), text });
+    const options = { retries: 1, shouldReturnText: true } as const;
+
+    await expect(fetchJson('https://example.com/catalog', undefined, undefined, options))
+      .rejects.toMatchObject({ statusCode: status });
+    await expect(fetchJson('https://example.com/catalog', undefined, undefined, options))
+      .resolves.toBe('{"assets":[1]}');
+
+    expect(rejectedText).not.toHaveBeenCalled();
+    expect(text).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows a new text request after a network failure', async () => {
+    const text = jest.fn().mockResolvedValue('{"assets":[1]}');
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('network error'))
+      .mockResolvedValueOnce({ ...mockResponse(200), text });
+    const options = { retries: 1, shouldReturnText: true } as const;
+
+    await expect(fetchJson('https://example.com/catalog', undefined, undefined, options))
+      .rejects.toThrow('network error');
+    await expect(fetchJson('https://example.com/catalog', undefined, undefined, options))
+      .resolves.toBe('{"assets":[1]}');
+
+    expect(text).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

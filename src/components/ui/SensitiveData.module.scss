@@ -1,3 +1,5 @@
+@use "../../styles/mixins";
+
 .wrapper {
   position: relative;
 
@@ -21,17 +23,7 @@
   display: inline-block !important; // It's important to override the global .not-shown class
   width: max-content;
 
-  @supports (interpolate-size: allow-keywords) {
-    /* stylelint-disable-next-line plugin/no-low-performance-animation-properties */
-    transition: opacity 300ms ease, width 300ms ease !important;
-
-    /* stylelint-disable-next-line property-no-unknown */
-    interpolate-size: allow-keywords;
-
-    :global(html.animation-level-0) & {
-      transition: none !important;
-    }
-  }
+  @include mixins.transition(opacity 300ms ease, !important);
 }
 
 .spoiler {
@@ -60,8 +52,12 @@
 }
 
 .fixedWidth {
-  width: var(--spoiler-width);
   white-space: nowrap;
+
+  // The text keeps its width while it fades out, otherwise a parent with `overflow: hidden` cuts it at once
+  &:global(.not-shown) {
+    width: var(--spoiler-width);
+  }
 }
 
 .noninteractive {

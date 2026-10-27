@@ -27,6 +27,7 @@ import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.roundToInt
 import me.everything.android.ui.overscroll.IOverScrollState
+import org.mytonwallet.app_air.uiagent.viewControllers.agent.MarkdownParser
 import org.mytonwallet.app_air.uiassets.viewControllers.views.MultisigWalletWarningView
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.base.WActionBar.TitleAnimationMode
@@ -35,6 +36,7 @@ import org.mytonwallet.app_air.uicomponents.base.WRecyclerViewAdapter
 import org.mytonwallet.app_air.uicomponents.base.WViewController
 import org.mytonwallet.app_air.uicomponents.base.executeWithLowPriority
 import org.mytonwallet.app_air.uicomponents.commonViews.HeaderActionsView
+import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
 import org.mytonwallet.app_air.uicomponents.commonViews.SkeletonView
 import org.mytonwallet.app_air.uicomponents.commonViews.TabletHeaderActionsView
 import org.mytonwallet.app_air.uicomponents.commonViews.cells.EmptyCell
@@ -65,6 +67,7 @@ import org.mytonwallet.app_air.walletcontext.models.MBlockchainNetwork
 import org.mytonwallet.app_air.walletcontext.utils.IndexPath
 import org.mytonwallet.app_air.walletcore.helpers.ActivityLoader
 import org.mytonwallet.app_air.walletcore.helpers.IActivityLoader
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
 import org.mytonwallet.app_air.walletcore.stores.AccountStore
 import org.mytonwallet.app_air.walletcore.stores.BalanceStore
@@ -120,12 +123,15 @@ class ActivityListView<T>(
         val ACTIVITY_TITLE_CELL = WCell.Type(14)
         val SHOW_ALL_ACTIVITIES_CELL = WCell.Type(15)
 
+        val PROMOTIONS_CELL = WCell.Type(16)
+
         const val HEADER_SECTION = 0
-        const val MULTISIG_WARNING_SECTION = 1
-        const val ASSETS_SECTION = 2
-        const val TRANSACTION_SECTION = 3
-        const val EMPTY_VIEW_SECTION = 4
-        const val LOADING_SECTION = 5
+        const val PROMOTIONS_SECTION = 1
+        const val MULTISIG_WARNING_SECTION = 2
+        const val ASSETS_SECTION = 3
+        const val TRANSACTION_SECTION = 4
+        const val EMPTY_VIEW_SECTION = 5
+        const val LOADING_SECTION = 6
 
         const val LARGE_INT = 10000
 
@@ -142,6 +148,7 @@ class ActivityListView<T>(
         fun activityListReserveActionsCell(): Boolean
         fun activityListActionsCellHeight(): Int = HeaderActionsView.HEIGHT.dp
         fun activityListReserveAssetsCell(): Boolean = true
+        fun activityListInfoBanners(accountId: String): List<ApiPromotion> = emptyList()
 
         // Tokens, collectibles and the latest activities are laid out as separate cards; the
         // activities card is capped to the per-account top limit and ends with a "Show All" row.
@@ -179,6 +186,8 @@ class ActivityListView<T>(
         fun onHeaderAction(identifier: HeaderActionsView.Identifier)
 
         fun onTopItemHorizontalScroll()
+        fun onInfoBannerAction(accountId: String, promotion: ApiPromotion) {}
+        fun onInfoBannerDismiss(accountId: String, promotion: ApiPromotion) {}
     }
 
     // PUBLIC //////////////////////////////////////////////////////////////////////////////////////
@@ -191,7 +200,9 @@ class ActivityListView<T>(
         assetsShown = false
         isMainnetAccount =
             accountId != null && MBlockchainNetwork.ofAccountId(accountId).isMainnet
+        val isInitialConfiguration = showingAccountId == null
         this.showingAccountId = if (shouldLoadNewWallets) accountId else null
+        configureInfoBanners(animated = isInitialConfiguration)
 
         childrenFadeAnimator?.cancel()
         childrenFadeAnimator = null
@@ -739,6 +750,7 @@ class ActivityListView<T>(
     private val activitySectionBackgroundDecoration = ActivitySectionBackgroundDecoration(
         firstPosition = {
             recyclerViewNumberOfItems(recyclerView, HEADER_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, PROMOTIONS_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, MULTISIG_WARNING_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, ASSETS_SECTION) +
                 if (usesCardSections) {
@@ -890,7 +902,8 @@ class ActivityListView<T>(
                 SKELETON_CELL,
                 TOKENS_CELL,
                 ACTIVITY_TITLE_CELL,
-                SHOW_ALL_ACTIVITIES_CELL
+                SHOW_ALL_ACTIVITIES_CELL,
+                PROMOTIONS_CELL
             )
         ).apply {
             setHasStableIds(true)
@@ -898,6 +911,70 @@ class ActivityListView<T>(
     }
 
     private val skeletonView = SkeletonView(context)
+
+    private val infoBanners: List<ApiPromotion>
+        get() = showingAccountId?.let { dataSource?.activityListInfoBanners(it) }.orEmpty()
+
+    private var showsInfoBanners = false
+    private val promotionStackView by lazy {
+        InfoBannerStackView(context).apply {
+            descriptionFormatter = { text ->
+                MarkdownParser.parse(text, WColor.SecondaryText.color, null, detectsUrls = false)
+            }
+            bottomSpacing = ViewConstants.GAP.dp
+            onTransitionFinished = {
+                val shouldShow = infoBanners.isNotEmpty() || isPresenting
+                if (showsInfoBanners != shouldShow) {
+                    showsInfoBanners = shouldShow
+                    reloadData()
+                }
+            }
+        }
+    }
+    private val promotionsCell by lazy {
+        WCell(
+            context,
+            ViewGroup.LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            )
+        ).apply {
+            clipChildren = false
+            clipToPadding = false
+            addView(
+                promotionStackView,
+                ViewGroup.LayoutParams(0, LayoutParams.WRAP_CONTENT)
+            )
+            setConstraints {
+                toTop(promotionStackView)
+                toStart(promotionStackView)
+                toEnd(promotionStackView)
+                toBottom(promotionStackView)
+            }
+        }
+    }
+
+    private fun configureInfoBanners(animated: Boolean = true) {
+        val accountId = showingAccountId
+        promotionStackView.onAction = { promotion ->
+            if (accountId != null && accountId == showingAccountId) {
+                delegate?.onInfoBannerAction(accountId, promotion)
+            }
+        }
+        promotionStackView.onDismiss = { promotion ->
+            if (accountId != null && accountId == showingAccountId) {
+                delegate?.onInfoBannerDismiss(accountId, promotion)
+            }
+        }
+        promotionStackView.configure(infoBanners, animated)
+        showsInfoBanners = infoBanners.isNotEmpty() || promotionStackView.isPresenting
+    }
+
+    fun infoBannersUpdated() {
+        val hadBanners = showsInfoBanners
+        configureInfoBanners()
+        if (hadBanners != showsInfoBanners) reloadData()
+    }
 
     private var skeletonEmptyHeaderCell: WCell? = null
     val headerCell = HeaderSpaceCell(context)
@@ -1688,6 +1765,7 @@ class ActivityListView<T>(
     private fun reloadTransactions() {
         val startInt =
             recyclerViewNumberOfItems(recyclerView, HEADER_SECTION) +
+                recyclerViewNumberOfItems(recyclerView, PROMOTIONS_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, MULTISIG_WARNING_SECTION) +
                 recyclerViewNumberOfItems(recyclerView, ASSETS_SECTION)
         val count =
@@ -1704,7 +1782,7 @@ class ActivityListView<T>(
     // RECYCLER VIEW ///////////////////////////////////////////////////////////////////////////////
     override fun recyclerViewNumberOfSections(rv: RecyclerView): Int = when (rv) {
         recyclerView -> {
-            if (isShowingRecyclerView || isGeneralDataAvailable) 6 else 1
+            if (isShowingRecyclerView || isGeneralDataAvailable) 7 else 1
         }
 
         skeletonRecyclerView -> {
@@ -1723,6 +1801,8 @@ class ActivityListView<T>(
                     HEADER_SECTION -> {
                         if (showActions) 2 else 1
                     }
+
+                    PROMOTIONS_SECTION -> if (showsInfoBanners) 1 else 0
 
                     MULTISIG_WARNING_SECTION -> if (showMultisigWarning) 1 else 0
 
@@ -1781,6 +1861,8 @@ class ActivityListView<T>(
                     HEADER_SECTION -> {
                         if (indexPath.row == 0) HEADER_CELL else ACTIONS_CELL
                     }
+
+                    PROMOTIONS_SECTION -> PROMOTIONS_CELL
 
                     MULTISIG_WARNING_SECTION -> {
                         MULTISIG_WARNING_CELL
@@ -1880,6 +1962,8 @@ class ActivityListView<T>(
                     ACTIONS_CELL -> {
                         actionsCell
                     }
+
+                    PROMOTIONS_CELL -> promotionsCell
 
                     MULTISIG_WARNING_CELL -> {
                         multisigWarningCell
@@ -2025,6 +2109,11 @@ class ActivityListView<T>(
                         }
                         (cellHolder.cell as? WThemedView)?.updateTheme()
                         return
+                    }
+
+                    PROMOTIONS_SECTION -> {
+                        configureInfoBanners()
+                        promotionStackView.updateTheme()
                     }
 
                     MULTISIG_WARNING_SECTION -> {
@@ -2237,6 +2326,8 @@ class ActivityListView<T>(
                     HEADER_SECTION -> {
                         "header"
                     }
+
+                    PROMOTIONS_SECTION -> "home_promotions"
 
                     TRANSACTION_SECTION -> {
                         if (usesCardSections && indexPath.row == 0) return "activity_title"

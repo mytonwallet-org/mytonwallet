@@ -322,7 +322,7 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) {
         Task {
             let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: activity.id)
-            let vc = ActivityVC(activity: updatedActivity ?? activity, accountSource: .accountId(accountId), context: context)
+            let vc = ActivityDetailsVC(activity: updatedActivity ?? activity, accountSource: .accountId(accountId), context: context)
             
             if context.isTransactionConfirmation {
                 guard let navigationController = topViewController() as? UINavigationController else { return }
@@ -334,9 +334,11 @@ private class AppActionsImpl: AppActionsProtocol {
             } else if let listVC = topWViewController() as? ActivityDetailsListVC {
                 listVC.navigationController?.pushViewController(vc, animated: true)
             } else {
+                guard let presenter = topViewController() else { return }
                 let navigationController = WNavigationController(rootViewController: vc)
                 navigationController.isExtraSheetDimmingEnabled = true
-                topViewController()?.present(navigationController, animated: true)
+                vc.prepareForPresentation(from: presenter)
+                presenter.present(navigationController, animated: true)
             }
         }
     }
@@ -349,7 +351,7 @@ private class AppActionsImpl: AppActionsProtocol {
         try Task.checkCancellation()
         let updatedActivity = await ActivityStore.getActivity(accountId: accountId, activityId: activity.id)
         try Task.checkCancellation()
-        let viewController = ActivityVC(
+        let viewController = ActivityDetailsVC(
             activity: updatedActivity ?? activity,
             accountSource: .accountId(accountId),
             context: context
@@ -408,29 +410,36 @@ private class AppActionsImpl: AppActionsProtocol {
         case 1:
             AppActions.showActivityDetails(accountId: accountId, activity: activities[0], context: .external)
         default:
+            guard let presenter = topViewController() else { return }
             let vc = ActivityDetailsListVC(accountContext: AccountContext(source: .accountId(accountId)), activities: activities, context: .external)
             let nc = UINavigationController(rootViewController: vc)
-            topViewController()?.present(nc, animated: true)
+            vc.prepareForPresentation(from: presenter)
+            presenter.present(nc, animated: true)
         }
     }
     
     static func showAddToken() {
-        let assets = AssetsAndActivityVC()
-        _ = assets.view
+        let navigationController = topWViewController()?.navigationController
         let add = TokenSelectionVC(
             showMyAssets: false,
             title: lang("Add Token"),
             delegate: nil,
-            isModal: true,
+            isModal: navigationController == nil,
             onlySupportedChains: true
         )
+        if let navigationController {
+            navigationController.pushViewController(add, animated: true)
+            return
+        }
+        let assets = AssetsAndActivityVC()
+        _ = assets.view
         let nc = WNavigationController()
         nc.viewControllers = [assets, add]
         topViewController()?.present(nc, animated: true)
     }
     
-    static func showAddWallet(network: ApiNetwork) {
-        rootContainerRouter.showAddWallet(network: network)
+    static func showAddWallet(network: ApiNetwork, sourceView: UIView?) {
+        rootContainerRouter.showAddWallet(network: network, sourceView: sourceView)
     }
     
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) {
@@ -443,9 +452,7 @@ private class AppActionsImpl: AppActionsProtocol {
     }
 
     static func showAssetsAndActivity() {
-        let vc = AssetsAndActivityVC()
-        let nc = WNavigationController(rootViewController: vc)
-        topViewController()?.present(nc, animated: true)
+        pushIfNeeded(AssetsAndActivityVC(), push: true)
     }
     
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?) {
@@ -467,7 +474,7 @@ private class AppActionsImpl: AppActionsProtocol {
             AppActions.showError(error: DisplayError(text: lang("Buying with card is not supported for this chain.")))
             return
         }
-        pushIfNeeded(buyWithCardVC, push: push)
+        pushIfNeeded(buyWithCardVC, push: push, preferredContentSize: buyAndSellSheetSize)
     }
     
     static func showConnectedDapps(push: Bool) {
@@ -483,25 +490,9 @@ private class AppActionsImpl: AppActionsProtocol {
     }
     
     static func showCustomizeWallet(accountId: String?) {
-        let vc = CustomizeWalletVC(accountId: accountId)
-        if let settingsVC = topWViewController() as? AppearanceSettingsVC, let nc = settingsVC.navigationController {
-            nc.pushViewController(vc, animated: true)
-        } else {
-            let nc = WNavigationController(rootViewController: vc)
-            topViewController()?.present(nc, animated: true)
-        }
+        pushIfNeeded(CustomizeWalletVC(accountId: accountId), push: true)
     }
     
-    static func showCustomizeAppTabs() {
-        let vc = CustomizeAppTabsVC()
-        if let settingsVC = topWViewController() as? AppearanceSettingsVC, let nc = settingsVC.navigationController {
-            nc.pushViewController(vc, animated: true)
-        } else {
-            let nc = WNavigationController(rootViewController: vc)
-            topViewController()?.present(nc, animated: true)
-        }
-    }
-
     static func showDebugView() {
         _showDebugView()
     }
@@ -521,7 +512,8 @@ private class AppActionsImpl: AppActionsProtocol {
         let config = StakingConfig.config(forTokenSlug: tokenSlug ?? TONCOIN_SLUG)
         if accountContext.account.supportsEarn,
            let stakingData = accountContext.stakingData,
-           !stakingData.hasStakingPosition(forTokenSlug: tokenSlug),
+           // A prefilled amount asks for a new stake, so it skips the info screen of an existing position
+           prefilledAmount != nil || !stakingData.hasStakingPosition(forTokenSlug: tokenSlug),
            let config,
            config.canAddStake,
            let stakingState = config.stakingState(stakingData: stakingData) {
@@ -531,15 +523,28 @@ private class AppActionsImpl: AppActionsProtocol {
                 accountContext: accountContext,
                 prefilledAmount: prefilledAmount
             )
-            topViewController()?.present(WNavigationController(rootViewController: addStakeVC), animated: true)
+            topViewController()?.present(walletActionNavigationController(rootViewController: addStakeVC), animated: true)
             return
         }
         showEarn(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: nil)
     }
 
+    static func showAddStake(accountContext: AccountContext, tokenSlug: String) {
+        guard accountContext.account.supportsEarn,
+              let config = StakingConfig.config(forTokenSlug: tokenSlug), config.canAddStake else { return }
+        guard
+              let stakingData = accountContext.stakingData,
+              let stakingState = config.stakingState(stakingData: stakingData) else {
+            showEarn(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: .stake)
+            return
+        }
+        let controller = AddStakeVC(config: config, stakingState: stakingState, accountContext: AccountContext(accountId: accountContext.accountId))
+        topViewController()?.present(walletActionNavigationController(rootViewController: controller), animated: true)
+    }
+
     private static func showEarn(accountContext: AccountContext, tokenSlug: String?, initialAction: EarnInitialAction?) {
         let earnVC = EarnRootVC(accountContext: accountContext, tokenSlug: tokenSlug, initialAction: initialAction)
-        topViewController()?.present(WNavigationController(rootViewController: earnVC), animated: true)
+        topViewController()?.present(walletActionNavigationController(rootViewController: earnVC), animated: true)
     }
     
     static func showError(error: Error?) {
@@ -561,7 +566,12 @@ private class AppActionsImpl: AppActionsProtocol {
                     return
                 }
                 let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
-                if let site = result.sites.first(where: { $0.siteHost == siteHost }),
+                var site = result.sites.first(where: { $0.siteHost == siteHost })
+                if site == nil {
+                    let refreshed = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode, forceRefresh: true)
+                    site = refreshed.sites.first(where: { $0.siteHost == siteHost })
+                }
+                if let site,
                    let url = URL(string: site.url) {
                     if site.shouldOpenExternally {
                         await UIApplication.shared.open(url)
@@ -580,7 +590,12 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showExploreSite(siteUrl: String) async -> Bool {
         do {
             let result = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode)
-            guard let site = result.sites.first(where: { $0.url == siteUrl }),
+            var site = result.sites.first(where: { $0.url == siteUrl })
+            if site == nil {
+                let refreshed = try await Api.loadExploreSites(langCode: LocalizationSupport.shared.langCode, forceRefresh: true)
+                site = refreshed.sites.first(where: { $0.url == siteUrl })
+            }
+            guard let site,
                   !(ConfigStore.shared.shouldRestrictSites && site.canBeRestricted),
                   let url = URL(string: site.url) else {
                 return false
@@ -675,7 +690,9 @@ private class AppActionsImpl: AppActionsProtocol {
     static func showReceive(accountContext: AccountContext, chain: ApiChain?, buyingToken: String?) {
         guard accountContext.account.supportsReceive else { return }
         let receiveVC = ReceiveVC(accountContext: accountContext, chain: chain, buyingToken: buyingToken)
-        topViewController()?.present(WNavigationController(rootViewController: receiveVC), animated: true)
+        let navigationController = WNavigationController(rootViewController: receiveVC)
+        navigationController.preferredContentSize = CGSize(width: 580, height: 740)
+        topViewController()?.present(navigationController, animated: true)
     }
 
     static func showRenewDomain(accountSource: AccountSource, nftsToRenew: [String]) {
@@ -736,6 +753,7 @@ private class AppActionsImpl: AppActionsProtocol {
                 accountContext: sendAccountContext,
                 prefilledValues: prefilledValues
             )
+            viewController.preferredContentSize = sendAndSwapSheetSize
             topViewController()?.present(
                 viewController,
                 animated: true
@@ -755,7 +773,7 @@ private class AppActionsImpl: AppActionsProtocol {
             return
         }
         let vc = SellVC(accountContext: accountContext, tokenSlug: tokenSlug)
-        topViewController()?.present(WNavigationController(rootViewController: vc), animated: true)
+        topViewController()?.present(walletActionNavigationController(rootViewController: vc, preferredContentSize: buyAndSellSheetSize), animated: true)
     }
 
     static func showTokenTrade(accountContext: AccountContext, token: ApiToken, isBuying: Bool) async {
@@ -774,14 +792,14 @@ private class AppActionsImpl: AppActionsProtocol {
             ?? ApiSwapDefaults(tokenIn: request.tokenIn, tokenOut: request.tokenOut)
         guard !Task.isCancelled else { return }
         let vc = SwapVC(accountContext: context, defaults: defaults, tradeDirection: isBuying ? .buy : .sell)
-        let nc = WNavigationController(rootViewController: vc)
+        let nc = walletActionNavigationController(rootViewController: vc, preferredContentSize: sendAndSwapSheetSize)
         nc.sheetPresentationController?.detents = [.large()]
         topViewController()?.present(nc, animated: true)
     }
 
     static func showTokenTradeOfframp(accountContext: AccountContext, amount: TokenAmount, currency: MBaseCurrency) {
         let vc = SellVC(accountContext: accountContext, tokenSlug: amount.type.slug, requestedAmount: amount, requestedCurrency: currency)
-        pushIfNeeded(vc, push: true)
+        pushIfNeeded(vc, push: true, preferredContentSize: buyAndSellSheetSize)
     }
     
     static func showSwap(accountContext: AccountContext, defaultSellingToken: String?, defaultBuyingToken: String?, defaultSellingAmount: Double?, defaultBuyingAmount: Double?, push: Bool?, isAccountSwitchingAllowed: Bool) async {
@@ -815,7 +833,7 @@ private class AppActionsImpl: AppActionsProtocol {
             isAccountSwitchingAllowed: isAccountSwitchingAllowed
         )
         await withCheckedContinuation { continuation in
-            pushIfNeeded(swapVC, push: push) {
+            pushIfNeeded(swapVC, push: push, preferredContentSize: sendAndSwapSheetSize) {
                 continuation.resume()
             }
         }
@@ -909,6 +927,7 @@ private class AppActionsImpl: AppActionsProtocol {
         guard !(topViewController() is MintCardVC) else { return }
         let vc = MintCardVC(accountContext: accountContext)
         let nc = WNavigationController(rootViewController: vc)
+        nc.preferredContentSize = CGSize(width: 580, height: 940)
         if let sheet = nc.sheetPresentationController {
             sheet.detents = [.large()]
             sheet.prefersGrabberVisible = false
@@ -990,14 +1009,28 @@ private extension URL {
 
 // MARK: - Helpers
 
-@MainActor private func pushIfNeeded(_ vc: UIViewController, push: Bool?, completion: (() -> Void)? = nil) {
+private let walletActionSheetSize = CGSize(width: 640, height: 700)
+private let sendAndSwapSheetSize = CGSize(width: 640, height: 700)
+private let buyAndSellSheetSize = CGSize(width: 580, height: 620)
+
+@MainActor private func walletActionNavigationController(rootViewController: UIViewController, preferredContentSize: CGSize = walletActionSheetSize) -> WNavigationController {
+    let navigationController = WNavigationController(rootViewController: rootViewController)
+    navigationController.preferredContentSize = preferredContentSize
+    return navigationController
+}
+
+@MainActor private func pushIfNeeded(_ vc: UIViewController, push: Bool?, preferredContentSize: CGSize? = nil, completion: (() -> Void)? = nil) {
     if push == true, let nc = topWViewController()?.navigationController {
         nc.pushViewController(vc, animated: true)
         if nc.transitionCoordinator?.animate(alongsideTransition: nil, completion: { _ in completion?() }) != true {
             completion?()
         }
     } else if let presenter = topViewController() {
-        presenter.present(WNavigationController(rootViewController: vc), animated: true, completion: completion)
+        let navigationController = WNavigationController(rootViewController: vc)
+        if let preferredContentSize {
+            navigationController.preferredContentSize = preferredContentSize
+        }
+        presenter.present(navigationController, animated: true, completion: completion)
     } else {
         completion?()
     }

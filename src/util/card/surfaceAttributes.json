@@ -1,0 +1,190 @@
+[
+  {
+    "name": "Card Type",
+    "options": [
+      "🍀 Standard",
+      "🪙 Silver",
+      "⚜️ Gold",
+      "💍 Platinum",
+      "🗝 Black"
+    ]
+  },
+  {
+    "name": "Background",
+    "options": [
+      "Marshmallow",
+      "Sunset",
+      "Banana",
+      "Coral",
+      "Ice",
+      "Mint",
+      "Pearl",
+      "Sea",
+      "Rainbow",
+      "Radioactive",
+      "Indigo",
+      "Glass",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Shine",
+    "options": [
+      "Left",
+      "Up",
+      "Right",
+      "Down",
+      "Radioactive",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Text",
+    "options": [
+      "Light",
+      "Dark",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Texture Type",
+    "options": [
+      "🦄 Virgin",
+      "Breeze",
+      "Desert",
+      "Sound wave",
+      "Double",
+      "Uniform",
+      "Arched",
+      "Moderate",
+      "Intensive",
+      "Stretchy 1",
+      "Stretchy 2"
+    ]
+  },
+  {
+    "name": "Texture Color",
+    "options": [
+      "🦄 Virgin",
+      "White",
+      "Dark",
+      "Blue",
+      "Purple",
+      "Purple & Yellow",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Texture Rotation",
+    "options": [
+      "🦄 Virgin",
+      "0°",
+      "45°",
+      "90°",
+      "135°",
+      "180°",
+      "-135°",
+      "-90°",
+      "-45°"
+    ]
+  },
+  {
+    "name": "Texture Size",
+    "options": [
+      "600",
+      "900",
+      "1200",
+      "1500",
+      "1800",
+      "2100",
+      "🦄 Virgin"
+    ]
+  },
+  {
+    "name": "Texture Position X",
+    "options": [
+      "🦄 Virgin",
+      "0%",
+      "25%",
+      "50%",
+      "75%",
+      "100%"
+    ]
+  },
+  {
+    "name": "Texture Position Y",
+    "options": [
+      "🦄 Virgin",
+      "0%",
+      "25%",
+      "50%",
+      "75%",
+      "100%"
+    ]
+  },
+  {
+    "name": "First Spot Color",
+    "options": [
+      "No",
+      "Fuchsia",
+      "Dust",
+      "White",
+      "Toxic",
+      "Ocean",
+      "Lemon",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "First Spot Position",
+    "options": [
+      "No",
+      "I quarter",
+      "II quarter",
+      "III quarter",
+      "IV quarter",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Second Spot Color",
+    "options": [
+      "No",
+      "Mystical",
+      "Emerald",
+      "Blue cloud",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Second Spot Position",
+    "options": [
+      "No",
+      "I quarter",
+      "II quarter",
+      "III quarter",
+      "IV quarter",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Third Spot Color",
+    "options": [
+      "No",
+      "Gray cloud",
+      "Golden",
+      "⭐️ Premium"
+    ]
+  },
+  {
+    "name": "Third Spot Position",
+    "options": [
+      "No",
+      "I quarter",
+      "II quarter",
+      "III quarter",
+      "IV quarter",
+      "⭐️ Premium"
+    ]
+  }
+]

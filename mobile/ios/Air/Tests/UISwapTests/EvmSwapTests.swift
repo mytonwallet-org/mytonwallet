@@ -8,13 +8,13 @@ import WalletContext
 @MainActor
 struct EvmSwapTests {
     @Test(arguments: [ApiChain.ethereum, .base, .bnb, .arbitrum, .robinhood, .arc])
-    func `same chain EVM pairs use DEX estimation and sell amount input`(chain: ApiChain) {
+    func `same chain EVM pairs use DEX estimation and buy amount input`(chain: ApiChain) {
         let selling = chain.nativeToken
         let buyingSlug = "\(chain.rawValue)-0x1111111111111111111111111111111111111111"
         let swapType = getSwapType(from: selling.slug, to: buyingSlug, accountChains: [chain])
 
         #expect(swapType == .onChain)
-        #expect(resolveBuyAmountInputMode(swapType: swapType, sellingChain: chain, isReverseProhibited: false) == .disabled)
+        #expect(resolveBuyAmountInputMode(swapType: swapType, sellingChain: chain, isReverseProhibited: false) == .enabled)
     }
 
     @Test
@@ -77,7 +77,7 @@ struct EvmSwapTests {
                 #expect(request.swapMode == .exactIn)
                 return buildResponse
             },
-            submit: { chain, accountId, enclaveToken, transfers, history, isGasless, transaction, calls, approval in
+            submit: { chain, accountId, enclaveToken, transfers, history, isGasless, transaction, calls, transactionRequest, approval in
                 didSubmit = true
                 #expect(chain == .ethereum)
                 #expect(accountId == account.id)
@@ -87,6 +87,7 @@ struct EvmSwapTests {
                 #expect(isGasless == false)
                 #expect(transaction == "uniswap-payload")
                 #expect(calls == buildResponse.calls)
+                #expect(transactionRequest == nil)
                 #expect(approval == needsBatch)
                 return try JSONDecoder().decode(ApiSwapSubmitResult.self, from: Data(#"{"swapId":"swap-id"}"#.utf8))
             }

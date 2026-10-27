@@ -17,7 +17,8 @@
 .topActions {
   max-width: v.$landscapeMainContentMaxWidth;
   margin-bottom: 1rem;
-  margin-inline-end: 1rem;
+
+  @include mixins.adapt-margin-to-scrollbar(1rem);
 }
 
 // The token screen stacks cards on the app background, so the surface moves from the slide
@@ -106,8 +107,9 @@
 
   flex-shrink: 0;
 
-  max-width: v.$landscapeMainContentMaxWidth;
-  margin-inline-end: 1rem;
+  max-width: v.$landscapeBlockMaxWidth;
+
+  @include mixins.adapt-margin-to-scrollbar(1rem);
 }
 
 // Fill the rounded corners of the header surface, leaving the rest of it blurring the content
@@ -264,10 +266,10 @@
   .slides {
     flex: 1 0 auto;
     align-items: stretch;
-
-    max-width: v.$landscapeMainContentMaxWidth;
-    margin-inline-end: 1rem;
+    max-width: v.$landscapeBlockMaxWidth;
     border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
+
+    @include mixins.adapt-margin-to-scrollbar(1rem);
   }
 
   .landscapeSlide {

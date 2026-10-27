@@ -18,6 +18,8 @@ import { formatCurrency } from '../../util/formatNumber';
 import { getIsViewAccountDisabled } from '../../util/isViewAccount';
 import resolveSlideTransitionName from '../../util/resolveSlideTransitionName';
 import { getIsNewStakeAllowed } from '../../util/staking';
+import { getNativeToken } from '../../util/tokens';
+import { SEC } from '../../api/constants';
 
 import useInterval from '../../hooks/useInterval';
 import useLang from '../../hooks/useLang';
@@ -57,7 +59,13 @@ const IS_OPEN_STATES = new Set([
   StakingState.StakeConfirmMfa,
   StakingState.StakeComplete,
   StakingState.StakeSelectAccount,
+  StakingState.ForeignUnstakePassword,
+  StakingState.ForeignUnstakeConnectHardware,
+  StakingState.ForeignUnstakeConfirmHardware,
+  StakingState.ForeignUnstakeConfirmMfa,
 ]);
+
+const MFA_STATES = new Set([StakingState.StakeConfirmMfa, StakingState.ForeignUnstakeConfirmMfa]);
 
 function StakeModal({
   state,
@@ -67,6 +75,7 @@ function StakeModal({
   error,
   tokenBySlug,
   mfaRequestHash,
+  foreignUnstake,
   accountId,
   accountTitle,
   hasMultipleAccounts,
@@ -80,11 +89,14 @@ function StakeModal({
     openStakingInfo,
     updateStakingMfaRequestStatus,
     switchStakingAccount,
+    cancelForeignUnstake,
+    submitForeignUnstake,
   } = getActions();
 
   const { tokenSlug } = stakingState ?? {};
 
   const token = tokenSlug && tokenBySlug ? tokenBySlug[tokenSlug] : undefined;
+  const foreignUnstakeToken = foreignUnstake && tokenBySlug?.[getNativeToken(foreignUnstake.chain).slug];
 
   const lang = useLang();
   const isOpen = IS_OPEN_STATES.has(state);
@@ -93,15 +105,17 @@ function StakeModal({
   const { renderingKey, nextKey, updateNextKey } = useModalTransitionKeys(state, isOpen);
 
   useInterval(() => {
-    if (state === StakingState.StakeConfirmMfa && mfaRequestHash) {
+    if (MFA_STATES.has(state) && mfaRequestHash) {
       updateStakingMfaRequestStatus();
     }
-  }, state === StakingState.StakeConfirmMfa ? 1000 : undefined);
+  }, MFA_STATES.has(state) ? SEC : undefined);
 
   const handleBackClick = useLastCallback(() => {
     if (state === StakingState.StakePassword) {
       clearStakingError();
       setStakingScreen({ state: StakingState.StakeInitial });
+    } else if (state === StakingState.ForeignUnstakePassword) {
+      cancelForeignUnstake();
     }
   });
 
@@ -113,6 +127,14 @@ function StakeModal({
   const handleAuthorize = useLastCallback((enclaveToken: string) => {
     setRenderedStakingAmount(amount);
     submitStaking({ enclaveToken });
+  });
+
+  const handleForeignUnstakeLedgerConnect = useLastCallback(() => {
+    submitForeignUnstake();
+  });
+
+  const handleForeignUnstakeAuthorize = useLastCallback((enclaveToken: string) => {
+    submitForeignUnstake({ enclaveToken });
   });
 
   const handleViewStakingInfoClick = useLastCallback(() => {
@@ -146,7 +168,24 @@ function StakeModal({
     );
   }
 
-  function renderPassword(isActive: boolean) {
+  function renderForeignUnstakeBanner() {
+    if (!foreignUnstakeToken || !foreignUnstake?.draft) return undefined;
+
+    return (
+      <TransactionBanner
+        tokenIn={foreignUnstakeToken}
+        withChainIcon
+        color="green"
+        text={formatCurrency(
+          toDecimal(foreignUnstake.draft.amountNative, foreignUnstakeToken.decimals),
+          foreignUnstakeToken.symbol,
+        )}
+        className={!getDoesUsePinPad() ? styles.transactionBanner : undefined}
+      />
+    );
+  }
+
+  function renderPassword(isActive: boolean, isForeignUnstake?: boolean) {
     const placeholder = getDoesUsePinPad()
       ? 'Confirm action with your passcode'
       : 'Confirm action with your password';
@@ -154,21 +193,24 @@ function StakeModal({
     return (
       <>
         {!getDoesUsePinPad() && (
-          <ModalHeader title={lang('Confirm Staking')} onClose={cancelStaking} />
+          <ModalHeader
+            title={lang(isForeignUnstake ? 'Confirm Unstaking' : 'Confirm Staking')}
+            onClose={cancelStaking}
+          />
         )}
         <PasswordForm
           isActive={isActive}
           isLoading={isLoading}
           error={error}
-          operationType="staking"
+          operationType={isForeignUnstake ? 'unstaking' : 'staking'}
           placeholder={lang(placeholder)}
           submitLabel={lang('Confirm')}
           cancelLabel={lang('Back')}
-          onAuthorize={handleAuthorize}
+          onAuthorize={isForeignUnstake ? handleForeignUnstakeAuthorize : handleAuthorize}
           onCancel={handleBackClick}
           onUpdate={clearStakingError}
         >
-          {renderTransactionBanner()}
+          {isForeignUnstake ? renderForeignUnstakeBanner() : renderTransactionBanner()}
         </PasswordForm>
       </>
     );
@@ -201,7 +243,10 @@ function StakeModal({
     );
   }
 
-  function renderContent(isActive: boolean, isFrom: boolean, currentKey: StakingState) {
+  function renderContent(isSlideActive: boolean, isFrom: boolean, currentKey: StakingState) {
+    // `Transition` keeps the last slide active while the modal closes
+    const isActive = isSlideActive && isOpen;
+
     switch (currentKey) {
       case StakingState.StakeInitial:
         return (
@@ -261,6 +306,7 @@ function StakeModal({
         );
 
       case StakingState.StakeConfirmMfa:
+      case StakingState.ForeignUnstakeConfirmMfa:
         return (
           <>
             <ModalHeader onClose={cancelStaking} />
@@ -273,6 +319,28 @@ function StakeModal({
 
       case StakingState.StakeComplete:
         return renderComplete(isActive);
+
+      case StakingState.ForeignUnstakePassword:
+        return renderPassword(isActive, true);
+
+      case StakingState.ForeignUnstakeConnectHardware:
+        return (
+          <LedgerConnect
+            isActive={isActive}
+            onConnected={handleForeignUnstakeLedgerConnect}
+            onClose={cancelStaking}
+          />
+        );
+
+      case StakingState.ForeignUnstakeConfirmHardware:
+        return (
+          <LedgerConfirmOperation
+            text={lang('Please confirm action on your Ledger')}
+            error={error}
+            onClose={cancelStaking}
+            onTryAgain={handleForeignUnstakeLedgerConnect}
+          />
+        );
     }
   }
 

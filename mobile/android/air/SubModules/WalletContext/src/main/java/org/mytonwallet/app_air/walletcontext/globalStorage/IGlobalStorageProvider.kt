@@ -17,6 +17,8 @@ interface IGlobalStorageProvider {
     fun getInt(key: String): Int?
     fun getString(key: String): String?
     fun getBool(key: String): Boolean?
+
+    // Returned objects are the stored instances; write changes back with set, never mutate them.
     fun getDict(key: String): JSONObject?
     fun getArray(key: String): JSONArray?
 

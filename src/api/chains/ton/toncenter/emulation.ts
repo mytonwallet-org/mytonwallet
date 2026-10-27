@@ -1,3 +1,4 @@
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { ApiNetwork } from '../../../types';
 import type { AccountState, AddressBook, AnyAction, MetadataMap, TraceDetail, Transaction } from './types';
 
@@ -20,6 +21,7 @@ export async function fetchEmulateTrace(
   network: ApiNetwork,
   boc: string,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ): Promise<EmulationResponse> {
   const baseUrl = NETWORK_CONFIG[network].toncenterUrl;
 
@@ -38,7 +40,7 @@ export async function fetchEmulateTrace(
       include_metadata: true,
     }),
     signal,
-  }, { retries: 1 });
+  }, { retries: 1, demand });
 
   return response.json();
 }

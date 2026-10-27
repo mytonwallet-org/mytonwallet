@@ -91,7 +91,7 @@ export interface DappMetadata {
   /** dApp's display name */
   name: string;
   /** dApp's icon URL */
-  iconUrl: string;
+  iconUrl?: string;
   /** Optional description */
   description?: string;
   /** Manifest URL (for TON Connect) */

@@ -3,11 +3,14 @@ import { Address, Builder } from '@ton/core';
 
 import type {
   ApiCheckTransactionDraftResult,
+  ApiNetwork,
   ApiNft,
+  ApiNftSuperCollection,
+  ApiNftTransfer,
   ApiNftUpdate,
   ApiSubmitNftTransferResult,
 } from '../../types';
-import { ApiTransactionDraftError } from '../../types';
+import { ApiCommonError, ApiTransactionDraftError } from '../../types';
 
 import {
   BURN_ADDRESS,
@@ -18,12 +21,12 @@ import {
   TELEGRAM_GIFTS_SUPER_COLLECTION,
 } from '../../../config';
 import { parseAccountId } from '../../../util/account';
-import { bigintMultiplyToNumber } from '../../../util/bigint';
 import { getChainConfig } from '../../../util/chain';
 import { explainApiTransferFee } from '../../../util/fee/transferFee';
-import { compact } from '../../../util/iteratees';
+import { compact, split } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { getNativeToken } from '../../../util/tokens';
+import { getMaxMessagesInTransaction } from '../../../util/ton/transfer';
 import { generateQueryId } from './util';
 import { getSigner } from './util/signer';
 import { commentToBytes, packBytesAsSnakeCell, storeInlineOrRefCell, toBase64Address } from './util/tonCore';
@@ -39,7 +42,9 @@ import {
   NFT_TRANSFER_REAL_AMOUNT,
   NftOpCode,
 } from './constants';
-import { checkMultiTransactionDraft, checkToAddress, submitMultiTransferWithMfa } from './transfer';
+import {
+  checkMultiTransactionDraft, checkToAddress, resolveTransactionError, submitMultiTransferWithMfa,
+} from './transfer';
 import { isActiveNonWalletContract } from './wallet';
 
 const NFT_TRANSFER_BATCH_SIZE = 100;
@@ -103,13 +108,7 @@ export async function checkNftOwnership(accountId: string, nftAddress: string) {
   const { address } = await fetchStoredWallet(accountId, 'ton');
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
 
-  const response = await fetchNftItems(network, { addresses: [nftAddress] });
-  const item = response.nft_items[0];
-  if (!item) return false;
-
-  const nft = parseNftItem(network, item, response.metadata, nftSuperCollectionsByCollectionAddress);
-
-  return address === nft?.ownerAddress;
+  return Boolean(await fetchOwnedNft(network, address, nftAddress, nftSuperCollectionsByCollectionAddress));
 }
 
 export async function getNftUpdates(accountId: string, fromSec: number) {
@@ -151,8 +150,14 @@ export async function getNftUpdates(accountId: string, fromSec: number) {
     } else if (await isActiveNonWalletContract(network, newOwnerAddress)) {
       // A finished sale never hits this branch: its transfer goes from the sale contract to the
       // buyer, so the `owner_address` filter does not return it for the seller at all. The seller's
-      // gallery catches up on the next full reload instead
-      updates.push({ type: 'nftPutUpForSale', accountId, nftAddress });
+      // gallery catches up on the next full reload instead.
+      //
+      // `startUtime` is inclusive, so every round returns the newest transfer again, and the listing keeps
+      // coming after the NFT has been sold. That is why the NFT is taken from its current state, and only
+      // while our wallet still owns it.
+      const nft = await fetchOwnedNft(network, address, nftAddress, nftSuperCollectionsByCollectionAddress);
+
+      updates.push({ type: 'nftPutUpForSale', accountId, nftAddress, nft });
     } else {
       updates.push({
         type: 'nftSent',
@@ -165,6 +170,20 @@ export async function getNftUpdates(accountId: string, fromSec: number) {
   }
 
   return [fromSec, updates] as [number, ApiNftUpdate[]];
+}
+
+/** Returns the current state of the NFT if `ownerAddress` owns it, directly or through a sale contract */
+async function fetchOwnedNft(
+  network: ApiNetwork,
+  ownerAddress: string,
+  nftAddress: string,
+  nftSuperCollectionsByCollectionAddress: Record<string, ApiNftSuperCollection>,
+) {
+  const response = await fetchNftItems(network, { addresses: [nftAddress] });
+  const item = response.nft_items[0];
+  const nft = item && parseNftItem(network, item, response.metadata, nftSuperCollectionsByCollectionAddress);
+
+  return nft?.ownerAddress === ownerAddress ? nft : undefined;
 }
 
 export async function checkNftTransferDraft(options: {
@@ -196,10 +215,6 @@ export async function checkNftTransferDraft(options: {
 
   toAddress = result.resolvedAddress!;
 
-  const messages = nfts
-    .slice(0, account.type === 'ledger' ? 1 : NFT_BATCH_SIZE) // We only need to check the first batch of a multi-transaction
-    .map((nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'));
-
   logDebug('checkNftTransferDraft', 'Checking NFT transfer draft', {
     accountId,
     fromAddress,
@@ -216,29 +231,32 @@ export async function checkNftTransferDraft(options: {
     };
   }
 
-  const checkResult = await checkMultiTransactionDraft(accountId, messages);
-
-  let fee: bigint | undefined;
-  let realFee: bigint | undefined;
-
-  if (checkResult.emulation) {
-    // todo: Use `received` from the emulation to calculate the real fee. Check what happens when the receiver is the same wallet.
-    const batchFee = checkResult.emulation.networkFee;
-    fee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_AMOUNT);
-    realFee = calculateNftTransferFee(nfts.length, messages.length, batchFee, NFT_TRANSFER_REAL_AMOUNT);
+  if (!nfts.length) {
+    return { ...result, error: ApiCommonError.Unexpected };
   }
 
-  if (fee !== undefined) {
-    result.explainedFee = explainApiTransferFee({
-      fee,
-      realFee: realFee ?? fee,
-      tokenSlug: getNativeToken('ton').slug,
-    });
+  let networkFee = 0n;
+  let previousCost = 0n;
+  for (const batch of split(nfts, getMaxMessagesInTransaction(account))) {
+    const messages = batch.map(
+      (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
+    );
+    const checkResult = await checkMultiTransactionDraft(accountId, messages, undefined, undefined, previousCost);
+
+    if ('error' in checkResult) {
+      result.error = checkResult.error;
+      if (checkResult.error !== ApiTransactionDraftError.InsufficientBalance) return result;
+    }
+    if (!checkResult.emulation) return result;
+    networkFee += checkResult.emulation.networkFee;
+    previousCost += BigInt(batch.length) * NFT_TRANSFER_AMOUNT + checkResult.emulation.networkFee;
   }
 
-  if ('error' in checkResult) {
-    result.error = checkResult.error;
-  }
+  result.explainedFee = explainApiTransferFee({
+    fee: networkFee + BigInt(nfts.length) * NFT_TRANSFER_AMOUNT,
+    realFee: networkFee + BigInt(nfts.length) * NFT_TRANSFER_REAL_AMOUNT,
+    tokenSlug: getNativeToken('ton').slug,
+  });
 
   return result;
 }
@@ -268,10 +286,6 @@ export async function submitNftTransfers(options: {
   const account = await fetchStoredChainAccount(accountId, 'ton');
   const { address: fromAddress } = account.byChain.ton;
 
-  const messages = nfts.map(
-    (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
-  );
-
   logDebug('submitNftTransfers', 'Submitting NFT transfers', {
     accountId,
     fromAddress,
@@ -286,42 +300,46 @@ export async function submitNftTransfers(options: {
     return { error: ApiTransactionDraftError.MfaNftBatchLimit };
   }
 
-  const sentTx = await submitMultiTransferWithMfa({
-    accountId,
-    signer: getSigner(accountId, account, enclaveToken),
-    messages,
-  });
-
-  if ('error' in sentTx) {
-    logDebugError('submitNftTransfers', {
-      error: sentTx.error,
-      accountId,
-      fromAddress,
-      toAddress,
-      nftsCount: nfts.length,
-      hasStoredMfa: Boolean(account.byChain.ton.mfa),
-      mfaAddress: account.byChain.ton.mfa?.address,
-    });
-    return sentTx;
+  if (!nfts.length) {
+    return { error: ApiCommonError.Unexpected };
   }
 
-  if ('mfaRequest' in sentTx) {
-    logDebug('submitNftTransfers', 'Returning MFA request for NFT transfer', {
-      accountId,
-      fromAddress,
-      nftsCount: nfts.length,
-      mfaAddress: account.byChain.ton.mfa?.address,
+  const messageBatches = split(nfts.map(
+    (nft) => buildNftTransferMessage(nft, fromAddress, toAddress, comment, account.type === 'ledger'),
+  ), getMaxMessagesInTransaction(account));
+
+  // One signer keeps the whole operation within one Enclave authorization usage
+  const signer = getSigner(accountId, account, enclaveToken);
+  const transfers: ApiNftTransfer[] = [];
+  let previousSeqno: number | undefined;
+
+  for (const messages of messageBatches) {
+    const sentTx = await submitMultiTransferWithMfa({
+      accountId, signer, messages, previousSeqno,
+    }).catch((err) => {
+      logDebugError('submitNftTransfers', err);
+      return { error: resolveTransactionError(err) };
     });
 
-    return {
-      mfaRequest: sentTx.mfaRequest,
-    };
+    if ('error' in sentTx) {
+      logDebugError('submitNftTransfers', sentTx);
+      return { error: sentTx.error, transfers };
+    }
+
+    if ('mfaRequest' in sentTx) {
+      return transfers.length
+        ? { error: ApiCommonError.Unexpected, transfers }
+        : { mfaRequest: sentTx.mfaRequest };
+    }
+
+    previousSeqno = sentTx.seqno;
+    transfers.push(...sentTx.messages.map((message) => ({
+      toAddress: message.toAddress,
+      msgHashNormalized: sentTx.msgHashNormalized,
+    })));
   }
 
-  return {
-    msgHashNormalized: sentTx.msgHashNormalized,
-    transfers: sentTx.messages.map((e) => ({ toAddress: e.toAddress })),
-  };
+  return { transfers };
 }
 
 function buildNftTransferMessage(
@@ -414,36 +432,4 @@ export function buildNftTransferPayload({
   builder = storeInlineOrRefCell(builder, forwardPayload, NFT_PAYLOAD_SAFE_MARGIN, noInlinePayload);
 
   return builder.endCell();
-}
-
-export function calculateNftTransferFee(
-  totalNftCount: number,
-  // How many NFTs were added to the multi-transaction before estimating it
-  estimatedBatchSize: number,
-  // The blockchain fee of the estimated multi-transaction
-  estimatedBatchBlockchainFee: bigint,
-  // How much TON is attached to each NFT during the transfer
-  amountPerNft: bigint,
-) {
-  const fullBatchCount = Math.floor(totalNftCount / estimatedBatchSize);
-  let remainingBatchSize = totalNftCount % estimatedBatchSize;
-
-  // The blockchain fee for the first NFT in a batch is almost twice higher than the fee for the other NFTs. Therefore,
-  // simply using the average NFT fee to calculate the last incomplete batch fee gives an insufficient number. To fix
-  // that, we increase the last batch size.
-  //
-  // A real life example:
-  // 1 NFT  in the batch: 0.002939195 TON
-  // 2 NFTs in the batch: 0.004470516 TON
-  // 3 NFTs in the batch: 0.006001837 TON
-  // 4 NFTs in the batch: 0.007533158 TON
-  if (remainingBatchSize > 0 && remainingBatchSize < estimatedBatchSize) {
-    remainingBatchSize += 1;
-  }
-
-  const totalBlockchainFee = bigintMultiplyToNumber(
-    estimatedBatchBlockchainFee,
-    (fullBatchCount * estimatedBatchSize + remainingBatchSize) / estimatedBatchSize,
-  );
-  return totalBlockchainFee + BigInt(totalNftCount) * amountPerNft;
 }

@@ -116,6 +116,8 @@ dependencies {
   androidTestCompileOnly project("$airSubModulePath:UIAgent")
   androidTestCompileOnly project("$airSubModulePath:WalletCore")
   androidTestCompileOnly project("$airSubModulePath:WalletBaseContext")
+  androidTestCompileOnly project("$airSubModulePath:WalletContext")
+  androidTestCompileOnly project("$airSubModulePath:UIComponents")
   implementation libs.mlkit.barcode.scanning
   implementation libs.play.services.base
   implementation libs.camera.camera2

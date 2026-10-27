@@ -74,6 +74,7 @@ public final class CrosschainToWalletVC: WViewController {
         self.payment = payment
         self.fixedNow = fixedNow
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 860)
     }
 
     private static func isInternalSwap(

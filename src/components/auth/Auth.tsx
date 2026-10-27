@@ -87,13 +87,13 @@ const Auth = ({
           />
         );
       case AuthState.createPin:
-        return <AuthCreatePin isActive={isActive} method="createAccount" />;
+        return <AuthCreatePin isActive={isActive} method="createAccount" error={error} />;
       case AuthState.confirmPin:
         return <AuthConfirmPin isActive={isActive} method="createAccount" />;
       case AuthState.createBiometrics:
         return CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
-          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} />
-          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} />;
+          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} error={error} />
+          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} error={error} />;
       case AuthState.createPassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method="createAccount" />;
       case AuthState.disclaimerAndBackup:
@@ -103,7 +103,7 @@ const Auth = ({
       case AuthState.importWallet:
         return <AuthImportMnemonic isActive={isActive} />;
       case AuthState.importWalletCreatePin:
-        return <AuthCreatePin isActive={isActive} method="importMnemonic" />;
+        return <AuthCreatePin isActive={isActive} method="importMnemonic" error={error} />;
       case AuthState.importWalletConfirmPin:
         return <AuthConfirmPin isActive={isActive} method="importMnemonic" />;
       case AuthState.importWalletCheckPassword:
@@ -125,8 +125,8 @@ const Auth = ({
         );
       case AuthState.importWalletCreateBiometrics:
         return CAN_AUTHENTICATE_WITH_BIOMETRIC_ONLY
-          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} isImporting />
-          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} />;
+          ? <AuthChooseProtection isActive={isActive} isLoading={isLoading} isImporting error={error} />
+          : <AuthCreateBiometrics isActive={isActive} isLoading={isLoading} error={error} />;
       case AuthState.importWalletCreatePassword:
         return <AuthCreatePassword isActive={isActive} isLoading={isLoading} method={method} />;
       case AuthState.about:

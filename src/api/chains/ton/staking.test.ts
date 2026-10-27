@@ -36,6 +36,7 @@ const mockGetJettonPoolStakeWallet = jest.fn();
 
 jest.mock('../../common/accounts', () => ({
   fetchStoredWallet: jest.fn(),
+  fetchStoredChainAccount: jest.fn(),
 }));
 
 jest.mock('../../common/backend', () => ({

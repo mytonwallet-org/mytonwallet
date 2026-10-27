@@ -217,10 +217,7 @@ private final class PortfolioRangeSegmentedControl: UISegmentedControl {
 private enum PortfolioSectionID: Hashable {
     case localSummary
     case localInsights
-    case totalValueChart
-    case totalPnlChart
-    case dailyPnlChart
-    case portfolioShareChart
+    case charts
 }
 
 private enum PortfolioItemID: Hashable {
@@ -240,8 +237,8 @@ private struct PortfolioSectionDescriptor: Equatable {
     let contentInsets: NSDirectionalEdgeInsets
     let interGroupSpacing: CGFloat
 
-    func makeLayoutSection() -> NSCollectionLayoutSection {
-        let section = layout.makeLayoutSection()
+    func makeLayoutSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection {
+        let section = layout.makeLayoutSection(availableWidth: environment.container.effectiveContentSize.width - contentInsets.leading - contentInsets.trailing)
         section.contentInsets = contentInsets
         section.interGroupSpacing = interGroupSpacing
         return section
@@ -251,10 +248,13 @@ private struct PortfolioSectionDescriptor: Equatable {
 @MainActor
 private enum PortfolioSectionLayout: Equatable {
     case fullWidthTile(estimatedHeight: CGFloat)
+    case chartTiles
     case horizontalTiles(itemWidth: CGFloat, estimatedHeight: CGFloat, orthogonalScrolling: UICollectionLayoutSectionOrthogonalScrollingBehavior)
 
-    func makeLayoutSection() -> NSCollectionLayoutSection {
+    func makeLayoutSection(availableWidth: CGFloat) -> NSCollectionLayoutSection {
         switch self {
+        case .chartTiles:
+            return PortfolioChartLayout.makeSection(availableWidth: availableWidth)
         case .fullWidthTile(let estimatedHeight):
             let itemSize = NSCollectionLayoutSize(
                 widthDimension: .fractionalWidth(1),
@@ -399,56 +399,20 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
             )
         }
 
-        sections.append(contentsOf: [
+        sections.append(
             PortfolioSectionDescriptor(
-                id: .portfolioShareChart,
-                items: [.portfolioShareChartTile],
-                layout: .fullWidthTile(estimatedHeight: 535),
-                contentInsets: .init(
-                    top: portfolioSectionTopSpacing,
-                    leading: portfolioHorizontalInset,
-                    bottom: 0,
-                    trailing: portfolioHorizontalInset
-                ),
-                interGroupSpacing: 0
-            ),
-            PortfolioSectionDescriptor(
-                id: .totalValueChart,
-                items: [.totalValueChartTile],
-                layout: .fullWidthTile(estimatedHeight: 535),
-                contentInsets: .init(
-                    top: portfolioSectionTopSpacing,
-                    leading: portfolioHorizontalInset,
-                    bottom: 0,
-                    trailing: portfolioHorizontalInset
-                ),
-                interGroupSpacing: 0
-            ),
-            PortfolioSectionDescriptor(
-                id: .totalPnlChart,
-                items: [.totalPnlChartTile],
-                layout: .fullWidthTile(estimatedHeight: 535),
-                contentInsets: .init(
-                    top: portfolioSectionTopSpacing,
-                    leading: portfolioHorizontalInset,
-                    bottom: 0,
-                    trailing: portfolioHorizontalInset
-                ),
-                interGroupSpacing: 0
-            ),
-            PortfolioSectionDescriptor(
-                id: .dailyPnlChart,
-                items: [.dailyPnlChartTile],
-                layout: .fullWidthTile(estimatedHeight: 535),
+                id: .charts,
+                items: [.portfolioShareChartTile, .totalValueChartTile, .totalPnlChartTile, .dailyPnlChartTile],
+                layout: .chartTiles,
                 contentInsets: .init(
                     top: portfolioSectionTopSpacing,
                     leading: portfolioHorizontalInset,
                     bottom: 32,
                     trailing: portfolioHorizontalInset
                 ),
-                interGroupSpacing: 0
-            ),
-        ])
+                interGroupSpacing: portfolioSectionTopSpacing
+            )
+        )
 
         return sections
     }
@@ -480,14 +444,17 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
         view.addSubview(bottomControlBackgroundView)
         view.addSubview(rangeSegmentedControl)
 
+        let preferredWidth = rangeSegmentedControl.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, constant: -2 * portfolioRangeControlHorizontalInset)
+        preferredWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([
             bottomControlBackgroundView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomControlBackgroundView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomControlBackgroundView.topAnchor.constraint(equalTo: rangeSegmentedControl.topAnchor),
             bottomControlBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            rangeSegmentedControl.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: portfolioRangeControlHorizontalInset),
-            rangeSegmentedControl.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -portfolioRangeControlHorizontalInset),
+            rangeSegmentedControl.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
+            rangeSegmentedControl.widthAnchor.constraint(lessThanOrEqualToConstant: 400),
+            preferredWidth,
             rangeSegmentedControl.heightAnchor.constraint(equalToConstant: portfolioRangeControlHeight),
             rangeSegmentedControl.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
         ])
@@ -513,14 +480,14 @@ public final class PortfolioVC: WViewController, UICollectionViewDelegate, WBack
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
-        UICollectionViewCompositionalLayout { [weak self] sectionIndex, _ in
+        UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             guard let self,
                   self.sectionDescriptors.indices.contains(sectionIndex)
             else {
                 return nil
             }
 
-            return self.sectionDescriptors[sectionIndex].makeLayoutSection()
+            return self.sectionDescriptors[sectionIndex].makeLayoutSection(environment: environment)
         }
     }
 

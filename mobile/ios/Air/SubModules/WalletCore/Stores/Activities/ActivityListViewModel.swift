@@ -26,7 +26,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
 
     public enum SectionValue: Equatable, Hashable, Sendable {
         case headerPlaceholder
-        case custom(String)
+        case custom(String, accountId: String? = nil)
         case loadingPlaceholder
         case transactions(String, Date)
         case emptyPlaceholder
@@ -131,7 +131,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
                 let stableId = stableIdByCurrent[id] ?? id
                 let resolvedId = activityIdAliases[stableId] ?? stableId
                 if let activity = activitiesById?[resolvedId] {
-                    return Calendar.current.startOfDay(for: activity.timestampDate)
+                    return LocalizationSupport.shared.calendar.startOfDay(for: activity.timestampDate)
                 }
                 assertionFailure("logic error")
                 return Date.distantPast
@@ -306,7 +306,7 @@ public actor ActivityListViewModel: WalletCoreData.EventsObserver {
 
 public extension NativeIdentifier where Value == ActivityListViewModel.SectionValue {
     static var headerPlaceholder: Self { Self(.headerPlaceholder) }
-    static func custom(_ id: String) -> Self { Self(.custom(id)) }
+    static func custom(_ id: String, accountId: String? = nil) -> Self { Self(.custom(id, accountId: accountId)) }
     static var loadingPlaceholder: Self { Self(.loadingPlaceholder) }
     static func transactions(_ accountId: String, _ date: Date) -> Self { Self(.transactions(accountId, date)) }
     static var emptyPlaceholder: Self { Self(.emptyPlaceholder) }

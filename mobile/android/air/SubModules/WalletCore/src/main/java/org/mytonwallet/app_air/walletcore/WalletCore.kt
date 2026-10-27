@@ -267,12 +267,8 @@ private fun defaultSlugsForChain(chain: MBlockchain, network: MBlockchainNetwork
 fun defaultShownSlugs(account: MAccount): Set<String> {
     val network = account.network
     val supportedChains = MBlockchain.supportedChains.filter { account.isChainSupported(it.name) }
-    if (ApplicationContextHolder.isGramApp) {
-        return if (account.tonAddress != null) {
-            defaultSlugsForChain(MBlockchain.ton, network).toSet()
-        } else {
-            defaultSlugsForChain(supportedChains.first(), network).toSet()
-        }
+    if (ApplicationContextHolder.isGramApp && account.tonAddress != null) {
+        return defaultSlugsForChain(MBlockchain.ton, network).toSet()
     }
     return if (supportedChains.size == 1) {
         defaultSlugsForChain(supportedChains.first(), network).toSet()
@@ -302,8 +298,6 @@ object WalletCore {
     private var pendingBridge: JSWebViewBridge? = null
     private val pendingBridgeSetupCallbacks = mutableListOf<(Boolean) -> Unit>()
 
-    val requiredBridge: JSWebViewBridge
-        get() = bridge ?: throw IllegalStateException("JS bridge is not initialized")
     var nextAccountId: String? = null
     var nextAccountIsPushedTemporary: Boolean? = null
 
@@ -727,8 +721,14 @@ object WalletCore {
         return accounts
     }
 
-    suspend fun <T> call(method: ApiMethod<T>): T =
-        requiredBridge.callApiAsync(method.name, method.arguments, method.type)
+    suspend fun <T> call(method: ApiMethod<T>): T {
+        val bridge = bridge ?: throw JSWebViewBridge.ApiError(
+            methodName = method.name,
+            raw = null,
+            parsed = MBridgeError.Type.BRIDGE_INTERRUPTED
+        )
+        return bridge.callApiAsync(method.name, method.arguments, method.type)
+    }
 
     fun <T> call(method: ApiMethod<T>, callback: (String?, T?, JSWebViewBridge.ApiError?) -> Unit) {
         bridge?.callApi(method.name, method.arguments, method.type, callback)
@@ -829,6 +829,17 @@ object WalletCore {
                 val accountConfig = update.accountConfig ?: return
                 ensureMainThread {
                     WGlobalStorage.setAccountConfig(update.accountId, accountConfig)
+                    notifyEvent(WalletEvent.AccountConfigReceived)
+                }
+            }
+
+            is ApiUpdate.ApiUpdateAccountBanners -> {
+                ensureMainThread {
+                    AccountStore.setBanners(
+                        update.accountId,
+                        update.homeBanners,
+                        update.stakingBanners
+                    )
                     notifyEvent(WalletEvent.AccountConfigReceived)
                 }
             }
@@ -1024,7 +1035,7 @@ object WalletCore {
                 )
                 if (onFailure != null) {
                     onFailure()
-                } else {
+                } else if (err?.type != MBridgeError.Type.BRIDGE_INTERRUPTED) {
                     // Should not happen! Continuing with a half-switched account context is
                     // unsafe, so fail (same as switchToDisplayedAccountId).
                     throw Error("activateAccount failed: $err")

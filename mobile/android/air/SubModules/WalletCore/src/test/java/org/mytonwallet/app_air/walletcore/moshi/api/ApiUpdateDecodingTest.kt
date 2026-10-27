@@ -36,6 +36,30 @@ class ApiUpdateDecodingTest {
     }
 
     @Test
+    fun dappConnectAcceptsMissingOrNullIcon() {
+        for (iconField in listOf("", """, "iconUrl": null""")) {
+            val update = decode<ApiUpdate>(
+                """
+                {
+                    "type": "dappConnect",
+                    "promiseId": "connect-ens",
+                    "accountId": "0-mainnet",
+                    "dapp": {
+                        "protocolType": "walletConnect",
+                        "url": "https://app.ens.domains",
+                        "name": "ENS"$iconField
+                    },
+                    "permissions": {"address": true, "proof": false}
+                }
+                """.trimIndent()
+            ) as ApiUpdate.ApiUpdateDappConnect
+
+            assertEquals("ENS", update.dapp.name)
+            assertNull(update.dapp.iconUrl)
+        }
+    }
+
+    @Test
     fun optionalFieldsMayBeAbsent() {
         assertEquals(
             null,
@@ -117,6 +141,22 @@ class ApiUpdateDecodingTest {
         )
         assertEquals(1700000000000L, update?.expirationByAddress?.get("EQ1"))
         assertEquals("EQ9", update?.linkedAddressByAddress?.get("EQ1"))
+    }
+
+    @Test
+    fun accountBannersDecodeThroughBridgeAdapter() {
+        val update = decode<ApiUpdate>(
+            """{"type":"updateAccountBanners","accountId":"0-mainnet","homeBanners":[{"id":"foreign-staking:ton","kind":"infoBanner","infoBanner":{"title":"More profitable staking available","textValues":{"%symbol%":"GRAM"},"description":"Tap **Earn** to restake your %symbol% with **higher returns**.","actionButton":{"title":"Restake Now","onClickAction":"openEarn"}}}],"stakingBanners":[{"id":"foreign-staking:ton:tonstakers","kind":"foreignStaking","foreignStaking":{"chain":"ton","providerName":"tonstakers","amount":"1","symbol":"GRAM","apy":3,"stakingApy":5},"infoBanner":{"title":"%amount% %symbol% locked in another staking","textValues":{"%amount%":"1","%symbol%":"GRAM"},"description":"Unstake them to restake with **higher returns**.","actionButton":{"title":"Unstake","onClickAction":"unstakeForeign","chain":"ton","providerName":"tonstakers"}},"linkedBannerId":"foreign-staking:ton"}]}"""
+        ) as ApiUpdate.ApiUpdateAccountBanners
+
+        assertEquals("0-mainnet", update.accountId)
+        assertEquals("foreign-staking:ton", update.homeBanners.single().id)
+        val stakingBanner = update.stakingBanners.single()
+        assertEquals("foreign-staking:ton", stakingBanner.linkedBannerId)
+        val action = checkNotNull(stakingBanner.infoBanner?.actionButton)
+        assertEquals("unstakeForeign", action.onClickAction)
+        assertEquals("ton", action.chain)
+        assertEquals("tonstakers", action.providerName)
     }
 
     @Test

@@ -1,4 +1,4 @@
-import type { ApiSwapEstimateVariant, ApiToken } from '../../api/types';
+import type { ApiSwapEstimateVariant, ApiSwapRouteType, ApiToken } from '../../api/types';
 import type { GlobalState } from '../../global/types';
 import type { FeePrecision, FeeTerms } from './types';
 import { SwapType } from '../swap/types';
@@ -13,6 +13,8 @@ type ExplainSwapFeeInput = Pick<GlobalState['currentSwap'],
 'tokenInSlug' | 'networkFee' | 'realNetworkFee' | 'dieselStatus' | 'dieselFee'
 > & {
   swapType: SwapType;
+  /** The venue that priced the swap. Diesel applies only to a DEX quote. */
+  route: ApiSwapRouteType;
   /** The balance of the "in" token blockchain's native token. Undefined means that it's unknown. */
   nativeTokenInBalance: bigint | undefined;
 };
@@ -47,6 +49,7 @@ export type ExplainedSwapFee = {
 
 type MaxSwapAmountInput = {
   swapType: SwapType;
+  route: ApiSwapRouteType;
   /** The balance of the "in" token. Undefined means that it's unknown. */
   tokenInBalance: bigint | undefined;
   tokenIn: Pick<ApiToken, 'slug' | 'decimals'> | undefined;
@@ -89,6 +92,7 @@ export function explainSwapFee(input: ExplainSwapFeeInput): ExplainedSwapFee {
  */
 export function getMaxSwapAmount({
   swapType,
+  route,
   tokenInBalance,
   tokenIn,
   fullNetworkFee,
@@ -110,7 +114,7 @@ export function getMaxSwapAmount({
       return undefined;
     }
 
-    if (swapType !== SwapType.OnChain) {
+    if (route === 'cex') {
       maxAmount -= fromDecimal(fullNetworkFee.token ?? '0', tokenIn.decimals);
     }
 
@@ -202,7 +206,10 @@ export function canAffordSwapEstimateVariant(input: CanAffordSwapVariant) {
 }
 
 export function shouldSwapBeGasless(
-  input: Pick<ExplainSwapFeeInput, 'tokenInSlug' | 'nativeTokenInBalance' | 'networkFee' | 'dieselStatus' | 'swapType'>,
+  input: Pick<
+    ExplainSwapFeeInput,
+    'tokenInSlug' | 'nativeTokenInBalance' | 'networkFee' | 'dieselStatus' | 'swapType' | 'route'
+  >,
 ) {
   const isNativeIn = getIsNativeToken(input.tokenInSlug);
   const nativeTokenBalance = getBigNativeTokenInBalance(input);
@@ -210,7 +217,7 @@ export function shouldSwapBeGasless(
     && nativeTokenBalance.lt(input.networkFee);
 
   return (
-    input.swapType === SwapType.OnChain
+    input.route === 'dex'
     && isInsufficientNative
     && !isNativeIn
     && Boolean(input.dieselStatus) && input.dieselStatus !== 'not-available'

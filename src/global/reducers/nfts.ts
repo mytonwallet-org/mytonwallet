@@ -125,6 +125,18 @@ export function applyIncomingNftFromActivity(
   accountId: string,
   nft: ApiNft,
 ): GlobalState {
+  const storedNft = selectAccountState(global, accountId)?.nfts?.byAddress?.[nft.address];
+  if (storedNft && nft.spamInfo?.provider === 'zerion') {
+    // Activity snapshots are sparse. Keep gallery metadata and any explicit spam verdict from either provider.
+    nft = {
+      ...nft,
+      ...storedNft,
+      isHidden: storedNft.isHidden || nft.isHidden,
+      spamInfo: nft.spamInfo.isSpam === true && storedNft.spamInfo?.isSpam !== true
+        ? nft.spamInfo
+        : storedNft.spamInfo ?? nft.spamInfo,
+    };
+  }
   global = addNft(global, accountId, nft);
 
   if (nft.collectionAddress === MW_CARDS_COLLECTION) {

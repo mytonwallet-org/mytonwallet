@@ -697,12 +697,13 @@ jobs:
       - name: Build and package
         run: |
           export APP_COMMIT_HASH=${{ github.sha }}
+          # The Firefox build writes the settings it received to `.env`, which goes into the source archive
           if [ -z "$PUBLISH_REPO" ]; then
             npm run extension-chrome:package:staging
-            npm run extension-firefox:package:staging
+            BUILD_ENV_FILE=.env npm run extension-firefox:package:staging
           else
             npm run extension-chrome:package:production
-            npm run extension-firefox:package:production
+            BUILD_ENV_FILE=.env npm run extension-firefox:package:production
           fi
 
       - name: Validate the Firefox package
@@ -710,6 +711,16 @@ jobs:
         # for, so without this step a rejected build is only discovered by the publish job, after
         # the release has been cut and every other store already has it.
         run: npx --yes addons-linter@10 "${{ env.ARTIFACT_NAME_BASE }}-firefox.zip"
+
+      - name: Pack the Firefox sources and build facts
+        run: |
+          bash deploy/firefox_pack_sources.sh
+          node deploy/firefoxBuildInfo.js > MyWallet-firefox-build.json
+
+      - name: Check that the Firefox sources reproduce the package
+        # AMO reviewers rebuild versions from their source archive and disable a version whose rebuild
+        # differs from what was submitted.
+        run: bash deploy/firefox_verify_sources.sh MyWallet-firefox-sources.tgz "${{ env.ARTIFACT_NAME_BASE }}-firefox.zip"
 
       - name: Upload Chrome extension artifact
         uses: actions/upload-artifact@v4
@@ -722,6 +733,14 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME_BASE }}-firefox.zip
           path: ${{ env.ARTIFACT_NAME_BASE }}-firefox.zip
+
+      - name: Upload Firefox review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME_BASE }}-firefox-review
+          path: |
+            MyWallet-firefox-sources.tgz
+            MyWallet-firefox-build.json
 
   chrome-publish:
     name: Publish Chrome extension
@@ -785,6 +804,18 @@ jobs:
         with:
           name: ${{ env.FIREFOX_FILE_NAME }}
 
+      - name: Download Firefox review artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME_BASE }}-firefox-review
+
+      - name: Render the Firefox reviewer notes
+        # Runs before the submit so that a missing or broken template stops the job before AMO has a version.
+        # The secret is the private `deploy/firefox-review-notes.md` of the dev repository.
+        env:
+          FIREFOX_REVIEW_NOTES: ${{ secrets.FIREFOX_REVIEW_NOTES }}
+        run: node deploy/firefoxReviewNotes.js > MyWallet-firefox-notes.txt
+
       - name: Publish to Firefox addons
         env:
           WEB_EXT_API_KEY: ${{ secrets.FIREFOX_API_KEY }}
@@ -796,12 +827,6 @@ jobs:
           mkdir $UNZIP_DIR
           unzip ${{ env.FIREFOX_FILE_NAME }} -d $UNZIP_DIR
           npx web-ext-submit --source-dir=$UNZIP_DIR
-          echo "APP_NAME=\"${APP_NAME}\"
-          APP_COMMIT_HASH=${{ github.sha }}
-          PROXY_HOSTS=\"${PROXY_HOSTS}\"
-          AGENT_API_URL=\"${AGENT_API_URL}\"
-          STAKING_POOLS=\"${STAKING_POOLS}\"" >.env
-          bash deploy/firefox_pack_sources.sh
           node deploy/firefoxPatchVersion.js
 
   edge-publish:

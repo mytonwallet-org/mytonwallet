@@ -51,6 +51,21 @@ import WalletContext
             swapType: swapType,
             account: account
         )
+        if result.cexEstimate != nil {
+            let estimatedAmounts = result.cexEstimate.map {
+                SwapInputModel.Estimate(
+                    changedFrom: result.changedFrom,
+                    fromAmount: $0.fromAmount,
+                    toAmount: $0.toAmount
+                )
+            }
+            return SwapEstimateUpdate(
+                changedFrom: result.changedFrom,
+                estimatedAmounts: estimatedAmounts,
+                backendMaxAmount: nil,
+                stateUpdate: result
+            )
+        }
         let estimatedAmounts = result.dexEstimate.map {
             SwapInputModel.Estimate(
                 changedFrom: result.changedFrom,

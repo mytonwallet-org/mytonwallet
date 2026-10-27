@@ -377,9 +377,10 @@ struct WalletConnectPayAmountLine: View {
 
     var body: some View {
         let hasIcon = amount.token != nil || amount.iconUrl?.nilIfEmpty != nil
-        AmountIconRow(showsIcon: showsIcon && hasIcon) {
-            WalletConnectPayLargeAmountText(amount: amount.amount)
-        } icon: {
+        AmountIconRow(
+            text: WalletConnectPayLargeAmountText(amount: amount.amount).attributedText,
+            showsIcon: showsIcon && hasIcon
+        ) {
             WalletConnectPayTokenIcon(
                 token: amount.token,
                 iconUrl: amount.iconUrl,
@@ -532,14 +533,17 @@ struct WalletConnectPayLargeAmountText: View {
     var amount: WalletConnectPayHeaderAmount
 
     var body: some View {
+        Text(attributedText).lineLimit(1)
+    }
+
+    var attributedText: NSAttributedString {
         let decimalAmount = AnyDecimalAmount(
             amount.value,
             decimals: amount.decimals,
             symbol: amount.symbol,
             forceCurrencyToRight: amount.forceCurrencyToRight
         )
-        AmountText(
-            amount: decimalAmount,
+        return decimalAmount.formatAttributed(
             format: .init(preset: .baseCurrencyEquivalent),
             integerFont: .compactRounded(ofSize: 34, weight: .bold),
             fractionFont: .compactRounded(ofSize: 28, weight: .bold),
@@ -548,7 +552,6 @@ struct WalletConnectPayLargeAmountText: View {
             fractionColor: abs(decimalAmount.doubleValue) >= 10 ? .air.secondaryLabel : UIColor.label,
             symbolColor: .air.secondaryLabel
         )
-            .lineLimit(1)
     }
 }
 

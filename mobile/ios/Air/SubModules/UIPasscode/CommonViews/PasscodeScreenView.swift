@@ -11,6 +11,7 @@ import WalletCore
 import WalletContext
 
 private let passcodeLength = 4
+private let preferredCompactKeyHeightPriority = UILayoutPriority(748)
 
 protocol PasscodeScreenViewDelegate: PasscodeInputViewDelegate {
     @MainActor func animateSuccess()
@@ -55,6 +56,16 @@ public class PasscodeScreenView: UIView {
             content.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 16),
             content.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -16),
         ])
+    }
+
+    func minimumFittingHeight(forWidth width: CGFloat) -> CGFloat {
+        // Allow keys to shrink before replacing a confirmation header, preserving
+        // the normal top gap (749), text (750) and required 54-point key targets.
+        systemLayoutSizeFitting(
+            CGSize(width: width, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: UILayoutPriority(preferredCompactKeyHeightPriority.rawValue + 0.5)
+        ).height
     }
         
     init(
@@ -161,7 +172,7 @@ public class PasscodeScreenView: UIView {
         if compactLayout {
             NSLayoutConstraint.activate([
                 unlockView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 8),
-                unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32).withPriority(.init(748)),
+                unlockView.topAnchor.constraint(equalTo: topAnchor, constant: 32).withPriority(.init(749)),
                 unlockView.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -16),
             ])
         } else {
@@ -279,7 +290,7 @@ public class PasscodeScreenView: UIView {
                         firstKeyButton = button
                         NSLayoutConstraint.activate([
                             button.heightAnchor.constraint(greaterThanOrEqualToConstant: 54),
-                            button.heightAnchor.constraint(equalToConstant: 78).withPriority(.init(749)),
+                            button.heightAnchor.constraint(equalToConstant: 78).withPriority(preferredCompactKeyHeightPriority),
                         ])
                     }
                 } else {
@@ -403,7 +414,7 @@ public class PasscodeScreenView: UIView {
 
         if canShowSignOutWhenEmpty {
             let signOutPromptView = PasscodeSignOutPromptView(
-                promptTextColor: matchHeaderColors ? unlockScreenTintColor.withAlphaComponent(0.5) : .air.secondaryLabel,
+                textColor: matchHeaderColors ? unlockScreenTintColor : .label,
                 onButtonPressed: { [weak self] in
                     self?.delegate?.signOutRequested()
                 }
@@ -473,11 +484,23 @@ public class PasscodeScreenView: UIView {
     
     private let biometricButtonTag = 10
 
-    func setShowsSignOutWhenEmpty(_ value: Bool) {
-        guard canShowSignOutWhenEmpty else { return }
+    func setShowsSignOutWhenEmpty(_ value: Bool, animated: Bool = false) {
+        guard canShowSignOutWhenEmpty, showsSignOutWhenEmpty != value, let signOutPromptView else { return }
+        layoutIfNeeded()
         showsSignOutWhenEmpty = value
-        signOutPromptView?.isHidden = !value
         signOutSpacingConstraint?.isActive = centersContentVerticallyInView && value
+        signOutPromptView.isHidden = !value
+        if animated, value, UIView.areAnimationsEnabled {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = 0.25
+            fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            signOutPromptView.layer.add(fade, forKey: "signOutReveal")
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) {
+                self.layoutIfNeeded()
+            }
+        }
     }
     
     @objc func buttonPressed(button: UIButton) {

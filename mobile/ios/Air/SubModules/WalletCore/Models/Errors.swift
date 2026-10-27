@@ -296,7 +296,7 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
     public var toLocalized: String {
         switch self {
         case .serverError:
-            return lang("Please make sure your internet connection is working and try again.")
+            return lang("An error on the server side. Please try again.")
         case .unexpected:
             return lang("Unexpected")
         case .debugError:
@@ -369,7 +369,7 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
     public var toShortLocalized: String? {
         switch self {
         case .serverError:
-            return lang("Network Error")
+            return lang("Error")
         case .slippageError:
             return toLocalized
         case .rejectedByUser:
@@ -389,6 +389,8 @@ public enum ApiAnyDisplayError: RawRepresentable, Codable, Error, Sendable, Equa
             return lang("Please make sure your internet connection is working and try again.")
         case "Pair not found":
             return lang("Invalid Pair")
+        case "Address is not valid", "Invalid address":
+            return lang("Invalid address")
         case "Too small amount":
             return lang("$swap_too_small_amount")
         case "Insufficient liquidity":

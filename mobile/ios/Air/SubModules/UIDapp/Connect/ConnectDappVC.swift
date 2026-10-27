@@ -107,16 +107,24 @@ public class ConnectDappVC: WViewController, UISheetPresentationControllerDelega
     }
     
     private func updateSheetHeight(animated: Bool) {
-        guard contentHeight > 0, let sheet = currentSheetPresentationController else { return }
+        guard contentHeight > 0 else { return }
+        let navigationBarHeight = navigationController?.navigationBar.bounds.height ?? 0
+        preferredContentSize = CGSize(width: 580, height: max(320, contentHeight - navigationBarHeight))
+        guard let sheet = currentSheetPresentationController else { return }
         let contentHeight = self.contentHeight
         
         let apply = {
-            sheet.detents = [
-                .custom(identifier: .content) { context in
-                    min(contentHeight, context.maximumDetentValue)
-                }
-            ]
-            sheet.selectedDetentIdentifier = .content
+            if self.isPresentedInRegularWidthWindow {
+                sheet.detents = [.large()]
+                sheet.selectedDetentIdentifier = .large
+            } else {
+                sheet.detents = [
+                    .custom(identifier: .content) { context in
+                        min(contentHeight, context.maximumDetentValue)
+                    }
+                ]
+                sheet.selectedDetentIdentifier = .content
+            }
         }
         
         if animated {

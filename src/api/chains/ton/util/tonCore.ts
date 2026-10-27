@@ -12,6 +12,7 @@ import { WalletContractV3R2 } from '@ton/ton/dist/wallets/WalletContractV3R2';
 import { WalletContractV4 } from '@ton/ton/dist/wallets/WalletContractV4';
 import { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { ApiNetwork } from '../../../types';
 import type { TelegramWallet } from '../contracts/TelegramWallet';
 import type { ApiTonWalletVersion, TokenTransferBodyParams } from '../types';
@@ -23,7 +24,7 @@ import { getDnsZoneByCollection } from '../../../../util/dns';
 import { fromKeyValueArrays, mapValues } from '../../../../util/iteratees';
 import { logDebugError } from '../../../../util/logs';
 import withCache from '../../../../util/withCache';
-import withCacheAsync from '../../../../util/withCacheAsync';
+import withCacheAsync, { withFetchDemandCacheAsync } from '../../../../util/withCacheAsync';
 import { DnsItem } from '../contracts/DnsItem';
 import { JettonMinter } from '../contracts/JettonMaster';
 import { JettonStakingOpCodes } from '../contracts/JettonStaking/imports/constants';
@@ -72,7 +73,7 @@ export const walletClassMap: Record<Exclude<ApiTonWalletVersion, 'telegram'>, To
   W5: WalletContractV5R1,
 };
 
-export const getTonClient = withCache((network: ApiNetwork) => {
+const getSharedTonClient = withCache((network: ApiNetwork) => {
   const { apiHeaders, byNetwork } = getEnvironment();
 
   return new TonClient({
@@ -82,15 +83,24 @@ export const getTonClient = withCache((network: ApiNetwork) => {
   });
 });
 
-export const resolveTokenWalletAddress = withCacheAsync(fetchTokenWalletAddress);
+export function getTonClient(network: ApiNetwork, demand?: FetchDemand) {
+  return getSharedTonClient(network).withDemand(demand);
+}
+
+export const resolveTokenWalletAddress = withFetchDemandCacheAsync(
+  (demand, network: ApiNetwork, address: string, tokenAddress: string) => {
+    return fetchTokenWalletAddress(network, address, tokenAddress, undefined, demand);
+  },
+);
 
 export async function fetchTokenWalletAddress(
   network: ApiNetwork,
   address: string,
   tokenAddress: string,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ) {
-  const minter = getTonClient(network).open(new JettonMinter(Address.parse(tokenAddress)));
+  const minter = getTonClient(network, demand).open(new JettonMinter(Address.parse(tokenAddress)));
   const walletAddress = await raceWithAbortSignal(
     () => minter.getWalletAddress(Address.parse(address)),
     signal,
@@ -98,11 +108,20 @@ export async function fetchTokenWalletAddress(
   return toBase64Address(walletAddress, true, network);
 }
 
-export const resolveTokenWallet = withCacheAsync(fetchTokenWallet);
+export const resolveTokenWallet = withFetchDemandCacheAsync(
+  (demand, network: ApiNetwork, tokenWalletAddress: string) => {
+    return fetchTokenWallet(network, tokenWalletAddress, undefined, demand);
+  },
+);
 
 /** Reads a jetton wallet and confirms that the minter it reports derives the wallet address for the reported owner */
-export async function fetchTokenWallet(network: ApiNetwork, tokenWalletAddress: string, signal?: AbortSignal) {
-  const client = getTonClient(network);
+export async function fetchTokenWallet(
+  network: ApiNetwork,
+  tokenWalletAddress: string,
+  signal?: AbortSignal,
+  demand?: FetchDemand,
+) {
+  const client = getTonClient(network, demand);
   const tokenWallet = client.open(new JettonWallet(Address.parse(tokenWalletAddress)));
   const data = await raceWithAbortSignal(() => tokenWallet.getWalletData(), signal);
   const minter = client.open(new JettonMinter(data.minter));
@@ -133,8 +152,8 @@ export async function fetchTokenAddress(network: ApiNetwork, tokenWalletAddress:
   return toBase64Address(data.minter, true, network);
 }
 
-export const getWalletPublicKey = withCacheAsync(async (network: ApiNetwork, address: string) => {
-  const res = await getTonClient(network).runMethodWithError(Address.parse(address), 'get_public_key');
+export const getWalletPublicKey = withFetchDemandCacheAsync(async (demand, network: ApiNetwork, address: string) => {
+  const res = await getTonClient(network, demand).runMethodWithError(Address.parse(address), 'get_public_key');
   if (res.exit_code !== 0) {
     return undefined;
   }
@@ -329,8 +348,8 @@ export function buildLiquidStakingWithdrawCustomPayload(waitTillRoundEnd?: boole
     .asCell();
 }
 
-export function getTokenBalance(network: ApiNetwork, walletAddress: string) {
-  const tokenWallet = getTonClient(network).open(new JettonWallet(Address.parse(walletAddress)));
+export function getTokenBalance(network: ApiNetwork, walletAddress: string, demand?: FetchDemand) {
+  const tokenWallet = getTonClient(network, demand).open(new JettonWallet(Address.parse(walletAddress)));
   return tokenWallet.getJettonBalance();
 }
 

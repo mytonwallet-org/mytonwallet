@@ -1,7 +1,7 @@
 import React, { memo } from '../../lib/teact/teact';
 import { withGlobal } from '../../global';
 
-import type { ApiSwapCexLabel } from '../../api/types';
+import type { ApiSwapCexLabel, ApiSwapRouteType } from '../../api/types';
 import type { Account, UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
@@ -29,6 +29,7 @@ interface OwnProps {
   firstButtonText?: string;
   secondButtonText?: string;
   swapType?: SwapType;
+  swapRoute?: ApiSwapRouteType;
   cexLabel?: ApiSwapCexLabel;
   toAddress?: string;
   onFirstButtonClick?: NoneToVoidFunction;
@@ -50,6 +51,7 @@ function SwapResult({
   firstButtonText,
   secondButtonText,
   swapType,
+  swapRoute,
   cexLabel,
   toAddress = '',
   isSensitiveDataHidden,
@@ -58,6 +60,7 @@ function SwapResult({
   isFirstButtonDisabled,
 }: OwnProps & StateProps) {
   const lang = useLang();
+  const isDex = (swapRoute ?? (swapType === SwapType.OnChain ? 'dex' : 'cex')) === 'dex';
 
   function renderButtons() {
     if (!firstButtonText && !secondButtonText) {
@@ -150,7 +153,7 @@ function SwapResult({
         amountOut={amountOut}
       />
 
-      {swapType !== SwapType.OnChain && renderTimeWarning()}
+      {!isDex && renderTimeWarning()}
       {renderCexFromWalletInfo()}
 
       {renderButtons()}

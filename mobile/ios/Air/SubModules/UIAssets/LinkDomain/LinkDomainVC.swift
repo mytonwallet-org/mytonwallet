@@ -14,6 +14,7 @@ public final class LinkDomainVC: WViewController {
     public init(accountSource: AccountSource, nftAddress: String, nft: ApiNft? = nil) {
         self.viewModel = LinkDomainViewModel(accountSource: accountSource, nftAddress: nftAddress, nft: nft)
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 580, height: 480)
     }
 
     required init?(coder: NSCoder) {

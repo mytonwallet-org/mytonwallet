@@ -64,7 +64,7 @@ jest.mock('./staking', () => ({
 }));
 
 jest.mock('./swap', () => ({
-  swapGetAssets: jest.fn().mockResolvedValue([]),
+  swapGetAssetsText: jest.fn().mockResolvedValue('[]'),
 }));
 
 describe('Agent V2 config polling', () => {

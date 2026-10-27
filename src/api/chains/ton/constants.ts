@@ -179,7 +179,17 @@ export enum DnsOpCode {
 }
 
 export enum TeleitemOpCode {
+  Deploy = 0x4637289a,
+  DeployV2 = 0x4637289b,
+  StartAuction = 0x487a8e81,
+  CancelAuction = 0x371638ae,
+  BidInfo = 0x38127de1,
+  ReturnBid = 0xa43227e1,
   Ok = 0xa37a0983,
+}
+
+export enum DedustOpCode {
+  NativeSwap = 0xea06185d,
 }
 
 export enum OtherOpCode {
@@ -353,12 +363,28 @@ export const KnownContracts: Record<ContractName, ContractInfo> = {
     name: 'dedustUranusMemeV2',
     hash: '722d37be518ee0d4b6714077727ed60724bf379e8f1479c220b853d1af3cf00d',
     isSwapAllowed: true,
+    nativeSwapPayload: 'dedustUranusMemepadBuy',
   },
   // Example: https://tonviewer.com/EQA6dGeKIcHUVQghKGmGe1fEfyfYaYyLC594PkYO5uIbEqT4
   dedustUranusMemeV3: {
     name: 'dedustUranusMemeV3',
     hash: '1e4f8fcaabefdbbb9b397372d9f021511c272eda2b492ca2d33b817bc3251afe',
     isSwapAllowed: true,
+    nativeSwapPayload: 'dedustUranusMemepadBuy',
+  },
+  // Example: https://tonviewer.com/EQAmoQqDz6woBJ1dvwFl14PHdD6CE3eVMd58INFRKp3n9Ycw
+  dedustUranusMemeV3_1: {
+    name: 'dedustUranusMemeV3_1',
+    hash: 'f4ba4ebd2678dde0c750564bd22ee0876aa2f39a1e8d3aacb606ba0c39a71d9a',
+    isSwapAllowed: true,
+    nativeSwapPayload: 'dedustUranusMemepadBuy',
+  },
+  // Example: https://tonviewer.com/EQBvgReNRyFPokbDMi1ftAK5IvYAc8b0MV1qK280WAl4Qx1P
+  dedustUranusMemeV3_2: {
+    name: 'dedustUranusMemeV3_2',
+    hash: '7369f9b9f570e1bf78b0dc9d52cbab7ce21a4f000ee858ea6e81d43232c1a2d6',
+    isSwapAllowed: true,
+    nativeSwapPayload: 'dedustUranusMemepadBuy',
   },
   // Example: https://tonscan.org/address/EQAYqo4u7VF0fa4DPAebk4g9lBytj2VFny7pzXR0trjtXQaO
   dedustVaultJetton: {

@@ -311,11 +311,18 @@ class PortfolioVM :
     ): PortfolioUiState.Loaded = withContext(Dispatchers.Default) {
         val normalized = results.netWorth?.normalizedForPortfolioDisplay()
         val account = AccountStore.activeAccount
+        val colorResolver = ChartColorResolver()
         PortfolioUiState.Loaded(
             request = request,
-            chartData = normalized?.toStackChartData(request.baseCurrency),
-            totalPnlChartData = results.pnlCumulative.toSignedLineChartData(request.baseCurrency),
-            dailyPnlChartData = results.pnlDaily.toSignedBarChartData(request.baseCurrency),
+            chartData = normalized?.toStackChartData(request.baseCurrency, colorResolver),
+            totalPnlChartData = results.pnlCumulative.toSignedLineChartData(
+                request.baseCurrency,
+                colorResolver
+            ),
+            dailyPnlChartData = results.pnlDaily.toSignedBarChartData(
+                request.baseCurrency,
+                colorResolver
+            ),
             overview = normalized?.toOverview(account),
             assetBreakdown = buildAssetClassBreakdown(account),
             chainBreakdown = buildChainBreakdown(account),
@@ -503,9 +510,10 @@ class PortfolioVM :
     }
 
     private fun ApiPortfolioHistoryResponse.toStackChartData(
-        baseCurrency: MBaseCurrency
+        baseCurrency: MBaseCurrency,
+        colorResolver: ChartColorResolver
     ): StackLinearChartData? {
-        datasets?.let { return datasetsToStackChartData(it, baseCurrency) }
+        datasets?.let { return datasetsToStackChartData(it, baseCurrency, colorResolver) }
         points?.let { return historyPointsToStackChartData(it, baseCurrency) }
         return null
     }
@@ -753,7 +761,8 @@ class PortfolioVM :
 
     private fun datasetsToStackChartData(
         datasets: List<ApiPortfolioHistoryDataset>,
-        baseCurrency: MBaseCurrency
+        baseCurrency: MBaseCurrency,
+        colorResolver: ChartColorResolver
     ): StackLinearChartData? {
         val activeDatasets = datasets.map { it.toSummary() }
             .filter { it.impact > 0.0 || it.hasPositiveValues }
@@ -777,8 +786,10 @@ class PortfolioVM :
                     id = dataset.dataset.contractAddress.takeIf { it.isNotBlank() }
                         ?: "asset_${dataset.dataset.assetId}_$index",
                     name = dataset.dataset.symbol,
-                    color = dataset.dataset.color?.toChartColor(index)
-                        ?: fallbackChartColors[index % fallbackChartColors.size],
+                    color = colorResolver.color(
+                        dataset.dataset.color,
+                        dataset.dataset.chartDisplayName()
+                    ),
                     values = timestamps.map {
                         (valuesByTimestamp[it] ?: 0.0).toChartValue(baseCurrency.decimalsCount)
                     }
@@ -887,7 +898,8 @@ class PortfolioVM :
 
     private fun buildSignedSeries(
         response: ApiPortfolioHistoryResponse,
-        baseCurrency: MBaseCurrency
+        baseCurrency: MBaseCurrency,
+        colorResolver: ChartColorResolver
     ): Pair<List<Long>, List<ChartSeriesInput>>? {
         val datasets = response.datasets ?: return null
         val summaries = datasets.map { it.toSummary() }
@@ -910,14 +922,12 @@ class PortfolioVM :
 
         val series = selected.mapIndexed { index, dataset ->
             val valuesByTimestamp = dataset.points.associate { it.timestamp to it.value }
+            val name = dataset.dataset.chartDisplayName()
             ChartSeriesInput(
                 id = dataset.dataset.contractAddress.takeIf { it.isNotBlank() }
                     ?: "asset_${dataset.dataset.assetId}_$index",
-                name = dataset.dataset.symbol.takeIf { it.isNotBlank() }
-                    ?: dataset.dataset.contractAddress.takeIf { it.isNotBlank() }
-                    ?: LocaleController.getString("Asset"),
-                color = dataset.dataset.color?.toChartColor(index)
-                    ?: fallbackChartColors[index % fallbackChartColors.size],
+                name = name,
+                color = colorResolver.color(dataset.dataset.color, name),
                 values = timestamps.map {
                     (valuesByTimestamp[it] ?: 0.0).toSignedChartValue(baseCurrency.decimalsCount)
                 }
@@ -935,7 +945,7 @@ class PortfolioVM :
                     ChartSeriesInput(
                         id = "_other_pnl",
                         name = LocaleController.getString("Other"),
-                        color = fallbackChartColors[series.size % fallbackChartColors.size],
+                        color = OTHERS_COLOR,
                         values = otherValues
                     )
                 )
@@ -947,10 +957,12 @@ class PortfolioVM :
     }
 
     private fun ApiPortfolioHistoryResponse?.toSignedLineChartData(
-        baseCurrency: MBaseCurrency
+        baseCurrency: MBaseCurrency,
+        colorResolver: ChartColorResolver
     ): ChartData? {
         if (this == null) return null
-        val (timestamps, series) = buildSignedSeries(this, baseCurrency) ?: return null
+        val (timestamps, series) =
+            buildSignedSeries(this, baseCurrency, colorResolver) ?: return null
         return try {
             ChartData(buildChartModel(timestamps, series))
         } catch (_: Exception) {
@@ -959,10 +971,12 @@ class PortfolioVM :
     }
 
     private fun ApiPortfolioHistoryResponse?.toSignedBarChartData(
-        baseCurrency: MBaseCurrency
+        baseCurrency: MBaseCurrency,
+        colorResolver: ChartColorResolver
     ): SignedBarChartData? {
         if (this == null) return null
-        val (timestamps, series) = buildSignedSeries(this, baseCurrency) ?: return null
+        val (timestamps, series) =
+            buildSignedSeries(this, baseCurrency, colorResolver) ?: return null
         return try {
             SignedBarChartData(buildChartModel(timestamps, series))
         } catch (_: Exception) {
@@ -970,15 +984,37 @@ class PortfolioVM :
         }
     }
 
+    private fun ApiPortfolioHistoryDataset.chartDisplayName(): String =
+        symbol.takeIf { it.isNotBlank() }
+            ?: contractAddress.takeIf { it.isNotBlank() }
+            ?: LocaleController.getString("Asset")
+
     private fun Long.toChartTimestampMs(): Long =
         if (this < UNIX_TIMESTAMP_MS_THRESHOLD) this * 1000 else this
 
-    private fun String.toChartColor(index: Int): Int = try {
-        val trimmed = trim()
-        val normalizedColor = if (trimmed.startsWith("#")) trimmed else "#$trimmed"
-        normalizedColor.toColorInt()
-    } catch (_: IllegalArgumentException) {
-        fallbackChartColors[index % fallbackChartColors.size]
+    // Shared across one state's charts so a token keeps the same color in every legend.
+    private class ChartColorResolver {
+        private val colorByName = mutableMapOf<String, Int>()
+        private var nextDefaultColor = 0
+
+        fun color(backendColor: String?, name: String): Int =
+            backendColor?.toChartColor() ?: colorByName.getOrPut(name) { nextColor() }
+
+        private fun nextColor(): Int {
+            val color = fallbackChartColors[nextDefaultColor % fallbackChartColors.size]
+            nextDefaultColor++
+            return color
+        }
+
+        private fun String.toChartColor(): Int? {
+            val trimmed = trim().takeIf { it.isNotEmpty() } ?: return null
+            val normalizedColor = if (trimmed.startsWith("#")) trimmed else "#$trimmed"
+            return try {
+                normalizedColor.toColorInt()
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+        }
     }
 
     private data class PortfolioHistoryPoint(val timestamp: Long, val value: Double)

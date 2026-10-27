@@ -7,11 +7,15 @@ public final class MtwCardAccountLineView: UIView {
     public let saveButton = MtwCardTapView()
     private let foreground = MtwCardForegroundView()
     private let glyphs = UIView()
+    private weak var nameLabel: UILabel?
     private var pieces: [Piece] = []
-    private var copyTargets: [UIView] = []
     private var copyFrames: [MAccount.AddressLine.Item: CGRect] = [:]
     private var configuration: Configuration?
     private var saveBackground: UIView?
+    private var viewBadgeBackground: CardBadgeBackground?
+    private weak var viewBadgeGlyphs: UIView?
+    private var materialTilt = CGPoint.zero
+    private var materialEmboss: CGFloat?
     private let saveLabel = UILabel()
     private let saveIcon = UIImageView(image: UIImage.airBundle("AddView").withRenderingMode(.alwaysTemplate))
 
@@ -80,10 +84,12 @@ public final class MtwCardAccountLineView: UIView {
         if animateTemporary { layoutIfNeeded() }
         configuration = next
         pieces.forEach { $0.view.removeFromSuperview() }
-        copyTargets.forEach { $0.removeFromSuperview() }
+        nameLabel = nil
+        viewBadgeBackground?.removeFromSuperview()
+        viewBadgeBackground = nil
+        viewBadgeGlyphs = nil
         copyFrames = [:]
         pieces = []
-        copyTargets = []
         glyphs.subviews.forEach { $0.removeFromSuperview() }
         foreground.configure(nft: nft)
         saveButton.isHidden = !isTemporary && !animateTemporary
@@ -91,7 +97,7 @@ public final class MtwCardAccountLineView: UIView {
         saveButton.tintColor = UIColor(getSecondaryForegroundColor(nft: nft))
         saveLabel.textColor = saveButton.tintColor
         if #unavailable(iOS 26) { saveBackground?.backgroundColor = saveButton.tintColor.withAlphaComponent(0.15) }
-        addressesButton.accessibilityLabel = showsName ? name : address.items.map(\.text).joined(separator: ", ")
+        addressesButton.accessibilityLabel = showsName ? name : address.items.first?.text
         let font = showsName ? WTypography.uiFont(.bodyStrong) : UIFont.compactDisplay(ofSize: 17, weight: .medium)
         let increasedOpacity = nft?.metadata?.mtwCardType?.isPremium == true
         if address.isTestnet { appendImage("inline_testnet", font: font, gap: 4) }
@@ -103,10 +109,10 @@ public final class MtwCardAccountLineView: UIView {
         case nil: break
         }
         if showsName {
-            appendText(name, font: font, gap: 4, flexible: true)
+            appendText(name, font: font, gap: 4, flexible: true, preservesColorGlyphs: true)
             appendImage("QRIcon", size: CGSize(width: 18, height: 18), alpha: 0.75, gap: 0)
         } else {
-            let items = address.displayItems(maxChainCount: 3, multichainAddressCount: 2)
+            let items = address.displayItems(maxChainCount: 1, multichainAddressCount: 1)
             for (index, item) in items.enumerated() {
                 let comma = !item.item.isLast ? "," : ""
                 appendImage("chain_\(item.item.chain.rawValue)", size: CGSize(width: 16, height: 16),
@@ -137,7 +143,7 @@ public final class MtwCardAccountLineView: UIView {
     }
 
     private func appendText(_ text: String, font: UIFont, gap: CGFloat, flexible: Bool = false,
-                            copyItem: MAccount.AddressLine.Item? = nil) {
+                            copyItem: MAccount.AddressLine.Item? = nil, preservesColorGlyphs: Bool = false) {
         let label = UILabel()
         label.font = font
         label.text = text
@@ -145,7 +151,12 @@ public final class MtwCardAccountLineView: UIView {
         label.alpha = 0.75
         label.lineBreakMode = copyItem?.isDomain == true ? .byTruncatingMiddle : .byTruncatingTail
         label.allowsDefaultTighteningForTruncation = copyItem != nil
-        glyphs.addSubview(label)
+        if preservesColorGlyphs {
+            addressesButton.addSubview(label)
+            nameLabel = label
+        } else {
+            glyphs.addSubview(label)
+        }
         pieces.append(Piece(view: label, size: label.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: 30)),
                             gap: gap, flexible: flexible, copyItem: copyItem))
     }
@@ -185,12 +196,19 @@ public final class MtwCardAccountLineView: UIView {
         [fill, icon, text].forEach(badge.addSubview)
         glyphs.addSubview(badge)
         pieces.append(Piece(view: badge, size: CGSize(width: width, height: 12), gap: 4))
-        let blur = BackgroundBlurView(radius: 12)
-        blur.layer.cornerRadius = viewBadgeCornerRadius
-        blur.clipsToBounds = true
-        blur.isUserInteractionEnabled = false
-        addressesButton.insertSubview(blur, at: 0)
-        copyTargets.append(blur)
+        let background = CardBadgeBackground()
+        background.setMaterialLight(tilt: materialTilt, emboss: materialEmboss)
+        addressesButton.insertSubview(background, at: 0)
+        viewBadgeBackground = background
+        viewBadgeGlyphs = badge
+    }
+
+    /// Light the badge's surface, never an offset copy of its text or the address.
+    /// A nil emboss removes the directional lighting while retaining the blur.
+    public func setMaterialLight(tilt: CGPoint, emboss: CGFloat?) {
+        materialTilt = tilt
+        materialEmboss = emboss
+        viewBadgeBackground?.setMaterialLight(tilt: tilt, emboss: emboss)
     }
 
     public func prepareForReuse() {
@@ -198,6 +216,7 @@ public final class MtwCardAccountLineView: UIView {
         copyFrames = [:]
         layer.removeAllAnimationsRecursive()
         saveButton.isHidden = true
+        setMaterialLight(tilt: .zero, emboss: nil)
     }
 
     public override func layoutSubviews() {
@@ -246,13 +265,17 @@ public final class MtwCardAccountLineView: UIView {
             if let item = piece.copyItem {
                 copyFrames[item] = (copyFrames[item] ?? piece.view.frame).union(piece.view.frame)
             }
-            if configuration.address.leadingIcon == .view, piece.view.subviews.count == 3,
-               let blur = copyTargets.first as? BackgroundBlurView {
-                blur.frame = piece.view.frame.insetBy(dx: 0, dy: -3)
+            if piece.view === viewBadgeGlyphs {
+                viewBadgeBackground?.frame = piece.view.frame.insetBy(dx: 0, dy: -3)
             }
             x += pieceWidth + piece.gap
         }
         copyFrames = copyFrames.mapValues { $0.insetBy(dx: 0, dy: -8) }
+        if let nameLabel {
+            let rect = nameLabel.convert(nameLabel.bounds, to: foreground)
+            let color = foreground.textColor(in: rect, scale: displayScale)
+            if nameLabel.textColor != color { nameLabel.textColor = color }
+        }
     }
     private func measuredTextWidth(_ piece: Piece, maximum: CGFloat, scale: CGFloat) -> CGFloat {
         guard let label = piece.view as? UILabel else { return maximum }
@@ -275,6 +298,94 @@ public final class MtwCardAccountLineView: UIView {
         UIPasteboard.general.string = item.textToCopy
         AppActions.showToast(icon: .animatedCopy, message: L10n.chainAddressCopied(chain: item.chain.title))
         Haptics.play(.lightTap)
+    }
+}
+
+/// Shared glass background for the view-account and portfolio-change badges.
+/// Live blur stays underneath the translucent light and rim in every motion mode;
+/// only these background layers catch the light, never a copy of the glyphs.
+final class CardBadgeBackground: UIView {
+    private let cornerRadius: CGFloat
+    private let backdrop = BackgroundBlurView(radius: 12)
+    private let sheen = CAGradientLayer()
+    private let rim = CAGradientLayer()
+    private let rimMask = CAShapeLayer()
+    private var lightTilt = CGPoint.zero
+    private var lightStrength: CGFloat?
+
+    init(cornerRadius: CGFloat = viewBadgeCornerRadius) {
+        self.cornerRadius = cornerRadius
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        clipsToBounds = true
+        layer.cornerRadius = cornerRadius
+        layer.cornerCurve = .continuous
+        addSubview(backdrop)
+        layer.addSublayer(sheen)
+        layer.addSublayer(rim)
+        rim.mask = rimMask
+        rimMask.fillColor = UIColor.clear.cgColor
+        rimMask.strokeColor = UIColor.white.cgColor
+        for gradient in [sheen, rim] {
+            gradient.locations = (0...12).map { NSNumber(value: Double($0) / 12) }
+        }
+        setMaterialLight(tilt: .zero, emboss: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func setMaterialLight(tilt: CGPoint, emboss: CGFloat?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        sheen.isHidden = emboss == nil
+        rim.isHidden = emboss == nil
+        lightTilt = CGPoint(x: min(1, max(-1, tilt.x)), y: min(1, max(-1, tilt.y)))
+        updateLightDirection()
+        let strength = min(1, max(0, emboss ?? 0))
+        if lightStrength != strength {
+            lightStrength = strength
+            sheen.colors = lightColors(highlight: 0.025 + strength * 0.04, shadow: 0.04)
+            rim.colors = lightColors(highlight: 0.10 + strength * 0.18, shadow: 0.10)
+        }
+        CATransaction.commit()
+    }
+
+    private func updateLightDirection() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        // Keep the light axis nonzero even at full upward tilt. Span the whole
+        // badge in points, with soft falloff beyond its edges at every angle.
+        let dx = lightTilt.x * 0.65
+        let dy = 1 + lightTilt.y * 0.65
+        let extent = 0.65 * (abs(dx) * bounds.width + dy * bounds.height) / (dx * dx + dy * dy)
+        let offset = CGPoint(x: dx * extent / bounds.width, y: dy * extent / bounds.height)
+        for gradient in [sheen, rim] {
+            gradient.startPoint = CGPoint(x: 0.5 - offset.x, y: 0.5 - offset.y)
+            gradient.endPoint = CGPoint(x: 0.5 + offset.x, y: 0.5 + offset.y)
+        }
+    }
+
+    private func lightColors(highlight: CGFloat, shadow: CGFloat) -> [CGColor] {
+        (0...12).map { index in
+            let light = cos(CGFloat.pi * CGFloat(index) / 12)
+            return (light >= 0 ? UIColor.white : UIColor.black)
+                .withAlphaComponent(abs(light) * (light >= 0 ? highlight : shadow)).cgColor
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backdrop.frame = bounds
+        sheen.frame = bounds
+        rim.frame = bounds
+        rimMask.frame = bounds
+        let width = 1 / max(1, traitCollection.displayScale)
+        rimMask.lineWidth = width
+        rimMask.path = UIBezierPath(roundedRect: bounds.insetBy(dx: width / 2, dy: width / 2),
+                                   cornerRadius: max(0, cornerRadius - width / 2)).cgPath
+        updateLightDirection()
+        CATransaction.commit()
     }
 }
 

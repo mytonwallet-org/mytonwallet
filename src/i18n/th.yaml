@@ -117,6 +117,7 @@ $logout_selected_wallets_warning: การดำเนินการนี้�
 $logout_all_wallets_warning: การดำเนินการนี้จะลบวอลเล็ตทั้งหมดออกจากแอป
 $secret_words_backup_reminder: ตรวจสอบให้แน่ใจว่าคุณได้สำรองข้อมูล **คำลับ** ของคุณแล้ว.
 $all_secret_words_backup_reminder: ตรวจสอบให้แน่ใจว่าคุณได้สำรองข้อมูล **คำลับ** ทั้งหมดของคุณแล้ว.
+$secret_word_input_aria_label: "คำลับ %number%"
 Create Deposit Link: สร้างลิงก์สำหรับการฝาก
 $receive_invoice_description: |
   คุณสามารถระบุจำนวนและเหตุผลของการชำระเงินได้
@@ -246,6 +247,11 @@ Dark: ดาร์ค
 System: ระบบ
 $stake_asset: วางเดิมพัน %symbol%
 Add Stake: เพิ่มสเตก
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% ถูกล็อกอยู่ในการสเต็กอื่น"
+"Unstake them to restake with **higher returns**.": "ถอนการสเต็กเพื่อสเต็กใหม่พร้อม **ผลตอบแทนที่สูงขึ้น**"
+"💎 More profitable staking available": "💎 มีการสเต็กที่ให้ผลตอบแทนสูงกว่า"
+"Tap to restake your %symbol% with higher returns.": "แตะเพื่อสเต็ก %symbol% ของคุณใหม่พร้อมผลตอบแทนที่สูงขึ้น"
+"Restake Now": "สเต็กใหม่ตอนนี้"
 Earn from your tokens while holding them: รับผลตอบแทนจากการถือ %symbol%
 Current APY: APY ปัจจุบัน
 Est. Yearly Earnings: รายได้โดยประมาณต่อปี
@@ -286,8 +292,8 @@ The network fee has slightly changed, try sending again.: ค่าธรรม�
 Transfer was unsuccessful. Try again later.: การโอนไม่สำเร็จ. โปรดลองใหม่อีกครั้งในภายหลัง.
 Action Partially Completed: ดำเนินการเสร็จสิ้นบางส่วน
 $action_partially_completed_description: "ดำเนินการสำเร็จ %completed% จาก %total% รายการ รายการที่เหลือยังไม่เสร็จสิ้น โปรดตรวจสอบกิจกรรมของคุณก่อนลองอีกครั้ง"
-Action Status Unknown: ไม่ทราบสถานะการดำเนินการ
-$action_status_unknown_description: "ไม่สามารถยืนยันสถานะการดำเนินการได้ โปรดตรวจสอบกิจกรรมและยอดคงเหลือก่อนลองอีกครั้ง หากลองอีกครั้งตอนนี้ การดำเนินการอาจถูกส่งซ้ำสองครั้ง"
+Check Your Activity: ตรวจสอบประวัติรายการ
+$action_status_unknown_description: "คำขอของคุณอาจดำเนินการไปแล้ว โปรดตรวจสอบประวัติรายการและยอดคงเหลือก่อนลองอีกครั้ง เพื่อหลีกเลี่ยงการส่งคำขอซ้ำ"
 $action_will_continue_in_background: การดำเนินการจะดำเนินต่อในเบื้องหลัง
 Invalid amount: จำนวนไม่ถูกต้อง
 Invalid address: ที่อยู่บัญชีไม่ถูกต้อง
@@ -419,6 +425,7 @@ $swap_minimum_received_tooltip1: นี่คือจำนวนโทเค�
 $swap_minimum_received_tooltip2: ซึ่งเป็นจำนวนขั้นต่ำที่คาดไว้, แต่อาจจะเงื่อนไขเปลี่ยนแปลงไปในขณะที่กำลังประมวลผลระหว่างสับเปลี่ยน จำนวนมูลค่าที่ได้รับอาจจะลดลง.
 $swap_price_impact_tooltip1: นี่แสดงให้เห็นว่าการแลกเปลี่ยนของคุณอาจเปลี่ยนแปลงราคาโทเค็นได้มากเพียงใด.
 $swap_price_impact_tooltip2: หากมีซื้อขายขนาดใหญ่เกิดขึ้นอาจทำให้ราคาขึ้นหรือลงอย่างรวดเร็ว, ซื้อขายขนาดเล็กจะมีผลดีกว่า.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: ค่าความคลาดเคลื่อนคือความแตกต่างระหว่างราคาซื้อขายที่คาดไว้กับราคาจริง ซึ่งเกิดจากการเปลี่ยนแปลงของราคาระหว่างดำเนินการ
 $swap_slippage_tooltip1: นี่เป็นราคาที่กำหนดที่อนุญาตให้เปลี่ยนแปลงได้ก่อนที่การสับเปลี่ยนของคุณจะถูกประมวลผล.
 $swap_slippage_tooltip2: หากระหว่างการประมวลผลสับเปลี่ยนของคุณ, แล้วมีราคาเปลี่ยนแปลงเกิดขึ้น, ออเดอร์ของคุณจะถูกยกเลิก.
 Slippage not specified: ค่าความคลาดเคลื่อนไม่ได้ถูกระบุ
@@ -447,6 +454,8 @@ Swap Again: สับเปลี่ยนอีกครั้ง
 Terms of Use: ข้อกำหนดการใช้งาน
 Privacy Policy: นโยบายความเป็นส่วนตัว
 Insufficient liquidity: สภาพคล่องไม่เพียงพอ
+$swap_quote_unavailable: ไม่มีราคาเสนอ
+$swap_service_unavailable: สับเปลี่ยนไม่ได้
 This address is new and never received transfers before.: ที่อยู่บัญชีนี้เป็นบัญชีใหม่และไปเคยมีการโอนมาก่อน.
 Create Backup: สร้างการสํารองข้อมูล
 Sending: กำลังส่ง
@@ -661,6 +670,11 @@ $dapp_liquid_staking_vote_payload: กำลังโหวต "%vote%" สำ�
 $dapp_single_nominator_change_validator_payload: การเปลี่ยนที่อยู่ของผู้ตรวจสอบสัญญาการปักหลัก SingleNominator เป็น %address%
 $dapp_single_nominator_withdraw_payload: การถอน %amount% จากสัญญาการวางเดิมพัน SingleNominator
 $dapp_vesting_add_whitelist_payload: กำลังเพิ่ม %address% ไปยังรายการที่อนุญาตของกระเป๋าสตางค์
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: การซิงโครไนซ์เวลามีปัญหา, โปรดตรวจสอบให้แน่ใจว่าได้ตั้งค่าเวลาของอุปกรณ์ของคุณถูกต้อง.
 Data Copied: ข้อมูลถูกคัดลอกแล้ว
 URL Copied: URL Copied
@@ -852,7 +866,7 @@ Blockchain Fee Details: รายละเอียดค่าธรรมเ�
 Final Fee: ค่าธรรมเนียมสุดท้าย
 Excess: เงินส่วนเกิน
 $fee_details: |
-  จำเป็นต้องหัก %full_fee% จากกระเป๋าเงินของคุณทันทีเพื่อชำระค่าธรรมเนียม ส่วนหนึ่งของจำนวนนี้จะถูกคืนให้คุณ **เป็น **%excess_symbol% ในรูปแบบส่วนเกินภายในไม่กี่นาที
+  จำเป็นต้องหัก %full_fee% จากกระเป๋าเงินของคุณทันทีเพื่อชำระค่าธรรมเนียม ส่วนหนึ่งของจำนวนนี้จะถูกคืนให้คุณ **เป็น** %excess_symbol% ในรูปแบบส่วนเกินภายในไม่กี่นาที
 
   %chain_name% Blockchain ทำงานแบบนี้
 Got It: เข้าใจแล้ว
@@ -922,6 +936,12 @@ Bounced: ตีกลับ
 Bouncing: กำลังตีกลับ
 $bounce_action: การตีกลับ
 NFT Auction Bid: การประมูล NFT
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: กำลังประมูล NFT
 Buying NFT: กำลังซื้อ NFT
 Bought NFT: ซื้อ NFT แล้ว
@@ -2060,3 +2080,9 @@ Hold to enlarge. Drag to rotate.: กดค้างไว้เพื่อข�
 "Max": "สูงสุด"
 Explorer mode: โหมดสำรวจ
 Open a link to a wallet, transfer, token or collectible to see its details here.: เปิดลิงก์ของกระเป๋าสตางค์ การโอน โทเคน หรือของสะสม เพื่อดูรายละเอียดที่นี่
+Receiver %blockchain% Address: ที่อยู่ %blockchain% ของผู้รับ
+
+Save to Photos: บันทึกไปยังรูปภาพ
+Image Saved: บันทึกรูปภาพแล้ว
+Allow access to Photos in Settings to save NFT images.: อนุญาตให้เข้าถึงรูปภาพในการตั้งค่าเพื่อบันทึกรูปภาพ NFT
+Could not save the image. Please try again.: ไม่สามารถบันทึกรูปภาพได้ โปรดลองอีกครั้ง

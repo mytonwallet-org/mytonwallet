@@ -207,7 +207,7 @@ class ActionsWidget : AppWidgetProvider() {
     ) {
         val addString = LocaleController.getString("Add")
         val sendString = LocaleController.getString("Send")
-        val swapString = LocaleController.getString("Swap")
+        val swapString = LocaleController.getString("Trade")
         val earnString = LocaleController.getString("Earn")
 
         var iconColor = Color.WHITE

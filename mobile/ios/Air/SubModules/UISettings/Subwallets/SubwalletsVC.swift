@@ -24,7 +24,7 @@ private struct SubwalletAddressData: Hashable {
 private struct SubwalletRowData: Hashable {
     let title: String
     let badge: String?
-    let addresses: [SubwalletAddressData]
+    let address: SubwalletAddressData?
     let assetAmounts: String
     let totalBalance: String
 }
@@ -565,7 +565,9 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         return SubwalletRowData(
             title: ".\(currentSubwalletIndex() + 1)",
             badge: currentDerivationBadge(),
-            addresses: currentAddresses(chains: chains),
+            address: AccountContext(accountId: accountId).topAddressLine.items.first.map {
+                SubwalletAddressData(chain: $0.chain, address: currentAccount.getAddress(chain: $0.chain) ?? $0.text)
+            },
             assetAmounts: currentAssetBalancesText(chains: chains),
             totalBalance: currentTotalBalanceText(chains: chains)
         )
@@ -577,7 +579,7 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         return SubwalletRowData(
             title: ".\(group.index + 1)",
             badge: derivationBadge(for: group),
-            addresses: addresses(for: group, chains: chains),
+            address: mainAddress(for: group, chains: chains),
             assetAmounts: assetAmounts,
             totalBalance: totalBalance
         )
@@ -609,18 +611,20 @@ final class SubwalletsListVC: SettingsBaseVC, UICollectionViewDelegate {
         return label.prefix(1).uppercased() + String(label.dropFirst())
     }
 
-    private func currentAddresses(chains: [ApiChain]) -> [SubwalletAddressData] {
-        chains.compactMap { chain in
-            guard let address = currentAccount.getAddress(chain: chain)?.nilIfEmpty else { return nil }
-            return SubwalletAddressData(chain: chain, address: address)
+    private func mainAddress(for group: ApiGroupedWalletVariant, chains: [ApiChain]) -> SubwalletAddressData? {
+        var mainAddress: SubwalletAddressData?
+        var highestBalance = -Double.infinity
+        for chain in chains {
+            guard let entry = group.entry(for: chain), !entry.wallet.address.isEmpty else { continue }
+            let balance = entry.balancesBySlug.reduce(0.0) { total, item in
+                total + (MTokenBalance(tokenSlug: item.key, balance: item.value, isStaking: false).toUsd ?? 0)
+            }
+            if balance > highestBalance {
+                highestBalance = balance
+                mainAddress = SubwalletAddressData(chain: chain, address: chain.normalizeAddress(entry.wallet.address))
+            }
         }
-    }
-
-    private func addresses(for group: ApiGroupedWalletVariant, chains: [ApiChain]) -> [SubwalletAddressData] {
-        chains.compactMap { chain in
-            guard let address = group.entry(for: chain)?.wallet.address.nilIfEmpty else { return nil }
-            return SubwalletAddressData(chain: chain, address: address)
-        }
+        return mainAddress
     }
 
     private func chains(for group: ApiGroupedWalletVariant) -> [ApiChain] {
@@ -806,7 +810,14 @@ private struct SubwalletRowView: View {
                 }
                 .frame(height: 22, alignment: .center)
 
-                SubwalletAddressesView(addresses: rowData.addresses)
+                Group {
+                    if let address = rowData.address {
+                        SubwalletAddressView(address: address)
+                    }
+                }
+                .frame(height: 18, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipped()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -832,59 +843,21 @@ private struct SubwalletRowView: View {
     }
 }
 
-private struct SubwalletAddressesView: View {
-    let addresses: [SubwalletAddressData]
-
-    var body: some View {
-        HStack(spacing: 3) {
-            let displayAddresses = Array(addresses.prefix(3))
-            let addressCount = displayAddresses.count
-            let visibleAddressCount = min(2, addressCount)
-            ForEach(Array(displayAddresses.enumerated()), id: \.offset) { index, address in
-                SubwalletAddressView(
-                    address: address,
-                    itemsCount: addressCount,
-                    showsAddress: index < visibleAddressCount,
-                    showsComma: index < visibleAddressCount && index < addressCount - 1
-                )
-            }
-        }
-        .foregroundStyle(Color.air.secondaryLabel)
-        .frame(height: 18, alignment: .leading)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .clipped()
-    }
-}
-
 private struct SubwalletAddressView: View {
     let address: SubwalletAddressData
-    let itemsCount: Int
-    let showsAddress: Bool
-    let showsComma: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             ChainIcon(address.chain)
                 .imageScale(.small)
-
-            if showsAddress {
-                Text(formattedAddress + (showsComma ? "," : ""))
-                    .tracking(-0.15)
-                    .foregroundStyle(Color.air.secondaryLabel)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
+            Text(formatStartEndAddress(address.address, prefix: 6, suffix: 6))
+                .tracking(-0.15)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
+        .foregroundStyle(Color.air.secondaryLabel)
         .textStyle(.supporting, content: .technical)
         .frame(height: 18, alignment: .center)
-    }
-
-    private var formattedAddress: String {
-        formatStartEndAddress(
-            address.address,
-            prefix: itemsCount == 1 ? 6 : 0,
-            suffix: 6
-        )
     }
 }
 

@@ -112,19 +112,19 @@ public func langJoin(_ items: [String], _ joiner: EnumerationJoiner) -> String {
     return result
 }
 
-public func localizedIntegerString(_ value: Int) -> String {
+public func localizedIntegerString(_ value: Int, locale: Locale = LocalizationSupport.shared.locale) -> String {
     value.formatted(
         .number
             .grouping(.never)
-            .locale(LocalizationSupport.shared.locale)
+            .locale(locale)
     )
 }
 
-public func localizedIntegerDigits(in text: String) -> String {
+public func localizedIntegerDigits(in text: String, locale: Locale = LocalizationSupport.shared.locale) -> String {
     String(text.map { character in
         guard let digit = character.wholeNumberValue, character.isASCII else {
             return character
         }
-        return Character(localizedIntegerString(digit))
+        return Character(localizedIntegerString(digit, locale: locale))
     })
 }

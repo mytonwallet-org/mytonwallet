@@ -1,7 +1,8 @@
 import type { ApiBaseCurrency, ApiChain, ApiCountryCode } from '../api/types';
 
 import { CURRENCIES } from '../config';
-import { getChainConfig } from './chain';
+import { findChainConfig, getChainConfig } from './chain';
+import { filterValues } from './iteratees';
 
 // Widest per-surface baselines, i.e. what is offered on at least one chain; the server list may only narrow them.
 // The chain-specific variants are constants rather than filtered on demand because selectors read them on every
@@ -36,6 +37,10 @@ export function getOnRampBaselineCurrencies(
   if (provider === 'moonpay') return ON_RAMP_CURRENCIES_WITHOUT_RUB;
   if (provider === 'avanchange') return chain && getIsRubSupported(chain) ? RUB_ON_RAMP_CURRENCIES : [];
   return getIsRubInBaseline(chain) ? ON_RAMP_CURRENCIES : ON_RAMP_CURRENCIES_WITHOUT_RUB;
+}
+
+export function getOnRampAddressByChain(addressByChain: Partial<Record<ApiChain, string>>) {
+  return filterValues(addressByChain, (_, chain) => Boolean(findChainConfig(chain)?.isOnRampSupported));
 }
 
 /** Off-ramp counterpart of `getOnRampBaselineCurrencies` */

@@ -102,8 +102,15 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
         switch self.configuration.backdrop {
         case .none:
             break
-        case let .blurred(style, _):
-            let blurView = UIVisualEffectView(effect: UIBlurEffect(style: style))
+        case .blurred, .untintedBlur:
+            let blurView: UIVisualEffectView
+            if case let .untintedBlur(radius, _) = self.configuration.backdrop {
+                blurView = ContextMenuUntintedBlurView(radius: radius)
+            } else if case let .blurred(style, _) = self.configuration.backdrop {
+                blurView = UIVisualEffectView(effect: UIBlurEffect(style: style))
+            } else {
+                preconditionFailure("Expected a blurred backdrop")
+            }
             blurView.alpha = 0.0
             blurView.frame = self.bounds
             blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -113,13 +120,14 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             break
         }
 
-        self.dimmingView.backgroundColor = ContextMenuVisuals.backdropTintColor()
+        self.dimmingView.backgroundColor = self.configuration.backdropTintColor ?? ContextMenuVisuals.backdropTintColor()
         self.dimmingView.alpha = 0.0
         self.dimmingView.frame = self.bounds
         self.dimmingView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         self.addSubview(self.dimmingView)
 
-        if let portalSourceView,
+        if !self.configuration.preservesSourceAppearance,
+           let portalSourceView,
            let portalView = ContextMenuPortalView(
                sourceView: portalSourceView,
                sourceUserInterfaceLayoutDirection: self.sourceUserInterfaceLayoutDirection,
@@ -623,7 +631,7 @@ final class ContextMenuOverlayView: UIView, ContextMenuNavigationViewDelegate, C
             return 0.0
         case let .dimmed(alpha):
             return alpha
-        case let .blurred(_, dimAlpha):
+        case let .blurred(_, dimAlpha), let .untintedBlur(_, dimAlpha):
             return dimAlpha
         }
     }

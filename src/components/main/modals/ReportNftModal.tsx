@@ -14,10 +14,12 @@ import modalStyles from '../../ui/Modal.module.scss';
 
 interface StateProps {
   isOpen?: boolean;
+  shouldReport?: boolean;
 }
 
 function ReportNftModal({
   isOpen,
+  shouldReport,
 }: StateProps) {
   const { hideNft, closeReportNftModal } = getActions();
 
@@ -36,19 +38,23 @@ function ReportNftModal({
       isOpen={isOpen}
       isCompact
       onClose={closeReportNftModal}
-      title={lang('Hide NFT')}
+      title={lang(shouldReport ? 'Hide and Report NFT' : 'Hide NFT')}
     >
       <p className={modalStyles.text}>
-        {lang('Do you also want to report this NFT as inappropriate?'
-          + ' It will be then permanently removed on this device.')}
+        {shouldReport
+          ? lang('This NFT will be permanently hidden on this device and reported.')
+          : lang('Do you also want to report this NFT as inappropriate?'
+            + ' It will be then permanently removed on this device.')}
       </p>
       <div className={buildClassName(modalStyles.footerButtons, modalStyles.footerButtonsVertical)}>
         <Button isDestructive onClick={handleHideAndReport} className={modalStyles.buttonFullWidth}>
           {lang('Hide and Report')}
         </Button>
-        <Button onClick={handleHide} className={modalStyles.buttonFullWidth}>
-          {lang('Only Hide')}
-        </Button>
+        {!shouldReport && (
+          <Button onClick={handleHide} className={modalStyles.buttonFullWidth}>
+            {lang('Only Hide')}
+          </Button>
+        )}
         <Button isText onClick={closeReportNftModal} className={modalStyles.buttonFullWidth}>
           {lang('Cancel')}
         </Button>
@@ -62,5 +68,6 @@ export default memo(withGlobal((global): StateProps => {
 
   return {
     isOpen: Boolean(selectedNftToReport),
+    shouldReport: selectedNftToReport?.shouldReport,
   };
 })(ReportNftModal));

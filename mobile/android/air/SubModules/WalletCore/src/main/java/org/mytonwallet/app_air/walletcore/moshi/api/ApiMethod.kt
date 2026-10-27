@@ -1,6 +1,7 @@
 package org.mytonwallet.app_air.walletcore.moshi.api
 
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import java.lang.reflect.Type
 import java.math.BigInteger
@@ -16,6 +17,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiAddSubWalletResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiCreateSubWalletResult
 import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
+import org.mytonwallet.app_air.walletcore.moshi.ApiForeignUnstakeDraft
 import org.mytonwallet.app_air.walletcore.moshi.ApiGroupedWalletVariant
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
 import org.mytonwallet.app_air.walletcore.moshi.ApiNotificationAddress
@@ -29,6 +31,7 @@ import org.mytonwallet.app_air.walletcore.moshi.MApiCheckStakeDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftOptions
 import org.mytonwallet.app_air.walletcore.moshi.MApiCheckTransactionDraftResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiEvmSwapCall
+import org.mytonwallet.app_air.walletcore.moshi.MApiEvmSwapTransactionRequest
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapItem
 import org.mytonwallet.app_air.walletcore.moshi.MApiFetchSwapsResult
 import org.mytonwallet.app_air.walletcore.moshi.MApiGetAddressInfoResult
@@ -672,11 +675,13 @@ sealed class ApiMethod<T> {
             withDiesel: Boolean,
             transaction: String?,
             calls: List<MApiEvmSwapCall>? = null,
-            needsBatch: Boolean? = null
+            transactionRequest: MApiEvmSwapTransactionRequest? = null,
+            needsBatch: Boolean? = null,
+            moshi: Moshi? = null
         ) : ApiMethod<ApiSubmitTransferResult>() {
             override val name: String = "swapSubmit"
             override val type: Type = ApiSubmitTransferResult::class.java
-            override val arguments: String = ArgumentsBuilder()
+            override val arguments: String = ArgumentsBuilder(moshi)
                 .string(chain.name)
                 .string(accountId)
                 .string(enclaveToken)
@@ -691,6 +696,7 @@ sealed class ApiMethod<T> {
                     calls,
                     Types.newParameterizedType(List::class.java, MApiEvmSwapCall::class.java)
                 )
+                .jsObject(transactionRequest, MApiEvmSwapTransactionRequest::class.java)
                 .boolean(needsBatch)
                 .build()
         }
@@ -1234,6 +1240,35 @@ sealed class ApiMethod<T> {
     }
 
     object Staking {
+        class CheckForeignUnstakeDraft(accountId: String, chain: String, providerName: String) :
+            ApiMethod<ApiForeignUnstakeDraft>() {
+            override val name: String = "checkForeignUnstakeDraft"
+            override val type: Type = ApiForeignUnstakeDraft::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(chain)
+                .string(providerName)
+                .build()
+        }
+
+        class SubmitForeignUnstake(
+            accountId: String,
+            chain: String,
+            providerName: String,
+            draft: ApiForeignUnstakeDraft,
+            enclaveToken: String
+        ) : ApiMethod<ApiSubmitTransfersResult>() {
+            override val name: String = "submitForeignUnstake"
+            override val type: Type = ApiSubmitTransfersResult::class.java
+            override val arguments: String = ArgumentsBuilder()
+                .string(accountId)
+                .string(chain)
+                .string(providerName)
+                .jsObject(draft, ApiForeignUnstakeDraft::class.java)
+                .string(enclaveToken)
+                .build()
+        }
+
         class CheckStakeDraft(accountId: String, amount: BigInteger, state: StakingState) :
             ApiMethod<MApiCheckStakeDraftResult>() {
             override val name: String = "checkStakeDraft"

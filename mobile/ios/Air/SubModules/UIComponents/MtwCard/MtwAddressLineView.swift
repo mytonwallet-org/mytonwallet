@@ -38,8 +38,8 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 3,
             singlechainAddressCount: 6,
             multichainEndCount: 6,
-            multichainAddressCount: 2,
-            maxChainCount: 3,
+            multichainAddressCount: 1,
+            maxChainCount: 1,
             showComma: true,
             showAccessories: false,
         )
@@ -54,8 +54,8 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 3,
             singlechainAddressCount: 6,
             multichainEndCount: 6,
-            multichainAddressCount: 2,
-            maxChainCount: 3,
+            multichainAddressCount: 1,
+            maxChainCount: 1,
             showComma: true,
             showAccessories: false,
         )
@@ -71,7 +71,7 @@ public struct MtwCardAddressLine: View {
             singlechainAddressCount: 4,
             multichainEndCount: 4,
             multichainAddressCount: 1,
-            maxChainCount: 3,
+            maxChainCount: 1,
             showComma: false,
             showAccessories: false,
         )
@@ -86,8 +86,8 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 6,
             singlechainAddressCount: 6,
             multichainEndCount: 6,
-            multichainAddressCount: 2,
-            maxChainCount: 3,
+            multichainAddressCount: 1,
+            maxChainCount: 1,
             showComma: true,
             showAccessories: true,
         )
@@ -102,8 +102,8 @@ public struct MtwCardAddressLine: View {
             chainSpacing: 6,
             singlechainAddressCount: 4,
             multichainEndCount: 4,
-            multichainAddressCount: 2,
-            maxChainCount: 3,
+            multichainAddressCount: 1,
+            maxChainCount: 1,
             showComma: true,
             showAccessories: false,
         )

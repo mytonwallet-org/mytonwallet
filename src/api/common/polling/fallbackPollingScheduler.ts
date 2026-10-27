@@ -48,6 +48,8 @@ export class FallbackPollingScheduler {
   #options: FallbackPollingOptions;
 
   #cancelScheduledPoll?: NoneToVoidFunction;
+  #scheduleVersion = 0;
+  #pendingNonTimerPoll?: { isInitial?: boolean };
 
   #isDestroyed = false;
 
@@ -108,12 +110,20 @@ export class FallbackPollingScheduler {
     this.#cancelScheduledPoll?.();
   }
 
+  #poll(isInitial?: boolean) {
+    this.#pendingNonTimerPoll = { isInitial };
+    this.#runPoll();
+  }
+
   // Using `throttle` to avoid parallel execution.
-  #poll = throttle(async (isInitial?: boolean) => {
-    if (this.#isDestroyed) return;
+  #runPoll = throttle(async (scheduleVersion?: number) => {
+    // Non-timer requests retain their initial flag even when a timer replaces the throttled arguments
+    const pendingNonTimerPoll = this.#pendingNonTimerPoll;
+    this.#pendingNonTimerPoll = undefined;
+    if (this.#isDestroyed || (!pendingNonTimerPoll && scheduleVersion !== this.#scheduleVersion)) return;
 
     try {
-      await this.#rawPoll(isInitial);
+      await this.#rawPoll(pendingNonTimerPoll?.isInitial);
     } catch (err: unknown) {
       // Polling re-issues requests, so transient HTTP failures are suppressed -
       // alerting on each cycle just creates user-visible noise scaled by poller count.
@@ -129,6 +139,7 @@ export class FallbackPollingScheduler {
 
   #schedulePolling(isSocketConnected: boolean) {
     this.#cancelScheduledPoll?.();
+    const scheduleVersion = ++this.#scheduleVersion;
 
     const { pollingPeriod, pollingStartDelay = pollingPeriod, forcedPollingPeriod } = this.#options;
     const firstPause = isSocketConnected ? forcedPollingPeriod : pollingStartDelay;
@@ -138,7 +149,7 @@ export class FallbackPollingScheduler {
       const delay = jitterPeriodMs(periodToMs(isFirst ? firstPause : nextPause));
       this.#cancelScheduledPoll = onFocusAwareDelay(...delay, () => {
         schedule();
-        this.#poll();
+        this.#runPoll(scheduleVersion);
       });
     };
 

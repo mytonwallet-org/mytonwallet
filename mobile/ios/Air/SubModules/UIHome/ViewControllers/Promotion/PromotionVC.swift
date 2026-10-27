@@ -62,16 +62,24 @@ public final class PromotionVC: WViewController {
     }
 
     private func updateSheetHeight(animated: Bool) {
-        guard contentHeight > 0, let sheet = currentSheetPresentationController else { return }
+        guard contentHeight > 0 else { return }
+        let navigationBarHeight = navigationController?.navigationBar.bounds.height ?? 0
+        preferredContentSize = CGSize(width: 580, height: max(240, contentHeight - navigationBarHeight))
+        guard let sheet = currentSheetPresentationController else { return }
         let contentHeight = self.contentHeight
 
         let apply = {
-            sheet.detents = [
-                .custom(identifier: .content) { context in
-                    min(contentHeight, context.maximumDetentValue)
-                }
-            ]
-            sheet.selectedDetentIdentifier = .content
+            if self.isPresentedInRegularWidthWindow {
+                sheet.detents = [.large()]
+                sheet.selectedDetentIdentifier = .large
+            } else {
+                sheet.detents = [
+                    .custom(identifier: .content) { context in
+                        min(contentHeight, context.maximumDetentValue)
+                    }
+                ]
+                sheet.selectedDetentIdentifier = .content
+            }
         }
 
         if animated, view.window != nil {
@@ -129,6 +137,7 @@ private struct PromotionView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
+            .padding(.top, heroURL == nil ? 64 : 0)
             .frame(maxWidth: .infinity, alignment: .top)
             .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                 surfaceHeight = height
@@ -136,7 +145,7 @@ private struct PromotionView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
-        .scrollDisabled(true)
+        .backportScrollBounceBehaviorBasedOnSize()
         .backportScrollEdgeEffectHidden()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let action = modal?.actionButton,
@@ -149,6 +158,7 @@ private struct PromotionView: View {
                 .buttonStyle(.airPrimary)
                 .padding(.horizontal, PROMOTION_ACTION_BUTTON_HORIZONTAL_PADDING)
                 .padding(.top, 16)
+                .padding(.bottom, 16)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     actionButtonHeight = height
                     reportHeight()

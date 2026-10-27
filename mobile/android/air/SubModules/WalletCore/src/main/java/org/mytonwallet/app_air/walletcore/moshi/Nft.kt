@@ -199,6 +199,13 @@ data class ApiNftCompression(
 )
 
 @JsonClass(generateAdapter = true)
+data class ApiNftSpamInfo(
+    val provider: String,
+    val isSpam: Boolean? = null,
+    val classifications: List<String>? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class ApiNft(
     // val index: Int?,
     val chain: MBlockchain? = null,
@@ -215,6 +222,7 @@ data class ApiNft(
     val isOnFragment: Boolean? = null,
     val isTelegramGift: Boolean? = null,
     val isScam: Boolean? = null,
+    val spamInfo: ApiNftSpamInfo? = null,
     val isUnverified: Boolean? = null,
     // The indexer already serves blurred images for these, so this flag is informational
     val isNsfw: Boolean? = null,

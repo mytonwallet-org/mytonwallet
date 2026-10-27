@@ -116,9 +116,109 @@ describe('preserveActivityStatusProgress', () => {
       status: 'pendingTrusted',
     });
   });
+
+  it('does not replace a terminal LI.FI outcome with an older pending backend snapshot', () => {
+    const lifi = { quotedTo: 'arbitrum:native', quotedToAmount: '2' };
+    const settled = swapActivity({
+      status: 'failed', toAmount: '1', lifi: { ...lifi, outcome: 'refunded' },
+    });
+    const stale = swapActivity({ status: 'pendingTrusted', toAmount: '2', lifi });
+
+    expect(preserveActivityStatusProgress(settled, stale)).toMatchObject({
+      status: 'failed', toAmount: '1', lifi: { outcome: 'refunded' },
+    });
+  });
 });
 
 describe('projectSwapActivities', () => {
+  it('keeps a pending LI.FI swap pending after its completed source swap leg arrives', () => {
+    const sourceHash = `0x${'a'.repeat(64)}`;
+    const backendRow = swapActivity({
+      status: 'pendingTrusted', hashes: [sourceHash],
+      lifi: { quotedTo: 'arbitrum:native', quotedToAmount: '2' },
+    });
+    const sourceLeg = swapActivity({
+      id: sourceHash, status: 'completed', toAmount: '1.9', hashes: [],
+    });
+
+    const projected = projectSwapActivities([sourceLeg], [backendRow], { fromTime: 0, toTime: NOW });
+
+    expect(idsWithStatus(visible(projected))).toEqual([[backendRow.id, 'pendingTrusted']]);
+    expect((visible(projected)[0] as ApiSwapActivity).toAmount).toBe('2');
+    expect(projected.find(({ id }) => id === sourceHash)?.shouldHide).toBe(true);
+  });
+
+  it('uses backend LI.FI status even when a matched source leg is marked failed', () => {
+    const sourceHash = `0x${'c'.repeat(64)}`;
+    const backendRow = swapActivity({
+      status: 'pendingTrusted', hashes: [sourceHash],
+      lifi: { quotedTo: 'arbitrum:native', quotedToAmount: '2' },
+    });
+    const sourceLeg = swapActivity({ id: sourceHash, status: 'failed', hashes: [] });
+
+    const projected = projectSwapActivities([sourceLeg], [backendRow], { fromTime: 0, toTime: NOW });
+
+    expect(idsWithStatus(visible(projected))).toEqual([[backendRow.id, 'pendingTrusted']]);
+    expect(projected.find(({ id }) => id === sourceHash)?.shouldHide).toBe(true);
+  });
+
+  it('corrects a cached false LI.FI completion from backend pending, then applies the terminal outcome', () => {
+    const sourceHash = `0x${'b'.repeat(64)}`;
+    const lifi = { quotedTo: 'arbitrum:native', quotedToAmount: '2' };
+    const backendPending = swapActivity({
+      status: 'pendingTrusted', hashes: [sourceHash], lifi,
+    });
+    const sourceLeg = swapActivity({ id: sourceHash, status: 'completed', hashes: [] });
+    const cachedFalseCompletion = { ...backendPending, status: 'completed' as const };
+
+    const corrected = reconcileActivityUpdate(
+      [cachedFalseCompletion], [backendPending, sourceLeg], [],
+    );
+    expect(idsWithStatus(visible(corrected.confirmedActivities)))
+      .toEqual([[backendPending.id, 'pendingTrusted']]);
+    expect(idsWithStatus(visible(corrected.upsert)))
+      .toEqual([[backendPending.id, 'pendingTrusted']]);
+    expect(corrected.upsert.find(({ id }) => id === sourceHash)?.shouldHide).toBe(true);
+
+    const terminal = {
+      ...backendPending,
+      status: 'completed' as const,
+      toAmount: '1.8',
+      lifi: { ...lifi, outcome: 'completed' as const },
+    };
+    const settled = reconcileActivityUpdate(
+      [corrected.upsert.find(({ id }) => id === backendPending.id)!], [terminal, sourceLeg], [],
+    );
+    expect(idsWithStatus(visible(settled.confirmedActivities)))
+      .toEqual([[terminal.id, 'completed']]);
+    expect((visible(settled.confirmedActivities)[0] as ApiSwapActivity).toAmount).toBe('1.8');
+
+    // A subsequent source-only update must not replace the backend's settlement result.
+    const sourceOnly = reconcileActivityUpdate(
+      [settled.upsert.find(({ id }) => id === terminal.id)!], [sourceLeg], [], [terminal],
+    );
+    expect(idsWithStatus(visible(sourceOnly.upsert))).toEqual([[terminal.id, 'completed']]);
+  });
+
+  it('does not replace a terminal LI.FI partial or refund outcome with source leg results', () => {
+    const chainRows = activitiesFromSocketMessage(socketMessage(fixtures.case2WsActions, 'finalized'));
+    const [backendRow] = activitiesFromBackendRows(backendRowsOf(fixtures.case2Backend.history));
+    const partial = {
+      ...backendRow,
+      status: 'completed' as const,
+      toAmount: '0.975',
+      lifi: { outcome: 'partial' as const, quotedTo: 'arbitrum:native', quotedToAmount: '1' },
+    };
+    const projectedPartial = projectSwapActivities(chainRows, [partial], { fromTime: 0, toTime: NOW });
+    expect((visible(projectedPartial)[0] as ApiSwapActivity).toAmount).toBe('0.975');
+    expect((visible(projectedPartial)[0] as ApiSwapActivity).lifi?.outcome).toBe('partial');
+
+    const refunded = { ...partial, status: 'failed' as const, lifi: { ...partial.lifi, outcome: 'refunded' as const } };
+    const projectedRefund = projectSwapActivities(chainRows, [refunded], { fromTime: 0, toTime: NOW });
+    expect((visible(projectedRefund)[0] as ApiSwapActivity).status).toBe('failed');
+    expect((visible(projectedRefund)[0] as ApiSwapActivity).lifi?.outcome).toBe('refunded');
+  });
+
   it('shows one completed backend row for a finalized Omniston swap and hides its trace actions', () => {
     const chainRows = activitiesFromSocketMessage(socketMessage(fixtures.case2WsActions, 'finalized'));
     const [backendRow] = activitiesFromBackendRows(backendRowsOf(fixtures.case2Backend.history));

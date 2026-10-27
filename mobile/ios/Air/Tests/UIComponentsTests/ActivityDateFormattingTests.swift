@@ -12,6 +12,56 @@ struct ActivityDateFormattingTests {
 
     private let locale = Locale(identifier: "en_US_POSIX")
 
+    private var persianCalendar: Calendar {
+        var calendar = Calendar(identifier: .persian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    @Test
+    func `Farsi activity headers and timestamps use Jalali dates`() {
+        let now = date(2026, 3, 22)
+        let activityDate = date(2026, 3, 21)
+        let locale = Locale(identifier: "fa")
+
+        #expect(ActivityDateFormatting.headerText(
+            for: activityDate, relativeTo: now, calendar: persianCalendar, locale: locale
+        ) == "۱ فروردین")
+        #expect(ActivityDateFormatting.timestampText(
+            for: activityDate, mode: .dateWhenOlderThanTwelveHours,
+            relativeTo: now, calendar: persianCalendar, locale: locale
+        ) == "۱ فروردین")
+    }
+
+    @Test
+    func `previous Jalali year is included across Nowruz`() {
+        let locale = Locale(identifier: "fa")
+        let now = date(2026, 3, 21)
+
+        #expect(ActivityDateFormatting.dateText(
+            for: date(2026, 3, 20), relativeTo: now, calendar: persianCalendar, locale: locale
+        ) == "۲۹ اسفند ۱۴۰۴")
+        #expect(ActivityDateFormatting.shortDateText(
+            for: date(2026, 3, 20), relativeTo: now, calendar: persianCalendar, locale: locale
+        ) == "۲۹ اسفند ۱۴۰۴")
+    }
+
+    @Test
+    func `Gregorian new year does not add a year within the same Jalali year`() {
+        #expect(ActivityDateFormatting.dateText(
+            for: date(2025, 12, 31), relativeTo: date(2026, 1, 2),
+            calendar: persianCalendar, locale: Locale(identifier: "fa")
+        ) == "۱۰ دی")
+    }
+
+    @Test
+    func `Jalali leap day is formatted correctly`() {
+        #expect(ActivityDateFormatting.dateText(
+            for: date(2025, 3, 20), relativeTo: date(2026, 3, 21),
+            calendar: persianCalendar, locale: Locale(identifier: "fa")
+        ) == "۳۰ اسفند ۱۴۰۳")
+    }
+
     @Test
     func `today always uses time even after twelve hours`() {
         let now = date(2026, 8, 30, 23)

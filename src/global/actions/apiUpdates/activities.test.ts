@@ -680,6 +680,46 @@ describe('apiUpdate activity reconciliation bridge', () => {
   });
 });
 
+describe('EVM NFT activity metadata', () => {
+  it.each([
+    { gallerySpam: true, activitySpam: undefined, provider: 'alchemy' },
+    { gallerySpam: true, activitySpam: false, provider: 'alchemy' },
+    { gallerySpam: false, activitySpam: true, provider: 'zerion' },
+  ])('preserves gallery metadata and positive verdicts: %j', async ({ gallerySpam, activitySpam, provider }) => {
+    const galleryNft: ApiNft = {
+      chain: 'base', address: '0x000000000000888741b254d37e1b27128afeaabc/42', index: 1,
+      interface: 'ERC1155', name: 'Gallery name', image: 'image', thumbnail: 'thumbnail',
+      description: 'Gallery description', collectionAddress: 'collection', isOnSale: false,
+      metadata: { attributes: [{ trait_type: 'Color', value: 'Blue' }] },
+      isHidden: gallerySpam,
+      spamInfo: { provider: 'alchemy', isSpam: gallerySpam, classifications: ['SpammyMetadata'] },
+    };
+    const global = buildGlobal([]);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [galleryNft.address]: galleryNft }, orderedAddresses: [galleryNft.address],
+    };
+    setGlobal(global);
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+
+    await (getActions().apiUpdate({
+      type: 'newActivities', accountId: ACCOUNT_ID, chain: 'base', pendingActivities: [],
+      activities: [makeRawReceive({
+        nft: {
+          chain: 'base', address: galleryNft.address, index: 0, interface: 'ERC1155',
+          name: 'Activity name', image: '', thumbnail: '', description: '', metadata: {}, isOnSale: false,
+          isHidden: activitySpam === true, spamInfo: { provider: 'zerion', isSpam: activitySpam },
+        },
+      })],
+    }) as unknown as Promise<void>);
+
+    const storedNft = getGlobal().byAccountId[ACCOUNT_ID].nfts?.byAddress?.[galleryNft.address];
+    expect(storedNft).toEqual({
+      ...galleryNft, isHidden: true,
+      spamInfo: provider === 'alchemy' ? galleryNft.spamInfo : { provider: 'zerion', isSpam: true },
+    });
+  });
+});
+
 describe('NFT trade visibility', () => {
   // For `nftTrade` the `isIncoming` flag shows the TONCOIN direction, so a purchase looks like an outgoing transfer
   function makeNftTrade(isBuying: boolean): ApiTransactionActivity {
@@ -847,5 +887,83 @@ describe('MyTonWallet card auto-install', () => {
 
     expect(getGlobal().settings.byAccountId[ACCOUNT_ID]?.cardBackgroundNft).toEqual(mintedCard);
     expect(getGlobal().byAccountId[ACCOUNT_ID].isCardMinting).toBeUndefined();
+  });
+});
+
+describe('Outgoing NFT activity', () => {
+  const NFT: ApiNft = {
+    chain: 'ton',
+    interface: 'default',
+    index: 0,
+    address: 'EQAglL_g6q2AhMK_BT9jN1F-8jBlv2pOI30vRkPluU9kcXgV',
+    isOnSale: false,
+    metadata: {},
+  };
+
+  function applyActivities(activities: ApiTransactionActivity[]) {
+    return getActions().apiUpdate({
+      type: 'newActivities', accountId: ACCOUNT_ID, activities, pendingActivities: [], chain: 'ton',
+    }) as unknown as Promise<void>;
+  }
+
+  function selectStoredNft() {
+    return getGlobal().byAccountId[ACCOUNT_ID].nfts?.byAddress?.[NFT.address];
+  }
+
+  async function applyOutgoingNft(isStoredOnSale: boolean, type?: ApiTransactionActivity['type']) {
+    const global = buildGlobal([]);
+    global.byAccountId[ACCOUNT_ID].nfts = {
+      byAddress: { [NFT.address]: { ...NFT, isOnSale: isStoredOnSale } },
+      orderedAddresses: [NFT.address],
+    };
+    setGlobal(global);
+
+    // `isIncoming` of `nftTrade` shows the TONCOIN direction, so a sale is incoming
+    await applyActivities([makeRawReceive({ id: 'nft-out-hash', type, isIncoming: type === 'nftTrade', nft: NFT })]);
+
+    return selectStoredNft();
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (callApi as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('removes a sent NFT', async () => {
+    expect(await applyOutgoingNft(false)).toBeUndefined();
+  });
+
+  it('keeps an NFT that `nftPutUpForSale` has already marked as listed', async () => {
+    expect(await applyOutgoingNft(true)).toMatchObject({ isOnSale: true });
+  });
+
+  it('removes a sold NFT even though it is on sale', async () => {
+    expect(await applyOutgoingNft(true, 'nftTrade')).toBeUndefined();
+  });
+
+  it('lets the newest transfer decide and ignores a repeated old one', async () => {
+    const sent = makeRawReceive({ id: 'nft-sent-hash', timestamp: 1, isIncoming: false, nft: NFT });
+    const received = makeRawReceive({ id: 'nft-received-hash', timestamp: 2, isIncoming: true, nft: NFT });
+    setGlobal(buildGlobal([]));
+
+    // A sent NFT that has come back within one batch, which lists the newest activity first
+    await applyActivities([received, sent]);
+    expect(selectStoredNft()).toBeDefined();
+
+    await applyActivities([sent]);
+    expect(selectStoredNft()).toBeDefined();
+  });
+
+  it('keeps a domain after its renewal', async () => {
+    expect(await applyOutgoingNft(false, 'dnsRenew')).toBeDefined();
+  });
+
+  it('keeps an NFT put up for auction and updates its sale state', async () => {
+    expect(await applyOutgoingNft(false, 'nftAuctionStart')).toMatchObject({ isOnSale: true });
+
+    await applyActivities([makeRawReceive({
+      id: 'nft-auction-cancel-hash', type: 'nftAuctionCancel', isIncoming: false, nft: NFT,
+    })]);
+    expect(selectStoredNft()).toMatchObject({ isOnSale: false });
   });
 });

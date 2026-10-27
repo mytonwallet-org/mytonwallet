@@ -23,8 +23,8 @@ type ZerionNftInfo = {
     };
   };
   contract_address: string;
-  flags: {
-    is_spam: boolean;
+  flags?: {
+    is_spam?: boolean | null;
   };
   interface: EvmNftInterface;
   name: string;
@@ -364,6 +364,8 @@ export type AlchemyNftContract = {
   symbol?: string;
   totalSupply?: string;
   tokenType: EvmNftInterface;
+  isSpam?: boolean | null;
+  spamClassifications?: string[] | null;
 };
 
 export type AlchemyOwnedNft = {

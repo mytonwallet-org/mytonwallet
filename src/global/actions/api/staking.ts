@@ -1,4 +1,6 @@
-import type { ApiEthenaStakingState, ApiJettonStakingState } from '../../../api/types';
+import type { ApiEthenaStakingState, ApiForeignUnstakeDraft, ApiJettonStakingState } from '../../../api/types';
+import type { ForeignUnstake, GlobalState } from '../../types';
+import { ApiCommonError, ApiTransactionDraftError } from '../../../api/types';
 import { StakingState } from '../../types';
 
 import { getDoesUsePinPad } from '../../../util/biometrics';
@@ -11,7 +13,7 @@ import {
   getIsStakingClaimable,
   getIsStakingUnstakeable,
 } from '../../../util/staking';
-import { callApi } from '../../../api';
+import { callApi, callApiWithThrow } from '../../../api';
 import { withEnclaveSessionRelease } from '../../helpers/enclave';
 import { closeAllOverlays } from '../../helpers/misc';
 import { handleTransferResult, isErrorTransferResult, prepareTransfer } from '../../helpers/transfer';
@@ -19,6 +21,7 @@ import { addActionHandler, getGlobal, setGlobal } from '../../index';
 import {
   clearCurrentStaking,
   clearIsPinAccepted,
+  completeForeignUnstake,
   resetHardware,
   updateAccountStaking,
   updateAccountState,
@@ -30,6 +33,7 @@ import {
   selectAccountStakingStates,
   selectAccountState,
   selectCurrentAccountId,
+  selectCurrentAccountStakingBanners,
   selectIsHardwareAccount,
 } from '../../selectors';
 import { switchAccount } from './auth';
@@ -470,6 +474,10 @@ addActionHandler('updateStakingMfaRequestStatus', async (global) => {
 
   global = getGlobal();
 
+  // The user may have left this request and sent another one while its status was loading.
+  // The confirmation of the old request must not complete the new one.
+  if (global.currentStaking.mfaRequestHash !== hash) return;
+
   const currentAccountId = selectCurrentAccountId(global);
   if (!currentAccountId) return;
 
@@ -505,6 +513,10 @@ addActionHandler('updateStakingMfaRequestStatus', async (global) => {
       });
       break;
     }
+    case StakingState.ForeignUnstakeConfirmMfa: {
+      global = completeForeignUnstake(global, global.currentStaking.foreignUnstake!);
+      break;
+    }
   }
 
   setGlobal(global);
@@ -537,3 +549,117 @@ addActionHandler('openStakingInfoOrStart', (global, actions) => {
     actions.startStaking();
   }
 });
+
+addActionHandler('startForeignUnstake', async (global, actions, { id }) => {
+  const accountId = selectCurrentAccountId(global)!;
+  const banner = selectCurrentAccountStakingBanners(global)?.find((stakingBanner) => stakingBanner.id === id);
+  const actionButton = banner?.infoBanner.actionButton;
+
+  // Only one draft request runs at a time, so repeated taps on the banner don't send parallel requests
+  if (global.currentStaking.foreignUnstake || actionButton?.onClickAction !== 'unstakeForeign') return;
+
+  const { chain, providerName } = actionButton;
+  const request: ForeignUnstake = { accountId, bannerId: id, chain, providerName };
+
+  setGlobal(updateCurrentStaking(global, { foreignUnstake: request }));
+
+  let draft: ApiForeignUnstakeDraft;
+
+  try {
+    draft = await callApiWithThrow('checkForeignUnstakeDraft', accountId, chain, providerName);
+  } catch (err) {
+    global = getGlobal();
+
+    // A closed staking modal or a newer draft request owns the screen now
+    if (global.currentStaking.foreignUnstake !== request) return;
+
+    setGlobal(updateCurrentStaking(global, { foreignUnstake: undefined }));
+
+    // An SDK error message is an error code with a text for the user. Other failures carry technical text,
+    // so the user sees the generic error instead.
+    const { message } = err as Error;
+    const isErrorCode = Object.values<string>({ ...ApiCommonError, ...ApiTransactionDraftError }).includes(message);
+    actions.showError({ error: isErrorCode ? message : undefined });
+    return;
+  }
+
+  global = getGlobal();
+
+  if (global.currentStaking.foreignUnstake !== request) return;
+
+  if (global.currentStaking.state !== StakingState.StakeInitial || selectCurrentAccountId(global) !== accountId) {
+    setGlobal(updateCurrentStaking(global, { foreignUnstake: undefined }));
+    return;
+  }
+
+  global = updateCurrentStaking(global, { foreignUnstake: { ...request, draft } });
+
+  if (selectIsHardwareAccount(global)) {
+    global = resetHardware(global, chain);
+    global = updateCurrentStaking(global, { state: StakingState.ForeignUnstakeConnectHardware });
+  } else {
+    global = updateCurrentStaking(global, { state: StakingState.ForeignUnstakePassword });
+  }
+
+  setGlobal(global);
+});
+
+addActionHandler('cancelForeignUnstake', (global) => {
+  setGlobal(updateCurrentStaking(global, {
+    state: StakingState.StakeInitial,
+    foreignUnstake: undefined,
+    error: undefined,
+  }));
+});
+
+addActionHandler('submitForeignUnstake', withEnclaveSessionRelease(async (global, actions, payload) => {
+  const { enclaveToken } = payload ?? {};
+  const { state, isLoading } = global.currentStaking;
+
+  // The password form and the Ledger can answer after the user has left the signing screen, so the answer is only
+  // sent while a signing screen is open.
+  // The Ledger confirmation screen resends after a signing error, but not while a request is in progress.
+  const isSigningScreen = state === StakingState.ForeignUnstakePassword
+    || state === StakingState.ForeignUnstakeConnectHardware
+    || (state === StakingState.ForeignUnstakeConfirmHardware && !isLoading);
+  if (!isSigningScreen) return;
+
+  const foreignUnstake = global.currentStaking.foreignUnstake!;
+  const { accountId, chain, providerName, draft } = foreignUnstake;
+
+  if (getIsForeignUnstakeAccountChanged(global)) {
+    setGlobal(clearCurrentStaking(global));
+    return;
+  }
+
+  if (!prepareTransfer(StakingState.ForeignUnstakeConfirmHardware, updateCurrentStaking)) {
+    return;
+  }
+
+  const result = await callApi('submitForeignUnstake', accountId, chain, providerName, draft!, enclaveToken);
+
+  if (!handleTransferResult(result, updateCurrentStaking)) {
+    return;
+  }
+
+  global = getGlobal();
+
+  if ('mfaRequestHash' in result) {
+    // The MFA screen is shown only in the staking modal that sent the request
+    if (global.currentStaking.foreignUnstake !== foreignUnstake) return;
+
+    global = updateCurrentStaking(global, {
+      state: StakingState.ForeignUnstakeConfirmMfa,
+      mfaRequestHash: result.mfaRequestHash,
+    });
+  } else {
+    global = completeForeignUnstake(global, foreignUnstake);
+  }
+
+  setGlobal(global);
+}));
+
+// The flow belongs to the account that loaded the draft, while the screens and the signing follow the current account
+function getIsForeignUnstakeAccountChanged(global: GlobalState) {
+  return global.currentStaking.foreignUnstake!.accountId !== selectCurrentAccountId(global);
+}

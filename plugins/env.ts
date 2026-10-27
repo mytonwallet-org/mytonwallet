@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import { redactPath } from '../src/util/fetchLogging';
 
 /**
@@ -32,6 +34,10 @@ export function defineEnv(defaults: Record<string, string>) {
   // eslint-disable-next-line no-console
   console.info(formatEnvReport(resolved).join('\n'));
 
+  if (process.env.BUILD_ENV_FILE) {
+    fs.writeFileSync(process.env.BUILD_ENV_FILE, formatDotenv(resolved));
+  }
+
   return Object.fromEntries(resolved.map(({ key, value }) => [`process.env.${key}`, JSON.stringify(value)]));
 }
 
@@ -50,6 +56,22 @@ function resolveEnv(defaults: Record<string, string>, env: Record<string, string
     value: env[key] ?? fallback,
     fromEnvironment: env[key] !== undefined,
   }));
+}
+
+/**
+ * The values the environment supplied, as a `.env` that makes another build of the same tree bake the same
+ * bundle. This is how the Firefox source archive carries what the CI build received to AMO reviewers.
+ */
+function formatDotenv(resolved: ResolvedValue[]): string {
+  return resolved
+    .filter((entry) => entry.fromEnvironment)
+    .map(({ key, value }) => {
+      if (/["\\\r\n]/.test(value)) {
+        throw new Error(`${key} cannot be written to a .env file without changing its value`);
+      }
+      return `${key}="${value}"\n`;
+    })
+    .join('');
 }
 
 function formatEnvReport(resolved: ResolvedValue[]): string[] {

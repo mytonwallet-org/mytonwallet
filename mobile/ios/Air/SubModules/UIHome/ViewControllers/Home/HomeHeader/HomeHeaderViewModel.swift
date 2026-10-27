@@ -110,14 +110,16 @@ final class HomeHeaderViewModel: WalletCoreData.EventsObserver {
     
     func scrollOffsetChanged(to y: CGFloat) {
         let p = y / collapsedHeight
-        _collapseProgress = clamp(p, to: 0...1)
+        let progress = clamp(p, to: 0...1)
+        if _collapseProgress != progress { _collapseProgress = progress }
     }
 
     func updateCardVisibility(bottomOffsetFromSafeArea: CGFloat) {
         let fadeDistance: CGFloat = 16
-        cardFadeOpacity = UIDevice.current.hasDynamicIsland
+        let opacity = UIDevice.current.hasDynamicIsland
             ? Double(clamp(1 + bottomOffsetFromSafeArea / fadeDistance, to: 0...1))
             : 1
+        if cardFadeOpacity != opacity { cardFadeOpacity = opacity }
     }
 
     @MainActor

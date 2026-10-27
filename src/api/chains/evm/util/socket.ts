@@ -78,8 +78,7 @@ class AlchemySocket extends AbstractWebsocketClient<
     }
 
     if (sub.type === 'native') {
-      void this.#handleNativeNotification(sub, message.params.result as MinedTransactionNotification);
-      return;
+      return this.#handleNativeNotification(sub, message.params.result as MinedTransactionNotification);
     }
 
     const log = message.params.result as LogNotification;
@@ -90,7 +89,7 @@ class AlchemySocket extends AbstractWebsocketClient<
       return;
     }
 
-    void this.#handleTokenNotification(sub, log);
+    return this.#handleTokenNotification(sub, log);
   };
 
   protected handleSocketConnect = () => {

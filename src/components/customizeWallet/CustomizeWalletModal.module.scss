@@ -1,6 +1,7 @@
 @use "../../styles/mixins";
 
 .content {
+  scrollbar-gutter: stable;
   padding: 0 0 1rem;
   background: transparent;
 }
@@ -59,6 +60,9 @@
 .section {
   margin-top: 2rem;
   padding: 0 1rem;
+
+  @include mixins.adapt-padding-to-scrollbar(1rem);
+
   &:last-child {
     padding-bottom: 1rem;
   }
@@ -182,7 +186,8 @@
 
 .walletCardPreviews {
   position: relative;
-  width: 100%;
   height: var(--preview-card-height);
   margin-top: 1.5rem;
+  // Extends under the scrollbar gutter of `.content`, so the middle card is centered in the modal
+  margin-inline-end: calc(-1 * var(--scrollbar-width));
 }

@@ -65,8 +65,8 @@ public enum SwitchAccountMenu {
                 ContextMenuAction(
                     title: lang("Add Wallet"),
                     icon: .system("plus"),
-                    handler: {
-                        AppActions.showAddWallet(network: .mainnet)
+                    handler: { [weak sourceView] in
+                        AppActions.showAddWallet(network: .mainnet, sourceView: sourceView)
                     }
                 )
             )

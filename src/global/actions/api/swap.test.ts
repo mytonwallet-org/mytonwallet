@@ -1,13 +1,17 @@
+import type { ApiSwapBuildTransactionRequest } from '../../../api/types';
 import type { GlobalState } from '../../types';
 import type { SwapEstimateResult } from './swap';
+import { URANUS_PRICE_DRIFT_ERROR } from '../../../api/types/swap';
 import { SwapErrorType, SwapInputSource, SwapState } from '../../types';
 
 import {
+  ARBITRUM_USDC_MAINNET,
   BASE,
   BASE_USDC_MAINNET,
   BITCOIN,
   BITCOINCASH,
   DOGECOIN,
+  ETH_USDC_MAINNET,
   LITECOIN,
   MYCOIN_MAINNET,
   SOLANA,
@@ -353,6 +357,20 @@ describe('buildSwapBuildRequest', () => {
     expect(request.toAmount).toBe('1000');
   });
 
+  it('keeps the selected token address separate from the backend quote fields', () => {
+    const request = buildSwapBuildRequest(makeGlobal({
+      amountOut: '1000',
+      quotedAmountOut: '999.87',
+      amountOutMin: '989.87',
+      slippage: 1,
+    }));
+
+    expect(request.to).toBe(MYCOIN_MAINNET.minterAddress);
+    expect(request.toAmount).toBe('999.87');
+    expect(request.toMinAmount).toBe('989.87');
+    expect(request.slippage).toBe(1);
+  });
+
   it('reports the output side and sends what was quoted rather than what was typed', () => {
     // The form keeps the figure the user entered while the estimate answers with what the venue
     // could reach against it. The routes in the same request were priced for the latter.
@@ -452,6 +470,19 @@ describe('estimateSwap', () => {
     }));
   });
 
+  it.each([
+    ['No swap quote available', SwapErrorType.QuoteUnavailable],
+    ['Swap routers are unavailable', SwapErrorType.ServiceUnavailable],
+    ['Insufficient liquidity', SwapErrorType.NotEnoughLiquidity],
+    ['Unknown backend error', SwapErrorType.UnexpectedError],
+  ])('preserves the meaning of a failed quote: %s', async (error, errorType) => {
+    (callApi as jest.Mock).mockResolvedValue({ error });
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(result).toMatchObject({ errorType });
+  });
+
   it.each([DOGECOIN, BITCOIN, LITECOIN, BITCOINCASH, TONCOIN, SOLANA, TRX])(
     'prices native $slug Max against the full balance and ordinary swaps against their amount',
     async (token) => {
@@ -529,6 +560,134 @@ describe('estimateSwap', () => {
     }));
   });
 
+  it('accepts a CEX quote for a same-chain pair', async () => {
+    const tokenIn = BASE;
+    const tokenOut = BASE_USDC_MAINNET;
+    const address = '0x1';
+    const base = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...base,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic', title: 'Test',
+            byChain: { [tokenIn.chain]: { address } },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: { balances: { bySlug: { [tokenIn.slug]: 300n * 10n ** BigInt(tokenIn.decimals) } } },
+      },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [tokenIn.slug]: tokenIn, [tokenOut.slug]: tokenOut },
+      },
+    } as unknown as GlobalState, {
+      tokenInSlug: tokenIn.slug,
+      tokenOutSlug: tokenOut.slug,
+      amountIn: '10',
+      inputSource: SwapInputSource.In,
+    }));
+    (callApi as jest.Mock).mockImplementation((method: string) => Promise.resolve(
+      method === 'swapEstimate'
+        ? {
+          ...cexEstimate,
+          from: tokenIn.slug,
+          to: tokenOut.tokenAddress,
+          fromAmount: '10',
+          toAmount: '9',
+        }
+        : {
+          explainedFee: {
+            fullFee: { nativeSum: 500_000_000_000_000n },
+            realFee: { nativeSum: 400_000_000_000_000n },
+          },
+        },
+    ));
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      fromAddress: address,
+      toAddress: address,
+    }));
+    expect(result).toMatchObject({
+      route: 'cex',
+      currentCexLabel: 'near-intents',
+      errorType: undefined,
+      amountOut: '9',
+      dexRouterLabel: undefined,
+      priceImpact: 0,
+    });
+  });
+
+  it('accepts a LI.FI DEX estimate for an internal EVM cross-chain route', async () => {
+    const base = getGlobal();
+    setGlobal(updateCurrentSwap({
+      ...base,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [ACCOUNT_ID]: {
+            type: 'mnemonic',
+            title: 'Test',
+            byChain: {
+              ethereum: { address: '0xSource' },
+              arbitrum: { address: '0xDestination' },
+              ton: { address: 'ton-history' },
+            },
+          },
+        },
+      },
+      byAccountId: {
+        [ACCOUNT_ID]: { balances: { bySlug: { [ETH_USDC_MAINNET.slug]: 20_000_000n } } },
+      },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: {
+          [ETH_USDC_MAINNET.slug]: ETH_USDC_MAINNET,
+          [ARBITRUM_USDC_MAINNET.slug]: ARBITRUM_USDC_MAINNET,
+        },
+      },
+    } as unknown as GlobalState, {
+      tokenInSlug: ETH_USDC_MAINNET.slug,
+      tokenOutSlug: ARBITRUM_USDC_MAINNET.slug,
+      amountIn: '10',
+      inputSource: SwapInputSource.In,
+    }));
+    (callApi as jest.Mock).mockImplementation((method: string) => Promise.resolve(
+      method === 'swapEstimate'
+        ? {
+          ...dexEstimate,
+          from: ETH_USDC_MAINNET.tokenAddress,
+          to: ARBITRUM_USDC_MAINNET.tokenAddress,
+          fromAmount: '10',
+          toAmount: '9.9',
+          toMinAmount: '9.4',
+          dexRouterLabel: 'lifi',
+          needsBatch: false,
+        }
+        : undefined,
+    ));
+
+    const result = await estimateSwap(getGlobal(), () => false);
+
+    expect(callApi).toHaveBeenCalledWith('swapEstimate', ACCOUNT_ID, expect.objectContaining({
+      from: ETH_USDC_MAINNET.tokenAddress,
+      to: ARBITRUM_USDC_MAINNET.tokenAddress,
+      fromAddress: '0xSource',
+      toAddress: '0xDestination',
+    }));
+    expect(result).toMatchObject({
+      route: 'dex',
+      amountOut: '9.9',
+      dexRouterLabel: 'lifi',
+      needsBatch: false,
+      errorType: undefined,
+    });
+  });
+
   it('blocks the swap when the source chain cannot price the transfer', async () => {
     mockApi(undefined);
 
@@ -548,6 +707,211 @@ describe('estimateSwap', () => {
     const result = await estimateSwap(getGlobal(), () => false);
 
     expect(result).toMatchObject({ errorType: undefined, networkFee: '0.0005', realNetworkFee: '0.0004' });
+  });
+});
+
+describe('submitSwap Uranus price drift', () => {
+  const accountId = '0-mainnet';
+  const master = 'EQAmemepadMaster';
+  const outputToken = { ...TON_USDT_MAINNET, slug: 'ton-uranus-test', tokenAddress: master };
+  const releaseEnclaveSession = jest.fn();
+  const showError = jest.fn();
+  addActionHandler('releaseEnclaveSession', releaseEnclaveSession);
+  addActionHandler('showError', showError);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const base = clearCurrentSwap(getGlobal());
+    setGlobal(updateCurrentSwap({
+      ...base,
+      currentAccountId: accountId,
+      accounts: {
+        ...base.accounts,
+        byId: {
+          [accountId]: { type: 'mnemonic', title: 'Test', byChain: { ton: { address: 'UQowner' } } },
+        },
+      },
+      byAccountId: { [accountId]: { balances: { bySlug: { [TONCOIN.slug]: 5_000_000_000n } } } },
+      swapTokenInfo: {
+        ...base.swapTokenInfo,
+        bySlug: { [TONCOIN.slug]: TONCOIN, [outputToken.slug]: outputToken },
+      },
+    } as unknown as GlobalState, {
+      state: SwapState.Password,
+      swapId: 'confirmed-swap',
+      tokenInSlug: TONCOIN.slug,
+      tokenOutSlug: outputToken.slug,
+      inputSource: SwapInputSource.In,
+      amountIn: '1', amountOut: '100', quotedAmountOut: '100', amountOutMin: '99',
+      slippage: 1, route: 'dex', dexLabel: 'dedust',
+      networkFee: '0.05', realNetworkFee: '0.04', swapFee: '0', ourFee: '0',
+    }, true));
+  });
+
+  function mockCalls(options: {
+    quoteFrom?: string;
+    quoteTo?: string;
+    quoteMin?: string;
+    quoteOut?: string;
+    quoteInput?: string;
+    fee?: string;
+    ourFee?: string;
+    secondBuild?: 'drift' | 'error';
+    firstBuild?: 'success';
+    onSecondBuild?: () => void;
+  } = {}) {
+    const builds: ApiSwapBuildTransactionRequest[] = [];
+    let submits = 0;
+    (callApi as jest.Mock).mockImplementation((method: string, ...args: unknown[]) => {
+      if (method === 'swapBuildTransfer') {
+        builds.push(args[2] as ApiSwapBuildTransactionRequest);
+        if ((builds.length === 1 && options.firstBuild !== 'success') || options.secondBuild === 'drift') {
+          return { error: URANUS_PRICE_DRIFT_ERROR };
+        }
+        options.onSecondBuild?.();
+        return options.secondBuild === 'error'
+          ? { error: 'validation failed' }
+          : { id: 'built-once', chain: 'ton', transfers: [{ toAddress: master }] };
+      }
+      if (method === 'swapEstimate') {
+        return {
+          route: 'dex', from: options.quoteFrom ?? 'TON', to: options.quoteTo ?? master,
+          fromAmount: options.quoteInput ?? getGlobal().currentSwap.amountIn,
+          toAmount: options.quoteOut ?? '110', toMinAmount: options.quoteMin ?? '108',
+          impact: 0, dexLabel: 'dedust', dieselStatus: 'not-available',
+          networkFee: options.fee ?? '0.05', realNetworkFee: '0.04',
+          swapFee: '0', swapFeePercent: 0, ourFee: options.ourFee ?? '0', ourFeePercent: 0,
+        };
+      }
+      if (method === 'swapSubmit') {
+        submits++;
+        return { swapId: 'built-once', activityId: 'signed-boc' };
+      }
+      return undefined;
+    });
+    return {
+      builds,
+      get submits() {
+        return submits;
+      },
+    };
+  }
+
+  async function submit() {
+    await (getActions().submitSwap({ enclaveToken: 'test-session' }) as unknown as Promise<void>);
+  }
+
+  it('requotes once after a favorable move and submits only the fully rebuilt transfer', async () => {
+    const calls = mockCalls();
+    await submit();
+    expect(calls.builds).toHaveLength(2);
+    expect(calls.builds[1]).toMatchObject({
+      to: master, fromAmount: '1', fromAddress: 'UQowner', toAmount: '110', toMinAmount: '108',
+      networkFee: '0.04',
+    });
+    expect(calls.submits).toBe(1);
+    expect(getGlobal().currentSwap.state).toBe(SwapState.Complete);
+  });
+
+  it('keeps a zero fee across the retry and accepts a fee discount to zero', async () => {
+    const zeroFee = mockCalls();
+    await submit();
+    expect(zeroFee.builds.map(({ ourFee }) => ourFee)).toEqual(['0', '0']);
+    expect(zeroFee.submits).toBe(1);
+
+    setGlobal(updateCurrentSwap(getGlobal(), {
+      state: SwapState.Password, swapId: 'confirmed-swap', ourFee: '0.00875',
+    }, true));
+    const discounted = mockCalls({ ourFee: '0' });
+    await submit();
+    expect(discounted.builds.map(({ ourFee }) => ourFee)).toEqual(['0.00875', '0']);
+    expect(discounted.submits).toBe(1);
+  });
+
+  it('returns a newly positive fee to confirmation after a zero-fee quote', async () => {
+    const calls = mockCalls({ ourFee: '0.004375' });
+    await submit();
+    expect(calls.builds).toHaveLength(1);
+    expect(calls.submits).toBe(0);
+    expect(getGlobal().currentSwap.state).toBe(SwapState.Initial);
+  });
+
+  it('stops after a second price-bound mismatch without submitting or charging twice', async () => {
+    const calls = mockCalls({ secondBuild: 'drift' });
+    await submit();
+    expect(calls.builds).toHaveLength(2);
+    expect(calls.submits).toBe(0);
+    expect(getGlobal().currentSwap.state).toBe(SwapState.Initial);
+  });
+
+  it('does not submit a rejected rebuilt transfer', async () => {
+    const calls = mockCalls({ secondBuild: 'error' });
+    await submit();
+    expect(calls.builds).toHaveLength(2);
+    expect(calls.submits).toBe(0);
+  });
+
+  it('does not auto-submit a worsened or poisoned quote', async () => {
+    const calls = mockCalls({ quoteOut: '10', quoteMin: '1' });
+    await submit();
+    expect(calls.builds).toHaveLength(1);
+    expect(calls.submits).toBe(0);
+    expect(getGlobal().currentSwap.state).toBe(SwapState.Initial);
+  });
+
+  it('returns changed fee or input to confirmation before rebuilding', async () => {
+    const calls = mockCalls({ fee: '0.06', quoteInput: '0.9' });
+    await submit();
+    expect(calls.builds).toHaveLength(1);
+    expect(calls.submits).toBe(0);
+    expect(getGlobal().currentSwap.state).toBe(SwapState.Initial);
+  });
+
+  it('preserves the resolved MAX input through one retry', async () => {
+    setGlobal(updateCurrentSwap(getGlobal(), {
+      amountIn: '4.17', isMaxAmount: true,
+    }, true));
+    const calls = mockCalls({ quoteInput: '4.17' });
+    await submit();
+    expect(calls.builds.map(({ fromAmount }) => fromAmount)).toEqual(['4.17', '4.17']);
+    expect(calls.submits).toBe(1);
+  });
+
+  it('requotes a direct Uranus sell once without changing the selected master or gross input', async () => {
+    setGlobal(updateCurrentSwap(getGlobal(), {
+      tokenInSlug: outputToken.slug, tokenOutSlug: TONCOIN.slug,
+      amountIn: '1', amountOut: '0.0074', quotedAmountOut: '0.0074', amountOutMin: '0.0073',
+      ourFee: '0.00875', networkFee: '0.1', realNetworkFee: '0.09',
+    }, true));
+    const calls = mockCalls({
+      quoteFrom: master, quoteTo: 'TON', quoteOut: '0.008', quoteMin: '0.0078',
+      ourFee: '0.00875', fee: '0.1',
+    });
+    await submit();
+    expect(calls.builds).toHaveLength(2);
+    expect(calls.builds.map(({ from, to, fromAmount, ourFee }) => ({ from, to, fromAmount, ourFee })))
+      .toEqual([
+        { from: master, to: 'TON', fromAmount: '1', ourFee: '0.00875' },
+        { from: master, to: 'TON', fromAmount: '1', ourFee: '0.00875' },
+      ]);
+    expect(calls.submits).toBe(1);
+  });
+
+  it('does not submit when the selected swap changes while rebuilding', async () => {
+    const calls = mockCalls({ onSecondBuild: () => {
+      setGlobal(updateCurrentSwap(getGlobal(), { state: SwapState.Initial }, true));
+    } });
+    await submit();
+    expect(calls.builds).toHaveLength(2);
+    expect(calls.submits).toBe(0);
+  });
+
+  it('keeps an ordinary successful DEX build on the single-build path', async () => {
+    const calls = mockCalls({ firstBuild: 'success' });
+    await submit();
+    expect(calls.builds).toHaveLength(1);
+    expect(calls.submits).toBe(1);
+    expect((callApi as jest.Mock).mock.calls.map(([method]) => method)).not.toContain('swapEstimate');
   });
 });
 

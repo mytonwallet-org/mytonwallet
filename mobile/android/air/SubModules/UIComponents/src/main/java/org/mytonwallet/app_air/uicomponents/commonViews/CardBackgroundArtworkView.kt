@@ -1,10 +1,7 @@
 package org.mytonwallet.app_air.uicomponents.commonViews
 
 import android.animation.ValueAnimator
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -34,6 +31,10 @@ import kotlin.math.max
 import kotlin.math.sin
 import org.mytonwallet.app_air.uicomponents.AnimationConstants
 import org.mytonwallet.app_air.uicomponents.R
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardFrameCadence
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardMotionSensor
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardSurfaceLight
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardSurfaceMotion
 import org.mytonwallet.app_air.uicomponents.widgets.fadeIn
 import org.mytonwallet.app_air.walletbasecontext.utils.ApplicationContextHolder
 import org.mytonwallet.app_air.walletcontext.globalStorage.WGlobalStorage
@@ -144,12 +145,182 @@ class CardBackgroundArtworkView(context: Context) :
         xfermode = PorterDuffXfermode(PorterDuff.Mode.ADD)
     }
     private val linearShine = CardLinearShineMotion()
+    private var profile = CardMotionProfile.from(null)
+    private var surfaceMotion = CardSurfaceMotion(profile.gram)
+    private val surfaceSensor = CardMotionSensor(context)
+    private var surfaceRenderer: CardSurfaceRenderer? = null
+    private var savedSurfaceFrame: CardSurfaceFrame? = null
+    private var surfacePreparation: Any? = null
+    private var motionOwner: String? = null
+    private var artworkLoadOwner: Any? = null
+    private var surfaceFrameDirty = true
+    private val needsBackgroundFrames get() = profile.custom || profile.gram
+    private var publishedLight = CardSurfaceLight.ZERO
+    private var activationLight: CardSurfaceLight? = null
+    private var activationElapsed = 0.0
+    private var lastMotionFrameNanos = 0L
+    private val motionCadence = CardFrameCadence()
+    private val backgroundCadence = CardFrameCadence()
+    private var interactiveUntilNanos = 0L
+    private var retainSurfaceRequested = false
+    var motionReferenceWidth = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            if (width > 0) prepareSurface()
+        }
+    private var lastSurfaceAt = 0L
+    var surfaceRadius = 26f * resources.displayMetrics.density
+    var onSurfaceFrame: ((Float, Float) -> Unit)? = null
+    private val surfaceBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private var borderColors = intArrayOf(0x808C94B0.toInt(), 0xD9BABCC2.toInt())
+    private var borderGradient: LinearGradient? = null
+    private var borderGradientWidth = 0f
+    private var borderGradientHeight = 0f
+    private var borderGradientColors: IntArray? = null
+    private var borderHighlight: RadialGradient? = null
+    private var borderHighlightBlack = false
+    private val borderHighlightMatrix = Matrix()
+
+    fun setMotionOwner(accountId: String?) {
+        if (motionOwner == accountId) return
+        motionOwner = accountId
+        artworkLoadOwner = null
+        resetSurface()
+        surfaceMotion = CardSurfaceMotion(profile.gram)
+        if (currentEffects) {
+            activationLight = publishedLight
+            scheduleFrame()
+        }
+    }
+
+    private fun resetSurface(preserveFrame: Boolean = false) {
+        if (layerType != LAYER_TYPE_NONE) setLayerType(LAYER_TYPE_NONE, null)
+        if (Build.VERSION.SDK_INT >= 33) {
+            savedSurfaceFrame =
+                if (preserveFrame) surfaceRenderer?.savedFrame() ?: savedSurfaceFrame else null
+            surfaceRenderer?.close()
+        }
+        surfaceRenderer = null
+        surfacePreparation = null
+        lastSurfaceAt = 0L
+        lastMotionFrameNanos = 0L
+        motionCadence.reset()
+        backgroundCadence.reset()
+        interactiveUntilNanos = 0L
+        activationLight = null
+        activationElapsed = 0.0
+        publishLight(CardSurfaceLight.ZERO, true)
+    }
+
+    private fun publishLight(light: CardSurfaceLight, force: Boolean = false): Boolean {
+        if (!force && light.visuallyMatches(publishedLight)) return false
+        publishedLight = light
+        surfaceFrameDirty = true
+        onSurfaceFrame?.invoke(
+            (light.border?.x ?: light.x).toFloat(),
+            (light.border?.y ?: light.y).toFloat()
+        )
+        return true
+    }
+
+    private fun advanceSurfaceMotion(dt: Double, frameNanos: Long) {
+        surfaceMotion.advance(
+            dt,
+            surfaceSensor.sample,
+            display?.rotation ?: 0,
+            surfaceSensor.angularSpeed,
+            advanceBackgroundClock = false
+        )
+        var light = CardSurfaceLight.from(
+            surfaceMotion,
+            profile.gram,
+            height / width.coerceAtLeast(1).toDouble()
+        )
+        activationLight?.let { start ->
+            activationElapsed += dt
+            light = light.interpolated(
+                start,
+                CardSurfaceLight.resumeProgress(activationElapsed)
+            )
+            if (activationElapsed >= CardSurfaceLight.RESUME_SECONDS) {
+                activationLight = null
+            }
+        }
+        if (publishLight(light) ||
+            light.press > 0
+        ) {
+            interactiveUntilNanos = frameNanos + 400_000_000L
+        }
+    }
+
+    fun observeSurfaceTouch(x: Float, y: Float, began: Boolean) {
+        if (!currentEffects) return
+        surfaceMotion.press(x.toDouble(), y.toDouble(), began)
+    }
+
+    private fun prepareSurface() {
+        val referenceWidth = if (motionReferenceWidth > 0) motionReferenceWidth else width.toFloat()
+        if (!supportsSurfaceMotion ||
+            referenceWidth < 160 * resources.displayMetrics.density
+        ) {
+            return
+        }
+        val owner = Any()
+        surfacePreparation = owner
+        val selectedProfile = profile
+        val selectedArtwork = artwork
+        val logicalWidth = referenceWidth / resources.displayMetrics.density
+        CardSurfaceResources.prepare(context, logicalWidth, selectedProfile.gram) {
+                defaults,
+                glow,
+                source
+            ->
+            if (surfacePreparation !== owner) return@prepare
+            surfacePreparation = null
+            if (!isAttachedToWindow ||
+                (!requestedEffects && !retainSurfaceRequested)
+            ) {
+                return@prepare
+            }
+            val next =
+                CardSurfaceRenderer(source, selectedProfile, selectedArtwork ?: defaults, glow)
+            surfaceRenderer?.let {
+                it.transferPresentationTo(next)
+                it.close()
+            } ?: savedSurfaceFrame?.let {
+                next.restoreFrame(it)
+            }
+            savedSurfaceFrame = null
+            surfaceRenderer = next
+            surfaceFrameDirty = true
+            next.onTextureReady = {
+                if (surfaceRenderer === next && currentEffects) {
+                    surfaceFrameDirty = true
+                    invalidate()
+                    scheduleFrame()
+                }
+            }
+            if (currentEffects) next.activate(animated = true)
+            invalidate()
+            scheduleFrame()
+        }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        surfaceFrameDirty = true
+        if (surfaceRenderer == null && surfacePreparation == null) prepareSurface()
+    }
+
     private var artwork: CardBackgroundArtwork.Artwork? = null
     private var motionShader: CardBackgroundMotionShader? = null
     private var motionMesh: CardBackgroundMotionMesh? = null
     val hasArtwork: Boolean get() = artwork != null
     private var cardNumber: Int? = null
     private var isDefaultCard = true
+    private val supportsSurfaceMotion: Boolean
+        get() = Build.VERSION.SDK_INT >= 33 && (isDefaultCard || cardNumber != null)
     private var requestedEffects = false
     private var fadeOutRequested = false
     private var currentEffects = false
@@ -184,6 +355,31 @@ class CardBackgroundArtworkView(context: Context) :
     private var lastFrameNanos = 0L
     private val frameCallback = Choreographer.FrameCallback { frameTimeNanos ->
         framePosted = false
+        if (supportsSurfaceMotion) {
+            if (!currentEffects) return@FrameCallback
+            if (motionCadence.shouldTick(frameTimeNanos, 60)) {
+                val dt = if (lastMotionFrameNanos == 0L) {
+                    1.0 / 60
+                } else {
+                    ((frameTimeNanos - lastMotionFrameNanos) / 1e9).coerceIn(0.0, .1)
+                }
+                lastMotionFrameNanos = frameTimeNanos
+                advanceSurfaceMotion(dt, frameTimeNanos)
+            }
+            val interactive =
+                surfaceRenderer?.isResuming == true || surfaceRenderer?.isAppearing == true ||
+                    publishedLight.press > 0 || frameTimeNanos < interactiveUntilNanos
+            val needsFrame = needsBackgroundFrames || surfaceFrameDirty ||
+                surfaceRenderer?.hasFrame == false || surfaceRenderer?.isResuming == true ||
+                surfaceRenderer?.isAppearing == true
+            if (needsFrame &&
+                backgroundCadence.shouldTick(frameTimeNanos, if (interactive) 60 else 30)
+            ) {
+                invalidate()
+            }
+            scheduleFrame()
+            return@FrameCallback
+        }
         if (currentEffects || effectsLevel != levelTo) {
             val interactive = press > 0f || lightActivity > 0f || linearShine.isAnimating ||
                 SystemClock.uptimeMillis() - motionAt < 400L
@@ -195,11 +391,6 @@ class CardBackgroundArtworkView(context: Context) :
             scheduleFrame()
         }
     }
-    private val powerReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            updateEffects()
-        }
-    }
 
     init {
         id = generateViewId()
@@ -209,19 +400,47 @@ class CardBackgroundArtworkView(context: Context) :
     }
 
     fun setNft(nft: ApiNft?, resolution: Int = 800) {
+        val wasSurface = supportsSurfaceMotion
+        val nextProfile = CardMotionProfile.from(nft)
+        if (nextProfile != profile) {
+            resetSurface()
+            profile = nextProfile
+            surfaceMotion = CardSurfaceMotion(profile.gram)
+        }
+        val colors = nft?.metadata?.mtwCardColors
+        borderColors = if (profile.black) {
+            intArrayOf(0x0FFFFFFF, 0x1FFFFFFF)
+        } else if (profile.material != 0 && colors != null) {
+            intArrayOf(
+                (colors.first and 0xFFFFFF) or 0x66000000,
+                (colors.second and 0xFFFFFF) or 0x66000000
+            )
+        } else {
+            intArrayOf(0x808C94B0.toInt(), 0xD9BABCC2.toInt())
+        }
         val number = nft?.metadata?.mtwCardId?.takeIf { nft.isMtwCard }
         val defaultChanged = isDefaultCard != (nft == null)
         isDefaultCard = nft == null
         if (!defaultChanged && number == cardNumber && (number == null || artwork != null)) {
             onArtworkChanged?.invoke(artwork != null)
+            if (surfaceRenderer == null) prepareSurface()
             return
         }
         animate().cancel()
         alpha = 1f
         cardNumber = number
+        if (wasSurface != supportsSurfaceMotion && currentEffects) {
+            currentEffects = false
+            surfaceSensor.stop(reset = true)
+            stopFrameLoop()
+            onEffectsChanged?.invoke(false)
+        }
         artwork = null
         motionShader = null
         motionMesh = null
+        resetSurface()
+        artworkLoadOwner = null
+        surfaceMotion = CardSurfaceMotion(profile.gram)
         lineTime = 0.0
         blobTime = 0.0
         boost = 0.0
@@ -231,13 +450,19 @@ class CardBackgroundArtworkView(context: Context) :
         onArtworkChanged?.invoke(false)
         updateEffects()
         invalidate()
-        if (number == null || nft == null) return
+        if (number == null || nft == null) {
+            prepareSurface()
+            return
+        }
         var loadingSynchronously = true
+        val loadOwner = Any()
+        artworkLoadOwner = loadOwner
         CardBackgroundArtwork.load(context, nft, resolution) { image ->
-            if (cardNumber != number) return@load
+            if (artworkLoadOwner !== loadOwner || cardNumber != number) return@load
             val shouldFadeIn = image != null && !loadingSynchronously && isShown
             if (shouldFadeIn) alpha = 0f
             artwork = image
+            prepareSurface()
             motionShader = null
             motionMesh = null
             onArtworkChanged?.invoke(image != null)
@@ -248,9 +473,14 @@ class CardBackgroundArtworkView(context: Context) :
         loadingSynchronously = false
     }
 
-    fun setEffectsActive(active: Boolean, fadeOut: Boolean = false) {
+    fun setEffectsActive(
+        active: Boolean,
+        fadeOut: Boolean = false,
+        retainPausedSurface: Boolean = false
+    ) {
         requestedEffects = active
         fadeOutRequested = !active && fadeOut
+        retainSurfaceRequested = !active && retainPausedSurface
         updateEffects()
     }
 
@@ -288,11 +518,15 @@ class CardBackgroundArtworkView(context: Context) :
     }
 
     fun releaseShine(cancelled: Boolean = false) {
+        surfaceMotion.release()
         linearShine.release(cancelled || !currentEffects)
         postInvalidateOnAnimation()
     }
 
-    fun updateShinePressStrength(strength: Float) {
+    fun updateShinePressStrength(strength: Float, x: Float = 0f, y: Float = 0f) {
+        surfaceMotion.engagement = strength.toDouble()
+        surfaceMotion.pressX = x.toDouble()
+        surfaceMotion.pressY = y.toDouble()
         linearShine.updatePressStrength(strength)
         postInvalidateOnAnimation()
     }
@@ -308,6 +542,7 @@ class CardBackgroundArtworkView(context: Context) :
 
     /** Keep an entering Home card's light and fade on the same timeline as the visible card. */
     fun syncEffectsFrom(other: CardBackgroundArtworkView) {
+        if (Build.VERSION.SDK_INT >= 33) return
         val now = SystemClock.uptimeMillis()
         other.updateEffectsLevel(now)
         tiltX = other.tiltX
@@ -343,10 +578,7 @@ class CardBackgroundArtworkView(context: Context) :
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         WalletCore.registerObserver(this)
-        context.registerReceiver(
-            powerReceiver,
-            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
-        )
+        if (surfaceRenderer == null) prepareSurface()
         updateEffects()
         if (effectsLevel > 0f) {
             postInvalidateOnAnimation()
@@ -358,16 +590,29 @@ class CardBackgroundArtworkView(context: Context) :
         WalletCore.unregisterObserver(this)
         animate().cancel()
         alpha = 1f
-        context.unregisterReceiver(powerReceiver)
         stopFrameLoop()
         val wasActive = currentEffects
         currentEffects = false
+        if (Build.VERSION.SDK_INT >= 33) {
+            surfaceRenderer?.pause()
+            if (!preserveFadeOnReparent) resetSurface(preserveFrame = true)
+            surfaceMotion.resetInput()
+            activationLight = null
+            lastMotionFrameNanos = 0L
+            publishLight(CardSurfaceLight.ZERO, true)
+        }
         if (!preserveFadeOnReparent || !fadeOutRequested) {
             effectsLevel = 0f
             levelTo = 0f
             resetLightActivity()
         }
         if (wasActive) onEffectsChanged?.invoke(false)
+        surfaceSensor.stop(reset = !preserveFadeOnReparent)
+        if (!preserveFadeOnReparent) {
+            surfaceMotion.resetInput()
+            surfacePreparation = null
+            onSurfaceFrame?.invoke(0f, 0f)
+        }
         super.onDetachedFromWindow()
     }
 
@@ -389,14 +634,70 @@ class CardBackgroundArtworkView(context: Context) :
         val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val systemAnimationsEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
             ValueAnimator.areAnimatorsEnabled()
-        val canAnimate =
+        val policyAllowsMotion =
+            WGlobalStorage.getAreAnimationsActive() && systemAnimationsEnabled &&
+                !WGlobalStorage.getIs3dCardDisabled() && power?.isPowerSaveMode != true
+        val canRetain =
             (artwork != null || (isDefaultCard && gramShinePaint == null) || shineEnabled) &&
                 isAttachedToWindow &&
-                isShown && hasWindowFocus() &&
-                WGlobalStorage.getAreAnimationsActive() && systemAnimationsEnabled &&
-                !WGlobalStorage.getIs3dCardDisabled() &&
-                power?.isPowerSaveMode != true
+                isShown &&
+                policyAllowsMotion
+        val canAnimate = canRetain && hasWindowFocus()
         val allowed = requestedEffects && canAnimate
+        if (supportsSurfaceMotion) {
+            val retaining = ((retainSurfaceRequested || requestedEffects) && canRetain) ||
+                (preserveFadeOnReparent && !isAttachedToWindow)
+            // A retained display list still executes its shader when an ancestor moves.
+            // Cache the finished surface in a GPU layer until its own inputs change.
+            val cachedSurface = (allowed && !needsBackgroundFrames) ||
+                (retaining && surfaceRenderer?.hasFrame == true)
+            val desiredLayer = if (cachedSurface) LAYER_TYPE_HARDWARE else LAYER_TYPE_NONE
+            if (layerType != desiredLayer) setLayerType(desiredLayer, null)
+            if (allowed == currentEffects) {
+                if (!allowed && !retaining &&
+                    (
+                        surfaceRenderer != null || surfacePreparation != null ||
+                            savedSurfaceFrame != null
+                        )
+                ) {
+                    resetSurface(preserveFrame = policyAllowsMotion)
+                }
+                if (allowed && surfaceRenderer == null &&
+                    surfacePreparation == null
+                ) {
+                    prepareSurface()
+                }
+                return
+            }
+            currentEffects = allowed
+            lastSurfaceAt = 0L
+            lastMotionFrameNanos = 0L
+            lastFrameNanos = 0L
+            motionCadence.reset()
+            backgroundCadence.reset()
+            if (allowed) {
+                activationLight = publishedLight
+                activationElapsed = 0.0
+                surfaceFrameDirty = true
+                surfaceSensor.start()
+                surfaceRenderer?.activate(animated = true)
+                if (surfaceRenderer == null && surfacePreparation == null) prepareSurface()
+                scheduleFrame()
+            } else {
+                surfaceRenderer?.pause()
+                surfaceSensor.stop(reset = true)
+                surfaceMotion.resetInput()
+                activationLight = null
+                publishLight(CardSurfaceLight.ZERO, true)
+                stopFrameLoop()
+                if (!retaining) resetSurface(preserveFrame = policyAllowsMotion)
+                effectsLevel = 0f
+                levelTo = 0f
+            }
+            onEffectsChanged?.invoke(allowed)
+            invalidate()
+            return
+        }
         val fadeOut = !requestedEffects && fadeOutRequested && canAnimate
         if (allowed == currentEffects) {
             val reparenting = preserveFadeOnReparent && fadeOutRequested && !isAttachedToWindow
@@ -406,6 +707,14 @@ class CardBackgroundArtworkView(context: Context) :
             return
         }
         currentEffects = allowed
+        if (allowed) {
+            surfaceSensor.start()
+        } else {
+            surfaceSensor.stop(reset = !fadeOut)
+            surfaceMotion.release()
+            if (!fadeOut) surfaceMotion.resetInput()
+        }
+        lastSurfaceAt = 0L
         onEffectsChanged?.invoke(allowed)
         if (allowed) {
             lastAnimationAt = 0L
@@ -419,7 +728,8 @@ class CardBackgroundArtworkView(context: Context) :
     private fun updateEffectsLevel(now: Long) {
         if (effectsLevel == levelTo) return
         val progress = ((now - levelChangedAt).toFloat() / levelDuration).coerceIn(0f, 1f)
-        effectsLevel = levelFrom + (levelTo - levelFrom) * progress
+        val eased = progress * progress * (3 - 2 * progress)
+        effectsLevel = levelFrom + (levelTo - levelFrom) * eased
         if (!currentEffects && effectsLevel == 0f) resetLightActivity()
     }
 
@@ -468,6 +778,67 @@ class CardBackgroundArtworkView(context: Context) :
         if (currentEffects || effectsLevel > 0f) updateEffects()
         val now = SystemClock.uptimeMillis()
         updateEffectsLevel(now)
+        val renderer = surfaceRenderer
+        if (Build.VERSION.SDK_INT >= 33 && canvas.isHardwareAccelerated && renderer != null &&
+            (isDefaultCard || artwork != null) && (currentEffects || renderer.hasFrame)
+        ) {
+            val density = resources.displayMetrics.density
+            if (currentEffects && (
+                    needsBackgroundFrames || surfaceFrameDirty ||
+                        !renderer.hasFrame || renderer.isResuming || renderer.isAppearing
+                    )
+            ) {
+                val dt = if (lastSurfaceAt == 0L || renderer.awaitingFirstResumeFrame) {
+                    0.0
+                } else {
+                    ((now - lastSurfaceAt) / 1000.0).coerceIn(0.0, .1)
+                }
+                lastSurfaceAt = now
+                if (needsBackgroundFrames) {
+                    surfaceMotion.advanceClock(dt, publishedLight.press, publishedLight.activity)
+                }
+                renderer.update(
+                    CardSurfaceFrame(
+                        width / density,
+                        height / density,
+                        density,
+                        surfaceMotion.lineTime,
+                        surfaceMotion.blobTime,
+                        publishedLight,
+                        if (publishedLight.touch != null) renderer.glow.second else 0f
+                    ),
+                    now
+                )
+                surfaceFrameDirty = false
+            }
+            val save = canvas.save()
+            canvas.scale(density, density)
+            if (renderer.paint.alpha <
+                255
+            ) {
+                renderer.drawStill(canvas, width / density, height / density)
+            }
+            val presented = renderer.savedFrame()
+            val frameSave = canvas.save()
+            val frameWidth = presented?.width ?: (width / density)
+            val frameHeight = presented?.height ?: (height / density)
+            canvas.scale(width / density / frameWidth, height / density / frameHeight)
+            canvas.drawRect(0f, 0f, frameWidth, frameHeight, renderer.paint)
+            canvas.restoreToCount(frameSave)
+            if (profile.custom) {
+                drawSurfaceBorder(
+                    canvas,
+                    width / density,
+                    height / density,
+                    1f
+                )
+            }
+            canvas.restoreToCount(save)
+            renderer.frameCommittedCallback()?.let { committed ->
+                viewTreeObserver.registerFrameCommitCallback { committed() }
+            }
+            return
+        }
         advanceAnimation(now)
         if (isDefaultCard && gramShinePaint != null && shineEnabled) {
             val scale = max(width / 400f, height / 232f)
@@ -517,7 +888,9 @@ class CardBackgroundArtworkView(context: Context) :
         if (shineEnabled && gramShinePaint != null) {
             val angle = -90f + (tiltX * 90f + tiltY * 60f) * effectsLevel
             if (effectsLevel > 0f && shineEnabled) drawGramShine(canvas, angle, effectsLevel)
-        } else if (effectsLevel > 0f && shineEnabled && linearShine.isAnimating) {
+        } else if (!profile.custom && effectsLevel > 0f && shineEnabled &&
+            linearShine.isAnimating
+        ) {
             drawArtworkShine(canvas, effectsLevel)
         }
         if (isDefaultCard && gramShinePaint != null && shineEnabled) {
@@ -661,5 +1034,70 @@ class CardBackgroundArtworkView(context: Context) :
                 canvas.drawPath(gramStarPath, gramStarPaint)
             }
         }
+    }
+    private fun drawSurfaceBorder(canvas: Canvas, w: Float, h: Float, level: Float) {
+        val density = resources.displayMetrics.density
+        val stroke = if (profile.black) 2f else 1.333f
+        val inset = stroke / 2
+        val radius = (surfaceRadius / density - inset).coerceAtLeast(0f)
+        surfaceBorder.strokeWidth = stroke
+        surfaceBorder.alpha = 255
+        val dx = -.2f * w * w
+        val dy = .15f * h * h
+        val length = .04f * w * w + .0225f * h * h
+        val divisor = dx * dx + dy * dy
+        if (divisor <= 0f) return
+        if (borderGradient == null || borderGradientWidth != w || borderGradientHeight != h ||
+            borderGradientColors !== borderColors
+        ) {
+            borderGradient = LinearGradient(
+                w * .65f,
+                h * .1f,
+                w * (.65f + dx * length / divisor),
+                h * (.1f + dy * length / divisor),
+                borderColors,
+                null,
+                Shader.TileMode.CLAMP
+            )
+            borderGradientWidth = w
+            borderGradientHeight = h
+            borderGradientColors = borderColors
+        }
+        surfaceBorder.shader = borderGradient
+        canvas.drawRoundRect(inset, inset, w - inset, h - inset, radius, radius, surfaceBorder)
+        val angle = profile.restAngle * PI / 180
+        val lightX = publishedLight.border?.x ?: publishedLight.x
+        val lightY = publishedLight.border?.y ?: publishedLight.y
+        val influence = kotlin.math.min(1.0, hypot(lightX, lightY))
+        val ox = cos(angle) * w * .5 * (1 - influence) + lightX * w * .55
+        val oy = sin(angle) * w * .5 * (1 - influence) + lightY * h * .72
+        val rotation = if (hypot(ox, oy) > .001) atan2(oy, ox) else angle
+        val gradient = borderHighlight?.takeIf { borderHighlightBlack == profile.black }
+            ?: RadialGradient(
+                0f,
+                0f,
+                1f,
+                intArrayOf(Color.WHITE, 0x00FFFFFF),
+                floatArrayOf(if (profile.black) .1f else .05f, 1f),
+                Shader.TileMode.CLAMP
+            ).also {
+                borderHighlight = it
+                borderHighlightBlack = profile.black
+            }
+        gradient.setLocalMatrix(
+            borderHighlightMatrix.apply {
+                // Core Animation's radial gradient is elliptical in the layer's bounds.
+                setScale(
+                    w * .5f * (if (profile.black) .6f else 1f),
+                    h * .5f * (if (profile.black) 1.3f else .5f)
+                )
+                postRotate(Math.toDegrees(rotation).toFloat())
+                postTranslate((w / 2 + ox).toFloat(), (h / 2 + oy).toFloat())
+            }
+        )
+        surfaceBorder.shader = gradient
+        surfaceBorder.alpha = (255 * level).toInt()
+        canvas.drawRoundRect(inset, inset, w - inset, h - inset, radius, radius, surfaceBorder)
+        surfaceBorder.shader = null
     }
 }

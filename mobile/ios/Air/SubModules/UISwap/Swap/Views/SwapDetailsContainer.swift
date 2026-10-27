@@ -13,7 +13,11 @@ struct SwapDetailsContainer<Content: View>: View {
     }
 
     var body: some View {
-        InsetSection(horizontalPadding: 0) {
+        InsetSection(
+            dividersInset: IOS_26_MODE_ENABLED ? 4 : 0,
+            dividersTrailingInset: IOS_26_MODE_ENABLED ? 20 : 0,
+            horizontalPadding: 0
+        ) {
             header
 
             if isExpanded {
@@ -55,15 +59,13 @@ struct SwapExchangeRateRow: View {
     @ViewBuilder
     var body: some View {
         if let exchangeRate {
-            InsetCell {
-                HStack(spacing: 0) {
-                    Text(lang("Exchange Rate"))
-                        .foregroundStyle(Color.air.secondaryLabel)
-                    Spacer(minLength: 4)
-                    let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
-                    Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
-                        .textStyle(.body, content: .technical, scaling: .dynamic)
-                }
+            SwapDetailCell {
+                Text(lang("Exchange Rate"))
+                    .foregroundStyle(Color.air.secondaryLabel)
+            } value: {
+                let priceAmount = DecimalAmount.fromDouble(exchangeRate.price, exchangeRate.fromToken)
+                Text("\(exchangeRate.toToken.symbol) ≈ \(priceAmount.formatted(.compact))")
+                    .textStyle(.body, content: .technical, scaling: .dynamic)
             }
         }
     }
@@ -85,10 +87,35 @@ struct SwapBlockchainFeeRow<Value: View>: View {
     }
 
     var body: some View {
-        InsetDetailCell {
+        SwapDetailCell {
             SwapBlockchainFeeLabel(nativeToken: nativeToken, feeDetails: feeDetails)
         } value: {
             value
+        }
+    }
+}
+
+struct SwapDetailCell<Label: View, Value: View>: View {
+    var alignment: VerticalAlignment = .center
+    @ViewBuilder var label: Label
+    @ViewBuilder var value: Value
+
+    var body: some View {
+        InsetCell {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: alignment, spacing: 0) {
+                    label.fixedSize()
+                    Spacer(minLength: 8)
+                    value.fixedSize()
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    label
+                    value
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

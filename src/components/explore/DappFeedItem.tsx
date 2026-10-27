@@ -14,7 +14,7 @@ import dappStyles from '../dapps/Dapp.module.scss';
 import styles from './DappFeed.module.scss';
 
 interface OwnProps {
-  iconUrl: string;
+  iconUrl?: string;
   name: string;
   url: string;
   mode: 'pill' | 'tile';

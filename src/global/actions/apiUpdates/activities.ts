@@ -11,7 +11,7 @@ import {
   MINT_CARD_REFUND_COMMENT,
   MW_CARDS_COLLECTION,
 } from '../../../config';
-import { getIsHiddenNftActivity } from '../../../util/activities';
+import { DNS_TRANSACTION_TYPES, getIsActivityPending, getIsHiddenNftActivity } from '../../../util/activities';
 import { sortActivities } from '../../../util/activities/order';
 import { playIncomingTransactionSound } from '../../../util/notificationSound';
 import { getIsTransactionWithPoisoning, updatePoisoningCacheFromActivities } from '../../../util/poisoningHash';
@@ -38,6 +38,7 @@ import {
   replaceCurrentTransferId,
   replacePendingActivities,
   updateAccountState,
+  updateNft,
   whitelistNft,
 } from '../../reducers';
 import {
@@ -179,8 +180,25 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
         // A subsequent `nftReceived`/`nftSent` socket update or polling round is idempotent here.
         // Ownership changes are applied from oldest to newest, so an NFT received and then sent within
         // one batch ends up not owned.
+        //
+        // The stream repeats already confirmed activities, for example after an account switch. Those have been
+        // applied already, and applying an old transfer again would remove an NFT that has come back since.
         for (const activity of sortActivities(newConfirmedActivities, true)) {
           if (activity.kind !== 'transaction' || !activity.nft) continue;
+
+          const knownActivity = activities?.byId[activity.id];
+          if (knownActivity && !getIsActivityPending(knownActivity)) continue;
+
+          // Renewing a domain or changing its records leaves the domain with the wallet
+          if (DNS_TRANSACTION_TYPES.has(activity.type)) continue;
+
+          // The wallet still owns an NFT on auction, so only its sale state changes
+          if (activity.type === 'nftAuctionStart' || activity.type === 'nftAuctionCancel') {
+            global = updateNft(global, accountId, activity.nft.address, {
+              isOnSale: activity.type === 'nftAuctionStart',
+            });
+            continue;
+          }
 
           // For `nftTrade` (marketplace buy/sell) `isIncoming` reflects the `TONCOIN` direction,
           // not the NFT direction - so it must be inverted here
@@ -201,8 +219,16 @@ addActionHandler('apiUpdate', async (global, actions, update) => {
               }
             }
           } else {
-            // `newOwnerAddress` is `unknown` from the sender's activity; `ownedSet` pruning is the meaningful effect
-            global = applyOutgoingNftFromActivity(global, accountId, activity.nft);
+            // Only NFT polling tells a sale contract from a new owner, so a listing transfer looks like a send here.
+            // An NFT that `nftPutUpForSale` has already marked stays, and a later `nftPutUpForSale` restores a
+            // removed one. A sale (`nftTrade`) removes the NFT even while it is on sale.
+            const isListedNft = activity.type !== 'nftTrade'
+              && selectAccountNftByAddress(global, accountId, activity.nft.address)?.isOnSale;
+
+            if (!isListedNft) {
+              // `newOwnerAddress` is `unknown` from the sender's activity; `ownedSet` pruning is the meaningful effect
+              global = applyOutgoingNftFromActivity(global, accountId, activity.nft);
+            }
           }
         }
 

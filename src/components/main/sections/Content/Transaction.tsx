@@ -92,7 +92,7 @@ const COMMENT_EXTRA_HEIGHT = 2.375; // rem
 const SUBHEADER_RELEASE_HEIGHT = 1.25; // rem
 
 const OUT_TRANSACTION_TYPES = new Set<ApiTransactionType>([
-  undefined, 'unstakeRequest', 'nftTrade', 'auctionBid', 'liquidityDeposit',
+  undefined, 'unstakeRequest', 'nftTrade', 'auctionBid', 'nftAuctionStart', 'nftAuctionCancel', 'liquidityDeposit',
 ]);
 
 const CONTEXT_MENU_VERTICAL_SHIFT_PX = 4;
@@ -288,7 +288,7 @@ function Transaction({
       iconName = 'icon-magic-wand';
     } else if (type === 'burn') {
       iconName = 'icon-fire';
-    } else if (type === 'auctionBid') {
+    } else if (type === 'auctionBid' || type === 'nftAuctionStart' || type === 'nftAuctionCancel') {
       iconName = 'icon-auction-alt';
     } else if (type === 'nftTrade') {
       iconName = isIncoming ? 'icon-tag' : 'icon-purchase';

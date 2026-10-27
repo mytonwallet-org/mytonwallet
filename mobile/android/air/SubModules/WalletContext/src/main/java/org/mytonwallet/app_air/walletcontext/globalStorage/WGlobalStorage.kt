@@ -21,6 +21,7 @@ import org.mytonwallet.app_air.walletcontext.models.MTokenChangeThreshold
 import org.mytonwallet.app_air.walletcontext.models.MWalletCardTopLine
 import org.mytonwallet.app_air.walletcontext.models.MWalletSettingsViewMode
 import org.mytonwallet.app_air.walletcontext.secureStorage.WSecureStorage
+import org.mytonwallet.app_air.walletcontext.utils.normalizeNftAddress
 
 object WGlobalStorage {
     val isInitialized: Boolean
@@ -385,6 +386,23 @@ object WGlobalStorage {
     fun getAssetsAndActivityData(accountId: String): JSONObject? =
         globalStorageProvider.getDict("$ASSETS_AND_ACTIVITY.$accountId")
 
+    fun getDismissedHomeBannerIds(accountId: String): Set<String> {
+        val ids = globalStorageProvider.getArray(
+            "$ASSETS_AND_ACTIVITY.$accountId.dismissedHomeBannerIds"
+        ) ?: return emptySet()
+        return (0 until ids.length()).map { ids.getString(it) }.toSet()
+    }
+
+    fun dismissHomeBanner(accountId: String, id: String) {
+        val ids = getDismissedHomeBannerIds(accountId)
+        if (id in ids) return
+        globalStorageProvider.set(
+            "$ASSETS_AND_ACTIVITY.$accountId.dismissedHomeBannerIds",
+            JSONArray(ids + id),
+            IGlobalStorageProvider.PERSIST_INSTANT
+        )
+    }
+
     fun setAssetsAndActivityData(accountId: String, value: JSONObject) {
         for (key in arrayOf(
             "alwaysHiddenSlugs",
@@ -692,6 +710,9 @@ object WGlobalStorage {
             return Array(it.length()) { index -> it.getString(index) }
         }
     }
+
+    fun getActivityIdsSlugs(accountId: String): Array<String> =
+        globalStorageProvider.keysIn("byAccountId.$accountId.activities.idsBySlug")
 
     fun isHistoryEndReached(accountId: String, tokenSlug: String?): Boolean {
         val key = if (tokenSlug == null) {
@@ -1042,15 +1063,15 @@ object WGlobalStorage {
             ?: return ArrayList()
         return ArrayList(
             List(arr.length()) { i ->
-                arr.getString(i)
-            }
+                normalizeNftAddress(arr.getString(i))
+            }.distinct()
         )
     }
 
     fun setBlacklistedNftAddresses(accountId: String, array: List<String>) {
         globalStorageProvider.set(
             "byAccountId.$accountId.blacklistedNftAddresses",
-            JSONArray(array),
+            JSONArray(array.map(::normalizeNftAddress).distinct()),
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
@@ -1060,15 +1081,15 @@ object WGlobalStorage {
             ?: return ArrayList()
         return ArrayList(
             List(arr.length()) { i ->
-                arr.getString(i)
-            }
+                normalizeNftAddress(arr.getString(i))
+            }.distinct()
         )
     }
 
     fun setWhitelistedNftAddresses(accountId: String, array: List<String>) {
         globalStorageProvider.set(
             "byAccountId.$accountId.whitelistedNftAddresses",
-            JSONArray(array),
+            JSONArray(array.map(::normalizeNftAddress).distinct()),
             IGlobalStorageProvider.PERSIST_NORMAL
         )
     }
@@ -1355,7 +1376,7 @@ object WGlobalStorage {
         )
     }
 
-    private const val LAST_STATE: Int = 61
+    private const val LAST_STATE: Int = 62
 
     fun migrate() {
         // Lock the storage
@@ -1825,6 +1846,11 @@ object WGlobalStorage {
             clearActivities()
         }
 
+        // State 61→62: drop cached activities that no activity list references
+        if (currentState < 62) {
+            removeUnlistedActivities()
+        }
+
         // Update and unlock the storage
         globalStorageProvider.set(STATE_VERSION, LAST_STATE, IGlobalStorageProvider.PERSIST_INSTANT)
         decDoNotSynchronize()
@@ -1974,6 +2000,24 @@ object WGlobalStorage {
             jsonObject,
             IGlobalStorageProvider.PERSIST_INSTANT
         )
+    }
+
+    private fun removeUnlistedActivities() {
+        for (accountId in globalStorageProvider.keysIn("byAccountId")) {
+            val byId = getActivitiesDict(accountId) ?: continue
+            val listedIds = HashSet<String>()
+            getActivityIds(accountId, null)?.let { listedIds.addAll(it) }
+            for (slug in getActivityIdsSlugs(accountId)) {
+                getActivityIds(accountId, slug)?.let { listedIds.addAll(it) }
+            }
+            val listedById = JSONObject()
+            for (id in byId.keys()) {
+                if (id in listedIds) listedById.put(id, byId.get(id))
+            }
+            if (listedById.length() != byId.length()) {
+                setActivitiesDict(accountId, listedById)
+            }
+        }
     }
 
     private fun clearActivities() {

@@ -7,6 +7,7 @@ import WalletContext
 
 public enum EarnInitialAction: Sendable {
     case unstake
+    case stake
 }
 
 
@@ -215,6 +216,10 @@ public class EarnRootVC: WViewController, WSegmentedController.Delegate, Sendabl
         guard isReadyForInitialAction, let initialAction else { return }
         guard let earnVC = selectRequestedToken(allowFallback: false) else { return }
         switch initialAction {
+        case .stake:
+            if earnVC.openStakeFlow(animated: true) {
+                self.initialAction = nil
+            }
         case .unstake:
             if earnVC.openUnstakeFlow(animated: true) {
                 self.initialAction = nil

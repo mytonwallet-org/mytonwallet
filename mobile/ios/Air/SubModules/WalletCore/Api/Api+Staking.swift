@@ -9,6 +9,20 @@ import Foundation
 import WalletContext
 
 extension Api {
+    public static func checkForeignUnstakeDraft(accountId: String, chain: ApiChain, providerName: String) async throws -> ApiForeignUnstakeDraft {
+        try await bridge.callApi("checkForeignUnstakeDraft", accountId, chain, providerName, decoding: ApiForeignUnstakeDraft.self)
+    }
+
+    public static func submitForeignUnstake(accountId: String, chain: ApiChain, providerName: String, draft: ApiForeignUnstakeDraft, enclaveToken: EnclaveToken?) async throws -> ApiMfaProtectedResult {
+        let result = try await bridge.callApi("submitForeignUnstake", accountId, chain, providerName, draft, enclaveToken, decoding: ApiMfaProtectedResult.self)
+        if let error = result.error {
+            throw SdkError.apiReturnedError(error: error, context: result)
+        }
+        guard result.mfaRequestHash != nil || result.activityIds?.isEmpty == false else {
+            throw DisplayError(text: lang("Unexpected Error"))
+        }
+        return result
+    }
     
     public static func checkStakeDraft(accountId: String, amount: BigInt, state: ApiStakingState) async throws -> ApiCheckTransactionDraftResult {
         try await bridge.callApi("checkStakeDraft", accountId, amount, state, decoding: ApiCheckTransactionDraftResult.self)

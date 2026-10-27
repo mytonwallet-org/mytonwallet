@@ -1,3 +1,5 @@
+import type { FetchDemand } from './fetchDemand';
+
 import {
   DEFAULT_ERROR_PAUSE,
   DEFAULT_RETRIES,
@@ -29,6 +31,8 @@ type FetchOptions = {
   timeouts?: number | number[];
   shouldSkipRetryFn?: (message?: string, statusCode?: number) => boolean;
   bucketKey?: string;
+  /** Who waits for the request; an urgent demand moves it ahead of background requests to a throttled provider */
+  demand?: FetchDemand;
 };
 
 const breaker = new CircuitBreaker();
@@ -87,13 +91,33 @@ export function buildRequestUrl(url: string | URL, data?: QueryParams) {
   return urlObject;
 }
 
-export async function fetchJson<T extends AnyLiteral>(
+export function fetchJson(
+  url: string | URL,
+  data: QueryParams | undefined,
+  init: RequestInit | undefined,
+  options: FetchOptions & { shouldReturnText: true },
+): Promise<string>;
+export function fetchJson<T extends AnyLiteral>(
   url: string | URL,
   data?: QueryParams,
   init?: RequestInit,
   options?: FetchOptions,
-): Promise<T> {
+): Promise<T>;
+export async function fetchJson<T extends AnyLiteral>(
+  url: string | URL,
+  data?: QueryParams,
+  init?: RequestInit,
+  options?: FetchOptions & { shouldReturnText?: boolean },
+): Promise<T | string> {
   const response = await fetchWithRetry(buildRequestUrl(url, data), init, options);
+
+  if (options?.shouldReturnText) {
+    if (!response.ok) {
+      throw new ApiServerError(`HTTP Error ${response.status}`, response.status);
+    }
+
+    return response.text();
+  }
 
   return (await response.json()) as T;
 }
@@ -106,6 +130,7 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
     timeouts = DEFAULT_TIMEOUT,
     shouldSkipRetryFn = isTerminalFailure,
     bucketKey = defaultBucketKey(url),
+    demand,
   } = options ?? {};
 
   const method = init?.method ?? 'GET';
@@ -155,7 +180,7 @@ export async function fetchWithRetry(url: string | URL, init?: RequestInit, opti
         // prior attempt would otherwise mislead shouldSkipRetryFn and the breaker verdict
         // into treating a host-health failure as a 4xx success.
         statusCode = undefined;
-        const response = await fetchWithTimeout(url, init, timeout);
+        const response = await fetchWithTimeout(url, init, timeout, demand);
         statusCode = response.status;
 
         if (statusCode >= 400) {
@@ -231,8 +256,13 @@ function buildFetchErrorMessage(
   return parts.join(' | ');
 }
 
-export function fetchWithTimeout(url: string | URL, init?: RequestInit, timeout = DEFAULT_TIMEOUT) {
-  return fetchWithThrottledProvider(url, init, timeout);
+export function fetchWithTimeout(
+  url: string | URL,
+  init?: RequestInit,
+  timeout = DEFAULT_TIMEOUT,
+  demand?: FetchDemand,
+) {
+  return fetchWithThrottledProvider(url, init, timeout, demand);
 }
 
 export async function handleFetchErrors(response: Response, ignoreHttpCodes?: number[]) {

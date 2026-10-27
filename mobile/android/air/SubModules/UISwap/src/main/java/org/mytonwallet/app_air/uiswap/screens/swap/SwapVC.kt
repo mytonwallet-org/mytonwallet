@@ -210,7 +210,7 @@ class SwapVC(
     override fun setupViews() {
         super.setupViews()
 
-        setNavTitle(LocaleController.getString("Swap"))
+        setNavTitle(LocaleController.getString("Trade"))
         setupNavBar(true)
         navigationBar?.addCloseButton()
         if (isAccountSwitchingAllowed()) {
@@ -609,7 +609,7 @@ class SwapVC(
                     showAlert(
                         title = LocaleController.getString("Warning"),
                         text = priceImpactWarningMessage(event.request.dex?.impact),
-                        button = LocaleController.getString("Swap"),
+                        button = LocaleController.getString("Trade"),
                         buttonPressed = {
                             showConfirm(event)
                         },

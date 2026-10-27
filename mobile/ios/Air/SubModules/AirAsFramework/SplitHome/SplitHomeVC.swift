@@ -20,14 +20,18 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
     private let actionsCustomSectionID = "actions"
     private let assetsCustomSectionID = "assets"
     private weak var splitHomeAssetsSectionCell: SplitHomeAssetsSectionCell?
-    private var actionsCustomSectionDescriptor: CustomSectionDescriptor?
-    private var assetsCustomSectionDescriptor: CustomSectionDescriptor?
+    private var actionsCustomSectionDescriptor: SplitHomeRowSection<SplitHomeActionsSectionCell>?
+    private var assetsCustomSectionDescriptor: SplitHomeRowSection<SplitHomeAssetsSectionCell>?
+    private let bannersSection = HomeBannersSection()
     private var actionsLayout: SplitHomeActionsLayout?
 
     override var hideBottomBar: Bool { false }
     override var headerPlaceholderHeight: CGFloat { 0 }
     override var customSections: [any CustomSectionDataProvider] {
-        [actionsCustomSectionDescriptor, assetsCustomSectionDescriptor].compactMap { $0 }
+        let sections: [(any CustomSectionDataProvider)?] = [
+            actionsCustomSectionDescriptor, bannersSection.descriptor, assetsCustomSectionDescriptor,
+        ]
+        return sections.compactMap { $0 }
     }
 
     init(accountSource: AccountSource = .current) {
@@ -64,6 +68,13 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
         setupViews()
         registerForOtherViewControllerAppearNotifications()
         WalletCoreData.add(eventObserver: self)
+        observe { [weak self] in
+            guard let self else { return }
+            let context = AccountContext(accountId: account.id)
+            if bannersSection.update(accountContext: context) {
+                applySnapshot(makeSnapshot(reconfiguringCustomSections: [bannersSection.id]), animatingDifferences: true)
+            }
+        }
         Task {
             await reloadActivityViewModel(accountChanged: true)
         }
@@ -92,6 +103,10 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
         }
         if additionalSafeAreaInsets.top != topInset {
             additionalSafeAreaInsets.top = topInset
+        }
+        if #available(iOS 26, *) {
+            // The empty transparent bar must not blur content occupying its row.
+            collectionView.topEdgeEffect.isHidden = topInset < 0
         }
     }
 
@@ -151,19 +166,13 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
     }
 
     private func configureCustomSections() {
-        let actionsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeActionsSectionCell, Row> { [unowned self] cell, _, _ in
+        actionsCustomSectionDescriptor = SplitHomeRowSection(id: actionsCustomSectionID) { [unowned self] cell in
             cell.backgroundColor = .clear
             cell.configure(layout: currentActionsLayout)
         }
-        actionsCustomSectionDescriptor = CustomSectionDescriptor(id: actionsCustomSectionID, usesInsetGroupedMargins: true) { [unowned self] collectionView, indexPath in
-            collectionView.dequeueConfiguredReusableCell(using: actionsCustomSectionCellRegistration, for: indexPath, item: .custom(actionsCustomSectionID))
-        }
-        let assetsCustomSectionCellRegistration = UICollectionView.CellRegistration<SplitHomeAssetsSectionCell, Row> { [unowned self] cell, _, _ in
+        assetsCustomSectionDescriptor = SplitHomeRowSection(id: assetsCustomSectionID) { [unowned self] cell in
             cell.backgroundColor = .clear
             configureAssetsCustomSection(cell: cell)
-        }
-        assetsCustomSectionDescriptor = CustomSectionDescriptor(id: assetsCustomSectionID, usesInsetGroupedMargins: true) { [unowned self] collectionView, indexPath in
-            collectionView.dequeueConfiguredReusableCell(using: assetsCustomSectionCellRegistration, for: indexPath, item: .custom(assetsCustomSectionID))
         }
     }
 
@@ -358,7 +367,10 @@ final class SplitHomeVC: ActivityListViewController, ActivityListViewModelDelega
     }
 
     override var activeCustomSectionIDs: [String] {
-        account.isView ? [assetsCustomSectionID] : [actionsCustomSectionID, assetsCustomSectionID]
+        var ids = account.isView ? [] : [actionsCustomSectionID]
+        if bannersSection.isVisible { ids.append(bannersSection.id) }
+        ids.append(assetsCustomSectionID)
+        return ids
     }
 }
 

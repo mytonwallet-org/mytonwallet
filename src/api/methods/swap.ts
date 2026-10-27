@@ -2,6 +2,7 @@ import type {
   ApiActivity,
   ApiChain,
   ApiEvmSwapCall,
+  ApiEvmSwapTransactionRequest,
   ApiSubmitGasfullTransferOptions,
   ApiSwapActivity,
   ApiSwapAsset,
@@ -17,6 +18,7 @@ import type {
   ApiWalletByChain,
   OnApiUpdate,
 } from '../types';
+import { SWAP_ROUTERS_UNAVAILABLE_ERROR } from '../types/swap';
 
 import { SWAP_API_VERSION } from '../../config';
 import { buildLocalTxId } from '../../util/activities';
@@ -41,6 +43,7 @@ import {
   swapGetHistoryItem,
   swapItemToActivity,
 } from '../common/swap';
+import { traceSwapQuote } from '../common/swapQuoteTrace';
 import { ApiServerError } from '../errors';
 import { callHook } from '../hooks';
 import { publishSignedMfaRequest, registerMfaConfirmationHandler } from './mfa';
@@ -76,13 +79,14 @@ export async function swapBuildTransfer(
     throw new Error('Unexpected non-DEX response for swapBuildTransfer');
   }
 
-  const { id, transfers, chain, transaction } = buildResponse;
+  const { id, transfers, chain, transaction, transactionRequest } = buildResponse;
 
   const result = await chains[chain].buildOnchainSwapTransfer({
     accountId,
     request,
     transfers,
     transaction,
+    transactionRequest,
     swapId: id,
     authToken,
     enclaveToken,
@@ -100,6 +104,7 @@ export async function swapSubmit(
   isGasless?: boolean,
   transaction?: string,
   calls?: ApiEvmSwapCall[],
+  transactionRequest?: ApiEvmSwapTransactionRequest,
   needsBatch?: boolean,
 ): Promise<{ activityId?: string; mfaRequestHash?: string; swapId: string } | { error: string }> {
   const swapId = historyItem.id;
@@ -131,6 +136,7 @@ export async function swapSubmit(
     enclaveToken,
     transfers,
     transaction,
+    transactionRequest,
     calls,
     needsBatch,
     historyItem,
@@ -295,35 +301,52 @@ export async function swapEstimate(
   accountId: string,
   request: ApiSwapEstimateRequest,
 ): Promise<ApiSwapEstimateResponse> {
-  const account = await fetchStoredAccount(accountId);
-  const walletVersion = account.byChain.ton?.version;
-  const historyAddress = account.byChain.ton?.address;
-  const { swapVersion } = await getBackendConfigCache();
+  return traceSwapQuote(request.fromAmount ? 'exactIn' : 'exactOut', async (stage) => {
+    const account = await fetchStoredAccount(accountId);
+    const walletVersion = account.byChain.ton?.version;
+    const historyAddress = account.byChain.ton?.address;
+    stage('config');
+    const { swapVersion } = await getBackendConfigCache();
 
-  let estimate = await callBackendPost<ApiSwapEstimateResponse>('/swap/estimate', {
-    ...request,
-    swapVersion: swapVersion ?? SWAP_API_VERSION,
-    walletVersion,
-    historyAddress,
-  }, {
-    isAllowBadRequest: true,
+    stage('http');
+    let estimate = await callBackendPost<ApiSwapEstimateResponse>('/swap/estimate', {
+      ...request,
+      swapVersion: swapVersion ?? SWAP_API_VERSION,
+      walletVersion,
+      historyAddress,
+    }, {
+      isAllowBadRequest: true,
+      onHeaders: (status) => stage('body', status),
+    }).catch((error: unknown): ApiSwapEstimateResponse => {
+      // Keep expected quote outages available to every client instead of losing them at the SDK boundary.
+      if (error instanceof ApiServerError && error.statusCode === 503
+        && error.message === SWAP_ROUTERS_UNAVAILABLE_ERROR) {
+        return { error: error.message };
+      }
+      throw error;
+    });
+
+    if (estimate.hint?.type === 'intermediate') {
+      estimate = { ...estimate, hint: { ...estimate.hint, token: getSwapItemSlug(estimate.hint.token) } };
+    }
+
+    if (!('route' in estimate) || estimate.route !== 'dex') {
+      return estimate;
+    }
+
+    const chain = getIsSupportedChain(estimate.chain) ? estimate.chain : getChainBySlug(estimate.from);
+    const sdk = getIsSupportedChain(chain) ? chains[chain] : undefined;
+    // LI.FI sends a direct source-chain transaction unless canonical Permit2 setup is required.
+    // Uniswap's delegate/batch rule does not apply to that transaction request.
+    stage('batch');
+    const needsBatch = estimate.dexRouterLabel === 'lifi'
+      ? !!estimate.needsApprove
+      : sdk
+        ? await sdk.resolveSwapNeedsBatch(accountId, estimate.needsApprove)
+        : !!estimate.needsApprove;
+
+    return { ...estimate, needsBatch };
   });
-
-  if (estimate.hint?.type === 'intermediate') {
-    estimate = { ...estimate, hint: { ...estimate.hint, token: getSwapItemSlug(estimate.hint.token) } };
-  }
-
-  if (!('route' in estimate) || estimate.route !== 'dex') {
-    return estimate;
-  }
-
-  const chain = getIsSupportedChain(estimate.chain) ? estimate.chain : getChainBySlug(estimate.from);
-  const sdk = getIsSupportedChain(chain) ? chains[chain] : undefined;
-  const needsBatch = sdk
-    ? await sdk.resolveSwapNeedsBatch(accountId, estimate.needsApprove)
-    : !!estimate.needsApprove;
-
-  return { ...estimate, needsBatch };
 }
 
 export async function swapBuild(
@@ -356,6 +379,10 @@ export function swapExecute(
 
 export function swapGetAssets(): Promise<ApiSwapAsset[]> {
   return callBackendGet('/swap/assets');
+}
+
+export function swapGetAssetsText(): Promise<string> {
+  return callBackendGet('/swap/assets', undefined, undefined, undefined, { shouldReturnText: true });
 }
 
 export function swapGetPairs(symbolOrTokenAddress: string): Promise<ApiSwapPairAsset[]> {

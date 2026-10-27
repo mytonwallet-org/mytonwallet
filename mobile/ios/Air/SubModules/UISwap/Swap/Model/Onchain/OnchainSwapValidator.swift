@@ -26,12 +26,12 @@ struct OnchainSwapFeeStatus {
         let feeStatus = feeStatus(input: input, swapEstimate: swapEstimate, account: account)
         let notEnoughForFee = swapEstimate.toAmount.value == 0 && !feeStatus.isNativeFeeCovered
         if notEnoughForFee {
-            return .notEnoughToken(sellingToken)
+            return .insufficientFee
         }
 
         if let maxAmount = input.maxAmount, sellingAmount > maxAmount {
             if !feeStatus.isNativeFeeCovered, !feeStatus.explainedFee.isGasless {
-                return sellingToken.isNative ? .insufficientBalance : .notEnoughToken(feeStatus.nativeToken)
+                return .insufficientFee
             }
             return .insufficientBalance
         }
@@ -47,7 +47,7 @@ struct OnchainSwapFeeStatus {
                     break
                 }
             }
-            return sellingToken.isNative ? .insufficientBalance : .notEnoughToken(feeStatus.nativeToken)
+            return .insufficientFee
         }
         return nil
     }

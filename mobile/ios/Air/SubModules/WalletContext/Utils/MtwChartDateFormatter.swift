@@ -17,7 +17,7 @@ public struct MtwChartDateFormatter: Sendable {
         includesTime: Bool,
         referenceDate: Date = Date()
     ) -> String {
-        let isCurrentYear = Calendar.current.isDate(date, equalTo: referenceDate, toGranularity: .year)
+        let isCurrentYear = LocalizationSupport.shared.calendar.isDate(date, equalTo: referenceDate, toGranularity: .year)
         let shouldShowYear = !(omitsCurrentYearInSingleDate && isCurrentYear)
 
         let template: String
@@ -40,9 +40,9 @@ public struct MtwChartDateFormatter: Sendable {
         to endDate: Date,
         referenceDate: Date = Date()
     ) -> String {
-        let sameDay = Calendar.current.isDate(startDate, inSameDayAs: endDate)
+        let sameDay = LocalizationSupport.shared.calendar.isDate(startDate, inSameDayAs: endDate)
         let useYear = rangeAlwaysShowsYear
-            || !Calendar.current.isDate(startDate, equalTo: endDate, toGranularity: .year)
+            || !LocalizationSupport.shared.calendar.isDate(startDate, equalTo: endDate, toGranularity: .year)
 
         if sameDay {
             return singleDateString(
@@ -77,7 +77,7 @@ public struct MtwChartDateFormatter: Sendable {
     private static func formatter(localizedTemplate: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = LocalizationSupport.shared.locale
-        formatter.calendar = Calendar.current
+        formatter.calendar = LocalizationSupport.shared.calendar
         formatter.timeZone = TimeZone.current
         formatter.setLocalizedDateFormatFromTemplate(localizedTemplate)
         return formatter

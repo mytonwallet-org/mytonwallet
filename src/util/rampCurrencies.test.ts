@@ -5,6 +5,7 @@ import {
   getDefaultRampCurrency,
   getEffectiveRampCurrencies,
   getOffRampBaselineCurrencies,
+  getOnRampAddressByChain,
   getOnRampBaselineCurrencies,
   hasEffectiveRampCurrency,
   normalizeAllowedOnOffRampCurrencies,
@@ -77,6 +78,17 @@ describe('ruble chains', () => {
 
   it('has exactly one such chain', () => {
     expect(CHAIN_ORDER.filter((chain) => getChainConfig(chain).canBuyWithCardInRussia)).toEqual(['ton']);
+  });
+});
+
+describe('getOnRampAddressByChain', () => {
+  it('keeps the address of every chain with on-ramp support and no other', () => {
+    const addressByChain = Object.fromEntries(CHAIN_ORDER.map((chain) => [chain, `${chain}-address`]));
+    const supportedChains = CHAIN_ORDER.filter((chain) => getChainConfig(chain).isOnRampSupported);
+
+    expect(getOnRampAddressByChain(addressByChain)).toEqual(
+      Object.fromEntries(supportedChains.map((chain) => [chain, `${chain}-address`])),
+    );
   });
 });
 

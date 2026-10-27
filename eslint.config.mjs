@@ -14,6 +14,7 @@ export default tseslint.config(
     'dev',
     'public',
     'mobile',
+    'maestro',
     'src/lib/big.js/',
     'src/lib/rlottie/rlottie-wasm.js',
     'src/lib/aes-js/index.js',

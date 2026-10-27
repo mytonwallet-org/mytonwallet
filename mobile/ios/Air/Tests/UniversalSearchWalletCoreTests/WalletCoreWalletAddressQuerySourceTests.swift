@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import UniversalSearchCore
 import UniversalSearchWalletCore
+import WalletCore
 import WalletCoreTypes
 
 @MainActor
@@ -105,14 +106,14 @@ struct WalletCoreWalletAddressQuerySourceTests {
         #expect(snapshots.last?.documents.isEmpty == true)
     }
 
-    @Test(arguments: ["mwme.ton", "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"])
+    @Test(arguments: ["mwme.ton", "  MWME.TON  ", "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"])
     func `known wallet identifier is left to the local wallet source`(identifier: String) async throws {
         let recorder = WalletResolutionRecorder(result: .success(.init(
             resolvedAddress: address
         )))
         let source = makeSource(
             recorder: recorder,
-            knownWalletIdentifiers: [identifier.lowercased()]
+            knownAccounts: [makeAccount(domain: "mwme.ton")]
         )
 
         let snapshots = try await collectWalletSnapshots(source.snapshots(
@@ -122,6 +123,78 @@ struct WalletCoreWalletAddressQuerySourceTests {
 
         #expect(snapshots.isEmpty)
         #expect(await recorder.callCount == 0)
+    }
+
+    @Test(arguments: [false, true])
+    func `domain resolving to a saved wallet keeps its identity and ownership`(isView: Bool) async throws {
+        let account = makeAccount(isView: isView)
+        let recorder = WalletResolutionRecorder(result: .success(.init(
+            resolvedAddress: account.firstAddress
+        )))
+        let source = makeSource(recorder: recorder, knownAccounts: [account])
+        let snapshots = try await collectWalletSnapshots(source.snapshots(
+            for: UniversalSearchQuery("alias.ton"),
+            context: context
+        ))
+        let resolved = try #require(snapshots.last)
+        let document = try #require(resolved.documents.first)
+
+        #expect(snapshots.count == 2)
+        #expect(snapshots.first?.documents.first?.attributeValue(
+            for: WalletCoreSearchAttributeKey.isResolvingDomain
+        ) == "true")
+        #expect(document.id == SearchEntityID("wallet:\(account.id)"))
+        #expect(document.attributeValue(for: WalletCoreSearchAttributeKey.accountID) == account.id)
+        #expect(document.attributeValue(for: WalletCoreSearchAttributeKey.isResolvingDomain) == nil)
+        #expect(document.signals.traits.contains(.owned))
+        #expect(!document.signals.traits.contains(.external))
+        #expect(document.signals.traits.contains(.viewOnly) == isView)
+        #expect(await recorder.callCount == 1)
+
+        let local = try await WalletCoreWalletSearchSource(loader: { _ in [account] }).snapshot(for: context)
+        let documents = UniversalSearchCorpus(snapshots: [local, resolved]).documents()
+        #expect(documents.count == 1)
+        #expect(UniversalSearchEngine().search("alias.ton", in: documents).map(\.id) == [document.id])
+        #expect(UniversalSearchEngine().search(account.displayName, in: documents).map(\.id) == [document.id])
+    }
+
+    @Test
+    func `resolved domain prefers a saved wallet over a temporary wallet`() async throws {
+        let account = makeAccount()
+        var temporary = makeAccount(id: "temporary-mainnet", isView: true)
+        temporary.isTemporary = true
+        let recorder = WalletResolutionRecorder(result: .success(.init(resolvedAddress: account.firstAddress)))
+        let snapshots = try await collectWalletSnapshots(makeSource(
+            recorder: recorder,
+            knownAccounts: [temporary, account]
+        ).snapshots(for: UniversalSearchQuery("alias.ton"), context: context))
+
+        #expect(snapshots.last?.documents.first?.attributeValue(
+            for: WalletCoreSearchAttributeKey.accountID
+        ) == account.id)
+    }
+
+    @Test(arguments: ["network", "chain", "address", "temporary", "address-case"])
+    func `unrelated accounts do not capture a resolved domain`(mismatch: String) async throws {
+        let resolvedAddress = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"
+        var account = makeAccount(
+            id: mismatch == "network" ? "saved-testnet" : "saved-mainnet",
+            address: mismatch == "address" ? address : resolvedAddress,
+            chain: mismatch == "chain" ? .solana : .ton
+        )
+        if mismatch == "temporary" { account.isTemporary = true }
+        if mismatch == "address-case" {
+            account.byChain[ApiChain.ton.rawValue]?.address = resolvedAddress.lowercased()
+        }
+        let recorder = WalletResolutionRecorder(result: .success(.init(resolvedAddress: resolvedAddress)))
+        let snapshots = try await collectWalletSnapshots(makeSource(
+            recorder: recorder,
+            knownAccounts: [account]
+        ).snapshots(for: UniversalSearchQuery("alias.ton"), context: context))
+        let document = try #require(snapshots.last?.documents.first)
+
+        #expect(document.signals.traits.contains([.external, .viewOnly]))
+        #expect(document.attributeValue(for: WalletCoreSearchAttributeKey.accountID) == nil)
     }
 
     @Test
@@ -165,14 +238,14 @@ struct WalletCoreWalletAddressQuerySourceTests {
     private func makeSource(
         recorder: WalletResolutionRecorder,
         supportedChains: [ApiChain] = ApiChain.allCases,
-        knownWalletIdentifiers: Set<String> = []
+        knownAccounts: [MAccount] = []
     ) -> WalletCoreWalletAddressQuerySource {
         WalletCoreWalletAddressQuerySource(
             inputLoader: { _ in
                 WalletCoreWalletAddressSearchInput(
                     network: .mainnet,
                     supportedChains: supportedChains,
-                    knownWalletIdentifiers: knownWalletIdentifiers
+                    knownAccounts: knownAccounts
                 )
             },
             resolver: { chain, network, input in
@@ -183,6 +256,21 @@ struct WalletCoreWalletAddressQuerySourceTests {
                 )
             },
             clock: { Date(timeIntervalSince1970: 42) }
+        )
+    }
+
+    private func makeAccount(
+        id: String = "saved-mainnet",
+        address: String = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c",
+        domain: String? = nil,
+        chain: ApiChain = .ton,
+        isView: Bool = false
+    ) -> MAccount {
+        MAccount(
+            id: id,
+            title: "Saved Wallet",
+            type: isView ? .view : .mnemonic,
+            byChain: [chain: AccountChain(address: address, domain: domain)]
         )
     }
 }

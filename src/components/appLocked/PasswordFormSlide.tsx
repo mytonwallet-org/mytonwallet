@@ -51,7 +51,6 @@ function PasswordFormSlide({
       <PasswordForm
         isActive={isActive && !shouldHideBiometrics}
         noAnimatedIcon
-        forceBiometricsInMain
         resetStateDelayMs={PINPAD_RESET_DELAY}
         operationType="unlock"
         containerClassName={buildClassName(styles.passwordFormContent, 'custom-scroll')}

@@ -4,6 +4,7 @@ import { getActions } from '../../../../global';
 import type { DropdownItem } from '../../../ui/Dropdown';
 import { AccountSelectorState } from '../../../../global/types';
 
+import { SENSITIVE_DATA_MASK } from '../../../../config';
 import buildClassName from '../../../../util/buildClassName';
 import { vibrate } from '../../../../util/haptics';
 import { toNativeDigits } from '../../../../util/nativeDigits';
@@ -114,7 +115,7 @@ const AccountSelectorHeader = ({
       >
         <div>{toNativeDigits(lang('$wallets_amount', walletsCount) as string)}</div>
         <div className={styles.totalBalance}>
-          {lang('$total_balance', { balance: isSensitiveDataHidden ? '***' : (totalBalance ?? '0') })}
+          {lang('$total_balance', { balance: isSensitiveDataHidden ? SENSITIVE_DATA_MASK : (totalBalance ?? '0') })}
         </div>
       </Transition>
 

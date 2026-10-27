@@ -73,6 +73,8 @@ function SwapSubmitButton({
 
   const errorMsgByType = {
     [SwapErrorType.UnexpectedError]: lang('Unexpected Error'),
+    [SwapErrorType.QuoteUnavailable]: lang('$swap_quote_unavailable'),
+    [SwapErrorType.ServiceUnavailable]: lang('$swap_service_unavailable'),
     [SwapErrorType.InvalidPair]: lang('Invalid Pair'),
     [SwapErrorType.NotEnoughLiquidity]: lang('Insufficient liquidity'),
     [SwapErrorType.ChangellyMinSwap]: lang('Minimum amount', {

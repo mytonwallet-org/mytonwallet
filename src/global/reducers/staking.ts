@@ -1,5 +1,5 @@
 import type { ApiStakingState } from '../../api/types';
-import type { AccountState, GlobalState } from '../types';
+import type { AccountState, ForeignUnstake, GlobalState } from '../types';
 import { StakingState } from '../types';
 
 import isPartialDeepEqual from '../../util/isPartialDeepEqual';
@@ -23,6 +23,27 @@ export function clearCurrentStaking(global: GlobalState) {
       state: StakingState.None,
     },
   };
+}
+
+export function completeForeignUnstake(global: GlobalState, foreignUnstake: ForeignUnstake): GlobalState {
+  const { accountId, bannerId, draft } = foreignUnstake;
+  const { submittedForeignStakingIds = [] } = selectAccountState(global, accountId) ?? {};
+
+  global = updateAccountState(global, accountId, {
+    submittedForeignStakingIds: [...submittedForeignStakingIds, bannerId],
+  });
+
+  // The user may have closed the staking modal while the transaction was being sent
+  if (global.currentStaking.foreignUnstake !== foreignUnstake) return global;
+
+  // An instant unstake is paid out right away, so the user stays on the stake form to restake the amount
+  return draft!.isInstant
+    ? updateCurrentStaking(global, {
+      state: StakingState.StakeInitial,
+      foreignUnstake: undefined,
+      mfaRequestHash: undefined,
+    })
+    : clearCurrentStaking(global);
 }
 
 export function updateAccountStaking(

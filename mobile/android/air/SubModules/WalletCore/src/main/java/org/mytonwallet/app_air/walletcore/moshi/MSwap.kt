@@ -156,16 +156,41 @@ data class MApiSwapBuildRequest(
     val swapVersion: Int?,
     /** TON address that owns/authenticates the backend swap history row. */
     val historyAddress: String? = null,
+    val toAddress: String? = null,
     val ourFee: String?,
     val dexRouterLabel: String? = null,
     val dieselFee: String?,
     val shouldTryDiesel: Boolean,
     val routes: List<List<JSONObject>>?,
-    val needsBatch: Boolean? = null
+    val needsBatch: Boolean? = null,
+    /** Which side of the trade the user fixed. */
+    val swapMode: MApiSwapMode? = null
 )
+
+@JsonClass(generateAdapter = false)
+enum class MApiSwapMode {
+    @Json(name = "exact_in")
+    EXACT_IN,
+
+    @Json(name = "exact_out")
+    EXACT_OUT
+}
 
 @JsonClass(generateAdapter = true)
 data class MApiEvmSwapCall(val to: String, val value: String? = null, val data: String)
+
+@JsonClass(generateAdapter = true)
+data class MApiEvmSwapTransactionRequest(
+    val from: String,
+    val to: String,
+    val chainId: Int,
+    val data: String,
+    val value: String? = null,
+    val gasPrice: String? = null,
+    val gasLimit: String? = null,
+    val maxFeePerGas: String? = null,
+    val maxPriorityFeePerGas: String? = null
+)
 
 @JsonClass(generateAdapter = true)
 data class MApiSwapBuildResponse(
@@ -173,6 +198,7 @@ data class MApiSwapBuildResponse(
     val transfers: List<MApiSwapTransfer>? = null,
     val chain: MBlockchain? = null,
     val transaction: String? = null,
+    val transactionRequest: MApiEvmSwapTransactionRequest? = null,
     val calls: List<MApiEvmSwapCall>? = null,
     val needsBatch: Boolean? = null,
     val error: String? = null
@@ -230,6 +256,10 @@ data class MApiSwapCexEstimateResponse(
         }
 
     companion object {
+        fun fromRaw(raw: String): MApiSwapCexEstimateResponse? = runCatching {
+            WalletCore.moshi.adapter(MApiSwapCexEstimateResponse::class.java).fromJson(raw)
+        }.getOrNull()
+
         val SERVER_ERRORS_MAP = mapOf(
             "Insufficient liquidity" to SwapErrorType.NotEnoughLiquidity,
             "Tokens must be different" to SwapErrorType.InvalidPair,
@@ -308,6 +338,7 @@ data class MApiSwapHistoryItem(
     val swapFee: BigDecimal,
     val cexLabel: String? = null,
     val status: MApiSwapHistoryItemStatus,
+    val hashes: List<String> = emptyList(),
     val transactionIds: MApiSwapTransactionIds = MApiSwapTransactionIds(),
     val isCanceled: Boolean?,
     val cex: Cex? = null

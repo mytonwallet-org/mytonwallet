@@ -1,4 +1,6 @@
 import ContextMenuKit
+import Kingfisher
+import Photos
 import SwiftUI
 import UIKit
 import UIComponents
@@ -26,6 +28,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
     private let account: MAccount
     private var didAppearOnce = false
     private var pendingSelectionNftId: String?
+    private var isSavingToPhotos = false
     private let sourceContext: SourceContext
 
     public init(accountId: String, source: NftDetailsDataSource, isExpanded: Bool = false) {
@@ -187,6 +190,21 @@ public class NftDetailsVC: NftDetailsBaseVC {
                     let displayNft = NftStore.getNft(accountId: accountId, nftId: nft.id)
                     let isOwned = self.isOwnedByAccount(nft, displayNft: displayNft)
                     var items: [ContextMenuItem] = []
+
+                    if let imageUrl = model.item.imageUrl {
+                        items.append(
+                            .action(
+                                ContextMenuAction(
+                                    title: lang("Save to Photos"),
+                                    icon: .airBundle("MenuSave24"),
+                                    isEnabled: !isSavingToPhotos,
+                                    handler: { [weak self] in
+                                        self?.saveToPhotos(imageUrl: imageUrl)
+                                    }
+                                )
+                            )
+                        )
+                    }
                     
                     if isOwned, nft.isLinkableDns, !nft.isOnSale, accountType != .view {
                         let linkedAddress = accountContext.domains.linkedAddressByAddress[nft.address]?.nilIfEmpty
@@ -341,6 +359,7 @@ public class NftDetailsVC: NftDetailsBaseVC {
                         return
                     }
                     let vc = NftsFullScreenVC(accountSource: .accountId(accountId), filter: .collection(collection))
+                    vc.matchesNftDetailsBackButton = true
                     nc.pushViewController(vc, animated: true)
                 }
             )
@@ -355,6 +374,46 @@ public class NftDetailsVC: NftDetailsBaseVC {
         }
     }
     
+    private func saveToPhotos(imageUrl: URL) {
+        guard !isSavingToPhotos else { return }
+        isSavingToPhotos = true
+
+        Task { [weak self] in
+            guard let self else { return }
+            defer { isSavingToPhotos = false }
+
+            let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+            guard status == .authorized || status == .limited else {
+                showAlert(
+                    title: lang("Permission Denied"),
+                    text: lang("Allow access to Photos in Settings to save NFT images."),
+                    button: lang("Settings"),
+                    buttonPressed: {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    },
+                    secondaryButton: lang("Cancel")
+                )
+                return
+            }
+
+            do {
+                let result = try await KingfisherManager.shared.retrieveImage(with: imageUrl)
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: result.image)
+                }
+                AppActions.showToast(icon: .symbolImage("checkmark"), message: lang("Image Saved"))
+            } catch {
+                showAlert(
+                    title: lang("Error"),
+                    text: lang("Could not save the image. Please try again."),
+                    button: lang("OK")
+                )
+            }
+        }
+    }
+
     private func hideMenuAction(_ nft: ApiNft, title: String, icon: ContextMenuIcon?, hide: Bool) -> ContextMenuAction {
         return ContextMenuAction(
             title: title,

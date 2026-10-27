@@ -31,6 +31,8 @@ const TRANSACTION_TYPE_TITLES: Partial<Record<ApiTransactionType & keyof any, Tr
   mint: ['Minted', 'Minting', '$mint_action'],
   burn: ['Burned', 'Burning', '$burn_action'],
   auctionBid: ['NFT Auction Bid', 'Bidding at NFT Auction', 'NFT Auction Bid '],
+  nftAuctionStart: ['Started Auction', 'Starting Auction', '$start_nft_auction_action'],
+  nftAuctionCancel: ['Cancelled Auction', 'Cancelling Auction', '$cancel_nft_auction_action'],
   dnsChangeAddress: ['Updated Address', 'Updating Address', '$update_address_action'],
   dnsChangeSite: ['Updated Site', 'Updating Site', '$update_site_action'],
   dnsChangeSubdomains: ['Updated Subdomains', 'Updating Subdomains', '$update_subdomains_action'],

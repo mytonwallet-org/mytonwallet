@@ -14,7 +14,7 @@ enum SubmissionFeedback {
         case .partiallyCommitted:
             lang("Action Partially Completed")
         case .indeterminate:
-            lang("Action Status Unknown")
+            lang("Check Your Activity")
         }
     }
 

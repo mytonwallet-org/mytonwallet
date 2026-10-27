@@ -27,7 +27,8 @@ struct NftSendReviewView: View {
                 }
                 NftSendFeeReviewSection(
                     chain: state.chain,
-                    fee: state.fee
+                    fee: state.fee,
+                    isFeeError: state.isFeeError
                 )
                 if state.mode == .send {
                     SendPayloadReviewSection(
@@ -48,6 +49,7 @@ private struct NftSendReviewState {
     let chain: ApiChain
     let nfts: [ApiNft]
     let fee: MFee?
+    let isFeeError: Bool
     let addressViewModel: AddressViewModel
     let isScamRecipient: Bool
     let comment: String
@@ -63,6 +65,7 @@ private struct NftSendReviewState {
             chain = confirmed.chain
             nfts = confirmed.nfts
             fee = confirmed.explainedFee?.realFee
+            isFeeError = false
             addressViewModel = confirmed.addressViewModel
             isScamRecipient = confirmed.isScamRecipient
             comment = confirmed.submission.comment ?? ""
@@ -73,6 +76,7 @@ private struct NftSendReviewState {
             chain = model.configuration.chain
             nfts = model.configuration.nfts
             fee = model.showingFee
+            isFeeError = model.hasInsufficientBalanceError
             addressViewModel = model.addressViewModel
             isScamRecipient = model.isScamRecipient
             comment = model.comment
@@ -85,6 +89,7 @@ private struct NftSendReviewState {
 private struct NftSendFeeReviewSection: View {
     let chain: ApiChain
     let fee: MFee?
+    let isFeeError: Bool
 
     @Dependency(\.tokenStore) private var tokenStore
 
@@ -102,7 +107,7 @@ private struct NftSendFeeReviewSection: View {
                 InsetCell(verticalPadding: 16) {
                     Text(feeText)
                         .textStyle(.calloutEmphasized, content: .technical)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isFeeError ? AnyShapeStyle(Color.air.error) : AnyShapeStyle(.secondary))
                 }
             } header: {
                 Text(lang("Fee"))

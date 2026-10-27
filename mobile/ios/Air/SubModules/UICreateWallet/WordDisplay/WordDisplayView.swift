@@ -69,16 +69,7 @@ struct WordDisplayView: View {
     }
     
     var warning: some View {
-        Text(langMd("$mnemonic_warning"))
-            .textStyle(.body, scaling: .dynamic)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(Color.red)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background {
-                Color.red.opacity(0.08)
-            }
-            .clipShape(.rect(cornerRadius: 16))
+        WarningView(text: lang("$mnemonic_warning"))
             .alert(
                 Text(lang("Security Warning")),
                 isPresented: $showScreenshotWarning,

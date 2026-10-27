@@ -301,6 +301,83 @@ struct SendApiClientTests {
         )
         #expect(request.totalRealFee == 0)
     }
+
+    @Test(arguments: [0, 4])
+    func `NFT software failure preserves accepted transfers and blocks a whole-selection retry`(
+        acceptedCount: Int
+    ) async throws {
+        let activityIds = (0..<acceptedCount).map { "activity-\($0)" }
+        let json = try JSONSerialization.data(withJSONObject: [
+            "error": "PartialTransactionFailure",
+            "activityIds": activityIds,
+        ])
+        let response = try JSONDecoder().decode(ApiSubmitNftTransfersResult.self, from: json)
+        let flow = NftSendFlow(api: NftSendApiClient(
+            checkDraft: { _, _ in throw TestError.unexpectedCall },
+            submit: { _ in response }
+        ))
+
+        let result = await flow.submit(makeNftSubmission(), enclaveToken: nil)
+
+        guard case .resolved(let submission) = result else {
+            Issue.record("Expected a resolved software submission")
+            return
+        }
+        #expect(submission.preventsRetry == (acceptedCount > 0))
+        if acceptedCount > 0 {
+            guard case .partiallyCommitted(let receipt, let remainingWork) = submission else {
+                Issue.record("Expected partial commitment")
+                return
+            }
+            #expect(receipt.activityIds == activityIds)
+            #expect(remainingWork.completedUnitCount == 4)
+            #expect(remainingWork.totalUnitCount == 5)
+        } else {
+            guard case .notCommitted = submission else {
+                Issue.record("Expected an uncommitted refusal")
+                return
+            }
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func `NFT software success and MFA keep their completion paths`(requiresMfa: Bool) async throws {
+        let response = try decodeNftSubmitResult(requiresMfa
+            ? #"{"mfaRequestHash":"request"}"#
+            : #"{"activityIds":["activity"]}"#)
+        let flow = NftSendFlow(api: NftSendApiClient(
+            checkDraft: { _, _ in throw TestError.unexpectedCall },
+            submit: { _ in response }
+        ))
+
+        let result = await flow.submit(makeNftSubmission(), enclaveToken: nil)
+
+        if requiresMfa {
+            guard case .requiresMfa(let payload) = result else {
+                Issue.record("Expected MFA handoff")
+                return
+            }
+            #expect(payload.mfaRequestHash == "request")
+        } else {
+            guard case .resolved(.committed(let receipt)) = result else {
+                Issue.record("Expected committed submission")
+                return
+            }
+            #expect(receipt.activityIds == ["activity"])
+        }
+    }
+}
+
+private func makeNftSubmission() -> NftSendSubmission {
+    NftSendSubmission(
+        accountId: "account",
+        chain: .ton,
+        nfts: (0..<5).map { makeNft(chain: .ton, address: "nft-\($0)") },
+        comment: nil,
+        mode: .send,
+        resolvedAddress: "resolved",
+        totalRealFee: nil
+    )
 }
 
 private func expectTokenDraftResult(

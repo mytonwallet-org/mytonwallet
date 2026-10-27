@@ -53,7 +53,7 @@ public struct TransactionOverviewView: View {
             fractionColor: abs(amount.doubleValue) >= 10 ? .air.secondaryLabel : UIColor.label,
             symbolColor: .air.secondaryLabel
         )
-        .sensitiveData(alignment: .center, cols: 12, rows: 3, cellSize: 11, theme: .adaptive, cornerRadius: 10)
+        .heroSensitiveData()
     }
     
     @ViewBuilder

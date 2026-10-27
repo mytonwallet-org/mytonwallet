@@ -1,4 +1,4 @@
-import Metal
+import MetalKit
 import Testing
 import UIKit
 import WalletContext
@@ -65,6 +65,94 @@ struct TelegramReceiveDiamondTests {
         hero.configure(active: false)
         #expect(hero.hitTest(CGPoint(x: 40, y: 40), with: nil) == nil)
         #expect(diamond.isPaused)
+    }
+
+    @Test @MainActor func expandedHeroDrawsAboveNavigationWithoutMovingItsTouchView() throws {
+        let content = UIViewController()
+        let navigation = UINavigationController(rootViewController: content)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = navigation
+        window.isHidden = false
+        defer { window.isHidden = true }
+        let hero = TelegramDiamondContainerView(size: 80)
+        content.view.addSubview(hero)
+        hero.frame = CGRect(x: 155, y: 110, width: 80, height: 80)
+        window.layoutIfNeeded()
+        hero.layoutIfNeeded()
+        hero.configure(active: true)
+        let center = CGPoint(x: 40, y: 40)
+        let diamond = try #require(hero.hitTest(center, with: nil) as? TelegramDiamondMetalView)
+
+        diamond.setHolding(true, at: CACurrentMediaTime())
+        let surface = try #require(navigation.view.subviews.last as? MTKView)
+        #expect(surface !== diamond)
+        #expect(diamond.superview === hero)
+        #expect(hero.hitTest(center, with: nil) === diamond)
+        #expect(!surface.isUserInteractionEnabled)
+        #expect(surface.accessibilityElementsHidden)
+        #expect(surface.frame == diamond.convert(diamond.bounds, to: navigation.view))
+        #expect(diamond.isPaused && !surface.isPaused)
+        #expect(diamond.alpha == 1)
+        #expect(diamond.layer.mask != nil)
+
+        hero.configure(active: false)
+        #expect(surface.superview == nil)
+        #expect(surface.isPaused)
+        #expect(diamond.isPaused)
+        #expect(diamond.layer.mask == nil)
+        #expect(diamond.frame == hero.bounds)
+    }
+
+    @Test @MainActor func inactiveDrawCallbacksDoNotReconfigureAnotherSurface() throws {
+        let diamond = try #require(TelegramDiamondMetalView(diamond: ()))
+        let window = showInWindow(diamond)
+        defer { window.isHidden = true }
+        diamond.setRestingFrame(CGRect(x: 100, y: 100, width: 80, height: 80), width: 72)
+        diamond.expansionHost = { [weak window] in window?.rootViewController?.view }
+        diamond.configure(active: true)
+
+        // A format outside the renderer's SDR/HDR pair makes surface access observable
+        // even when the test window cannot supply a drawable.
+        let untouchedFormat = MTLPixelFormat.bgra8Unorm_srgb
+        diamond.colorPixelFormat = untouchedFormat
+        diamond.draw(in: diamond)
+        #expect(diamond.colorPixelFormat != untouchedFormat)
+
+        diamond.setHolding(true, at: CACurrentMediaTime())
+        let surface = try #require(window.rootViewController?.view.subviews.last as? MTKView)
+        #expect(surface !== diamond)
+        surface.colorPixelFormat = untouchedFormat
+        diamond.draw(in: diamond)
+        #expect(surface.colorPixelFormat == untouchedFormat)
+        diamond.draw(in: surface)
+        #expect(surface.colorPixelFormat != untouchedFormat)
+
+        diamond.setHolding(false, at: CACurrentMediaTime() - 3)
+        diamond.colorPixelFormat = untouchedFormat
+        diamond.draw(in: surface)
+        #expect(surface.superview == nil)
+        #expect(diamond.colorPixelFormat == untouchedFormat)
+        diamond.draw(in: diamond)
+        #expect(diamond.colorPixelFormat != untouchedFormat)
+        diamond.configure(active: false)
+    }
+
+    @Test @MainActor func snapshotPreparationDoesNotSkipScaleUp() throws {
+        let hero = TelegramDiamondContainerView(size: 80)
+        let window = showInWindow(hero)
+        defer { window.isHidden = true }
+        hero.frame = CGRect(x: 0, y: 0, width: 80, height: 80)
+        hero.layoutIfNeeded()
+        hero.configure(active: true)
+        let diamond = try #require(hero.hitTest(CGPoint(x: 40, y: 40), with: nil) as? TelegramDiamondMetalView)
+        diamond.onPressBegan = {
+            Thread.sleep(forTimeInterval: 0.55)
+        }
+
+        #expect(diamond.accessibilityActivate())
+        diamond.draw()
+        #expect(diamond.grip < 0.1)
+        hero.configure(active: false)
     }
 
     @Test @MainActor func renderAttachmentsFollowDrawableAcrossResizeAndHDRTransitions() throws {

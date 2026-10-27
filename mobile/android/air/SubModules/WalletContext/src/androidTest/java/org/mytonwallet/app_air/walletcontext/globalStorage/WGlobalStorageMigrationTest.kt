@@ -39,6 +39,38 @@ class WGlobalStorageMigrationTest {
     }
 
     @Test
+    fun homeBannerDismissalSurvivesRestartAndRemainsAccountScoped() {
+        val accountId = "0-ton-mainnet"
+        val otherAccountId = "1-ton-mainnet"
+        val bannerId = "foreign-staking:ton"
+        val storage = InMemoryGlobalStorageProvider(JSONObject().put("stateVersion", 61))
+        WGlobalStorage.init(storage)
+        WGlobalStorage.saveAccount(accountId, JSONObject().put("type", "mnemonic"))
+        WGlobalStorage.saveAccount(otherAccountId, JSONObject().put("type", "mnemonic"))
+
+        WGlobalStorage.dismissHomeBanner(accountId, bannerId)
+
+        val restoredStorage = InMemoryGlobalStorageProvider(JSONObject(storage.persistedSnapshot))
+        WGlobalStorage.init(restoredStorage)
+        assertEquals(setOf(bannerId), WGlobalStorage.getDismissedHomeBannerIds(accountId))
+        assertTrue(WGlobalStorage.getDismissedHomeBannerIds(otherAccountId).isEmpty())
+        assertEquals(
+            bannerId,
+            restoredStorage.getArray("settings.byAccountId.$accountId.dismissedHomeBannerIds")
+                ?.getString(0)
+        )
+
+        WGlobalStorage.setAssetsAndActivityData(accountId, JSONObject())
+        WGlobalStorage.clearDownloadedData()
+        assertEquals(setOf(bannerId), WGlobalStorage.getDismissedHomeBannerIds(accountId))
+
+        WGlobalStorage.dismissHomeBanner(otherAccountId, bannerId)
+        WGlobalStorage.removeAccount(accountId)
+        assertTrue(WGlobalStorage.getDismissedHomeBannerIds(accountId).isEmpty())
+        assertEquals(setOf(bannerId), WGlobalStorage.getDismissedHomeBannerIds(otherAccountId))
+    }
+
+    @Test
     fun clearingDownloadedDataPreservesWalletState() {
         val accountId = "0-ton-mainnet"
         val storage = InMemoryGlobalStorageProvider(JSONObject().apply { put("stateVersion", 61) })
@@ -67,6 +99,39 @@ class WGlobalStorageMigrationTest {
         assertEquals(null, storage.getDict("byAccountId.$accountId.activities"))
         assertNotNull(WGlobalStorage.getAccount(accountId))
         assertEquals("dark", storage.getString("settings.theme"))
+    }
+
+    @Test
+    fun migrationDropsActivitiesThatNoListReferences() {
+        val activities = JSONObject().apply {
+            put(
+                "byId",
+                JSONObject().apply {
+                    put("main", JSONObject())
+                    put("slugOnly", JSONObject())
+                    put("orphan", JSONObject())
+                }
+            )
+            put("idsMain", JSONArray().put("main"))
+            put("idsBySlug", JSONObject().put("toncoin", JSONArray().put("slugOnly")))
+        }
+        val storage = InMemoryGlobalStorageProvider(
+            JSONObject().apply {
+                put("stateVersion", 61)
+                put(
+                    "byAccountId",
+                    JSONObject().put(
+                        "0-ton-mainnet",
+                        JSONObject().put("activities", activities)
+                    )
+                )
+            }
+        )
+
+        WGlobalStorage.init(storage)
+
+        val byId = WGlobalStorage.getActivitiesDict("0-ton-mainnet")!!
+        assertEquals(setOf("main", "slugOnly"), byId.keys().asSequence().toSet())
     }
 
     @Test
@@ -123,7 +188,7 @@ class WGlobalStorageMigrationTest {
 
         WGlobalStorage.init(storage)
 
-        assertEquals(60, storage.getInt("stateVersion"))
+        assertEquals(62, storage.getInt("stateVersion"))
         assertEquals("0-ton-mainnet", storage.getString("currentAccountId"))
         assertEquals(
             "EQlegacy",
@@ -211,7 +276,7 @@ class WGlobalStorageMigrationTest {
 
         WGlobalStorage.init(storage)
 
-        assertEquals(60, storage.getInt("stateVersion"))
+        assertEquals(62, storage.getInt("stateVersion"))
         val migratedAccount = WSecureStorage.getAccounts().getJSONObject("stale")
         assertEquals("ton", migratedAccount.getString("type"))
         assertFalse(migratedAccount.has("mnemonicEncrypted"))
@@ -276,6 +341,9 @@ class WGlobalStorageMigrationTest {
 
     private class InMemoryGlobalStorageProvider(private var root: JSONObject) :
         IGlobalStorageProvider {
+        var persistedSnapshot: String = root.toString()
+            private set
+
         var doNotSynchronize = 0
             private set
 
@@ -301,6 +369,9 @@ class WGlobalStorageMigrationTest {
 
         override fun set(key: String, value: Any?, persistInstantly: Int) {
             setValue(key, value)
+            if (persistInstantly == IGlobalStorageProvider.PERSIST_INSTANT) {
+                persistedSnapshot = root.toString()
+            }
         }
 
         override fun set(items: Map<String, Any?>, persistInstantly: Int) {

@@ -249,7 +249,8 @@ private struct AccountButton: View {
                     isReordering: false,
                     showCurrentAccountHighlight: false,
                     addressLineSuffix: incompatibilityText,
-                    isDimmed: incompatibilityText != nil
+                    isDimmed: incompatibilityText != nil,
+                    addressChain: suggestion.selectedChain
                 )
             }
         }

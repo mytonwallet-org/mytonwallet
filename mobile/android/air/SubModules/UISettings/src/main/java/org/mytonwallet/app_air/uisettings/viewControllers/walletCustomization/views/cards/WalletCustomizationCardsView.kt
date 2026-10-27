@@ -54,6 +54,7 @@ open class WalletCustomizationCardsView(
     val scrollListener = object : OnScrollListener() {
         override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
             val center = rv.width / 2
+            if (center <= 0) return
 
             for (i in 0 until rv.childCount) {
                 val child = rv.getChildAt(i) as? WalletCustomizationCardCell ?: continue
@@ -105,7 +106,11 @@ open class WalletCustomizationCardsView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         val w = width
-        if (w <= 0 || w == lastWidth) return
+        if (w <= 0) {
+            lastWidth = 0
+            return
+        }
+        if (w == lastWidth) return
         lastWidth = w
         val newCellWidth = cellWidthFor(w)
         if (newCellWidth != cellWidth) {

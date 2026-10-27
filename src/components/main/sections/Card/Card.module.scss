@@ -7,6 +7,13 @@
 $color-transition: color 300ms;
 $signSizeDiff: 0.375rem;
 
+@mixin card-depth($factor) {
+  // `CardSurface` updates the depth variables on every frame of a press. With `will-change`,
+  // the compositor shifts the element without repainting it on each frame.
+  will-change: transform;
+  transform: translate(calc(var(--card-depth-x, 0px) * #{$factor}), calc(var(--card-depth-y, 0px) * #{$factor}));
+}
+
 .containerWrapper {
   --z-card-decoration: 2;
   --z-card-promo: 3;
@@ -60,6 +67,8 @@ $signSizeDiff: 0.375rem;
   inset-inline-end: 0;
 
   overflow: visible;
+
+  @include card-depth(0.4);
 }
 
 .promoBg,
@@ -122,6 +131,8 @@ $signSizeDiff: 0.375rem;
   overflow: visible;
 
   width: 100%;
+
+  @include card-depth(0.4);
 }
 
 .seasonalValentine {
@@ -136,6 +147,8 @@ $signSizeDiff: 0.375rem;
 
   width: 4.375rem;
   height: 3rem;
+
+  @include card-depth(0.4);
 }
 
 // Covers the card exactly, because `CardTilt` measures the pointer against this box
@@ -164,48 +177,7 @@ $signSizeDiff: 0.375rem;
   height: 100%;
   border-radius: var(--border-radius-card);
 
-  background-clip: border-box, padding-box, padding-box;
-  background-origin: border-box;
-  background-size: cover, cover;
-
-  @include mixins.card-image("../../../../assets/cards/", "card", v.$defaultCardGradient);
-
   @include mixins.transition('transform var(--slide-transition), filter var(--slide-transition) !important');
-
-  // Shows through until the NFT artwork has loaded. Without it the card would fall back to the
-  // default MyTonWallet artwork above, which is the wrong brand for the duration of the load.
-  &:global(.gram) {
-    background-image: v.$gramCardSurface;
-  }
-
-  &:global(.tegro) {
-    @include mixins.card-image("../../../../assets/cards/", "card_tegro", v.$tegroCardGradient);
-  }
-
-  &:global(.red) {
-    @include mixins.card-image("../../../../assets/cards/", "card_red", v.$redCardGradient);
-  }
-
-  &:global(.orange) {
-    @include mixins.card-image("../../../../assets/cards/", "card_orange", v.$orangeCardGradient);
-  }
-
-  &:global(.green) {
-    @include mixins.card-image("../../../../assets/cards/", "card_green", v.$greenCardGradient);
-  }
-
-  &:global(.sea) {
-    @include mixins.card-image("../../../../assets/cards/", "card_sea", v.$seaCardGradient);
-  }
-
-  &:global(.purple) {
-    @include mixins.card-image("../../../../assets/cards/", "card_purple", v.$purpleCardGradient);
-  }
-
-  &:global(.pink) {
-    @include mixins.card-image("../../../../assets/cards/", "card_pink", v.$pinkCardGradient);
-  }
-
 }
 
 .containerInner {
@@ -215,6 +187,9 @@ $signSizeDiff: 0.375rem;
   z-index: var(--z-card-content);
   top: 0;
   inset-inline-start: 0;
+  // Safari flattens the nested press transforms, so the text and its particles get their own layer
+  // to stay above the canvas
+  transform: translateZ(0);
 
   display: flex;
   flex-direction: column;
@@ -241,6 +216,8 @@ $signSizeDiff: 0.375rem;
   --border-radius-value: var(--border-radius-default);
 
   max-height: 3.5rem;
+
+  @include card-depth(1.1);
 
   @include mixins.respond-below(xs) {
     margin-bottom: 0.375rem;
@@ -289,25 +266,6 @@ $signSizeDiff: 0.375rem;
   @include mixins.transition($color-transition);
 }
 
-.iconCaret {
-  position: relative;
-  top: -0.1875rem;
-  inset-inline-start: -0.0625rem;
-  font-size: calc(1.25rem * var(--font-size-scale, 1));
-}
-
-.iconCaretFraction {
-  position: relative;
-  top: -0.125rem;
-
-  margin-left: 0.125rem; // Language-agnostic value - correct as-is
-
-  font-size: calc(1rem * var(--font-size-scale, 1));
-  color: var(--second-text);
-
-  @include mixins.transition($color-transition);
-}
-
 .currencySwitcher {
   cursor: var(--custom-cursor, pointer);
 
@@ -315,12 +273,12 @@ $signSizeDiff: 0.375rem;
 
   direction: ltr;
   unicode-bidi: plaintext;
+  display: inline-block;
 
   white-space: nowrap;
 
   @include mixins.transition(opacity 200ms);
 
-  &:hover,
   &:focus-visible {
     opacity: 0.85;
   }
@@ -340,6 +298,8 @@ $signSizeDiff: 0.375rem;
 .cardAddressContainer {
   height: 1.125rem;
   margin: auto auto 0.75rem;
+
+  @include card-depth(0.8);
 }
 
 .cardAddressSlide {
@@ -447,31 +407,19 @@ $signSizeDiff: 0.375rem;
   line-height: 1;
   color: var(--second-text);
 
+  background-color: transparent;
   outline: none;
 
   -webkit-touch-callout: none;
 
-  @include mixins.transition($color-transition);
+  @include mixins.transition('#{$color-transition}, opacity 150ms');
 
   @include mixins.active-transition-optimization(!important);
 
   &:hover,
   &:focus-visible {
-    color: var(--main-text);
-  }
-
-  &:not(:global(.gradientText)) {
-    background: transparent;
-  }
-
-  &:global(.gradientText) {
-    transition: opacity 150ms;
-
-    &:hover,
-    &:focus-visible {
-      color: var(--second-text);
-      opacity: 0.65;
-    }
+    color: var(--second-text);
+    opacity: 0.8;
   }
 
   @include mixins.respond-below(xs) {
@@ -481,6 +429,10 @@ $signSizeDiff: 0.375rem;
   .icon {
     margin-inline-start: 0.125rem;
   }
+}
+
+.addressStatic {
+  pointer-events: none;
 }
 
 .icon {
@@ -793,19 +745,15 @@ $signSizeDiff: 0.375rem;
   --border-radius-value: var(--border-radius-default);
 
   width: 100% !important;
-}
+  text-align: center;
 
-.blurred {
-  backdrop-filter: blur(10px);
-}
-
-.sensitiveData,
-.sensitiveDataContent {
-  width: 100% !important;
+  @include card-depth(1.1);
 }
 
 .change {
   cursor: var(--custom-cursor, pointer);
+
+  position: relative;
 
   display: inline-flex;
   gap: 0.25rem;
@@ -877,6 +825,9 @@ $signSizeDiff: 0.375rem;
 .iconExpand {
   margin-left: 0.25rem; // Language-agnostic value - correct as-is
   font-size: 0.5rem;
+  color: inherit;
+
+  -webkit-text-fill-color: inherit;
 }
 
 .chainIcon {
@@ -1004,4 +955,52 @@ $signSizeDiff: 0.375rem;
 .borderShine_right::before {
   background-image: radial-gradient(50% 28.86% at 100% 50.19%, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%),
                     linear-gradient(258.65deg, rgba(140, 148, 176, 0.5) 33.29%, rgba(186, 188, 194, 0.85) 48.38%);
+}
+
+.balanceHit {
+  cursor: var(--custom-cursor, pointer);
+
+  position: relative;
+
+  display: inline-block;
+
+  min-width: min(14rem, 100%);
+
+  outline-offset: 0.25rem;
+
+  -webkit-touch-callout: none;
+}
+
+.change::before, .change::after {
+  pointer-events: none;
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  border-radius: inherit;
+}
+
+.change::before {
+  background: linear-gradient(var(--card-glass-angle, 180deg),
+    rgba(255,255,255,0.041) 0%, rgba(255,255,255,0.039603) 8.3333%,
+    rgba(255,255,255,0.035507) 16.6667%, rgba(255,255,255,0.028991) 25%,
+    rgba(255,255,255,0.0205) 33.3333%, rgba(255,255,255,0.010612) 41.6667%,
+    transparent 50%, rgba(0,0,0,0.010353) 58.3333%, rgba(0,0,0,0.02) 66.6667%,
+    rgba(0,0,0,0.028284) 75%, rgba(0,0,0,0.034641) 83.3333%,
+    rgba(0,0,0,0.038637) 91.6667%, rgba(0,0,0,0.04) 100%);
+}
+
+.change::after {
+  padding: var(--card-physical-pixel, 0.5px);
+  background: linear-gradient(var(--card-glass-angle, 180deg),
+    rgba(255,255,255,0.172) -15%, rgba(255,255,255,0.166139) -4.1667%,
+    rgba(255,255,255,0.148956) 6.6667%, rgba(255,255,255,0.121622) 17.5%,
+    rgba(255,255,255,0.086) 28.3333%, rgba(255,255,255,0.044517) 39.1667%,
+    transparent 50%, rgba(0,0,0,0.025882) 60.8333%, rgba(0,0,0,0.05) 71.6667%,
+    rgba(0,0,0,0.070711) 82.5%, rgba(0,0,0,0.086603) 93.3333%,
+    rgba(0,0,0,0.096593) 104.1667%, rgba(0,0,0,0.1) 115%);
+  mask: linear-gradient(#FFF 0 0) content-box, linear-gradient(#FFF 0 0);
+
+  mask-composite: exclude;
 }

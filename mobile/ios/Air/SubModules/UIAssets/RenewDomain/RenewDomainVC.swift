@@ -14,6 +14,7 @@ public final class RenewDomainVC: WViewController {
     public init(accountSource: AccountSource, nftsToRenew: [String]) {
         self.viewModel = RenewDomainViewModel(accountSource: accountSource, nftsToRenew: nftsToRenew)
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 580, height: min(740, max(420, 250 + CGFloat(nftsToRenew.count) * 80)))
     }
     
     public required init?(coder: NSCoder) {

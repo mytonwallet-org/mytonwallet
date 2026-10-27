@@ -46,12 +46,32 @@ struct MarketSection: Hashable, Identifiable, Sendable {
     let title: String
     let layout: Layout
     let tokens: [MarketToken]
-    let visibleLimit: Int?
-    let showsSeeAll: Bool
+    let mobileLimit: Int?
+    let desktopLimit: Int?
+    let hasMore: Bool
 
-    var visibleTokens: [MarketToken] {
-        guard let visibleLimit, visibleLimit > 0 else { return tokens }
-        return Array(tokens.prefix(visibleLimit))
+    func visibleTokens(columnCount: Int) -> [MarketToken] {
+        guard let limit = visibleLimit(columnCount: columnCount) else { return tokens }
+        return Array(tokens.prefix(limit))
+    }
+
+    func showsSeeAll(columnCount: Int) -> Bool {
+        hasMore || visibleLimit(columnCount: columnCount).map { tokens.count > $0 } == true
+    }
+
+    private func visibleLimit(columnCount: Int) -> Int? {
+        guard layout == .grid else { return mobileLimit }
+        let limit = columnCount > 4 ? desktopLimit ?? mobileLimit : mobileLimit ?? desktopLimit
+        return min(limit ?? columnCount * 2, columnCount * 2)
+    }
+}
+
+enum MarketGridLayout {
+    static func columnCount(availableWidth: CGFloat) -> Int {
+        // Match the web Market grid's 30rem and 35.5rem container breakpoints.
+        if availableWidth >= 568 { return 6 }
+        if availableWidth >= 480 { return 5 }
+        return 4
     }
 }
 
@@ -167,40 +187,45 @@ extension MarketSection {
                 title: lang("Today's Movers"),
                 layout: .largeHorizontal,
                 tokens: movers,
-                visibleLimit: nil,
-                showsSeeAll: false
+                mobileLimit: nil,
+                desktopLimit: nil,
+                hasMore: false
             ),
             MarketSection(
                 id: "popular-tokens",
                 title: lang("Popular Tokens"),
                 layout: .grid,
                 tokens: popular,
-                visibleLimit: nil,
-                showsSeeAll: true
+                mobileLimit: nil,
+                desktopLimit: nil,
+                hasMore: true
             ),
             MarketSection(
                 id: "tokenized-stocks",
                 title: lang("Tokenized Stocks"),
                 layout: .grid,
                 tokens: stocks,
-                visibleLimit: nil,
-                showsSeeAll: true
+                mobileLimit: nil,
+                desktopLimit: nil,
+                hasMore: true
             ),
             MarketSection(
                 id: "tokenized-gold",
                 title: lang("Tokenized Gold"),
                 layout: .rows,
                 tokens: gold,
-                visibleLimit: nil,
-                showsSeeAll: false
+                mobileLimit: nil,
+                desktopLimit: nil,
+                hasMore: false
             ),
             MarketSection(
                 id: "index-funds",
                 title: lang("Index Funds"),
                 layout: .grid,
                 tokens: indices,
-                visibleLimit: nil,
-                showsSeeAll: true
+                mobileLimit: nil,
+                desktopLimit: nil,
+                hasMore: true
             ),
         ]
     }
@@ -226,16 +251,14 @@ enum MarketSectionBuilder {
             case .grid: .grid
             case .rows: .rows
             }
-            let visibleLimit = (section.mobileLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil }
-
             return MarketSection(
                 id: section.id,
                 title: section.title,
                 layout: layout,
                 tokens: tokens,
-                visibleLimit: visibleLimit,
-                showsSeeAll: section.hasMore
-                    || visibleLimit.map { tokens.count > $0 } == true
+                mobileLimit: (section.mobileLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil },
+                desktopLimit: (section.desktopLimit ?? section.limit).flatMap { $0 > 0 ? $0 : nil },
+                hasMore: section.hasMore
             )
         }
     }

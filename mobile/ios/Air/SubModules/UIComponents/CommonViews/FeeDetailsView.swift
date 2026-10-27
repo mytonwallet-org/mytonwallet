@@ -4,17 +4,19 @@ import WalletContext
 
 public struct FeeDetailsView: View {
     
-    ///The token denoting the `token` fields of the `FeeTerms` objects.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The native token used to display the fee amounts.
     private var nativeToken: ApiToken
     private var fee: ExplainedTransferFee
     private var extraContent: AnyView?
     
     private var realAmount: TokenAmount {
-        TokenAmount(fee.realFee?.nativeSum ?? 0, nativeToken)
+        TokenAmount(fee.realFee?.nativeSumOrTerms ?? 0, nativeToken)
     }
     
     private var fullAmount: TokenAmount {
-        TokenAmount(fee.fullFee?.nativeSum ?? 0, nativeToken)
+        TokenAmount(fee.fullFee?.nativeSumOrTerms ?? 0, nativeToken)
     }
     
     private var excessAmount: TokenAmount {
@@ -37,62 +39,75 @@ public struct FeeDetailsView: View {
     public var body: some View {
         VStack(spacing: 24) {
             chart
-            explaination
+            explanation
         }
         .padding(.top, 10)
         .padding(.bottom, 6)
     }
 
     @ViewBuilder
-    var chart: some View {
-        VStack(spacing: 3) {
-            HStack {
-                Text(lang("Final Fee"))
-                    .textStyle(.footnoteStrong)
-                    .foregroundStyle(.tint)
-                
-                Spacer()
-                
-                if showExcess {
-                    Text(lang("Excess"))
-                        .textStyle(.footnoteStrong)
-                        .foregroundColor(.green)
+    private var chart: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            stackedChart
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 4) {
+                    finalFeeSegment(singleLine: true)
+                    if showExcess { excessSegment(singleLine: true) }
                 }
+                stackedChart
             }
-            .padding(.horizontal, 12)
-            
-            HStack(spacing: 3) {
-                Text(amount: realAmount, format: .init(preset: .fee, precision: fee.realFee?.precision))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: true)
-                    .padding(.vertical, 11)
-                    .padding(.horizontal, 12)
-                    
-                    .padding(.trailing, 3) // visually balance ~
-                    .frame(maxWidth: realLargerThanExcess ? .infinity : nil, alignment: .leading)
-                    .background(Color.accentColor)
-                    .clipShape(.rect(cornerRadius: 4))
-                
-                if showExcess {
-                    Text(amount: excessAmount, format: .init(preset: .fee, precision: .approximate))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: true)
-                        .padding(.vertical, 11)
-                        .padding(.horizontal, 12)
-                        
-                        .frame(maxWidth: realLargerThanExcess ? nil : .infinity, alignment: .trailing)
-                        .background(Color.green)
-                        .clipShape(.rect(cornerRadius: 4))
-                }
-            }
-            .clipShape(.rect(cornerRadius: 8))
-            .textStyle(.bodyStrong, content: .technical)
-            .foregroundColor(.white)
         }
     }
 
+    private var stackedChart: some View {
+        VStack(spacing: 12) {
+            finalFeeSegment(singleLine: false)
+            if showExcess { excessSegment(singleLine: false) }
+        }
+    }
+
+    private func finalFeeSegment(singleLine: Bool) -> some View {
+        feeSegment(
+            title: lang("Final Fee"), amount: realAmount, precision: fee.realFee?.precision,
+            color: .accentColor, alignment: .leading, singleLine: singleLine,
+            expands: !singleLine || !showExcess || realLargerThanExcess
+        )
+    }
+
+    private func excessSegment(singleLine: Bool) -> some View {
+        feeSegment(
+            title: lang("Excess"), amount: excessAmount, precision: .approximate,
+            color: .green, alignment: singleLine ? .trailing : .leading,
+            singleLine: singleLine, expands: !singleLine || !realLargerThanExcess
+        )
+    }
+
+    private func feeSegment(
+        title: String, amount: TokenAmount, precision: MFee.FeePrecision?, color: Color,
+        alignment: HorizontalAlignment, singleLine: Bool, expands: Bool
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 4) {
+            Text(title)
+                .textStyle(.footnoteStrong, scaling: .dynamic)
+                .foregroundStyle(color)
+                .fixedSize(horizontal: singleLine, vertical: true)
+                .padding(.horizontal, 12)
+            Text(amount: amount, format: .init(preset: .fee, precision: precision))
+                .textStyle(.bodyStrong, content: .technical, scaling: .dynamic)
+                .foregroundStyle(.white)
+                .lineLimit(singleLine ? 1 : nil)
+                .fixedSize(horizontal: singleLine, vertical: true)
+                .padding(.vertical, 11)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: expands ? .infinity : nil, alignment: alignment == .leading ? .leading : .trailing)
+                .background(color, in: .rect(cornerRadius: 12))
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     @ViewBuilder
-    var explaination: some View {
+    private var explanation: some View {
         VStack(alignment: .leading, spacing: 12) {
             fullFeeExplanation
                 .fixedSize(horizontal: false, vertical: true)
@@ -103,7 +118,6 @@ public struct FeeDetailsView: View {
             }
         }
         .textStyle(.body, scaling: .dynamic)
-        .padding(.horizontal, 12)
     }
 
     private var fullFeeExplanation: Text {
@@ -113,13 +127,27 @@ public struct FeeDetailsView: View {
             roundHalfUp: true,
             precision: precision
         )
-        if !showExcess {
-            let explanation = L10n.dappReturnDetails(feeAmount: "**\(fullAmountText)**", receivedAmount: "")
-            let firstParagraph = explanation.components(separatedBy: "\n\n").first ?? explanation
-            return Text(LocalizedStringKey(firstParagraph))
+        let explanation: String
+        if showExcess {
+            explanation = L10n.feeDetails(fullFee: fullAmountText, excessSymbol: nativeToken.symbol, chainName: nativeToken.chain.title)
+        } else {
+            let paragraphs = L10n.dappReturnDetails(feeAmount: fullAmountText, receivedAmount: "")
+            explanation = paragraphs.components(separatedBy: "\n\n").first ?? paragraphs
         }
+        var attributed = (try? AttributedString(markdown: explanation, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(explanation)
+        // Style the amount after parsing so RTL direction marks cannot break Markdown delimiters.
+        if let range = attributed.range(of: fullAmountText) {
+            attributed[range].inlinePresentationIntent = .stronglyEmphasized
+        }
+        return Text(attributed)
+    }
+}
 
-        let explanation = L10n.feeDetails(fullFee: "**\(fullAmountText)**", excessSymbol: nativeToken.symbol, chainName: nativeToken.chain.title)
-        return Text(LocalizedStringKey(explanation))
+public extension WViewController {
+    func showFeeDetails(nativeToken: ApiToken, fee: ExplainedTransferFee, extraContent: AnyView? = nil) {
+        guard fee.supportsLegacyDetailsView else { return }
+        showTip(title: lang("Blockchain Fee Details"), wide: true) {
+            FeeDetailsView(nativeToken: nativeToken, fee: fee, extraContent: extraContent)
+        }
     }
 }

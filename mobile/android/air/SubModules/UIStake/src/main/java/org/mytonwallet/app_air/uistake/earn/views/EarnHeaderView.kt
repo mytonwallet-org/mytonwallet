@@ -70,7 +70,13 @@ class EarnHeaderView(
 
     private val amountTextView = WSensitiveDataContainer(
         WLabel(context),
-        WSensitiveDataContainer.MaskConfig(16, 4, Gravity.CENTER, protectContentLayoutSize = false)
+        WSensitiveDataContainer.MaskConfig(
+            16,
+            4,
+            Gravity.CENTER,
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(182f, 42f, softwareSnapshot = true)
+        )
     ).apply {
         id = generateViewId()
         layoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
@@ -81,6 +87,7 @@ class EarnHeaderView(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f)
         }
         setOnClickListener {
+            if (revealHeroLocally()) return@setOnClickListener
             if (WGlobalStorage.getIsSensitiveDataProtectionOn()) {
                 WGlobalStorage.toggleSensitiveDataHidden()
             }

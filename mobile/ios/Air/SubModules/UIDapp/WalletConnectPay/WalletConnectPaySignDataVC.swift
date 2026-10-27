@@ -25,6 +25,7 @@ final class WalletConnectPaySignDataVC: WViewController, UISheetPresentationCont
         self.onCancel = onCancel
         self._account = AccountContext(accountId: update.accountId)
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 580, height: 520)
     }
 
     required init?(coder: NSCoder) {

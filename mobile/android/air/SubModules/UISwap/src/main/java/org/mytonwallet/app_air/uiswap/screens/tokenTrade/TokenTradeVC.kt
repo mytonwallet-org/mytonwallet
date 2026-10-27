@@ -473,7 +473,7 @@ class TokenTradeVC(context: Context, token: MApiSwapAsset, direction: TokenTrade
                     showAlert(
                         title = LocaleController.getString("Warning"),
                         text = priceImpactWarningMessage(event.request.dex?.impact),
-                        button = LocaleController.getString("Swap"),
+                        button = LocaleController.getString("Trade"),
                         buttonPressed = { showConfirm(event) },
                         secondaryButton = LocaleController.getString("Cancel"),
                         primaryIsDanger = true

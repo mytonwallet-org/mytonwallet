@@ -58,6 +58,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
     private var isLottiePlaybackEnabled = false
+    private var isSelectedTileVisible = true
 
     private let thumbnailDownloader: ImageDownloader
     private let colorResolver: NftDetailsColorResolver
@@ -202,6 +203,7 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
             cell.tile.thumbnailDownloader = self.thumbnailDownloader
             cell.tile.colorResolver = self.colorResolver
             cell.tile.configure(with: model, tileCornerRadius: self.tileCornerRadius)
+            cell.tile.alpha = model.id == self.selectedModelId && !self.isSelectedTileVisible ? 0 : 1
         }
         
         dataSource = UICollectionViewDiffableDataSource<Section, Item>(collectionView: collectionView) { collectionView, indexPath, itemIdentifier in
@@ -354,8 +356,9 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     /// Re-scroll when the orthogonal scroll view's offset does not match `selectedIdx`
     /// (inset/content size can settle one layout pass later than the first `scrollTo`).
     private func syncScrollPositionToSelectionIfNeeded() {
-        guard bounds.width > 0,
-              let sv = internalScrollView,
+        guard userImpact == nil, !isExternalDriving, externalDrivenIndex == nil,
+              bounds.width > 0,
+              let sv = internalScrollView, !sv.isTracking, !sv.isDragging, !sv.isDecelerating,
               let selectedModelId,
               dataSource.snapshot().numberOfItems > 0,
               let indexPath = dataSource.indexPath(for: .coverFlowItem(modelId: selectedModelId))
@@ -423,7 +426,17 @@ class _CoverFlowView: UIView, UIScrollViewDelegate {
     }
     
     func setSelectedTileVisible(_ visible: Bool) {
+        isSelectedTileVisible = visible
         currentActiveCoverFlowTile()?.alpha = visible ? 1 : 0
+    }
+
+    func takeSelectedLottieViewer() -> NftDetailsLottieViewer? {
+        currentActiveCoverFlowTile()?.takeLottieViewer()
+    }
+
+    func restoreSelectedLottieViewer(from preview: NftDetailsItemPreview) {
+        guard let tile = currentActiveCoverFlowTile(), let viewer = preview.takeLottieViewer() else { return }
+        tile.adoptLottieViewer(viewer)
     }
 
     func setLottiePlaybackEnabled(_ isEnabled: Bool) {
@@ -496,7 +509,7 @@ extension _CoverFlowView: NftDetailsItemCoverFlowTileDelegate {
     }
 
     func nftDetailsItemCoverFlowTileGetActiveState(_ tile: NftDetailsItemCoverFlowTile) -> Bool {
-        isActive && isLottiePlaybackEnabled
+        isActive && isLottiePlaybackEnabled && isSelectedTileVisible && tile.alpha > 0
     }
 }
     

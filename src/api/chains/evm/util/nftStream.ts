@@ -5,6 +5,7 @@ import type { EvmNftTransferEvent } from '../types';
 
 import { createCallbackManager } from '../../../../util/callbacks';
 import { logDebug } from '../../../../util/logs';
+import { normalizeNftAddress } from '../../../../util/nft';
 import { FallbackPollingScheduler } from '../../../common/polling/fallbackPollingScheduler';
 import { fetchNftByAddress, streamAllAccountNfts } from '../nfts';
 import { getAlchemySocket } from './socket';
@@ -106,7 +107,7 @@ export class NftStream {
       return;
     }
 
-    const nftAddress = `${contractAddress}/${tokenId}`;
+    const nftAddress = normalizeNftAddress(`${contractAddress}/${tokenId}`);
 
     if (from === ourAddress) {
       this.#updateListeners.runCallbacks({

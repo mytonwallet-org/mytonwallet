@@ -50,8 +50,8 @@ struct ConfirmedNftSend: Sendable {
 
     func submit(
         enclaveToken: EnclaveToken?
-    ) async throws -> SendSubmissionResult {
-        try await flow.submit(
+    ) async -> SoftwareSubmission<SendSubmissionResult> {
+        await flow.submit(
             submission,
             enclaveToken: enclaveToken
         )

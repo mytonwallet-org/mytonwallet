@@ -9,6 +9,7 @@ struct SwapCexDetailsView: View {
     var inputModel: SwapInputModel
     var swapEstimate: ApiSwapCexEstimateResponse?
     var swapType: SwapType
+    var isFeeError: Bool
     
     var sellingToken: ApiToken? { inputModel.sellingToken }
     var buyingToken: ApiToken? { inputModel.buyingToken }
@@ -48,9 +49,14 @@ struct SwapCexDetailsView: View {
     
     var body: some View {
         WithPerceptionTracking {
-            SwapDetailsContainer(isExpanded: $isExpanded) {
-                pricePerCoinRow
-                blockchainFeeRow
+            if exchangeRate != nil || feeDetails != nil {
+                SwapDetailsContainer(isExpanded: $isExpanded) {
+                    pricePerCoinRow
+                    blockchainFeeRow
+                }
+                .transition(.opacity)
+                .onAppear { if isFeeError { isExpanded = true } }
+                .onChange(of: isFeeError) { if $0 { isExpanded = true } }
             }
         }
     }
@@ -67,10 +73,11 @@ struct SwapCexDetailsView: View {
                 FeeView(
                     token: sellingToken,
                     nativeToken: nativeToken,
-                    fee: feeDetails.realFee ?? feeDetails.fullFee,
+                    fee: isFeeError ? feeDetails.fullFee : feeDetails.realFee ?? feeDetails.fullFee,
                     explainedTransferFee: feeDetails,
                     includeLabel: false,
-                    showDetailsButton: false
+                    showDetailsButton: false,
+                    isError: isFeeError
                 )
             }
         }

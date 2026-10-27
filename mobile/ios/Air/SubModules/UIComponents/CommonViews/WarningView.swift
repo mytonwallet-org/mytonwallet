@@ -54,19 +54,14 @@ public struct WarningView: View {
         .multilineTextAlignment(.leading)
         .foregroundStyle(kind.color)
         .font13()
-//            .font14h18()
         .padding(.bottom, 2)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(kind.color)
-                .frame(width: 4)
+        .background {
+            WarningBackground(color: kind.color)
         }
-        .background(kind.color.opacity(0.1))
-        .clipShape(.rect(cornerRadius: 10))
     }
 
     private var textContent: some View {
@@ -93,7 +88,7 @@ public struct WarningView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .fixedSize(horizontal: true, vertical: false)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

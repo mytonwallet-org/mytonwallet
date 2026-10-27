@@ -117,6 +117,7 @@ $logout_selected_wallets_warning: 這將從應用中移除所選的錢包。
 $logout_all_wallets_warning: 這將從應用中移除所有錢包。
 $secret_words_backup_reminder: 請確保已備份您的**密語**。
 $all_secret_words_backup_reminder: 請確保已備份您所有的**密語**。
+$secret_word_input_aria_label: "密語 %number%"
 Create Deposit Link: 建立存款連結
 $receive_invoice_description: 您可以指定付款金額和地址來節省發送人的一些時間。
 Amount: 數量
@@ -244,6 +245,11 @@ Dark: 暗色模式
 System: 系統
 $stake_asset: 質押 %symbol%
 Add Stake: 新增質押
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% 鎖定在其他質押中"
+"Unstake them to restake with **higher returns**.": "解除質押後重新質押，獲得**更高收益**。"
+"💎 More profitable staking available": "💎 有收益更高的質押方案"
+"Tap to restake your %symbol% with higher returns.": "點擊重新質押您的 %symbol%，獲得更高收益。"
+"Restake Now": "立即重新質押"
 Earn from your tokens while holding them: 持有 %symbol% 即可賺取收益
 Current APY: 當前年化收益率
 Est. Yearly Earnings: 預計年收益
@@ -284,15 +290,15 @@ The network fee has slightly changed, try sending again.: 網路費略有變化�
 Transfer was unsuccessful. Try again later.: 轉帳未成功，請稍後再試。
 Action Partially Completed: 操作部分完成
 $action_partially_completed_description: "已完成 %completed% 項操作，共 %total% 項。其餘操作未完成。再次嘗試前，請檢查您的活動記錄。"
-Action Status Unknown: 操作狀態未知
-$action_status_unknown_description: "無法驗證操作是否完成。重試前請檢查您的活動記錄和餘額；立即重試可能會導致操作被提交兩次。"
+Check Your Activity: 檢查交易紀錄
+$action_status_unknown_description: "您的請求可能已經完成。重試前請檢查交易紀錄和餘額，以免重複傳送。"
 $action_will_continue_in_background: 操作將在背景繼續。
 Invalid amount: 無效金額
 Invalid address: 無效地址
 Domain is not connected to a wallet: 域名未與錢包連結
 Unexpected error: 未知錯誤
 Unexpected Error: 未知錯誤
-Earn: 赚取
+Earn: 賺取
 Earning: 賺取中
 You can save this address for quick access while sending.: 您可以保存此地址以便在發送時快速訪問。
 Stake Again: 再次質押
@@ -406,7 +412,7 @@ Blockchain Fee: 區塊鏈費用
 Included: 包括
 Price Impact: 價格影響
 Minimum Received: 最低接收數量
-Slippage: 下單誤差
+Slippage: 滑點
 $swap_from_to: 兌換 %from% %icon% %to%
 The exchange rate is below market value!: 匯率低於市場價值 %value%！
 Invalid Pair: 無法交換
@@ -416,10 +422,11 @@ $swap_minimum_received_tooltip1: 這是您從此次交換中可能獲得的最�
 $swap_minimum_received_tooltip2: 這是預期的最低值，但如果在處理您的交換時條件發生很大變化，最終金額可能會較少。
 $swap_price_impact_tooltip1: 這顯示了您的交易可能對代幣價格造成的影響。
 $swap_price_impact_tooltip2: 大型交易可能會使價格上漲或下跌得更多。較低的值通常較好。
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: 滑點是指交易執行期間價格變動導致的預期成交價與實際成交價之間的差額。
 $swap_slippage_tooltip1: 設置此值可以允許價格在進行交換前發生變化的程度。
 $swap_slippage_tooltip2: 如果在處理您的交換時，價格變化超過此值，您的訂單將被取消。
-Slippage not specified: 未指定下單誤差
-Slippage too high: 下單誤差過高
+Slippage not specified: 未指定滑點
+Slippage too high: 滑點過高
 Not Enough %symbol%: "%symbol% 不足"
 Use Responsibly: 負責任地使用
 $auth_responsibly_description1: |
@@ -444,6 +451,8 @@ Swap Again: 再次進行交換
 Terms of Use: 使用條款
 Privacy Policy: 隱私政策
 Insufficient liquidity: 流動性不足
+$swap_quote_unavailable: 暫無報價
+$swap_service_unavailable: 暫時無法兌換
 This address is new and never received transfers before.: 這個地址是新的，以前從未收到過轉帳。
 Create Backup: 建立備份
 Sending: 傳送
@@ -657,6 +666,11 @@ $dapp_liquid_staking_vote_payload: 對提案 %votingAddress% 投票“%vote%”
 $dapp_single_nominator_change_validator_payload: 將 SingleNominator 質押合約驗證器的位址改為 %address%
 $dapp_single_nominator_withdraw_payload: 從 SingleNominator 質押合約中提取 %amount%
 $dapp_vesting_add_whitelist_payload: 將%address%加入歸屬錢包白名單
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: 時間同步問題。 請確保您設備的時間設定正確。
 Data Copied: 資料被複製
 URL Copied: URL Copied
@@ -917,6 +931,12 @@ Bounced: 被退回
 Bouncing: 反彈中
 $bounce_action: 反彈
 NFT Auction Bid: NFT 拍賣出價
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: NFT 拍賣中出價
 Buying NFT: 正在購買 NFT
 Bought NFT: 已購買NFT
@@ -2054,3 +2074,9 @@ Hold to enlarge. Drag to rotate.: 按住可放大，拖曳可旋轉。
 "Max": "最大"
 Explorer mode: 瀏覽器模式
 Open a link to a wallet, transfer, token or collectible to see its details here.: 開啟錢包、轉帳、代幣或收藏品的連結，即可在此檢視詳情。
+Receiver %blockchain% Address: 接收人%blockchain%地址
+
+Save to Photos: 儲存到照片
+Image Saved: 圖片已儲存
+Allow access to Photos in Settings to save NFT images.: 請在設定中允許取用照片，以儲存 NFT 圖片。
+Could not save the image. Please try again.: 無法儲存圖片。請再試一次。

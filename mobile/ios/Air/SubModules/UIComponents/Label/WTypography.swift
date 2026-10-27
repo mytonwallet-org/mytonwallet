@@ -96,13 +96,13 @@ public enum WTextStyle: Hashable, Sendable {
     case caption2Emphasized
     /// SF Pro 11 pt Semibold. Example: the menu chevron in `SendPayloadInputSection`.
     case caption2Strong
-    /// SF Pro 10 pt Regular. Example: the “Tap to reveal” hint in `ActivityView`.
+    /// SF Pro 10 pt Regular. Example: the “Tap to reveal” hint in `ActivityDetailsView`.
     case micro
     /// SF Pro 9 pt Semibold. Example: the compact label in `NftDomainExpirationBannerView`.
     case compactBadge
     /// SF Pro 10 pt Semibold. Example: the text in `BadgeView`.
     case badge
-    /// SF Pro 10 pt Medium. Example: a compact tab label in `CustomizeAppTabs`.
+    /// SF Pro 10 pt Medium.
     case badgeEmphasized
     /// SF Pro 10 pt Bold. Example: the disclosure chevron in `TokenInfoView`; use with technical content.
     case badgeBold
@@ -141,11 +141,21 @@ public enum WTypography {
         content: WTextContent = .default,
         scaling: WTextScaling = .fixed
     ) -> UIFont {
+        uiFont(style, content: content, scaling: scaling, compatibleWith: nil)
+    }
+
+    public static func uiFont(
+        _ style: WTextStyle,
+        content: WTextContent = .default,
+        scaling: WTextScaling = .fixed,
+        compatibleWith traitCollection: UITraitCollection?
+    ) -> UIFont {
         uiFont(
             style,
             content: content,
             scaling: scaling,
-            language: .current
+            language: .current,
+            compatibleWith: traitCollection
         )
     }
 

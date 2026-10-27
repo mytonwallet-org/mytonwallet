@@ -11,6 +11,7 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
     case tokensTransfer(ApiTokensTransferPayload)
     case tokensTransferNonStandard(ApiTokensTransferNonStandardPayload)
     case unknown(ApiUnknownPayload)
+    case dedustNativeSwap(ApiDedustNativeSwapPayload)
     case tokensBurn(ApiTokensBurnPayload)
     case liquidStakingDeposit(ApiLiquidStakingDepositPayload)
     case liquidStakingWithdrawal(ApiLiquidStakingWithdrawalPayload)
@@ -22,6 +23,11 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
     case singleNominatorChangeValidator(ApiSingleNominatorChangeValidatorPayload)
     case liquidStakingVote(ApiLiquidStakingVotePayload)
     case jettonStakingUnstake(ApiJettonStakePayload)
+    case teleitemStartAuction(ApiTeleitemStartAuctionPayload)
+    case teleitemCancelAuction(ApiTeleitemCancelAuctionPayload)
+    case teleitemDeploy(ApiTeleitemDeployPayload)
+    case teleitemBidInfo(ApiTeleitemBidInfoPayload)
+    case teleitemReturnBid(ApiTeleitemReturnBidPayload)
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -42,6 +48,8 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
             self = .tokensTransferNonStandard(try ApiTokensTransferNonStandardPayload(from: decoder))
         case "unknown":
             self = .unknown(try ApiUnknownPayload(from: decoder))
+        case "dedust:native-swap":
+            self = .dedustNativeSwap(try ApiDedustNativeSwapPayload(from: decoder))
         case "tokens:burn":
             self = .tokensBurn(try ApiTokensBurnPayload(from: decoder))
         case "liquid-staking:deposit":
@@ -64,6 +72,16 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
             self = .liquidStakingVote(try ApiLiquidStakingVotePayload(from: decoder))
         case "jetton-staking:unstake":
             self = .jettonStakingUnstake(try ApiJettonStakePayload(from: decoder))
+        case "teleitem:start-auction":
+            self = .teleitemStartAuction(try ApiTeleitemStartAuctionPayload(from: decoder))
+        case "teleitem:cancel-auction":
+            self = .teleitemCancelAuction(try ApiTeleitemCancelAuctionPayload(from: decoder))
+        case "teleitem:deploy":
+            self = .teleitemDeploy(try ApiTeleitemDeployPayload(from: decoder))
+        case "teleitem:bid-info":
+            self = .teleitemBidInfo(try ApiTeleitemBidInfoPayload(from: decoder))
+        case "teleitem:return-bid":
+            self = .teleitemReturnBid(try ApiTeleitemReturnBidPayload(from: decoder))
         default:
             assertionFailure("Unknown type: \(type)")
             self = .unknown(ApiUnknownPayload(base64: type))
@@ -98,6 +116,9 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
         case .unknown(let payload):
             try container.encode(payload.type, forKey: .type)
             try payload.encode(to: encoder)
+        case .dedustNativeSwap(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
         case .tokensBurn(let payload):
             try container.encode(payload.type, forKey: .type)
             try payload.encode(to: encoder)
@@ -129,6 +150,21 @@ public enum ApiParsedPayload: Equatable, Hashable, Codable, Sendable {
             try container.encode(payload.type, forKey: .type)
             try payload.encode(to: encoder)
         case .jettonStakingUnstake(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
+        case .teleitemStartAuction(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
+        case .teleitemCancelAuction(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
+        case .teleitemDeploy(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
+        case .teleitemBidInfo(let payload):
+            try container.encode(payload.type, forKey: .type)
+            try payload.encode(to: encoder)
+        case .teleitemReturnBid(let payload):
             try container.encode(payload.type, forKey: .type)
             try payload.encode(to: encoder)
         }
@@ -168,6 +204,8 @@ public struct ApiNftOwnershipAssignedPayload: Codable, Equatable, Hashable, Send
     public var nftAddress: String
     public var nft: ApiNft?
     public var comment: String?
+    public var bidAmount: BigInt?
+    public var bidTs: Int?
 }
 
 public struct ApiTokensTransferPayload: Codable, Equatable, Hashable, Sendable {
@@ -197,6 +235,22 @@ public struct ApiTokensTransferNonStandardPayload: Codable, Equatable, Hashable,
 public struct ApiUnknownPayload: Codable, Equatable, Hashable, Sendable {
     public var type: String = "unknown"
     public var base64: String
+}
+
+public struct ApiDedustNativeSwapPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "dedust:native-swap"
+    public var queryId: BigInt
+    public var amount: BigInt
+    public var poolAddress: String
+    public var toSlug: String
+    public var toToken: ApiToken
+    public var minimumAmountOut: BigInt
+    public var recipientAddress: String
+    public var deadline: Int
+
+    public var minimumReceived: TokenAmount {
+        TokenAmount(minimumAmountOut, toToken)
+    }
 }
 
 public struct ApiTokensBurnPayload: Codable, Equatable, Hashable, Sendable {
@@ -278,4 +332,48 @@ public struct ApiJettonStakePayload: Codable, Equatable, Hashable, Sendable {
     public var queryId: BigInt
     public var amount: BigInt
     public var isForce: Bool
+}
+
+public struct ApiTeleitemStartAuctionPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "teleitem:start-auction"
+    public var queryId: BigInt
+    public var nftAddress: String
+    public var nftName: String?
+    public var nft: ApiNft?
+    public var beneficiaryAddress: String
+    public var initialMinBid: BigInt
+    public var maxBid: BigInt
+    public var minBidStep: Int
+    public var minExtendTime: Int
+    public var duration: Int
+}
+
+public struct ApiTeleitemCancelAuctionPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "teleitem:cancel-auction"
+    public var queryId: BigInt
+    public var nftAddress: String
+    public var nftName: String?
+    public var nft: ApiNft?
+}
+
+public struct ApiTeleitemDeployPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "teleitem:deploy"
+    public var tokenName: String
+    public var beneficiaryAddress: String
+    public var initialMinBid: BigInt
+    public var maxBid: BigInt
+    public var minBidStep: Int
+    public var minExtendTime: Int
+    public var duration: Int
+}
+
+public struct ApiTeleitemBidInfoPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "teleitem:bid-info"
+    public var amount: BigInt
+    public var bidTs: Int
+}
+
+public struct ApiTeleitemReturnBidPayload: Codable, Equatable, Hashable, Sendable {
+    public var type: String = "teleitem:return-bid"
+    public var queryId: BigInt
 }

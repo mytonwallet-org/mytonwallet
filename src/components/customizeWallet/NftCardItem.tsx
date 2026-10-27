@@ -1,5 +1,5 @@
 import React, {
-  memo, useLayoutEffect, useMemo, useRef, useState,
+  memo, useLayoutEffect, useMemo, useRef,
 } from '../../lib/teact/teact';
 
 import type { ApiBaseCurrency, ApiCurrencyRates, ApiNft } from '../../api/types';
@@ -10,12 +10,13 @@ import { calculateFullBalance } from '../../util/calculateFullBalance';
 import { getShortCurrencySymbol } from '../../util/formatNumber';
 import { DEFAULT_CARD_ADDRESS } from './constants';
 
+import useCardCustomization from '../../hooks/useCardCustomization';
 import { useDeviceScreen } from '../../hooks/useDeviceScreen';
 import useLastCallback from '../../hooks/useLastCallback';
 import useWindowSize from '../../hooks/useWindowSize';
 import useFontScalePreview from './hooks/useFontScalePreview';
 
-import CustomCardManager from '../main/sections/Card/CustomCardManager';
+import CardArtwork from './CardArtwork';
 
 import styles from './NftCardItem.module.scss';
 
@@ -32,8 +33,7 @@ function NftCardItem({
   card, isSelected, tokens, baseCurrency = 'USD', currencyRates, onClick,
 }: OwnProps) {
   const balanceRef = useRef<HTMLDivElement>();
-  const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
-  const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
+  const { classNames: customCardClassName, withTextGradient } = useCardCustomization(card);
 
   const { isPortrait } = useDeviceScreen();
   const { width: screenWidth } = useWindowSize();
@@ -58,11 +58,6 @@ function NftCardItem({
     onClick(card?.address ?? DEFAULT_CARD_ADDRESS);
   });
 
-  const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
-    setCustomCardClassName(className);
-    setWithTextGradient(hasGradient);
-  });
-
   return (
     <div
       className={buildClassName(
@@ -74,12 +69,7 @@ function NftCardItem({
       tabIndex={0}
     >
       <div className={buildClassName(styles.card, customCardClassName, 'rounded-font')}>
-        <CustomCardManager
-          nft={card}
-          onCardChange={handleCardChange}
-          className={styles.customCardManager}
-          shadowClassName={styles.customCardShadow}
-        />
+        <CardArtwork nft={card} />
         <div className={buildClassName(styles.cardContent, customCardClassName)}>
           <div
             ref={balanceRef}

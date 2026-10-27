@@ -1,15 +1,13 @@
 import type { WebFunnelContext } from './webFunnel';
 
-import {
-  APP_ENV, GLOBAL_STATE_CACHE_KEY, IS_AIR_APP, IS_EXPLORER, IS_EXTENSION, IS_GRAM_WALLET, IS_TELEGRAM_APP,
-} from '../config';
+import { GLOBAL_STATE_CACHE_KEY, IS_AIR_APP, IS_EXPLORER, IS_EXTENSION, IS_TELEGRAM_APP } from '../config';
 import { mutateWebFunnelStorage } from '../api/storages/webFunnel';
 import { getWebFunnelVisitId, isWebFunnelOrigin, WEB_FUNNEL_QUERY } from './webFunnel';
 import { IS_ELECTRON } from './windowEnvironment';
 
 export async function captureBrowserWebFunnel(hasAccounts: boolean): Promise<WebFunnelContext | undefined> {
   if (IS_AIR_APP || IS_EXPLORER || IS_EXTENSION || IS_TELEGRAM_APP || IS_ELECTRON
-    || !isWebFunnelOrigin(location.origin, IS_GRAM_WALLET, APP_ENV)) return undefined;
+    || !isWebFunnelOrigin(location.origin)) return undefined;
   try {
     const context = {
       visitId: getWebFunnelVisitId(location.search),
@@ -30,7 +28,7 @@ export async function captureBrowserWebFunnel(hasAccounts: boolean): Promise<Web
 let retryInstalled = false;
 export function setupWebFunnelRetry(retry: NoneToVoidFunction) {
   if (retryInstalled || IS_AIR_APP || IS_EXPLORER || IS_EXTENSION || IS_TELEGRAM_APP || IS_ELECTRON
-    || !isWebFunnelOrigin(location.origin, IS_GRAM_WALLET, APP_ENV)) return;
+    || !isWebFunnelOrigin(location.origin)) return;
   retryInstalled = true;
   window.addEventListener('online', retry);
   document.addEventListener('visibilitychange', () => {

@@ -22,6 +22,7 @@ public struct ApiNft: Equatable, Hashable, Codable, Sendable {
     public var isOnFragment: Bool?
     public var isTelegramGift: Bool?
     public var isScam: Bool?
+    public var spamInfo: ApiNftSpamInfo?
     public var isUnverified: Bool?
     /// The indexer already serves blurred images for these, so this flag is informational
     public var isNsfw: Bool?
@@ -46,7 +47,8 @@ extension ApiNft {
         self.index = try? container.decode(Int.self, forKey: .index)
         self.ownerAddress = try? container.decodeIfPresent(String.self, forKey: .ownerAddress)
         self.name = try? container.decodeIfPresent(String.self, forKey: .name)
-        self.address = try container.decode(String.self, forKey: .address)
+        let address = try container.decode(String.self, forKey: .address)
+        self.address = chain.isEvm ? address.lowercased() : address
         self.thumbnail = try? container.decode(String.self, forKey: .thumbnail)
         self.image = try? container.decode(String.self, forKey: .image)
         self.description = try? container.decodeIfPresent(String.self, forKey: .description)
@@ -57,6 +59,7 @@ extension ApiNft {
         self.isOnFragment = try? container.decodeIfPresent(Bool.self, forKey: .isOnFragment)
         self.isTelegramGift = try? container.decodeIfPresent(Bool.self, forKey: .isTelegramGift)
         self.isScam = try? container.decodeIfPresent(Bool.self, forKey: .isScam)
+        self.spamInfo = try? container.decodeIfPresent(ApiNftSpamInfo.self, forKey: .spamInfo)
         self.isUnverified = try? container.decodeIfPresent(Bool.self, forKey: .isUnverified)
         self.isNsfw = try? container.decodeIfPresent(Bool.self, forKey: .isNsfw)
         self.metadata = try? container.decodeIfPresent(ApiNftMetadata.self, forKey: .metadata)
@@ -69,7 +72,7 @@ extension ApiNft: Identifiable {
     public var id: String { Self.id(chain: chain, address: address) }
 
     public static func id(chain: ApiChain, address: String) -> String {
-        chain == .ton ? address : "\(chain.rawValue):\(address)"
+        chain == .ton ? address : "\(chain.rawValue):\(chain.isEvm ? address.lowercased() : address)"
     }
 }
 
@@ -77,6 +80,12 @@ extension ApiNft {
     public static let ERROR = ApiNft(index: 0, address: "error_address", thumbnail: "", image: "", isOnSale: false)
 }
 
+
+public struct ApiNftSpamInfo: Equatable, Hashable, Codable, Sendable {
+    public var provider: String
+    public var isSpam: Bool?
+    public var classifications: [String]?
+}
 
 public struct ApiNftMetadata: Equatable, Hashable, Codable, Sendable {
     public var attributes: [ApiNftMetadataAttribute]?

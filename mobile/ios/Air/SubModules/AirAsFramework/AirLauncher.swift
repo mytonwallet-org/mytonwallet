@@ -154,7 +154,9 @@ public class AirLauncher {
         installCurrentAccountTheme()
         window?.updateTheme()
 
-        UIApplication.shared.registerForRemoteNotifications()
+        if !E2EPushPermission.isSuppressed {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
         StartupTrace.mark("airLauncher.remoteNotifications.requested")
         await runtimeCoordinator.walletCoreBootstrapDidFinish()
     }

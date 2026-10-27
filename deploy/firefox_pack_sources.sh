@@ -16,6 +16,7 @@ COPYFILE_DISABLE=1 tar \
   --exclude=./.idea \
   --exclude=./mobile/android \
   --exclude=./mobile/ios \
+  --exclude=./deploy/firefox-review-notes.md \
   "$@" -cvzf /tmp/MyWallet-firefox-sources.tgz ./
 
 mv /tmp/MyWallet-firefox-sources.tgz ./

@@ -2,7 +2,7 @@ import type { ApiDomainData, ApiNetwork, ApiNft } from '../../types';
 import type { TonTransferParams } from './types';
 
 import { parseAccountId } from '../../../util/account';
-import { YEAR } from '../../../util/dateFormat';
+import { HOUR, MINUTE, YEAR } from '../../../util/dateFormat';
 import { split } from '../../../util/iteratees';
 import { logDebugError } from '../../../util/logs';
 import { createTaskQueue } from '../../../util/schedulers';
@@ -19,7 +19,16 @@ import { TON_GAS } from './constants';
 import { checkMultiTransactionDraft, submitMultiTransferWithMfa } from './transfer';
 
 const LINKED_ADDRESS_VERIFICATION_CONCURRENCY = 3;
+// The backend's linked address is the change trigger; the TTL bounds how long stale backend data can hide a chain change
+const LINKED_ADDRESS_VERIFIED_TTL = HOUR;
+const LINKED_ADDRESS_UNVERIFIED_TTL = MINUTE;
 const linkedAddressVerificationQueue = createTaskQueue(LINKED_ADDRESS_VERIFICATION_CONCURRENCY);
+const dnsItemDomainCache = new Map<string, Promise<string | undefined>>();
+const linkedAddressVerificationCache = new Map<string, {
+  linkedAddress: string;
+  verifiedLinkedAddress: string | undefined;
+  checkedAt: number;
+}>();
 
 export async function checkDnsRenewalDraft(accountId: string, nftAddresses: string[]) {
   const account = await fetchStoredChainAccount(accountId, 'ton');
@@ -119,9 +128,7 @@ export async function fetchDomains(accountId: string) {
     const { lastFillUpTime, linkedAddress, nft: rawNft } = data[nftAddress];
     expirationByAddress[nftAddress] = new Date(lastFillUpTime).getTime() + YEAR;
     if (linkedAddress) {
-      const verifiedLinkedAddress = await linkedAddressVerificationQueue.run(
-        () => verifyTonDnsLinkedAddress(network, nftAddress, linkedAddress),
-      );
+      const verifiedLinkedAddress = await verifyTonDnsLinkedAddress(network, nftAddress, linkedAddress);
 
       if (verifiedLinkedAddress) {
         linkedAddressByAddress[nftAddress] = verifiedLinkedAddress;
@@ -142,32 +149,64 @@ export async function fetchDomains(accountId: string) {
 
 async function verifyTonDnsLinkedAddress(network: ApiNetwork, nftAddress: string, linkedAddress: string) {
   try {
-    const domain = await getDnsItemDomain(network, nftAddress);
-    if (!domain) {
-      return undefined;
-    }
-
-    const resolvedLinkedAddress = await resolveAddressByDomain(network, domain);
-
-    if (!resolvedLinkedAddress) {
-      return undefined;
-    }
-
     const normalizedLinkedAddress = toBase64Address(linkedAddress, true, network);
-    const normalizedResolvedLinkedAddress = toBase64Address(resolvedLinkedAddress, true, network);
+    const cacheKey = `${network}:${nftAddress}`;
+    const cached = linkedAddressVerificationCache.get(cacheKey);
+    const ttl = cached?.verifiedLinkedAddress ? LINKED_ADDRESS_VERIFIED_TTL : LINKED_ADDRESS_UNVERIFIED_TTL;
 
-    if (normalizedLinkedAddress !== normalizedResolvedLinkedAddress) {
-      logDebugError('verifyTonDnsLinkedAddress:mismatch', {
-        nftAddress,
-        linkedAddress,
-        resolvedLinkedAddress,
-      });
-      return undefined;
+    if (cached?.linkedAddress === normalizedLinkedAddress && Date.now() - cached.checkedAt < ttl) {
+      return cached.verifiedLinkedAddress;
     }
 
-    return normalizedResolvedLinkedAddress;
+    const verifiedLinkedAddress = await linkedAddressVerificationQueue.run(async () => {
+      const domain = await getCachedDnsItemDomain(network, nftAddress);
+      if (!domain) {
+        return undefined;
+      }
+
+      const resolvedLinkedAddress = await resolveAddressByDomain(network, domain);
+
+      if (!resolvedLinkedAddress) {
+        return undefined;
+      }
+
+      const normalizedResolvedLinkedAddress = toBase64Address(resolvedLinkedAddress, true, network);
+
+      if (normalizedLinkedAddress !== normalizedResolvedLinkedAddress) {
+        logDebugError('verifyTonDnsLinkedAddress:mismatch', {
+          nftAddress,
+          linkedAddress,
+          resolvedLinkedAddress,
+        });
+        return undefined;
+      }
+
+      return normalizedResolvedLinkedAddress;
+    });
+
+    linkedAddressVerificationCache.set(cacheKey, {
+      linkedAddress: normalizedLinkedAddress,
+      verifiedLinkedAddress,
+      checkedAt: Date.now(),
+    });
+
+    return verifiedLinkedAddress;
   } catch (err) {
     logDebugError('verifyTonDnsLinkedAddress', { nftAddress }, err);
     return undefined;
   }
+}
+
+function getCachedDnsItemDomain(network: ApiNetwork, nftAddress: string) {
+  const cacheKey = `${network}:${nftAddress}`;
+  let domainPromise = dnsItemDomainCache.get(cacheKey);
+  if (!domainPromise) {
+    domainPromise = getDnsItemDomain(network, nftAddress).catch((err: unknown) => {
+      dnsItemDomainCache.delete(cacheKey);
+      throw err;
+    });
+    dnsItemDomainCache.set(cacheKey, domainPromise);
+  }
+
+  return domainPromise;
 }

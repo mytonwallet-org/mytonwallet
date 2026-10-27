@@ -15,6 +15,8 @@ import type { ApiActivity } from './activities';
 import type {
   ApiAccountConfig,
   ApiBackendConfig,
+  ApiForeignStakingPromotion,
+  ApiInfoBannerPromotion,
   ApiSwapAsset,
   ApiSwapVersion,
   ApiVestingInfo,
@@ -382,6 +384,13 @@ export type ApiUpdateNftPutUpForSale = {
   type: 'nftPutUpForSale';
   accountId: string;
   nftAddress: string;
+  /**
+   * The current state of the NFT. It restores the NFT if the outgoing activity of the listing transfer has
+   * already removed it.
+   *
+   * Missing when the wallet no longer owns the NFT, for example after a sale.
+   */
+  nft?: ApiNft;
 };
 
 export type ApiNftUpdate = ApiUpdateNftReceived | ApiUpdateNftSent | ApiUpdateNftPutUpForSale;
@@ -465,7 +474,14 @@ export type ApiUpdateRemoveAccounts = {
 export type ApiUpdateAccountConfig = {
   type: 'updateAccountConfig';
   accountId: string;
-  accountConfig: ApiAccountConfig;
+  accountConfig: Omit<ApiAccountConfig, 'infoBanners'>;
+};
+
+export type ApiUpdateAccountBanners = {
+  type: 'updateAccountBanners';
+  accountId: string;
+  homeBanners: ApiInfoBannerPromotion[];
+  stakingBanners: ApiForeignStakingPromotion[];
 };
 
 export type ApiUpdateAccountDomainData = {
@@ -530,6 +546,7 @@ export type ApiUpdate =
   | ApiUpdatingStatus
   | ApiUpdateSettings
   | ApiUpdateRemoveAccounts
+  | ApiUpdateAccountBanners
   | ApiUpdateAccountConfig
   | ApiUpdateAccountDomainData;
 

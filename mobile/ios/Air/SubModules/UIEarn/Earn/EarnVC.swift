@@ -255,6 +255,15 @@ public class EarnVC: WViewController, WSegmentedControllerContent, WSensitiveDat
         return true
     }
 
+    @discardableResult
+    func openStakeFlow(animated: Bool) -> Bool {
+        guard config.canAddStake, accountContext.account.supportsEarn,
+              let stakingState = earnVM.stakingState else { return false }
+        let controller = AddStakeVC(config: config, stakingState: stakingState, accountContext: accountContext)
+        navigationController?.pushViewController(controller, animated: animated)
+        return true
+    }
+
     func stakeUnstakePressed(isStake: Bool) {
         guard !isStake || config.canAddStake else { return }
         if let stakingState = earnVM.stakingState {

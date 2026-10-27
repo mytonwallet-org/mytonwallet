@@ -6,7 +6,7 @@ import { getCurrentAccountIdOrFail, waitLogin } from '../common/accounts';
 import { resolveDappPromise } from '../common/dappPromises';
 import { recordTonConnectEvent as recordTonConnectAnalyticsEvent } from '../methods/analytics';
 import storage from '../storages/extension';
-import { clearCache, openPopupWindow } from './window';
+import { openPopupWindow } from './window';
 
 let onPopupUpdate: OnApiUpdate;
 
@@ -88,10 +88,6 @@ export async function processDeeplink({ url }: {
     url,
     isFromInAppBrowser: true,
   });
-}
-
-export async function flushMemoryCache() {
-  await clearCache();
 }
 
 // Routes the browser-extension page script's TON Connect analytics events to the worker recorder. The in-app

@@ -1,3 +1,4 @@
+import type { FetchDemand } from '../../../../util/fetchDemand';
 import type { ApiNetwork, ApiNft, ApiNftSuperCollection } from '../../../types';
 import type { MetadataMap, NftItemsResponse, NftItemState, NftTransfersResponse } from './types';
 
@@ -15,7 +16,7 @@ export function fetchNftItems(network: ApiNetwork, options: {
   collectionAddress?: string;
   limit?: number;
   offset?: number;
-}) {
+}, demand?: FetchDemand) {
   const { addresses, ownerAddress, collectionAddress, limit, offset } = options;
 
   return callToncenterV3<NftItemsResponse>(network, '/nft/items', {
@@ -26,7 +27,7 @@ export function fetchNftItems(network: ApiNetwork, options: {
     offset,
     // Defaults to `false`, which would drop the NFTs held by a sale contract from the account list
     include_on_sale: true,
-  });
+  }, undefined, demand);
 }
 
 export function fetchNftTransfers(network: ApiNetwork, options: {
@@ -49,18 +50,22 @@ export function fetchNftTransfers(network: ApiNetwork, options: {
   });
 }
 
-export async function fetchNftByAddress(network: ApiNetwork, nftAddress: string): Promise<ApiNft | undefined> {
+export async function fetchNftByAddress(
+  network: ApiNetwork,
+  nftAddress: string,
+  demand?: FetchDemand,
+): Promise<ApiNft | undefined> {
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
-  const { nft_items: items, metadata } = await fetchNftItems(network, { addresses: [nftAddress] });
+  const { nft_items: items, metadata } = await fetchNftItems(network, { addresses: [nftAddress] }, demand);
 
   return items[0] && parseNftItem(network, items[0], metadata, nftSuperCollectionsByCollectionAddress);
 }
 
 /** Loads NFT items in chunks rather than one request per item. The result is indexed by raw NFT addresses. */
-export async function fetchNftsByAddresses(network: ApiNetwork, nftAddresses: string[]) {
+export async function fetchNftsByAddresses(network: ApiNetwork, nftAddresses: string[], demand?: FetchDemand) {
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
   const responses = await Promise.all(split(nftAddresses, NFT_ITEMS_CHUNK_SIZE).map((chunk) => {
-    return fetchNftItems(network, { addresses: chunk, limit: chunk.length });
+    return fetchNftItems(network, { addresses: chunk, limit: chunk.length }, demand);
   }));
 
   const nftsByRawAddress: Record<string, ApiNft> = {};

@@ -15,7 +15,7 @@ export const activeWalletTiming: FallbackPollingOptions = {
   minPollDelay: { focused: SEC, notFocused: 3 * SEC },
   pollingStartDelay: 3 * SEC,
   pollingPeriod: { focused: 3 * SEC, notFocused: 10 * SEC },
-  forcedPollingPeriod: { focused: MINUTE, notFocused: 2 * MINUTE },
+  forcedPollingPeriod: { focused: 5 * MINUTE, notFocused: 5 * MINUTE },
 };
 
 export const inactiveWalletTiming: FallbackPollingOptions = {

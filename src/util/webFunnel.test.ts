@@ -1,4 +1,6 @@
-import { getWebFunnelVisitId, isWebFunnelOrigin } from './webFunnel';
+import type { isWebFunnelOrigin } from './webFunnel';
+
+import { getWebFunnelVisitId } from './webFunnel';
 
 const visitId = '4b1ba9fc-3d32-438e-872a-f2ed83fb375b';
 
@@ -13,6 +15,24 @@ it.each([
 ])('rejects ambiguous or malformed handoff %s', (search) => {
   expect(getWebFunnelVisitId(search)).toBeNull();
 });
+
+async function loadOriginGate(isGram: boolean, env: string) {
+  const previous = { APP_ENV: process.env.APP_ENV, IS_GRAM_WALLET: process.env.IS_GRAM_WALLET };
+  process.env.APP_ENV = env;
+  process.env.IS_GRAM_WALLET = isGram ? '1' : '0';
+  try {
+    let gate!: typeof isWebFunnelOrigin;
+    await jest.isolateModulesAsync(async () => {
+      ({ isWebFunnelOrigin: gate } = await import('./webFunnel'));
+    });
+    return gate;
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
 
 it.each([
   ['https://web.mywallet.io', false, 'production', true],
@@ -32,6 +52,7 @@ it.each([
   ['http://web.mywallet.io', false, 'production', false],
   ['https://web.mywallet.io:1235', false, 'production', false],
   ['http://localhost:1235', false, 'development', false],
-])('gates %s brand=%s env=%s', (origin, isGram, env, expected) => {
-  expect(isWebFunnelOrigin(origin, isGram, env)).toBe(expected);
+])('gates %s brand=%s env=%s', async (origin, isGram, env, expected) => {
+  const isAllowed = await loadOriginGate(isGram, env);
+  expect(isAllowed(origin)).toBe(expected);
 });

@@ -33,8 +33,10 @@ final class HomeCard: UICollectionViewCell {
     private let cardSurface = UIView()
     private lazy var interaction = CardSurfaceInteraction(container: contentView, surface: cardSurface) { [weak self] in
         self?.cardBackground.setLight($0)
+        self?.cardContent.setMotionLight($0, preset: self?.motionPreset)
     }
     private var motionObservation: ObserveToken?
+    private var motionPreset: CardMotionPreset?
     private let cardBackground = HomeCardBackground()
     private let cardPromotion = HomeCardPromotionView()
     var cardContentMaskingContainer: UIView!
@@ -48,6 +50,9 @@ final class HomeCard: UICollectionViewCell {
 
     var observeToken: ObserveToken?
     private var tintObservation: ObserveToken?
+    private var accessibilityObservation: ObserveToken?
+    private var appliedHeaderState: HomeHeaderState?
+    private var balanceAnimationDeadline: CFTimeInterval = 0
 
     override init(frame: CGRect) {
         super.init(frame: .zero)
@@ -59,6 +64,10 @@ final class HomeCard: UICollectionViewCell {
     }
 
     func setup() {
+        interaction.onPlayTouch = { [weak self] point in
+            guard let self else { return }
+            cardContent.setParticleInteractionPoint(point, from: contentView)
+        }
         let layout = container.layout
         widthConstraint = contentView.widthAnchor.constraint(equalToConstant: layout.itemWidth)
         heightConstraint = contentView.heightAnchor.constraint(equalToConstant: layout.itemHeight).withPriority(.defaultHigh)
@@ -162,26 +171,102 @@ final class HomeCard: UICollectionViewCell {
         interaction.setActive(false)
         self.container.headerViewModel = headerViewModel
         self.container.accountContext = accountContext
-        motionObservation = observe { [weak self] in
-            self?.interaction.setActive(headerViewModel.allowsCardEffects(for: accountContext.account.id))
-        }
         cardBackground.configure(headerViewModel: headerViewModel, accountContext: accountContext)
         miniatureContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
         cardPromotion.configure(headerViewModel: headerViewModel, accountContext: accountContext)
         cardContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
         collapsedContent.configure(headerViewModel: headerViewModel, accountContext: accountContext)
+        motionObservation = observe { [weak self] in
+            guard let self else { return }
+            let active = headerViewModel.allowsCardEffects(for: accountContext.account.id)
+            let surface = CardSurfaceConfiguration.home(nft: accountContext.nft)
+            // The finish belongs to every visible card, including neighbors and
+            // incoming cells. Selection only gates live input, not its appearance.
+            motionPreset = surface.motion
+            cardContent.setMotionPreset(motionPreset)
+            interaction.configure(surface: surface)
+            interaction.setActive(active, animated: true)
+            if !active { cardContent.setMotionLight(CardSurfaceLight(), preset: motionPreset) }
+        }
         applyLayoutMetrics(layout, minimumHomeCardFontScale: minimumHomeCardFontScale, force: true)
-        updateAccessibilityState(headerViewModel: headerViewModel)
+        accessibilityObservation?.cancel()
+        accessibilityObservation = observe { [weak self] in
+            self?.updateAccessibilityState(headerViewModel: headerViewModel)
+        }
         observeToken = observe { [weak self] in
             guard let self else { return }
+            self.updateGeometryAndTransform(headerViewModel: headerViewModel)
+        }
+    }
+
+    private func updateGeometryAndTransform(headerViewModel: HomeHeaderViewModel) {
+        let stateChanged = appliedHeaderState != nil && appliedHeaderState != headerViewModel.state
+        let now = CACurrentMediaTime()
+        let wasAnimating = now < balanceAnimationDeadline
+        let outgoing = appliedHeaderState == .collapsed ? collapsedContent : cardContent
+        let outgoingLayer = outgoing.layer.presentation() ?? outgoing.layer
+        let startFrame = outgoingLayer.convert(outgoing.balanceAlignmentFrame,
+                                              to: contentView.layer.presentation() ?? contentView.layer)
+        UIView.performWithoutAnimation {
+            // Own both faces' geometry here so observer order cannot reset the
+            // incoming face after its animation endpoints have been measured.
+            cardContent.updateCollapseProgress(0)
+            collapsedContent.updateCollapseProgress(headerViewModel.collapseProgress)
+            if stateChanged || wasAnimating {
+                cardContent.layer.removeAnimation(forKey: "transform")
+                collapsedContent.layer.removeAnimation(forKey: "transform")
+                alignBalances(to: startFrame)
+            } else {
+                applyTransform(headerViewModel: headerViewModel)
+            }
+        }
+        appliedHeaderState = headerViewModel.state
+        let startingTransforms = [cardContent.layer.transform, collapsedContent.layer.transform]
+        if stateChanged {
             let isCollapsed = headerViewModel.isCollapsed
-            updateAccessibilityState(headerViewModel: headerViewModel)
-            UIView.animateAdaptive(duration: isCollapsed ? 0.3 : (IOS_26_MODE_ENABLED ? 0.4 : 0.3)) {
+            let duration = isCollapsed ? 0.3 : (IOS_26_MODE_ENABLED ? 0.4 : 0.3)
+            if #available(iOS 26.0, *) {
+                balanceAnimationDeadline = now + duration + 0.105
+            } else {
+                balanceAnimationDeadline = now + duration
+            }
+            UIView.animateAdaptive(duration: duration) {
                 self.applyTransform(headerViewModel: headerViewModel)
             }
             UIView.animate(withDuration: isCollapsed ? 0.25 : 0.05, delay: isCollapsed ? 0.1 : 0, options: isCollapsed ? [.curveEaseOut] : [.curveEaseIn]) {
                 self.miniatureContent.alpha = isCollapsed ? 1 : 0
             }
+        } else if wasAnimating {
+            // Scrolling can continue during collapse. Retarget from the shared
+            // presentation frame without extending the transition on each tick.
+            UIView.animate(withDuration: balanceAnimationDeadline - now, delay: 0,
+                           options: [.curveEaseOut, .allowUserInteraction]) {
+                self.applyTransform(headerViewModel: headerViewModel)
+            }
+        }
+        if stateChanged || wasAnimating {
+            // Additive transform animations compose translations with each face's
+            // different final scale. Absolute matrices preserve the common path.
+            for (face, start) in zip([cardContent, collapsedContent], startingTransforms) {
+                if let animation = face.layer.animation(forKey: "transform")?.copy() as? CABasicAnimation {
+                    animation.isAdditive = false
+                    animation.fromValue = NSValue(caTransform3D: start)
+                    animation.toValue = NSValue(caTransform3D: face.layer.transform)
+                    face.layer.add(animation, forKey: "transform")
+                }
+            }
+        }
+    }
+
+    private func alignBalances(to target: CGRect) {
+        let center = CGPoint(x: container.layout.itemWidth / 2, y: container.layout.itemHeight / 2)
+        for face in [cardContent, collapsedContent] {
+            let frame = face.balanceAlignmentFrame
+            let scale = target.height / frame.height
+            face.transform = CGAffineTransform(
+                translationX: target.midX - center.x - (frame.midX - center.x) * scale,
+                y: target.midY - center.y - (frame.midY - center.y) * scale
+            ).scaledBy(x: scale, y: scale)
         }
     }
 
@@ -196,14 +281,8 @@ final class HomeCard: UICollectionViewCell {
             miniatureCardWidth/2*CARD_RATIO +
             headerViewModel.miniatureCardVerticalOffset
         let scale: CGFloat = miniatureCardWidth/layout.itemWidth
-        // card content
-        let collapsedBalanceFontSize: CGFloat =
-            headerViewModel.rootNavigationStyle.usesNavigationBarTopTabs
-            ? 48
-            : homeCollapsedFontSize
-        let r: CGFloat = homeCardFontSize(for: layout.itemWidth)/collapsedBalanceFontSize
-        let dx: CGFloat = 8
-        let dy: CGFloat = 0.2667*layout.itemHeight + (layout.itemWidth > 400 ? 6 : 0) // TODO: this is not correct for all devices - there must be a fixed factor based on vertical size of content
+        contentView.layoutIfNeeded()
+        alignBalances(to: headerViewModel.isCollapsed ? collapsedContent.balanceAlignmentFrame : cardContent.balanceAlignmentFrame)
 
         switch headerViewModel.state {
         case .expanded:
@@ -211,10 +290,6 @@ final class HomeCard: UICollectionViewCell {
             self.cardPromotion.transform = .identity
             self.cardContentClipTransform = .identity
             self.miniatureContent.transform = .identity
-            self.cardContent.transform = .identity
-            self.collapsedContent.transform = .identity
-                .scaledBy(x: r, y: r)
-                .translatedBy(x: -dx, y: -dy)
         case .collapsed:
             let t = CGAffineTransform.identity
                 .translatedBy(x: 0, y: ofs)
@@ -223,10 +298,6 @@ final class HomeCard: UICollectionViewCell {
             self.cardPromotion.transform = t
             self.cardContentClipTransform = t
             self.miniatureContent.transform = t
-            self.cardContent.transform = .identity
-                .translatedBy(x: dx, y: dy)
-                .scaledBy(x: 1/r, y: 1/r)
-            self.collapsedContent.transform = .identity
         }
         updateCardContentClip(layout)
         updateMiniatureTapButtonFrame()
@@ -234,6 +305,8 @@ final class HomeCard: UICollectionViewCell {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        appliedHeaderState = nil
+        balanceAnimationDeadline = 0
         motionObservation?.cancel()
         motionObservation = nil
         interaction.setActive(false)
@@ -246,6 +319,8 @@ final class HomeCard: UICollectionViewCell {
         observeToken = nil
         tintObservation?.cancel()
         tintObservation = nil
+        accessibilityObservation?.cancel()
+        accessibilityObservation = nil
     }
 
     override func didMoveToWindow() {
@@ -288,7 +363,11 @@ final class HomeCard: UICollectionViewCell {
         updateCardContentClip(layout)
         guard let headerViewModel = container.headerViewModel else { return }
         UIView.performWithoutAnimation {
+            cardContent.updateCollapseProgress(0)
+            collapsedContent.updateCollapseProgress(headerViewModel.collapseProgress)
             applyTransform(headerViewModel: headerViewModel)
+            appliedHeaderState = headerViewModel.state
+            balanceAnimationDeadline = 0
             miniatureContent.alpha = headerViewModel.isCollapsed ? 1 : 0
             contentView.layoutIfNeeded()
         }

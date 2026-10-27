@@ -170,7 +170,7 @@ final class WalletConnectPayPaymentStatusVC: WViewController, UISheetPresentatio
         guard shouldConfigureInitialSheetHeightOnLoad else { return }
         guard let sheet = currentSheetPresentationController else { return }
         sheet.detents = makeDetents(contentHeight: estimatedPaymentStatusDetentHeight)
-        sheet.selectedDetentIdentifier = .walletConnectPayStatusContent
+        sheet.selectedDetentIdentifier = self.isPresentedInRegularWidthWindow ? .large : .walletConnectPayStatusContent
     }
 
     private func onHeightChange(_ height: CGFloat) {
@@ -182,13 +182,15 @@ final class WalletConnectPayPaymentStatusVC: WViewController, UISheetPresentatio
     }
 
     private func updateSheetHeight(animated: Bool, selectContentHeight: Bool) {
-        guard contentHeight > 0, let sheet = currentSheetPresentationController else { return }
+        guard contentHeight > 0 else { return }
+        preferredContentSize = CGSize(width: 580, height: max(360, contentHeight))
+        guard let sheet = currentSheetPresentationController else { return }
 
         let contentHeight = self.contentHeight
         let apply = {
             sheet.detents = self.makeDetents(contentHeight: contentHeight)
             if selectContentHeight {
-                sheet.selectedDetentIdentifier = .walletConnectPayStatusContent
+                sheet.selectedDetentIdentifier = self.isPresentedInRegularWidthWindow ? .large : .walletConnectPayStatusContent
             }
         }
 
@@ -202,7 +204,8 @@ final class WalletConnectPayPaymentStatusVC: WViewController, UISheetPresentatio
     }
 
     private func makeDetents(contentHeight: CGFloat) -> [UISheetPresentationController.Detent] {
-        [
+        if isPresentedInRegularWidthWindow { return [.large()] }
+        return [
             .custom(identifier: .walletConnectPayStatusContent) { context in
                 min(contentHeight, 0.95 * context.maximumDetentValue)
             }

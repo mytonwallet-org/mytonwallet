@@ -131,7 +131,7 @@ private struct _Content: View {
                         _BalanceView(accountContext: accountContext, onClearHighlight: onClearHighlight)
                     }
                     .overlay(alignment: .bottom) {
-                        GridAddressLine(addressLine: accountContext.addressLine, nft: accountContext.nft)
+                        GridAddressLine(addressLine: accountContext.topAddressLine, nft: accountContext.nft)
                             .foregroundStyle(.white)
                             .padding(8)
                         

@@ -1,4 +1,4 @@
-import type { ApiChain, ApiDerivationSpec, ApiNetwork, ApiToken, ApiTokenWithPrice } from '../api/types';
+import type { ApiChain, ApiDerivationSpec, ApiNetwork, ApiToken, ApiTokenWithPrice, UTXOChain } from '../api/types';
 
 import {
   ARBITRUM,
@@ -36,6 +36,7 @@ import {
   TON_USDT_MAINNET,
   TON_USDT_TESTNET,
   TONCOIN,
+  TONSTAKERS_JETTON,
   TRC20_USDT_MAINNET,
   TRC20_USDT_TESTNET,
   TRX,
@@ -46,7 +47,7 @@ import { SOLANA_DERIVATION_PATHS } from '../api/chains/solana/constants';
 import { SOLANA_DERIVATION_SPEC, SOLANA_DERIVATION_VERSION } from '../api/chains/solana/derivationConstants';
 import { TON_BIP39_PATH } from '../api/chains/ton/derivationConstants';
 import { TRON_BIP39_PATH } from '../api/chains/tron/constants';
-import { getDefaultUtxoDerivationPath } from '../api/chains/utxo/constants';
+import { getDefaultUtxoDerivationPath, UTXO_COIN_TYPES } from '../api/chains/utxo/constants';
 import formatTonTransferUrl from './ton/formatTransferUrl';
 import { buildCollectionByKey, compact } from './iteratees';
 import withCache from './withCache';
@@ -126,6 +127,8 @@ export interface ChainConfig {
   addressPrefixRegex: RegExp;
   /** The native token of the chain, i.e. the token that pays the fees */
   nativeToken: ApiToken;
+  /** Token addresses whose balances represent foreign staking positions */
+  foreignStakingTokenAddresses?: string[];
   /** Whether our own backend socket (src/api/common/backendSocket.ts) supports this chain */
   doesBackendSocketSupport: boolean;
   /** Whether the SDK allows to import tokens by address */
@@ -162,6 +165,8 @@ export interface ChainConfig {
   marketplaces: MarketplaceConfig[];
   /** Whether the chain supports NFTs */
   isNftSupported: boolean;
+  /** The SDK splits one NFT submission into wallet-sized transactions using one authorization */
+  canSubmitMultipleNftTransactions?: boolean;
   /** Max number of NFTs to request per pagination batch (for NFT-supporting chains) */
   nftBatchLimit?: number;
   /** Pause in ms between NFT pagination batches (for NFT-supporting chains) */
@@ -252,9 +257,11 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isSubwalletsSupported: true,
     defaultDerivationPath: TON_BIP39_PATH,
     isNftSupported: true,
+    canSubmitMultipleNftTransactions: true,
     addressRegex: /^([-\w_]{48}|0:[\da-h]{64})$/i,
     addressPrefixRegex: /^([-\w_]{1,48}|0:[\da-h]{0,64})$/i,
     nativeToken: TONCOIN,
+    foreignStakingTokenAddresses: [TONSTAKERS_JETTON],
     displayColor: '#2C92F0',
     doesBackendSocketSupport: true,
     canImportTokens: true,
@@ -486,6 +493,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -552,6 +560,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -614,6 +623,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -672,6 +682,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: false,
+    canSwapByBuyAmount: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -730,6 +741,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -792,6 +804,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: false,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -850,6 +863,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: false,
     isOffRampSupported: false,
     isOnchainSwapSupported: false,
+    canSwapByBuyAmount: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -908,6 +922,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: true,
     isOnchainSwapSupported: false,
+    canSwapByBuyAmount: false,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -963,7 +978,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     chainStandard: 'ethereum',
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
-    isOnRampSupported: false,
+    isOnRampSupported: true,
     isOffRampSupported: false,
     isOnchainSwapSupported: false,
     isTransferPayloadSupported: false,
@@ -1028,6 +1043,7 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     isOnRampSupported: true,
     isOffRampSupported: false,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -1083,9 +1099,10 @@ const CHAIN_CONFIG: Record<ApiChain, ChainConfig> = {
     chainStandard: 'ethereum',
     isDnsSupported: false,
     canBuyWithCardInRussia: false,
-    isOnRampSupported: false,
+    isOnRampSupported: true,
     isOffRampSupported: false,
     isOnchainSwapSupported: true,
+    canSwapByBuyAmount: true,
     isTransferPayloadSupported: false,
     isEncryptedCommentSupported: false,
     canTransferFullNativeBalance: false,
@@ -1467,6 +1484,10 @@ export function getChainsByStandard(chainStandard: ApiChain) {
 
 export function getEvmChains() {
   return getChainsByStandard('ethereum');
+}
+
+export function isUtxoChain(chain: ApiChain): chain is UTXOChain {
+  return chain in UTXO_COIN_TYPES;
 }
 
 /** Returns the chains supported by the given account in the proper order for showing in the UI */

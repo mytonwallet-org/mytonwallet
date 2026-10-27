@@ -3,7 +3,11 @@ import UIKit
 public struct ContextMenuConfiguration {
     public var rootPage: ContextMenuPage
     public var backdrop: ContextMenuBackdropStyle
+    public var backdropTintColor: UIColor?
+    /// Leave the source in place without compositing a translucent replica over it.
+    public var preservesSourceAppearance: Bool
     public var backdropBlurPolicy: ContextMenuBackdropBlurPolicy
+    public var popoverVerticalAlignment: ContextMenuPopoverVerticalAlignment
     public var style: ContextMenuStyle
     /// A view over the source's top edge, which only the overlay presentation shows. With one, the panel attaches
     /// clear of the source and the accessory, so `style.verticalPlacementBehavior` does not apply.
@@ -14,14 +18,20 @@ public struct ContextMenuConfiguration {
     public init(
         rootPage: ContextMenuPage,
         backdrop: ContextMenuBackdropStyle = .defaultBlurred(),
+        backdropTintColor: UIColor? = nil,
+        preservesSourceAppearance: Bool = false,
         backdropBlurPolicy: ContextMenuBackdropBlurPolicy = .enabled,
+        popoverVerticalAlignment: ContextMenuPopoverVerticalAlignment = .automatic,
         style: ContextMenuStyle = .default,
         accessory: ContextMenuAccessory? = nil,
         sheetNavigationControllerProvider: (@MainActor (UIViewController) -> UINavigationController)? = nil
     ) {
         self.rootPage = rootPage
         self.backdrop = backdrop
+        self.backdropTintColor = backdropTintColor
+        self.preservesSourceAppearance = preservesSourceAppearance
         self.backdropBlurPolicy = backdropBlurPolicy
+        self.popoverVerticalAlignment = popoverVerticalAlignment
         self.style = style
         self.accessory = accessory
         self.sheetNavigationControllerProvider = sheetNavigationControllerProvider
@@ -29,13 +39,17 @@ public struct ContextMenuConfiguration {
 
     func resolved(for sourceView: UIView) -> ContextMenuConfiguration {
         guard backdropBlurPolicy == .disabledInRegularWidth,
-              sourceView.contextMenuUsesRegularWidthLayout,
-              case let .blurred(_, dimAlpha) = backdrop else {
+              sourceView.contextMenuUsesRegularWidthLayout else {
             return self
         }
 
         var configuration = self
-        configuration.backdrop = .dimmed(alpha: dimAlpha)
+        switch backdrop {
+        case let .blurred(_, dimAlpha), let .untintedBlur(_, dimAlpha):
+            configuration.backdrop = .dimmed(alpha: dimAlpha)
+        case .none, .dimmed:
+            break
+        }
         return configuration
     }
 }
@@ -193,6 +207,8 @@ public enum ContextMenuBackdropStyle {
     case none
     case dimmed(alpha: CGFloat)
     case blurred(style: UIBlurEffect.Style, dimAlpha: CGFloat)
+    /// Gaussian blur without the system material's theme-dependent tint or saturation.
+    case untintedBlur(radius: CGFloat, dimAlpha: CGFloat)
 
     public static func defaultBlurred(
         style: UIBlurEffect.Style = .systemUltraThinMaterial,

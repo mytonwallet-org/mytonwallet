@@ -11,11 +11,7 @@ import UIKit
 private enum Constants {
     static let mainChartHeight: CGFloat = 310.0
     static let rangeHeight: CGFloat = 42.0
-    static let rangeOriginY: CGFloat = 310.0
-    static let visibilityOriginYWithRange: CGFloat = 368.0
-    static let visibilityOriginYWithoutRange: CGFloat = 326.0
-    static let minimumHeightWithRange: CGFloat = 352.0
-    static let minimumHeightWithoutRange: CGFloat = 310.0
+    static let visibilityTopInset: CGFloat = 16.0
     static let defaultHeight: CGFloat = 480.0
     static let headerButtonHeight: CGFloat = 38.0
     static let headerButtonWidth: CGFloat = 112.0
@@ -78,6 +74,13 @@ class ChartStackSection: UIView, ChartThemeContainer {
     var zoomStateUpdated: ((Bool) -> Void)?
     
     private var displayRange: Bool = true
+
+    var plotAspectRatio: CGFloat? {
+        didSet {
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+        }
+    }
     
     var visibilityBottomInset: CGFloat = Constants.visibilityBottomInset {
         didSet {
@@ -92,10 +95,12 @@ class ChartStackSection: UIView, ChartThemeContainer {
         for width: CGFloat,
         controller: BaseChartController?,
         displayRange: Bool,
-        visibilityBottomInset: CGFloat = Constants.visibilityBottomInset
+        visibilityBottomInset: CGFloat = Constants.visibilityBottomInset,
+        plotAspectRatio: CGFloat? = nil
     ) -> CGFloat {
         let resolvedWidth = max(0.0, width)
-        let minimumHeight = displayRange ? Constants.minimumHeightWithRange : Constants.minimumHeightWithoutRange
+        let minimumHeight = mainChartHeight(for: resolvedWidth, plotAspectRatio: plotAspectRatio)
+            + (displayRange ? Constants.rangeHeight : 0)
 
         guard let controller, controller.drawChartVisibity else {
             return minimumHeight
@@ -113,8 +118,16 @@ class ChartStackSection: UIView, ChartThemeContainer {
             return minimumHeight
         }
 
-        let visibilityOriginY = displayRange ? Constants.visibilityOriginYWithRange : Constants.visibilityOriginYWithoutRange
-        return visibilityOriginY + visibilityHeight
+        return minimumHeight + Constants.visibilityTopInset + visibilityHeight
+    }
+
+    private static func mainChartHeight(for width: CGFloat, plotAspectRatio: CGFloat?) -> CGFloat {
+        guard let plotAspectRatio, plotAspectRatio.isFinite, plotAspectRatio > 0 else {
+            return Constants.mainChartHeight
+        }
+        let insets = ChartView.defaultChartInsets
+        let plotWidth = max(0, width - insets.left - insets.right)
+        return min(Constants.mainChartHeight, plotWidth / plotAspectRatio + insets.top + insets.bottom)
     }
     
     init() {        
@@ -305,18 +318,20 @@ class ChartStackSection: UIView, ChartThemeContainer {
                 for: bounds.width,
                 controller: controller,
                 displayRange: displayRange,
-                visibilityBottomInset: visibilityBottomInset
+                visibilityBottomInset: visibilityBottomInset,
+                plotAspectRatio: plotAspectRatio
             )
         )
-        let visibilityOriginY = displayRange ? Constants.visibilityOriginYWithRange : Constants.visibilityOriginYWithoutRange
+        let mainChartHeight = Self.mainChartHeight(for: bounds.width, plotAspectRatio: plotAspectRatio)
+        let visibilityOriginY = mainChartHeight + (displayRange ? Constants.rangeHeight : 0) + Constants.visibilityTopInset
         let visibilityHeight = max(0.0, sectionHeight - visibilityOriginY)
 
         self.sectionContainerView.frame = CGRect(origin: CGPoint(), size: CGSize(width: bounds.width, height: sectionHeight))
-        self.chartView.frame = CGRect(origin: CGPoint(), size: CGSize(width: bounds.width, height: Constants.mainChartHeight))
+        self.chartView.frame = CGRect(origin: CGPoint(), size: CGSize(width: bounds.width, height: mainChartHeight))
         
         self.rangeView.isHidden = !self.displayRange
         
-        self.rangeView.frame = CGRect(origin: CGPoint(x: 0.0, y: Constants.rangeOriginY), size: CGSize(width: bounds.width, height: Constants.rangeHeight))
+        self.rangeView.frame = CGRect(origin: CGPoint(x: 0.0, y: mainChartHeight), size: CGSize(width: bounds.width, height: Constants.rangeHeight))
         self.visibilityView.frame = CGRect(origin: CGPoint(x: 0.0, y: visibilityOriginY), size: CGSize(width: bounds.width, height: visibilityHeight))
         
         backButton.frame = .init(origin: .zero, size: backButton.intrinsicContentSize)

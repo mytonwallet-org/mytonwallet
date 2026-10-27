@@ -1,6 +1,7 @@
 import type { Address, Cell, StateInit } from '@ton/core';
 import { beginCell, external, storeMessage } from '@ton/core';
 
+import type { FetchDemand } from '../../../util/fetchDemand';
 import type {
   ApiActivity,
   ApiEmulationResult,
@@ -24,9 +25,12 @@ export async function emulateTransaction(
   transaction: Cell,
   isInitialized?: boolean,
   signal?: AbortSignal,
+  onRawTrace?: (trace: EmulationResponse) => void,
+  demand?: FetchDemand,
 ) {
   const boc = buildExternalBoc(wallet, transaction, isInitialized);
-  const emulation = await fetchEmulateTrace(network, boc, signal);
+  const emulation = await fetchEmulateTrace(network, boc, signal, demand);
+  onRawTrace?.(emulation);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
   const walletAddress = toBase64Address(wallet.address, false, network);
   return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
@@ -39,9 +43,12 @@ export async function emulateExternalMessage(
   body: Cell,
   init?: StateInit,
   signal?: AbortSignal,
+  onRawTrace?: (trace: EmulationResponse) => void,
+  demand?: FetchDemand,
 ) {
   const boc = buildExternalBocTo(toAddress, body, init);
-  const emulation = await fetchEmulateTrace(network, boc, signal);
+  const emulation = await fetchEmulateTrace(network, boc, signal, demand);
+  onRawTrace?.(emulation);
   const nftSuperCollectionsByCollectionAddress = await getNftSuperCollectionsByCollectionAddress();
   return parseEmulation(network, walletAddress, emulation, nftSuperCollectionsByCollectionAddress);
 }

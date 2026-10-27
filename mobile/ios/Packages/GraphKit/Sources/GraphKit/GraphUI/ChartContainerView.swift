@@ -322,6 +322,17 @@ public final class ChartContainerView: UIView {
         }
     }
 
+    /// Preferred width-to-height ratio for the plot, excluding the header, axes, range selector and legend.
+    /// Height is capped at the default; narrow plots shrink. Nil preserves the fixed-height layout.
+    public var plotAspectRatio: CGFloat? {
+        get { chartView.plotAspectRatio }
+        set {
+            chartView.plotAspectRatio = newValue
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+        }
+    }
+
     private var currentExtractedTheme: ChartTheme {
         ChartTheme.extractedTheme(for: traitCollection.userInterfaceStyle)
     }
@@ -447,7 +458,8 @@ public final class ChartContainerView: UIView {
             for: width,
             controller: controller,
             displayRange: displayRange,
-            visibilityBottomInset: visibilityBottomInset
+            visibilityBottomInset: visibilityBottomInset,
+            plotAspectRatio: plotAspectRatio
         )
     }
 

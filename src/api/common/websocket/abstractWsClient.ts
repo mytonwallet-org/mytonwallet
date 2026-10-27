@@ -1,10 +1,11 @@
 import type { SocketFinality } from '../../chains/ton/toncenter/types';
 import type { ApiActivity, ApiChain } from '../../types';
 
+import { logDebugError } from '../../../util/logs';
 import ReconnectingWebSocket from '../../../util/reconnectingWebsocket';
 import { throttle } from '../../../util/schedulers';
 
-export type InMessageCallback<T> = (message: T) => void;
+export type InMessageCallback<T> = (message: T) => MaybePromise<void>;
 
 // Address churn - switching accounts, a multi-account wallet registering its watchers one by one -
 // produces a burst of subscribe messages on one socket. Every socket in the app throttles on this
@@ -177,11 +178,17 @@ export abstract class AbstractWebsocketClient<
 
   #createSocket() {
     const socket = new ReconnectingWebSocket<OutMessage, InMessage>(this.#url);
-    socket.onMessage(this.handleSocketMessage);
+    socket.onMessage(this.#dispatchSocketMessage);
     socket.onConnect(this.handleSocketConnect);
     socket.onDisconnect(this.handleSocketDisconnect);
     return socket;
   }
+
+  #dispatchSocketMessage = (message: InMessage) => {
+    void Promise.resolve(this.handleSocketMessage(message)).catch((err) => {
+      logDebugError('Websocket message handling failed', err);
+    });
+  };
 
   #doesHaveWatchedAddresses() {
     return this.walletWatchers.some((watcher) => watcher.wallets.length);

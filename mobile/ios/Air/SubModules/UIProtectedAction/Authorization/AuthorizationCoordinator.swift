@@ -43,7 +43,7 @@ enum AuthorizationCoordinator {
                     DisplayError(text: lang("Transaction to this smart contract is not yet supported by Ledger."))
                 )
             }
-            return await LedgerPresenter.authorize(
+            let resolution = await LedgerPresenter.authorize(
                 makeOperation: makeOperation,
                 confirmation: action.confirmation,
                 on: viewController,
@@ -51,6 +51,26 @@ enum AuthorizationCoordinator {
                 authorizationUI: authorizationUI,
                 isPresentationValid: isPresentationValid
             )
+            if case .value(.committed(let receipt), let shouldContinuePresentation) = resolution,
+               let result = receipt.payload, let requestHash = result.mfaRequestHash {
+                guard shouldContinuePresentation, isPresentationValid() else {
+                    return .cancelled(.init(stage: .mfa, reason: .dismissed))
+                }
+                return await MfaPresenter.authorize(
+                    account: action.account,
+                    requestHash: requestHash,
+                    title: action.confirmation.title,
+                    compactRepresentation: AnyView(action.confirmation.headerView.compactRepresentation),
+                    prefersNavigationTitleWithCustomHeader: action.confirmation.prefersNavigationTitleWithCustomHeader,
+                    result: result,
+                    software: action.software,
+                    presentationStyle: action.confirmation.presentationStyle,
+                    on: viewController,
+                    completionBehavior: completionBehavior,
+                    authorizationUI: authorizationUI
+                )
+            }
+            return resolution
         }
 
         let passwordResolution = await PasswordPresenter.authorize(

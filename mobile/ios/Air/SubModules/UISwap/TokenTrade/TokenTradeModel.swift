@@ -74,6 +74,7 @@ final class TokenTradeModel {
         self.direction = direction
         self._account = accountContext
         self.token = token
+        swap.quoteDiagnostics.screen(direction == .buy ? "buy" : "sell")
         // Start with the resolved swap pair. Card is another payment/receipt method in the picker.
         if (token.price ?? 0) <= 0 { isTokenAmount = true }
     }
@@ -83,6 +84,7 @@ final class TokenTradeModel {
     var paymentToken: ApiToken? { isBuying ? swap.input.sellingToken : swap.input.buyingToken }
     var hint: SwapHint? { cardCurrency == nil ? swap.hint : nil }
     var displayImpactWarning: Double? { cardCurrency == nil ? swap.displayImpactWarning : nil }
+    var estimateDebugSummary: String? { cardCurrency == nil ? swap.estimateDebugSummary : nil }
     var currency: MBaseCurrency { cardCurrency ?? TokenStore.baseCurrency }
     var price: Double { (currentToken.priceUsd ?? 0) * TokenStore.getCurrencyRate(currency) }
     var inputDecimals: Int { isTokenAmount ? token.decimals : (currency.preferredDecimals ?? currency.decimalsCount) }
@@ -129,22 +131,29 @@ final class TokenTradeModel {
         return amount.convertTo(currentToken, exchangeRate: sellingPrice / buyingPrice)
     }
 
-    var feeText: String? {
+    var fee: MFee? {
         guard cardCurrency == nil, hasAmount,
               let selling = swap.input.sellingToken,
               let native = TokenStore.getToken(slug: selling.nativeTokenSlug) else { return nil }
         let details: ExplainedTransferFee?
         if let estimate = swap.estimateState.cexEstimate {
-            details = explainSwapFee(.init(swapType: swap.swapType, tokenIn: selling,
+            details = explainSwapFee(.init(swapType: swap.quotedSwapType(for: swap.estimateState), tokenIn: selling,
                                            networkFee: estimate.networkFee, realNetworkFee: estimate.realNetworkFee,
                                            dieselStatus: nil, dieselFee: nil,
                                            nativeTokenInBalance: $account.balances[native.slug])).networkFeeDetails
         } else { details = swap.detailsVM.feeDetails }
-        guard let fee = details?.realFee ?? details?.fullFee else { return nil }
-        var displayedFee = fee
-        if displayedFee.precision == .approximate { displayedFee.precision = .exact }
-        let prefix = fee.precision == .lessThan ? " " : " ~ "
-        return lang("Fee") + prefix + displayedFee.toString(token: selling, nativeToken: native)
+        return hasInsufficientFee ? details?.fullFee : details?.realFee ?? details?.fullFee
+    }
+
+    var hasAmountError: Bool {
+        if cardCurrency != nil {
+            return !isBuying && cardMaximum.map { typedTokenAmount.amount > $0.amount } == true
+        }
+        return swap.hasAmountError
+    }
+
+    var hasInsufficientFee: Bool {
+        cardCurrency == nil && swap.hasInsufficientFee
     }
 
     var methodAmountText: String? {

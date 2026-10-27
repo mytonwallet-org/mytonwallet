@@ -87,6 +87,9 @@ public class UnlockVC: WViewController {
             if cancellable {
                 let navVC = WNavigationController(rootViewController: unlockVC)
                 navVC.navigationBar.tintColor = AirTintColor
+                if customHeaderVC == nil {
+                    navVC.preferredContentSize = CGSize(width: 580, height: 720)
+                }
                 return navVC
             } else {
                 return unlockVC
@@ -253,6 +256,9 @@ public class UnlockVC: WViewController {
         self.successCompletionDelay = successCompletionDelay
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
+        if customHeaderVC != nil {
+            preferredContentSize = CGSize(width: 640, height: 800)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -395,7 +401,7 @@ public class UnlockVC: WViewController {
 
         let width = view.bounds.width
         let fullHeaderHeight = fittingHeight(of: customHeaderVC.view, width: width)
-        let passcodeHeight = fittingHeight(of: passcodeScreenView, width: width)
+        let passcodeHeight = passcodeScreenView.minimumFittingHeight(forWidth: width)
         let availableHeight = view.bounds.height - view.safeAreaInsets.top
         let shouldUseCompactHeader = fullHeaderHeight + passcodeHeight > availableHeight
 
@@ -557,7 +563,11 @@ extension UnlockVC: PasscodeScreenViewDelegate {
             secondaryButtonPressed: nil,
             preferPrimary: true
         )
-        super.present(alert, animated: true, completion: nil)
+        super.present(alert, animated: true) { [weak self] in
+            guard let self else { return }
+            self.showsSignOutWhenEmpty = self.onSignOutRequested != nil
+            self.passcodeScreenView.setShowsSignOutWhenEmpty(self.showsSignOutWhenEmpty, animated: true)
+        }
     }
 
     @MainActor

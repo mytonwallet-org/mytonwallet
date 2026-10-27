@@ -1,4 +1,5 @@
 import Foundation
+import CoreText
 import Testing
 import UIKit
 import WalletContext
@@ -111,7 +112,7 @@ struct TokenTradeAmountInputTests {
     }
 
     @MainActor @Test(arguments: ["5.12", "123456789012.12", "5."])
-    func `fractional caret follows the smaller font and shares the number baseline`(_ amount: String) throws {
+    func `fractional caret follows the design height and shares the integer caret bottom`(_ amount: String) throws {
         _ = WalletResourcesBundle.bundle.load()
         let field = TokenTradeTextField()
         field.frame = CGRect(x: 0, y: 0, width: 354, height: 86)
@@ -119,25 +120,99 @@ struct TokenTradeAmountInputTests {
         field.layoutIfNeeded()
         let attributedText = try #require(field.attributedText)
         let decimalRange = (attributedText.string as NSString).range(of: Locale.forNumberFormatters.decimalSeparator ?? ".")
-        let font = try #require(field.font)
         let fractionFont = try #require(attributedText.attribute(.font, at: decimalRange.location, effectiveRange: nil) as? UIFont)
         let integerPosition = try #require(field.position(from: field.beginningOfDocument, offset: decimalRange.location))
-        let integerCaret = field.caretRect(for: integerPosition)
+        let integerCaret = field.amountCaretRect(for: integerPosition)
+        let scale = try #require(field.font).pointSize / 72
+        #expect(abs(integerCaret.height - 58 * scale) < 0.001)
 
         for offset in NSMaxRange(decimalRange)...attributedText.length {
             let position = try #require(field.position(from: field.beginningOfDocument, offset: offset))
             field.selectedTextRange = field.textRange(from: position, to: position)
-            let caret = field.caretRect(for: position)
+            let caret = field.amountCaretRect(for: position)
             #expect(caret.height < integerCaret.height)
-            #expect(abs(caret.height - fractionFont.lineHeight) < 0.001)
-            #expect(abs(caret.minY + fractionFont.ascender - font.ascender) < 0.001)
+            #expect(abs(caret.height - 48 * scale) < 0.001)
+            #expect(abs(caret.maxY - integerCaret.maxY) < 0.001)
             #expect(caret.width == integerCaret.width)
         }
 
         field.selectedTextRange = field.textRange(from: integerPosition, to: integerPosition)
-        #expect(field.caretRect(for: integerPosition) == integerCaret)
+        #expect(field.amountCaretRect(for: integerPosition) == integerCaret)
         field.configure(input: try input("5"), decimals: 2, prefix: "$", suffix: "", hasAmount: true)
-        #expect(field.caretRect(for: field.endOfDocument).height > fractionFont.lineHeight)
+        #expect(field.amountCaretRect(for: field.endOfDocument).height > 48 * fractionFont.pointSize / 56)
+    }
+
+    @MainActor @Test func `rapid animated edits keep exact text and native selection`() throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let field = TokenTradeTextField()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = UIViewController()
+        window.rootViewController!.view.addSubview(field)
+        field.frame = CGRect(x: 20, y: 100, width: 354, height: 86)
+        window.makeKeyAndVisible()
+        defer { field.resignFirstResponder(); window.isHidden = true }
+        field.configure(input: TokenTradeAmountInput(), decimals: 9, prefix: "", suffix: " TON", hasAmount: false)
+        field.configureAnimation(active: true, animated: true)
+        field.becomeFirstResponder()
+        field.layoutIfNeeded()
+        for digit in ["1", "2", "3", ".", "4"] { field.insertText(digit) }
+        #expect(field.amountInput.text == "123.4")
+        #expect(field.amountInput.amount(decimals: 9) == 123_400_000_000)
+        #expect(field.amountPresentation.isAnimating)
+        let endCaret = field.amountCaretRect(for: field.endOfDocument)
+        let text = try #require(field.attributedText)
+        #expect(endCaret.minX >= field.textRect(forBounds: field.bounds).minX + text.size().width)
+        let start = try #require(field.position(from: field.beginningOfDocument, offset: 1))
+        let end = try #require(field.position(from: field.beginningOfDocument, offset: 3))
+        field.selectedTextRange = field.textRange(from: start, to: end)
+        field.textFieldDidChangeSelection(field)
+        #expect(!field.amountPresentation.isAnimating)
+        #expect(!field.amountPresentation.isPresentingText)
+        #expect(field.subviews.last === field.amountPresentation || field.subviews.suffix(2).contains(field.amountPresentation))
+        field.insertText("9")
+        #expect(field.amountInput.text == "19.4")
+        #expect(field.amountPresentation.isAnimating)
+        #expect(field.offset(from: field.beginningOfDocument, to: try #require(field.selectedTextRange).start) == 2)
+        field.configureAnimation(active: true, animated: false)
+        #expect(!field.amountPresentation.isAnimating)
+        #expect(!field.amountPresentation.isPresentingText)
+        #expect(field.text == "19" + (Locale.forNumberFormatters.decimalSeparator ?? ".") + "4")
+    }
+
+    @MainActor @Test(arguments: ["1234.56", "123456789012.123456789"])
+    func `interior caret stays at the insertion point and the trailing gap only follows the last digit`(_ amount: String) throws {
+        _ = WalletResourcesBundle.bundle.load()
+        let field = TokenTradeTextField()
+        field.frame = CGRect(x: 0, y: 0, width: 354, height: 86)
+        field.configure(input: try input(amount, decimals: 9), decimals: 9, prefix: "", suffix: "GRAM", hasAmount: true)
+        field.layoutIfNeeded()
+        let text = try #require(field.attributedText)
+        let line = CTLineCreateWithAttributedString(text)
+        let origin = field.amountTextOrigin
+        for offset in 0..<text.length {
+            let position = try #require(field.position(from: field.beginningOfDocument, offset: offset))
+            let caret = field.amountCaretRect(for: position)
+            let insertion = origin + CTLineGetOffsetForStringIndex(line, offset, nil)
+            #expect(abs(caret.minX - insertion) < 0.001)
+        }
+        let trailingCaret = field.amountCaretRect(for: field.endOfDocument)
+        let end = origin + CTLineGetOffsetForStringIndex(line, text.length, nil)
+        let scale = try #require(field.font).pointSize / 72
+        #expect(abs(trailingCaret.minX - end - 2.5 * scale) < 0.001)
+    }
+
+    @MainActor @Test func `empty caret follows placeholder and offscreen unit changes stay immediate`() {
+        _ = WalletResourcesBundle.bundle.load()
+        let field = TokenTradeTextField()
+        field.frame = CGRect(x: 0, y: 0, width: 354, height: 86)
+        field.configure(input: TokenTradeAmountInput(), decimals: 2, prefix: "$", suffix: "", hasAmount: false)
+        field.layoutIfNeeded()
+        let caret = field.amountCaretRect(for: field.endOfDocument)
+        #expect(caret.minX > field.textRect(forBounds: field.bounds).minX + 20)
+        #expect(caret.width == 2.5)
+        field.configure(input: TokenTradeAmountInput(), decimals: 9, prefix: "", suffix: " TON", hasAmount: false)
+        field.layoutIfNeeded()
+        #expect(!field.amountPresentation.isAnimating)
     }
 
     @MainActor @Test func `full precision token amount and suffix fit together`() throws {
@@ -151,6 +226,22 @@ struct TokenTradeAmountInputTests {
         let font = try #require(field.font)
         #expect(abs(suffix.font.pointSize / 32 - font.pointSize / 72) < 0.001)
         #expect(field.rightViewRect(forBounds: field.bounds).maxX <= field.bounds.maxX)
+    }
+
+    @MainActor @Test(arguments: ["", "4.02", "123456789012.123456789"])
+    func `token suffix stays clear of the caret at every text scale`(_ amount: String) throws {
+        _ = WalletResourcesBundle.bundle.load()
+        for width: CGFloat in [354, 290] {
+            let field = TokenTradeTextField()
+            field.frame = CGRect(x: 0, y: 0, width: width, height: 86)
+            field.configure(input: try input(amount, decimals: 9), decimals: 9,
+                            prefix: "", suffix: " GRAM", hasAmount: !amount.isEmpty)
+            field.layoutIfNeeded()
+            let caret = field.amountCaretRect(for: field.endOfDocument)
+            let suffix = field.rightViewRect(forBounds: field.bounds)
+            #expect(suffix.minX - caret.maxX >= 9.5)
+            #expect(suffix.maxX <= width - (amount.isEmpty ? 0 : 52) - 4)
+        }
     }
 
 }

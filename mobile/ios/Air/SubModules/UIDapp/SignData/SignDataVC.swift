@@ -25,11 +25,13 @@ class SignDataVC: WViewController, UISheetPresentationControllerDelegate {
         self.update = update
         self.onCancel = onCancel
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 600)
     }
     
     init(placeholderAccountId: String?) {
         self._account = AccountContext(accountId: placeholderAccountId)
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 600)
     }
     
     required init?(coder: NSCoder) {

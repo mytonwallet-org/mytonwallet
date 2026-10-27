@@ -440,7 +440,6 @@ function SettingsSecurity({
               error={passwordError}
               pinPadTitle={pinPadTitle}
               containerClassName={styles.passwordFormWithHeaderOffset}
-              forceBiometricsInMain={isBiometricsTurnOn ? false : !isInsideModal}
               noBiometrics={isChangePasscode}
               operationType={isBiometricsTurnOn ? 'turnOnBiometrics' : undefined}
               placeholder={lang('Enter your current password')}

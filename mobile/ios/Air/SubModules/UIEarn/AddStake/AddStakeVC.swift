@@ -26,6 +26,7 @@ public class AddStakeVC: WViewController {
     var fakeTextField = UITextField(frame: .zero)
     private var continueButtonPresenter: DraftButtonPresenter?
     private var isConfirming = false
+    private var foreignUnstakeTask: Task<Void, Never>?
     public init(
         config: StakingConfig,
         stakingState: ApiStakingState,
@@ -53,6 +54,9 @@ public class AddStakeVC: WViewController {
         }
         model.onDraftFailure = { error in
             AppActions.showError(error: error)
+        }
+        model.onForeignUnstake = { [weak self] promotion in
+            self?.confirmForeignUnstake(promotion)
         }
     }
 
@@ -103,6 +107,49 @@ public class AddStakeVC: WViewController {
         model.isAmountFieldFocused = true
     }
 
+    public override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if isBeingDismissed || isMovingFromParent || navigationController?.isBeingDismissed == true {
+            foreignUnstakeTask?.cancel()
+        }
+    }
+
+    private func confirmForeignUnstake(_ promotion: ApiPromotion) {
+        guard foreignUnstakeTask == nil, !isConfirming,
+              model.foreignStakingBanners.first?.id == promotion.id,
+              let action = promotion.infoBanner?.actionButton,
+              action.onClickAction == .unstakeForeign,
+              let chain = action.chain, let providerName = action.providerName else { return }
+        let account = account
+        let banners = $account.config.banners
+        model.foreignUnstakeLoadingId = promotion.id
+        foreignUnstakeTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                model.foreignUnstakeLoadingId = nil
+                foreignUnstakeTask = nil
+            }
+            do {
+                let draft = try await Api.checkForeignUnstakeDraft(accountId: account.id, chain: chain, providerName: providerName)
+                try Task.checkCancellation()
+                guard self.account.id == account.id,
+                      model.foreignStakingBanners.contains(where: { $0.id == promotion.id }) else { return }
+                view.endEditing(true)
+                let action = ProtectedAction.foreignUnstake(account: account, chain: chain, providerName: providerName, draft: draft)
+                let outcome = await ProtectedActionExecutor.execute(action, on: self)
+                guard case .completed = outcome else { return }
+                banners.didSubmitUnstake(id: promotion.id)
+                if !draft.isInstant, self.account.id == account.id, viewIfLoaded?.window != nil {
+                    navigationController?.dismiss(animated: true)
+                }
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled, self.account.id == account.id else { return }
+                showAlert(error: error)
+            }
+        }
+    }
+
     func amountChanged(amount: BigInt?) {
         guard let continueButtonPresenter else { return }
         continueButtonPresenter.apply(buttonConfiguration(amount: amount))
@@ -113,6 +160,7 @@ public class AddStakeVC: WViewController {
             return .init(title: .text(stakeTitle), isEnabled: false, showLoading: true)
         }
         model.insufficientFunds = false
+        model.insufficientFee = false
         guard account.supportsEarn, let amount, amount > 0 else {
             return .init(title: .text(stakeTitle), isEnabled: false, showLoading: false)
         }
@@ -127,14 +175,14 @@ public class AddStakeVC: WViewController {
             return .init(title: .text("Insufficient \(model.baseToken.symbol) Balance"), isEnabled: false, showLoading: false)
         }
         if !model.isNativeToken, model.nativeBalance < calculatedFee {
-            model.insufficientFunds = true
-            return .insufficientStakingFee(minAmount: minAmount)
+            model.insufficientFee = true
+            return .insufficientStakingFee()
         }
         return .staking(title: stakeTitle, phase: model.draftPhase, canRetry: model.canRetryDraft, draftError: model.draft?.error)
     }
 
     @objc func continuePressed() {
-        guard !isConfirming else { return }
+        guard !isConfirming, foreignUnstakeTask == nil else { return }
         view.endEditing(true)
         if model.canRetryDraft {
             model.retryDraft()

@@ -32,7 +32,9 @@ sealed class ApiParsedPayload {
         val prevOwner: String,
         val nftAddress: String,
         val nft: ApiNft? = null,
-        val comment: String? = null
+        val comment: String? = null,
+        val bidAmount: BigInteger? = null,
+        val bidTs: Long? = null
     ) : ApiParsedPayload()
 
     @JsonClass(generateAdapter = true)
@@ -118,6 +120,46 @@ sealed class ApiParsedPayload {
         val vote: Boolean,
         val needConfirmation: Boolean
     ) : ApiParsedPayload()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiTeleitemStartAuctionPayload(
+        val queryId: BigInteger,
+        val nftAddress: String,
+        val nftName: String? = null,
+        val nft: ApiNft? = null,
+        val beneficiaryAddress: String,
+        val initialMinBid: BigInteger,
+        val maxBid: BigInteger,
+        val minBidStep: Int,
+        val minExtendTime: Int,
+        val duration: Int
+    ) : ApiParsedPayload()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiTeleitemCancelAuctionPayload(
+        val queryId: BigInteger,
+        val nftAddress: String,
+        val nftName: String? = null,
+        val nft: ApiNft? = null
+    ) : ApiParsedPayload()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiTeleitemDeployPayload(
+        val tokenName: String,
+        val beneficiaryAddress: String,
+        val initialMinBid: BigInteger,
+        val maxBid: BigInteger,
+        val minBidStep: Int,
+        val minExtendTime: Int,
+        val duration: Int
+    ) : ApiParsedPayload()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiTeleitemBidInfoPayload(val amount: BigInteger, val bidTs: Long) :
+        ApiParsedPayload()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiTeleitemReturnBidPayload(val queryId: BigInteger) : ApiParsedPayload()
 
     val payloadIsToken
         get() = when (this) {

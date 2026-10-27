@@ -135,6 +135,31 @@
   }
 }
 
+// Background of a bar at the bottom of a scrolling area that blurs the content under it, with a top edge that
+// dissolves into that content over `1rem` instead of ending with a separator. The background is a `z-index: -1`
+// layer, so the consumer gives the bar `position` and `z-index` to keep the layer between the bar content and the
+// content under the bar.
+
+@mixin footerGlass($backgroundColor, $inlineInset: 0) {
+  &::before {
+    pointer-events: none;
+    content: "";
+
+    position: absolute;
+    z-index: -1;
+    inset: -1rem $inlineInset 0;
+
+    background-color: $backgroundColor;
+
+    mask-image: linear-gradient(180deg, transparent, #000 1rem);
+
+    @supports (backdrop-filter: blur(1px)) and (background-color: color-mix(in srgb, red, transparent)) {
+      background-color: color-mix(in srgb, #{$backgroundColor} 80%, transparent);
+      backdrop-filter: blur(var(--blur-glass-capsule));
+    }
+  }
+}
+
 // Quiet "frosted glass" look used by the bottom bar and adjacent floating
 // surfaces (agent input pill, explore search). Skipped on Android, where
 // the effect looks out of place visually.

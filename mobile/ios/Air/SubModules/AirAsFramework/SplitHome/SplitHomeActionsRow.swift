@@ -27,14 +27,14 @@ struct SplitHomeActionsLayout: Equatable {
         let titleHeight = max(titleFont.lineHeight, titleSizes.map(\.height).max() ?? 0)
         // Preserve the full localized title; wider tiles can scroll horizontally.
         itemSize = CGSize(
-            width: max(sideLength, ceil(titleWidth) + 16 + 6),
+            width: max(sideLength, ceil(titleWidth) + 16 + 12),
             height: max(sideLength, 12 + 32 + 8 + ceil(titleHeight) + 12)
         )
     }
 }
 
 @MainActor
-final class SplitHomeActionsSectionCell: UICollectionViewCell {
+final class SplitHomeActionsSectionCell: UICollectionViewCell, SplitHomeRowContent {
     static let bottomSpacing: CGFloat = 8
 
     private let actionsRowView = SplitHomeActionsRowView()
@@ -86,6 +86,10 @@ final class SplitHomeActionsSectionCell: UICollectionViewCell {
         rowHeightConstraint.constant = layout.itemSize.height
         actionsRowView.configure(layout: layout)
     }
+
+    func setHorizontalInsets(_ insets: UIEdgeInsets) {
+        actionsRowView.setHorizontalInsets(insets)
+    }
     
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -121,7 +125,7 @@ final class SplitHomeActionsSectionCell: UICollectionViewCell {
 }
 
 @MainActor
-final class SplitHomeAssetsSectionCell: UICollectionViewCell {
+final class SplitHomeAssetsSectionCell: UICollectionViewCell, SplitHomeRowContent {
     private let assetsRowView = SplitHomeAssetsRowView()
 
     override init(frame: CGRect) {
@@ -141,6 +145,10 @@ final class SplitHomeAssetsSectionCell: UICollectionViewCell {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
+
+    func setHorizontalInsets(_ insets: UIEdgeInsets) {
+        assetsRowView.setHorizontalInsets(insets)
+    }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -209,6 +217,7 @@ final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
         collectionView.alwaysBounceVertical = false
         collectionView.delaysContentTouches = false
         collectionView.clipsToBounds = false
+        collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.register(SplitHomeActionCollectionCell.self, forCellWithReuseIdentifier: SplitHomeActionCollectionCell.reuseIdentifier)
         return collectionView
     }()
@@ -243,6 +252,10 @@ final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
     
     private weak var accountContext: AccountContext?
     private var viewModel: SplitHomeActionsViewModel?
+
+    func setHorizontalInsets(_ insets: UIEdgeInsets) {
+        collectionView.setSplitHomeHorizontalInsets(insets)
+    }
 
     func configure(layout: SplitHomeActionsLayout) {
         guard actionsLayout != layout else { return }
@@ -287,6 +300,7 @@ final class SplitHomeActionsRowView: UIView, UICollectionViewDelegate {
         layout.minimumInteritemSpacing = Self.itemSpacing
         layout.minimumLineSpacing = Self.itemSpacing
         layout.sectionInset = .zero
+        layout.sectionInsetReference = .fromContentInset
         return layout
     }
 }

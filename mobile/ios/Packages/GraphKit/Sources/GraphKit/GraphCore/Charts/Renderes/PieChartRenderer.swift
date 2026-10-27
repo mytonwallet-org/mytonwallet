@@ -13,6 +13,38 @@ import Cocoa
 import UIKit
 #endif
 
+struct PieChartGeometry {
+    let center: CGPoint
+    let radius: CGFloat
+    let innerRadius: CGFloat
+    var selectionOffset: CGFloat { radius / 14 }
+
+    init(chartFrame: CGRect, drawsDonut: Bool) {
+        center = CGPoint(x: chartFrame.midX, y: chartFrame.midY)
+        let availableRadius = min(chartFrame.width, chartFrame.height) / 2 * 14 / 15
+        radius = drawsDonut ? min(availableRadius, 110) : availableRadius
+        innerRadius = drawsDonut ? radius / 2 : 0
+    }
+}
+
+enum DonutChartHighlight {
+    // Figma's white radial overlay fades from 24% at the center to clear at the rim.
+    private static let gradient = CGGradient(
+        colorSpace: CGColorSpaceCreateDeviceGray(),
+        colorComponents: [1, 0.24, 1, 0],
+        locations: [0, 1],
+        count: 2
+    )!
+
+    static func draw(in context: CGContext, center: CGPoint, radius: CGFloat, alpha: CGFloat = 1) {
+        context.saveGState()
+        context.setAlpha(alpha)
+        context.drawRadialGradient(gradient, startCenter: center, startRadius: 0,
+                                   endCenter: center, endRadius: radius, options: [])
+        context.restoreGState()
+    }
+}
+
 class PieChartRenderer: BaseChartRenderer {
     struct PieComponent: Hashable {
         var color: GColor
@@ -33,6 +65,7 @@ class PieChartRenderer: BaseChartRenderer {
     private var setlectedSegmentsAnimators: [AnimationController<CGFloat>] = []
 
     var drawPie: Bool = true
+    var drawsDonut = false
     var initialAngle: CGFloat = .pi / 3
     var hasSelectedSegments: Bool {
         return selectedSegment != nil
@@ -81,19 +114,25 @@ class PieChartRenderer: BaseChartRenderer {
     var lastRenderedChartFrame: CGRect = .zero
     func selectedItemIndex(at point: CGPoint) -> Int? {
         let touchPosition = lastRenderedChartFrame.origin + point * lastRenderedChartFrame.size
-        let center = CGPoint(x: lastRenderedChartFrame.midX, y: lastRenderedChartFrame.midY)
-        let radius = min(lastRenderedChartFrame.width, lastRenderedChartFrame.height) / 2
-        if center.distanceTo(touchPosition) > radius { return nil }
-        let angle = (center - touchPosition).angle + .pi
+        let geometry = PieChartGeometry(chartFrame: lastRenderedChartFrame, drawsDonut: drawsDonut)
         let currentData = currentlyVisibleData
         let total: CGFloat = currentData.map({ $0.value }).reduce(0, +)
+        guard total > 0, geometry.radius > 0 else { return nil }
+        let numberOfVisibleItems = currentData.filter { $0.value > 0 }.count
         var startAngle: CGFloat = initialAngle
         for (index, piece) in currentData.enumerated() {
             let percent = piece.value / total
+            guard percent > 0 else { continue }
             let segmentSize = 2 * .pi * percent
             let endAngle = startAngle + segmentSize
-            if angle >= startAngle && angle <= endAngle ||
-               angle + .pi * 2 >= startAngle && angle + .pi * 2 <= endAngle {
+            let centerAngle = (startAngle + endAngle) / 2
+            let offset = numberOfVisibleItems > 1 ? setlectedSegmentsAnimators[index].current * geometry.selectionOffset : 0
+            let center = geometry.center + CGPoint(x: cos(centerAngle) * offset, y: sin(centerAngle) * offset)
+            let distance = center.distanceTo(touchPosition)
+            let angle = (center - touchPosition).angle + .pi
+            if distance >= geometry.innerRadius, distance <= geometry.radius,
+               (angle >= startAngle && angle <= endAngle ||
+                angle + .pi * 2 >= startAngle && angle + .pi * 2 <= endAngle) {
                 return index
             }
             startAngle = endAngle
@@ -127,8 +166,8 @@ class PieChartRenderer: BaseChartRenderer {
         let chartAlpha = chartAlphaAnimator.current
         if chartAlpha == 0 { return }
 
-        let center = CGPoint(x: chartFrame.midX, y: chartFrame.midY)
-        let radius = min(chartFrame.width, chartFrame.height) / 2
+        let geometry = PieChartGeometry(chartFrame: chartFrame, drawsDonut: drawsDonut)
+        let center = geometry.center
 
         let currentData = currentlyVisibleData
 
@@ -137,12 +176,12 @@ class PieChartRenderer: BaseChartRenderer {
             return
         }
 
-        let animationSelectionOffset: CGFloat = radius / 15
-        let maximumFontSize: CGFloat = radius / 7
+        let animationSelectionOffset = geometry.selectionOffset
+        let maximumFontSize: CGFloat = drawsDonut ? 17 * geometry.radius / 110 : geometry.radius * 15 / 14 / 7
         let minimumFontSize: CGFloat = 4
         let centerOffsetStartAngle = CGFloat.pi / 4
         let minimumValueToDraw: CGFloat = 0.015
-        let diagramRadius = radius - animationSelectionOffset
+        let diagramRadius = geometry.radius
 
         let numberOfVisibleItems = currentlyVisibleData.filter { $0.value > 0 }.count
         var startAngle: CGFloat = initialAngle
@@ -162,13 +201,30 @@ class PieChartRenderer: BaseChartRenderer {
             if drawPie {
                 context.saveGState()
                 context.setFillColor(piece.color.withAlphaComponent(piece.color.alphaValue * chartAlpha).cgColor)
-                context.move(to: updatedCenter)
+                context.move(to: updatedCenter + CGPoint(x: cos(startAngle) * diagramRadius, y: sin(startAngle) * diagramRadius))
                 context.addArc(center: updatedCenter,
-                               radius: radius - animationSelectionOffset,
+                               radius: diagramRadius,
                                startAngle: startAngle,
                                endAngle: endAngle,
                                clockwise: false)
+                if geometry.innerRadius > 0 {
+                    context.addArc(center: updatedCenter,
+                                   radius: geometry.innerRadius,
+                                   startAngle: endAngle,
+                                   endAngle: startAngle,
+                                   clockwise: true)
+                } else {
+                    context.addLine(to: updatedCenter)
+                }
+                context.closePath()
+                let slicePath = context.path
                 context.fillPath()
+                if drawsDonut, let slicePath {
+                    context.addPath(slicePath)
+                    context.clip()
+                    DonutChartHighlight.draw(in: context, center: updatedCenter, radius: diagramRadius,
+                                             alpha: piece.color.alphaValue * chartAlpha)
+                }
                 context.restoreGState()
             }
 
@@ -178,7 +234,9 @@ class PieChartRenderer: BaseChartRenderer {
                 let text = valuesFormatter.string(from: percent * 100)
                 let fraction = crop(0, segmentSize / centerOffsetStartAngle, 1)
                 let fontSize = (minimumFontSize + (maximumFontSize - minimumFontSize) * fraction).rounded(.up)
-                let labelPotisionOffset = diagramRadius / 2 + diagramRadius / 2 * (1 - fraction)
+                let labelPositionOffset = drawsDonut
+                    ? diagramRadius * (0.75 + 0.1 * (1 - fraction))
+                    : diagramRadius / 2 + diagramRadius / 2 * (1 - fraction)
                 let font = GraphTypography.technicalPieValueFont(pointSize: fontSize)
                 let labelsEaseInColor = crop(0, chartAlpha * chartAlpha * 2 - 1, 1)
                 let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: GColor.white.withAlphaComponent(labelsEaseInColor),
@@ -187,8 +245,8 @@ class PieChartRenderer: BaseChartRenderer {
                 let attributedString = NSAttributedString(string: text, attributes: attributes)
                 let textNode = TextRenderer.layoutText(attributedString, bounds.size)
                 
-                let labelPoint = CGPoint(x: labelVector.x * labelPotisionOffset + updatedCenter.x - textNode.0.size.width / 2,
-                                         y: labelVector.y * labelPotisionOffset + updatedCenter.y - textNode.0.size.height / 2)
+                let labelPoint = CGPoint(x: labelVector.x * labelPositionOffset + updatedCenter.x - textNode.0.size.width / 2,
+                                         y: labelVector.y * labelPositionOffset + updatedCenter.y - textNode.0.size.height / 2)
                 textNode.1.draw(CGRect(origin: labelPoint, size: textNode.0.size), in: context, backingScaleFactor: deviceScale)
                 context.restoreGState()
             }

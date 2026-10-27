@@ -126,11 +126,13 @@ object BalanceStore : IStore {
             calcTotalBalance24hInBaseCurrency(accountId)?.let { balance ->
                 totalBalance24hInBaseCurrency[accountId] = balance
             }
-            val jsonObject = JSONObject()
-            for (key in newBalances.keys) {
-                jsonObject.put(key, "bigint:${newBalances[key]}")
+            if (newBalances != existingBalances) {
+                val jsonObject = JSONObject()
+                for (key in newBalances.keys) {
+                    jsonObject.put(key, "bigint:${newBalances[key]}")
+                }
+                WGlobalStorage.setBalancesDict(accountId, jsonObject)
             }
-            WGlobalStorage.setBalancesDict(accountId, jsonObject)
             onCompletion?.invoke()
         }
     }

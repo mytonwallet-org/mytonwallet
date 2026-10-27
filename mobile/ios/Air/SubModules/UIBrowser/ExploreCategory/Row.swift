@@ -19,7 +19,7 @@ struct ExploreCategoryRow: View {
     private let cornerRadius: CGFloat = 23
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
             KFImage(URL(string: site.icon))
                 .resizable()
                 .loadDiskFileSynchronously(false)
@@ -36,37 +36,42 @@ struct ExploreCategoryRow: View {
                 .padding(.vertical, 13)
             
             textsAndButton()
-            
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: 114)
     }
     
     private func textsAndButton() -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(site.name).textStyle(.subheadlineStrong)
-                .fixedSize()
-                .padding(.top, 11)
+            HStack(spacing: 4) {
+                Text(site.name).textStyle(.body)
+                    .lineLimit(1)
+
+                if site.tgUrl != nil {
+                    Image.airBundle("TelegramLogo20")
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(Color.air.secondaryLabel.opacity(0.5))
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(height: 18)
+            .padding(.top, 11)
                 
             Spacer().frame(height: 4)
                 
-            Text(site.description).textStyle(.supporting)
+            Text(site.description).textStyle(.footnote)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
                 .foregroundStyle(Color.air.secondaryLabel)
+                .frame(height: 16)
             
             Spacer(minLength: 0)
             
             Button(action: openAction) {
-                HStack(spacing: 2) {
-                    if site.shouldOpenExternally {
-                        Image.airBundle("TelegramLogo20")
-                            .padding(.leading, -4)
-                            .padding(.vertical, -6)
-                    }
-                    Text(lang("Open"))
-                }
-                .foregroundStyle(.tint)
+                Text(lang("Open"))
+                    .frame(height: 16)
+                    .foregroundStyle(.tint)
             }
             .buttonStyle(OpenButtonStyle())
             .padding(.bottom, 10)

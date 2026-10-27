@@ -1,9 +1,13 @@
 import type { FallbackPollingOptions } from './fallbackPollingScheduler';
 
 import { CircuitOpenError } from '../../../util/circuitBreaker';
+import Deferred from '../../../util/Deferred';
+import { setIsAppFocused } from '../../../util/focusAwareDelay';
 import { logDebugError } from '../../../util/logs';
 import * as randomModule from '../../../util/random';
+import { MINUTE, SEC } from '../../constants';
 import { FallbackPollingScheduler } from './fallbackPollingScheduler';
+import { activeWalletTiming, inactiveWalletTiming } from './utils';
 
 jest.mock('../../../util/logs', () => ({
   logDebugError: jest.fn(),
@@ -20,6 +24,16 @@ const BASE_OPTIONS: FallbackPollingOptions = {
   pollingPeriod: 1000,
   forcedPollingPeriod: 1000,
 };
+
+const QUEUED_POLL_OPTIONS: FallbackPollingOptions = {
+  pollOnStart: true,
+  minPollDelay: 100,
+  pollingStartDelay: 3000,
+  pollingPeriod: 10_000,
+  forcedPollingPeriod: 10_000,
+};
+
+const SCHEDULE_CHANGES = ['onSocketConnect', 'onSocketMessage', 'onSocketDisconnect'] as const;
 
 describe('FallbackPollingScheduler', () => {
   beforeEach(() => {
@@ -48,6 +62,206 @@ describe('FallbackPollingScheduler', () => {
       'FallbackPollingScheduler poll failed (suppressed)',
       expect.any(CircuitOpenError),
     );
+
+    scheduler.destroy();
+  });
+});
+
+describe.each([true, false])('Wallet polling timing (focused: %s)', (isFocused) => {
+  let randomSpy: jest.SpiedFunction<typeof randomModule.random>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    setIsAppFocused(isFocused);
+    randomSpy = jest.spyOn(randomModule, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    setIsAppFocused(true);
+    randomSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it.each([
+    {
+      name: 'active wallet with a connected socket and no messages',
+      options: activeWalletTiming,
+      isSocketConnected: true,
+      initialPollCount: 1,
+      firstDelay: 5 * MINUTE,
+      nextDelay: 5 * MINUTE,
+    },
+    {
+      name: 'active wallet with a disconnected socket',
+      options: activeWalletTiming,
+      isSocketConnected: false,
+      initialPollCount: 1,
+      firstDelay: 3 * SEC,
+      nextDelay: isFocused ? 3 * SEC : 10 * SEC,
+    },
+    {
+      name: 'inactive wallet with a connected socket and no messages',
+      options: inactiveWalletTiming,
+      isSocketConnected: true,
+      initialPollCount: 0,
+      firstDelay: isFocused ? 2 * MINUTE : 5 * MINUTE,
+      nextDelay: isFocused ? 2 * MINUTE : 5 * MINUTE,
+    },
+    {
+      name: 'inactive wallet with a disconnected socket',
+      options: inactiveWalletTiming,
+      isSocketConnected: false,
+      initialPollCount: 0,
+      firstDelay: 5 * SEC,
+      nextDelay: isFocused ? 30 * SEC : MINUTE,
+    },
+  ])('preserves the start and recurring schedule for an $name', async ({
+    options, isSocketConnected, initialPollCount, firstDelay, nextDelay,
+  }) => {
+    const poll = jest.fn();
+    const scheduler = new FallbackPollingScheduler(poll, isSocketConnected, options);
+
+    expect(poll).toHaveBeenCalledTimes(initialPollCount);
+    if (initialPollCount) {
+      expect(poll).toHaveBeenCalledWith(true);
+    }
+
+    await jest.advanceTimersByTimeAsync(firstDelay - 1);
+    expect(poll).toHaveBeenCalledTimes(initialPollCount);
+
+    // An unfocused delay can complete through a second zero-delay timer
+    await jest.advanceTimersByTimeAsync(2);
+    expect(poll).toHaveBeenCalledTimes(initialPollCount + 1);
+
+    await jest.advanceTimersByTimeAsync(nextDelay - 2);
+    expect(poll).toHaveBeenCalledTimes(initialPollCount + 1);
+
+    await jest.advanceTimersByTimeAsync(3);
+    expect(poll).toHaveBeenCalledTimes(initialPollCount + 2);
+
+    scheduler.destroy();
+  });
+});
+
+describe('FallbackPollingScheduler queued polls', () => {
+  let randomSpy: jest.SpiedFunction<typeof randomModule.random>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    randomSpy = jest.spyOn(randomModule, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    randomSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it.each(SCHEDULE_CHANGES)('drops an old timer queued during the initial poll after %s', async (changeSchedule) => {
+    const firstPoll = new Deferred();
+    const poll = jest.fn().mockReturnValueOnce(firstPoll.promise);
+    const scheduler = new FallbackPollingScheduler(poll, false, QUEUED_POLL_OPTIONS);
+
+    await jest.advanceTimersByTimeAsync(3001);
+    expect(poll).toHaveBeenCalledTimes(1);
+
+    scheduler[changeSchedule]();
+    firstPoll.resolve();
+    await jest.advanceTimersByTimeAsync(101);
+
+    expect(poll).toHaveBeenCalledTimes(1);
+    expect(poll).toHaveBeenCalledWith(true);
+
+    scheduler.destroy();
+  });
+
+  describe.each([false, true])('with a later timer queued: %s', (hasLaterTimer) => {
+    it.each(SCHEDULE_CHANGES)('preserves forceImmediatePoll after %s', async (changeSchedule) => {
+      const firstPoll = new Deferred();
+      const poll = jest.fn().mockReturnValueOnce(firstPoll.promise);
+      const scheduler = new FallbackPollingScheduler(poll, false, QUEUED_POLL_OPTIONS);
+
+      scheduler.forceImmediatePoll();
+      if (hasLaterTimer) {
+        await jest.advanceTimersByTimeAsync(3001);
+      }
+      scheduler[changeSchedule]();
+
+      expect(poll).toHaveBeenCalledTimes(1);
+      firstPoll.resolve();
+      await jest.advanceTimersByTimeAsync(101);
+
+      expect(poll.mock.calls).toEqual([[true], [undefined]]);
+
+      scheduler.destroy();
+    });
+  });
+
+  it.each([false, true])(
+    'preserves a queued connect poll and its initial flag with pollOnEverySocketConnect=%s',
+    async (pollOnEverySocketConnect) => {
+      const firstPoll = new Deferred();
+      const poll = jest.fn().mockReturnValueOnce(firstPoll.promise);
+      const scheduler = new FallbackPollingScheduler(poll, false, {
+        ...QUEUED_POLL_OPTIONS,
+        pollOnEverySocketConnect,
+      });
+
+      scheduler.onSocketConnect();
+      if (!pollOnEverySocketConnect) {
+        scheduler.onSocketDisconnect();
+        scheduler.onSocketConnect();
+      }
+
+      await jest.advanceTimersByTimeAsync(10_001);
+      scheduler.onSocketMessage();
+      expect(poll).toHaveBeenCalledTimes(1);
+
+      firstPoll.resolve();
+      await jest.advanceTimersByTimeAsync(101);
+
+      expect(poll.mock.calls).toEqual([[true], [true]]);
+
+      scheduler.destroy();
+    },
+  );
+
+  it('runs a queued current-schedule timer and keeps polling', async () => {
+    const firstPoll = new Deferred();
+    const poll = jest.fn().mockReturnValueOnce(firstPoll.promise);
+    const scheduler = new FallbackPollingScheduler(poll, false, QUEUED_POLL_OPTIONS);
+
+    await jest.advanceTimersByTimeAsync(3001);
+    expect(poll).toHaveBeenCalledTimes(1);
+
+    firstPoll.resolve();
+    await jest.advanceTimersByTimeAsync(101);
+    expect(poll.mock.calls).toEqual([[true], [undefined]]);
+
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(poll.mock.calls).toEqual([[true], [undefined], [undefined], [undefined]]);
+
+    scheduler.destroy();
+  });
+
+  it('lets a running timer poll finish after a schedule change', async () => {
+    const timerPoll = new Deferred();
+    const onComplete = jest.fn();
+    const poll = jest.fn(() => timerPoll.promise.then(onComplete));
+    const scheduler = new FallbackPollingScheduler(poll, false, {
+      ...QUEUED_POLL_OPTIONS,
+      pollOnStart: false,
+    });
+
+    await jest.advanceTimersByTimeAsync(3001);
+    expect(poll).toHaveBeenCalledTimes(1);
+
+    scheduler.onSocketMessage();
+    timerPoll.resolve();
+    await jest.advanceTimersByTimeAsync(101);
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(poll.mock.calls).toEqual([[undefined]]);
 
     scheduler.destroy();
   });

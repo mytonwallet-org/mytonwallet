@@ -9,6 +9,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     public var addDividers: Bool
     public var horizontalPadding: CGFloat?
     public var dividersInset: CGFloat
+    public var dividersTrailingInset: CGFloat
 
     @ViewBuilder
     public var content: Content
@@ -22,6 +23,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
     public init(backgroundColor: UIColor? = nil,
                 addDividers: Bool = true,
                 dividersInset: CGFloat = 0,
+                dividersTrailingInset: CGFloat = 0,
                 horizontalPadding: CGFloat? = nil,
                 @ViewBuilder content: @escaping () -> Content,
                 @ViewBuilder header: @escaping () -> Header,
@@ -29,6 +31,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
         self.backgroundColor = backgroundColor
         self.addDividers = addDividers
         self.dividersInset = dividersInset
+        self.dividersTrailingInset = dividersTrailingInset
         self.horizontalPadding = horizontalPadding
         self.content = content()
         self.header = header()
@@ -47,7 +50,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
 
             ZStack {
                 Color(resolvedBackgroundColor)
-                ContentContainer(addDividers: addDividers, dividersInset: dividersInset) {
+                ContentContainer(addDividers: addDividers, dividersInset: dividersInset, dividersTrailingInset: dividersTrailingInset) {
                     content
                 }
             }
@@ -74,17 +77,19 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
         
         var addDividers: Bool
         var dividersInset: CGFloat
+        var dividersTrailingInset: CGFloat
 
         var content: _Content
         
-        init(addDividers: Bool, dividersInset: CGFloat, @ViewBuilder content: () -> _Content) {
+        init(addDividers: Bool, dividersInset: CGFloat, dividersTrailingInset: CGFloat, @ViewBuilder content: () -> _Content) {
             self.addDividers = addDividers
             self.dividersInset = dividersInset
+            self.dividersTrailingInset = dividersTrailingInset
             self.content = content()
         }
         
         var body: some View {
-            _VariadicView.Tree(ContentLayout(addDividers: addDividers, dividersInset: dividersInset)) {
+            _VariadicView.Tree(ContentLayout(addDividers: addDividers, dividersInset: dividersInset, dividersTrailingInset: dividersTrailingInset)) {
                 content
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -95,6 +100,7 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
 
         var addDividers: Bool = true
         var dividersInset: CGFloat
+        var dividersTrailingInset: CGFloat
 
         @ViewBuilder
         func body(children: _VariadicView.Children) -> some View {
@@ -105,8 +111,11 @@ public struct InsetSection<Content: View, Header: View, Footer: View>: View {
                     child
                         .overlay(alignment: .bottom) {   
                             if addDividers && child.id != last {
-                                InsetDivider()
-                                    .padding(.leading, dividersInset)
+                                Rectangle()
+                                    .fill(Color.air.separator)
+                                    .frame(height: 0.33)
+                                    .padding(.leading, 16 + dividersInset)
+                                    .padding(.trailing, dividersTrailingInset)
                             }
                         }
                 }
@@ -120,12 +129,14 @@ extension InsetSection where Header == EmptyView {
     public init(backgroundColor: UIColor? = nil,
                 addDividers: Bool = true,
                 dividersInset: CGFloat = 0,
+                dividersTrailingInset: CGFloat = 0,
                 horizontalPadding: CGFloat? = nil,
                 @ViewBuilder content: @escaping () -> Content,
                 @ViewBuilder footer: @escaping () -> Footer) {
         self.backgroundColor = backgroundColor
         self.addDividers = addDividers
         self.dividersInset = dividersInset
+        self.dividersTrailingInset = dividersTrailingInset
         self.horizontalPadding = horizontalPadding
         self.content = content()
         self.header = EmptyView()
@@ -138,12 +149,14 @@ extension InsetSection where Footer == EmptyView {
     public init(backgroundColor: UIColor? = nil,
                 addDividers: Bool = true,
                 dividersInset: CGFloat = 0,
+                dividersTrailingInset: CGFloat = 0,
                 horizontalPadding: CGFloat? = nil,
                 @ViewBuilder content: @escaping () -> Content,
                 @ViewBuilder header: @escaping () -> Header) {
         self.backgroundColor = backgroundColor
         self.addDividers = addDividers
         self.dividersInset = dividersInset
+        self.dividersTrailingInset = dividersTrailingInset
         self.horizontalPadding = horizontalPadding
         self.content = content()
         self.header = header()
@@ -156,11 +169,13 @@ extension InsetSection where Header == EmptyView, Footer == EmptyView {
     public init(backgroundColor: UIColor? = nil,
                 addDividers: Bool = true,
                 dividersInset: CGFloat = 0,
+                dividersTrailingInset: CGFloat = 0,
                 horizontalPadding: CGFloat? = nil,
                 @ViewBuilder content: @escaping () -> Content) {
         self.backgroundColor = backgroundColor
         self.addDividers = addDividers
         self.dividersInset = dividersInset
+        self.dividersTrailingInset = dividersTrailingInset
         self.horizontalPadding = horizontalPadding
         self.content = content()
         self.header = EmptyView()

@@ -1,9 +1,10 @@
 import { beginCell } from '@ton/core';
 import nacl from 'tweetnacl';
 
-import { ApiCommonError, type ApiUpdateDappSendTransactions } from '../../../types';
+import { ApiCommonError, type ApiUpdate, type ApiUpdateDappSendTransactions } from '../../../types';
 import { DappProtocolType } from '../../types';
 
+import { FetchDemand } from '../../../../util/fetchDemand';
 import { SEND_TRANSACTION_ERROR_CODES } from './errors';
 import { createTonConnectAdapter } from './index';
 
@@ -108,6 +109,7 @@ describe('TonConnectAdapter.connect', () => {
   const selectedAccountId = '1-mainnet';
   const activeAddress = 'UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-active';
   const selectedAddress = 'UQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB-selected';
+  const proofSignature = Buffer.alloc(64, 1).toString('base64');
   const rotationAnchorKeyPair = nacl.sign.keyPair.fromSeed(new Uint8Array(Array(32).fill(1)));
   const rotationSigningKeyPair = nacl.sign.keyPair.fromSeed(new Uint8Array(Array(32).fill(2)));
   const rotationAnchorPublicKey = Buffer.from(rotationAnchorKeyPair.publicKey).toString('hex');
@@ -137,6 +139,7 @@ describe('TonConnectAdapter.connect', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(jest.requireMock('../../../../config'), 'IS_AIR_APP', false);
 
     mockFetchJsonWithProxy.mockResolvedValue({
       url: 'https://agents.ton.org',
@@ -161,10 +164,10 @@ describe('TonConnectAdapter.connect', () => {
     mockToRawAddress.mockImplementation((address: string) => `raw:${address}`);
   });
 
-  async function createConnectedAdapter() {
+  async function createConnectedAdapter(onUpdate = jest.fn<void, [ApiUpdate]>()) {
     const adapter = createTonConnectAdapter();
     await adapter.init({
-      onUpdate: jest.fn(),
+      onUpdate,
       env: {
         agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false, byNetwork: { mainnet: {}, testnet: {} },
       },
@@ -206,6 +209,86 @@ describe('TonConnectAdapter.connect', () => {
     );
   }
 
+  it.each([false, true])('allows switching from a non-TON account before connecting (proof: %s)', async (withProof) => {
+    mockFetchStoredChainAccount.mockImplementation((accountId: string) => {
+      if (accountId === activeAccountId) {
+        throw new Error(`ton wallet missing in account ${accountId}`);
+      }
+      return selectedAccount;
+    });
+    let confirm!: (value: unknown) => void;
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: new Promise((resolve) => { confirm = resolve; }),
+    });
+    const onUpdate = jest.fn<void, [ApiUpdate]>((update) => {
+      if (update.type !== 'dappConnect') return;
+
+      expect(update.accountId).toBe(activeAccountId);
+      expect(update.dapp.chains).toEqual([{ chain: 'ton', network: 'mainnet', address: '' }]);
+      expect(Boolean(update.proof)).toBe(withProof);
+      expect(mockAddDapp).not.toHaveBeenCalled();
+      confirm({ accountId: selectedAccountId, proofSignatures: withProof ? [proofSignature] : undefined });
+    });
+    const items = withProof
+      ? [{ name: 'ton_addr' as const }, { name: 'ton_proof' as const, payload: 'proof-payload' }]
+      : [{ name: 'ton_addr' as const }];
+
+    const result = await connect(await createConnectedAdapter(onUpdate), items);
+
+    expect(result).toMatchObject({
+      success: true,
+      session: {
+        accountId: selectedAccountId,
+        chains: [{ chain: 'ton', network: 'mainnet', address: selectedAddress }],
+      },
+    });
+    expect(onUpdate.mock.calls.map(([update]) => update.type)).toEqual([
+      'dappLoading', 'dappConnect', 'updateDapps', 'dappConnectComplete',
+    ]);
+    expect(mockAddDapp).toHaveBeenCalledWith(selectedAccountId, expect.objectContaining({
+      chains: [{ chain: 'ton', network: 'mainnet', address: selectedAddress }],
+    }), 'app-client-id');
+  });
+
+  it('validates the confirmed account even when it is still the incompatible current account', async () => {
+    mockFetchStoredChainAccount.mockRejectedValue(new Error(`ton wallet missing in account ${activeAccountId}`));
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: Promise.resolve({ accountId: activeAccountId }),
+    });
+    const onUpdate = jest.fn<void, [ApiUpdate]>();
+
+    const result = await connect(await createConnectedAdapter(onUpdate));
+
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: 'dappConnect' }));
+    expect(result).toEqual({
+      success: false,
+      error: { code: 0, message: `ton wallet missing in account ${activeAccountId}` },
+    });
+    expect(mockAddDapp).not.toHaveBeenCalled();
+  });
+
+  it('resolves the TON address when confirming the current account without switching', async () => {
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: Promise.resolve({ accountId: activeAccountId }),
+    });
+
+    const result = await connect(await createConnectedAdapter());
+
+    expect(result).toMatchObject({
+      success: true,
+      session: {
+        accountId: activeAccountId,
+        chains: [{ chain: 'ton', network: 'mainnet', address: activeAddress }],
+      },
+    });
+    expect(mockAddDapp).toHaveBeenCalledWith(activeAccountId, expect.objectContaining({
+      chains: [{ chain: 'ton', network: 'mainnet', address: activeAddress }],
+    }), 'app-client-id');
+  });
+
   it('uses the wallet selected in the connect modal, not the initially active wallet', async () => {
     const adapter = await createConnectedAdapter();
 
@@ -242,7 +325,6 @@ describe('TonConnectAdapter.connect', () => {
       }),
       'app-client-id',
     );
-    expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(activeAccountId, 'ton');
     expect(mockFetchStoredChainAccount).toHaveBeenCalledWith(selectedAccountId, 'ton');
   });
 
@@ -265,7 +347,7 @@ describe('TonConnectAdapter.connect', () => {
       promiseId: 'promise-1',
       promise: Promise.resolve({
         accountId: selectedAccountId,
-        proofSignatures: ['proof-signature'],
+        proofSignatures: [proofSignature],
         proofPublicKeys: [rotationSigningPublicKey],
       }),
     });
@@ -286,12 +368,40 @@ describe('TonConnectAdapter.connect', () => {
       }),
       expect.objectContaining({
         name: 'ton_proof',
+        proof: expect.objectContaining({ signature: proofSignature }),
       }),
     ]));
     expect(mockGetWalletStateInit).toHaveBeenCalledWith(expect.objectContaining({
       publicKey: rotationAnchorPublicKey,
       version: 'telegram',
     }));
+  });
+
+  it.each([
+    { name: 'missing signatures', signatures: undefined },
+    { name: 'empty signatures', signatures: [] },
+    { name: 'an empty signature', signatures: [''] },
+    { name: 'invalid base64', signatures: ['!'.repeat(88)] },
+    { name: 'a short signature', signatures: [Buffer.alloc(63).toString('base64')] },
+    { name: 'an oversized signature', signatures: [Buffer.alloc(65).toString('base64')] },
+    { name: 'base64 with ignored characters', signatures: [`${proofSignature}\n`] },
+    { name: 'extra signatures', signatures: [proofSignature, proofSignature] },
+  ])('rejects $name before saving or completing the connection', async ({ signatures }) => {
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: Promise.resolve({ accountId: selectedAccountId, proofSignatures: signatures }),
+    });
+    const onUpdate = jest.fn<void, [ApiUpdate]>();
+
+    const result = await connect(await createConnectedAdapter(onUpdate), [
+      { name: 'ton_addr' },
+      { name: 'ton_proof', payload: 'test-proof' },
+    ]);
+
+    expect(result.success).toBe(false);
+    expect(mockAddDapp).not.toHaveBeenCalled();
+    expect(onUpdate.mock.calls.map(([update]) => update.type)).not.toContain('dappConnectComplete');
+    expect(onUpdate.mock.calls.map(([update]) => update.type)).not.toContain('updateDapps');
   });
 
   it.each(['publicKey', 'version'] as const)('refuses to connect a wallet with no %s', async (field) => {
@@ -319,6 +429,7 @@ describe('TonConnectAdapter.sendTransaction', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(jest.requireMock('../../../../config'), 'IS_AIR_APP', false);
     mockGetDapp.mockResolvedValue({
       url: 'https://example.com',
       name: 'Example',
@@ -408,8 +519,91 @@ describe('TonConnectAdapter.sendTransaction', () => {
       payload: { destination: payloadRecipientAddress },
     });
     expect(mockParsePayloadBase64).toHaveBeenCalledWith(
-      'mainnet', contractAddress, expect.any(String), { expectedOwnerAddress: walletAddress },
+      'mainnet', contractAddress, expect.any(String), {
+        expectedOwnerAddress: walletAddress,
+        messageAmount: 1n,
+        supportsDedustSwap: false,
+        demand: expect.any(FetchDemand),
+      },
     );
+  });
+
+  it('makes the provider requests of a transaction request, broadcast included, for one urgent demand', async () => {
+    mockCreateDappPromise.mockReturnValue({
+      promiseId: 'promise-1',
+      promise: Promise.resolve([{ payload: { base64: 'signed-boc', seqno: 1 } }]),
+    });
+    mockSendSignedTransactions.mockResolvedValue([{ boc: 'sent-boc', msgHashNormalized: 'hash' }]);
+    const adapter = createTonConnectAdapter();
+    await adapter.init({
+      onUpdate: jest.fn(),
+      env: {
+        agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false, byNetwork: { mainnet: {}, testnet: {} },
+      },
+      chainDappSupports: {},
+    });
+
+    const result = await adapter.sendTransaction(
+      { url: 'https://example.com', accountId },
+      {
+        id: 'request-1',
+        chain: 'ton',
+        payload: {
+          messages: [{
+            address: contractAddress,
+            amount: '1',
+            payload: beginCell().endCell().toBoc().toString('base64'),
+          }],
+        },
+      },
+    );
+
+    expect(result).toMatchObject({ success: true, result: { result: 'sent-boc' } });
+    const demand = mockCheckMultiTransactionDraft.mock.calls[0][5];
+    expect(demand).toBeInstanceOf(FetchDemand);
+    expect(demand.isUrgent()).toBe(true);
+    expect(mockParsePayloadBase64.mock.calls[0][3].demand).toBe(demand);
+    expect(mockSendSignedTransactions).toHaveBeenCalledWith(accountId, expect.any(Array), demand);
+  });
+
+  it.each([
+    ['native iOS', true, true, false, true],
+    ['native Android', true, false, true, false],
+    ['web', false, false, false, false],
+    ['legacy iOS web app', false, true, false, false],
+  ] as const)('only enables the swap presentation on supported clients: %s', async (
+    _label, isAirApp, isIosApp, isAndroidApp, supported,
+  ) => {
+    jest.replaceProperty(jest.requireMock('../../../../config'), 'IS_AIR_APP', isAirApp);
+    // Even an already-parsed payload must not bypass the presentation capability check.
+    mockParsePayloadBase64.mockResolvedValue({ type: 'dedust:native-swap' });
+    let resolveUpdate!: (update: ApiUpdateDappSendTransactions) => void;
+    const updatePromise = new Promise<ApiUpdateDappSendTransactions>((resolve) => {
+      resolveUpdate = resolve;
+    });
+    const adapter = createTonConnectAdapter();
+    await adapter.init({
+      onUpdate: (update) => {
+        if (update.type === 'dappSendTransactions') resolveUpdate(update);
+      },
+      env: {
+        agentOverride: 'v1', isAgentV2Enabled: false, isSseSupported: false,
+        isIosApp, isAndroidApp, byNetwork: { mainnet: {}, testnet: {} },
+      },
+      chainDappSupports: {},
+    });
+    const rawPayload = beginCell().endCell().toBoc().toString('base64');
+    void adapter.sendTransaction({ url: 'https://example.com', accountId }, {
+      id: 'swap-request', chain: 'ton',
+      payload: { messages: [{ address: contractAddress, amount: '1', payload: rawPayload }] },
+    });
+    const update = await updatePromise;
+    expect(mockParsePayloadBase64).toHaveBeenCalledWith('mainnet', contractAddress, rawPayload,
+      expect.objectContaining({ supportsDedustSwap: supported }));
+    expect(update.transactions[0]).toMatchObject({
+      payload: supported ? { type: 'dedust:native-swap' } : { type: 'unknown', base64: rawPayload },
+      isDangerous: !supported,
+    });
   });
 
   it('does not broadcast when the settlement of its bridge event cannot be stored', async () => {

@@ -49,8 +49,8 @@ class NftDetailsFullScreenOverlay: UIView {
         sv.showsVerticalScrollIndicator = false
         sv.showsHorizontalScrollIndicator = false
         sv.bouncesZoom = true
-        sv.bounces = true
-        sv.alwaysBounceVertical = true
+        sv.bounces = false
+        sv.alwaysBounceVertical = false
         sv.contentInsetAdjustmentBehavior = .never
         sv.clipsToBounds = false
         if #available(iOS 26.0, *) {
@@ -64,6 +64,7 @@ class NftDetailsFullScreenOverlay: UIView {
     private var contentContainerHeightConstraint: NSLayoutConstraint!
     private weak var content: NftDetailsFullScreenOverlayContent?
     private var dismissPanGesture: UIPanGestureRecognizer?
+    private let pinchTouchGuard = NftDetailsPinchTouchGuard()
     private var onDismiss: ((DismissWay) -> Void)?
 
     private enum State {
@@ -86,7 +87,11 @@ class NftDetailsFullScreenOverlay: UIView {
         super.layoutSubviews()
         
         updateContainerSize()
+        scrollView.layoutIfNeeded()
         centerContent()
+        if state == .idle || state == .presenting {
+            scrollView.contentOffset = CGPoint(x: -scrollView.contentInset.left, y: -scrollView.contentInset.top)
+        }
     }
 
     private func updateContainerSize() {
@@ -94,15 +99,15 @@ class NftDetailsFullScreenOverlay: UIView {
                                                 
         // Content is always square (matches NFT image aspect ratio expectations)
         let fittedSize = scrollView.bounds.width
+        guard contentContainerWidthConstraint.constant != fittedSize else { return }
         contentContainerWidthConstraint.constant = fittedSize
         contentContainerHeightConstraint.constant = fittedSize
-        scrollView.contentSize = CGSize(width: fittedSize, height: fittedSize)
     }
     
     private func updateBackground() {
         if scrollView.zoomScale == 1.0 {
             let start = CGFloat(0)
-            let end = CGFloat(100)
+            let end = max(CGFloat(180), bounds.height * 0.25)
             let offset = max(start, min(end, abs(scrollView.contentOffset.y + scrollView.adjustedContentInset.top)))
             backgroundColor = UIColor.black.withAlphaComponent(1 - (offset - start) / (end - start))
         } else {
@@ -120,6 +125,8 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     private func setup() {
+        accessibilityIdentifier = "NFTMediaViewer"
+        accessibilityViewIsModal = true
         semanticContentAttribute = .forceLeftToRight
         scrollView.semanticContentAttribute = .forceLeftToRight
         contentContainerView.semanticContentAttribute = .forceLeftToRight
@@ -140,6 +147,8 @@ class NftDetailsFullScreenOverlay: UIView {
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
             contentContainerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             contentContainerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentContainerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentContainerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentContainerWidthConstraint,
             contentContainerHeightConstraint,
         ])
@@ -158,9 +167,20 @@ class NftDetailsFullScreenOverlay: UIView {
         
         let dismissPanGesture = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
         dismissPanGesture.delegate = self
-        dismissPanGesture.cancelsTouchesInView = false
-        scrollView.addGestureRecognizer(dismissPanGesture)
+        dismissPanGesture.maximumNumberOfTouches = 1
+        addGestureRecognizer(dismissPanGesture)
         self.dismissPanGesture = dismissPanGesture
+        pinchTouchGuard.canClaim = { [weak self] in self?.state == .normal }
+        pinchTouchGuard.onClaimChanged = { [weak self, weak tap, weak doubleTap, weak dismissPanGesture] claimed in
+            tap?.isEnabled = !claimed
+            doubleTap?.isEnabled = !claimed
+            dismissPanGesture?.isEnabled = !claimed
+            if claimed {
+                self?.scrollView.transform = .identity
+                self?.backgroundColor = .black
+            }
+        }
+        addGestureRecognizer(pinchTouchGuard)
     }
     
     func presentWithFlyingTransition(from content: NftDetailsFullScreenOverlayContent, in parentView: UIView,
@@ -185,48 +205,39 @@ class NftDetailsFullScreenOverlay: UIView {
         ])
         parentView.layoutIfNeeded()
                         
-        let startFrame = content.convert(content.bounds, to: contentContainerView).applying(content.transform.inverted())
-        let endFrame = contentContainerView.bounds
-        content.addToParent(
-            contentContainerView,
-            bindToTop: false,
-            yConstant: startFrame.midY - endFrame.midY,
-            xConstant: startFrame.midX - endFrame.midX
-        )
-        layoutIfNeeded()
-        
-        Haptics.play(.transition)
-
-        UIView.animate(withDuration: 0.35) {
-            content.transform = .identity
-            self.backgroundColor = .black
-        }
-
+        let startFrame = content.convert(content.bounds, to: self)
+        content.transform = .identity
+        content.addToParent(contentContainerView, bindToTop: false, yConstant: 0)
         onPrepare()
-        content.centerYConstraint?.constant = 0
-        content.centerXConstraint?.constant = 0
-        UIView.animate(
-            withDuration: 0.48,
-            delay: 0,
-            usingSpringWithDamping: 0.7,
-            initialSpringVelocity: 0.45,
-            options: [.beginFromCurrentState, .curveEaseInOut],
-            animations: {
-                self.layoutIfNeeded()
-            },
-            completion: { _ in
-                self.state = .normal
-            }
+        layoutIfNeeded()
+        centerContent()
+        layoutIfNeeded()
+        let endFrame = content.convert(content.bounds, to: self)
+        content.transform = CGAffineTransform(
+            a: startFrame.width / max(1, endFrame.width), b: 0, c: 0,
+            d: startFrame.height / max(1, endFrame.height),
+            tx: startFrame.midX - endFrame.midX, ty: startFrame.midY - endFrame.midY
         )
+        Haptics.play(.transition)
+        UIView.animate(withDuration: NftDetailsMediaMotion.duration * 0.75, delay: 0, options: [.beginFromCurrentState, .curveEaseInOut]) { self.backgroundColor = .black }
+        UIView.animate(withDuration: NftDetailsMediaMotion.duration, delay: 0,
+                       usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction]) {
+            content.transform = .identity
+        } completion: { _ in
+            self.state = .normal
+        }
     }
 
     @objc private func handleTap(_ gr: UITapGestureRecognizer) {
+        guard !pinchTouchGuard.isClaimed else { return }
         if scrollView.zoomScale == 1.0 {
             dismiss(.singleTap)
         }
     }
 
     @objc private func handleDoubleTap(_ gr: UITapGestureRecognizer) {
+        guard !pinchTouchGuard.isClaimed else { return }
         if scrollView.zoomScale > scrollView.minimumZoomScale {
             scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
         } else {
@@ -243,25 +254,34 @@ class NftDetailsFullScreenOverlay: UIView {
     }
 
     @objc private func handleDismissPan(_ gr: UIPanGestureRecognizer) {
-        guard scrollView.zoomScale == scrollView.minimumZoomScale else { return }
+        guard !pinchTouchGuard.isClaimed, state == .normal,
+              scrollView.zoomScale <= scrollView.minimumZoomScale + 0.001 else { return }
+        let translation = gr.translation(in: self)
         switch gr.state {
+        case .began, .changed:
+            // Follow the finger directly, without UIScrollView's overscroll resistance.
+            let progress = min(1, abs(translation.y) / max(1, bounds.height * 0.5))
+            let scale = UIAccessibility.isReduceMotionEnabled ? 1 : 1 - progress * 0.08
+            scrollView.transform = CGAffineTransform(translationX: translation.x * 0.25, y: translation.y).scaledBy(x: scale, y: scale)
+            backgroundColor = UIColor.black.withAlphaComponent(max(0, 1 - abs(translation.y) / 200))
         case .ended, .cancelled:
-            break
+            let velocity = gr.velocity(in: self)
+            if gr.state == .ended,
+               abs(translation.y) > bounds.height * 0.2 || (abs(velocity.y) > 800 && abs(translation.y) > 12) {
+                dismiss(velocity.y < 0 ? .throwUp : .throwDown)
+            } else {
+                UIView.animate(withDuration: NftDetailsMediaMotion.duration, delay: 0,
+                               usingSpringWithDamping: NftDetailsMediaMotion.damping, initialSpringVelocity: 0,
+                               options: [.beginFromCurrentState, .allowUserInteraction]) {
+                    self.scrollView.transform = .identity
+                    self.backgroundColor = .black
+                }
+            }
         default:
-            return
+            break
         }
-
-        let velocity = gr.velocity(in: scrollView)
-        let translation = gr.translation(in: scrollView)
-        let verticalDominant = abs(velocity.y) >= abs(velocity.x) * 0.85
-        let flickUp = velocity.y < -420
-        let flickDown = velocity.y > 420
-        let draggedUp = translation.y < -56 && velocity.y < -80
-        guard verticalDominant, flickUp || draggedUp || flickDown else { return }
-
-        dismiss(flickDown ? .throwDown : (flickUp ? .throwUp : .normal))
     }
-    
+
     enum DismissWay {
         case normal, throwUp, throwDown, singleTap
     }
@@ -273,27 +293,30 @@ class NftDetailsFullScreenOverlay: UIView {
         
         Haptics.play(.transition)
         
-        let currentCenter = content.convert(
-            CGPoint(x: content.bounds.midX, y: content.bounds.midY),
-            to: self
-        )
-        content.addToParent(
-            self,
-            bindToTop: true,
-            yConstant: currentCenter.y,
-            xConstant: currentCenter.x - bounds.midX
-        )
-        
+        let currentFrame = content.convert(content.bounds, to: self)
+        let scale = currentFrame.width / max(1, content.bounds.width)
+        content.addToParent(self, bindToTop: true, yConstant: currentFrame.midY,
+                            xConstant: currentFrame.midX - bounds.midX)
+        content.transform = CGAffineTransform(scaleX: scale, y: scale)
         layoutIfNeeded()
-        
+
         onDismiss?(way)
         return true
     }
 }
 
 extension NftDetailsFullScreenOverlay: UIGestureRecognizerDelegate {
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === dismissPanGesture, let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = pan.velocity(in: self)
+        return !pinchTouchGuard.isClaimed && state == .normal && scrollView.zoomScale <= scrollView.minimumZoomScale + 0.001
+            && abs(velocity.y) > abs(velocity.x)
+    }
+
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        gestureRecognizer === dismissPanGesture && otherGestureRecognizer === scrollView.panGestureRecognizer
+        gestureRecognizer === dismissPanGesture
+            && (otherGestureRecognizer === scrollView.panGestureRecognizer
+                || otherGestureRecognizer === scrollView.pinchGestureRecognizer)
     }
 }
 
@@ -304,10 +327,11 @@ extension NftDetailsFullScreenOverlay: UIScrollViewDelegate {
 
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         centerContent()
+        if state == .normal { backgroundColor = .black }
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if state == .normal {
+        if state == .normal, dismissPanGesture?.state != .changed, dismissPanGesture?.state != .began {
             updateBackground()
         }
     }

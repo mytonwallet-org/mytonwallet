@@ -56,7 +56,7 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext)
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool)
     static func showAddToken()
-    static func showAddWallet(network: ApiNetwork)
+    static func showAddWallet(network: ApiNetwork, sourceView: UIView?)
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool)
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?)
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?)
@@ -64,11 +64,11 @@ public enum AssetListInitialPosition: Hashable, Sendable {
     static func showBuyWithCard(accountContext: AccountContext, chain: ApiChain?, push: Bool?)
     static func showConnectedDapps(push: Bool)
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?)
-    static func showCustomizeAppTabs()
     static func showCustomizeWallet(accountId: String?)
     static func showDebugView()
     static func showDeleteAccount(accountId: String)
     static func showEarn(accountContext: AccountContext, tokenSlug: String?, prefilledAmount: StakePrefilledAmount?)
+    static func showAddStake(accountContext: AccountContext, tokenSlug: String)
     static func showError(error: Error?)
     static func showExplore()
     static func showExploreSite(siteHost: String)
@@ -109,6 +109,10 @@ public enum AssetListInitialPosition: Hashable, Sendable {
 
 public extension AppActionsProtocol {
     static func preloadUpgradeCard() { }
+
+    static func showAddWallet(network: ApiNetwork) {
+        showAddWallet(network: network, sourceView: nil)
+    }
 
     static func showUpgradeCard() {
         Self.showUpgradeCard(accountContext: AccountContext(source: .current))
@@ -201,7 +205,7 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showActivityDetails(accountId: String, activity: ApiActivity, context: ActivityDetailsContext) { }
     static func showActivityDetailsById(chain: ApiChain, txId: String, showError: Bool) { }
     static func showAddToken() { }
-    static func showAddWallet(network: ApiNetwork) { }
+    static func showAddWallet(network: ApiNetwork, sourceView: UIView?) { }
     static func showAnyAccountTx(accountId: String, chain: ApiChain, txId: String, showError: Bool) { }
     static func showAgent(query: String?, entryPoint: ApiAgentV2EntryPoint?) { }
     static func showAssets(accountSource: AccountSource, selectedTab: DisplayAssetTab, collectionsFilter: NftCollectionFilter, initialPosition: AssetListInitialPosition?) { }
@@ -210,10 +214,10 @@ private class DummyAppActionProtocolImpl: AppActionsProtocol {
     static func showConnectedDapps(push: Bool) { }
     static func showCrossChainSwapVC(_ transaction: ApiActivity, accountId: String?) { }
     static func showCustomizeWallet(accountId: String?) { }
-    static func showCustomizeAppTabs() { }
     static func showDebugView() { }
     static func showDeleteAccount(accountId: String) { }
     static func showEarn(accountContext: AccountContext, tokenSlug: String?, prefilledAmount: StakePrefilledAmount?) { }
+    static func showAddStake(accountContext: AccountContext, tokenSlug: String) { }
     static func showError(error: Error?) { }
     static func showExplore() { }
     static func showExploreSite(siteHost: String) { }

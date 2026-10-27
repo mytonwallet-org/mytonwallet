@@ -16,12 +16,15 @@ struct ConnectDappViewOrPlaceholder: View {
             let isLoading = viewModel.update == nil
             let dapp = viewModel.update?.dapp ?? ApiDapp.loadingStub
 
-            ConnectDappView(viewModel: viewModel, isLoading: isLoading, dapp: dapp)
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-                    onHeightChange(height)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            ScrollView {
+                ConnectDappView(viewModel: viewModel, isLoading: isLoading, dapp: dapp)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                        onHeightChange(height)
+                    }
+            }
+            .backportScrollBounceBehaviorBasedOnSize()
+            .ignoresSafeArea(edges: .top)
         }
     }
 }
@@ -33,7 +36,7 @@ private struct ConnectDappView: View {
 
     var body: some View {
         WithPerceptionTracking {
-            VStack(spacing: 0) {
+            VStack(spacing: 24) {
                 HeaderView(
                     dapp: dapp,
                     isLoading: isLoading,
@@ -41,32 +44,28 @@ private struct ConnectDappView: View {
                 )
                 .padding(.top, 40)
                 .skeletonContainer(isActive: isLoading)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .safeAreaInset(edge: .bottom, spacing: 24) {
-                VStack(spacing: 24) {
-                    SelectSection(viewModel: viewModel, isLoading: isLoading)
 
-                    if !isLoading, let disabledWarning = viewModel.disabledWarning {
-                        WarningView(
-                            header: disabledWarning.header,
-                            text: disabledWarning.text,
-                            kind: disabledWarning.kind
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.top, -8)
-                    }
+                SelectSection(viewModel: viewModel, isLoading: isLoading)
 
-                    if viewModel.needsNewMultichainWallet {
-                        CreateMultichainWalletButton(viewModel: viewModel)
-                            .padding(.bottom, viewModel.extraBottomPadding)
-                    } else {
-                        ConnectButton(viewModel: viewModel)
-                            .padding(.bottom, viewModel.extraBottomPadding)
-                    }
+                if !isLoading, let disabledWarning = viewModel.disabledWarning {
+                    WarningView(
+                        header: disabledWarning.header,
+                        text: disabledWarning.text,
+                        kind: disabledWarning.kind
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, -8)
+                }
+
+                if viewModel.needsNewMultichainWallet {
+                    CreateMultichainWalletButton(viewModel: viewModel)
+                        .padding(.bottom, viewModel.extraBottomPadding)
+                } else {
+                    ConnectButton(viewModel: viewModel)
+                        .padding(.bottom, viewModel.extraBottomPadding)
                 }
             }
-            .ignoresSafeArea(edges: .top)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
     }
 }

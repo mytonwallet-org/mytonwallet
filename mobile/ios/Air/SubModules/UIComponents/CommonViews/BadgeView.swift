@@ -103,7 +103,8 @@ public final class BadgeView: UIView {
         backgroundColor = .white
         label.textColor = UIColor.white
         
-        label.text = "\(apy.formatted(.number.precision(.fractionLength(2)).locale(.forNumberFormatters)))%"
+        label.applyTextStyle(style == .regular ? .badge : .largeBadge)
+        label.text = localizedIntegerDigits(in: "\(apy.formatted(.number.precision(.fractionLength(2)).locale(.forNumberFormatters)))%")
         
         backgroundGradient.colors = [
             UIColor.airBundle("EarnGradientColorLeft").cgColor,
@@ -121,7 +122,8 @@ public final class BadgeView: UIView {
         backgroundColor = .white.withAlphaComponent(0.15)
         label.textColor = UIColor.white
         
-        label.text = "\(yieldType.rawValue) \(apy)%"
+        label.applyTextStyle(style == .regular ? .badge : .largeBadge)
+        label.text = "\(yieldType.rawValue) \(localizedIntegerDigits(in: "\(apy)%"))"
         
         backgroundGradient.colors = [
             UIColor.airBundle("EarnGradientColorLeft").cgColor,
@@ -161,6 +163,7 @@ public final class BadgeView: UIView {
 
     public func configure(text: String, foregroundColor: UIColor, backgroundColor: UIColor) {
         self.backgroundColor = backgroundColor
+        label.applyTextStyle(style == .regular ? .badge : .largeBadge, content: .technical)
         label.textColor = foregroundColor
         label.text = text
 

@@ -37,6 +37,11 @@ public actor AccountSettingsStore: WalletCoreData.EventsObserver {
 
         do {
             try db.write { db in
+                var row = row
+                // Dismissals are permanent, including when an older settings write arrives last.
+                let savedIds = try MAccountSettings.fetchOne(db, key: row.accountId)?.dismissedHomeBannerIds ?? []
+                let dismissedIds = Set(savedIds).union(row.dismissedHomeBannerIds ?? [])
+                row.dismissedHomeBannerIds = dismissedIds.isEmpty ? nil : dismissedIds.sorted()
                 if row.hasData {
                     try row.upsert(db)
                 } else {
@@ -98,6 +103,7 @@ public final class AccountSettings: Sendable {
     public private(set) var accentColorIndex: Int?
     public private(set) var isAllowSuspiciousActions = false
     public private(set) var portfolioTimeRange: String?
+    public private(set) var dismissedHomeBannerIds: Set<String> = []
 
     nonisolated init(accountId: String) {
         self.accountId = accountId
@@ -138,6 +144,11 @@ public final class AccountSettings: Sendable {
         persist()
     }
 
+    public func dismissHomeBanner(id: String) {
+        guard dismissedHomeBannerIds.insert(id).inserted else { return }
+        persist()
+    }
+
     func setAccentColorIndex(index newValue: Int?, for nft: ApiNft?) {
         guard accentColorNft?.id == nft?.id else { return }
         accentColorIndex = newValue
@@ -157,6 +168,7 @@ public final class AccountSettings: Sendable {
         accentColorIndex = row?.accentColorIndex
         isAllowSuspiciousActions = row?.isAllowSuspiciousActions ?? false
         portfolioTimeRange = row?.portfolioTimeRange
+        dismissedHomeBannerIds = Set(row?.dismissedHomeBannerIds ?? [])
     }
 
     private var row: MAccountSettings {
@@ -166,7 +178,8 @@ public final class AccountSettings: Sendable {
             accentColorNft: accentColorNft,
             accentColorIndex: accentColorIndex,
             isAllowSuspiciousActions: isAllowSuspiciousActions ? true : nil,
-            portfolioTimeRange: portfolioTimeRange
+            portfolioTimeRange: portfolioTimeRange,
+            dismissedHomeBannerIds: dismissedHomeBannerIds.isEmpty ? nil : dismissedHomeBannerIds.sorted()
         )
     }
 

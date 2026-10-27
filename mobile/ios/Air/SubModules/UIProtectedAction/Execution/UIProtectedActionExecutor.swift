@@ -13,29 +13,42 @@ public enum UIProtectedActionExecutor: ProtectedActionExecuting {
         _ action: ProtectedAction<HeaderView, Result>,
         in context: ExecutionContext
     ) async -> Outcome<Result> {
+        await execute(
+            action,
+            in: context,
+            feedbackPresentation: AuthorizationSupport.presentFeedbackAndWait
+        )
+    }
+
+    static func execute<HeaderView: ConfirmationContent, Result: MfaProtectedActionResult>(
+        _ action: ProtectedAction<HeaderView, Result>,
+        in context: ExecutionContext,
+        feedbackPresentation: @escaping AuthorizationUI.FeedbackPresentation
+    ) async -> Outcome<Result> {
         let viewController = context.authorizationPresenter
         guard let executionSession = ExecutionSessionRegistry.shared.acquire(in: context) else {
             executorLog.error("Ignored concurrent protected action execution for the same presentation surface")
             return .cancelled
         }
         defer { executionSession.finish() }
+        let authorizationUI = AuthorizationUI(
+            fallbackAlertHost: viewController.navigationController ?? viewController,
+            feedbackPresentation: feedbackPresentation
+        )
         if let error = executionSession.configurationError {
-            logInvariant(error)
-            return .failed(error)
+            return await failInvalidConfiguration(error, authorizationUI: authorizationUI)
         }
         guard executionSession.canPresentAuthorization else {
             executorLog.info("Protected action presenter is no longer visible")
             return .cancelled
         }
-        let authorizationUI = AuthorizationUI(
-            fallbackAlertHost: viewController.navigationController ?? viewController
-        )
         let activityWaiter: ActivityWaiter?
         if case .activity(let completion) = action.completion {
             guard !completion.sources.isEmpty else {
-                let error = InvariantError.invalidConfiguration("activity sources are empty")
-                logInvariant(error)
-                return .failed(error)
+                return await failInvalidConfiguration(
+                    .invalidConfiguration("activity sources are empty"),
+                    authorizationUI: authorizationUI
+                )
             }
             activityWaiter = ActivityWaiter(
                 accountId: action.account.id,
@@ -290,6 +303,16 @@ public enum UIProtectedActionExecutor: ProtectedActionExecuting {
         case .completed, .cancelled:
             assertionFailure("Unexpected terminal submission outcome")
         }
+    }
+
+    private static func failInvalidConfiguration<Result: MfaProtectedActionResult>(
+        _ error: InvariantError,
+        authorizationUI: AuthorizationUI
+    ) async -> Outcome<Result> {
+        logInvariant(error)
+        await authorizationUI.present(.notCommitted(error))
+        authorizationUI.dismiss()
+        return .failed(error)
     }
 
     private static func logInvariant(_ error: InvariantError) {

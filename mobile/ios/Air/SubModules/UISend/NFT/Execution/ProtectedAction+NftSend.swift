@@ -8,8 +8,8 @@ where HeaderView == NftSendingHeaderView,
     ) -> Self {
         Self(
             account: confirmed.account,
-            software: .single { enclaveToken in
-                try await confirmed.submit(enclaveToken: enclaveToken)
+            software: .custom { enclaveToken in
+                await confirmed.submit(enclaveToken: enclaveToken)
             },
             hardware: {
                 try await confirmed.makeLedgerOperation()

@@ -35,6 +35,8 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     private var refractionTexture: MTLTexture?
     var refractionRect: (() -> CGRect)?
     var foregroundSource: (() -> InteractiveDiamondComponent.RefractionSource?)?
+    var expansionHost: (() -> UIView?)?
+    private var expandedView: MTKView?
     var onPressBegan: (() -> Void)?
     var onExpansionChanged: ((Bool) -> Void)?
 
@@ -44,7 +46,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     }
     private var appliedHighlightBoost: Float = 0
     private var isHighDynamicRange = false
-    private var grip = CGFloat.zero
+    private(set) var grip = CGFloat.zero
     private var holding = false
     private var expanded = false
     private var expansion: Expansion?
@@ -104,6 +106,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
     required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     isolated deinit {
+        expandedView?.removeFromSuperview()
         landingFeedback?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
@@ -127,7 +130,8 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let visible = active && window != nil && UIApplication.shared.applicationState == .active
         let interactive = visible && animated && !UIAccessibility.isReduceMotionEnabled
         if !interactive { suspend() }
-        isPaused = !interactive
+        isPaused = !interactive || expandedView != nil
+        expandedView?.isPaused = !interactive
         pressGesture.isEnabled = interactive
         isUserInteractionEnabled = interactive
         accessibilityTraits = interactive ? [.button, .allowsDirectInteraction] : [.image]
@@ -175,7 +179,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         }
     }
 
-    private func setHolding(_ holding: Bool, at now: CFTimeInterval) {
+    func setHolding(_ holding: Bool, at now: CFTimeInterval) {
         guard self.holding != holding else { return }
         updateExpansion(at: now)
         self.holding = holding
@@ -204,7 +208,53 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let pixels = CGSize(width: ceil(size.width * scale), height: ceil(size.height * scale))
         if drawableSize != pixels { drawableSize = pixels }
         preferredFramesPerSecond = expanded ? (window?.screen.maximumFramesPerSecond ?? 120) : 60
+        updateExpandedView()
         CATransaction.commit()
+    }
+
+    private func updateExpandedView() {
+        if expanded, expandedView == nil, let host = expansionHost?() {
+            let view = MTKView(frame: .zero, device: device)
+            view.isOpaque = false
+            view.backgroundColor = .clear
+            view.clearColor = clearColor
+            view.autoResizeDrawable = false
+            view.isUserInteractionEnabled = false
+            view.accessibilityElementsHidden = true
+            view.delegate = self
+            view.isPaused = isPaused
+            host.addSubview(view)
+            expandedView = view
+            // Keep the gesture's view in place while drawing above the navigation title.
+            layer.mask = CALayer()
+            isPaused = true
+        } else if !expanded, let view = expandedView {
+            isPaused = view.isPaused
+            view.isPaused = true
+            view.delegate = nil
+            view.removeFromSuperview()
+            expandedView = nil
+            layer.mask = nil
+        }
+        if let view = expandedView, let host = view.superview {
+            view.frame = convert(bounds, to: host)
+            view.contentScaleFactor = contentScaleFactor
+            if view.drawableSize != drawableSize { view.drawableSize = drawableSize }
+            view.preferredFramesPerSecond = preferredFramesPerSecond
+        }
+    }
+
+    func snapshotBackground(in window: UIWindow, rect: CGRect) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = min(2, window.screen.scale)
+        format.opaque = false
+        let diamondRect = convert(bounds, to: window)
+        return UIGraphicsImageRenderer(size: rect.size, format: format).image { context in
+            context.cgContext.translateBy(x: -rect.minX, y: -rect.minY)
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+            // The resting canvas contains only the diamond; exclude its cached Metal pixels.
+            context.cgContext.clear(diamondRect)
+        }
     }
 
     private func updateMotion(at now: CFTimeInterval) {
@@ -226,16 +276,19 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         guard active, window != nil, UIApplication.shared.applicationState == .active,
               bounds.width > 0, bounds.height > 0 else { return }
         updateMotion(at: CACurrentMediaTime())
+        // Updating motion can switch surfaces when the expansion settles.
+        guard view === (expandedView ?? self) else { return }
         let strength = Float(min(1, max(0, grip)))
         let boost = UIAccessibility.isReduceMotionEnabled ? 0.4 * strength : appliedHighlightBoost
         var hdr = false
         if #available(iOS 17, *) {
             hdr = (window?.screen.potentialEDRHeadroom ?? 1) > 1 && (boost > 0.001 || 0.4 * strength > 0.001)
         }
-        if hdr != isHighDynamicRange {
+        let pixelFormat: MTLPixelFormat = hdr ? .rgba16Float : .bgra8Unorm
+        if hdr != isHighDynamicRange || view.colorPixelFormat != pixelFormat {
             isHighDynamicRange = hdr
-            colorPixelFormat = hdr ? .rgba16Float : .bgra8Unorm
-            if let layer = layer as? CAMetalLayer {
+            view.colorPixelFormat = pixelFormat
+            if let layer = view.layer as? CAMetalLayer {
                 layer.colorspace = hdr ? CGColorSpace(name: CGColorSpace.extendedSRGB) : CGColorSpaceCreateDeviceRGB()
                 if #available(iOS 26, *) {
                     layer.contentsHeadroom = hdr ? 2.2 : 1
@@ -246,7 +299,7 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
             }
         }
         guard inFlight.wait(timeout: .now()) == .success else { return }
-        guard let drawable = currentDrawable,
+        guard let drawable = view.currentDrawable,
               let pass = renderTargets.renderPass(resolving: drawable.texture, sampleCount: renderer.sampleCount),
               let command = queue.makeCommandBuffer(), let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
             inFlight.signal()
@@ -276,11 +329,13 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let position = gesture.location(in: self)
         // The canvas changes size during expansion; sample in the parent's fixed coordinates.
         let point = convert(position, to: superview)
-        let now = CACurrentMediaTime()
+        var now = CACurrentMediaTime()
         updateMotion(at: now)
         switch gesture.state {
         case .began:
             onPressBegan?()
+            // Snapshot preparation must not consume the scale-up animation's duration.
+            now = CACurrentMediaTime()
             landingFeedback?.cancel()
             TelegramDiamondResources.haptic.prepare()
             dragPosition = point
@@ -343,8 +398,9 @@ final class TelegramDiamondMetalView: MTKView, MTKViewDelegate {
         let now = CACurrentMediaTime()
         updateMotion(at: now)
         onPressBegan?()
-        motion.begin(at: now)
-        setHolding(true, at: now)
+        let start = CACurrentMediaTime()
+        motion.begin(at: start)
+        setHolding(true, at: start)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self, self.holding else { return }
             let now = CACurrentMediaTime()

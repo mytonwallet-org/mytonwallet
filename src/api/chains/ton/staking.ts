@@ -35,6 +35,7 @@ import { bigintDivideToNumber, bigintMultiplyToNumber } from '../../../util/bigi
 import { fromDecimal } from '../../../util/decimals';
 import { getDevSettings } from '../../../util/devSettings';
 import { explainApiTransferFee } from '../../../util/fee/transferFee';
+import { logDebugError } from '../../../util/logs';
 import { getIsActiveStakingState } from '../../../util/staking';
 import { getNativeToken } from '../../../util/tokens';
 import calcJettonStakingApr from '../../../util/ton/calcJettonStakingApr';
@@ -59,8 +60,11 @@ import { callBackendGet } from '../../common/backend';
 import { getAccountCache, getStakingCommonCache, updateAccountCache } from '../../common/cache';
 import { buildTokenSlug, getTokenByAddress, getTokenBySlug } from '../../common/tokens';
 import { isKnownStakingPool } from '../../common/utils';
+import { MINUTE } from '../../constants';
 import { STAKE_COMMENT, TON_GAS, UNSTAKE_COMMENT } from './constants';
 import { checkTransactionDraft, submitGasfullTransfer } from './transfer';
+
+const ETHENA_LOCK_READ_WINDOW = 10 * MINUTE;
 
 export async function checkStakeDraft(accountId: string, amount: bigint, state: ApiStakingState) {
   if (isUnexpectedJettonStakingPool(state)) {
@@ -424,6 +428,7 @@ type StakingStateOptions = {
   loyaltyType?: ApiLoyaltyType;
   network: ApiNetwork;
   balances: ApiBalanceBySlug;
+  previousStates?: ApiStakingState[];
 };
 
 export async function getStakingStates(
@@ -431,6 +436,7 @@ export async function getStakingStates(
   commonData: ApiStakingCommonData,
   backendState: ApiBackendStakingState,
   balances: ApiBalanceBySlug,
+  previousStates?: ApiStakingState[],
 ): Promise<ApiStakingState[]> {
   const { network } = parseAccountId(accountId);
   const { address } = await fetchStoredWallet(accountId, 'ton');
@@ -449,6 +455,7 @@ export async function getStakingStates(
     loyaltyType,
     network,
     balances,
+    previousStates,
   };
 
   const promises: Promise<ApiStakingState>[] = [];
@@ -469,7 +476,14 @@ export async function getStakingStates(
   }
 
   if (!commonData.ethena.isDisabled || DEBUG) {
-    promises.push(buildEthenaState(options));
+    promises.push(buildEthenaState(options).catch((err) => {
+      logDebugError('buildEthenaState', err);
+      const previousState = previousStates?.find((state) => state.type === 'ethena');
+      if (!previousState) {
+        throw err;
+      }
+      return previousState;
+    }));
   }
 
   return [buildLiquidState(options), ...await Promise.all(promises)];
@@ -662,21 +676,42 @@ async function resolveJettonStakeWalletAddress(network: ApiNetwork, address: str
 
 async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthenaStakingState> {
   const {
-    network, balances, address: walletAddress,
+    accountId, network, balances, address: walletAddress,
     commonData, commonData: { ethena: { apy, apyVerified } },
     backendState: { ethena: { isVerified, isBoostAvailable } },
+    previousStates,
   } = options;
   const verifiedApy = apyVerified ?? apy;
 
   const rate = network === 'testnet' ? 1 : commonData.ethena.rate;
 
-  const tonClient = getTonClient(network);
-  const tsUsdeWalletAddress = await resolveTokenWalletAddress(network, walletAddress, TON_TSUSDE.tokenAddress);
-  const tsUsdeWallet = tonClient.open(TsUSDeWallet.createFromAddress(Address.parse(tsUsdeWalletAddress)));
-  const { lockedUsdeBalance, unlockTime } = await tsUsdeWallet.getTimeLockData();
-
   const tokenBalance = balances[TON_TSUSDE.slug] ?? 0n;
+  const previousState = previousStates?.find((state) => state.type === 'ethena');
+  const accountCache = getAccountCache(accountId, walletAddress);
+  const previousTokenBalance = accountCache.ethenaTokenBalance ?? previousState?.tokenBalance ?? 0n;
+  const now = Date.now();
+  let { ethenaDepletedAt } = accountCache;
+  if (tokenBalance > 0n) {
+    ethenaDepletedAt = undefined;
+  } else if (previousTokenBalance > 0n) {
+    ethenaDepletedAt = now;
+  }
+  updateAccountCache(accountId, walletAddress, { ethenaTokenBalance: tokenBalance, ethenaDepletedAt });
+
+  const tsUsdeWalletAddress = await resolveTokenWalletAddress(network, walletAddress, TON_TSUSDE.tokenAddress);
+  let lockedUsdeBalance = 0n;
+  let unlockTime: number | undefined;
+
+  if (!previousState || tokenBalance > 0n || previousState.unstakeRequestAmount > 0n
+    || (previousState.unlockTime ?? 0) > now
+    || (ethenaDepletedAt !== undefined && now - ethenaDepletedAt < ETHENA_LOCK_READ_WINDOW)) {
+    const tonClient = getTonClient(network);
+    const tsUsdeWallet = tonClient.open(TsUSDeWallet.createFromAddress(Address.parse(tsUsdeWalletAddress)));
+    ({ lockedUsdeBalance, unlockTime } = await tsUsdeWallet.getTimeLockData());
+  }
+
   const balance = bigintMultiplyToNumber(tokenBalance, rate);
+  const unlockTimeMs = unlockTime ? unlockTime * 1000 : undefined;
 
   const state: ApiEthenaStakingState = {
     id: 'ethena',
@@ -690,7 +725,7 @@ async function buildEthenaState(options: StakingStateOptions): Promise<ApiEthena
     pool: ETHENA_STAKING_VAULT,
     tokenBalance,
     unstakeRequestAmount: lockedUsdeBalance,
-    unlockTime: unlockTime && lockedUsdeBalance ? unlockTime * 1000 : undefined,
+    unlockTime: lockedUsdeBalance > 0n || (unlockTimeMs ?? 0) > Date.now() ? unlockTimeMs : undefined,
     isBoostAvailable,
     tsUsdeWalletAddress,
   };

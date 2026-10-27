@@ -72,6 +72,7 @@ interface StateProps {
   emulation?: Pick<ApiEmulationResult, 'activities' | 'realFee'>;
   isScam: boolean;
   isDangerous: boolean;
+  hasStateInit: boolean;
   dapp?: StoredDappConnection;
   isLoading?: boolean;
   tokensBySlug: Record<string, ApiTokenWithPrice>;
@@ -115,6 +116,7 @@ function DappTransferInitial({
   emulation,
   isScam,
   isDangerous,
+  hasStateInit,
   dapp,
   isLoading,
   tokensBySlug,
@@ -199,9 +201,13 @@ function DappTransferInitial({
           customTokenDecimals={tokenToDisplay.decimals}
         />
         {renderTotalAmount()}
-        {isDangerous && (
+        {isDangerous ? (
           <div className={buildClassName(styles.transferWarning, styles.warning)}>
             {renderText(lang('$hardware_payload_warning'))}
+          </div>
+        ) : hasStateInit && (
+          <div className={buildClassName(styles.transferWarning, styles.warning)}>
+            {renderText(lang('$signature_warning'))}
           </div>
         )}
         {renderTransactions()}
@@ -380,7 +386,9 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
   const accountState = selectCurrentAccountState(global);
   const accounts = selectNetworkAccounts(global);
 
-  const { amountsBySlug: totalAmountsBySlug, isScam, isDangerous } = selectCurrentDappTransferTotals(global);
+  const {
+    amountsBySlug: totalAmountsBySlug, isScam, isDangerous, hasStateInit,
+  } = selectCurrentDappTransferTotals(global);
 
   return {
     transactions,
@@ -389,6 +397,7 @@ export default memo(withGlobal<OwnProps>((global): StateProps => {
     emulation,
     isScam,
     isDangerous,
+    hasStateInit,
     dapp,
     isLoading,
     tokensBySlug: global.tokenInfo.bySlug,

@@ -29,8 +29,12 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     private var _isDisabled: Bool = false
     private var isRevealed = false
+    private let heroEffect: HeroParticlePrivacyEffect?
+    private var heroTap: UITapGestureRecognizer?
+    private var heroTapEnabled = true
     private var lastReportedMaskVisible: Bool?
     private var revealResetWorkItem: DispatchWorkItem?
+    private var maskWidthConstraint: NSLayoutConstraint?
     private nonisolated(unsafe) var observationToken: NSObjectProtocol?
     
     /// Called when local mask visibility changes. `true` = mask visible (balance hidden), `false` = revealed or globally visible.
@@ -42,7 +46,8 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         }
     }
 
-    public init(cols: Int, rows: Int, cellSize: CGFloat, cornerRadius: CGFloat, theme: ShyMask.Theme, alignment: Alignment) {
+    public init(cols: Int, rows: Int, cellSize: CGFloat, cornerRadius: CGFloat, theme: ShyMask.Theme, alignment: Alignment, usesHeroParticles: Bool = false, reservesMaskWidth: Bool = false) {
+        self.heroEffect = usesHeroParticles ? HeroParticlePrivacyEffect() : nil
         self._cols = cols
         self._rows = rows
         self._cellSize = cellSize
@@ -52,8 +57,18 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
         self.contentContainer = WTouchPassView()
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
+        if reservesMaskWidth {
+            maskWidthConstraint = widthAnchor.constraint(greaterThanOrEqualToConstant: maskSize.width)
+        }
         setupMaskIfNeeded(isSensitiveDataHidden: false)
         setupContainer()
+        if let heroEffect {
+            heroEffect.maskSize = maskSize
+            heroEffect.install(in: self, target: contentContainer)
+            let tap = UITapGestureRecognizer(target: self, action: #selector(onHeroTap(_:)))
+            addGestureRecognizer(tap)
+            heroTap = tap
+        }
         updateSensitiveData()
         
         observationToken = NotificationCenter.default.addObserver(
@@ -73,7 +88,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     }
     
     private func setupMaskIfNeeded(isSensitiveDataHidden: Bool) {
-        if !isSensitiveDataHidden || self.shyMask != nil { return }
+        if heroEffect != nil || !isSensitiveDataHidden || self.shyMask != nil { return }
         let shyMask = ShyMask(cols: _cols, rows: _rows, cellSize: _cellSize, theme: _theme)
         self.shyMask = shyMask
         addSubview(shyMask)
@@ -122,6 +137,7 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     public func addContent(_ content: Content) {
         assert(!content.translatesAutoresizingMaskIntoConstraints)
         self.content = content
+        heroEffect?.snapshotSource = content
         cancelRevealReset()
         isRevealed = false
         contentContainer.addSubview(content)
@@ -158,6 +174,20 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
             cancelRevealReset()
         }
         let isSensitiveDataHidden = isGloballyHidden && !isRevealed
+        maskWidthConstraint?.isActive = isSensitiveDataHidden
+        if let heroEffect {
+            let first = lastReportedMaskVisible == nil
+            layoutIfNeeded()
+            heroEffect.layout(in: self)
+            heroEffect.update(hidden: isSensitiveDataHidden,
+                color: (content as? UILabel)?.textColor ?? .label, animated: !first)
+            heroTap?.isEnabled = isSensitiveDataHidden && heroTapEnabled
+            isAccessibilityElement = isSensitiveDataHidden
+            accessibilityLabel = isSensitiveDataHidden ? lang("Tap to reveal") : nil
+            accessibilityTraits = isSensitiveDataHidden ? .button : []
+            notifyMaskStateChangedIfNeeded(isSensitiveDataHidden)
+            return
+        }
         notifyMaskStateChangedIfNeeded(isSensitiveDataHidden)
         setupMaskIfNeeded(isSensitiveDataHidden: isSensitiveDataHidden)
         UIView.animate(withDuration: 0.3) {
@@ -201,6 +231,8 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     public func setCols(_ newCols: Int) {
         self._cols = newCols
+        maskWidthConstraint?.constant = maskSize.width
+        heroEffect?.maskSize = maskSize
         shyMask?.setCols(newCols)
         resetReveal()
     }
@@ -217,11 +249,58 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     }
     
     public func performTap() {
-        if !isDisabled && isTapToRevealEnabled && shyMask != nil {
+        if !isDisabled && isTapToRevealEnabled && (shyMask != nil || (heroEffect != nil && lastReportedMaskVisible == true)) {
             onMaskTap()
         }
     }
     
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        heroEffect?.maskSize = maskSize
+        heroEffect?.layout(in: self)
+    }
+
+    public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        if heroTap?.isEnabled == true {
+            let maskFrame = CGRect(x: bounds.midX - maskSize.width / 2, y: bounds.midY - maskSize.height / 2,
+                                   width: maskSize.width, height: maskSize.height)
+            return bounds.union(maskFrame).contains(point)
+        }
+        if let shyMask, shyMask.alpha > 0.01, shyMask.isUserInteractionEnabled,
+           shyMask.point(inside: convert(point, to: shyMask), with: event) {
+            return true
+        }
+        return super.point(inside: point, with: event)
+    }
+
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let hitView = super.hitTest(point, with: event) {
+            return hitView
+        }
+        // Hidden content and noninteractive particles leave no child to receive the tap.
+        guard heroTap?.isEnabled == true, isUserInteractionEnabled, !isHidden, alpha > 0.01,
+              self.point(inside: point, with: event) else { return nil }
+        return self
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        heroEffect?.setActive(window != nil)
+    }
+
+    @objc private func onHeroTap(_ gesture: UITapGestureRecognizer) {
+        heroEffect?.prepare(at: gesture.location(in: self), in: self)
+        onMaskTap()
+    }
+
+    public override func accessibilityActivate() -> Bool {
+        guard heroEffect != nil, lastReportedMaskVisible == true, heroTapEnabled else {
+            return super.accessibilityActivate()
+        }
+        onMaskTap()
+        return true
+    }
+
     @objc private func onMaskTap() {
         isRevealed = true
         updateSensitiveData()
@@ -256,8 +335,12 @@ public final class WSensitiveData<Content: UIView>: WTouchPassView {
     
     /// defaults to true
     public var isTapToRevealEnabled: Bool {
-        get { shyMask?.isUserInteractionEnabled ?? false }
-        set { shyMask?.isUserInteractionEnabled = newValue }
+        get { heroEffect != nil ? heroTapEnabled : shyMask?.isUserInteractionEnabled ?? false }
+        set {
+            heroTapEnabled = newValue
+            heroTap?.isEnabled = newValue && lastReportedMaskVisible == true
+            shyMask?.isUserInteractionEnabled = newValue
+        }
     }
 }
 

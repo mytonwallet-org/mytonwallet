@@ -1,6 +1,5 @@
 import type { AppRequest, RpcRequests } from '@tonconnect/protocol';
 
-import type { ApiParsedPayload } from '../../../types';
 import type {
   DappDisconnectRequest,
   DappMethodResult,
@@ -26,10 +25,6 @@ export function isValidUrl(url: string) {
   } catch (err) {
     return false;
   }
-}
-
-export function isTransferPayloadDangerous(payload: ApiParsedPayload | undefined) {
-  return payload?.type === 'unknown';
 }
 
 export function transformTonConnectMessageToUnified(message: AppRequest<keyof RpcRequests>) {

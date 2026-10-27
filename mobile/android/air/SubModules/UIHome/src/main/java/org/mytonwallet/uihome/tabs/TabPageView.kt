@@ -12,9 +12,12 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import kotlin.math.abs
 import org.mytonwallet.app_air.uicomponents.base.WNavigationController
+import org.mytonwallet.app_air.uicomponents.commonViews.InfoBannerStackView
+import org.mytonwallet.app_air.uicomponents.commonViews.cardMotion.CardPlayScrollHost
 
 internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
-    FrameLayout(context) {
+    FrameLayout(context),
+    CardPlayScrollHost {
     init {
         layoutParams = RecyclerView.LayoutParams(MATCH_PARENT, MATCH_PARENT)
     }
@@ -29,6 +32,29 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     private var verticalGesture = false
     private var allowParentPager = false
     private var nestedOwnsHorizontalGesture = false
+    private var releaseCardPlayScrollLock: (() -> Unit)? = null
+
+    override fun acquireCardPlayScrollLock(): (() -> Unit)? {
+        if (releaseCardPlayScrollLock != null || tabPager.isFakeDragging ||
+            tabPager.scrollState != ViewPager2.SCROLL_STATE_IDLE
+        ) {
+            return null
+        }
+        val inputWasEnabled = tabPager.isUserInputEnabled
+        tabPager.isUserInputEnabled = false
+        allowParentPager = false
+        super.requestDisallowInterceptTouchEvent(true)
+        var released = false
+        val release = {
+            if (!released) {
+                released = true
+                releaseCardPlayScrollLock = null
+                tabPager.isUserInputEnabled = inputWasEnabled
+            }
+        }
+        releaseCardPlayScrollLock = release
+        return release
+    }
 
     fun bind(navigationController: WNavigationController) {
         if (childCount == 1 && getChildAt(0) === navigationController) return
@@ -38,6 +64,7 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     }
 
     fun unbind() {
+        releaseCardPlayScrollLock?.invoke()
         // Recycling mid-swipe would otherwise strand the fake drag, since only this view's
         // touch stream ends it, and every later beginFakeDrag() would fail.
         if (tabPager.isFakeDragging) tabPager.endFakeDrag()
@@ -46,6 +73,16 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (releaseCardPlayScrollLock != null) {
+            super.requestDisallowInterceptTouchEvent(true)
+            val handled = super.dispatchTouchEvent(event)
+            if (event.actionMasked == MotionEvent.ACTION_UP ||
+                event.actionMasked == MotionEvent.ACTION_CANCEL
+            ) {
+                resetGestureTracking()
+            }
+            return handled
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 initialRawX = event.rawX
@@ -54,20 +91,21 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
                 trackingGesture = true
                 horizontalGesture = false
                 verticalGesture = false
-                val startedInHorizontalChild =
+                val canScrollLeft =
                     hasTouchedScrollableChild(
                         this,
                         initialRawX.toInt(),
                         initialRawY.toInt(),
                         -1
-                    ) ||
-                        hasTouchedScrollableChild(
-                            this,
-                            initialRawX.toInt(),
-                            initialRawY.toInt(),
-                            1
-                        )
-                allowParentPager = !startedInHorizontalChild
+                    )
+                val canScrollRight = hasTouchedScrollableChild(
+                    this,
+                    initialRawX.toInt(),
+                    initialRawY.toInt(),
+                    1
+                )
+                nestedOwnsHorizontalGesture = canScrollLeft && canScrollRight
+                allowParentPager = !canScrollLeft && !canScrollRight
                 super.requestDisallowInterceptTouchEvent(!allowParentPager)
             }
 
@@ -145,15 +183,22 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
         verticalGesture = false
         allowParentPager = false
         nestedOwnsHorizontalGesture = false
-        super.requestDisallowInterceptTouchEvent(false)
+        super.requestDisallowInterceptTouchEvent(releaseCardPlayScrollLock != null)
     }
 
     override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
-        if (trackingGesture) {
+        if (releaseCardPlayScrollLock != null) {
+            super.requestDisallowInterceptTouchEvent(true)
+        } else if (trackingGesture) {
             super.requestDisallowInterceptTouchEvent(!allowParentPager)
         } else {
             super.requestDisallowInterceptTouchEvent(disallowIntercept)
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        releaseCardPlayScrollLock?.invoke()
+        super.onDetachedFromWindow()
     }
 
     private fun hasTouchedScrollableChild(
@@ -166,6 +211,9 @@ internal class TabPageView(context: Context, private val tabPager: ViewPager2) :
             !candidate.getGlobalVisibleRect(hitRect) ||
             !hitRect.contains(rawX, rawY)
         ) {
+            return false
+        }
+        if (candidate is InfoBannerStackView && !candidate.containsBannerTouch(rawX, rawY)) {
             return false
         }
         if (candidate is ViewGroup) {

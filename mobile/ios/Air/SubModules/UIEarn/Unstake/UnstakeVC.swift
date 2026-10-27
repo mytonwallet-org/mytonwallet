@@ -114,18 +114,14 @@ public class UnstakeVC: WViewController {
         if isConfirming {
             return .init(title: .text(title), isEnabled: false, showLoading: true)
         }
-        model.insufficientFunds = false
         guard let amount, amount > 0 else {
             return .init(title: .text(title), isEnabled: false, showLoading: false)
         }
-        let calculatedFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .unstake).gas ?? 0
-        if amount > model.maxAmount {
-            model.insufficientFunds = true
+        if model.insufficientFunds {
             return .init(title: .text(lang("Insufficient Balance")), isEnabled: false, showLoading: false)
         }
-        if model.nativeBalance < calculatedFee {
-            model.insufficientFunds = true
-            return .insufficientStakingFee(minAmount: calculatedFee)
+        if model.insufficientFee {
+            return .insufficientStakingFee()
         }
         return .staking(title: title, phase: model.draftPhase, canRetry: model.canRetryDraft, draftError: model.draft?.error)
     }

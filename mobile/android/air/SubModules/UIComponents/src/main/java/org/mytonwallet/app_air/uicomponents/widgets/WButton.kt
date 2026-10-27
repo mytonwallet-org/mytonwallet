@@ -253,6 +253,7 @@ class WButton(context: Context) :
             false
         )
 
+        contentDescription = text
         animator.replace(
             Item(maxWidth, text = text.toString(), layout),
             isAnimated && !animator.isEmpty && isAttachedToWindow &&

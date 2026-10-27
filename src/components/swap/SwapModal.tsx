@@ -48,7 +48,7 @@ import styles from './Swap.module.scss';
 interface StateProps {
   currentSwap: GlobalState['currentSwap'];
   swapType: SwapType;
-  swapRoute?: ApiSwapRouteType;
+  swapRoute: ApiSwapRouteType;
   swapTokens?: UserSwapToken[];
   activityById?: Record<string, ApiActivity>;
   accountChains?: Account['byChain'];
@@ -118,6 +118,7 @@ function SwapModal({
   );
 
   const [renderedSwapType, setRenderedSwapType] = useState(swapType);
+  const [renderedSwapRoute, setRenderedSwapRoute] = useState(swapRoute);
   const [renderedTransactionAmountIn, setRenderedTransactionAmountIn] = useState(amountIn);
   const [renderedTransactionAmountOut, setRenderedTransactionAmountOut] = useState(amountOut);
   const [renderedTransactionTokenIn, setRenderedTransactionTokenIn] = useState(tokenIn);
@@ -150,6 +151,7 @@ function SwapModal({
     setRenderedTransactionTokenIn(tokenIn);
     setRenderedTransactionTokenOut(tokenOut);
     setRenderedSwapType(swapType);
+    setRenderedSwapRoute(swapRoute);
 
     if (swapRoute === 'dex') {
       submitSwap({ enclaveToken });
@@ -264,7 +266,7 @@ function SwapModal({
               className={buildClassName(styles.initialHeader, hasMultipleAccounts && styles.initialHeaderWithSwitcher)}
             >
               <ModalHeader
-                title={lang('$swap_action')}
+                title={lang('Trade')}
                 onClose={cancelSwap}
               />
               {hasMultipleAccounts && accountId && (
@@ -354,6 +356,7 @@ function SwapModal({
             amountIn={renderedTransactionAmountIn}
             amountOut={renderedTransactionAmountOut}
             swapType={renderedSwapType}
+            swapRoute={renderedSwapRoute}
             cexLabel={renderedCexLabel}
             toAddress={toAddress}
             onClose={handleModalCloseWithReset}

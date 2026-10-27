@@ -1,6 +1,6 @@
 import React, { memo } from '../../lib/teact/teact';
 
-import type { ApiSwapCexLabel } from '../../api/types';
+import type { ApiSwapCexLabel, ApiSwapRouteType } from '../../api/types';
 import type { UserSwapToken } from '../../global/types';
 import { SwapType } from '../../global/types';
 
@@ -23,6 +23,7 @@ interface OwnProps {
   amountIn?: string;
   amountOut?: string;
   swapType?: SwapType;
+  swapRoute?: ApiSwapRouteType;
   cexLabel?: ApiSwapCexLabel;
   toAddress?: string;
   onInfoClick: NoneToVoidFunction;
@@ -38,6 +39,7 @@ function SwapComplete({
   amountIn,
   amountOut,
   swapType,
+  swapRoute,
   cexLabel,
   toAddress,
   onInfoClick,
@@ -46,7 +48,8 @@ function SwapComplete({
   isDetailsDisabled,
 }: OwnProps) {
   const lang = useLang();
-  const title = lang(swapType === SwapType.OnChain ? 'Swapped' : 'Swap Placed');
+  const isDex = (swapRoute ?? (swapType === SwapType.OnChain ? 'dex' : 'cex')) === 'dex';
+  const title = lang(isDex ? 'Swapped' : 'Swap Placed');
 
   useHistoryBack({
     isActive,
@@ -64,6 +67,7 @@ function SwapComplete({
           tokenOut={tokenOut}
           amountOut={amountOut}
           swapType={swapType}
+          swapRoute={swapRoute}
           cexLabel={cexLabel}
           toAddress={toAddress}
           playAnimation={isActive}

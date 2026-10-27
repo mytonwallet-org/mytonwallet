@@ -8,7 +8,6 @@
     "default_title": "%%SET BY BUILD%%"
   },
   "permissions": [
-    "webRequest",
     "system.display",
     "proxy",
     "storage",

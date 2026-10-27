@@ -96,10 +96,10 @@ final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, C
     var id: String { item.id }
     var name: String { item.name }
     
-    /// A flag to not use blurring and overlays for image processing: Lottie will spoil it all.
-    var simplifiedImageProcessing: Bool { item.lottieUrl != nil }
-
     var processedImageState: NftDetailsImage.ProcessedState = .idle
+    @MainActor var liveAtmosphereImage: UIImage? {
+        didSet { notify(.liveAtmosphereUpdated) }
+    }
 
     var isSelected: Bool = false {
         didSet {
@@ -136,6 +136,7 @@ final class NftDetailsItemModel: Identifiable, Equatable, @unchecked Sendable, C
 
     enum Event: Hashable {
         case processedImageUpdated
+        case liveAtmosphereUpdated
         case selectionStatusChanged
         case displayStateChanged
     }

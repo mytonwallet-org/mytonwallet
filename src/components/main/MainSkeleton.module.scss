@@ -84,6 +84,7 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
 
 .header {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 
@@ -368,12 +369,13 @@ $card-overlay-secondary: rgba(255, 255, 255, 0.15);
   flex: 1 1 auto;
   flex-direction: column;
 
-  max-width: calc(#{v.$landscapeMainContentMaxWidth} - 1rem);
-  margin-inline-end: 1rem;
+  max-width: v.$landscapeBlockMaxWidth;
   padding-top: 1rem;
   border-radius: var(--border-radius-default);
 
   background-color: var(--color-background-first);
+
+  @include mixins.adapt-margin-to-scrollbar(1rem);
 }
 
 // Tokens

@@ -139,6 +139,7 @@ class AppearancePaletteView(context: Context, private val showUnlockButton: Bool
         // Align palette items with label and button
         val numberOfItems =
             (width + smallWidthOffset - 40.dp + horizontalGap) / (itemWidth + horizontalGap)
+        if (numberOfItems <= 0) return
         val additionalSpace =
             width + smallWidthOffset - 40.dp - numberOfItems * (itemWidth + horizontalGap) +
                 horizontalGap

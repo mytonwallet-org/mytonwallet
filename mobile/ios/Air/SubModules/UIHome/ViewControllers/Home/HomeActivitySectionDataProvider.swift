@@ -35,6 +35,8 @@ final class HomeActivitySectionDataProvider: ActivityListViewController.CustomSe
 
     private weak var activityViewModel: ActivityPreviewViewModel?
 
+    var sectionAccountId: String? { activityViewModel?.accountId }
+
     private lazy var activityRegistration = UICollectionView.CellRegistration<ActivityCell, String> { [weak self] cell, _, itemIdentifier in
         guard let self,
               let activityID = ItemIdentifier.activityID(from: itemIdentifier),

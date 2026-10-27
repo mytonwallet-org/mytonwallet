@@ -2,7 +2,11 @@ import type { ApiBackendConfig, ApiChain, ApiStakingCommonData } from '../types'
 
 import Deferred from '../../util/Deferred';
 
-export type AccountCache = { stakedAt?: number };
+export type AccountCache = {
+  stakedAt?: number;
+  ethenaTokenBalance?: bigint;
+  ethenaDepletedAt?: number;
+};
 
 const stakingCommonCacheByChain: Partial<Record<ApiChain, ApiStakingCommonData>> = {};
 const stakingCommonDeferredByChain: Partial<Record<ApiChain, Deferred>> = {};

@@ -401,6 +401,25 @@ $footerPaddingBottomMin: 1rem;
   text-align: center;
 }
 
+.biometricsSetupError {
+  min-height: 2.625rem;
+  line-height: 1.3125rem;
+
+  @include mixins.transition('opacity 150ms');
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.biometricsSetupError:global(.not-open) {
+  opacity: 0;
+}
+
+.biometricsSetupError:global(.not-shown) {
+  visibility: hidden;
+}
+
 .btn {
   width: 100%;
   max-width: 100% !important;

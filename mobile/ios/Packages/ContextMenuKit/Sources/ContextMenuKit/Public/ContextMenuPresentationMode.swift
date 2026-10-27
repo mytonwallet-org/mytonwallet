@@ -6,6 +6,12 @@ public enum ContextMenuPresentationMode: Sendable {
     case zoomSheetOrPopover
 }
 
+public enum ContextMenuPopoverVerticalAlignment: Sendable {
+    case automatic
+    /// Prefer the source's top edge when the menu fits below it.
+    case sourceTop
+}
+
 enum ContextMenuResolvedPresentationMode: Equatable {
     case overlay
     case zoomPopover

@@ -271,7 +271,9 @@ enum class MBlockchain(
         fun isValidAddressOnAnyChain(address: String): Boolean =
             supportedChains.any { it.isValidAddress(address) }
 
-        fun isEvmChain(chain: String): Boolean = evmChainValues.contains(chain)
+        fun isEvmChain(chain: String): Boolean = entries.any {
+            it.name == chain && it.isSupported && it.config?.chainStandard == "ethereum"
+        }
 
         fun valueOfOrNull(name: String): MBlockchain? {
             val normalized = when (name) {

@@ -1,11 +1,14 @@
 package org.mytonwallet.app_air.walletcore.moshi
 
+import com.squareup.moshi.Types
+import java.math.BigDecimal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mytonwallet.app_air.walletcore.models.blockchain.MBlockchain
+import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
 
 class SwapContractTest {
     private val moshi = MoshiBuilder.build()
@@ -125,5 +128,77 @@ class SwapContractTest {
             listOf(MApiEvmSwapCall("0x1111111111111111111111111111111111111111", "0", "0x1234")),
             build.calls
         )
+    }
+
+    @Test
+    fun evmBuildRequestReachesSubmitWithoutShiftingBatchArgument() {
+        val build = requireNotNull(
+            moshi.adapter(MApiSwapBuildResponse::class.java).fromJson(
+                """
+            {
+              "id": "swap-id", "chain": "base",
+              "transactionRequest": {
+                "from": "0x1111111111111111111111111111111111111111",
+                "to": "0x2222222222222222222222222222222222222222",
+                "chainId": 8453, "data": "0x1234", "value": "30000000000000",
+                "gasPrice": "9007199254740993", "gasLimit": "210000", "maxFeePerGas": "2",
+                "maxPriorityFeePerGas": "1"
+              }
+            }
+                """.trimIndent()
+            )
+        )
+        assertNull(build.transaction)
+        val request = requireNotNull(build.transactionRequest)
+
+        val history = MApiSwapHistoryItem(
+            id = "swap-id", timestamp = 1L, from = "base", fromAmount = BigDecimal("0.00003"),
+            to = "base-0x833589fc", toAmount = BigDecimal("0.08"), networkFee = 0.0,
+            swapFee = BigDecimal.ZERO, status = MApiSwapHistoryItemStatus.PENDING, isCanceled = null
+        )
+        val submit = ApiMethod.Swap.SwapSubmit(
+            MBlockchain.base, "account", "enclave", null, history, false,
+            build.transaction, build.calls, request, false, moshi
+        )
+        val argsType = Types.newParameterizedType(List::class.java, Any::class.java)
+        val args = requireNotNull(moshi.adapter<List<Any?>>(argsType).fromJson(submit.arguments))
+        assertNull(args[6])
+        val encodedRequest = args[8] as Map<*, *>
+        assertEquals("0x1234", encodedRequest["data"])
+        assertEquals(8453.0, encodedRequest["chainId"])
+        assertEquals("30000000000000", encodedRequest["value"])
+        assertEquals("9007199254740993", encodedRequest["gasPrice"])
+        assertEquals(false, args[9])
+
+        val legacySubmit = ApiMethod.Swap.SwapSubmit(
+            MBlockchain.base, "account", "enclave", null, history, false,
+            "uniswap-payload", null, null, true, moshi
+        )
+        val legacyArgs = requireNotNull(
+            moshi.adapter<List<Any?>>(argsType).fromJson(legacySubmit.arguments)
+        )
+        assertEquals("uniswap-payload", legacyArgs[6])
+        assertNull(legacyArgs[8])
+        assertEquals(true, legacyArgs[9])
+    }
+
+    @Test
+    fun crossChainDexBuildForwardsRecipientAddress() {
+        val request = MApiSwapBuildRequest(
+            from = "base", to = "arbitrum", fromAddress = "0xsender",
+            toAddress = "0xrecipient", historyAddress = "ton-history",
+            fromAmount = BigDecimal("0.00003"), toAmount = BigDecimal("0.000029"),
+            toMinAmount = BigDecimal("0.000028"), networkFee = 0.000001,
+            swapFee = BigDecimal.ZERO, dexLabel = null, slippage = 1f,
+            swapVersion = 3, ourFee = null, dieselFee = null,
+            shouldTryDiesel = false, routes = null
+        )
+        val json = moshi.adapter(MApiSwapBuildRequest::class.java).toJson(request)
+        val payload = requireNotNull(
+            moshi.adapter(Map::class.java).fromJson(json)
+        )
+
+        assertEquals("0xrecipient", payload["toAddress"])
+        assertEquals("ton-history", payload["historyAddress"])
     }
 }

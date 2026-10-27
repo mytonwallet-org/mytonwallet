@@ -86,6 +86,7 @@ extension ApiUpdate.DappSendTransactions {
     public struct CombinedInfo {
         public var isDangerous: Bool
         public var isScam: Bool
+        public var hasStateInit: Bool
         public var tokenTotals: [String: BigInt]
         public var tokenOrder: [String]
         public var nftsCount = 0
@@ -127,6 +128,7 @@ extension ApiUpdate.DappSendTransactions {
         return CombinedInfo(
             isDangerous: transactions.any(\.isDangerous),
             isScam: transactions.any(\.isScam),
+            hasStateInit: transactions.any { $0.stateInit?.nilIfEmpty != nil },
             tokenTotals: totals,
             tokenOrder: tokenOrder,
             nftsCount: nftsCount

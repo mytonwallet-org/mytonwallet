@@ -27,6 +27,9 @@ class PercentPieAnimationRenderer: BaseChartRenderer {
         renderer.drawValues = false
         return renderer
     }()
+    var drawsDonut = false {
+        didSet { crossfadePieRenderer.drawsDonut = drawsDonut }
+    }
     var visiblePercentageData: PecentChartRenderer.PercentageData = .blank {
         didSet {
             animationComponentsPoints = []
@@ -198,7 +201,11 @@ class PercentPieAnimationRenderer: BaseChartRenderer {
             context.restoreGState()
         }
         
-        let diagramRadius = (min(chartFrame.width, chartFrame.height) / 2) * 0.925
+        let geometry = PieChartGeometry(chartFrame: chartFrame, drawsDonut: drawsDonut)
+        let diagramRadius = geometry.radius
+        if drawsDonut {
+            DonutChartHighlight.draw(in: context, center: center, radius: diagramRadius, alpha: animationFraction)
+        }
         let targetFrame = CGRect(origin: CGPoint(x: center.x - diagramRadius,
                                                  y: center.y - diagramRadius),
                                  size: CGSize(width: diagramRadius * 2,
@@ -221,6 +228,11 @@ class PercentPieAnimationRenderer: BaseChartRenderer {
         context.addPath(fadeOutPath)
         context.setFillColor(backgroundColor.cgColor)
         context.fillPath(using: .evenOdd)
+        let innerRadius = geometry.innerRadius * animationFraction
+        if innerRadius > 0 {
+            context.fillEllipse(in: CGRect(x: center.x - innerRadius, y: center.y - innerRadius,
+                                           width: innerRadius * 2, height: innerRadius * 2))
+        }
         context.restoreGState()
     }
 

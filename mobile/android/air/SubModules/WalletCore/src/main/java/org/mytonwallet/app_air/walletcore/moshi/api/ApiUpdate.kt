@@ -10,6 +10,7 @@ import org.mytonwallet.app_air.walletcore.moshi.ApiDapp
 import org.mytonwallet.app_air.walletcore.moshi.ApiDappTransfer
 import org.mytonwallet.app_air.walletcore.moshi.ApiDerivation
 import org.mytonwallet.app_air.walletcore.moshi.ApiNft
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.ApiTokenWithPrice
 import org.mytonwallet.app_air.walletcore.moshi.ApiTonConnectProof
 import org.mytonwallet.app_air.walletcore.moshi.MApiTransaction
@@ -70,6 +71,9 @@ sealed class ApiUpdate {
         ApiUpdateDappSignRequest {
 
         override val isDangerous: Boolean = transactions.any { it.isDangerous }
+
+        val hasStateInit: Boolean
+            get() = transactions.any { !it.stateInit.isNullOrEmpty() }
 
         @JsonClass(generateAdapter = true)
         data class Emulation(val activities: List<MApiTransaction>, val realFee: BigInteger)
@@ -166,6 +170,13 @@ sealed class ApiUpdate {
     data class ApiUpdateAccountConfig(
         val accountId: String,
         val accountConfig: JSONObject? = null
+    ) : ApiUpdate()
+
+    @JsonClass(generateAdapter = true)
+    data class ApiUpdateAccountBanners(
+        val accountId: String,
+        val homeBanners: List<ApiPromotion> = emptyList(),
+        val stakingBanners: List<ApiPromotion> = emptyList()
     ) : ApiUpdate()
 
     @JsonClass(generateAdapter = true)

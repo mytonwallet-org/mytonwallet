@@ -10,6 +10,50 @@ public class NftsFullScreenVC: WViewController {
     private let nftsVC: NftsVC
     private let filter: NftCollectionFilter
     private let nftsVCManager: NftsVCManager
+    var matchesNftDetailsBackButton = false
+    private var nftBackItem: UIBarButtonItem?
+    private weak var previousPopDelegate: UIGestureRecognizerDelegate?
+    private weak var previousContentPopDelegate: UIGestureRecognizerDelegate?
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        guard matchesNftDetailsBackButton, let navigation = navigationController as? WNavigationController else { return }
+        previousPopDelegate = navigation.interactivePopGestureRecognizer?.delegate
+        navigation.interactivePopGestureRecognizer?.delegate = navigation
+        if #available(iOS 26, *) {
+            previousContentPopDelegate = navigation.interactiveContentPopGestureRecognizer?.delegate
+            navigation.interactiveContentPopGestureRecognizer?.delegate = navigation
+        }
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        guard matchesNftDetailsBackButton else { return }
+        navigationController?.interactivePopGestureRecognizer?.delegate = previousPopDelegate
+        if #available(iOS 26, *) {
+            navigationController?.interactiveContentPopGestureRecognizer?.delegate = previousContentPopDelegate
+        }
+    }
+
+    private func makeNftBackItem() -> UIBarButtonItem {
+        if let nftBackItem { return nftBackItem }
+        // Match the NFT item's identity and geometry, but keep the collection's
+        // regular material and theme-dependent foreground. UIKit owns the morph.
+        var config = UIButton.Configuration.plain()
+        if #available(iOS 26, *) { config.baseForegroundColor = .label }
+        config.image = UIImage(systemName: "chevron.backward")
+        config.preferredSymbolConfigurationForImage = .init(pointSize: 17, weight: .medium)
+        config.cornerStyle = .fixed
+        config.background.cornerRadius = 22
+        config.contentInsets = .init(top: 11, leading: 11, bottom: 11, trailing: 11)
+        let button = NftDetailsNavigationButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.goBack()
+        })
+        button.accessibilityLabel = lang("Back")
+        let item = button.makeNavigationItem(usesClearGlass: false)
+        nftBackItem = item
+        return item
+    }
     
     public init(
         accountSource: AccountSource,
@@ -133,6 +177,14 @@ public class NftsFullScreenVC: WViewController {
             }
         }
         
+        // Keep the matched back item in the group: assigning leadingItemGroups
+        // replaces leftBarButtonItems, including a separately installed back item.
+        if matchesNftDetailsBackButton, case .normal = navItemState {
+            leadingItemGroups.insert(UIBarButtonItemGroup(barButtonItems: [makeNftBackItem()], representativeItem: nil), at: 0)
+            navigationItem.hidesBackButton = true
+        } else {
+            navigationItem.hidesBackButton = false
+        }
         navigationItem.leadingItemGroups = leadingItemGroups
         navigationItem.trailingItemGroups = trailingItemGroups
     }

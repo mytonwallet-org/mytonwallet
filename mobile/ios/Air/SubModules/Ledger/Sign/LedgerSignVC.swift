@@ -47,6 +47,7 @@ public final class LedgerSignVC<HeaderView: View, Payload: Sendable>: WViewContr
         self.headerView = headerView
         self.compactHeaderView = compactHeaderView
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 640, height: 760)
         self.title = title ?? lang("Confirm via Ledger")
         model.onSubmissionStateChange = { [weak self] state in
             self?.handleSubmissionState(state)

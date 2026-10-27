@@ -2,7 +2,7 @@ import React, {
   type ElementRef,
   memo, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from '../../../../lib/teact/teact';
-import { getActions, withGlobal } from '../../../../global';
+import { getActions, getGlobal, withGlobal } from '../../../../global';
 
 import type {
   ApiBaseCurrency, ApiCurrencyRates, ApiNft, ApiPriceHistoryPeriod, ApiStakingState,
@@ -12,10 +12,10 @@ import type { ApiPromotion } from '../../../../api/types/backend';
 import type {
   IAnchorPosition,
   PortfolioPnlChange,
+  Theme,
   UserToken,
 } from '../../../../global/types';
 import type { LangFn } from '../../../../hooks/useLang';
-import type { CardGlare } from '../../../ui/CardTilt';
 import type { DropdownItem } from '../../../ui/Dropdown';
 
 import { ANIMATION_LEVEL_MIN, IS_GRAM_WALLET } from '../../../../config';
@@ -33,34 +33,41 @@ import {
 } from '../../../../global/selectors';
 import buildClassName from '../../../../util/buildClassName';
 import { calculateFullBalance } from '../../../../util/calculateFullBalance';
+import { getCardTextPalette } from '../../../../util/card/surfaceProfile';
 import { formatCurrency, formatCurrencyExtended, getShortCurrencySymbol } from '../../../../util/formatNumber';
 import { round } from '../../../../util/math';
 import { toNativeDigits } from '../../../../util/nativeDigits';
 import { DEFAULT_PORTFOLIO_TIME_RANGE } from '../../../../util/portfolio/timeRange';
 import { preloadedImageUrls } from '../../../../util/preloadImage';
 import { IS_IOS, IS_SAFARI } from '../../../../util/windowEnvironment';
-import getSensitiveDataMaskSkinFromCardNft from './helpers/getSensitiveDataMaskSkinFromCardNft';
 
+import useAppTheme from '../../../../hooks/useAppTheme';
+import useCardArtwork, { preloadCardArtworks } from '../../../../hooks/useCardArtwork';
+import useCardBalanceGesture from '../../../../hooks/useCardBalanceGesture';
+import useCardController from '../../../../hooks/useCardController';
+import useCardCustomization from '../../../../hooks/useCardCustomization';
 import { useDeviceScreen } from '../../../../hooks/useDeviceScreen';
+import useEffectOnce from '../../../../hooks/useEffectOnce';
 import useFontScale from '../../../../hooks/useFontScale';
 import useLang from '../../../../hooks/useLang';
 import useLastCallback from '../../../../hooks/useLastCallback';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 import useSyncEffect from '../../../../hooks/useSyncEffect';
+import useUniqueId from '../../../../hooks/useUniqueId';
 import useUpdateIndicator from '../../../../hooks/useUpdateIndicator';
 import useWindowSize from '../../../../hooks/useWindowSize';
 
 import MintCardButton from '../../../mintCard/MintCardButton';
 import AnimatedCounter from '../../../ui/AnimatedCounter';
 import CardTilt from '../../../ui/CardTilt';
-import DefaultCardBackground from '../../../ui/DefaultCardBackground';
 import Image from '../../../ui/Image';
 import LoadingDots from '../../../ui/LoadingDots';
-import SensitiveData from '../../../ui/SensitiveData';
 import Spinner from '../../../ui/Spinner';
 import Transition from '../../../ui/Transition';
 import CardAddress from './CardAddress';
+import CardPrivacy from './CardPrivacy';
+import CardSurface from './CardSurface';
 import CurrencySwitcherMenu from './CurrencySwitcherMenu';
-import CustomCardManager from './CustomCardManager';
 import SeasonalTheming from './SeasonalTheming';
 
 import styles from './Card.module.scss';
@@ -74,6 +81,7 @@ interface OwnProps {
 }
 
 interface StateProps {
+  theme: Theme;
   currentAccountId: string;
   isTemporaryAccount?: boolean;
   tokens?: UserToken[];
@@ -127,9 +135,6 @@ function useSeasonalTheming({
   };
 }
 
-// Every card of a build shares one glare: Gram Wallet's turns with the tilt, My Wallet's follows the pointer
-const CARD_GLARE: CardGlare = IS_GRAM_WALLET ? 'radial' : 'spot';
-
 const CARD_PORTRAIT_WIDTH = 378;
 const CARD_PORTRAIT_HEIGHT = 220;
 const CARD_LANDSCAPE_WIDTH = 328;
@@ -137,6 +142,7 @@ const CARD_LANDSCAPE_HEIGHT = 200;
 
 function Card({
   ref,
+  theme,
   currentAccountId,
   isTemporaryAccount,
   tokens,
@@ -160,17 +166,25 @@ function Card({
 }: OwnProps & StateProps) {
   const {
     toggleSeasonalTheming, showToast, openPromotionModal, openMintCardModal, switchToPortfolio,
-    loadPortfolioPnlChange,
+    loadPortfolioPnlChange, setIsSensitiveDataHidden,
   } = getActions();
   const lang = useLang();
+  const appTheme = useAppTheme(theme);
   const amountRef = useRef<HTMLDivElement>();
-  const cardRef = useRef<HTMLDivElement>();
   const fontScaleSignatureRef = useRef<string>();
-  const isBalanceFadingRef = useRef(false);
+  const balanceHitRef = useRef<HTMLSpanElement>();
+  const balanceActionId = useUniqueId('balance-action-');
+  const { cardRef: surfaceRef, controller, handleMotionFrame } = useCardController();
+  const hasReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)') ?? false;
+  const isMotionDisabled = animationLevel === ANIMATION_LEVEL_MIN || hasReducedMotion;
+  const isTiltDisabled = is3dCardDisabled || isMotionDisabled;
   const shortBaseSymbol = getShortCurrencySymbol(baseCurrency);
-  const [customCardClassName, setCustomCardClassName] = useState<string | undefined>(undefined);
-  const [withTextGradient, setWithTextGradient] = useState<boolean>(false);
-  const hasCustomCard = Boolean(cardNft);
+  const { nft: shownCardNft, imageUrl: cardImageUrl } = useCardArtwork(cardNft, IS_GRAM_WALLET);
+  const { classNames: customCardClassName, withTextGradient } = useCardCustomization(shownCardNft);
+  const textPalette = getCardTextPalette(shownCardNft);
+  const balanceTextColor = shownCardNft?.metadata.mtwCardTextType === 'dark' ? '#000000' : '#FFFFFF';
+  const balancePalette: [string, string] = withTextGradient ? textPalette : [balanceTextColor, balanceTextColor];
+  const hasCustomCard = Boolean(shownCardNft);
 
   const { isPortrait } = useDeviceScreen();
   const { width: screenWidth } = useWindowSize();
@@ -187,20 +201,46 @@ function Card({
 
   const [currencyMenuAnchor, setCurrencyMenuAnchor] = useState<IAnchorPosition>();
 
-  const sensitiveDataMaskSkin = getSensitiveDataMaskSkinFromCardNft(cardNft);
+  const openCurrencyMenu = useLastCallback(() => {
+    if (isSensitiveDataHidden || !balanceHitRef.current) return;
 
-  const openCurrencyMenu = () => {
-    const { left, width, bottom: y } = amountRef.current!.getBoundingClientRect();
+    const { left, width, bottom: y } = balanceHitRef.current.getBoundingClientRect();
     setCurrencyMenuAnchor({ x: left + width / 2, y });
-  };
+  });
 
   const closeCurrencyMenu = useLastCallback(() => {
     setCurrencyMenuAnchor(undefined);
   });
 
-  const handleCardChange = useLastCallback((hasGradient: boolean, className?: string) => {
-    setCustomCardClassName(className);
-    setWithTextGradient(hasGradient);
+  const toggleBalance = useLastCallback(() => {
+    const pointer = controller.motion?.pointer;
+    const card = surfaceRef.current;
+
+    controller.origin = pointer && card
+      ? [((pointer[0] + 1) * card.clientWidth) / 2, ((pointer[1] + 1) * card.clientHeight) / 2]
+      : undefined;
+
+    closeCurrencyMenu();
+    setIsSensitiveDataHidden({ isHidden: !isSensitiveDataHidden });
+  });
+
+  const balanceGestureHandlers = useCardBalanceGesture({
+    isHidden: Boolean(isSensitiveDataHidden),
+    onToggle: toggleBalance,
+    onMenu: openCurrencyMenu,
+  });
+
+  useEffect(() => {
+    if (isSensitiveDataHidden) closeCurrencyMenu();
+  }, [isSensitiveDataHidden]);
+
+  // The card remounts when the wallet changes; other wallets' cards are decoded ahead of time, so the new
+  // card never starts with the default artwork
+  useEffectOnce(() => {
+    const nfts = Object.values(getGlobal().settings.byAccountId)
+      .map(({ cardBackgroundNft }) => cardBackgroundNft)
+      .filter((nft): nft is ApiNft => Boolean(nft));
+    preloadCardArtworks(nfts);
   });
 
   const { seasonalContextMenuItems, handleDisableSeasonalTheming } = useSeasonalTheming({
@@ -248,6 +288,7 @@ function Card({
     ? (portfolioPnlChange.amount > 0 ? 'up' : portfolioPnlChange.amount < 0 ? 'down' : undefined)
     : values?.changePrefix;
   const hasChangePercent = !!changePrefix && changePercent !== undefined;
+  const isChangePositive = !hasCustomCard && changePrefix === 'up';
 
   // Re-fit the balance font only when something width-affecting changes: the rendered text, the currency
   // symbol or the available width. Re-renders that touch none of them (e.g. a sub-cent price tick that
@@ -264,25 +305,11 @@ function Card({
     // The balance node is unmounted while the loader shows, so its inline scale is gone on remount
     if (primaryValue === undefined) {
       fontScaleSignatureRef.current = undefined;
-      isBalanceFadingRef.current = false;
       return;
     }
 
-    // While the balance `Transition` fades, the DOM holds both slides and yields a wrong scale that then sticks,
-    // so the fit is left to `handleBalanceFadeStop`
-    if (isBalanceFadingRef.current) return;
-
     fitBalanceFont();
   }, [primaryFractionPart, primaryValue, primaryWholePart, shortBaseSymbol, screenWidthDep, fitBalanceFont]);
-
-  const handleBalanceFadeStart = useLastCallback(() => {
-    isBalanceFadingRef.current = true;
-  });
-
-  const handleBalanceFadeStop = useLastCallback(() => {
-    isBalanceFadingRef.current = false;
-    fitBalanceFont();
-  });
 
   function renderLoader() {
     return (
@@ -293,61 +320,57 @@ function Card({
   }
 
   function renderBalance() {
-    const iconCaretClassNames = buildClassName(
-      'icon',
-      'icon-expand',
-      primaryFractionPart || shortBaseSymbol.length > 1 ? styles.iconCaretFraction : styles.iconCaret,
-    );
     const noAnimationCounter = !isUpdating || IS_SAFARI || IS_IOS || isSensitiveDataHidden;
+
     return (
       <>
-        <Transition
-          ref={amountRef}
-          activeKey={isUpdating && !isSensitiveDataHidden ? 1 : 0}
-          name="fade"
-          shouldCleanup
-          className={styles.balanceTransition}
-          slideClassName={styles.balanceSlide}
-          onStart={handleBalanceFadeStart}
-          onStop={handleBalanceFadeStop}
-        >
-          <SensitiveData
-            isActive={isSensitiveDataHidden}
-            maskSkin={sensitiveDataMaskSkin}
-            rows={4}
-            cols={14}
-            cellSize={13}
-            align="center"
-            className={styles.sensitiveData}
-            contentClassName={styles.sensitiveDataContent}
-            maskClassName={styles.blurred}
-          >
-            <div className={buildClassName(styles.primaryValue, 'rounded-font')}>
-              <span
-                className={buildClassName(
-                  styles.currencySwitcher,
-                  isUpdating && 'glare-mask',
-                  !isUpdating && withTextGradient && 'gradientText',
-                )}
-                role="button"
-                tabIndex={0}
-                onClick={!isSensitiveDataHidden ? openCurrencyMenu : undefined}
+        <div ref={amountRef} className={buildClassName(styles.balanceTransition, styles.balanceSlide)}>
+          <div className={buildClassName(styles.primaryValue, 'rounded-font')}>
+            <span
+              ref={balanceHitRef}
+              className={styles.balanceHit}
+              role="button"
+              tabIndex={0}
+              data-card-play-allowed={isSensitiveDataHidden || undefined}
+              // The amount names the button. While it is hidden from screen readers, the label replaces it.
+              aria-label={isSensitiveDataHidden ? lang('Tap to reveal') : undefined}
+              aria-describedby={balanceActionId}
+              {...balanceGestureHandlers}
+            >
+              <CardPrivacy
+                isBalance
+                isHidden={Boolean(isSensitiveDataHidden)}
+                isDisabled={isMotionDisabled}
+                palette={balancePalette}
+                controller={controller}
+                revision={shownCardNft?.address ?? 'default'}
               >
-                {shortBaseSymbol.length === 1 && <span className={styles.currencySymbol}>{shortBaseSymbol}</span>}
-                <AnimatedCounter isDisabled={noAnimationCounter} text={primaryWholePart ?? ''} />
-                {primaryFractionPart && (
-                  <span className={styles.primaryFractionPart}>
-                    <AnimatedCounter isDisabled={noAnimationCounter} text={`.${primaryFractionPart}`} />
-                  </span>
-                )}
-                {shortBaseSymbol.length > 1 && (
-                  <span className={styles.primaryFractionPart}>&nbsp;{shortBaseSymbol}</span>
-                )}
-                <i className={iconCaretClassNames} aria-hidden />
-              </span>
-            </div>
-          </SensitiveData>
-        </Transition>
+                <span
+                  className={buildClassName(
+                    styles.currencySwitcher,
+                    isUpdating && 'glare-mask',
+                    !isUpdating && withTextGradient && 'gradientText',
+                  )}
+                >
+                  {shortBaseSymbol.length === 1 && <span className={styles.currencySymbol}>{shortBaseSymbol}</span>}
+                  <AnimatedCounter isDisabled={noAnimationCounter} text={primaryWholePart ?? ''} />
+                  {primaryFractionPart && (
+                    <span className={styles.primaryFractionPart}>
+                      <AnimatedCounter isDisabled={noAnimationCounter} text={`.${primaryFractionPart}`} />
+                    </span>
+                  )}
+                  {shortBaseSymbol.length > 1 && (
+                    <span className={styles.primaryFractionPart}>&nbsp;{shortBaseSymbol}</span>
+                  )}
+                </span>
+              </CardPrivacy>
+            </span>
+            {/* Outside the button, so the description does not become a part of the button name */}
+            <span id={balanceActionId} className="visually-hidden">
+              {lang(isSensitiveDataHidden ? 'Show Sensitive Data' : 'Hide Sensitive Data')}
+            </span>
+          </div>
+        </div>
         <CurrencySwitcherMenu
           isOpen={Boolean(currencyMenuAnchor)}
           triggerRef={amountRef}
@@ -357,26 +380,24 @@ function Card({
           onClose={closeCurrencyMenu}
         />
         {primaryValue !== '0' && (
-          <SensitiveData
-            isActive={isSensitiveDataHidden}
-            maskSkin={sensitiveDataMaskSkin}
-            rows={2}
-            cols={11}
-            align="center"
-            cellSize={14}
+          <CardPrivacy
+            isHidden={Boolean(isSensitiveDataHidden)}
+            isDisabled={isMotionDisabled}
+            palette={textPalette}
+            controller={controller}
+            revision={`${shownCardNft?.address ?? 'default'}:${isChangePositive}`}
             className={styles.changeSpoiler}
-            contentClassName={styles.sensitiveDataContent}
-            maskClassName={styles.blurred}
+            onClick={isSensitiveDataHidden ? toggleBalance : undefined}
           >
             <div
               className={buildClassName(
                 styles.change,
-                !hasCustomCard && changePrefix === 'up' && styles.positive,
+                isChangePositive && styles.positive,
                 'rounded-font',
               )}
               role="button"
               tabIndex={0}
-              onClick={() => switchToPortfolio()}
+              onClick={!isSensitiveDataHidden ? () => switchToPortfolio() : undefined}
             >
               <span className={buildClassName(styles.changeValue, isPnlChangeUpdating && 'glare-mask')}>
                 {hasChangePercent && (
@@ -400,50 +421,35 @@ function Card({
                 <i className={buildClassName(styles.changeChevron, 'icon-chevron-right')} aria-hidden />
               </span>
             </div>
-          </SensitiveData>
+          </CardPrivacy>
         )}
       </>
     );
   }
 
   return (
-    <div
-      ref={(el) => {
-        cardRef.current = el || undefined;
-        if (ref) {
-          ref.current = el;
-        }
-      }}
-      className={styles.containerWrapper}
-    >
+    <div ref={ref} className={styles.containerWrapper}>
       <Transition activeKey={isUpdating ? 1 : 0} name="fade" shouldCleanup className={styles.loadingDotsContainer}>
         {isUpdating ? <LoadingDots isActive isDoubled /> : undefined}
       </Transition>
 
       <CardTilt
-        isDisabled={is3dCardDisabled}
-        glare={CARD_GLARE}
+        isDisabled={isTiltDisabled}
         className={styles.tiltArea}
+        onMotionFrame={handleMotionFrame}
       >
         <div
-          className={
-            buildClassName(
-              styles.container,
-              customCardClassName,
-              IS_GRAM_WALLET && 'gram',
-            )
-          }
+          ref={surfaceRef}
+          className={buildClassName(styles.container, customCardClassName)}
         >
-          {!hasCustomCard && (
-            <DefaultCardBackground
-              isGram={IS_GRAM_WALLET}
-              isAnimationDisabled={animationLevel === ANIMATION_LEVEL_MIN}
-            />
-          )}
-          <CustomCardManager
-            nft={cardNft}
-            withMotion={!is3dCardDisabled}
-            onCardChange={handleCardChange}
+          <CardSurface
+            nft={shownCardNft}
+            imageUrl={cardImageUrl}
+            isGram={IS_GRAM_WALLET}
+            isDark={appTheme === 'dark'}
+            isDisabled={isTiltDisabled}
+            noSwitchAnimation={isMotionDisabled}
+            controller={controller}
           />
           <SeasonalTheming
             animationLevel={animationLevel}
@@ -537,6 +543,7 @@ export default memo(
         && (portfolioPnlChange === undefined || portfolioPnlChange !== freshPnlChange);
 
       return {
+        theme: global.settings.theme,
         currentAccountId,
         isTemporaryAccount: selectCurrentAccount(global)?.isTemporary,
         isViewMode: selectIsCurrentAccountViewMode(global),

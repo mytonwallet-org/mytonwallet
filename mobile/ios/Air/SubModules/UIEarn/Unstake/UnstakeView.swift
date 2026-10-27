@@ -51,6 +51,7 @@ fileprivate struct AmountSection: View {
                 token: displayToken,
                 balance: model.maxAmount,
                 insufficientFunds: model.insufficientFunds,
+                isFeeError: model.insufficientFee,
                 amountInBaseCurrency: $model.amountInBaseCurrency,
                 switchedToBaseCurrencyInput: $model.switchedToBaseCurrencyInput,
                 fee: model.fee,

@@ -1,8 +1,8 @@
-import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useState } from '../../lib/teact/teact';
+import React, { memo, type TeactNode, useCallback, useEffect, useMemo, useRef, useState } from '../../lib/teact/teact';
 import { getActions, withGlobal } from '../../global';
 
 import type {
-  ApiBaseCurrency, ApiCurrencyRates, ApiStakingState, ApiTokenWithPrice,
+  ApiBaseCurrency, ApiCurrencyRates, ApiForeignStakingPromotion, ApiStakingState, ApiTokenWithPrice,
 } from '../../api/types';
 import type { UserToken } from '../../global/types';
 import { StakingState } from '../../global/types';
@@ -18,6 +18,7 @@ import {
   selectAccountStakingState,
   selectAccountStakingStates,
   selectCurrentAccountId,
+  selectCurrentAccountStakingBanners,
   selectCurrentAccountState,
   selectCurrentAccountTokens,
   selectIsCurrentAccountViewMode,
@@ -30,6 +31,7 @@ import { stopEvent } from '../../util/domEvents';
 import { getTonStakingFees } from '../../util/fee/getTonOperationFees';
 import { formatCurrency } from '../../util/formatNumber';
 import { vibrate } from '../../util/haptics';
+import { animateShift } from '../../util/layoutChangeAnimation';
 import { openUrl } from '../../util/openUrl';
 import { throttle } from '../../util/schedulers';
 import { getStakingMinAmount, getStakingTitle } from '../../util/staking';
@@ -37,16 +39,21 @@ import { buildUserToken, getIsNativeToken, getNativeToken } from '../../util/tok
 import calcJettonStakingApr from '../../util/ton/calcJettonStakingApr';
 import { getHostnameFromUrl } from '../../util/url';
 
+import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useFlag from '../../hooks/useFlag';
+import useHeightChange from '../../hooks/useHeightChange';
 import useLang from '../../hooks/useLang';
 import useLastCallback from '../../hooks/useLastCallback';
+import useShowTransition from '../../hooks/useShowTransition';
 import { useAmountInputState } from '../ui/hooks/useAmountInputState';
 import { useTokenDropdown } from './hooks/useTokenDropdown';
 
+import InfoBanner from '../common/InfoBanner';
 import AmountInput from '../ui/AmountInput';
 import Button from '../ui/Button';
 import Fee from '../ui/Fee';
 import Modal from '../ui/Modal';
+import ModalFooter from '../ui/ModalFooter';
 import Transition from '../ui/Transition';
 import StakingDetails from './StakingDetails';
 
@@ -67,6 +74,9 @@ interface StateProps {
   isSensitiveDataHidden?: true;
   baseCurrency: ApiBaseCurrency;
   currencyRates: ApiCurrencyRates;
+  stakingBanners?: ApiForeignStakingPromotion[];
+  dismissedStakingBannerIds?: string[];
+  isStakingBannerLoading: boolean;
 }
 
 const enum BottomRightSlide {
@@ -95,9 +105,17 @@ function StakingInitial({
   isSensitiveDataHidden,
   baseCurrency,
   currencyRates,
+  stakingBanners,
+  dismissedStakingBannerIds,
+  isStakingBannerLoading,
 }: StateProps) {
   const {
-    submitStakingInitial, fetchStakingFee, cancelStaking, changeCurrentStaking,
+    submitStakingInitial,
+    fetchStakingFee,
+    cancelStaking,
+    changeCurrentStaking,
+    startForeignUnstake,
+    dismissStakingBanner,
   } = getActions();
 
   const lang = useLang();
@@ -388,6 +406,55 @@ function StakingInitial({
     changeCurrentStaking({ stakingId: id, shouldReopenModal: true });
   });
 
+  const stakingBanner = useMemo(
+    () => stakingBanners?.find(({ id }) => !dismissedStakingBannerIds?.includes(id)),
+    [stakingBanners, dismissedStakingBannerIds],
+  );
+  const isStakingBannerShown = stakingBanner !== undefined
+    && tokenSlug === getNativeToken(stakingBanner.foreignStaking.chain).slug;
+  const renderedStakingBanner = useCurrentOrPrev(isStakingBannerShown ? stakingBanner : undefined, true);
+  const stakingBannerRootRef = useRef<HTMLDivElement>();
+  const amountAndDetailsRef = useRef<HTMLDivElement>();
+  const amountAndDetailsTopRef = useRef<number>();
+
+  // Measured at the end of the fade-out: the banner still holds its place, and the form slide is visible again
+  const handleStakingBannerCloseAnimationEnd = useLastCallback(() => {
+    const amountAndDetails = amountAndDetailsRef.current;
+    // The close timer can fire after the modal has closed
+    if (!amountAndDetails) return;
+
+    amountAndDetailsTopRef.current = getTop(amountAndDetails);
+  });
+
+  const { ref: stakingBannerRef, shouldRender: shouldRenderStakingBanner } = useShowTransition({
+    isOpen: isStakingBannerShown,
+    noMountTransition: true,
+    withShouldRender: true,
+    className: 'slow',
+    onCloseAnimationEnd: handleStakingBannerCloseAnimationEnd,
+  });
+
+  const handleStakingBannerActionClick = useLastCallback((id: string) => {
+    startForeignUnstake({ id });
+  });
+
+  const handleStakingBannerClose = useLastCallback((id: string) => {
+    dismissStakingBanner({ id });
+  });
+
+  // Measured rather than taken from the banner height, as the browser may also adjust the scroll position
+  const handleStakingBannerRootHeightChange = useLastCallback(() => {
+    const prevTop = amountAndDetailsTopRef.current;
+    if (prevTop === undefined) return;
+
+    amountAndDetailsTopRef.current = undefined;
+
+    const amountAndDetails = amountAndDetailsRef.current!;
+    animateShift(amountAndDetails, 0, prevTop - getTop(amountAndDetails));
+  });
+
+  useHeightChange(stakingBannerRootRef, handleStakingBannerRootHeightChange);
+
   const amountInputProps = useAmountInputState({
     amount,
     token,
@@ -398,47 +465,66 @@ function StakingInitial({
 
   return (
     <form className={modalStyles.transitionContent} onSubmit={handleSubmit}>
-      <AmountInput
-        {...amountInputProps}
-        containerClassName={styles.amountInputContainer}
-        maxAmount={maxAmount}
-        token={selectedToken}
-        allTokens={selectableTokens}
-        hasError={isIncorrectAmount || isInsufficientBalance}
-        isMaxAmountLoading={!selectedToken}
-        isSensitiveDataHidden={isSensitiveDataHidden}
-        renderBottomRight={renderBottomRight}
-        onPressEnter={handleSubmit}
-      />
+      <div ref={stakingBannerRootRef}>
+        {shouldRenderStakingBanner && (
+          <div ref={stakingBannerRef} className={styles.foreignStakingBanner}>
+            <InfoBanner
+              banner={renderedStakingBanner!}
+              isLoading={isStakingBannerLoading}
+              isSensitiveDataHidden={isSensitiveDataHidden}
+              onActionClick={handleStakingBannerActionClick}
+              onClose={handleStakingBannerClose}
+            />
+          </div>
+        )}
+      </div>
 
-      {!!stakingState && !!symbol && (
-        <StakingDetails
-          stakingState={stakingState}
-          symbol={symbol}
-          amount={amount}
-          decimals={decimals}
-          annualYieldText={annualYieldText}
-          isBaseCurrency={amountInputProps.isBaseCurrency}
-          token={token}
-          baseCurrency={baseCurrency}
-          onSafeInfoClick={openSafeInfoModal}
+      <div ref={amountAndDetailsRef}>
+        <AmountInput
+          {...amountInputProps}
+          containerClassName={styles.amountInputContainer}
+          maxAmount={maxAmount}
+          token={selectedToken}
+          allTokens={selectableTokens}
+          hasError={isIncorrectAmount || isInsufficientBalance}
+          isMaxAmountLoading={!selectedToken}
+          isSensitiveDataHidden={isSensitiveDataHidden}
+          renderBottomRight={renderBottomRight}
+          onPressEnter={handleSubmit}
         />
-      )}
+
+        {!!stakingState && !!symbol && (
+          <StakingDetails
+            stakingState={stakingState}
+            symbol={symbol}
+            amount={amount}
+            decimals={decimals}
+            annualYieldText={annualYieldText}
+            isBaseCurrency={amountInputProps.isBaseCurrency}
+            token={token}
+            baseCurrency={baseCurrency}
+            onSafeInfoClick={openSafeInfoModal}
+          />
+        )}
+      </div>
+
+      {renderSafeInfoModal()}
 
       {!isViewMode && (
-        <div className={modalStyles.buttons}>
-          <Button
-            isPrimary
-            isSubmit
-            isDisabled={!canSubmit}
-            isLoading={isLoading}
-            className={styles.submitButton}
-          >
-            {lang('$stake_asset', { symbol: token?.symbol })}
-          </Button>
-        </div>
+        <ModalFooter isFrosted>
+          <div className={buildClassName(modalStyles.buttons, modalStyles.buttonsNoExtraSpace)}>
+            <Button
+              isPrimary
+              isSubmit
+              isDisabled={!canSubmit}
+              isLoading={isLoading}
+              className={styles.submitButton}
+            >
+              {lang('$stake_asset', { symbol: token?.symbol })}
+            </Button>
+          </div>
+        </ModalFooter>
       )}
-      {renderSafeInfoModal()}
     </form>
   );
 }
@@ -477,8 +563,15 @@ export default memo(
         isSensitiveDataHidden,
         baseCurrency,
         currencyRates: global.currencyRates,
+        stakingBanners: selectCurrentAccountStakingBanners(global),
+        dismissedStakingBannerIds: global.currentStaking.dismissedBannerIds,
+        isStakingBannerLoading: Boolean(global.currentStaking.foreignUnstake),
       };
     },
     (global, _, stickToFirst) => stickToFirst(selectCurrentAccountId(global)),
   )(StakingInitial),
 );
+
+function getTop(element: HTMLElement) {
+  return element.getBoundingClientRect().top;
+}

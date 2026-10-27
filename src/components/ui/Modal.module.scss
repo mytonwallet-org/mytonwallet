@@ -618,8 +618,10 @@
   padding: 0.875rem 1rem var(--transition-content-padding-bottom);
 
   @include mixins.footerBar('_separated');
+}
 
-  @include mixins.respond-above(xs) {
-    border-radius: 0 0 var(--border-radius-default) var(--border-radius-default);
-  }
+.footer_frosted {
+  background-color: transparent;
+
+  @include mixins.footerGlass(var(--color-background-window));
 }

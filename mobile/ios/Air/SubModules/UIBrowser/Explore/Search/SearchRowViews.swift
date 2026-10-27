@@ -1,4 +1,3 @@
-import Kingfisher
 import Perception
 import SwiftUI
 import UIComponents
@@ -306,7 +305,7 @@ struct MyWalletRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
 
-            MtwCardAddressLine(addressLine: accountContext.addressLine, style: .search, gradient: nil)
+            MtwCardAddressLine(addressLine: accountContext.topAddressLine, style: .search, gradient: nil)
                 .foregroundStyle(Color.air.secondaryLabel)
                 .lineLimit(1)
         }
@@ -377,10 +376,7 @@ private struct SearchResultItemIcon: View {
                 .foregroundStyle(Color.air.primaryLabel)
                 .frame(width: iconSize, height: iconSize)
         } else {
-            KFImage(URL(string: item.iconURL))
-                .resizable()
-                .loadDiskFileSynchronously(false)
-                .aspectRatio(contentMode: .fill)
+            DappIcon(iconUrl: item.iconURL)
                 .clipShape(.rect(cornerRadius: iconCornerRadius))
                 .frame(width: iconSize, height: iconSize)
                 .applyModifierConditionally {

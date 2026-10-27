@@ -260,7 +260,7 @@ final class NftDetailsManager {
                 return
             }
 
-            // No URL — show placeholder without processing or caching; re-applied on every load.
+            // Missing artwork uses the same blurred lower extension as a normal preview.
             guard let url = model.item.imageUrl else {
                 self.applyPlaceholder(model: model, image: NftDetailsImage.noImagePlaceholderImage())
                 return
@@ -281,7 +281,7 @@ final class NftDetailsManager {
         }
                 
         func origCacheKey(id: String) -> String { "\(id)_\(value)_original" }
-        func previewCacheKey(id: String) -> String { "\(id)_\(value)_preview" }
+        func previewCacheKey(id: String) -> String { "\(id)_\(value)_atmosphere_v11" }
     }
 
     private func tryLoadFromDiskCache(model: ItemModel, generation: Int) async -> NftDetailsImage.Processed? {
@@ -309,6 +309,7 @@ final class NftDetailsManager {
             previewImage: prev,
             previewCIImage: imageProcessor.ciImageOptional(from: prev),
             baseColor: baseColor,
+            atmosphereColor: colorCache.color(forKey: bucket.previewCacheKey(id: modelId)).1,
         )
     }
     
@@ -358,12 +359,19 @@ final class NftDetailsManager {
 
     private func applyPlaceholder(model: ItemModel, image: UIImage) {
         guard case .loading = model.processedImageState else { return }
-        var processed = NftDetailsImage.Processed()
-        processed.originalImage = image
-        processed.previewImage = image
-        processed.previewCIImage = imageProcessor.ciImageOptional(from: image)
-        model.processedImageState = .loaded(processed)
-        model.notify(.processedImageUpdated)
+        let processor = imageProcessor
+        let width = targetWidth
+        let background = colorResolver.fallbackColor
+        let image = image.imageAsset?.image(with: UITraitCollection(userInterfaceStyle: background.isLightColor ? .light : .dark)) ?? image
+        let gen = generation
+        imageProcessingQueue.addOperation { [weak self] in
+            let processed = processor.loadPlaceholder(image, targetWidth: width, backgroundColor: background)
+            DispatchQueue.main.async {
+                guard let self, self.generation == gen, case .loading = model.processedImageState else { return }
+                model.processedImageState = .loaded(processed)
+                model.notify(.processedImageUpdated)
+            }
+        }
     }
 
     private func enqueueForProcessing(model: ItemModel, rawImage: UIImage) {
@@ -405,6 +413,7 @@ final class NftDetailsManager {
             let processor = imageProcessor
             let pCache = processedImageCache
             let cCache = colorCache
+            let fallbackColor = colorResolver.fallbackColor
             let operation = BlockOperation()
             operation.addExecutionBlock { [weak self, weak operation] in
                 guard let operation else { return }
@@ -414,7 +423,7 @@ final class NftDetailsManager {
                 let processed = processor.loadImage(
                     rawImage,
                     targetWidth: width,
-                    simplifiedProcessing: model.simplifiedImageProcessing
+                    backgroundColor: fallbackColor
                 )
                 
                 guard !operation.isCancelled else { return }
@@ -455,6 +464,7 @@ final class NftDetailsManager {
         // Always write the color entry so future lookups can distinguish "processed with no detectable color"
         // (sentinel .clear, alpha=0) from "never processed" (absent key). imageProcessor.regionColor only
         // returns colors with alpha >= 120/255, so alpha=0 is an unambiguous sentinel.
+        colorCache.setColor(processed.atmosphereColor ?? .clear, forKey: bucket.previewCacheKey(id: modelId))
         colorCache.setColor(processed.baseColor ?? .clear, forKey: modelId)
     }
 }

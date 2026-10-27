@@ -163,7 +163,7 @@ extension MTokenBalance {
                 return false
             }
             if token.isStaking
-                || !hidesTokensWithNoCost
+                || (!hidesTokensWithNoCost && (token.balance > 0 || !defaultTokenSlugs.contains(token.tokenSlug)))
                 || automaticallyVisibleSlugs.contains(token.tokenSlug)
                 || token.token?.isPricelessToken == true {
                 return true
@@ -174,18 +174,12 @@ extension MTokenBalance {
     }
 
     private static func shouldShowDefaultTokens(walletTokens: [MTokenBalance]) -> Bool {
-        let tokensAffectingWalletValue = walletTokens.filter { token in
+        !walletTokens.contains { token in
             token.tokenSlug != STAKED_TON_SLUG
                 && token.tokenSlug != STAKED_MYCOIN_SLUG
                 && token.tokenSlug != TON_TSUSDE_SLUG
+                && (token.toUsd ?? 0) >= TINY_TRANSFER_MAX_COST
         }
-        let totalBalance = tokensAffectingWalletValue.reduce(0) {
-            $0 + ($1.toBaseCurrency ?? 0)
-        }
-        let totalBalanceUsd = tokensAffectingWalletValue.reduce(0) {
-            $0 + ($1.toUsd ?? 0)
-        }
-        return totalBalance == 0 || totalBalanceUsd < TINY_TRANSFER_MAX_COST
     }
 
     /// ## Group / Sort Rules

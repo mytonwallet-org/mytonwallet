@@ -9,6 +9,7 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
 
     private enum Section: Hashable {
         case address
+        case viewWalletWarning
         case buyCrypto
     }
 
@@ -41,6 +42,16 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
     private var isViewWalletMode: Bool {
         account.isView == true
     }
+
+    private var tokenWarning: String {
+        if chain == .ton {
+            return lang("$send_only_ton")
+        } else if isUtxoChain(chain) {
+            return L10n.sendOnlyChainNoTokens(symbol: chain.nativeToken.symbol)
+        } else {
+            return L10n.sendOnlyChain(symbol: chain.nativeToken.symbol, chain: chain.title)
+        }
+    }
     
     private func setupViews() {
         view.backgroundColor = .clear
@@ -49,10 +60,13 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.backgroundColor = .clear
             configuration.headerMode = sectionIndex == 0 ? .supplementary : .none
-            configuration.footerMode = (sectionIndex == 0 && self?.isViewWalletMode == true) ? .supplementary : .none
+            configuration.footerMode = (sectionIndex == 0 || self?.isViewWalletMode == true) ? .supplementary : .none
             configuration.headerTopPadding = sectionIndex == 0 ? 16 : 8
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: layoutEnvironment)
         }
+        let layoutConfiguration = layout.configuration
+        layoutConfiguration.interSectionSpacing += 8
+        layout.configuration = layoutConfiguration
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
@@ -93,6 +107,16 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
 
         let addressRegistration = AddressCell.makeRegistration(address: address, chain: chain)
         let buyCryptoRegistration = BuyCryptoItemCell.makeRegistration()
+        let tokenWarningFooterRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
+            elementKind: UICollectionView.elementKindSectionFooter
+        ) { [weak self] cell, _, _ in
+            guard let self else { return }
+            var content = UIListContentConfiguration.groupedFooter()
+            content.text = tokenWarning
+            content.applyTextStyle(.footnote, scaling: .dynamic)
+            cell.contentConfiguration = content
+            cell.accessibilityIdentifier = "receive_token_warning"
+        }
         let warningFooterRegistration = ViewWalletWarningFooter.makeFooterRegistration()
 
         dataSource = UICollectionViewDiffableDataSource<Section, ReceiveItem>(collectionView: collectionView) { collectionView, indexPath, item in
@@ -104,14 +128,17 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
             }
         }
 
-        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+        dataSource.supplementaryViewProvider = { [weak self] collectionView, kind, indexPath in
             switch kind {
             case UICollectionView.elementKindSectionHeader:
-                collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+                return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
             case UICollectionView.elementKindSectionFooter:
-                collectionView.dequeueConfiguredReusableSupplementary(using: warningFooterRegistration, for: indexPath)
+                if self?.dataSource.sectionIdentifier(for: indexPath.section) == .viewWalletWarning {
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: warningFooterRegistration, for: indexPath)
+                }
+                return collectionView.dequeueConfiguredReusableSupplementary(using: tokenWarningFooterRegistration, for: indexPath)
             default:
-                nil
+                return nil
             }
         }
     }
@@ -121,6 +148,10 @@ final class ReceiveTableVC: WViewController, WSegmentedControllerContent, UIColl
 
         snapshot.appendSections([.address])
         snapshot.appendItems([.address], toSection: .address)
+
+        if isViewWalletMode {
+            snapshot.appendSections([.viewWalletWarning])
+        }
 
         if !ConfigStore.shared.shouldRestrictSwapsAndOnRamp && !isViewWalletMode {
             snapshot.appendSections([.buyCrypto])

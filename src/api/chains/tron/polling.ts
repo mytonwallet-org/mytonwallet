@@ -20,12 +20,18 @@ import { WalletPolling } from '../../common/polling/walletPolling';
 import { swapReplaceActivities } from '../../common/swap';
 import { buildTokenSlug } from '../../common/tokens';
 import { txCallbacks } from '../../common/txCallbacks';
-import { FIRST_TRANSACTIONS_LIMIT, SEC } from '../../constants';
+import { FIRST_TRANSACTIONS_LIMIT, MINUTE, SEC } from '../../constants';
 import { getTokenActivitySlice, mergeActivities } from './activities';
 import { NETWORK_CONFIG } from './constants';
 import { getTrc20Balance, getWalletBalance, isTronAccountMultisig } from './wallet';
 
 const DOUBLE_CHECK_ACTIVITY_PAUSE = 3 * SEC;
+
+const activeTronWalletTiming = {
+  ...activeWalletTiming,
+  // The backend socket reports activities without balance updates
+  forcedPollingPeriod: { focused: MINUTE, notFocused: 2 * MINUTE },
+};
 
 export function setupActivePolling(
   accountId: string,
@@ -93,7 +99,7 @@ export function setupActivePolling(
     chain: 'tron',
     network: parseAccountId(accountId).network,
     address,
-    pollingOptions: activeWalletTiming,
+    pollingOptions: activeTronWalletTiming,
     onUpdate: handleUpdate,
   });
 

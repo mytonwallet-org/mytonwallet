@@ -11,6 +11,7 @@ import Dependencies
 struct SendDappViewOrPlaceholder: View {
     var accountContext: AccountContext
     var request: ApiUpdate.DappSendTransactions?
+    var heroAmount: BaseCurrencyAmount?
     var onShowDetail: (ApiDappTransfer) -> ()
     
     var body: some View {
@@ -18,6 +19,7 @@ struct SendDappViewOrPlaceholder: View {
             SendDappContentView(
                 accountContext: accountContext,
                 request: request,
+                heroAmount: heroAmount,
                 onShowDetail: onShowDetail
             )
             .transition(.opacity.animation(.default))
@@ -31,11 +33,11 @@ struct SendDappViewOrPlaceholder: View {
 private struct SendDappContentView: View {
     var accountContext: AccountContext
     var request: ApiUpdate.DappSendTransactions
+    var heroAmount: BaseCurrencyAmount?
     var onShowDetail: (ApiDappTransfer) -> ()
     
     private var operationChain: ApiChain { request.operationChain }
     private var transactionsCount: Int { request.transactions.count }
-    private var hasAmount: Bool { request.combinedInfo.nftsCount > 0 || !request.combinedInfo.tokenTotals.isEmpty }
     private var sortedTransactions: [ApiDappTransfer] {
         request.transactions.sorted { lhs, rhs in
             transactionSortCost(lhs) > transactionSortCost(rhs)
@@ -47,13 +49,19 @@ private struct SendDappContentView: View {
     var body: some View {
         WithPerceptionTracking {
             InsetList {
-                if request.combinedInfo.isDangerous {
+                if let heroAmount {
+                    DappTransferHeroAmount(amount: heroAmount)
+                }
+
+                let combinedInfo = request.combinedInfo
+                if combinedInfo.isDangerous {
                     SendDappWarningView()
+                        .padding(.horizontal, 16)
+                } else if combinedInfo.hasStateInit {
+                    WarningView(text: lang("$signature_warning"), kind: .warning)
                         .padding(.horizontal, 16)
                 }
                 
-                totalAmountSection
-
                 if request.shouldHideTransfers != true {
                     transfersSection
                 }
@@ -74,18 +82,6 @@ private struct SendDappContentView: View {
         }
     }
         
-    @ViewBuilder
-    private var totalAmountSection: some View {
-        if transactionsCount > 1 && hasAmount {
-            InsetSection {
-                TotalAmountRow(info: request.combinedInfo)
-                    .padding(.vertical, -1)
-            } header: {
-                Text(lang("Total Amount"))
-            }
-        }
-    }
-    
     private var transfersSection: some View {
         let addressNames = previewAddressNames
         return InsetSection {
@@ -144,7 +140,8 @@ private struct SendDappContentView: View {
                                 nativeSum: emulation.realFee
                             ),
                             explainedTransferFee: nil,
-                            includeLabel: true
+                            includeLabel: true,
+                            isError: request.isEmulationFeeInsufficient(accountContext: accountContext)
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 3)

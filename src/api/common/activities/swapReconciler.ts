@@ -42,6 +42,21 @@ export function preserveActivityStatusProgress<T extends ApiActivity>(
     merged = { ...incoming, etaSeconds: existing.etaSeconds };
   }
 
+  // The source-chain receipt is not the settlement of a LI.FI swap. Its status may have been
+  // projected into a cached row by an older client; a fresh backend swap row corrects it.
+  if (incoming.kind === 'swap' && incoming.lifi && getIsBackendSwapId(incoming.id)) {
+    if (existing.kind === 'swap' && existing.lifi?.outcome && !incoming.lifi.outcome) {
+      return {
+        ...merged,
+        status: existing.status,
+        to: existing.to,
+        toAmount: existing.toAmount,
+        lifi: existing.lifi,
+      };
+    }
+    return merged;
+  }
+
   if (STATUS_RANK[existing.status] <= STATUS_RANK[incoming.status]) return merged;
   if (existing.kind === 'swap' && merged.kind === 'swap' && existing.cex && merged.cex) {
     merged = { ...merged, cex: { ...merged.cex, status: existing.cex.status } };
@@ -118,7 +133,7 @@ export function projectSwapActivities(
     if (!sources.length && !isInWindow) continue;
 
     // A DEX route that failed in part is not summarized: the summary leaves the feed and the actions stay raw
-    if (!swap.cex && sources.some(hasFailed)) {
+    if (!swap.cex && !swap.lifi && sources.some(hasFailed)) {
       projectedSwaps.push(buildFailedRouteSummary(swap, sources));
       continue;
     }
@@ -296,8 +311,9 @@ function buildProjectedSwap(swap: ApiSwapActivity, sources: readonly ApiActivity
   const backendId = getSwapRowBackendId(swap);
   const hiddenSourceActionIds = sources.map(({ id }) => id);
   const legs = sources.filter((source): source is ApiSwapActivity => source.kind === 'swap');
-  const status = swap.cex ? swap.status : getDexStatus(swap, sources, legs);
-  const toAmount = status === 'completed' ? getSettledToAmount(swap, legs) ?? swap.toAmount : swap.toAmount;
+  const status = swap.cex || swap.lifi ? swap.status : getDexStatus(swap, sources, legs);
+  const toAmount = status === 'completed' && !swap.lifi
+    ? getSettledToAmount(swap, legs) ?? swap.toAmount : swap.toAmount;
   const reason: ApiActivityReconciliationReason = swap.cex
     ? 'cex-swap'
     : getIsTxIdLocal(swap.id) ? 'local-intent' : 'ton-aggregated-swap';

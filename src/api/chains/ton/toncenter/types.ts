@@ -95,6 +95,8 @@ export type AnyAction = TonTransferAction
   | StakeWithdrawalAction
   | StakeWithdrawalRequestAction
   | AuctionBidAction
+  | NftPutOnAuctionAction
+  | NftCancelAuctionAction
   | ChangeDnsAction
   | DeleteDnsAction
   | RenewDnsAction
@@ -190,7 +192,7 @@ export type JettonTransferAction = BaseAction & {
 };
 
 export type NftTransferAction = BaseAction & {
-  type: 'nft_transfer';
+  type: 'nft_transfer' | 'nft_purchase';
   details: {
     nft_collection: string | null;
     nft_item: string;
@@ -296,6 +298,41 @@ export type AuctionBidAction = BaseAction & {
     nft_item: string;
     nft_collection: string | null;
     nft_item_index: string | null;
+  };
+};
+
+/** Fragment Teleitem start-auction (`0x487a8e81`) and GetGems put-on-auction share this payload. */
+export type NftPutOnAuctionAction = BaseAction & {
+  type: 'nft_put_on_auction' | 'teleitem_start_auction';
+  details: {
+    nft_collection: string | null;
+    nft_item: string;
+    nft_item_index: string | null;
+    owner: string;
+    listing_address: string | null;
+    auction_address: string;
+    marketplace_address: string | null;
+    marketplace_fee_factor: string | null;
+    marketplace_fee_base: string | null;
+    royalty_fee_base: string | null;
+    max_bid: string | null;
+    min_bid: string | null;
+    marketplace_fee_address: string | null;
+    royalty_address: string | null;
+    marketplace: MarketplaceSlug | null;
+  };
+};
+
+/** Fragment Teleitem cancel-auction (`0x371638ae`) and GetGems cancel-auction share this payload. */
+export type NftCancelAuctionAction = BaseAction & {
+  type: 'nft_cancel_auction' | 'teleitem_cancel_auction';
+  details: {
+    owner: string;
+    nft_item: string;
+    nft_collection: string | null;
+    auction_address: string;
+    marketplace_address: string | null;
+    marketplace: MarketplaceSlug | null;
   };
 };
 

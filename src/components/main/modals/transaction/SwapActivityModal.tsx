@@ -27,6 +27,7 @@ import { shareUrl } from '../../../../util/share';
 import { getCexExternalExchangeId, getCexTrackingUrl } from '../../../../util/swap/cex';
 import getChainNetworkName from '../../../../util/swap/getChainNetworkName';
 import { getIsInternalSwap, getSwapType } from '../../../../util/swap/getSwapType';
+import { getLifiReceivedToken } from '../../../../util/swap/lifiHistory';
 import { getSwapTransactionIdRows } from '../../../../util/swap/transactionIds';
 import { getChainBySlug } from '../../../../util/tokens';
 import { getExplorerTransactionUrl, getViewTransactionUrl } from '../../../../util/url';
@@ -144,15 +145,17 @@ function SwapActivityModal({
   }, [renderedActivity?.from, swapTokensBySlug, tokensBySlug]);
 
   const toToken = useMemo(() => {
-    if (!renderedActivity?.to || !swapTokensBySlug || !tokensBySlug) return undefined;
+    if (!renderedActivity?.to || !swapTokensBySlug || !tokensBySlug) {
+      return renderedActivity && getLifiReceivedToken(renderedActivity);
+    }
 
     const prioritySwapToken = resolveSwapAsset(swapTokensBySlug, renderedActivity.to);
     if (!prioritySwapToken) {
-      return resolveSwapAsset(tokensBySlug, renderedActivity.to);
+      return getLifiReceivedToken(renderedActivity, resolveSwapAsset(tokensBySlug, renderedActivity.to));
     }
 
-    return prioritySwapToken;
-  }, [renderedActivity?.to, swapTokensBySlug, tokensBySlug]);
+    return getLifiReceivedToken(renderedActivity, prioritySwapToken);
+  }, [renderedActivity, swapTokensBySlug, tokensBySlug]);
 
   const isInternalSwap = getIsInternalSwap({
     from: fromToken, to: toToken, toAddress: payoutAddress, accountChains,
@@ -200,6 +203,13 @@ function SwapActivityModal({
         title = lang('$swap_action');
         titleBadge = lang('Failed');
       }
+    } else if (renderedActivity.lifi?.outcome === 'refunded') {
+      title = lang('$swap_action');
+      titleBadge = lang('Refunded');
+      cexErrorMessage = lang('Exchange failed and coins were refunded to your wallet.');
+      shouldRenderCexInfo = true;
+    } else if (renderedActivity.lifi?.outcome === 'partial') {
+      title = lang('Action Partially Completed');
     } else if (isError) {
       title = lang('$swap_action');
       titleBadge = lang('Failed');
@@ -289,6 +299,10 @@ function SwapActivityModal({
   function renderFooterButton() {
     let isButtonVisible = true;
     let buttonText = 'Swap Again';
+
+    if (renderedActivity?.lifi?.outcome === 'refunded' || renderedActivity?.lifi?.outcome === 'partial') {
+      return undefined;
+    }
 
     if (isCexWaiting) {
       return (
@@ -455,13 +469,16 @@ function SwapActivityModal({
       return undefined;
     }
 
+    const isOwnAddress = !!chain && accountChains?.[chain]?.address === address;
+    const label = isToWallet
+      ? lang('Address for %blockchain% transfer', { blockchain: token?.name })
+      : lang(isOwnAddress ? 'Your %blockchain% Address' : 'Receiver %blockchain% Address', {
+        blockchain: chain ? getChainTitle(chain) : token?.name,
+      });
+
     return (
       <div className={styles.textFieldWrapper}>
-        <span className={styles.textFieldLabel}>
-          {lang(isToWallet ? 'Address for %blockchain% transfer' : 'Your %blockchain% Address', {
-            blockchain: token?.name,
-          })}
-        </span>
+        <span className={styles.textFieldLabel}>{label}</span>
         <InteractiveTextField
           chain={chain}
           address={address}

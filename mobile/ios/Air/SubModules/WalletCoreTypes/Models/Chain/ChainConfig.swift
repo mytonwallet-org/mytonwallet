@@ -393,6 +393,7 @@ private func makeEvmChainConfig(
         isOnRampSupported: isOnRampSupported,
         isOffRampSupported: isOffRampSupported,
         isOnchainSwapSupported: isOnchainSwapSupported,
+        canSwapByBuyAmount: isOnchainSwapSupported,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -441,6 +442,8 @@ private func makeEvmChainConfig(
 
 private func makeUtxoChainConfig(
     title: String,
+    isOnRampSupported: Bool = true,
+    isOffRampSupported: Bool = true,
     defaultDerivationPath: String,
     addressRegex: ChainConfig.RegexPattern,
     addressPrefixRegex: ChainConfig.RegexPattern,
@@ -468,8 +471,8 @@ private func makeUtxoChainConfig(
         title: title,
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
-        isOnRampSupported: true,
-        isOffRampSupported: true,
+        isOnRampSupported: isOnRampSupported,
+        isOffRampSupported: isOffRampSupported,
         isOnchainSwapSupported: false,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
@@ -779,6 +782,8 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
     ),
     .zcash: makeUtxoChainConfig(
         title: "Zcash",
+        isOnRampSupported: false,
+        isOffRampSupported: false,
         defaultDerivationPath: ZCASH_DEFAULT_DERIVATION_PATH,
         addressRegex: .init(
             pattern: #"^t[13][a-km-zA-HJ-NP-Z1-9]{33}$|^tm[a-km-zA-HJ-NP-Z1-9]{33}$|^t2[a-km-zA-HJ-NP-Z1-9]{33}$"#
@@ -797,6 +802,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
         isOnchainSwapSupported: true,
+        canSwapByBuyAmount: true,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -863,6 +869,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         isDnsSupported: false,
         canBuyWithCardInRussia: false,
         isOnchainSwapSupported: true,
+        canSwapByBuyAmount: true,
         isTransferPayloadSupported: false,
         isEncryptedCommentSupported: false,
         canTransferFullNativeBalance: false,
@@ -927,8 +934,6 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "BNB",
         nativeToken: .BNB,
         buySwapAmountIn: "1",
-        isOnRampSupported: false,
-        isOffRampSupported: false,
         usdtSlug: BSC_USDT_MAINNET_SLUG,
         defaultEnabledSlugs: [BNB_SLUG],
         crosschainSwapSlugs: [BNB_SLUG],
@@ -989,6 +994,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "Optimism",
         nativeToken: .OPTIMISM,
         buySwapAmountIn: "0.001",
+        isOffRampSupported: false,
         defaultEnabledSlugs: [],
         crosschainSwapSlugs: [OPTIMISM_SLUG],
         tokenInfo: [
@@ -1052,7 +1058,6 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         title: "Hyperliquid",
         nativeToken: .HYPERLIQUID,
         buySwapAmountIn: "0.1",
-        isOnRampSupported: false,
         isOffRampSupported: false,
         isOnchainSwapSupported: false,
         usdtSlug: HYPERLIQUID_USDC_MAINNET_SLUG,
@@ -1077,6 +1082,7 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         nativeToken: .ROBINHOOD,
         buySwapTokenInSlug: TON_USDT_SLUG,
         buySwapAmountIn: "50",
+        isOffRampSupported: false,
         defaultEnabledSlugs: [ROBINHOOD_SLUG],
         crosschainSwapSlugs: [ROBINHOOD_SLUG],
         tokenInfo: [
@@ -1097,7 +1103,6 @@ private let CHAIN_CONFIG: [ApiChain: ChainConfig] = [
         nativeToken: .ARC,
         buySwapTokenInSlug: TON_USDT_SLUG,
         buySwapAmountIn: "50",
-        isOnRampSupported: false,
         isOffRampSupported: false,
         defaultEnabledSlugs: [ARC_SLUG],
         crosschainSwapSlugs: [ARC_SLUG],

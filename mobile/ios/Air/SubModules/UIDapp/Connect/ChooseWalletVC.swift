@@ -29,6 +29,7 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         self.requiredChains = requiredChains
         self.onSelect = onSelect
         super.init(nibName: nil, bundle: nil)
+        preferredContentSize = CGSize(width: 520, height: 400)
     }
     
     required init?(coder: NSCoder) {
@@ -40,6 +41,14 @@ public class ChooseWalletVC: WViewController, UICollectionViewDelegate {
         setupViews()
     }
     
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let height = min(720, max(280, collectionView.collectionViewLayout.collectionViewContentSize.height + 24))
+        if abs(preferredContentSize.height - height) > 0.5 {
+            preferredContentSize = CGSize(width: 520, height: height)
+        }
+    }
+
     private func setupViews() {
         
         navigationItem.title = lang("Choose Wallet")

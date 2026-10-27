@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="push_title_wallet">\u2068%1$s\u2069</string>
+    <string name="push_activity_token_sent">\u2066%1$s %2$s\u2069 ارسال شد</string>
+    <string name="push_activity_token_received">\u2066%1$s %2$s\u2069 دریافت شد</string>
+    <string name="push_activity_contract_called">قرارداد هوشمند فراخوانی شد</string>
+    <string name="push_activity_contract_deployed">قرارداد هوشمند مستقر شد</string>
+    <string name="push_activity_token_minted">\u2066%1$s %2$s\u2069 ضرب شد</string>
+    <string name="push_activity_token_burned">\u2066%1$s %2$s\u2069 سوزانده شد</string>
+    <string name="push_activity_nft_sent">\u2066NFT\u2069 ارسال شد</string>
+    <string name="push_activity_nft_sent_named">\u2066NFT\u2069 ارسال شد: \u2068%1$s\u2069</string>
+    <string name="push_activity_nft_received">\u2066NFT\u2069 دریافت شد</string>
+    <string name="push_activity_nft_received_named">\u2066NFT\u2069 دریافت شد: \u2068%1$s\u2069</string>
+    <string name="push_activity_nft_minted">\u2066NFT\u2069 ضرب شد</string>
+    <string name="push_activity_nft_minted_named">\u2066NFT\u2069 ضرب شد: \u2068%1$s\u2069</string>
+    <string name="push_activity_liquidity_deposited">نقدینگی تأمین شد</string>
+    <string name="push_activity_liquidity_withdrawn">نقدینگی برداشت شد</string>
+    <string name="push_activity_stake_deposit">استیک \u2066%1$s %2$s\u2069</string>
+    <string name="push_activity_stake_withdrawal">برداشت استیک \u2066%1$s %2$s\u2069</string>
+    <string name="push_activity_stake_withdrawal_request">درخواست برداشت استیکینگ ثبت شد</string>
+    <string name="push_activity_auction_bid">ثبت پیشنهاد حراج \u2066%1$s %2$s\u2069</string>
+    <string name="push_activity_dns_changed">رکورد \u2066DNS\u2069 به‌روزرسانی شد</string>
+    <string name="push_activity_dns_deleted">رکورد \u2066DNS\u2069 حذف شد</string>
+    <string name="push_activity_dns_renewed">\u2066DNS\u2069 تمدید شد</string>
+    <string name="push_activity_subscription_started">اشتراک آغاز شد</string>
+    <string name="push_activity_subscription_payment_received">دریافت پرداخت اشتراک \u2066%1$s %2$s\u2069</string>
+    <string name="push_activity_subscription_canceled">اشتراک لغو شد</string>
+    <string name="push_activity_swap_completed">مبادله \u2066%1$s → %2$s\u2069 انجام شد</string>
+    <string name="push_activity_swap_failed">مبادله \u2066%1$s → %2$s\u2069 ناموفق بود</string>
+    <string name="push_activity_swap_expired">مبادله \u2066%1$s → %2$s\u2069 منقضی شد</string>
+    <string name="push_activity_swap_pending">مبادله \u2066%1$s → %2$s\u2069 \u2068%3$s\u2069</string>
+    <string name="push_activity_staking_profit">سود استیکینگ \u2066%1$s GRAM\u2069</string>
+    <string name="push_activity_staking_loyalty_profit">سود وفاداری استیکینگ \u2066%1$s GRAM\u2069</string>
+    <string name="push_domain_title_renew">دامنه‌ی خود را تمدید کنید</string>
+    <string name="push_domain_expired_yesterday">دامنه \u2068%1$s\u2069 شما دیروز منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید</string>
+    <string name="push_domain_expired_days_ago">دامنه \u2068%1$s\u2069 شما \u2066%2$s\u2069 روز پیش منقضی شد. لطفاً برای جلوگیری از از دست دادن دسترسی، در اسرع وقت آن را تمدید کنید</string>
+    <string name="push_domain_expires_today">دامنه \u2068%1$s\u2069 شما امروز منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید</string>
+    <string name="push_domain_expires_tomorrow">دامنه \u2068%1$s\u2069 شما فردا منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید</string>
+    <string name="push_domain_expires_in_days">دامنه \u2068%1$s\u2069 شما \u2066%2$s\u2069 روز دیگر منقضی می‌شود. لطفاً برای جلوگیری از از دست دادن دسترسی، آن را تمدید کنید</string>
+</resources>

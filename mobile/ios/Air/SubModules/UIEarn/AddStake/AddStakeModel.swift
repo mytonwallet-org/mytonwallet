@@ -18,6 +18,23 @@ import SwiftNavigation
 final class AddStakeModel: WalletCoreData.EventsObserver {
     
     let config: StakingConfig
+    var foreignUnstakeLoadingId: String?
+    var onForeignUnstake: ((ApiPromotion) -> Void)?
+    private var dismissedForeignBannerIds: [String: Set<String>] = [:]
+
+    var foreignStakingBanners: [ApiPromotion] {
+        guard account.supportsEarn else { return [] }
+        let dismissed = dismissedForeignBannerIds[account.id, default: []]
+        return $account.config.banners.staking.filter {
+            guard !dismissed.contains($0.id), let chain = $0.infoBanner?.actionButton.chain else { return false }
+            return config.baseTokenSlug == chain.nativeToken.slug
+        }
+    }
+
+    func dismissForeignBanner(_ promotion: ApiPromotion) {
+        guard foreignStakingBanners.first?.id == promotion.id else { return }
+        dismissedForeignBannerIds[account.id, default: []].insert(promotion.id)
+    }
     @PerceptionIgnored
     @AccountContext private var account: MAccount
     
@@ -190,7 +207,7 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     }
     
     var fee: MFee? {
-        let stakeOperationFee = getStakeOperationFee(stakingType: stakingState.type, stakeOperation: .stake).real
+        let stakeOperationFee = insufficientFee ? fees.gas : fees.real
         return MFee(precision: .exact, terms: .init(token: nil, native: stakeOperationFee, stars: nil), nativeSum: stakeOperationFee)
     }
     
@@ -199,10 +216,11 @@ final class AddStakeModel: WalletCoreData.EventsObserver {
     // Validation
 
     var insufficientFunds: Bool = false
+    var insufficientFee: Bool = false
     var shouldRenderBalanceWithSmallFee = false
     
     var canContinue: Bool {
-        !insufficientFunds && (amount ?? 0 > 0)
+        !insufficientFunds && !insufficientFee && (amount ?? 0 > 0)
     }
     
     // MARK: - View callbacks

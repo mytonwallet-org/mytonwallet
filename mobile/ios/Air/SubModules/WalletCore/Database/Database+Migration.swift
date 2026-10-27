@@ -380,5 +380,11 @@ func makeMigrator() -> DatabaseMigrator {
         }
     }
 
+    migrator.registerMigration("v29") { db in
+        try db.alter(table: "account_settings") { t in
+            t.add(column: "dismissedHomeBannerIds", .jsonText)
+        }
+    }
+
     return migrator
 }

@@ -1,0 +1,69 @@
+@use "../../../../styles/mixins";
+
+// The root stays in the layout without banners, so its height change can move the content below smoothly
+.root {
+  position: relative;
+}
+
+.rootFilled {
+  padding-top: 1rem;
+}
+
+// The transition replaces the one of the card, so it repeats the hover transition of the card
+.banner {
+  animation: fade-in 300ms ease;
+
+  @include mixins.transition('opacity 300ms ease, transform 300ms ease, background-color 150ms');
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+}
+
+.bannerClosing {
+  pointer-events: none;
+  transform: translateY(-0.75rem);
+  opacity: 0;
+}
+
+// The edge of the second card peeks out from under the first one and lies in the gap below the block
+.edge {
+  pointer-events: none;
+
+  position: absolute;
+  top: 1rem;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateY(0.5rem);
+
+  border-radius: 1.5rem;
+
+  background-image: linear-gradient(to bottom, var(--color-background-second) calc(100% - 0.5rem), var(--color-background-first));
+  clip-path: inset(0 1.5rem round 1.3125rem);
+
+  animation: fade-in 300ms ease;
+
+  @include mixins.transition('clip-path 300ms ease, transform 300ms ease');
+
+  :global(html.animation-level-0) & {
+    animation: none;
+  }
+}
+
+.edgeGrown {
+  transform: none;
+  background-color: var(--color-background-first);
+  background-image: none;
+  clip-path: inset(0 round 1.5rem);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

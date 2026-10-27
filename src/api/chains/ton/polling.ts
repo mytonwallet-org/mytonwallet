@@ -12,7 +12,7 @@ import type {
   OnUpdatingStatusChange,
 } from '../../types';
 
-import { POPULAR_WALLET_VERSIONS, TONCOIN } from '../../../config';
+import { POPULAR_WALLET_VERSIONS, STAKED_TOKEN_SLUGS, TONCOIN } from '../../../config';
 import { parseAccountId } from '../../../util/account';
 import { getActivityTokenSlugs } from '../../../util/activities';
 import { areDeepEqual } from '../../../util/areDeepEqual';
@@ -20,11 +20,14 @@ import { focusAwareDelay } from '../../../util/focusAwareDelay';
 import { compact, pick } from '../../../util/iteratees';
 import { logDebug, logDebugError } from '../../../util/logs';
 import { pause, throttle } from '../../../util/schedulers';
+import { getFullStakingBalance } from '../../../util/staking';
 import { shouldEmitNftFullLoadFinal } from './util/nftPollingGuards';
 import { fetchStoredAccount, fetchStoredWallet, updateStoredWallet } from '../../common/accounts';
 import { getBackendConfigCache, getStakingCommonCache } from '../../common/cache';
+import { FallbackPollingScheduler } from '../../common/polling/fallbackPollingScheduler';
 import { getConcurrencyLimiter } from '../../common/polling/setupInactiveChainPolling';
 import {
+  activeNftTiming,
   activeWalletTiming,
   inactiveWalletTiming,
   periodToMs,
@@ -55,12 +58,15 @@ const POLL_MIN_INTERVAL = { focused: 2 * SEC, notFocused: 10 * SEC };
 const DOMAIN_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const INITIALIZATION_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const STAKING_INTERVAL = { focused: 30 * SEC, notFocused: 2 * MINUTE };
+const EMPTY_STAKING_INTERVAL = 2 * MINUTE;
+const STAKING_ACTION_TIMEOUT = 10 * MINUTE;
 const VERSIONS_INTERVAL = { focused: 5 * MINUTE, notFocused: 15 * MINUTE };
 const VESTING_INTERVAL = { focused: 10 * SEC, notFocused: MINUTE };
-const TON_DNS_INTERVAL = { focused: 15 * SEC, notFocused: 2 * MINUTE };
+const TON_DNS_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 
-const NFT_FULL_INTERVAL = { focused: MINUTE, notFocused: 5 * MINUTE };
 const DOUBLE_CHECK_NFT_PAUSE = 5 * SEC;
+
+let activeStakingPolling: { accountId: string; poll: NoneToVoidFunction } | undefined;
 
 export function shouldPollWalletVersions(wallet: Pick<ApiTonWallet, 'version'>) {
   return wallet.version !== 'telegram';
@@ -90,14 +96,14 @@ export function setupActivePolling(
     onUpdatingStatusChange.bind(undefined, 'activities'),
   );
   const domainPolling = setupDomainPolling(accountId, account.byChain.ton.address, onUpdate);
-  const nftPolling = setupNftPolling(accountId, onUpdate);
+  const nftPolling = setupNftPolling(accountId, account.byChain.ton.address, onUpdate);
   const walletInitializationPolling = setupWalletInitializationPolling(accountId);
   const stopWalletVersionPolling = setupWalletVersionsPolling(accountId, onUpdate);
   const stopTonDnsPolling = setupTonDnsPolling(accountId, nftPolling.firstFullLoadPromise, onUpdate);
   // Staking is an extra feature. A `NO_EXTRA_FEATURES` build leaves it out through `plugins/disabledImports.ts`,
   // which needs the flag read inline, as here
   const stopStakingPolling = process.env.NO_EXTRA_FEATURES !== '1'
-    ? setupStakingPolling(accountId, balancePolling.getBalances, onUpdate)
+    ? setupStakingPolling(accountId, balancePolling, onUpdate)
     : () => {};
   const stopVestingPolling = setupVestingPolling(accountId, onUpdate);
 
@@ -162,6 +168,7 @@ function setupBalancePolling(
   balanceStream.start();
 
   return {
+    onUpdate: balanceStream.onUpdate.bind(balanceStream),
     stop() {
       balanceStream.destroy();
     },
@@ -280,7 +287,11 @@ function setupDomainPolling(accountId: string, address: string, onUpdate: OnApiU
   });
 }
 
-function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
+export function setupNftPolling(accountId: string, address: string, onUpdate: OnApiUpdate) {
+  const { network } = parseAccountId(accountId);
+  let isStopped = false;
+  let isFullLoadRunning = false;
+  let hasSuccessfulFullLoad = false;
   let nftFromSec = Math.round(Date.now() / 1000);
   let abortController: AbortController | undefined;
   let firstFullLoadResolve: NoneToVoidFunction | undefined;
@@ -296,7 +307,7 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
       try {
         const nftResult = await getNftUpdates(accountId, nftFromSec).catch(logAndRescue);
 
-        if (nftResult) {
+        if (!isStopped && nftResult) {
           let nftUpdates: ApiNftUpdate[];
           [nftFromSec, nftUpdates] = nftResult;
           nftUpdates
@@ -309,9 +320,27 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
     },
   );
 
-  const fullPolling = pollingLoop({
-    period: NFT_FULL_INTERVAL,
-    async poll() {
+  const pollPartial = throttle(
+    () => (isStopped ? undefined : updatePartial.run()),
+    () => focusAwareDelay(...periodToMs(POLL_MIN_INTERVAL)),
+  );
+
+  const walletWatcher = getToncenterSocket(network).watchWallets(
+    [{ address, chain: 'ton' }],
+    {
+      onConnect: () => {
+        scheduler.onSocketConnect();
+        if (!hasSuccessfulFullLoad && !isFullLoadRunning) {
+          scheduler.forceImmediatePoll();
+        }
+      },
+      onDisconnect: () => scheduler.onSocketDisconnect(),
+    },
+  );
+
+  const scheduler = new FallbackPollingScheduler(
+    async () => {
+      isFullLoadRunning = true;
       updatePartial.cancel();
       abortController?.abort();
       abortController = new AbortController();
@@ -339,6 +368,7 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
 
         nftFromSec = Math.round(Date.now() / 1000);
         didComplete = true;
+        hasSuccessfulFullLoad = true;
       } catch (err) {
         didFail = true;
         logDebugError('setupNftPolling updateFull', err);
@@ -362,50 +392,88 @@ function setupNftPolling(accountId: string, onUpdate: OnApiUpdate) {
             streamedAddresses: didComplete ? streamedAddresses : undefined,
           });
         }
+        isFullLoadRunning = false;
+        firstFullLoadResolve?.();
+        firstFullLoadResolve = undefined;
       }
-
-      firstFullLoadResolve?.();
-      firstFullLoadResolve = undefined;
     },
-  });
+    walletWatcher.isConnected,
+    {
+      ...activeNftTiming,
+      pollingPeriod: { focused: MINUTE, notFocused: 5 * MINUTE },
+    },
+  );
 
   return {
     firstFullLoadPromise,
-    poll: throttle(
-      updatePartial.run,
-      () => focusAwareDelay(...periodToMs(POLL_MIN_INTERVAL)),
-    ),
+    poll() {
+      if (isStopped) return;
+      if (walletWatcher.isConnected) {
+        scheduler.onSocketMessage();
+      }
+      pollPartial();
+    },
     stop() {
+      isStopped = true;
+      walletWatcher.destroy();
+      scheduler.destroy();
       abortController?.abort();
       updatePartial.cancel();
-      fullPolling.stop();
       firstFullLoadResolve?.();
       firstFullLoadResolve = undefined;
     },
   };
 }
 
-function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBalanceBySlug>, onUpdate: OnApiUpdate) {
+export function pollStaking(accountId: string) {
+  if (activeStakingPolling?.accountId === accountId) {
+    activeStakingPolling.poll();
+  }
+}
+
+export function setupStakingPolling(
+  accountId: string,
+  balancePolling: Pick<BalanceStream, 'getBalances' | 'onUpdate'>,
+  onUpdate: OnApiUpdate,
+) {
   if (parseAccountId(accountId).network !== 'mainnet') {
     return () => {};
   }
 
   let lastStates: ApiStakingState[] | undefined;
+  let pendingActionUntil = 0;
+  let actionGeneration = 0;
+  let lastBalances: ApiBalanceBySlug | undefined;
+  const period = { ...STAKING_INTERVAL };
 
-  return pollingLoop({
-    period: STAKING_INTERVAL,
+  const loop = pollingLoop({
+    period,
     async poll() {
+      const actionGenerationAtStart = actionGeneration;
       try {
         const [common, balances, backendState] = await Promise.all([
           getStakingCommonCache('ton'),
-          getBalances(),
+          balancePolling.getBalances(),
           staking.getBackendStakingState(accountId),
         ]);
-        const states = await staking.getStakingStates(accountId, common, backendState, balances);
+        const states = await staking.getStakingStates(accountId, common, backendState, balances, lastStates);
+        const hasChanged = !areDeepEqual(states, lastStates);
+        const previousStates = lastStates;
+        const hasPositionChanged = previousStates && [...states, ...previousStates].some(({ id }) => {
+          const state = states.find((item) => item.id === id);
+          const previousState = previousStates.find((item) => item.id === id);
+          const balance = state ? getFullStakingBalance(state) : 0n;
+          const previousBalance = previousState ? getFullStakingBalance(previousState) : 0n;
+          return balance !== previousBalance
+            || (state?.unstakeRequestAmount ?? 0n) !== (previousState?.unstakeRequestAmount ?? 0n);
+        });
+        if (hasPositionChanged && actionGeneration === actionGenerationAtStart) {
+          pendingActionUntil = 0;
+        }
 
         const { shouldUseNominators, totalProfit } = backendState;
 
-        if (!areDeepEqual(states, lastStates)) {
+        if (hasChanged) {
           lastStates = states;
           onUpdate({
             type: 'updateStaking',
@@ -417,9 +485,47 @@ function setupStakingPolling(accountId: string, getBalances: () => Promise<ApiBa
         }
       } catch (err) {
         logDebugError('setupStakingPolling', err);
+      } finally {
+        const hasStake = !lastStates || lastStates.some((state) => (
+          getFullStakingBalance(state) > 0n
+          || (state.unstakeRequestAmount ?? 0n) > 0n
+          || ('tokenBalance' in state && state.tokenBalance > 0n)
+          || (state.type === 'ethena' && (state.unlockTime ?? 0) > Date.now())
+        ));
+        period.focused = hasStake || pendingActionUntil > Date.now()
+          ? STAKING_INTERVAL.focused
+          : EMPTY_STAKING_INTERVAL;
       }
     },
-  }).stop;
+  });
+
+  function poll() {
+    actionGeneration++;
+    pendingActionUntil = Date.now() + STAKING_ACTION_TIMEOUT;
+    period.focused = STAKING_INTERVAL.focused;
+    loop.poll();
+  }
+
+  const polling = { accountId, poll };
+  activeStakingPolling = polling;
+  const stopBalanceUpdates = balancePolling.onUpdate((balances) => {
+    const hasNewStake = Array.from(STAKED_TOKEN_SLUGS).some((slug) => (
+      (balances[slug] ?? 0n) > (lastBalances?.[slug] ?? 0n)
+    ));
+    lastBalances = balances;
+
+    if (hasNewStake) {
+      poll();
+    }
+  });
+
+  return () => {
+    loop.stop();
+    stopBalanceUpdates();
+    if (activeStakingPolling === polling) {
+      activeStakingPolling = undefined;
+    }
+  };
 }
 
 async function loadInitialConfirmedActivities(accountId: string, onUpdate: OnApiUpdate) {

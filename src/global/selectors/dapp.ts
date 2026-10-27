@@ -22,11 +22,13 @@ const selectCurrentDappTransferTotalsMemoized = memoize((
 
   let isScam = false;
   let isDangerous = false;
+  let hasStateInit = false;
   let nftCount = 0;
 
   for (const transaction of transactions ?? []) {
     if (transaction.isScam) isScam = true;
     if (transaction.isDangerous) isDangerous = true;
+    if (transaction.stateInit) hasStateInit = true;
 
     addSlugAmount(getChainConfig(transaction.chain).nativeToken.slug, transaction.amount + transaction.networkFee);
 
@@ -41,6 +43,7 @@ const selectCurrentDappTransferTotalsMemoized = memoize((
     amountsBySlug,
     isScam,
     isDangerous,
+    hasStateInit,
     nftCount,
   };
 });

@@ -27,6 +27,7 @@ struct RenewDomainView: View {
                             fee: fee,
                             explainedTransferFee: nil,
                             includeLabel: true,
+                            isError: viewModel.isInsufficientBalance,
                             textStyle: .footnote
                         )
                         .transition(.opacity.animation(.default))

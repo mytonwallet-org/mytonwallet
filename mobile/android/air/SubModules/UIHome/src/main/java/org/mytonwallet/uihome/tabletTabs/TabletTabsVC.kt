@@ -491,7 +491,7 @@ class TabletTabsVC(context: Context) :
         searchBar.updateTheme()
         contentNav.updateTheme()
         for (nav in navStacks) {
-            if (nav.parent != null) continue
+            if (nav.parent != null && !contentHostVC.isDisappeared) continue
             nav.updateTheme()
         }
     }

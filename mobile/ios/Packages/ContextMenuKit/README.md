@@ -96,6 +96,11 @@ to own the native replace/restore lifecycle. It does not install a second zoom
 transition. Backdrop and source-portal rendering remain specific to the overlay
 fallback because UIKit owns the popover's chrome and presentation.
 
+Set `ContextMenuConfiguration.popoverVerticalAlignment` to `.sourceTop` to align
+the popover's top edge with its source when the menu fits below it. UIKit keeps
+its automatic placement when there is insufficient space. The default is
+`.automatic`; this setting does not affect overlay or sheet presentations.
+
 SwiftUI sources use the modifier:
 
 ```swift

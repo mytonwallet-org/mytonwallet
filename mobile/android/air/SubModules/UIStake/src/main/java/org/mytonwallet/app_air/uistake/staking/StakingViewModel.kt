@@ -29,6 +29,7 @@ import org.mytonwallet.app_air.walletcore.WalletCore
 import org.mytonwallet.app_air.walletcore.WalletEvent
 import org.mytonwallet.app_air.walletcore.models.MBridgeError
 import org.mytonwallet.app_air.walletcore.models.MToken
+import org.mytonwallet.app_air.walletcore.moshi.ApiPromotion
 import org.mytonwallet.app_air.walletcore.moshi.MApiSwapAsset
 import org.mytonwallet.app_air.walletcore.moshi.StakingState
 import org.mytonwallet.app_air.walletcore.moshi.api.ApiMethod
@@ -51,6 +52,20 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
         val ONE_TON: BigInteger = BigInteger.valueOf(1_000_000_000)
         val MINIMUM_REQUIRED_AMOUNT_TON: BigInteger =
             (BigInteger.valueOf(3) * ONE_TON) + (ONE_TON / BigInteger.TEN)
+    }
+
+    private val dismissedForeignBannerIds = mutableMapOf<String, MutableSet<String>>()
+    val foreignStakingBanners: List<ApiPromotion>
+        get() {
+            val accountId = AccountStore.activeAccountId ?: return emptyList()
+            if (mode != Mode.STAKE || tokenSlug != TONCOIN_SLUG) return emptyList()
+            val dismissedIds = dismissedForeignBannerIds[accountId].orEmpty()
+            return AccountStore.getStakingBanners(accountId).filter { it.id !in dismissedIds }
+        }
+
+    fun dismissForeignStakingBanner(id: String) {
+        val accountId = AccountStore.activeAccountId ?: return
+        dismissedForeignBannerIds.getOrPut(accountId) { mutableSetOf() }.add(id)
     }
 
     val token = TokenStore.getToken(tokenSlug)
@@ -571,6 +586,10 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 stakingState?.annualYield?.let {
                     apy.value = it
                 }
+                if (isUnstake()) {
+                    updateBalance()
+                    updateViewStateOnInputChanged()
+                }
             }
 
             is WalletEvent.AccountChanged,
@@ -585,7 +604,10 @@ class StakingViewModel(val tokenSlug: String, val mode: Mode) :
                 tokenPrice = TokenStore.getToken(tokenSlug)?.price
                 _walletStateFlow.value = createWalletState()
 
-                val amountInCrypto = inputStateValue().amountInCrypto ?: return
+                val amountInCrypto = inputStateValue().amountInCrypto ?: run {
+                    updateViewStateOnInputChanged()
+                    return
+                }
                 val inputValue = inputStateValue().run {
                     if (isInputCurrencyCrypto) {
                         CoinUtils.toDecimalString(

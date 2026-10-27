@@ -44,6 +44,7 @@ internal class BridgeCallbackRegistry {
                 ?: (errorObject?.get("displayError") as? String)
                     ?.takeIf { it.isNotBlank() }
                     ?.let(MBridgeError.Type.UNKNOWN::withCustomMessage)
+                ?: MBridgeError.fromErrorName(root["displayError"] as? String)
                 ?: MBridgeError.Type.UNKNOWN
         } catch (_: Exception) {
             MBridgeError.Type.UNKNOWN

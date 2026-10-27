@@ -177,7 +177,8 @@ class TokenHeaderView(
             16,
             4,
             Gravity.CENTER,
-            protectContentLayoutSize = false
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(144f, 36f, softwareSnapshot = true)
         )
     ).apply {
         clipChildren = false
@@ -191,7 +192,13 @@ class TokenHeaderView(
             layoutDirection = LAYOUT_DIRECTION_LTR
             setStyle(22f, WFont.Medium)
         },
-        WSensitiveDataContainer.MaskConfig(8, 3, Gravity.CENTER, protectContentLayoutSize = false)
+        WSensitiveDataContainer.MaskConfig(
+            8,
+            3,
+            Gravity.CENTER,
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(182f, 26f, softwareSnapshot = true)
+        )
     )
 
     override fun setupViews() {

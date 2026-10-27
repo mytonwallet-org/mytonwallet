@@ -49,6 +49,9 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     private volatile boolean pendingPersist = false;
     private volatile long lastPersist = 0;
     private volatile JSONObject globalStorageJsonDict = new JSONObject();
+    // Root last written to localStorage; roots are copy-on-write, so identity means no unsaved changes.
+    @Nullable
+    private volatile JSONObject lastPersistedRoot = null;
 
     public CapacitorGlobalStorageProvider(Context context, final OnReadyCallback onReady) {
         this.context = context;
@@ -100,6 +103,7 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
         );
         if (isInitialLoadComplete) {
             pendingPersist = false;
+            lastPersistedRoot = null;
             persistChanges(PERSIST_INSTANT);
             return;
         }
@@ -116,6 +120,7 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
                 try {
                     JSONObject loadedStorage = new JSONObject(result);
                     globalStorageJsonDict = loadedStorage;
+                    lastPersistedRoot = loadedStorage;
                     isInitialLoadComplete = true;
                     notifyReady(true);
                 } catch (Exception e) {
@@ -223,6 +228,9 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
         if (mustPersist == PERSIST_NO)
             return;
         persistQueue.submit(() -> {
+            if (globalStorageJsonDict == lastPersistedRoot)
+                return;
+
             // Postpone if not a MUST and conditions are not met
             if (mustPersist != PERSIST_INSTANT && (isPersisting || doNotSynchronize.get() > 0 || lastPersist > System.currentTimeMillis() - 3000)) {
                 pendingPersist = true;
@@ -270,6 +278,7 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
                     try {
                         if ("true".equals(result)) {
                             Log.d("CapacitorGlobalStorageProvider", "PERSISTED");
+                            lastPersistedRoot = root;
                             isPersisting = false;
                             lastPersist = System.currentTimeMillis();
                             mainHandler.postDelayed(() -> {
@@ -310,6 +319,8 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
     }
 
     private synchronized void setOnDict(String key, Object value) {
+        if (isUnchanged(getValue(key), value))
+            return;
         try {
             globalStorageJsonDict = setOnDict(globalStorageJsonDict, new ArrayList<>(Arrays.asList(key.split("\\."))), value);
         } catch (Exception ignored) {
@@ -341,6 +352,28 @@ public class CapacitorGlobalStorageProvider implements IGlobalStorageProvider {
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    // A stored instance passed back may have been mutated in place, so only a different instance compares.
+    private static boolean isUnchanged(@Nullable Object current, @Nullable Object value) {
+        if (isScalar(value))
+            return Objects.equals(current, value);
+        if (current == value || !(current instanceof JSONArray) || !(value instanceof JSONArray))
+            return false;
+        JSONArray currentArray = (JSONArray) current;
+        JSONArray valueArray = (JSONArray) value;
+        if (currentArray.length() != valueArray.length())
+            return false;
+        for (int i = 0; i < valueArray.length(); i++) {
+            Object element = valueArray.opt(i);
+            if (!isScalar(element) || !Objects.equals(currentArray.opt(i), element))
+                return false;
+        }
+        return true;
+    }
+
+    private static boolean isScalar(@Nullable Object value) {
+        return value == null || value instanceof String || value instanceof Boolean || value instanceof Number;
     }
 
     private JSONObject shallowCopy(JSONObject dict) throws JSONException {

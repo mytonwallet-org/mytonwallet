@@ -2,6 +2,7 @@ import { Address, Dictionary } from '@ton/core';
 import { beginCell, Cell, storeStateInit } from '@ton/core';
 import type { WalletContractV5R1 } from '@ton/ton/dist/wallets/WalletContractV5R1';
 
+import type { FetchDemand } from '../../../util/fetchDemand';
 import type {
   ApiBalanceBySlug } from '../../types';
 import type { ApiTonPlugin } from '../../types/misc';
@@ -19,7 +20,7 @@ import { DEFAULT_WALLET_VERSION, TONCOIN } from '../../../config';
 import { raceWithAbortSignal } from '../../../util/abortSignal';
 import { parseAccountId } from '../../../util/account';
 import { extractKey, findLast } from '../../../util/iteratees';
-import withCacheAsync from '../../../util/withCacheAsync';
+import withCacheAsync, { withFetchDemandCacheAsync } from '../../../util/withCacheAsync';
 import { findKnownContract } from './util/knownContracts';
 import {
   getTonClient, toBase64Address, toRawAddress, walletClassMap,
@@ -43,14 +44,16 @@ import { getWalletInfos } from './toncenter';
 
 // The cached wrappers take no `AbortSignal`: `withCacheAsync` keys the cache on the arguments, and every signal
 // stringifies to the same key, so a cached call cannot honour one. Pass a signal to the `fetch` functions instead.
-export const isAddressInitialized = withCacheAsync(
-  (network: ApiNetwork, walletOrAddress: TonWallet | string) => fetchIsAddressInitialized(network, walletOrAddress),
+export const isAddressInitialized = withFetchDemandCacheAsync(
+  (demand, network: ApiNetwork, walletOrAddress: TonWallet | string) => {
+    return fetchIsAddressInitialized(network, walletOrAddress, undefined, demand);
+  },
 );
 
 export async function fetchIsAddressInitialized(
-  network: ApiNetwork, walletOrAddress: TonWallet | string, signal?: AbortSignal,
+  network: ApiNetwork, walletOrAddress: TonWallet | string, signal?: AbortSignal, demand?: FetchDemand,
 ) {
-  return (await getWalletInfo(network, walletOrAddress, signal)).isInitialized;
+  return (await getWalletInfo(network, walletOrAddress, signal, demand)).isInitialized;
 }
 
 export const isActiveNonWalletContract = withCacheAsync(
@@ -129,12 +132,13 @@ export async function getWalletInfo(
   network: ApiNetwork,
   walletOrAddress: TonWallet | string,
   signal?: AbortSignal,
+  demand?: FetchDemand,
 ): Promise<ApiWalletInfo> {
   const address = typeof walletOrAddress === 'string'
     ? walletOrAddress
     : toBase64Address(walletOrAddress.address, undefined, network);
 
-  return (await getWalletInfos(network, [address], signal))[address];
+  return (await getWalletInfos(network, [address], signal, demand))[address];
 }
 
 export async function fetchBalances(
@@ -155,15 +159,20 @@ export async function fetchBalances(
   };
 }
 
-export async function getContractInfo(network: ApiNetwork, address: string, signal?: AbortSignal): Promise<{
-  isInitialized: boolean;
-  isSwapAllowed?: boolean;
-  isWallet?: boolean;
-  contractInfo?: ContractInfo;
-  codeHash?: string;
-  codeHashOld?: string;
-}> {
-  const data = await raceWithAbortSignal(() => getTonClient(network).getAddressInfo(address), signal);
+export async function getContractInfo(
+  network: ApiNetwork,
+  address: string,
+  signal?: AbortSignal,
+  demand?: FetchDemand,
+): Promise<{
+    isInitialized: boolean;
+    isSwapAllowed?: boolean;
+    isWallet?: boolean;
+    contractInfo?: ContractInfo;
+    codeHash?: string;
+    codeHashOld?: string;
+  }> {
+  const data = await raceWithAbortSignal(() => getTonClient(network, demand).getAddressInfo(address), signal);
 
   const { code, state } = data;
 

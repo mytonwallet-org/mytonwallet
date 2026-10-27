@@ -11,6 +11,7 @@ import {
   wallet2,
 } from '../../../tests/helpers/swapReconcilerFixtures';
 import { projectSwapActivities } from '../common/activities/swapReconciler';
+import { ApiServerError } from '../errors';
 import { fetchSwaps, initSwap, swapCexCreateTransaction, swapCexSubmit, swapEstimate, swapSubmit } from './swap';
 
 jest.mock('../chains', () => ({
@@ -107,6 +108,23 @@ describe('swap estimate hints', () => {
     getSwapItemSlug.mockReturnValue('sol');
   });
 
+  it('returns an expected router outage for clients to display', async () => {
+    callBackendPost.mockRejectedValueOnce(new ApiServerError('Swap routers are unavailable', 503));
+
+    await expect(swapEstimate('account', { from: 'eth', to: 'wct', fromAmount: '3' }))
+      .resolves.toEqual({ error: 'Swap routers are unavailable' });
+  });
+
+  it.each([
+    new ApiServerError('Unexpected error', 500),
+    new ApiServerError('Unknown service failure', 503),
+    new Error('Invalid quote payload'),
+  ])('does not disguise an unknown failure as an unavailable quote: %s', async (error) => {
+    callBackendPost.mockRejectedValueOnce(error);
+
+    await expect(swapEstimate('account', { from: 'eth', to: 'wct', fromAmount: '3' })).rejects.toBe(error);
+  });
+
   it.each([
     { type: 'external', providerName: '1inch', url: 'https://example.com/swap?from=eth&to=usdc' },
   ])('passes through error hints without requiring a TON wallet: $type', async (hint) => {
@@ -117,7 +135,7 @@ describe('swap estimate hints', () => {
     expect(await swapEstimate('account-mainnet', request)).toBe(response);
     expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', {
       ...request, swapVersion: 2, walletVersion: undefined,
-    }, { isAllowBadRequest: true });
+    }, { isAllowBadRequest: true, onHeaders: expect.any(Function) });
     expect(fetchStoredWallet).not.toHaveBeenCalled();
   });
 
@@ -151,7 +169,7 @@ describe('swap estimate hints', () => {
     });
     expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', expect.objectContaining({
       walletVersion: 'W5',
-    }), { isAllowBadRequest: true });
+    }), { isAllowBadRequest: true, onHeaders: expect.any(Function) });
   });
 
   it('sets dex needsBatch from the chain sdk', async () => {
@@ -173,6 +191,45 @@ describe('swap estimate hints', () => {
       needsBatch: true,
     });
     expect(resolveSwapNeedsBatch).toHaveBeenCalledWith('account-mainnet', false);
+  });
+
+  it('returns below-minimum Changelly limits without retrying or switching to exact out', async () => {
+    const response = {
+      route: 'cex', cexLabel: 'changelly', from: 'usdt20', to: 'btc',
+      fromAmount: '29.786803', toAmount: '0', fromMin: '30.03',
+    };
+    callBackendPost.mockImplementationOnce((_path, _request, { onHeaders }) => {
+      onHeaders(200);
+      return Promise.resolve(response);
+    });
+    const request = { from: 'usdt20', to: 'btc', fromAmount: '29.786803' };
+
+    expect(await swapEstimate('account-mainnet', request)).toBe(response);
+    expect(callBackendPost).toHaveBeenCalledTimes(1);
+    expect(callBackendPost).toHaveBeenCalledWith('/swap/estimate', expect.objectContaining(request), {
+      isAllowBadRequest: true, onHeaders: expect.any(Function),
+    });
+    expect(callBackendPost.mock.calls[0][1]).not.toHaveProperty('toAmount');
+  });
+
+  it.each([false, true])('uses LI.FI approval state for needsBatch (%s)', async (needsApprove) => {
+    const resolveSwapNeedsBatch = chains.base.resolveSwapNeedsBatch;
+    resolveSwapNeedsBatch.mockResolvedValueOnce(true);
+    const response = {
+      route: 'dex' as const,
+      chain: 'base' as const,
+      dexRouterLabel: 'lifi' as const,
+      from: 'base:native',
+      to: 'base:usdc',
+      fromAmount: '1',
+      toAmount: '5',
+      needsApprove,
+    };
+    callBackendPost.mockResolvedValue(response);
+
+    expect(await swapEstimate('account-mainnet', { from: 'base:native', to: 'base:usdc', fromAmount: '1' }))
+      .toEqual({ ...response, needsBatch: needsApprove });
+    expect(resolveSwapNeedsBatch).not.toHaveBeenCalled();
   });
 });
 

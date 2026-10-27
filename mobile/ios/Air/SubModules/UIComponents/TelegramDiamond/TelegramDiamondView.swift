@@ -54,6 +54,16 @@ final class TelegramDiamondContainerView: UIView {
         super.init(frame: .zero)
         guard let diamond else { return }
         addSubview(diamond)
+        diamond.expansionHost = { [weak self] in
+            var responder: UIResponder? = self
+            while let current = responder {
+                if let controller = current as? UIViewController {
+                    return controller.navigationController?.view
+                }
+                responder = current.next
+            }
+            return nil
+        }
         diamond.onPressBegan = { [weak self] in self?.captureForeground() }
         diamond.onExpansionChanged = { [weak self] expanded in
             if !expanded { self?.texture = nil }
@@ -85,23 +95,16 @@ final class TelegramDiamondContainerView: UIView {
     }
 
     private func captureForeground() {
-        texture = nil
+        // Keep the original background when a shrinking diamond is grabbed again.
+        guard texture == nil else { return }
         guard let window, let diamond, let device = diamond.device,
               !UIAccessibility.isReduceTransparencyEnabled else { return }
         let canvas = diamond.expandedCanvasSize
         captureRect = CGRect(x: bounds.midX - canvas.width / 2, y: bounds.midY - canvas.height / 2,
             width: canvas.width, height: canvas.height)
         let windowRect = convert(captureRect, to: window)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = min(2, window.screen.scale)
-        format.opaque = false
-        // Capture once at touch-down; the snapshot excludes the Metal layer itself.
-        diamond.isHidden = true
-        let image = UIGraphicsImageRenderer(size: canvas, format: format).image { context in
-            context.cgContext.translateBy(x: -windowRect.minX, y: -windowRect.minY)
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-        }
-        diamond.isHidden = false
+        // Capture before expanding, including the title but excluding the resting diamond.
+        let image = diamond.snapshotBackground(in: window, rect: windowRect)
         texture = DiamondForegroundTexture.make(image: image, device: device)
     }
 }

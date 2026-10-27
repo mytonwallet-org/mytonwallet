@@ -22,7 +22,8 @@ public final class CardBackgroundRenderer {
         images.totalCostLimit = 24 * 1_024 * 1_024
         images.countLimit = 64
         animationLayers.totalCostLimit = 16 * 1_024 * 1_024
-        animationLayers.countLimit = 4
+        // Keep a seven-card carousel warm within the existing byte budget.
+        animationLayers.countLimit = 8
     }
 
     func layers(seed: CardBackgroundSeed, showContrast: Bool) throws -> CardBackgroundLayers {
@@ -73,12 +74,15 @@ public final class CardBackgroundRenderer {
         let start = CACurrentMediaTime()
         let library = try CardBackgroundLibrary.shared.get()
         let opacity = showContrast && seed.isStandard ? contrastOpacity(seed: seed, library: library) : 0
-        // Always lay out at the generator's size, even for thumbnails. In particular,
-        // Canvas blur radii must not depend on the size of the consuming UI surface.
+        // Keep the generator's layout scale so Canvas blur radii stay consistent.
+        // Align the height to whole pixels: ImageRenderer rounds the bitmap up,
+        // leaving a black bottom row when the artwork's scaled height is fractional.
+        let scale = CGFloat(resolution.rawValue) / 400
+        let height = ceil(232 * scale) / scale
         let renderer = ImageRenderer(content: CardBackgroundArtwork(
             seed: seed, library: library, contrastOpacity: opacity, showContrast: showContrast
-        ).frame(width: 400, height: 232))
-        renderer.scale = CGFloat(resolution.rawValue) / 400
+        ).frame(width: 400, height: height))
+        renderer.scale = scale
         renderer.isOpaque = true
         guard let cgImage = renderer.cgImage else {
             throw CardBackgroundSeed.InvalidSeed(message: "Could not render the card background.")

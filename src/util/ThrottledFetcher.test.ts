@@ -1,4 +1,6 @@
 import { TONAPIIO_MAINNET_URL } from '../config';
+import { createUrgentFetchDemand, FetchDemand } from './fetchDemand';
+import { withFetchDemandCacheAsync } from './withCacheAsync';
 
 import {
   fetchWithThrottledProvider,
@@ -214,5 +216,126 @@ describe('ThrottledFetcher', () => {
     const timeoutExpectation = expect(timedOut).rejects.toMatchObject({ name: 'TimeoutError' });
     await jest.advanceTimersByTimeAsync(1000);
     await timeoutExpectation;
+  });
+
+  describe('demands', () => {
+    const URL = 'https://example.com';
+
+    function getRequestedUrls() {
+      return (global.fetch as jest.Mock).mock.calls.map(([input]) => String(input));
+    }
+
+    beforeEach(() => {
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true } as Response);
+    });
+
+    it('dispatches the requests of an urgent demand ahead of the queued background ones', async () => {
+      const fetcher = new ThrottledFetcher(100);
+      const urgent = createUrgentFetchDemand();
+
+      await fetcher.fetch(`${URL}/first`);
+      const requests = [
+        fetcher.fetch(`${URL}/background-1`),
+        fetcher.fetch(`${URL}/background-2`),
+        fetcher.fetch(`${URL}/urgent-1`, undefined, undefined, urgent),
+        fetcher.fetch(`${URL}/urgent-2`, undefined, undefined, urgent),
+      ];
+
+      await jest.advanceTimersByTimeAsync(400);
+      await Promise.all(requests);
+
+      expect(getRequestedUrls()).toEqual([
+        `${URL}/first`,
+        `${URL}/urgent-1`,
+        `${URL}/urgent-2`,
+        `${URL}/background-1`,
+        `${URL}/background-2`,
+      ]);
+    });
+
+    it('keeps the spacing between the requests of an urgent demand', async () => {
+      const fetcher = new ThrottledFetcher(100);
+      const urgent = createUrgentFetchDemand();
+
+      await fetcher.fetch(`${URL}/first`);
+      const request = fetcher.fetch(`${URL}/urgent`, undefined, undefined, urgent);
+
+      await jest.advanceTimersByTimeAsync(99);
+      expect(getRequestedUrls()).toEqual([`${URL}/first`]);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await request;
+      expect(getRequestedUrls()).toEqual([`${URL}/first`, `${URL}/urgent`]);
+    });
+
+    it('moves a queued request ahead once an urgent demand starts waiting for it', async () => {
+      const fetcher = new ThrottledFetcher(100);
+      const shared = new FetchDemand();
+      const urgent = createUrgentFetchDemand();
+
+      await fetcher.fetch(`${URL}/first`);
+      const background = fetcher.fetch(`${URL}/background`);
+      const sharedRequest = fetcher.fetch(`${URL}/shared`, undefined, undefined, shared);
+      const waiting = urgent.waitFor(shared, sharedRequest);
+
+      await jest.advanceTimersByTimeAsync(200);
+      await Promise.all([background, waiting]);
+
+      expect(getRequestedUrls()).toEqual([`${URL}/first`, `${URL}/shared`, `${URL}/background`]);
+    });
+
+    it('moves the requests of a cached call ahead when an urgent caller waits for it', async () => {
+      const fetcher = new ThrottledFetcher(100);
+      const urgent = createUrgentFetchDemand();
+      // Two requests in a row, like a get method that is followed by another one on the minter
+      const resolveTokenWallet = withFetchDemandCacheAsync(async (demand, address: string) => {
+        await fetcher.fetch(`${URL}/${address}/wallet-data`, undefined, undefined, demand);
+        await fetcher.fetch(`${URL}/${address}/minter`, undefined, undefined, demand);
+        return address;
+      });
+
+      await fetcher.fetch(`${URL}/first`);
+      // Background polling has requests queued, starts the shared work behind them, then queues more of its own
+      const polling = [
+        fetcher.fetch(`${URL}/polling-1`),
+        fetcher.fetch(`${URL}/polling-2`),
+      ];
+      const fromPolling = resolveTokenWallet('jetton');
+      polling.push(fetcher.fetch(`${URL}/polling-3`));
+      const fromDapp = resolveTokenWallet('jetton', urgent);
+
+      await jest.advanceTimersByTimeAsync(600);
+      await Promise.all([fromPolling, fromDapp, ...polling]);
+
+      expect(getRequestedUrls()).toEqual([
+        `${URL}/first`,
+        `${URL}/jetton/wallet-data`,
+        `${URL}/jetton/minter`,
+        `${URL}/polling-1`,
+        `${URL}/polling-2`,
+        `${URL}/polling-3`,
+      ]);
+    });
+
+    it('lets a request fall back in line once the urgent caller stops waiting', async () => {
+      const fetcher = new ThrottledFetcher(100);
+      const shared = new FetchDemand();
+      const urgent = createUrgentFetchDemand();
+      let stopWaiting!: NoneToVoidFunction;
+
+      await fetcher.fetch(`${URL}/first`);
+      const background = fetcher.fetch(`${URL}/background`);
+      const sharedRequest = fetcher.fetch(`${URL}/shared`, undefined, undefined, shared);
+      void urgent.waitFor(shared, new Promise<void>((resolve) => {
+        stopWaiting = resolve;
+      }));
+      stopWaiting();
+      await Promise.resolve();
+
+      await jest.advanceTimersByTimeAsync(200);
+      await Promise.all([background, sharedRequest]);
+
+      expect(getRequestedUrls()).toEqual([`${URL}/first`, `${URL}/background`, `${URL}/shared`]);
+    });
   });
 });

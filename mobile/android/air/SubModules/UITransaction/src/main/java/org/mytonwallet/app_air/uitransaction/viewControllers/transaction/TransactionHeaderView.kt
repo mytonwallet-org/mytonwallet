@@ -88,7 +88,13 @@ class TransactionHeaderView(
     private val amountView = LabelAndIconView(context)
     private val amountContainerView = WSensitiveDataContainer(
         amountView,
-        WSensitiveDataContainer.MaskConfig(16, 4, Gravity.CENTER, protectContentLayoutSize = false)
+        WSensitiveDataContainer.MaskConfig(
+            16,
+            4,
+            Gravity.CENTER,
+            protectContentLayoutSize = false,
+            hero = WSensitiveDataContainer.HeroConfig(132f, 33f)
+        )
     ).apply {
         textAlignment = TEXT_ALIGNMENT_CENTER
         amountView.lbl.apply {

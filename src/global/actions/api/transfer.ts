@@ -307,7 +307,9 @@ addActionHandler('submitTransfer', withEnclaveSessionRelease(async (global, acti
 
   if (nfts?.length) {
     const chain = nfts?.[0]?.chain || DEFAULT_CHAIN;
-    const chunks = split(nfts, selectIsHardwareAccount(global) ? 1 : NFT_BATCH_SIZE);
+    const chunks = !selectIsHardwareAccount(global) && getChainConfig(chain).canSubmitMultipleNftTransactions
+      ? [nfts]
+      : split(nfts, selectIsHardwareAccount(global) ? 1 : NFT_BATCH_SIZE);
 
     for (const chunk of chunks) {
       const batchResult = await callApi(
@@ -325,7 +327,7 @@ addActionHandler('submitTransfer', withEnclaveSessionRelease(async (global, acti
       if (batchResult && 'activityIds' in batchResult) {
         global = getGlobal();
         global = updateCurrentTransfer(global, {
-          sentNftsCount: (global.currentTransfer.sentNftsCount || 0) + chunk.length,
+          sentNftsCount: (global.currentTransfer.sentNftsCount || 0) + batchResult.activityIds.length,
         });
         setGlobal(global);
       }
@@ -360,6 +362,9 @@ addActionHandler('submitTransfer', withEnclaveSessionRelease(async (global, acti
   }
 
   if (!handleTransferResult(result, updateCurrentTransfer)) {
+    if (nfts?.length && getGlobal().currentTransfer.sentNftsCount) {
+      setGlobal(updateCurrentTransfer(getGlobal(), { state: TransferState.Complete }));
+    }
     return;
   }
 

@@ -13,16 +13,19 @@ struct SecurityView: View {
 
     @Dependency(\.settingsStore) private var settingsStore
     private let accountContext = AccountContext(source: .current)
+    private let biometryType: BiometryType?
 
     @State private var biometrics: Bool
     @State private var isUpdatingBiometrics = false
     @State private var autolockOption: MAutolockOption = AutolockStore.shared.autolockOption
     @State private var rememberPasscode: Bool
-    @State private var isUpdatingRememberPasscode = false
+    @State private var rememberPasscodeUpdate: Task<Void, Never>?
 
     @MainActor
     init() {
         @Dependency(\.settingsStore) var settingsStore
+        // Biometric availability uses synchronous IPC; keep it out of toggle-driven body updates.
+        biometryType = BiometricHelper.biometryType
         _biometrics = State(initialValue: AuthSupport.status.configuredMethods.contains(.biometrics))
         _rememberPasscode = State(initialValue: settingsStore.isAutoConfirmEnabled)
     }
@@ -90,7 +93,7 @@ struct SecurityView: View {
     @ViewBuilder
     var passcodeSection: some View {
         InsetSection {
-            if let biometryType = BiometricHelper.biometryType {
+            if let biometryType {
                 enableBiometrics(biometryType: biometryType)
             }
             changePasscode
@@ -254,18 +257,17 @@ struct SecurityView: View {
         InsetSection {
             InsetCell {
                 Toggle(lang("Remember Passcode"), isOn: $rememberPasscode)
-                    .tint(.air.tint)
-                    .disabled(isUpdatingRememberPasscode)
                     .accessibilityIdentifier("security_remember_passcode")
             }
         } footer: {
             Text(L10n.appWillNotAskForSignatureForMinutesMinutesAfterLastEntry(minutes: 5))
         }
         .onChange(of: rememberPasscode) { isEnabled in
-            isUpdatingRememberPasscode = true
-            Task { @MainActor in
+            let previousUpdate = rememberPasscodeUpdate
+            rememberPasscodeUpdate = Task { @MainActor in
+                // Finish session invalidation before applying a subsequent toggle.
+                await previousUpdate?.value
                 await settingsStore.setIsAutoConfirmEnabled(isEnabled)
-                isUpdatingRememberPasscode = false
             }
         }
     }

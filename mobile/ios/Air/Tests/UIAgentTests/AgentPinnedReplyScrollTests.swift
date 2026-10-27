@@ -2,6 +2,7 @@ import XCTest
 import UIKit
 @testable import UIAgent
 import UIComponents
+import WalletContext
 import WalletResources
 
 @MainActor
@@ -403,10 +404,238 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
         try await chat.waitForStableLayout()
 
         XCTAssertEqual(
-            try XCTUnwrap(chat.screenMaxY(ofMessageFromEnd: 0)),
+            try questionBubbleFrame(in: chat).minY,
+            chat.collectionView.adjustedContentInset.top + 16,
+            accuracy: 1
+        )
+    }
+
+    func testComposerSendPinsSingleLineQuestionAtTail() async throws {
+        let chat = try await makeChat()
+        chat.composer.setDraftText("Tell me the news", focus: false)
+        try await chat.waitForStableLayout()
+
+        chat.composer.onSend?()
+        try await chat.waitUntil { $0.hasTypingIndicator }
+        try await chat.waitForStableLayout()
+
+        XCTAssertEqual(
+            try questionBubbleFrame(in: chat).maxY,
             chat.collectionView.adjustedContentInset.top + 100,
             accuracy: 1
         )
+    }
+
+    func testComposerSendPinsTallQuestionAtTopWhenReplyStartsStreaming() async throws {
+        let chat = try await makeChat()
+        chat.composer.setDraftText((1...12).map { "Question line \($0)" }.joined(separator: "\n"), focus: false)
+        try await chat.waitForStableLayout()
+
+        chat.composer.onSend?()
+        try await chat.waitUntil { $0.hasTypingIndicator }
+        try await chat.waitForStableLayout()
+
+        let questionY = try questionBubbleFrame(in: chat).minY
+        XCTAssertEqual(questionY, chat.collectionView.adjustedContentInset.top + 16, accuracy: 1)
+
+        let reply = try await chat.startReply()
+        XCTAssertEqual(try questionBubbleFrame(in: chat).minY, questionY, accuracy: 1)
+        chat.stream(reply, repeating: 4)
+        try await chat.waitForStableLayout()
+        XCTAssertEqual(try questionBubbleFrame(in: chat).minY, questionY, accuracy: 1)
+    }
+
+    func testNavigationBarBackgroundHasOpaqueStraightEdge() async throws {
+        let chat = try await makeChat()
+        let view = try XCTUnwrap(chat.controller.view)
+        let background = try XCTUnwrap(view.subviews.first { $0.frame.minY < view.bounds.minY })
+
+        for style: UIUserInterfaceStyle in [.light, .dark] {
+            chat.window.overrideUserInterfaceStyle = style
+            try await chat.waitForStableLayout()
+            let headerBottom = view.safeAreaLayoutGuide.layoutFrame.minY
+            let color = try XCTUnwrap(background.backgroundColor).resolvedColor(with: background.traitCollection)
+            XCTAssertEqual(color, UIColor.air.background.resolvedColor(with: background.traitCollection))
+            XCTAssertEqual(color.cgColor.alpha, 1)
+            XCTAssertEqual(background.alpha, 1)
+            XCTAssertTrue(background.isOpaque)
+            XCTAssertFalse(background.isHidden)
+            XCTAssertEqual(background.frame.minY, view.bounds.minY - 20, accuracy: 1)
+            XCTAssertEqual(background.frame.minX, view.bounds.minX, accuracy: 1)
+            XCTAssertEqual(background.frame.maxX, view.bounds.maxX, accuracy: 1)
+            XCTAssertEqual(background.frame.maxY, headerBottom, accuracy: 1)
+            XCTAssertFalse(descendants(of: background).contains { $0 is UIVisualEffectView || $0 is EdgeEffectView })
+            XCTAssertFalse(([background] + descendants(of: background)).contains {
+                $0.layer is CAGradientLayer || $0.layer.mask is CAGradientLayer
+                    || $0.layer.sublayers?.contains { $0 is CAGradientLayer } == true
+            })
+            let edgeEffects = descendants(of: view).compactMap { $0 as? EdgeEffectView }
+            XCTAssertEqual(edgeEffects.count, 0)
+            XCTAssertTrue(edgeEffects.allSatisfy { $0.convert($0.bounds, to: view).minY > headerBottom })
+            let appearance = try XCTUnwrap(chat.controller.navigationItem.standardAppearance)
+            XCTAssertNil(appearance.backgroundEffect)
+            XCTAssertEqual(appearance.backgroundColor?.cgColor.alpha ?? 0, 0)
+            if #available(iOS 26.0, *) {
+                XCTAssertTrue(chat.collectionView.topEdgeEffect.isHidden)
+                XCTAssertTrue(chat.collectionView.bottomEdgeEffect.isHidden)
+            }
+        }
+    }
+
+    func testMessagesScrollUnderComposerWithoutOpaqueOverlays() async throws {
+        let chat = try await makeChat(historyCount: 40)
+        let view = try XCTUnwrap(chat.controller.view)
+        let context = try XCTUnwrap(chat.backend.context)
+        let questionIDs = context.itemIDs.filter { context.message(for: $0)?.role == .user }
+        let questionIndex = try XCTUnwrap(context.itemIDs.firstIndex(of: questionIDs[questionIDs.count / 2]))
+        let indexPath = IndexPath(item: questionIndex, section: 0)
+        let collectionIndex = try XCTUnwrap(view.subviews.firstIndex { $0 === chat.collectionView })
+
+        for style: UIUserInterfaceStyle in [.light, .dark] {
+            chat.window.overrideUserInterfaceStyle = style
+            chat.collectionView.scrollToItem(at: indexPath, at: .centeredVertically, animated: false)
+            try await chat.waitForStableLayout()
+            let cell = try XCTUnwrap(chat.collectionView.cellForItem(at: indexPath))
+            let bubble = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentBubbleBackgroundView }.first)
+            let inputFrame = chat.composer.convert(chat.composer.inputBackgroundFrame, to: view)
+            let bubbleFrame = bubble.convert(bubble.bounds, to: view)
+            chat.collectionView.contentOffset.y += bubbleFrame.midY - inputFrame.minY - 10
+            try await chat.waitForStableLayout()
+
+            let scrolledCell = try XCTUnwrap(chat.collectionView.cellForItem(at: indexPath))
+            let scrolledBubble = try XCTUnwrap(descendants(of: scrolledCell).compactMap { $0 as? AgentBubbleBackgroundView }.first)
+            let scrolledFrame = scrolledBubble.convert(scrolledBubble.bounds, to: view)
+            XCTAssertLessThan(scrolledFrame.minY, inputFrame.minY)
+            XCTAssertGreaterThan(scrolledFrame.maxY, inputFrame.minY)
+            XCTAssertTrue(scrolledFrame.intersects(inputFrame))
+
+            let coveredRegion = CGRect(
+                x: view.bounds.minX,
+                y: inputFrame.minY,
+                width: view.bounds.width,
+                height: view.bounds.maxY - inputFrame.minY
+            )
+            func checkLayer(_ layer: CALayer, inheritedOpacity: Float = 1, isMask: Bool = false) {
+                let opacity = layer.isHidden ? 0 : inheritedOpacity * layer.opacity
+                if layer.convert(layer.bounds, to: view.layer).intersects(coveredRegion) {
+                    XCTAssertFalse(layer is CAGradientLayer)
+                    if !isMask {
+                        XCTAssertLessThan((layer.backgroundColor?.alpha ?? 0) * CGFloat(opacity), 1)
+                    }
+                }
+                for sublayer in layer.sublayers ?? [] {
+                    checkLayer(sublayer, inheritedOpacity: opacity, isMask: isMask)
+                }
+                if let mask = layer.mask {
+                    checkLayer(mask, inheritedOpacity: opacity, isMask: true)
+                }
+            }
+            for overlay in view.subviews.dropFirst(collectionIndex + 1) where overlay !== chat.composer {
+                for subview in [overlay] + descendants(of: overlay)
+                    where subview.convert(subview.bounds, to: view).intersects(coveredRegion) {
+                    XCTAssertFalse(subview is EdgeEffectView || subview is UIVisualEffectView)
+                }
+                checkLayer(overlay.layer)
+            }
+        }
+    }
+
+    func testLoadedSingleTallQuestionOpensAtItsEnd() async throws {
+        let chat = try await makeChat(historyCount: 0)
+        let context = try XCTUnwrap(chat.backend.context)
+        let question = AgentMessage(
+            role: .user,
+            text: (1...60).map { "Question line \($0)" }.joined(separator: "\n"),
+            isStreaming: false
+        )
+        context.replaceTimeline(with: [.message(question)], animated: false)
+        try await chat.waitForStableLayout()
+
+        let questionIndex = try XCTUnwrap(context.itemIDs.firstIndex(of: question.id))
+        let frame = try XCTUnwrap(chat.collectionView.layoutAttributesForItem(
+            at: IndexPath(item: questionIndex, section: 0)
+        )).frame
+        let expectedOffsetY = frame.maxY - chat.collectionView.bounds.height + chat.controller.occlusionBottomInset
+        XCTAssertGreaterThan(expectedOffsetY, -chat.collectionView.adjustedContentInset.top)
+        XCTAssertEqual(chat.collectionView.contentOffset.y, expectedOffsetY, accuracy: 1)
+    }
+
+    func testFirstQuestionAndDateStayAtNaturalPositionWhenReplyStarts() async throws {
+        for lineCount in [5, 60] {
+            let chat = try await makeChat(historyCount: 0)
+            let context = try XCTUnwrap(chat.backend.context)
+            context.sendMessage((1...lineCount).map { "Question line \($0)" }.joined(separator: "\n"), source: .composer)
+            chat.layout()
+            let dateIndexPath = IndexPath(item: 0, section: 0)
+            let questionIndexPath = IndexPath(item: 1, section: 0)
+            let dateFrame = try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: dateIndexPath)).frame
+            let questionFrame = try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: questionIndexPath)).frame
+            let offsetY = chat.collectionView.contentOffset.y
+            XCTAssertEqual(offsetY, -chat.collectionView.adjustedContentInset.top, accuracy: 1)
+            XCTAssertEqual(dateFrame.minY - offsetY, chat.collectionView.adjustedContentInset.top + 16, accuracy: 1)
+
+            try await chat.waitUntil { $0.hasTypingIndicatorItem }
+            try await chat.waitForStableLayout()
+            XCTAssertEqual(chat.collectionView.contentOffset.y, offsetY, accuracy: 1)
+            XCTAssertEqual(try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: dateIndexPath)).frame.minY
+                - chat.collectionView.contentOffset.y, dateFrame.minY - offsetY, accuracy: 1)
+            XCTAssertEqual(try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: questionIndexPath)).frame.minY
+                - chat.collectionView.contentOffset.y, questionFrame.minY - offsetY, accuracy: 1)
+
+            let reply = try await chat.startReply()
+            chat.stream(reply, repeating: 4)
+            try await chat.waitForStableLayout()
+            XCTAssertEqual(chat.collectionView.contentOffset.y, offsetY, accuracy: 1)
+            XCTAssertEqual(try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: dateIndexPath)).frame.minY
+                - chat.collectionView.contentOffset.y, dateFrame.minY - offsetY, accuracy: 1)
+            XCTAssertEqual(try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: questionIndexPath)).frame.minY
+                - chat.collectionView.contentOffset.y, questionFrame.minY - offsetY, accuracy: 1)
+        }
+    }
+
+    func testQuestionDateStaysVisibleWhenStreamingReloadRegeneratesDateHeaders() async throws {
+        let chat = try await makeChat()
+        let context = try XCTUnwrap(chat.backend.context)
+        let historyTimestamp = Date().addingTimeInterval(-3_600)
+        let history: [AgentTimelineItem] = (0..<12).map { index in
+            .message(AgentMessage(
+                role: index.isMultiple(of: 2) ? .user : .assistant,
+                text: String(repeating: "History message \(index) with enough text to fill the chat. ", count: 4),
+                isStreaming: false,
+                timestamp: historyTimestamp
+            ))
+        }
+        context.replaceTimeline(with: history, animated: false)
+        try await chat.waitForStableLayout()
+        context.sendMessage((1...60).map { "Question line \($0)" }.joined(separator: "\n"), source: .composer)
+        try await chat.waitUntil { $0.hasTypingIndicatorItem }
+        try await chat.waitForStableLayout()
+        let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
+        let questionIndex = try XCTUnwrap(context.itemIDs.firstIndex(of: questionID))
+        let dateHeaderID = context.itemIDs[questionIndex - 1]
+        XCTAssertTrue(try XCTUnwrap(context.message(for: dateHeaderID)).isDateTimeSystemMessage)
+        let dateIndexPath = IndexPath(item: questionIndex - 1, section: 0)
+        let dateY = try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: dateIndexPath)).frame.minY
+            - chat.collectionView.contentOffset.y
+        XCTAssertEqual(dateY, chat.collectionView.adjustedContentInset.top + 16, accuracy: 1)
+
+        let reply = try await chat.startReply()
+        chat.stream(reply, repeating: 4)
+        try await chat.waitForStableLayout()
+        XCTAssertEqual(try XCTUnwrap(chat.collectionView.layoutAttributesForItem(at: dateIndexPath)).frame.minY
+            - chat.collectionView.contentOffset.y, dateY, accuracy: 1)
+        let streamingDateHeaderID = context.itemIDs[questionIndex - 1]
+        let messages = context.itemIDs.compactMap { context.message(for: $0) }.filter { !$0.isDateTimeSystemMessage }
+        context.replaceTimeline(with: messages.map(AgentTimelineItem.message), animated: false,
+                                reconfigureItemIDs: messages.map(\.id))
+        try await chat.waitForStableLayout()
+
+        let reloadedQuestionIndex = try XCTUnwrap(context.itemIDs.firstIndex(of: questionID))
+        XCTAssertNotEqual(context.itemIDs[reloadedQuestionIndex - 1], streamingDateHeaderID)
+        let reloadedDateFrame = try XCTUnwrap(chat.collectionView.layoutAttributesForItem(
+            at: IndexPath(item: reloadedQuestionIndex - 1, section: 0)
+        )).frame
+        XCTAssertEqual(reloadedDateFrame.minY - chat.collectionView.contentOffset.y, dateY, accuracy: 1)
     }
 
     func testHintPinsFirstQuestionAfterHintsDisappear() async throws {
@@ -946,6 +1175,16 @@ final class AgentPinnedReplyScrollTests: XCTestCase {
             try await chat.waitForStableLayout()
         }
         return chat
+    }
+
+    private func questionBubbleFrame(in chat: PinnedReplyChat) throws -> CGRect {
+        let context = try XCTUnwrap(chat.backend.context)
+        let questionID = try XCTUnwrap(context.itemIDs.last { context.message(for: $0)?.role == .user })
+        let index = try XCTUnwrap(context.itemIDs.firstIndex(of: questionID))
+        let cell = try XCTUnwrap(chat.collectionView.cellForItem(at: IndexPath(item: index, section: 0)))
+        let bubble = try XCTUnwrap(descendants(of: cell).compactMap { $0 as? AgentBubbleBackgroundView }.first)
+        return bubble.convert(bubble.bounds, to: chat.collectionView)
+            .offsetBy(dx: 0, dy: -chat.collectionView.contentOffset.y)
     }
 
     private func descendants(of view: UIView) -> [UIView] {

@@ -111,4 +111,7 @@ object ZcashConfig : MBlockchainConfig by UtxoConfig(
         """^t[13][a-km-zA-HJ-NP-Z1-9]{33}$|^tm[a-km-zA-HJ-NP-Z1-9]{33}$|^t2[a-km-zA-HJ-NP-Z1-9]{33}$"""
     ),
     explorer = MBlockchainExplorer.BLOCKCHAIR_ZCASH
-)
+) {
+    override val isOnRampSupported = false
+    override val isOffRampSupported = false
+}

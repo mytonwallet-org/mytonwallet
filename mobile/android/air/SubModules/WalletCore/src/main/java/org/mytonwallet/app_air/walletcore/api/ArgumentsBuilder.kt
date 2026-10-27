@@ -1,20 +1,21 @@
 package org.mytonwallet.app_air.walletcore.api
 
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import java.lang.reflect.Type
 import java.math.BigInteger
 import org.json.JSONObject
 import org.mytonwallet.app_air.walletcore.WalletCore
 
-class ArgumentsBuilder {
+class ArgumentsBuilder(private val moshi: Moshi? = null) {
     private val args = mutableListOf<String>()
 
     fun string(value: String?): ArgumentsBuilder {
         if (value == null) {
             args.add("null")
         } else {
-            val adapter = WalletCore.moshi.adapter(String::class.java)
+            val adapter = (moshi ?: WalletCore.moshi).adapter(String::class.java)
             args.add(adapter.toJson(value))
         }
         return this
@@ -61,7 +62,7 @@ class ArgumentsBuilder {
 
     fun <T> jsObject(value: T, clazz: Type): ArgumentsBuilder {
         value?.let {
-            val adapter: JsonAdapter<T> = WalletCore.moshi.adapter(clazz)
+            val adapter: JsonAdapter<T> = (moshi ?: WalletCore.moshi).adapter(clazz)
             args.add(adapter.toJson(value))
         } ?: run {
             args.add("null")

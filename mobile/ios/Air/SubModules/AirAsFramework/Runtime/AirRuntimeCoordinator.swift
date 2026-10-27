@@ -637,6 +637,9 @@ extension AirRuntimeCoordinator: DeeplinkNavigator {
 
 extension AirRuntimeCoordinator: UNUserNotificationCenterDelegate {
     private func requestPushNotificationsPermission() {
+        if E2EPushPermission.isSuppressed {
+            return
+        }
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized, .provisional:

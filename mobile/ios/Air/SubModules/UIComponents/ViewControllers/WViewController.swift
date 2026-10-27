@@ -313,10 +313,12 @@ open class WViewController: UIViewController {
     // MARK: - Tip
     
     public func showTip<Content: View>(title: String, kind: TipView<Content>.Kind = .info, wide: Bool = false, @ViewBuilder content: @escaping () -> Content) {
-        let vc = UIHostingController(rootView: TipView(title: title, kind: kind, wide: wide, content: content))
-        vc.modalPresentationStyle = .overFullScreen
-        vc.view.backgroundColor = .clear
-        present(vc, animated: false)
+        guard presentedViewController == nil, !isBeingDismissed else { return }
+        view.endEditing(true)
+        let vc = WAlertController(configuration: .init(wide: wide), actions: [WAlertAction(title: lang("OK"))]) {
+            TipView(title: title, kind: kind, content: content)
+        }
+        present(vc, animated: true)
     }
 }
 

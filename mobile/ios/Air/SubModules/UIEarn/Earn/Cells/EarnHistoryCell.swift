@@ -107,10 +107,13 @@ class EarnHistoryCell: WHighlightCollectionViewCell {
         titleLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
         amountLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         
-        amountContainer.isTapToRevealEnabled = false
-        amount2Container.isTapToRevealEnabled = false
-        
         updateTheme()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        amountContainer.resetReveal()
+        amount2Container.resetReveal()
     }
     
     private func updateTheme() {

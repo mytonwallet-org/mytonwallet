@@ -69,6 +69,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         return label
     }()
     private let scamBadge: UIImageView = .init()
+    private var scamBadgeAmountConstraint: NSLayoutConstraint!
 
     let detailsLabel: UILabel = .init()
 
@@ -77,9 +78,9 @@ public class ActivityCell: WHighlightCollectionViewCell {
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
-    private let amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing)
+    private let amountContainer: WSensitiveData<UILabel> = .init(cols: 12, rows: 2, cellSize: 9, cornerRadius: 5, theme: .adaptive, alignment: .trailing, reservesMaskWidth: true)
     private let amountLabel = WAmountLabel()
-    private let amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing)
+    private let amount2Container: WSensitiveData<UILabel> = .init(cols: 9, rows: 2, cellSize: 7, cornerRadius: 4, theme: .adaptive, alignment: .trailing, reservesMaskWidth: true)
     private let amount2Label = UILabel()
     private var amountIcons = AmountIcons()
 
@@ -188,6 +189,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
         scamBadge.translatesAutoresizingMaskIntoConstraints = false
         firstTwoRows.addSubview(scamBadge)
         scamBadge.contentMode = .center
+        scamBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
             scamBadge.bottomAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor, constant: 2),
             scamBadge.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 4.333),
@@ -215,6 +217,7 @@ public class ActivityCell: WHighlightCollectionViewCell {
             amountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8),
             amountLabel.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
         ])
+        scamBadgeAmountConstraint = amountLabel.leadingAnchor.constraint(greaterThanOrEqualTo: scamBadge.trailingAnchor, constant: 8)
 
         // MARK: amount2
         amount2Label.applyTextStyle(.supporting, content: .technical)
@@ -455,7 +458,11 @@ public class ActivityCell: WHighlightCollectionViewCell {
             titleLabel.text = activity.resolvedOptimisticDisplayTitle(accountChains: accountChains)
         }
 
-        if activity.isScamTransaction {
+        let isScam = activity.isScamTransaction
+        // Keep the action and warning readable before truncating a scam token's symbol.
+        titleLabel.setContentCompressionResistancePriority(isScam ? .init(751) : .defaultLow, for: .horizontal)
+        scamBadgeAmountConstraint.isActive = isScam
+        if isScam {
             if scamBadge.image == nil {
                 scamBadge.image = .airBundle("ScamBadge")
             }

@@ -17,8 +17,10 @@ public enum CardShineTexture {
         }.cgImage
     }()
 
+    public static let radial: CGImage? = radial(width: 120, blur: 18)
+
     // The reference's two conic lobes and 18 px blur at a 400 pt card width, baked once.
-    public static let radial: CGImage? = {
+    public static func radial(width: Double = 120, blur: Double = 18) -> CGImage? {
         let size = 512
         guard let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8,
                                       bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(),
@@ -29,30 +31,35 @@ public enum CardShineTexture {
         ]
         for y in 0..<size {
             for x in 0..<size {
-                let angle = (atan2(Double(x) + 0.5 - 256, 256 - Double(y) - 0.5) * 180 / .pi + 360)
+                let rawAngle = (atan2(Double(x) + 0.5 - 256, 256 - Double(y) - 0.5) * 180 / .pi + 360)
                     .truncatingRemainder(dividingBy: 180)
+                let angle = 54 + (rawAngle - 54) * 120 / max(1, width)
                 let index = stops.firstIndex { $0.angle >= angle } ?? (stops.count - 1)
                 let lower = stops[max(0, index - 1)]
                 let upper = stops[index]
                 let fraction = upper.angle == lower.angle ? 0 : (angle - lower.angle) / (upper.angle - lower.angle)
-                let value = UInt8((255 * (lower.alpha + (upper.alpha - lower.alpha) * fraction)).rounded())
+                let alpha = angle < 4 || angle > 124 ? 0 : lower.alpha + (upper.alpha - lower.alpha) * fraction
+                let value = UInt8((255 * min(1, max(0, alpha))).rounded())
                 let offset = (y * size + x) * 4
                 for component in 0..<4 { bytes[offset + component] = value }
             }
         }
         guard let raw = context.makeImage() else { return nil }
         let image = CIImage(cgImage: raw)
-        let blurred = image.clampedToExtent().applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 512 * 18.0 / 600])
+        let blurred = image.clampedToExtent().applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 512 * max(0, blur) / 600])
         return CIContext(options: [.cacheIntermediates: false]).createCGImage(blurred, from: image.extent)
-    }()
+    }
 
-    static func touchSpotExtent(cardWidth: CGFloat) -> CGFloat { cardWidth * 1.18 + 6 * 28 }
+    static func touchSpotExtent(cardWidth: CGFloat, blur: CGFloat = 28, area: CGFloat = 1) -> CGFloat {
+        cardWidth * 1.18 * sqrt(min(2.5, max(0.1, area))) + 6 * min(120, max(0, blur))
+    }
 
     /// CSS: 118% square, circle clipped before a 1.75rem Gaussian blur. Baked per card width.
-    static func touchSpot(cardWidth: CGFloat) -> CGImage? {
+    static func touchSpot(cardWidth: CGFloat, blur: CGFloat = 28, area: CGFloat = 1) -> CGImage? {
         let size = 512
-        let extent = Double(touchSpotExtent(cardWidth: cardWidth))
-        let radius = Double(cardWidth) * 1.18 / 2
+        let blur = min(120, max(0, blur))
+        let extent = Double(touchSpotExtent(cardWidth: cardWidth, blur: blur, area: area))
+        let radius = Double(cardWidth) * 1.18 * sqrt(Double(min(2.5, max(0.1, area)))) / 2
         guard radius > 0,
               let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8,
                 bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(),
@@ -77,8 +84,9 @@ public enum CardShineTexture {
             }
         }
         guard let raw = context.makeImage() else { return nil }
+        guard blur > 0 else { return raw }
         let image = CIImage(cgImage: raw)
-        let blurred = image.applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 28 * 512 / extent])
+        let blurred = image.applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: Double(blur) * 512 / extent])
         return CIContext(options: [.cacheIntermediates: false]).createCGImage(blurred, from: image.extent)
     }
 

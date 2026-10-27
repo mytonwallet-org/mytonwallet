@@ -45,7 +45,7 @@ enum class ApiDappUrlTrustStatus(val rawValue: String) {
 data class ApiDapp(
     override val url: String?,
     override val name: String?,
-    override val iconUrl: String?,
+    override val iconUrl: String? = null,
     val manifestUrl: String?,
     val connectedAt: Long?,
     val urlTrustStatus: String? = null,

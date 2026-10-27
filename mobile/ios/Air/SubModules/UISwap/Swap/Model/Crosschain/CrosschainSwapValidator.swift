@@ -16,8 +16,8 @@ import WalletContext
             }
         }
         guard let swapEstimate else { return issue }
-        if swapEstimate.isEnoughNative == false {
-            issue = sellingToken.isNative ? .insufficientBalance : .notEnoughToken(nativeToken(for: sellingToken))
+        if swapEstimate.isEnoughNative == false, issue == nil {
+            issue = .insufficientFee
         }
         // An unknown fee blocks the swap; a short balance or a min/max violation is the more useful message.
         if swapEstimate.isEnoughNative == nil, issue == nil {
@@ -30,9 +30,5 @@ import WalletContext
             issue = .maximumAmount(swapEstimate.fromMax, sellingToken)
         }
         return issue
-    }
-
-    private func nativeToken(for token: ApiToken) -> ApiToken {
-        TokenStore.tokens[token.nativeTokenSlug] ?? token.chain.nativeToken
     }
 }

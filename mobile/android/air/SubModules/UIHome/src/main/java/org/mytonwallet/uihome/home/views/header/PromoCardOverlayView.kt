@@ -54,7 +54,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
 
         mascotView.setOnClickListener {
             val promo = currentPromotion ?: return@setOnClickListener
-            when (promo.cardOverlay.onClickAction) {
+            when (promo.cardOverlay?.onClickAction) {
                 "openPromotionModal" -> {
                     WalletCore.notifyEvent(WalletEvent.ShowPromotion(promo))
                 }
@@ -76,7 +76,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
         }
 
         val promo = ApiPromotion.fromJson(promoJson)
-        if (promo == null || promo.kind != "cardOverlay") {
+        if (promo == null || promo.kind != "cardOverlay" || promo.cardOverlay == null) {
             currentPromotion = null
             visibility = GONE
             return
@@ -90,7 +90,7 @@ class PromoCardOverlayView(context: Context) : FrameLayout(context) {
             (overlayImageView.drawable as? BitmapDrawable)?.isFilterBitmap = true
         }
         visibility = VISIBLE
-        updateMascot(promo.cardOverlay.mascotIcon)
+        updateMascot(promo.cardOverlay?.mascotIcon)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

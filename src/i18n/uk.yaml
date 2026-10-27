@@ -120,6 +120,7 @@ $logout_selected_wallets_warning: Це видалить обрані гаман�
 $logout_all_wallets_warning: Це видалить усі гаманці з програми.
 $secret_words_backup_reminder: Переконайтеся, що ви зробили резервну копію своїх **секретних слів**.
 $all_secret_words_backup_reminder: Переконайтеся, що ви зробили резервні копії всіх своїх **секретних слів**.
+$secret_word_input_aria_label: "Секретне слово %number%"
 $logout_confirm: Вийти зі **всіх** гаманців
 Create Deposit Link: Посилання на депозит
 $receive_invoice_description: |
@@ -249,6 +250,11 @@ Dark: Темна
 System: Системна
 $stake_asset: Застейкати %symbol%
 Add Stake: Додати до стейкінгу
+"🔒 %amount% %symbol% locked in another staking": "🔒 %amount% %symbol% заблоковано в іншому стейкінгу"
+"Unstake them to restake with **higher returns**.": "Виведіть їх, щоб вкласти знову з **вищою дохідністю**."
+"💎 More profitable staking available": "💎 Доступний вигідніший стейкінг"
+"Tap to restake your %symbol% with higher returns.": "Перемістіть стейк, щоб отримувати більший дохід від %symbol%."
+"Restake Now": "Стейкати знову"
 Earn from your tokens while holding them: Отримуйте пасивний дохід від зберігання %symbol%
 Current APY: Поточний APY
 Est. Yearly Earnings: Орієнт. дохід за рік
@@ -289,8 +295,8 @@ The network fee has slightly changed, try sending again.: Комісія за м
 Transfer was unsuccessful. Try again later.: З переказом щось пішло не так. Спробуйте ще раз.
 Action Partially Completed: Дію виконано частково
 $action_partially_completed_description: "Виконано операцій: %completed% з %total%. Решту операцій не виконано. Перевірте історію операцій, перш ніж повторити спробу."
-Action Status Unknown: Статус дії невідомий
-$action_status_unknown_description: "Не вдалося перевірити, чи виконано дію. Перевірте історію операцій і баланс перед повторною спробою: якщо повторити дію зараз, її може бути надіслано двічі."
+Check Your Activity: Перевірте історію операцій
+$action_status_unknown_description: "Запит міг бути виконаний. Перед повторною спробою перевірте історію операцій і баланс, щоб не надіслати його повторно."
 $action_will_continue_in_background: Дія продовжиться у фоновому режимі.
 Invalid amount: Некоректна сума
 Invalid address: Некоректна адреса
@@ -423,6 +429,7 @@ $swap_minimum_received_tooltip1: Це найменша кількість нов
 $swap_minimum_received_tooltip2: Це очікуване мінімальне значення, але, якщо умови сильно зміняться під час обробки вашого обміну, підсумкова сума може бути меншою.
 $swap_price_impact_tooltip1: Це показує, наскільки ваша угода може змінити ціну токена.
 $swap_price_impact_tooltip2: Великі угоди можуть сильніше вплинути на ціну. Загалом, менше значення краще.
+Slippage is the difference between the expected and actual trade price caused by price changes during execution.: Прослизання — це різниця між очікуваною та фактичною ціною угоди через зміну ціни під час її виконання.
 $swap_slippage_tooltip1: Тут встановлюється, наскільки ціна може змінитися, перш ніж ваш обмін буде оброблено.
 $swap_slippage_tooltip2: Якщо під час обробки вашого обміну ціна зміниться більше, ніж на це значення, ваше замовлення буде скасовано.
 Slippage not specified: Прослизання не вказано
@@ -451,6 +458,8 @@ Swap Again: Повторити обмін
 Terms of Use: Умови використання
 Privacy Policy: Умови використання
 Insufficient liquidity: Недостатньо ліквідності
+$swap_quote_unavailable: Немає пропозицій
+$swap_service_unavailable: Обмін недоступний
 This address is new and never received transfers before.: Ця адреса нова і раніше не отримувала переказів.
 Create Backup: Створення резервної копії
 Sending: Відправлення
@@ -665,6 +674,11 @@ $dapp_liquid_staking_vote_payload: Голосування "%vote%" за проп
 $dapp_single_nominator_change_validator_payload: Зміна адреси валідатора контракту стекінгу SingleNominator на %address%
 $dapp_single_nominator_withdraw_payload: Зняття %amount% з контракту на ставку SingleNominator
 $dapp_vesting_add_whitelist_payload: Додавання %address% до білого списку гаманців
+$dapp_teleitem_start_auction_payload: Starting auction of %name% with a min bid of %amount%
+$dapp_teleitem_cancel_auction_payload: Cancelling auction of %name%
+$dapp_teleitem_deploy_payload: First bid for %name% with a min bid of %amount%
+$dapp_teleitem_bid_info_payload: Auction bid of %amount%
+$dapp_teleitem_return_bid_payload: Auction bid refund
 Time synchronization issue. Please ensure your device's time settings are correct.: Проблема із синхронізацією часу. Будь ласка, переконайтеся, що налаштування часу на вашому пристрої правильні.
 Data Copied: Дані скопійовано
 URL Copied: URL Copied
@@ -866,7 +880,7 @@ Blockchain Fee Details: Деталі комісії блокчейна
 Final Fee: Остаточна комісія
 Excess: Здача
 $fee_details: |
-  %full_fee% буде миттєво списано з вашого гаманця для оплати комісії. Частину цієї суми буде повернуто вам **в **%excess_symbol% як здача протягом кількох хвилин.
+  %full_fee% буде миттєво списано з вашого гаманця для оплати комісії. Частину цієї суми буде повернуто вам **в** %excess_symbol% як здача протягом кількох хвилин.
 
   Ось як працює блокчейн %chain_name%.
 Got It: Зрозуміло
@@ -936,6 +950,12 @@ Bounced: Відскок
 Bouncing: Відскок
 $bounce_action: Відскок
 NFT Auction Bid: Ставка на аукціоні NFT
+Started Auction: Started Auction
+Starting Auction: Starting Auction
+$start_nft_auction_action: Start Auction
+Cancelled Auction: Cancelled Auction
+Cancelling Auction: Cancelling Auction
+$cancel_nft_auction_action: Cancel Auction
 Bidding at NFT Auction: Ставка на аукціоні NFT
 Buying NFT: Купівля NFT
 Bought NFT: Куплен NFT
@@ -2110,3 +2130,9 @@ Hold to enlarge. Drag to rotate.: Утримуйте, щоб збільшити.
 "Max": "Макс."
 Explorer mode: Режим дослідника
 Open a link to a wallet, transfer, token or collectible to see its details here.: Відкрийте посилання на гаманець, переказ, токен або NFT, щоб переглянути тут деталі.
+Receiver %blockchain% Address: Адреса %blockchain% одержувача
+
+Save to Photos: Зберегти у Фото
+Image Saved: Зображення збережено
+Allow access to Photos in Settings to save NFT images.: Дозвольте доступ до Фото в налаштуваннях, щоб зберігати зображення NFT.
+Could not save the image. Please try again.: Не вдалося зберегти зображення. Спробуйте ще раз.
