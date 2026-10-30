@@ -21,6 +21,10 @@ public class ActivateBiometricVC: WViewController {
     private let authorizationToken: EnclaveToken
 
     private var onCompletion: SetPasscodeCompletion
+    #if DEBUG
+    /// Debug menu preview: pretends Face ID was enabled, with no real token to enable it for.
+    public var debugSimulatesSuccess = false
+    #endif
         
     public init(
         biometryType: BiometryType,
@@ -66,8 +70,15 @@ public class ActivateBiometricVC: WViewController {
             guard let self else { return }
 
             do {
+                #if DEBUG
+                if debugSimulatesSuccess {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    await succeed(enclaveToken: authorizationToken)
+                    return
+                }
+                #endif
                 let finalToken = try await AuthSupport.enableBiometrics(using: authorizationToken)
-                finalizeFlow(enclaveToken: finalToken)
+                await succeed(enclaveToken: finalToken)
             } catch AuthSupportBiometricsError.canceled {
                 viewModel.state = .idle
             } catch AuthSupportBiometricsError.userDeniedBiometrics {
@@ -79,6 +90,14 @@ public class ActivateBiometricVC: WViewController {
         }
     }
     
+    /// Lets the icon show that Face ID is on before moving to the next screen.
+    private func succeed(enclaveToken: EnclaveToken) async {
+        viewModel.state = .succeeded
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        finalizeFlow(enclaveToken: enclaveToken)
+    }
+
     private func skip() {
         viewModel.state = .skipping
         finalizeFlow(enclaveToken: authorizationToken)
