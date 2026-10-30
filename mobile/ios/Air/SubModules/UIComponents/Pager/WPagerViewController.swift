@@ -507,7 +507,7 @@ public final class WPagerViewController: UIViewController, UIScrollViewDelegate 
             return
         }
         motion = .animating(target: index)
-        animation.start(duration: 0.3) { [weak self] progress in
+        animation.start(duration: 0.32) { [weak self] progress in
             self?.scrollView.contentOffset.x = start + (end - start) * progress
         } completion: { [weak self] in
             self?.settle(at: index)

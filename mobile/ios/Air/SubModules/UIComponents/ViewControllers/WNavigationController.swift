@@ -23,6 +23,11 @@ class SlowedPanGestureRecognizer: UIPanGestureRecognizer {
 
 open class WNavigationController: UINavigationController {
     open override var childForStatusBarStyle: UIViewController? { topViewController }
+
+    public typealias CustomTransitionProvider = @MainActor @Sendable (
+        UINavigationController.Operation, UIViewController, UIViewController
+    ) -> (any UIViewControllerAnimatedTransitioning)?
+
     
     private let log = Log("WNavigationController")
     private let sheetDimmingController = SheetDimmingController()
@@ -46,6 +51,11 @@ open class WNavigationController: UINavigationController {
     public var onDidShowViewController: ((UIViewController) -> Void)?
     public var pushViewControllerInterceptor: ((UIViewController, Bool) -> Bool)?
     public var popViewControllerInterceptor: ((Bool) -> Bool)?
+    /// Custom animation for a specific button-driven push or pop; returning nil keeps UIKit's.
+    /// Installed only for that one transition: a delegate that animates transitions at all turns
+    /// off UIKit's back swipe, so the controller's own delegate never does.
+    public final var customTransitionProvider: CustomTransitionProvider?
+    private var customTransition: WNavigationCustomTransition?
     private var interactivePushTransition: WInteractivePushTransition?
     private var crossfadeTransition: WNavigationCrossfadeTransition?
 
@@ -140,6 +150,18 @@ open class WNavigationController: UINavigationController {
         sheetDimmingController.viewWillDisappear(in: self, animated: animated)
     }
 
+    private func installCustomTransition(_ animator: (any UIViewControllerAnimatedTransitioning)?) {
+        guard let animator, delegate === self, transitionCoordinator == nil else { return }
+        let transition = WNavigationCustomTransition(navigationController: self, animator: animator)
+        customTransition = transition
+        delegate = transition
+        transition.onCompletion = { [weak self, weak transition] in
+            guard let self, customTransition === transition else { return }
+            delegate = self
+            customTransition = nil
+        }
+    }
+
     fileprivate lazy var fullWidthBackGestureRecognizer = SlowedPanGestureRecognizer()
 
     private func setupFullWidthBackGesture() {
@@ -163,6 +185,9 @@ open class WNavigationController: UINavigationController {
         if viewControllers.count > 0, (viewController as? WViewController)?.hideBottomBar != false {
             viewController.hidesBottomBarWhenPushed = true
         }
+        if animated, let topViewController {
+            installCustomTransition(customTransitionProvider?(.push, topViewController, viewController))
+        }
         super.pushViewController(viewController, animated: animated)
     }
     
@@ -173,6 +198,10 @@ open class WNavigationController: UINavigationController {
         }
         if popViewControllerInterceptor?(animated) == true {
             return nil
+        }
+        if animated, !isInteractivePopInProgress, viewControllers.count > 1, let topViewController {
+            let destination = viewControllers[viewControllers.count - 2]
+            installCustomTransition(customTransitionProvider?(.pop, topViewController, destination))
         }
         return super.popViewController(animated: animated)
     }
@@ -190,6 +219,17 @@ extension WNavigationController: UINavigationControllerDelegate {
                                      didShow viewController: UIViewController, animated: Bool) {
         onDidShowViewController?(viewController)
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// True while a back swipe drives the current pop; custom animations must not take those over.
+    public var isInteractivePopInProgress: Bool {
+        let active: Set<UIGestureRecognizer.State> = [.began, .changed]
+        if active.contains(interactivePopGestureRecognizer?.state ?? .possible) { return true }
+        if active.contains(fullWidthBackGestureRecognizer.state) { return true }
+        if #available(iOS 26.0, *), active.contains(interactiveContentPopGestureRecognizer?.state ?? .possible) {
+            return true
+        }
+        return false
     }
 }
 
@@ -241,5 +281,38 @@ extension UINavigationController {
             return
         }
         self.interactivePopGestureRecognizer?.isEnabled = allow
+    }
+}
+
+/// Temporary delegate for one custom-animated push or pop; forwards the regular callbacks.
+@MainActor
+private final class WNavigationCustomTransition: NSObject, UINavigationControllerDelegate {
+    private weak var navigationController: WNavigationController?
+    private let animator: any UIViewControllerAnimatedTransitioning
+    var onCompletion: (() -> Void)?
+
+    init(navigationController: WNavigationController, animator: any UIViewControllerAnimatedTransitioning) {
+        self.navigationController = navigationController
+        self.animator = animator
+    }
+
+    func navigationController(_ navigationController: UINavigationController,
+                              animationControllerFor operation: UINavigationController.Operation,
+                              from fromVC: UIViewController,
+                              to toVC: UIViewController) -> (any UIViewControllerAnimatedTransitioning)? {
+        animator
+    }
+
+    func navigationController(_ navigationController: UINavigationController,
+                              willShow viewController: UIViewController, animated: Bool) {
+        self.navigationController?.navigationController(navigationController, willShow: viewController, animated: animated)
+    }
+
+    func navigationController(_ navigationController: UINavigationController,
+                              didShow viewController: UIViewController, animated: Bool) {
+        let completion = onCompletion
+        onCompletion = nil
+        completion?()
+        self.navigationController?.navigationController(navigationController, didShow: viewController, animated: animated)
     }
 }

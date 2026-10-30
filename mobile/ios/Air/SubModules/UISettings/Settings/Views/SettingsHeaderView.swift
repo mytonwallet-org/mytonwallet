@@ -57,6 +57,16 @@ class SettingsHeaderView: WTouchPassView {
     }()
     
     private let avatarImageView = IconView(size: 88)
+    /// The large avatar, for transitions that fly it in from elsewhere.
+    var largeAvatarView: UIView { avatarImageView }
+
+    /// Where the large avatar sits at rest (no scroll) for a navigation bar centered at
+    /// `navigationCenterY`, in this view's coordinates. Valid before the bar has been laid out.
+    func restingLargeAvatarFrame(navigationCenterY: CGFloat) -> CGRect {
+        let size = avatarImageView.bounds.size == .zero ? CGSize(width: 88, height: 88) : avatarImageView.bounds.size
+        let centerY = navigationCenterY + layoutGeometry.scrollRange - layoutGeometry.distanceBetweenTitleAndAvatarMidY
+        return CGRect(x: bounds.midX - size.width / 2, y: centerY - size.height / 2, width: size.width, height: size.height)
+    }
     private let avatarBlurView = WBlurredContentView()
     private lazy var avatarLongPressGestureRecognizer: UILongPressGestureRecognizer = {
         let gestureRecognizer = UILongPressGestureRecognizer(

@@ -36,11 +36,18 @@ final class PagerAnimation {
     private func tick() {
         let generation = generation
         let elapsed = min(1, (CACurrentMediaTime() - startTime) / duration)
-        update?(1 - pow(1 - elapsed, 3))
+        update?(Self.easeOut(elapsed))
         guard self.generation == generation, elapsed >= 1 else { return }
         let completion = completion
         cancel()
         completion?()
+    }
+
+    /// Exponential ease-out, normalized to reach 1 at the end: starts at full speed and brakes
+    /// softly, like iOS / Telegram page switches (measured: half the way in ~0.04 s).
+    static func easeOut(_ t: Double) -> CGFloat {
+        let k = 5.5
+        return CGFloat((1 - exp(-k * t)) / (1 - exp(-k)))
     }
 
     deinit { displayLink?.invalidate() }

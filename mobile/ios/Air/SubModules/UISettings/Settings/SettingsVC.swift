@@ -185,6 +185,21 @@ public class SettingsVC: SettingsBaseVC, Sendable, WalletCoreData.EventsObserver
         collectionView.reloadData()
     }
 
+    /// The large header avatar, for transitions that fly it in from the top bar.
+    public var morphAvatarView: UIView {
+        loadViewIfNeeded()
+        return settingsHeaderView.largeAvatarView
+    }
+
+    /// The large avatar's frame at rest, in `view` coordinates, for a bar centered at `navigationBarMidY`
+    /// (in `view` coordinates). Usable while being pushed, before the header follows the bar.
+    public func morphAvatarRestingFrame(navigationBarMidY: CGFloat) -> CGRect {
+        loadViewIfNeeded()
+        view.layoutIfNeeded()
+        let frame = settingsHeaderView.restingLargeAvatarFrame(navigationCenterY: navigationBarMidY)
+        return settingsHeaderView.convert(frame, to: view)
+    }
+
     private func configureNavigationItems() {
         let receiveBarButtonItem = UIBarButtonItem(
             title: lang("Receive"),
