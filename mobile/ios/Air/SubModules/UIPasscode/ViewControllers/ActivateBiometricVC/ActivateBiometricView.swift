@@ -67,7 +67,7 @@ struct ActivateBiometricView: View {
     }
     
     var iconAndEffect: some View {
-        Image.airBundle(imageResourceName)
+        icon
             .highlightScale(isTouching, scale: 0.9, isEnabled: true)
             .touchGesture($isTouching)
             .frame(width: 124, height: 124)
@@ -83,6 +83,24 @@ struct ActivateBiometricView: View {
             .backportSensoryFeedback(value: isTouching)
     }
     
+    @ViewBuilder
+    private var icon: some View {
+        switch viewModel.biometryType {
+        case .face:
+            FaceIDGlyph(phase: glyphPhase)
+        case .touch:
+            Image.airBundle(imageResourceName)
+        }
+    }
+
+    private var glyphPhase: FaceIDGlyph.Phase {
+        switch viewModel.state {
+        case .authenticating: .scanning
+        case .succeeded: .success
+        case .idle, .skipping: .idle
+        }
+    }
+
     var title: some View {
         Text(titleText)
             .textStyle(.screenTitle)

@@ -218,6 +218,18 @@ struct DebugView: View {
             .header(.red)
 
         Section {
+            Button("Face ID setup screen") {
+                dismiss()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    AirDebugActions.previewActivateBiometric()
+                }
+            }
+        } footer: {
+            Text("Opens the \"Use Face ID\" onboarding screen; Connect simulates a successful Face ID.")
+        }
+
+        Section {
             Toggle("Display log overlay", isOn: $displayLogOverlayEnabled)
         } footer: {
             Text("Shows account activation and the TON Connect flow (`TC` lines): deeplinks, the SDK bridge, the SSE bridge connection and its messages, and the request sheets. Stays on across launches, so it also covers cold starts.")
