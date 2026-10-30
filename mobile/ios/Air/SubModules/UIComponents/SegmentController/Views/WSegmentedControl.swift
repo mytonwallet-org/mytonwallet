@@ -355,6 +355,58 @@ public final class WSegmentedControl: UIView, UIScrollViewDelegate {
         }
     }
 
+    /// Titles and the selection pill redrawn without the glass, in the control's bounds: for
+    /// transitions that morph the control's glass into another shape. A screen snapshot would
+    /// carry the glass rim along and show it as a second outline.
+    public func makeTitlesReplica() -> UIView {
+        let replica = UIView(frame: bounds)
+        replica.isUserInteractionEnabled = false
+        func copy(of label: UILabel) -> UILabel {
+            let copy = makeLabel(title: label.text ?? "", color: label.textColor, font: label.font)
+            copy.frame = label.convert(label.bounds, to: self)
+            return copy
+        }
+        let secondary = UIView(frame: bounds)
+        replica.addSubview(secondary)
+        for views in itemViews {
+            secondary.addSubview(copy(of: views.secondaryLabel))
+        }
+        if let selection = lensView.selectionFrame {
+            let pillFrame = lensView.convert(selection, to: self)
+            // Unselected titles show only outside the pill, as in the control.
+            let mask = CAShapeLayer()
+            let path = UIBezierPath(rect: bounds.insetBy(dx: -bounds.width, dy: -bounds.height))
+            path.append(UIBezierPath(roundedRect: pillFrame, cornerRadius: pillFrame.height / 2))
+            mask.path = path.cgPath
+            mask.fillRule = .evenOdd
+            secondary.layer.mask = mask
+            // Measured on the resting lens: a light shade over the glass.
+            let pill = UIView(frame: pillFrame)
+            pill.backgroundColor = UIColor { $0.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.1)
+                : UIColor.black.withAlphaComponent(0.08) }
+            pill.layer.cornerRadius = pillFrame.height / 2
+            pill.layer.cornerCurve = .continuous
+            pill.clipsToBounds = true
+            replica.addSubview(pill)
+            for views in itemViews {
+                let label = copy(of: views.primaryLabel)
+                label.frame.origin.x -= pillFrame.minX
+                label.frame.origin.y -= pillFrame.minY
+                pill.addSubview(label)
+                if let arrow = views.arrow {
+                    let arrowCopy = UIImageView(image: arrow.image)
+                    arrowCopy.tintColor = arrow.tintColor
+                    arrowCopy.alpha = arrow.alpha
+                    arrowCopy.contentMode = arrow.contentMode
+                    arrowCopy.frame = arrow.convert(arrow.bounds, to: self).offsetBy(dx: -pillFrame.minX, dy: -pillFrame.minY)
+                    pill.addSubview(arrowCopy)
+                }
+            }
+        }
+        return replica
+    }
+
     private func makeLabel(title: String, color: UIColor, font: UIFont) -> UILabel {
         let label = UILabel()
         label.text = title

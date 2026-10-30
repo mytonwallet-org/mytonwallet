@@ -169,6 +169,13 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         if #available(iOS 26.0, *) { (sideTabBar as? WVerticalTabBar)?.cancelInteraction() }
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        installSettingsMorph()
+        // Kept for a morphing pop even when Settings was opened another way (edge swipe).
+        settingsMorphSource = captureSettingsMorphSource() ?? settingsMorphSource
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateTabBarPlacement()
@@ -618,6 +625,61 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
         }, isEnabled: isPagingEnabled)
     }
 
+    // MARK: Settings morph
+
+    private var settingsMorphSource: SettingsMorphSource?
+    private let barPressRecorder = PressTimingRecognizer()
+
+    private func installSettingsMorph() {
+        guard #available(iOS 26, *), let navigationController = sharedMainNavigationController else { return }
+        if barPressRecorder.view !== navigationController.navigationBar {
+            navigationController.navigationBar.addGestureRecognizer(barPressRecorder)
+        }
+        navigationController.customTransitionProvider = { [weak self, weak navigationController] operation, from, to in
+            guard let self, let navigationController,
+                  UIView.areAnimationsEnabled, !UIAccessibility.isReduceMotionEnabled,
+                  !navigationController.isInteractivePopInProgress,
+                  to is SettingsVC || from is SettingsVC else { return nil }
+            switch operation {
+            case .push where from === self:
+                guard var source = captureSettingsMorphSource() else { return nil }
+                if let lift = SettingsMorphTransition.takeCaughtLift() { source.pressLift = lift }
+                settingsMorphSource = source
+                return SettingsMorphTransition(isPush: true, source: source, navigationController: navigationController,
+                                               reverse: { [weak navigationController] in
+                    _ = navigationController?.popViewController(animated: true)
+                })
+            case .pop where to === self:
+                guard var source = settingsMorphSource else { return nil }
+                // The back button's glass is lifted by the tap that pops, like the avatar's on push.
+                let bar = navigationController.navigationBar
+                source.pressLift = SettingsMorphTransition.takeCaughtLift()
+                    ?? barPressRecorder.recentLift(in: CGRect(x: 0, y: 0, width: 90, height: bar.bounds.height))
+                return SettingsMorphTransition(isPush: false, source: source, navigationController: navigationController,
+                                               reverse: { [weak self] in self?.openSettings() })
+            default:
+                return nil
+            }
+        }
+    }
+
+    /// Top-bar geometry while it is on screen; nil in other states (editing, search, offscreen).
+    private func captureSettingsMorphSource() -> SettingsMorphSource? {
+        guard let navigationView = sharedMainNavigationController?.view,
+              let segmentedControl, segmentedControl.window != nil,
+              accountSwitcherButton.window != nil,
+              navigationItem.titleView === tabControlContainer else { return nil }
+        let avatar = accountSwitcherButton.avatarView
+        return SettingsMorphSource(
+            segmentedFrame: segmentedControl.convert(segmentedControl.bounds, to: navigationView),
+            // Titles only: the stand-in glass draws the capsule, so its rim is never doubled.
+            segmentedSnapshot: segmentedControl.makeTitlesReplica(),
+            avatarGlassFrame: accountSwitcherButton.convert(accountSwitcherButton.bounds, to: navigationView),
+            avatarFrame: avatar.convert(avatar.bounds, to: navigationView),
+            pressLift: accountSwitcherButton.pressLift
+        )
+    }
+
     @objc private func openSettings() {
         selectTab(.settings)
     }
@@ -803,6 +865,30 @@ extension TopTabsRootViewController {
 @MainActor
 final class TopTabsAccountButton: UIControl {
     private let iconView = IconView(size: topTabsAccountAvatarSize)
+    var avatarView: UIView { iconView }
+    /// How far the interactive glass is lifted by the touch that just ended. UIKit lifts it on
+    /// touch-down (measured: ×1.36, ~63% there after 0.05 s) and keeps it up until the screen
+    /// changes, but renders this outside the app's layers, so it is modelled from the press time.
+    var pressLift: CGFloat {
+        guard let touchDownTime, CACurrentMediaTime() - touchUpTime < 0.4 else { return 1 }
+        return InteractiveGlassLift.scale(heldFor: touchUpTime - touchDownTime)
+    }
+    private var touchDownTime: CFTimeInterval?
+    private var touchUpTime: CFTimeInterval = 0
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        touchDownTime = CACurrentMediaTime()
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        touchUpTime = CACurrentMediaTime()
+        super.touchesEnded(touches, with: event)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesCancelled(touches, with: event)
+    }
     private let activityIndicator = UIView()
     private let activityIndicatorImage = UIImageView(image: .airBundle("AccountActivityIndicator"))
     private var isUpdating = false
@@ -951,6 +1037,8 @@ final class TopTabsAccountButton: UIControl {
     }
 
     @objc private func glassTapped() {
+        // Recognized at touch-up, before the touch itself is cancelled: the press ends here.
+        touchUpTime = CACurrentMediaTime()
         sendActions(for: .touchUpInside)
     }
 }
