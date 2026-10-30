@@ -150,9 +150,13 @@ open class WNavigationController: UINavigationController {
         sheetDimmingController.viewWillDisappear(in: self, animated: animated)
     }
 
-    private func installCustomTransition(_ animator: (any UIViewControllerAnimatedTransitioning)?) {
-        guard let animator, delegate === self, transitionCoordinator == nil else { return }
-        let transition = WNavigationCustomTransition(navigationController: self, animator: animator)
+    private func installCustomTransition(_ animator: (any UIViewControllerAnimatedTransitioning)?,
+                                         for operation: UINavigationController.Operation) {
+        // A finished custom transition stays the delegate until its didShow; a quick next push
+        // or pop can come before that, so it is replaced rather than left to answer.
+        guard let animator, transitionCoordinator == nil,
+              delegate === self || (customTransition != nil && delegate === customTransition) else { return }
+        let transition = WNavigationCustomTransition(navigationController: self, animator: animator, operation: operation)
         customTransition = transition
         delegate = transition
         transition.onCompletion = { [weak self, weak transition] in
@@ -186,7 +190,7 @@ open class WNavigationController: UINavigationController {
             viewController.hidesBottomBarWhenPushed = true
         }
         if animated, let topViewController {
-            installCustomTransition(customTransitionProvider?(.push, topViewController, viewController))
+            installCustomTransition(customTransitionProvider?(.push, topViewController, viewController), for: .push)
         }
         super.pushViewController(viewController, animated: animated)
     }
@@ -201,7 +205,7 @@ open class WNavigationController: UINavigationController {
         }
         if animated, !isInteractivePopInProgress, viewControllers.count > 1, let topViewController {
             let destination = viewControllers[viewControllers.count - 2]
-            installCustomTransition(customTransitionProvider?(.pop, topViewController, destination))
+            installCustomTransition(customTransitionProvider?(.pop, topViewController, destination), for: .pop)
         }
         return super.popViewController(animated: animated)
     }
@@ -288,19 +292,26 @@ extension UINavigationController {
 @MainActor
 private final class WNavigationCustomTransition: NSObject, UINavigationControllerDelegate {
     private weak var navigationController: WNavigationController?
-    private let animator: any UIViewControllerAnimatedTransitioning
+    private var animator: (any UIViewControllerAnimatedTransitioning)?
+    private let operation: UINavigationController.Operation
     var onCompletion: (() -> Void)?
 
-    init(navigationController: WNavigationController, animator: any UIViewControllerAnimatedTransitioning) {
+    init(navigationController: WNavigationController, animator: any UIViewControllerAnimatedTransitioning,
+         operation: UINavigationController.Operation) {
         self.navigationController = navigationController
         self.animator = animator
+        self.operation = operation
     }
 
+    /// Only for the transition it was made for, and only once: a later push or pop that reaches
+    /// this delegate before it is removed gets the default animation, never this one backwards.
     func navigationController(_ navigationController: UINavigationController,
                               animationControllerFor operation: UINavigationController.Operation,
                               from fromVC: UIViewController,
                               to toVC: UIViewController) -> (any UIViewControllerAnimatedTransitioning)? {
-        animator
+        guard operation == self.operation else { return nil }
+        defer { animator = nil }
+        return animator
     }
 
     func navigationController(_ navigationController: UINavigationController,

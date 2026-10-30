@@ -87,12 +87,28 @@ struct SettingsMorphSource {
 final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitioning {
     private let isPush: Bool
     private let source: SettingsMorphSource
+    /// Ends the morph whose stand-ins are still on screen, if any.
+    private static var finishActive: (() -> Void)?
+    private static weak var activeOverlay: UIView?
+    /// Lift of a tap the morph itself caught, for the reverse morph it starts.
+    private static var caughtLift: (scale: CGFloat, time: CFTimeInterval)?
     private weak var navigationController: UINavigationController?
+    /// Goes back the other way (pop after a push, Settings again after a pop).
+    private let reverse: @MainActor () -> Void
 
-    init(isPush: Bool, source: SettingsMorphSource, navigationController: UINavigationController) {
+    init(isPush: Bool, source: SettingsMorphSource, navigationController: UINavigationController,
+         reverse: @escaping @MainActor () -> Void) {
         self.isPush = isPush
         self.source = source
         self.navigationController = navigationController
+        self.reverse = reverse
+    }
+
+    /// The press lift of a tap caught by the previous morph, once, while it is fresh.
+    static func takeCaughtLift() -> CGFloat? {
+        defer { caughtLift = nil }
+        guard let caughtLift, CACurrentMediaTime() - caughtLift.time < 1 else { return nil }
+        return caughtLift.scale
     }
 
     /// Also the duration of animations UIKit runs alongside, such as the bottom search toolbar.
@@ -110,6 +126,10 @@ final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitio
             context.completeTransition(!context.transitionWasCancelled)
             return
         }
+        // A tap right after the previous morph's screens landed starts this one while that one's
+        // glass and avatar are still settling: wrap that one up at once.
+        Self.finishActive?()
+
         let container = context.containerView
         toView.frame = context.finalFrame(for: toVC)
         if isPush {
@@ -120,14 +140,15 @@ final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitio
         toView.layoutIfNeeded()
 
         let navView: UIView = navigationController.view
-        let overlay = UIView(frame: navView.bounds)
-        overlay.isUserInteractionEnabled = false
+        let overlay = MorphOverlayView(frame: navView.bounds)
         navView.addSubview(overlay)
         let bar = navigationController.navigationBar
         // Hide the bar's contents, not the bar: a transparent bar counts as hidden and shifts
-        // the screens' safe area, which then jumps back when it reappears.
-        let barContents = bar.subviews
-        barContents.forEach { $0.alpha = 0 }
+        // the screens' safe area, which then jumps back when it reappears. Hidden by an empty
+        // mask rather than alpha, so its buttons stay tappable while the stand-ins finish
+        // settling: back and the avatar answer as soon as the screens have landed.
+        let barContents = bar.subviews.map { (view: $0, mask: $0.layer.mask) }
+        barContents.forEach { $0.view.layer.mask = CALayer() }
 
         // MARK: Geometry
 
@@ -139,6 +160,24 @@ final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitio
         // iOS 26 bar metrics, measured: 44 pt back circle, 100 pt two-item capsule.
         let backFrame = CGRect(x: margin, y: barMidY - 22, width: 44, height: 44)
         let trailingFrame = CGRect(x: width - margin - 100, y: barMidY - 22, width: 100, height: 44)
+        // Quick back-and-forth: a tap on the button that goes back the other way is caught by the
+        // morph itself, never lost. UIKit ignores taps while it runs a transition, so one that
+        // lands then waits until the screens have landed; after that it goes at once.
+        var isTransitionComplete = false
+        var isReverseQueued = false
+        var didReverse = false
+        // Once per morph: repeated taps must not stack pops or pushes on top of each other.
+        let reverseOnce = { [reverse] in
+            guard !didReverse else { return }
+            didReverse = true
+            reverse()
+        }
+        overlay.tapArea = (isPush ? backFrame : source.avatarGlassFrame).insetBy(dx: -8, dy: -8)
+        overlay.onTap = { held in
+            Self.caughtLift = (InteractiveGlassLift.scale(heldFor: held), CACurrentMediaTime())
+            if isTransitionComplete { reverseOnce() } else { isReverseQueued = true }
+        }
+
         let largeAvatar = settings.morphAvatarView
         // Pushed Settings has not followed the bar yet, so its avatar is not in place: use the
         // resting frame. When popping, it is on screen and laid out.
@@ -276,12 +315,30 @@ final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitio
         // piece has. Both come from animation completions, never timers, so a busy first frame
         // (the device builds Settings then) cannot cut anything short.
         var pendingPieces = 4
+        var isFinished = false
+        let finish = { [weak overlay] in
+            guard !isFinished else { return }
+            isFinished = true
+            overlay?.removeFromSuperview()
+            barContents.forEach { $0.view.layer.mask = $0.mask }
+            largeAvatar.isHidden = false
+            if Self.activeOverlay === overlay { Self.finishActive = nil }
+        }
+        // A new morph ends this one at once (it then hides the bar again itself).
+        Self.finishActive = finish
+        Self.activeOverlay = overlay
+        // Ending on its own waits for a tap already on its way through the overlay, so that tap
+        // is not cut off.
+        let settle = { [weak overlay] in
+            if let overlay, overlay.isTracking {
+                overlay.onTouchesDone = finish
+            } else {
+                finish()
+            }
+        }
         let pieceDone = {
             pendingPieces -= 1
-            guard pendingPieces == 0 else { return }
-            overlay.removeFromSuperview()
-            barContents.forEach { $0.alpha = 1 }
-            largeAvatar.isHidden = false
+            if pendingPieces == 0 { settle() }
         }
 
         animateLiquid(leftGlass, rightGlass, from: from, to: to, spring: glass,
@@ -321,7 +378,11 @@ final class SettingsMorphTransition: NSObject, UIViewControllerAnimatedTransitio
             let finished = !context.transitionWasCancelled
             if !finished { toView.removeFromSuperview() }
             context.completeTransition(finished)
+            isTransitionComplete = true
             pieceDone()
+            if isReverseQueued, finished {
+                DispatchQueue.main.async { reverseOnce() }
+            }
         })
 
         // Avatar: screen space, on the slide's spring so it reaches the header with it.
@@ -658,4 +719,43 @@ final class PressTimingRecognizer: UIGestureRecognizer, UIGestureRecognizerDeleg
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+}
+
+/// Carries the morph's stand-ins and catches taps on one area (the button that goes back the
+/// other way); every other touch passes through to the screens.
+final class MorphOverlayView: UIView {
+    var tapArea: CGRect = .null
+    /// Called on release inside `tapArea`, with how long the press was held.
+    var onTap: ((TimeInterval) -> Void)?
+    /// Called once the touch in progress is over.
+    var onTouchesDone: (() -> Void)?
+    private(set) var isTracking = false
+    private var touchDownTime: CFTimeInterval = 0
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        tapArea.contains(point) ? self : nil
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        isTracking = true
+        touchDownTime = CACurrentMediaTime()
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let point = touches.first?.location(in: self), tapArea.insetBy(dx: -20, dy: -20).contains(point) {
+            onTap?(CACurrentMediaTime() - touchDownTime)
+        }
+        endTracking()
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        endTracking()
+    }
+
+    private func endTracking() {
+        isTracking = false
+        let done = onTouchesDone
+        onTouchesDone = nil
+        done?()
+    }
 }

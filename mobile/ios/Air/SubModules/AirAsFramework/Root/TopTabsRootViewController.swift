@@ -642,15 +642,21 @@ final class TopTabsRootViewController: WViewController, VisibleContentProviding 
                   to is SettingsVC || from is SettingsVC else { return nil }
             switch operation {
             case .push where from === self:
-                guard let source = captureSettingsMorphSource() else { return nil }
+                guard var source = captureSettingsMorphSource() else { return nil }
+                if let lift = SettingsMorphTransition.takeCaughtLift() { source.pressLift = lift }
                 settingsMorphSource = source
-                return SettingsMorphTransition(isPush: true, source: source, navigationController: navigationController)
+                return SettingsMorphTransition(isPush: true, source: source, navigationController: navigationController,
+                                               reverse: { [weak navigationController] in
+                    _ = navigationController?.popViewController(animated: true)
+                })
             case .pop where to === self:
                 guard var source = settingsMorphSource else { return nil }
                 // The back button's glass is lifted by the tap that pops, like the avatar's on push.
                 let bar = navigationController.navigationBar
-                source.pressLift = barPressRecorder.recentLift(in: CGRect(x: 0, y: 0, width: 90, height: bar.bounds.height))
-                return SettingsMorphTransition(isPush: false, source: source, navigationController: navigationController)
+                source.pressLift = SettingsMorphTransition.takeCaughtLift()
+                    ?? barPressRecorder.recentLift(in: CGRect(x: 0, y: 0, width: 90, height: bar.bounds.height))
+                return SettingsMorphTransition(isPush: false, source: source, navigationController: navigationController,
+                                               reverse: { [weak self] in self?.openSettings() })
             default:
                 return nil
             }
